@@ -734,10 +734,6 @@ export class Binder extends ParseTreeWalker {
             if (param.boundExpression) {
                 this.walk(param.boundExpression);
             }
-
-            if (param.defaultExpression) {
-                this.walk(param.defaultExpression);
-            }
         });
 
         node.parameters.forEach((param) => {
@@ -763,6 +759,12 @@ export class Binder extends ParseTreeWalker {
                 );
             } else {
                 this._activeTypeParams.set(name.value, symbol);
+            }
+        });
+
+        node.parameters.forEach((param) => {
+            if (param.defaultExpression) {
+                this.walk(param.defaultExpression);
             }
         });
 

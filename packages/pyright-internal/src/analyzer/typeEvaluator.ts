@@ -73,6 +73,7 @@ import {
     TypeAnnotationNode,
     TypeParameterCategory,
     TypeParameterListNode,
+    TypeParameterNode,
     UnaryOperationNode,
     UnpackNode,
     WithItemNode,
@@ -4082,7 +4083,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typeParamSymbol = AnalyzerNodeInfo.getTypeParameterSymbol(node);
         if (typeParamSymbol) {
             symbol = typeParamSymbol;
-            type = getDeclaredTypeOfSymbol(typeParamSymbol) ?? UnknownType.create();
+            assert(symbol.getDeclarations().length === 1);
+            const decl = getLastTypedDeclaredForSymbol(symbol);
+            assert(decl?.type === DeclarationType.TypeParameter);
+            type = getTypeOfTypeParameter(decl.node);
             setSymbolAccessed(fileInfo, symbol, node);
         } else {
             // Look for the scope that contains the value definition and
@@ -4108,6 +4112,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 }
             }
+
             if (symbolWithScope) {
                 let useCodeFlowAnalysis = !allowForwardReferences;
 
@@ -19780,85 +19785,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case DeclarationType.TypeParameter: {
-                let typeVar = TypeVarType.createInstantiable(declaration.node.name.value);
-                if (declaration.node.typeParamCategory === TypeParameterCategory.TypeVarTuple) {
-                    typeVar.details.isVariadic = true;
-                } else if (declaration.node.typeParamCategory === TypeParameterCategory.ParamSpec) {
-                    typeVar.details.isParamSpec = true;
-                }
-
-                if (declaration.node.boundExpression) {
-                    if (declaration.node.boundExpression.nodeType === ParseNodeType.Tuple) {
-                        const constraints = declaration.node.boundExpression.expressions.map((constraint) => {
-                            const constraintType = getTypeOfExpressionExpectingType(constraint).type;
-
-                            if (requiresSpecialization(constraintType, /* ignorePseudoGeneric */ true)) {
-                                addError(Localizer.Diagnostic.typeVarBoundGeneric(), constraint);
-                            }
-
-                            return convertToInstance(constraintType);
-                        });
-
-                        if (constraints.length < 2) {
-                            addDiagnostic(
-                                AnalyzerNodeInfo.getFileInfo(declaration.node.boundExpression).diagnosticRuleSet
-                                    .reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.typeVarSingleConstraint(),
-                                declaration.node.boundExpression
-                            );
-                        } else if (declaration.node.typeParamCategory === TypeParameterCategory.TypeVar) {
-                            typeVar.details.constraints = constraints;
-                        }
-                    } else {
-                        const boundType = getTypeOfExpressionExpectingType(declaration.node.boundExpression).type;
-
-                        if (requiresSpecialization(boundType, /* ignorePseudoGeneric */ true)) {
-                            addError(Localizer.Diagnostic.typeVarConstraintGeneric(), declaration.node.boundExpression);
-                        }
-
-                        if (declaration.node.typeParamCategory === TypeParameterCategory.TypeVar) {
-                            typeVar.details.boundType = convertToInstance(boundType);
-                        }
-                    }
-                }
-
-                if (declaration.node.defaultExpression) {
-                    // TODO - need to finish. For now, just evaluate the expression
-                    // to generate any errors.
-                    getTypeOfExpression(
-                        declaration.node.defaultExpression,
-                        EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple
-                    );
-                }
-
-                typeVar.details.isTypeParamSyntax = true;
-
-                // Associate the type variable with the owning scope.
-                const scopeNode = ParseTreeUtils.getTypeVarScopeNode(declaration.node);
-                if (scopeNode) {
-                    let scopeType: TypeVarScopeType;
-                    if (scopeNode.nodeType === ParseNodeType.Class) {
-                        scopeType = TypeVarScopeType.Class;
-
-                        // Set the variance to "auto" for class-scoped TypeVars.
-                        typeVar.details.declaredVariance = Variance.Auto;
-                    } else if (scopeNode.nodeType === ParseNodeType.Function) {
-                        scopeType = TypeVarScopeType.Function;
-                    } else {
-                        assert(scopeNode.nodeType === ParseNodeType.TypeAlias);
-                        scopeType = TypeVarScopeType.TypeAlias;
-                    }
-
-                    typeVar = TypeVarType.cloneForScopeId(
-                        typeVar,
-                        getScopeIdForNode(scopeNode.nodeType === ParseNodeType.TypeAlias ? scopeNode.name : scopeNode),
-                        scopeNode.name.value,
-                        scopeType
-                    );
-                }
-
-                return typeVar;
+                return getTypeOfTypeParameter(declaration.node);
             }
 
             case DeclarationType.Variable: {
@@ -19920,6 +19847,132 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return undefined;
             }
         }
+    }
+
+    function getTypeOfTypeParameter(node: TypeParameterNode): TypeVarType {
+        // Is this type already cached?
+        const cachedTypeVarType = readTypeCache(node.name, EvaluatorFlags.None) as FunctionType;
+        if (cachedTypeVarType && isTypeVar(cachedTypeVarType)) {
+            return cachedTypeVarType;
+        }
+
+        let typeVar = TypeVarType.createInstantiable(node.name.value);
+        if (node.typeParamCategory === TypeParameterCategory.TypeVarTuple) {
+            typeVar.details.isVariadic = true;
+        } else if (node.typeParamCategory === TypeParameterCategory.ParamSpec) {
+            typeVar.details.isParamSpec = true;
+        }
+
+        // Cache the value before we evaluate the bound or the default type in
+        // case it refers to itself in a circular manner.
+        writeTypeCache(node, typeVar, /* flags */ undefined, /* isIncomplete */ false);
+        writeTypeCache(node.name, typeVar, /* flags */ undefined, /* isIncomplete */ false);
+
+        if (node.boundExpression) {
+            if (node.boundExpression.nodeType === ParseNodeType.Tuple) {
+                const constraints = node.boundExpression.expressions.map((constraint) => {
+                    const constraintType = getTypeOfExpressionExpectingType(constraint).type;
+
+                    if (requiresSpecialization(constraintType, /* ignorePseudoGeneric */ true)) {
+                        addError(Localizer.Diagnostic.typeVarBoundGeneric(), constraint);
+                    }
+
+                    return convertToInstance(constraintType);
+                });
+
+                if (constraints.length < 2) {
+                    addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(node.boundExpression).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeVarSingleConstraint(),
+                        node.boundExpression
+                    );
+                } else if (node.typeParamCategory === TypeParameterCategory.TypeVar) {
+                    typeVar.details.constraints = constraints;
+                }
+            } else {
+                const boundType = getTypeOfExpressionExpectingType(node.boundExpression).type;
+
+                if (requiresSpecialization(boundType, /* ignorePseudoGeneric */ true)) {
+                    addError(Localizer.Diagnostic.typeVarConstraintGeneric(), node.boundExpression);
+                }
+
+                if (node.typeParamCategory === TypeParameterCategory.TypeVar) {
+                    typeVar.details.boundType = convertToInstance(boundType);
+                }
+            }
+        }
+
+        if (node.defaultExpression) {
+            if (node.typeParamCategory === TypeParameterCategory.ParamSpec) {
+                typeVar.details.defaultType = getParamSpecDefaultType(node.defaultExpression);
+            } else if (node.typeParamCategory === TypeParameterCategory.TypeVarTuple) {
+                typeVar.details.defaultType = getTypeVarTupleDefaultType(node.defaultExpression);
+            } else {
+                typeVar.details.defaultType = convertToInstance(
+                    getTypeOfExpressionExpectingType(node.defaultExpression).type
+                );
+            }
+        }
+
+        // If a default is provided, make sure it is compatible with the bound
+        // or constraint.
+        if (typeVar.details.defaultType && node.defaultExpression) {
+            const typeVarContext = new TypeVarContext(WildcardTypeVarScopeId);
+            const concreteDefaultType = applySolvedTypeVars(
+                typeVar.details.defaultType,
+                typeVarContext,
+                /* unknownIfNotFound */ true
+            );
+
+            if (typeVar.details.boundType) {
+                if (!assignType(typeVar.details.boundType, concreteDefaultType)) {
+                    addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeVarDefaultBoundMismatch(),
+                        node.defaultExpression
+                    );
+                }
+            } else if (typeVar.details.constraints.length > 0) {
+                if (!typeVar.details.constraints.some((constraint) => isTypeSame(constraint, concreteDefaultType))) {
+                    addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeVarDefaultConstraintMismatch(),
+                        node.defaultExpression
+                    );
+                }
+            }
+        }
+
+        typeVar.details.isTypeParamSyntax = true;
+
+        // Associate the type variable with the owning scope.
+        const scopeNode = ParseTreeUtils.getTypeVarScopeNode(node);
+        if (scopeNode) {
+            let scopeType: TypeVarScopeType;
+            if (scopeNode.nodeType === ParseNodeType.Class) {
+                scopeType = TypeVarScopeType.Class;
+
+                // Set the variance to "auto" for class-scoped TypeVars.
+                typeVar.details.declaredVariance = Variance.Auto;
+            } else if (scopeNode.nodeType === ParseNodeType.Function) {
+                scopeType = TypeVarScopeType.Function;
+            } else {
+                assert(scopeNode.nodeType === ParseNodeType.TypeAlias);
+                scopeType = TypeVarScopeType.TypeAlias;
+            }
+
+            typeVar = TypeVarType.cloneForScopeId(
+                typeVar,
+                getScopeIdForNode(scopeNode.nodeType === ParseNodeType.TypeAlias ? scopeNode.name : scopeNode),
+                scopeNode.name.value,
+                scopeType
+            );
+        }
+
+        return typeVar;
     }
 
     function getInferredTypeOfDeclaration(symbol: Symbol, decl: Declaration): Type | undefined {

@@ -2924,18 +2924,27 @@ class TypeVarTransformer {
             // _pendingTypeVarTransformations set.
             const typeVarName = TypeVarType.getNameWithScope(type);
             if (!this._pendingTypeVarTransformations.has(typeVarName)) {
-                replacementType = this.transformTypeVar(type, recursionCount) ?? type;
+                if (type.details.isParamSpec) {
+                    if (!type.paramSpecAccess) {
+                        const paramSpecValue = this.transformParamSpec(type, recursionCount);
+                        if (paramSpecValue) {
+                            replacementType = convertParamSpecValueToType(paramSpecValue);
+                        }
+                    }
+                } else {
+                    replacementType = this.transformTypeVar(type, recursionCount) ?? type;
 
-                if (!this._isTransformingTypeArg) {
-                    this._pendingTypeVarTransformations.add(typeVarName);
-                    replacementType = this.apply(replacementType, recursionCount);
-                    this._pendingTypeVarTransformations.delete(typeVarName);
-                }
+                    if (!this._isTransformingTypeArg) {
+                        this._pendingTypeVarTransformations.add(typeVarName);
+                        replacementType = this.apply(replacementType, recursionCount);
+                        this._pendingTypeVarTransformations.delete(typeVarName);
+                    }
 
-                // If we're transforming a variadic type variable that was in a union,
-                // expand the union types.
-                if (isVariadicTypeVar(type) && type.isVariadicInUnion) {
-                    replacementType = _expandVariadicUnpackedUnion(replacementType);
+                    // If we're transforming a variadic type variable that was in a union,
+                    // expand the union types.
+                    if (isVariadicTypeVar(type) && type.isVariadicInUnion) {
+                        replacementType = _expandVariadicUnpackedUnion(replacementType);
+                    }
                 }
             }
 

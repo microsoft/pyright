@@ -1,18 +1,10 @@
 # This sample tests the case where a TypeVar default refers to another
-# TypeVar in a class declaration. This sample uses classic TypeVar syntax.
-# If you make a change to this file, reflect the change in typeVarDefault7
-# which uses PEP 695 syntax.
+# TypeVar in a class declaration. This sample uses PEP 695 syntax.
 
-from typing import Generic, ParamSpec, TypeVar, TypeVarTuple, Unpack
+from typing import Unpack
 
 
-T1 = TypeVar("T1", default=str)
-T2 = TypeVar("T2", default=T1)
-T3 = TypeVar("T3", default=list[T2])
-T4 = TypeVar("T4", default=dict[T1, T2])
-T5 = TypeVar("T5", default="T5")
-
-class ClassA(dict[T1, T2]): ...
+class ClassA[T1=str, T2=T1](dict[T1, T2]): ...
 
 a1 = ClassA[int]()
 reveal_type(a1, expected_text="ClassA[int, int]")
@@ -22,9 +14,9 @@ reveal_type(a2, expected_text="ClassA[str, str]")
 
 
 # This should generate an error because T2 depends on T1.
-class ClassC(Generic[T2, T1]): ...
+class ClassC[T2=T1, T1=str]: ...
 
-class ClassD(dict[T2, T1], Generic[T1, T2]): ...
+class ClassD[T1=str, T2=T1](dict[T2, T1]): ...
 
 d1 = ClassD[int]()
 reveal_type(d1, expected_text="ClassD[int, int]")
@@ -33,9 +25,9 @@ d2 = ClassD()
 reveal_type(d2, expected_text="ClassD[str, str]")
 
 # This should generate an error because T5 refers to itself.
-class ClassE(Generic[T5]): ...
+class ClassE[T5=T5]: ...
 
-class ClassH(Generic[T1, T2, T3]): ...
+class ClassH[T1=str, T2=T1, T3=list[T2]]: ...
 
 h1 = ClassH()
 reveal_type(h1, expected_text="ClassH[str, str, list[str]]")
@@ -47,23 +39,18 @@ h3 = ClassH[int, float]()
 reveal_type(h3, expected_text="ClassH[int, float, list[float]]")
 
 # This should generate an error because T2 depends on T1.
-class ClassI(Generic[T2]): ...
+class ClassI[T2=T1]: ...
 
 # This should generate an error because T4 depends on T2.
-class ClassJ(Generic[T1, T4]): ...
+class ClassJ[T1=str, T4=dict[T1, T2]]: ...
 
-class ClassK(Generic[T1]):
+class ClassK[T1=str]:
     # This should generate an error because T2 depends on T1, which
     # is defined in an outer scope.
-    class ClassL(Generic[T2]): ...
+    class ClassL[T2=T1]: ...
 
 
-P1 = ParamSpec("P1")
-P2 = ParamSpec("P2", default=P1)
-P3 = ParamSpec("P3", default=P2)
-P4 = ParamSpec("P4", default=(int, T1, ))
-
-class ClassPA(Generic[P1, P2, P3]): ...
+class ClassPA[**P1, **P2=P1, **P3=P2]: ...
 
 pa1 = ClassPA()
 reveal_type(pa1, expected_text="ClassPA[(...), (...), (...)]")
@@ -79,9 +66,9 @@ reveal_type(pa4, expected_text="ClassPA[(...), (int, int), (float)]")
 
 
 # This should generate an error because P1 depends on P2.
-class ClassPB(Generic[P2, P1]): ...
+class ClassPB[**P2=P1, **P1]: ...
 
-class ClassPC(Generic[T1, P4]): ...
+class ClassPC[T1=str, **P4=(int, T1)]: ...
 
 pc1 = ClassPC()
 reveal_type(pc1, expected_text="ClassPC[str, (int, str)]")
@@ -94,13 +81,10 @@ reveal_type(pc3, expected_text="ClassPC[float, (...)]")
 
 
 # This should generate an error because P4 depends on T1.
-class ClassPD(Generic[P4, T1]): ...
+class ClassPD[**P4=(int, T1), T1=str]: ...
 
 
-Ts1 = TypeVarTuple("Ts1", default=Unpack[tuple[T1, T2]])
-Ts2 = TypeVarTuple("Ts2", default=Unpack[tuple[T1, ...]])
-
-class ClassTA(Generic[T1, T2, *Ts1]): ...
+class ClassTA[T1=str, T2=T1, *Ts1=Unpack[tuple[T1, T2]]]: ...
 
 ta1 = ClassTA()
 reveal_type(ta1, expected_text="ClassTA[str, str, str, str]")
@@ -115,9 +99,9 @@ ta4 = ClassTA[int, float, *tuple[None, ...]]()
 reveal_type(ta4, expected_text="ClassTA[int, float, *tuple[None, ...]]")
 
 # This should generate an error because Ts1 depends on T2.
-class ClassTB(Generic[T1, *Ts1, T2]): ...
+class ClassTB[T1=str, *Ts1=Unpack[tuple[T1, T2]], T2=T1]: ...
 
-class ClassTC(Generic[T1, *Ts2]): ...
+class ClassTC[T1=str, *Ts2=Unpack[tuple[T1, ...]]]: ...
 
 tc1 = ClassTC()
 reveal_type(tc1, expected_text="ClassTC[str, *tuple[str, ...]]")
