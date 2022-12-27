@@ -19060,10 +19060,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         FunctionType.addDefaultParameters(functionType);
                         functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
                         typeArgTypes.push(functionType);
-                        const paramSpecValue = convertTypeToParamSpecValue(functionType);
-                        if (paramSpecValue) {
-                            typeVarContext.setParamSpec(typeParam, paramSpecValue);
-                        }
+                        typeVarContext.setParamSpec(typeParam, convertTypeToParamSpecValue(functionType));
                         return;
                     }
 
@@ -19078,10 +19075,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             });
                         });
                         typeArgTypes.push(functionType);
-                        const paramSpecValue = convertTypeToParamSpecValue(functionType);
-                        if (paramSpecValue) {
-                            typeVarContext.setParamSpec(typeParam, paramSpecValue);
-                        }
+                        typeVarContext.setParamSpec(typeParam, convertTypeToParamSpecValue(functionType));
                         return;
                     }
 
@@ -19119,10 +19113,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const solvedDefaultType = applySolvedTypeVars(typeParam, typeVarContext, { unknownIfNotFound: true });
             typeArgTypes.push(solvedDefaultType);
             if (isParamSpec(typeParam)) {
-                const paramSpecValue = convertTypeToParamSpecValue(solvedDefaultType);
-                if (paramSpecValue) {
-                    typeVarContext.setParamSpec(typeParam, paramSpecValue);
-                }
+                typeVarContext.setParamSpec(typeParam, convertTypeToParamSpecValue(solvedDefaultType));
             } else {
                 typeVarContext.setTypeVarType(typeParam, solvedDefaultType);
             }

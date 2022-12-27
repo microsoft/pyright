@@ -2762,7 +2762,7 @@ function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recurs
     }
 }
 
-export function convertTypeToParamSpecValue(type: Type): ParamSpecValue | undefined {
+export function convertTypeToParamSpecValue(type: Type): ParamSpecValue {
     if (isParamSpec(type)) {
         return {
             flags: FunctionTypeFlags.None,
@@ -2792,7 +2792,13 @@ export function convertTypeToParamSpecValue(type: Type): ParamSpecValue | undefi
         };
     }
 
-    return undefined;
+    return {
+        flags: FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck,
+        parameters: FunctionType.getDefaultParameters(),
+        typeVarScopeId: undefined,
+        docString: undefined,
+        paramSpec: undefined,
+    };
 }
 
 export function convertParamSpecValueToType(paramSpecValue: ParamSpecValue, omitParamSpec = false): Type {
