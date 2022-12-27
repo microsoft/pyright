@@ -181,6 +181,19 @@ test('TypeVarDefaultTypeAlias1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeVarDefaultTypeAlias2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultTypeAlias2.py']);
+    TestUtils.validateResults(analysisResults, 9);
+});
+
+test('TypeVarDefaultTypeAlias3', () => {
+    const configOptions = new ConfigOptions('.');
+    configOptions.defaultPythonVersion = PythonVersion.V3_12;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultTypeAlias3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 9);
+});
+
 test('TypeVarDefaultFunction1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultFunction1.py']);
     TestUtils.validateResults(analysisResults, 0);

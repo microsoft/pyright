@@ -4545,70 +4545,76 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // type arguments. If so, it fills in these type arguments with Unknown
     // and optionally reports an error.
     function reportMissingTypeArguments(node: ExpressionNode, type: Type, flags: EvaluatorFlags): Type {
-        if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
-            if (isInstantiableClass(type)) {
-                if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
-                    if (requiresTypeArguments(type) && !type.typeArguments) {
-                        addDiagnostic(
-                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportMissingTypeArgument,
-                            DiagnosticRule.reportMissingTypeArgument,
-                            Localizer.Diagnostic.typeArgsMissingForClass().format({
-                                name: type.aliasName || type.details.name,
-                            }),
-                            node
-                        );
-                    }
-                }
-                if (!type.typeArguments) {
-                    type = createSpecializedClassType(type, /* typeArgs */ undefined, flags, node);
-                }
-            }
+        if ((flags & EvaluatorFlags.DoNotSpecialize) !== 0) {
+            return type;
+        }
 
-            if (
-                (flags & EvaluatorFlags.ExpectingType) !== 0 &&
-                type.typeAliasInfo &&
-                type.typeAliasInfo.typeParameters &&
-                type.typeAliasInfo.typeParameters.length > 0 &&
-                !type.typeAliasInfo.typeArguments
-            ) {
-                let reportMissingTypeArguments = false;
-                const defaultTypeArgs: Type[] = [];
-                const typeVarContext = new TypeVarContext(type.typeAliasInfo.typeVarScopeId);
-
-                type.typeAliasInfo.typeParameters.forEach((param) => {
-                    let defaultType = param.details.defaultType;
-
-                    if (defaultType) {
-                        defaultType = applySolvedTypeVars(defaultType, typeVarContext);
-                    } else {
-                        defaultType = UnknownType.create();
-                        reportMissingTypeArguments = true;
-                    }
-
-                    defaultTypeArgs.push(defaultType);
-                    typeVarContext.setTypeVarType(param, defaultType);
-                });
-
-                if (reportMissingTypeArguments) {
+        // Is this a generic class that needs to be specialized?
+        if (isInstantiableClass(type)) {
+            if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
+                if (requiresTypeArguments(type) && !type.typeArguments) {
                     addDiagnostic(
                         AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportMissingTypeArgument,
                         DiagnosticRule.reportMissingTypeArgument,
-                        Localizer.Diagnostic.typeArgsMissingForAlias().format({
-                            name: type.typeAliasInfo.name,
+                        Localizer.Diagnostic.typeArgsMissingForClass().format({
+                            name: type.aliasName || type.details.name,
                         }),
                         node
                     );
                 }
+            }
+            if (!type.typeArguments) {
+                type = createSpecializedClassType(type, /* typeArgs */ undefined, flags, node);
+            }
+        }
 
-                type = TypeBase.cloneForTypeAlias(
-                    applySolvedTypeVars(type, typeVarContext, { unknownIfNotFound: true }),
-                    type.typeAliasInfo.name,
-                    type.typeAliasInfo.fullName,
-                    type.typeAliasInfo.typeVarScopeId,
-                    type.typeAliasInfo.typeParameters,
-                    defaultTypeArgs
+        // Is this a generic type alias that needs to be specialized?
+        if (
+            (flags & EvaluatorFlags.ExpectingType) !== 0 &&
+            type.typeAliasInfo &&
+            type.typeAliasInfo.typeParameters &&
+            type.typeAliasInfo.typeParameters.length > 0 &&
+            !type.typeAliasInfo.typeArguments
+        ) {
+            let reportMissingTypeArguments = false;
+            const defaultTypeArgs: Type[] = [];
+            const typeVarContext = new TypeVarContext(type.typeAliasInfo.typeVarScopeId);
+
+            type.typeAliasInfo.typeParameters.forEach((param) => {
+                if (!param.details.defaultType) {
+                    reportMissingTypeArguments = true;
+                }
+
+                let defaultType: Type;
+                if (param.details.defaultType || param.details.isParamSpec) {
+                    defaultType = applySolvedTypeVars(param, typeVarContext, { unknownIfNotFound: true });
+                } else {
+                    defaultType = UnknownType.create();
+                }
+
+                defaultTypeArgs.push(defaultType);
+                typeVarContext.setTypeVarType(param, defaultType);
+            });
+
+            if (reportMissingTypeArguments) {
+                addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportMissingTypeArgument,
+                    DiagnosticRule.reportMissingTypeArgument,
+                    Localizer.Diagnostic.typeArgsMissingForAlias().format({
+                        name: type.typeAliasInfo.name,
+                    }),
+                    node
                 );
             }
+
+            type = TypeBase.cloneForTypeAlias(
+                applySolvedTypeVars(type, typeVarContext, { unknownIfNotFound: true }),
+                type.typeAliasInfo.name,
+                type.typeAliasInfo.fullName,
+                type.typeAliasInfo.typeVarScopeId,
+                type.typeAliasInfo.typeParameters,
+                defaultTypeArgs
+            );
         }
 
         return type;
@@ -14625,8 +14631,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function transformTypeForTypeAlias(
         type: Type,
         name: NameNode,
-        errorNode: ParseNode,
-        typeParameters?: TypeVarType[]
+        errorNode: ExpressionNode,
+        typeParameters?: TypeVarType[],
+        typeParamNodes?: TypeParameterNode[]
     ): Type {
         if (!TypeBase.isInstantiable(type)) {
             return type;
@@ -14660,6 +14667,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return typeVar;
             }
             return convertToInstance(typeVar) as TypeVarType;
+        });
+
+        // Validate the default types for all type parameters.
+        typeParameters.forEach((typeParam, index) => {
+            if (typeParam.details.defaultType) {
+                let bestErrorNode = errorNode;
+                if (typeParamNodes && typeParamNodes[index].defaultExpression) {
+                    bestErrorNode = typeParamNodes[index].defaultExpression!;
+                }
+
+                validateTypeParameterDefault(bestErrorNode, typeParam, typeParameters!.slice(0, index));
+            }
         });
 
         // Verify that we have at most one variadic type variable.
@@ -15173,7 +15192,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Clear the temporary type we wrote above.
         deleteTypeCacheEntry(node.name);
 
-        aliasType = transformTypeForTypeAlias(aliasType, node.name, node.expression, typeParameters);
+        aliasType = transformTypeForTypeAlias(
+            aliasType,
+            node.name,
+            node.expression,
+            typeParameters,
+            node.typeParameters?.parameters
+        );
 
         if (isTypeAliasRecursive(typeAliasTypeVar, aliasType)) {
             addDiagnostic(
@@ -19856,6 +19881,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         let typeVar = TypeVarType.createInstantiable(node.name.value);
+        typeVar.details.isTypeParamSyntax = true;
+
         if (node.typeParamCategory === TypeParameterCategory.TypeVarTuple) {
             typeVar.details.isVariadic = true;
         } else if (node.typeParamCategory === TypeParameterCategory.ParamSpec) {
@@ -19942,8 +19969,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
         }
-
-        typeVar.details.isTypeParamSyntax = true;
 
         // Associate the type variable with the owning scope.
         const scopeNode = ParseTreeUtils.getTypeVarScopeNode(node);
