@@ -4,7 +4,7 @@
 
 from typing import TypeVar
 
-T1 = TypeVar("T1")
+T1 = TypeVar("T1", default=str)
 T2 = TypeVar("T2", default=list[T1])
 
 def func1(x: T1, y: int | T2 = 0) -> T2 | list[T1]:

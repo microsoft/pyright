@@ -927,6 +927,8 @@ export namespace Localizer {
         export const typeVarUsedOnlyOnce = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarUsedOnlyOnce'));
         export const typeVarVariance = () => getRawString('Diagnostic.typeVarVariance');
+        export const typeVarWithoutDefault = () =>
+            new ParameterizedString<{ name: string; other: string }>(getRawString('Diagnostic.typeVarWithoutDefault'));
         export const unaccessedClass = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unaccessedClass'));
         export const unaccessedFunction = () =>

@@ -16,6 +16,6 @@ reveal_type(v1_2, expected_text="list[str]")
 
 
 # This should generate an error because T1 depends on T2.
-def func2[T2=list[T1], T1]() -> None:
+def func2[T2=list[T1], T1=str]() -> None:
     ...
 

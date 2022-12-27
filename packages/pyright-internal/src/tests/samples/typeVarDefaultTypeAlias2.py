@@ -42,7 +42,7 @@ class ClassK(Generic[T1]):
     TA_G = list[T2]
 
 
-P1 = ParamSpec("P1")
+P1 = ParamSpec("P1", default=...)
 P2 = ParamSpec("P2", default=P1)
 P3 = ParamSpec("P3", default=P2)
 P4 = ParamSpec("P4", default=(int, T1, ))

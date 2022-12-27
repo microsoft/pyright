@@ -46,7 +46,7 @@ def func3(pa1: TA_PA, pa2: TA_PA[[str]], pa3: TA_PA[..., [float]], pa4: TA_PA[..
     reveal_type(pa4, expected_text="tuple[(...) -> None, (int, int) -> None, (float) -> None]")
 
 # This should generate an error because P1 depends on P2.
-type TA_PB[**P2=P1, **P1] = tuple[Callable[P2, None], Callable[P1, None]]
+type TA_PB[**P2=P1, **P1=...] = tuple[Callable[P2, None], Callable[P1, None]]
 
 type TA_PC[T1=str, **P4=(int, T1, )] = T1 | Callable[P4, T1]
 

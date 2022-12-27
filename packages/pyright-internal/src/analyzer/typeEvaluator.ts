@@ -14671,14 +14671,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Validate the default types for all type parameters.
         typeParameters.forEach((typeParam, index) => {
-            if (typeParam.details.defaultType) {
-                let bestErrorNode = errorNode;
-                if (typeParamNodes && typeParamNodes[index].defaultExpression) {
-                    bestErrorNode = typeParamNodes[index].defaultExpression!;
-                }
-
-                validateTypeParameterDefault(bestErrorNode, typeParam, typeParameters!.slice(0, index));
+            let bestErrorNode = errorNode;
+            if (typeParamNodes && index < typeParamNodes.length) {
+                bestErrorNode = typeParamNodes[index].defaultExpression ?? typeParamNodes[index].name;
             }
+            validateTypeParameterDefault(bestErrorNode, typeParam, typeParameters!.slice(0, index));
         });
 
         // Verify that we have at most one variadic type variable.
@@ -15645,13 +15642,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Validate the default types for all type parameters.
         classType.details.typeParameters.forEach((typeParam, index) => {
-            if (typeParam.details.defaultType) {
-                validateTypeParameterDefault(
-                    node.typeParameters?.parameters[index].defaultExpression ?? node.name,
-                    typeParam,
-                    classType.details.typeParameters.slice(0, index)
-                );
+            let bestErrorNode: ExpressionNode = node.name;
+            if (node.typeParameters && index < node.typeParameters.parameters.length) {
+                const typeParamNode = node.typeParameters.parameters[index];
+                bestErrorNode = typeParamNode.defaultExpression ?? typeParamNode.name;
             }
+            validateTypeParameterDefault(bestErrorNode, typeParam, classType.details.typeParameters.slice(0, index));
         });
 
         if (!computeMroLinearization(classType)) {
@@ -15928,6 +15924,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         otherLiveTypeParams: TypeVarType[]
     ) {
         if (!typeParam.details.defaultType) {
+            const typeVarWithDefault = otherLiveTypeParams.find((param) => param.details.defaultType);
+            if (typeVarWithDefault) {
+                addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.typeVarWithoutDefault().format({
+                        name: typeParam.details.name,
+                        other: typeVarWithDefault.details.name,
+                    }),
+                    errorNode
+                );
+            }
             return;
         }
 
@@ -16803,13 +16811,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Validate the default types for all type parameters.
         functionType.details.typeParameters.forEach((typeParam, index) => {
-            if (typeParam.details.defaultType) {
-                validateTypeParameterDefault(
-                    node.typeParameters?.parameters[index].defaultExpression ?? node.name,
-                    typeParam,
-                    functionType.details.typeParameters.slice(0, index)
-                );
+            let bestErrorNode: ExpressionNode = node.name;
+            if (node.typeParameters && index < node.typeParameters.parameters.length) {
+                const typeParamNode = node.typeParameters.parameters[index];
+                bestErrorNode = typeParamNode.defaultExpression ?? typeParamNode.name;
             }
+            validateTypeParameterDefault(bestErrorNode, typeParam, functionType.details.typeParameters.slice(0, index));
         });
 
         // Clear the "partially evaluated" flag to indicate that the functionType
