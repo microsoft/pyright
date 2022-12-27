@@ -2,9 +2,7 @@
 # In particular, it tests the case where a TypeVarLike goes unsolved
 # in a call, and a default value is used rather than Unknown.
 
-
 from typing import Callable, Generic, ParamSpec, TypeVar, TypeVarTuple, Unpack
-
 
 T = TypeVar("T", default=str)
 

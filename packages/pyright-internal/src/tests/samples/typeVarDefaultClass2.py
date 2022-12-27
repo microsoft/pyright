@@ -57,6 +57,27 @@ class ClassK(Generic[T1]):
     # is defined in an outer scope.
     class ClassL(Generic[T2]): ...
 
+class ClassMChild1(Generic[T1]):
+    a: T1
+class ClassMChild2(Generic[T1]):
+    b: T1
+class ClassM(ClassMChild1[T1], ClassMChild2[T2]): ...
+
+m1 = ClassM[int]()
+reveal_type(m1.a, expected_text="int")
+reveal_type(m1.b, expected_text="int")
+
+m2 = ClassM()
+reveal_type(m2.a, expected_text="str")
+reveal_type(m2.b, expected_text="str")
+
+class ClassNChild(Generic[T1]):
+    a: T1
+class ClassN(ClassNChild): ...
+
+n1 = ClassN()
+reveal_type(n1.a, expected_text="str")
+
 
 P1 = ParamSpec("P1")
 P2 = ParamSpec("P2", default=P1)
