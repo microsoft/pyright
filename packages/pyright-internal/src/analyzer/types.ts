@@ -1279,14 +1279,6 @@ export interface FunctionType extends TypeBase {
     boundTypeVarScopeId?: TypeVarScopeId | undefined;
 }
 
-export interface ParamSpecValue {
-    flags: FunctionTypeFlags;
-    parameters: FunctionParameter[];
-    typeVarScopeId: TypeVarScopeId | undefined;
-    docString: string | undefined;
-    paramSpec: TypeVarType | undefined;
-}
-
 export namespace FunctionType {
     export function createInstance(
         name: string,
@@ -1437,7 +1429,7 @@ export namespace FunctionType {
     }
 
     // Creates a new function based on the parameters of another function.
-    export function cloneForParamSpec(type: FunctionType, paramSpecValue: ParamSpecValue | undefined): FunctionType {
+    export function cloneForParamSpec(type: FunctionType, paramSpecValue: FunctionType | undefined): FunctionType {
         const newFunction = create(
             type.details.name,
             type.details.fullName,
@@ -1457,25 +1449,25 @@ export namespace FunctionType {
         if (paramSpecValue) {
             newFunction.details.parameters = [
                 ...type.details.parameters,
-                ...paramSpecValue.parameters.map((specEntry) => {
+                ...paramSpecValue.details.parameters.map((param) => {
                     return {
-                        category: specEntry.category,
-                        name: specEntry.name,
-                        hasDefault: specEntry.hasDefault,
-                        defaultValueExpression: specEntry.defaultValueExpression,
-                        isNameSynthesized: specEntry.isNameSynthesized,
+                        category: param.category,
+                        name: param.name,
+                        hasDefault: param.hasDefault,
+                        defaultValueExpression: param.defaultValueExpression,
+                        isNameSynthesized: param.isNameSynthesized,
                         hasDeclaredType: true,
-                        type: specEntry.type,
+                        type: param.type,
                     };
                 }),
             ];
 
             if (!newFunction.details.docString) {
-                newFunction.details.docString = paramSpecValue.docString;
+                newFunction.details.docString = paramSpecValue.details.docString;
             }
 
             newFunction.details.flags =
-                (paramSpecValue.flags &
+                (paramSpecValue.details.flags &
                     (FunctionTypeFlags.ClassMethod |
                         FunctionTypeFlags.StaticMethod |
                         FunctionTypeFlags.ConstructorMethod |
@@ -1495,7 +1487,7 @@ export namespace FunctionType {
                 if (type.specializedTypes.parameterDefaultArgs) {
                     newFunction.specializedTypes.parameterDefaultArgs = [...type.specializedTypes.parameterDefaultArgs];
                 }
-                paramSpecValue.parameters.forEach((paramInfo) => {
+                paramSpecValue.details.parameters.forEach((paramInfo) => {
                     newFunction.specializedTypes!.parameterTypes.push(paramInfo.type);
                     if (newFunction.specializedTypes!.parameterDefaultArgs) {
                         // Assume that the parameters introduced via paramSpec have no specialized
@@ -1505,7 +1497,7 @@ export namespace FunctionType {
                 });
             }
 
-            newFunction.details.paramSpec = paramSpecValue.paramSpec;
+            newFunction.details.paramSpec = paramSpecValue.details.paramSpec;
         }
 
         return newFunction;
@@ -1522,7 +1514,7 @@ export namespace FunctionType {
         return newFunction;
     }
 
-    export function cloneForParamSpecApplication(type: FunctionType, paramSpecValue: ParamSpecValue): FunctionType {
+    export function cloneForParamSpecApplication(type: FunctionType, paramSpecValue: FunctionType): FunctionType {
         const newFunction = TypeBase.cloneType(type);
 
         // Make a shallow clone of the details.
@@ -1536,14 +1528,18 @@ export namespace FunctionType {
 
         // Update the flags of the function.
         newFunction.details.flags &= ~FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
-        if (paramSpecValue.flags & FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck) {
+        if (paramSpecValue.details.flags & FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck) {
             newFunction.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
         }
 
         // If there is a position-only separator in the captured param spec signature,
         // remove the position-only separator in the existing signature. Otherwise,
         // we'll end up with redundant position-only separators.
-        if (paramSpecValue.parameters.some((entry) => entry.category === ParameterCategory.Simple && !entry.name)) {
+        if (
+            paramSpecValue.details.parameters.some(
+                (entry) => entry.category === ParameterCategory.Simple && !entry.name
+            )
+        ) {
             if (newFunction.details.parameters.length > 0) {
                 const lastParam = newFunction.details.parameters[newFunction.details.parameters.length - 1];
                 if (lastParam.category === ParameterCategory.Simple && !lastParam.name) {
@@ -1552,21 +1548,21 @@ export namespace FunctionType {
             }
         }
 
-        paramSpecValue.parameters.forEach((specEntry) => {
+        paramSpecValue.details.parameters.forEach((param) => {
             newFunction.details.parameters.push({
-                category: specEntry.category,
-                name: specEntry.name,
-                hasDefault: specEntry.hasDefault,
-                defaultValueExpression: specEntry.defaultValueExpression,
-                isNameSynthesized: specEntry.isNameSynthesized,
+                category: param.category,
+                name: param.name,
+                hasDefault: param.hasDefault,
+                defaultValueExpression: param.defaultValueExpression,
+                isNameSynthesized: param.isNameSynthesized,
                 hasDeclaredType: true,
-                type: specEntry.type,
+                type: param.type,
             });
         });
 
-        newFunction.details.paramSpec = paramSpecValue.paramSpec;
+        newFunction.details.paramSpec = paramSpecValue.details.paramSpec;
         if (!newFunction.details.docString) {
-            newFunction.details.docString = paramSpecValue.docString;
+            newFunction.details.docString = paramSpecValue.details.docString;
         }
 
         return newFunction;

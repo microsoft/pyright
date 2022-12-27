@@ -18,7 +18,6 @@ import {
     combineTypes,
     FunctionParameter,
     FunctionType,
-    FunctionTypeFlags,
     isAny,
     isAnyOrUnknown,
     isClass,
@@ -48,6 +47,7 @@ import {
     convertParamSpecValueToType,
     convertToInstance,
     convertToInstantiable,
+    convertTypeToParamSpecValue,
     getTypeCondition,
     getTypeVarScopeId,
     isEffectivelyInstantiable,
@@ -713,23 +713,17 @@ function assignTypeToParamSpec(
     recursionCount = 0
 ) {
     if (isTypeVar(srcType) && srcType.details.isParamSpec) {
-        const existingEntry = typeVarContext.getParamSpec(destType);
-        if (existingEntry) {
-            if (existingEntry.parameters.length === 0 && existingEntry.paramSpec) {
+        const existingType = typeVarContext.getParamSpecType(destType);
+        if (existingType) {
+            if (existingType.details.parameters.length === 0 && existingType.details.paramSpec) {
                 // If there's an existing entry that matches, that's fine.
-                if (isTypeSame(existingEntry.paramSpec, srcType, {}, recursionCount)) {
+                if (isTypeSame(existingType.details.paramSpec, srcType, {}, recursionCount)) {
                     return true;
                 }
             }
         } else {
             if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.scopeId)) {
-                typeVarContext.setParamSpec(destType, {
-                    flags: FunctionTypeFlags.None,
-                    parameters: [],
-                    typeVarScopeId: undefined,
-                    docString: undefined,
-                    paramSpec: srcType,
-                });
+                typeVarContext.setTypeVarType(destType, convertTypeToParamSpecValue(srcType));
             }
             return true;
         }
@@ -747,22 +741,17 @@ function assignTypeToParamSpec(
             return param;
         });
 
-        const existingEntry = typeVarContext.getParamSpec(destType);
-        if (existingEntry) {
-            if (existingEntry.paramSpec === srcType.details.paramSpec) {
+        const existingType = typeVarContext.getParamSpecType(destType);
+        if (existingType) {
+            if (existingType.details.paramSpec === srcType.details.paramSpec) {
                 // Convert the remaining portion of the signature to a function
                 // for comparison purposes.
-                const existingFunction = convertParamSpecValueToType(existingEntry, /* omitParamSpec */ true);
-                const assignedFunction = convertParamSpecValueToType(
-                    {
-                        parameters,
-                        flags: srcType.details.flags,
-                        typeVarScopeId: srcType.details.typeVarScopeId,
-                        docString: undefined,
-                        paramSpec: undefined,
-                    },
-                    /* omitParamSpec */ true
-                );
+                const existingFunction = convertParamSpecValueToType(existingType, /* omitParamSpec */ true);
+                const assignedFunction = FunctionType.createInstance('', '', '', srcType.details.flags);
+                parameters.forEach((param) => {
+                    FunctionType.addParameter(assignedFunction, param);
+                });
+                assignedFunction.details.typeVarScopeId = srcType.details.typeVarScopeId;
 
                 if (
                     evaluator.assignType(
@@ -780,13 +769,14 @@ function assignTypeToParamSpec(
             }
         } else {
             if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.scopeId)) {
-                typeVarContext.setParamSpec(destType, {
-                    parameters,
-                    typeVarScopeId: srcType.details.typeVarScopeId,
-                    flags: srcType.details.flags,
-                    docString: srcType.details.docString,
-                    paramSpec: srcType.details.paramSpec,
+                const newFunction = FunctionType.createInstance('', '', '', srcType.details.flags);
+                parameters.forEach((param) => {
+                    FunctionType.addParameter(newFunction, param);
                 });
+                newFunction.details.typeVarScopeId = srcType.details.typeVarScopeId;
+                newFunction.details.docString = srcType.details.docString;
+                newFunction.details.paramSpec = srcType.details.paramSpec;
+                typeVarContext.setTypeVarType(destType, newFunction);
             }
             return true;
         }

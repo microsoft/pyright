@@ -45,7 +45,6 @@ import {
     NeverType,
     NoneType,
     OverloadedFunctionType,
-    ParamSpecValue,
     SpecializedFunctionTypes,
     TupleTypeArgument,
     Type,
@@ -1704,13 +1703,14 @@ export function setTypeArgumentsRecursive(
                 if (destType.details.paramSpec) {
                     // Fill in an empty signature for a ParamSpec if the source is Any or Unknown.
                     if (!typeVarContext.hasTypeVar(destType.details.paramSpec) && isAnyOrUnknown(srcType)) {
-                        typeVarContext.setParamSpec(destType.details.paramSpec, {
-                            flags: FunctionTypeFlags.None,
-                            parameters: FunctionType.getDefaultParameters(),
-                            typeVarScopeId: undefined,
-                            docString: undefined,
-                            paramSpec: undefined,
-                        });
+                        const newFunction = FunctionType.createInstance(
+                            '',
+                            '',
+                            '',
+                            FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck | FunctionTypeFlags.ParamSpecValue
+                        );
+                        FunctionType.addDefaultParameters(newFunction);
+                        typeVarContext.setTypeVarType(destType.details.paramSpec, newFunction);
                     }
                 }
             }
@@ -1767,10 +1767,10 @@ export function buildTypeVarContext(
                 if (index < typeArgs.length) {
                     typeArgType = typeArgs[index];
                     if (isFunction(typeArgType) && FunctionType.isParamSpecValue(typeArgType)) {
-                        const params: FunctionParameter[] = [];
+                        const parameters: FunctionParameter[] = [];
                         const typeArgFunctionType = typeArgType;
                         typeArgType.details.parameters.forEach((param, paramIndex) => {
-                            params.push({
+                            parameters.push({
                                 category: param.category,
                                 name: param.name,
                                 hasDefault: !!param.hasDefault,
@@ -1779,30 +1779,9 @@ export function buildTypeVarContext(
                                 type: FunctionType.getEffectiveParameterType(typeArgFunctionType, paramIndex),
                             });
                         });
-                        typeVarContext.setParamSpec(typeParam, {
-                            parameters: params,
-                            typeVarScopeId: typeArgType.details.typeVarScopeId,
-                            flags: typeArgType.details.flags,
-                            docString: typeArgType.details.docString,
-                            paramSpec: typeArgType.details.paramSpec,
-                        });
-                    } else if (isParamSpec(typeArgType)) {
-                        typeVarContext.setParamSpec(typeParam, {
-                            flags: FunctionTypeFlags.None,
-                            parameters: [],
-                            typeVarScopeId: undefined,
-                            docString: undefined,
-                            paramSpec: typeArgType,
-                        });
-                    } else if (isAnyOrUnknown(typeArgType)) {
-                        // Fill in an empty signature if the arg type is Any or Unknown.
-                        typeVarContext.setParamSpec(typeParam, {
-                            flags: FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck,
-                            parameters: FunctionType.getDefaultParameters(),
-                            typeVarScopeId: undefined,
-                            docString: undefined,
-                            paramSpec: undefined,
-                        });
+                        typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(typeArgType));
+                    } else if (isParamSpec(typeArgType) || isAnyOrUnknown(typeArgType)) {
+                        typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(typeArgType));
                     }
                 }
             } else {
@@ -2762,67 +2741,70 @@ function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recurs
     }
 }
 
-export function convertTypeToParamSpecValue(type: Type): ParamSpecValue {
+export function convertTypeToParamSpecValue(type: Type): FunctionType {
     if (isParamSpec(type)) {
-        return {
-            flags: FunctionTypeFlags.None,
-            parameters: [],
-            typeVarScopeId: getTypeVarScopeId(type),
-            docString: undefined,
-            paramSpec: type,
-        };
+        const newFunction = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
+        newFunction.details.paramSpec = type;
+        newFunction.details.typeVarScopeId = getTypeVarScopeId(type);
+        return newFunction;
     }
 
     if (isFunction(type)) {
-        return {
-            flags: type.details.flags | FunctionTypeFlags.ParamSpecValue,
-            parameters: type.details.parameters.map((param, index) => {
-                return {
-                    category: param.category,
-                    name: param.name,
-                    hasDefault: param.hasDefault,
-                    defaultValueExpression: param.defaultValueExpression,
-                    isNameSynthesized: param.isNameSynthesized,
-                    type: FunctionType.getEffectiveParameterType(type, index),
-                };
-            }),
-            typeVarScopeId: getTypeVarScopeId(type),
-            docString: type.details.docString,
-            paramSpec: type.details.paramSpec,
-        };
+        const newFunction = FunctionType.createInstance(
+            '',
+            '',
+            '',
+            type.details.flags | FunctionTypeFlags.ParamSpecValue,
+            type.details.docString
+        );
+
+        type.details.parameters.forEach((param, index) => {
+            FunctionType.addParameter(newFunction, {
+                category: param.category,
+                name: param.name,
+                hasDefault: param.hasDefault,
+                defaultValueExpression: param.defaultValueExpression,
+                isNameSynthesized: param.isNameSynthesized,
+                type: FunctionType.getEffectiveParameterType(type, index),
+            });
+        });
+        newFunction.details.typeVarScopeId = getTypeVarScopeId(type);
+        newFunction.details.paramSpec = type.details.paramSpec;
+        return newFunction;
     }
 
-    return {
-        flags: FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck,
-        parameters: FunctionType.getDefaultParameters(),
-        typeVarScopeId: undefined,
-        docString: undefined,
-        paramSpec: undefined,
-    };
+    const newFunction = FunctionType.createInstance(
+        '',
+        '',
+        '',
+        FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+    );
+    FunctionType.addDefaultParameters(newFunction);
+    return newFunction;
 }
 
-export function convertParamSpecValueToType(paramSpecValue: ParamSpecValue, omitParamSpec = false): Type {
-    let hasParameters = paramSpecValue.parameters.length > 0;
+export function convertParamSpecValueToType(paramSpecValue: FunctionType, omitParamSpec = false): Type {
+    let hasParameters = paramSpecValue.details.parameters.length > 0;
 
-    if (paramSpecValue.parameters.length === 1) {
+    if (paramSpecValue.details.parameters.length === 1) {
         // If the ParamSpec has a position-only separator as its only parameter,
         // treat it as though there are no parameters.
-        const onlyParam = paramSpecValue.parameters[0];
+        const onlyParam = paramSpecValue.details.parameters[0];
         if (onlyParam.category === ParameterCategory.Simple && !onlyParam.name) {
             hasParameters = false;
         }
     }
 
-    if (hasParameters || !paramSpecValue.paramSpec || omitParamSpec) {
+    if (hasParameters || !paramSpecValue.details.paramSpec || omitParamSpec) {
         // Create a function type from the param spec entries.
         const functionType = FunctionType.createInstance(
             '',
             '',
             '',
-            FunctionTypeFlags.ParamSpecValue | paramSpecValue.flags
+            FunctionTypeFlags.ParamSpecValue | paramSpecValue.details.flags
         );
 
-        paramSpecValue.parameters.forEach((entry, index) => {
+        paramSpecValue.details.parameters.forEach((entry) => {
             FunctionType.addParameter(functionType, {
                 category: entry.category,
                 name: entry.name,
@@ -2835,14 +2817,14 @@ export function convertParamSpecValueToType(paramSpecValue: ParamSpecValue, omit
         });
 
         if (!omitParamSpec) {
-            functionType.details.paramSpec = paramSpecValue.paramSpec;
+            functionType.details.paramSpec = paramSpecValue.details.paramSpec;
         }
-        functionType.details.docString = paramSpecValue.docString;
+        functionType.details.docString = paramSpecValue.details.docString;
 
         return functionType;
     }
 
-    return paramSpecValue.paramSpec;
+    return paramSpecValue.details.paramSpec;
 }
 
 // Recursively walks a type and calls a callback for each TypeVar, allowing
@@ -2999,7 +2981,7 @@ class TypeVarTransformer {
         return undefined;
     }
 
-    transformParamSpec(paramSpec: TypeVarType, recursionCount: number): ParamSpecValue | undefined {
+    transformParamSpec(paramSpec: TypeVarType, recursionCount: number): FunctionType | undefined {
         return undefined;
     }
 
@@ -3040,7 +3022,7 @@ class TypeVarTransformer {
         }
 
         let newTypeArgs: Type[] = [];
-        let newVariadicTypeArgs: TupleTypeArgument[] | undefined;
+        let newTupleTypeArgs: TupleTypeArgument[] | undefined;
         let specializationNeeded = false;
         const typeParams = ClassType.getTypeParameters(classType);
 
@@ -3109,7 +3091,7 @@ class TypeVarTransformer {
 
         if (ClassType.isTupleClass(classType)) {
             if (classType.tupleTypeArguments) {
-                newVariadicTypeArgs = [];
+                newTupleTypeArgs = [];
                 classType.tupleTypeArguments.forEach((oldTypeArgType) => {
                     const newTypeArgType = this.apply(oldTypeArgType.type, recursionCount);
 
@@ -3123,14 +3105,14 @@ class TypeVarTransformer {
                         isTupleClass(newTypeArgType) &&
                         newTypeArgType.tupleTypeArguments
                     ) {
-                        appendArray(newVariadicTypeArgs!, newTypeArgType.tupleTypeArguments);
+                        appendArray(newTupleTypeArgs!, newTypeArgType.tupleTypeArguments);
                     } else {
-                        newVariadicTypeArgs!.push({ type: newTypeArgType, isUnbounded: oldTypeArgType.isUnbounded });
+                        newTupleTypeArgs!.push({ type: newTypeArgType, isUnbounded: oldTypeArgType.isUnbounded });
                     }
                 });
             } else if (typeParams.length > 0) {
-                newVariadicTypeArgs = this.transformTupleTypeVar(typeParams[0], recursionCount);
-                if (newVariadicTypeArgs) {
+                newTupleTypeArgs = this.transformTupleTypeVar(typeParams[0], recursionCount);
+                if (newTupleTypeArgs) {
                     specializationNeeded = true;
                 }
             }
@@ -3148,7 +3130,7 @@ class TypeVarTransformer {
             newTypeArgs,
             /* isTypeArgumentExplicit */ true,
             /* includeSubclasses */ undefined,
-            newVariadicTypeArgs
+            newTupleTypeArgs
         );
     }
 
@@ -3197,9 +3179,9 @@ class TypeVarTransformer {
                 const paramSpecType = this.transformParamSpec(argsParamType, recursionCount);
                 if (paramSpecType) {
                     if (
-                        paramSpecType.parameters.length > 0 ||
-                        paramSpecType.paramSpec === undefined ||
-                        !isTypeSame(argsParamType, paramSpecType.paramSpec)
+                        paramSpecType.details.parameters.length > 0 ||
+                        paramSpecType.details.paramSpec === undefined ||
+                        !isTypeSame(argsParamType, paramSpecType.details.paramSpec)
                     ) {
                         functionType = FunctionType.cloneForParamSpecApplication(functionType, paramSpecType);
                     }
@@ -3504,15 +3486,15 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         return this._typeVarContext.getTupleTypeVar(typeVar);
     }
 
-    override transformParamSpec(paramSpec: TypeVarType, recursionCount: number): ParamSpecValue | undefined {
+    override transformParamSpec(paramSpec: TypeVarType, recursionCount: number): FunctionType | undefined {
         // If we're solving a default type, handle param specs with no scope ID.
         if (this._isSolvingDefaultType && !paramSpec.scopeId) {
             const replacementEntry = this._typeVarContext
-                .getParamSpecs()
-                .find((entry) => entry.paramSpec.details.name === paramSpec.details.name);
+                .getTypeVars()
+                .find((entry) => entry.typeVar.details.name === paramSpec.details.name);
 
             if (replacementEntry) {
-                return this._typeVarContext.getParamSpec(replacementEntry.paramSpec);
+                return this._typeVarContext.getParamSpecType(replacementEntry.typeVar);
             }
 
             if (paramSpec.details.defaultType) {
@@ -3526,7 +3508,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return undefined;
         }
 
-        const transformedParamSpec = this._typeVarContext.getParamSpec(paramSpec);
+        const transformedParamSpec = this._typeVarContext.getParamSpecType(paramSpec);
         if (transformedParamSpec) {
             return transformedParamSpec;
         }
@@ -3555,13 +3537,13 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     }
 
     private _getUnknownParamSpec() {
-        const paramSpecValue: ParamSpecValue = {
-            flags: FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck,
-            parameters: FunctionType.getDefaultParameters(/* useUnknown */ true),
-            typeVarScopeId: undefined,
-            docString: undefined,
-            paramSpec: undefined,
-        };
+        const paramSpecValue = FunctionType.createInstance(
+            '',
+            '',
+            '',
+            FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+        );
+        FunctionType.addDefaultParameters(paramSpecValue);
 
         return paramSpecValue;
     }

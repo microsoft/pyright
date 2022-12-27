@@ -13,8 +13,9 @@ import { assert } from '../common/debug';
 import {
     AnyType,
     ClassType,
+    FunctionType,
+    isFunction,
     maxTypeRecursionCount,
-    ParamSpecValue,
     TupleTypeArgument,
     Type,
     TypeCategory,
@@ -36,11 +37,6 @@ export interface TypeVarMapEntry {
     wideBound?: Type | undefined;
 }
 
-export interface ParamSpecMapEntry {
-    paramSpec: TypeVarType;
-    type: ParamSpecValue;
-}
-
 export interface TupleTypeVarMapEntry {
     typeVar: TypeVarType;
     types: TupleTypeArgument[];
@@ -50,7 +46,6 @@ export class TypeVarContext {
     private _solveForScopes: TypeVarScopeId[] | undefined;
     private _typeVarMap: Map<string, TypeVarMapEntry>;
     private _tupleTypeVarMap: Map<string, TupleTypeVarMapEntry> | undefined;
-    private _paramSpecMap: Map<string, ParamSpecMapEntry>;
     private _isLocked = false;
 
     constructor(solveForScopes?: TypeVarScopeId[] | TypeVarScopeId) {
@@ -63,7 +58,6 @@ export class TypeVarContext {
         }
 
         this._typeVarMap = new Map<string, TypeVarMapEntry>();
-        this._paramSpecMap = new Map<string, ParamSpecMapEntry>();
     }
 
     clone() {
@@ -81,10 +75,6 @@ export class TypeVarContext {
             );
         });
 
-        this._paramSpecMap.forEach((value) => {
-            newTypeVarMap.setParamSpec(value.paramSpec, value.type);
-        });
-
         if (this._tupleTypeVarMap) {
             this._tupleTypeVarMap.forEach((value) => {
                 newTypeVarMap.setTupleTypeVar(value.typeVar, value.types);
@@ -99,7 +89,6 @@ export class TypeVarContext {
     // Copies a cloned type var map back into this object.
     copyFromClone(clone: TypeVarContext) {
         this._typeVarMap = clone._typeVarMap;
-        this._paramSpecMap = clone._paramSpecMap;
         this._tupleTypeVarMap = clone._tupleTypeVarMap;
         this._isLocked = clone._isLocked;
     }
@@ -131,7 +120,7 @@ export class TypeVarContext {
     }
 
     isEmpty() {
-        return this._typeVarMap.size === 0 && this._paramSpecMap.size === 0;
+        return this._typeVarMap.size === 0;
     }
 
     // Provides a "score" - a value that values completeness (number
@@ -150,8 +139,6 @@ export class TypeVarContext {
             const typeVarType = this.getTypeVarType(value.typeVar)!;
             score += 1.0 - this._getComplexityScoreForType(typeVarType);
         });
-
-        score += this._paramSpecMap.size;
 
         return score;
     }
@@ -174,6 +161,19 @@ export class TypeVarContext {
         // if the literal type couldn't be widened due to constraints imposed
         // by the wide bound.
         return entry.narrowBoundNoLiterals ?? entry.narrowBound ?? entry.wideBound;
+    }
+
+    getParamSpecType(reference: TypeVarType): FunctionType | undefined {
+        const entry = this._typeVarMap.get(this._getKey(reference));
+        if (!entry?.narrowBound) {
+            return undefined;
+        }
+
+        if (isFunction(entry.narrowBound)) {
+            return entry.narrowBound;
+        }
+
+        return undefined;
     }
 
     setTypeVarType(
@@ -217,33 +217,10 @@ export class TypeVarContext {
         return entries;
     }
 
-    hasParamSpec(reference: TypeVarType): boolean {
-        return this._paramSpecMap.has(this._getKey(reference));
-    }
-
-    getParamSpec(reference: TypeVarType): ParamSpecValue | undefined {
-        return this._paramSpecMap.get(this._getKey(reference))?.type;
-    }
-
-    getParamSpecs(): ParamSpecMapEntry[] {
-        const entries: ParamSpecMapEntry[] = [];
-
-        this._paramSpecMap.forEach((entry) => {
-            entries.push(entry);
-        });
-
-        return entries;
-    }
-
-    setParamSpec(reference: TypeVarType, type: ParamSpecValue) {
-        assert(!this._isLocked);
-        this._paramSpecMap.set(this._getKey(reference), { paramSpec: reference, type });
-    }
-
     // Applies solved TypeVars from one context to this context.
     applySourceContextTypeVars(srcContext: TypeVarContext) {
         // If there are no solved TypeVars, don't bother.
-        if (srcContext.getTypeVarCount() === 0 && srcContext.getParamSpecCount() === 0) {
+        if (srcContext.getTypeVarCount() === 0) {
             return;
         }
 
@@ -270,16 +247,6 @@ export class TypeVarContext {
             this.setTupleTypeVar(entry.typeVar, updatedTypes);
         });
 
-        this._paramSpecMap.forEach((entry) => {
-            if (entry.type) {
-                const updatedType = { ...entry.type };
-                updatedType.parameters = updatedType.parameters.map((param) => {
-                    return { ...param, type: applySolvedTypeVars(param.type, srcContext) };
-                });
-                this.setParamSpec(entry.paramSpec, updatedType);
-            }
-        });
-
         if (wasLocked) {
             this.lock();
         }
@@ -287,10 +254,6 @@ export class TypeVarContext {
 
     getTypeVarCount() {
         return this._typeVarMap.size;
-    }
-
-    getParamSpecCount() {
-        return this._paramSpecMap.size;
     }
 
     getWideTypeBound(reference: TypeVarType): Type | undefined {

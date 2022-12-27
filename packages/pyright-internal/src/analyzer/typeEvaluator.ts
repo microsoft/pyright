@@ -6382,8 +6382,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         baseType.typeAliasInfo.typeParameters?.forEach((typeParam) => {
             let typeVarType: Type | undefined;
             if (isParamSpec(typeParam)) {
-                const paramSpecValue = typeVarContext.getParamSpec(typeParam);
-                typeVarType = paramSpecValue ? convertParamSpecValueToType(paramSpecValue) : UnknownType.create();
+                const paramSpecType = typeVarContext.getParamSpecType(typeParam);
+                typeVarType = paramSpecType ? convertParamSpecValueToType(paramSpecType) : UnknownType.create();
             } else {
                 typeVarType = typeVarContext.getTypeVarType(typeParam);
             }
@@ -10584,10 +10584,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destTypeVarContext: TypeVarContext,
         conditionFilter: TypeCondition[] | undefined
     ): boolean {
-        const paramSpecValue = destTypeVarContext.getParamSpec(paramSpec);
-        const srcTypeVarContext = new TypeVarContext(paramSpecValue?.typeVarScopeId);
+        const paramSpecType = destTypeVarContext.getParamSpecType(paramSpec);
 
-        if (!paramSpecValue) {
+        if (!paramSpecType) {
             addDiagnostic(
                 AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -10597,11 +10596,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return false;
         }
 
+        const srcTypeVarContext = new TypeVarContext(paramSpecType.details.typeVarScopeId);
         let reportedArgError = false;
 
         // Build a map of all named parameters.
         const paramMap = new Map<string, FunctionParameter>();
-        const paramSpecParams = paramSpecValue.parameters;
+        const paramSpecParams = paramSpecType.details.parameters;
         paramSpecParams.forEach((param) => {
             if (param.name) {
                 paramMap.set(param.name, param);
@@ -10703,7 +10703,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return paramInfo.category === ParameterCategory.Simple && !paramInfo.hasDefault;
             });
 
-            if (unassignedParams.length > 0 && !paramSpecValue.paramSpec) {
+            if (unassignedParams.length > 0 && !paramSpecType.details.paramSpec) {
                 const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
                 addDiagnostic(
                     AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -19060,7 +19060,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         FunctionType.addDefaultParameters(functionType);
                         functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
                         typeArgTypes.push(functionType);
-                        typeVarContext.setParamSpec(typeParam, convertTypeToParamSpecValue(functionType));
+                        typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(functionType));
                         return;
                     }
 
@@ -19075,7 +19075,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             });
                         });
                         typeArgTypes.push(functionType);
-                        typeVarContext.setParamSpec(typeParam, convertTypeToParamSpecValue(functionType));
+                        typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(functionType));
                         return;
                     }
 
@@ -19113,7 +19113,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const solvedDefaultType = applySolvedTypeVars(typeParam, typeVarContext, { unknownIfNotFound: true });
             typeArgTypes.push(solvedDefaultType);
             if (isParamSpec(typeParam)) {
-                typeVarContext.setParamSpec(typeParam, convertTypeToParamSpecValue(solvedDefaultType));
+                typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(solvedDefaultType));
             } else {
                 typeVarContext.setTypeVarType(typeParam, solvedDefaultType);
             }
