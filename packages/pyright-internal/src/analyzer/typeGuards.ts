@@ -1091,7 +1091,7 @@ function narrowTypeForIsInstance(
                                     specializedFilterType = applySolvedTypeVars(
                                         unspecializedFilterType,
                                         typeVarContext,
-                                        /* unknownIfNotFound */ true
+                                        { unknownIfNotFound: true }
                                     ) as ClassType;
                                 }
                             }

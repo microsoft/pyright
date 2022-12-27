@@ -4602,7 +4602,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 type = TypeBase.cloneForTypeAlias(
-                    applySolvedTypeVars(type, typeVarContext, /* unknownIfNotFound */ true),
+                    applySolvedTypeVars(type, typeVarContext, { unknownIfNotFound: true }),
                     type.typeAliasInfo.name,
                     type.typeAliasInfo.fullName,
                     type.typeAliasInfo.typeVarScopeId,
@@ -8548,7 +8548,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const specializedType = applySolvedTypeVars(type, typeVarContext, unsolvedTypeVarsAreUnknown) as ClassType;
+        const specializedType = applySolvedTypeVars(type, typeVarContext, {
+            unknownIfNotFound: unsolvedTypeVarsAreUnknown,
+        }) as ClassType;
         return ClassType.cloneAsInstance(specializedType);
     }
 
@@ -10452,23 +10454,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // the call below to adjustCallableReturnType will "detach" these
         // TypeVars from the scope of this function and "attach" them to
         // the scope of the callable.
-        let unknownIfUnsolved = !isFunction(returnType);
+        let unknownIfNotFound = !isFunction(returnType);
 
         // We'll also leave TypeVars unsolved if the call is a recursive
         // call to a generic function.
         const typeVarScopes = getTypeVarScopesForNode(errorNode);
         if (typeVarScopes.some((typeVarScope) => typeVarContext.hasSolveForScope(typeVarScope))) {
-            unknownIfUnsolved = false;
+            unknownIfNotFound = false;
         }
 
         let specializedReturnType = addConditionToType(
-            applySolvedTypeVars(
-                returnType,
-                typeVarContext,
-                unknownIfUnsolved,
-                /* useNarrowBoundOnly */ false,
-                eliminateUnsolvedInUnions
-            ),
+            applySolvedTypeVars(returnType, typeVarContext, {
+                unknownIfNotFound,
+                eliminateUnsolvedInUnions,
+            }),
             typeCondition
         );
 
@@ -10743,12 +10742,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 functionType !== undefined &&
                 argParam.paramType.scopeId === functionType.details.typeVarScopeId
                     ? undefined
-                    : applySolvedTypeVars(
-                          argParam.paramType,
-                          typeVarContext,
-                          /* unknownIfNotFound */ false,
-                          useNarrowBoundOnly
-                      );
+                    : applySolvedTypeVars(argParam.paramType, typeVarContext, { useNarrowBoundOnly });
 
             // If the expected type is unknown, don't use an expected type. Instead,
             // use default rules for evaluating the expression type.
@@ -11146,11 +11140,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // or constraint.
         if (typeVar.details.defaultType && defaultValueNode) {
             const typeVarContext = new TypeVarContext(WildcardTypeVarScopeId);
-            const concreteDefaultType = applySolvedTypeVars(
-                typeVar.details.defaultType,
-                typeVarContext,
-                /* unknownIfNotFound */ true
-            );
+            const concreteDefaultType = applySolvedTypeVars(typeVar.details.defaultType, typeVarContext, {
+                unknownIfNotFound: true,
+            });
 
             if (typeVar.details.boundType) {
                 if (!assignType(typeVar.details.boundType, concreteDefaultType)) {
@@ -19919,11 +19911,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // or constraint.
         if (typeVar.details.defaultType && node.defaultExpression) {
             const typeVarContext = new TypeVarContext(WildcardTypeVarScopeId);
-            const concreteDefaultType = applySolvedTypeVars(
-                typeVar.details.defaultType,
-                typeVarContext,
-                /* unknownIfNotFound */ true
-            );
+            const concreteDefaultType = applySolvedTypeVars(typeVar.details.defaultType, typeVarContext, {
+                unknownIfNotFound: true,
+            });
 
             if (typeVar.details.boundType) {
                 if (!assignType(typeVar.details.boundType, concreteDefaultType)) {
@@ -23119,12 +23109,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let reverseMatchingFailed = false;
 
         if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
-            specializedDestType = applySolvedTypeVars(
-                destType,
-                destTypeVarContext,
-                /* unknownIfNotFound */ undefined,
-                /* useNarrowBoundOnly */ true
-            );
+            specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, { useNarrowBoundOnly: true });
 
             if (requiresSpecialization(specializedDestType)) {
                 reverseMatchingFailed = !assignType(
@@ -23142,12 +23127,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 specializedDestType = applySolvedTypeVars(destType, destTypeVarContext);
             }
         } else {
-            specializedSrcType = applySolvedTypeVars(
-                srcType,
-                srcTypeVarContext,
-                /* unknownIfNotFound */ undefined,
-                /* useNarrowBoundOnly */ true
-            );
+            specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext, { useNarrowBoundOnly: true });
 
             if (requiresSpecialization(specializedSrcType)) {
                 reverseMatchingFailed = !assignType(
@@ -23191,7 +23171,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 specializedSrcType = applySolvedTypeVars(
                     specializedSrcType.details.boundType,
                     new TypeVarContext(getTypeVarScopeId(specializedSrcType)),
-                    /* unknownIfNotFound */ true
+                    { unknownIfNotFound: true }
                 );
             }
         }

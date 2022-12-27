@@ -627,11 +627,9 @@ function narrowTypeBasedOnClassPattern(
                                                 /* liveTypeVarScopes */ undefined
                                             )
                                         ) {
-                                            resultType = applySolvedTypeVars(
-                                                matchTypeInstance,
-                                                typeVarContext,
-                                                /* unknownIfNotFound */ true
-                                            ) as ClassType;
+                                            resultType = applySolvedTypeVars(matchTypeInstance, typeVarContext, {
+                                                unknownIfNotFound: true,
+                                            }) as ClassType;
                                         }
                                     }
                                 }

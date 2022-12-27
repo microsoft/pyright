@@ -225,6 +225,16 @@ export class TypeVarContext {
         return this._paramSpecMap.get(this._getKey(reference))?.type;
     }
 
+    getParamSpecs(): ParamSpecMapEntry[] {
+        const entries: ParamSpecMapEntry[] = [];
+
+        this._paramSpecMap.forEach((entry) => {
+            entries.push(entry);
+        });
+
+        return entries;
+    }
+
     setParamSpec(reference: TypeVarType, type: ParamSpecValue) {
         assert(!this._isLocked);
         this._paramSpecMap.set(this._getKey(reference), { paramSpec: reference, type });

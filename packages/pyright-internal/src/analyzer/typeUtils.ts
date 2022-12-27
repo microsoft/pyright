@@ -226,6 +226,13 @@ export interface ParameterListDetails {
     hasUnpackedTypedDict: boolean;
 }
 
+export interface ApplyTypeVarOptions {
+    unknownIfNotFound?: boolean;
+    useNarrowBoundOnly?: boolean;
+    eliminateUnsolvedInUnions?: boolean;
+    typeClassType?: Type;
+}
+
 // Examines the input parameters within a function signature and creates a
 // "virtual list" of parameters, stripping out any markers and expanding
 // any *args with unpacked tuples.
@@ -1100,14 +1107,7 @@ export function partiallySpecializeType(
         populateTypeVarContextForSelfType(typeVarContext, contextClassType, selfClass);
     }
 
-    return applySolvedTypeVars(
-        type,
-        typeVarContext,
-        /* unknownIfNotFound */ undefined,
-        /* useNarrowBoundOnly */ undefined,
-        /* eliminateUnsolvedInUnions */ undefined,
-        typeClassType
-    );
+    return applySolvedTypeVars(type, typeVarContext, { typeClassType });
 }
 
 export function populateTypeVarContextForSelfType(
@@ -1124,23 +1124,14 @@ export function populateTypeVarContextForSelfType(
 export function applySolvedTypeVars(
     type: Type,
     typeVarContext: TypeVarContext,
-    unknownIfNotFound = false,
-    useNarrowBoundOnly = false,
-    eliminateUnsolvedInUnions = false,
-    typeClassType?: Type
+    options: ApplyTypeVarOptions = {}
 ): Type {
     // Use a shortcut if the typeVarContext is empty and no transform is necessary.
-    if (typeVarContext.isEmpty() && !unknownIfNotFound && !eliminateUnsolvedInUnions) {
+    if (typeVarContext.isEmpty() && !options.unknownIfNotFound && !options.eliminateUnsolvedInUnions) {
         return type;
     }
 
-    const transformer = new ApplySolvedTypeVarsTransformer(
-        typeVarContext,
-        unknownIfNotFound,
-        useNarrowBoundOnly,
-        eliminateUnsolvedInUnions,
-        typeClassType
-    );
+    const transformer = new ApplySolvedTypeVarsTransformer(typeVarContext, options);
     return transformer.apply(type, 0);
 }
 
@@ -3386,13 +3377,9 @@ class TypeVarDefaultTransformer extends TypeVarTransformer {
 // Specializes a (potentially generic) type by substituting
 // type variables from a type var map.
 class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
-    constructor(
-        private _typeVarContext: TypeVarContext,
-        private _unknownIfNotFound = false,
-        private _useNarrowBoundOnly = false,
-        private _eliminateUnsolvedInUnions = false,
-        private _typeClassType?: Type
-    ) {
+    private _isSolvingDefaultType = false;
+
+    constructor(private _typeVarContext: TypeVarContext, private _options: ApplyTypeVarOptions) {
         super();
     }
 
@@ -3400,12 +3387,12 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         // If the type variable is unrelated to the scopes we're solving,
         // don't transform that type variable.
         if (typeVar.scopeId && this._typeVarContext.hasSolveForScope(typeVar.scopeId)) {
-            let replacement = this._typeVarContext.getTypeVarType(typeVar, this._useNarrowBoundOnly);
+            let replacement = this._typeVarContext.getTypeVarType(typeVar, !!this._options.useNarrowBoundOnly);
 
             // If there was no narrow bound but there is a wide bound that
             // contains literals, we'll use the wide bound even if "useNarrowBoundOnly"
             // is specified.
-            if (!replacement && this._useNarrowBoundOnly) {
+            if (!replacement && !!this._options.useNarrowBoundOnly) {
                 const wideType = this._typeVarContext.getTypeVarType(typeVar);
                 if (wideType) {
                     if (containsLiteralType(wideType, /* includeTypeArgs */ true)) {
@@ -3418,11 +3405,11 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 if (TypeBase.isInstantiable(typeVar)) {
                     if (
                         isAnyOrUnknown(replacement) &&
-                        this._typeClassType &&
-                        isInstantiableClass(this._typeClassType)
+                        this._options.typeClassType &&
+                        isInstantiableClass(this._options.typeClassType)
                     ) {
                         replacement = ClassType.cloneForSpecialization(
-                            ClassType.cloneAsInstance(this._typeClassType),
+                            ClassType.cloneAsInstance(this._options.typeClassType),
                             [replacement],
                             /* isTypeArgumentExplicit */ true
                         );
@@ -3436,9 +3423,31 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             // If this typeVar is in scope for what we're solving but the type
             // var map doesn't contain any entry for it, replace with the
             // default or Unknown.
-            if (this._unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
-                return this.apply(TypeVarType.getEffectiveDefaultType(typeVar) ?? UnknownType.create(), recursionCount);
+            if (this._options.unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
+                // Use the default value if there is one.
+                if (typeVar.details.defaultType) {
+                    return this._solveDefaultType(typeVar.details.defaultType, recursionCount);
+                }
+
+                return UnknownType.create();
             }
+        }
+
+        // If we're solving a default type, handle type variables with no scope ID.
+        if (this._isSolvingDefaultType && !typeVar.scopeId) {
+            const replacementEntry = this._typeVarContext
+                .getTypeVars()
+                .find((entry) => entry.typeVar.details.name === typeVar.details.name);
+
+            if (replacementEntry) {
+                return this._typeVarContext.getTypeVarType(replacementEntry.typeVar);
+            }
+
+            if (typeVar.details.defaultType) {
+                return this.apply(typeVar.details.defaultType, recursionCount);
+            }
+
+            return UnknownType.create();
         }
 
         return undefined;
@@ -3450,7 +3459,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         // in cases where TypeVars can go unsolved due to unions in parameter
         // annotations, like this:
         //   def test(x: Union[str, T]) -> Union[str, T]
-        if (this._eliminateUnsolvedInUnions) {
+        if (this._options.eliminateUnsolvedInUnions) {
             if (
                 isTypeVar(preTransform) &&
                 preTransform.scopeId !== undefined &&
@@ -3464,7 +3473,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
                 // If _unknownIfNotFound is true, the postTransform type will
                 // be Unknown, which we want to eliminate.
-                if (isUnknown(postTransform) && this._unknownIfNotFound) {
+                if (isUnknown(postTransform) && this._options.unknownIfNotFound) {
                     return undefined;
                 }
             }
@@ -3475,7 +3484,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
     override transformTupleTypeVar(typeVar: TypeVarType): TupleTypeArgument[] | undefined {
         if (!typeVar.scopeId || !this._typeVarContext.hasSolveForScope(typeVar.scopeId)) {
-            const defaultType = TypeVarType.getEffectiveDefaultType(typeVar);
+            const defaultType = typeVar.details.defaultType;
 
             if (defaultType && isClassInstance(defaultType) && defaultType.tupleTypeArguments) {
                 return defaultType.tupleTypeArguments;
@@ -3488,6 +3497,23 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     }
 
     override transformParamSpec(paramSpec: TypeVarType, recursionCount: number): ParamSpecValue | undefined {
+        // If we're solving a default type, handle param specs with no scope ID.
+        if (this._isSolvingDefaultType && !paramSpec.scopeId) {
+            const replacementEntry = this._typeVarContext
+                .getParamSpecs()
+                .find((entry) => entry.paramSpec.details.name === paramSpec.details.name);
+
+            if (replacementEntry) {
+                return this._typeVarContext.getParamSpec(replacementEntry.paramSpec);
+            }
+
+            if (paramSpec.details.defaultType) {
+                return convertTypeToParamSpecValue(this.apply(paramSpec.details.defaultType, recursionCount));
+            }
+
+            return this._getUnknownParamSpec();
+        }
+
         if (!paramSpec.scopeId || !this._typeVarContext.hasSolveForScope(paramSpec.scopeId)) {
             return undefined;
         }
@@ -3497,30 +3523,39 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return transformedParamSpec;
         }
 
-        if (this._unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
+        if (this._options.unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
             // Use the default value if there is one.
-            const defaultType = TypeVarType.getEffectiveDefaultType(paramSpec);
-
-            if (defaultType) {
-                const convertedType = convertTypeToParamSpecValue(this.apply(defaultType, recursionCount));
-                if (convertedType) {
-                    return convertedType;
-                }
+            if (paramSpec.details.defaultType) {
+                return convertTypeToParamSpecValue(
+                    this._solveDefaultType(paramSpec.details.defaultType, recursionCount)
+                );
             }
 
             // Convert to the ParamSpec equivalent of "Unknown".
-            const paramSpecValue: ParamSpecValue = {
-                flags: FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck,
-                parameters: FunctionType.getDefaultParameters(/* useUnknown */ true),
-                typeVarScopeId: undefined,
-                docString: undefined,
-                paramSpec: undefined,
-            };
-
-            return paramSpecValue;
+            return this._getUnknownParamSpec();
         }
 
         return undefined;
+    }
+
+    private _solveDefaultType(defaultType: Type, recursionCount: number) {
+        const wasSolvingDefaultType = this._isSolvingDefaultType;
+        this._isSolvingDefaultType = true;
+        const result = this.apply(defaultType, recursionCount);
+        this._isSolvingDefaultType = wasSolvingDefaultType;
+        return result;
+    }
+
+    private _getUnknownParamSpec() {
+        const paramSpecValue: ParamSpecValue = {
+            flags: FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck,
+            parameters: FunctionType.getDefaultParameters(/* useUnknown */ true),
+            typeVarScopeId: undefined,
+            docString: undefined,
+            paramSpec: undefined,
+        };
+
+        return paramSpecValue;
     }
 }
 
