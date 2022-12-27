@@ -214,7 +214,6 @@ import {
     NeverType,
     NoneType,
     OverloadedFunctionType,
-    ParamSpecEntry,
     removeFromUnion,
     removeNoneFromUnion,
     removeUnbound,
@@ -10601,7 +10600,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let reportedArgError = false;
 
         // Build a map of all named parameters.
-        const paramMap = new Map<string, ParamSpecEntry>();
+        const paramMap = new Map<string, FunctionParameter>();
         const paramSpecParams = paramSpecValue.parameters;
         paramSpecParams.forEach((param) => {
             if (param.name) {
@@ -23846,7 +23845,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return true;
                 }).length;
                 let matchedParamCount = 0;
-                const remainingParams: ParamSpecEntry[] = [];
+                const remainingParams: FunctionParameter[] = [];
 
                 // If there are parameters in the source that are not matched
                 // to parameters in the dest, assume these are concatenated on

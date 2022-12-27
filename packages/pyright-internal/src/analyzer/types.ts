@@ -1110,16 +1110,14 @@ export namespace ClassType {
     }
 }
 
-export interface ParamSpecEntry {
+export interface FunctionParameter {
     category: ParameterCategory;
     name?: string | undefined;
     isNameSynthesized?: boolean;
     hasDefault?: boolean | undefined;
     defaultValueExpression?: ExpressionNode | undefined;
     type: Type;
-}
 
-export interface FunctionParameter extends ParamSpecEntry {
     isTypeInferred?: boolean | undefined;
     defaultType?: Type | undefined;
     hasDeclaredType?: boolean | undefined;
@@ -1283,7 +1281,7 @@ export interface FunctionType extends TypeBase {
 
 export interface ParamSpecValue {
     flags: FunctionTypeFlags;
-    parameters: ParamSpecEntry[];
+    parameters: FunctionParameter[];
     typeVarScopeId: TypeVarScopeId | undefined;
     docString: string | undefined;
     paramSpec: TypeVarType | undefined;

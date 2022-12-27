@@ -45,7 +45,6 @@ import {
     NeverType,
     NoneType,
     OverloadedFunctionType,
-    ParamSpecEntry,
     ParamSpecValue,
     SpecializedFunctionTypes,
     TupleTypeArgument,
@@ -1768,10 +1767,10 @@ export function buildTypeVarContext(
                 if (index < typeArgs.length) {
                     typeArgType = typeArgs[index];
                     if (isFunction(typeArgType) && FunctionType.isParamSpecValue(typeArgType)) {
-                        const paramSpecEntries: ParamSpecEntry[] = [];
+                        const params: FunctionParameter[] = [];
                         const typeArgFunctionType = typeArgType;
                         typeArgType.details.parameters.forEach((param, paramIndex) => {
-                            paramSpecEntries.push({
+                            params.push({
                                 category: param.category,
                                 name: param.name,
                                 hasDefault: !!param.hasDefault,
@@ -1781,7 +1780,7 @@ export function buildTypeVarContext(
                             });
                         });
                         typeVarContext.setParamSpec(typeParam, {
-                            parameters: paramSpecEntries,
+                            parameters: params,
                             typeVarScopeId: typeArgType.details.typeVarScopeId,
                             flags: typeArgType.details.flags,
                             docString: typeArgType.details.docString,
@@ -2796,28 +2795,28 @@ export function convertTypeToParamSpecValue(type: Type): ParamSpecValue | undefi
     return undefined;
 }
 
-export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue, omitParamSpec = false): Type {
-    let hasParameters = paramSpecEntry.parameters.length > 0;
+export function convertParamSpecValueToType(paramSpecValue: ParamSpecValue, omitParamSpec = false): Type {
+    let hasParameters = paramSpecValue.parameters.length > 0;
 
-    if (paramSpecEntry.parameters.length === 1) {
+    if (paramSpecValue.parameters.length === 1) {
         // If the ParamSpec has a position-only separator as its only parameter,
         // treat it as though there are no parameters.
-        const onlyParam = paramSpecEntry.parameters[0];
+        const onlyParam = paramSpecValue.parameters[0];
         if (onlyParam.category === ParameterCategory.Simple && !onlyParam.name) {
             hasParameters = false;
         }
     }
 
-    if (hasParameters || !paramSpecEntry.paramSpec || omitParamSpec) {
+    if (hasParameters || !paramSpecValue.paramSpec || omitParamSpec) {
         // Create a function type from the param spec entries.
         const functionType = FunctionType.createInstance(
             '',
             '',
             '',
-            FunctionTypeFlags.ParamSpecValue | paramSpecEntry.flags
+            FunctionTypeFlags.ParamSpecValue | paramSpecValue.flags
         );
 
-        paramSpecEntry.parameters.forEach((entry, index) => {
+        paramSpecValue.parameters.forEach((entry, index) => {
             FunctionType.addParameter(functionType, {
                 category: entry.category,
                 name: entry.name,
@@ -2830,14 +2829,14 @@ export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue, omit
         });
 
         if (!omitParamSpec) {
-            functionType.details.paramSpec = paramSpecEntry.paramSpec;
+            functionType.details.paramSpec = paramSpecValue.paramSpec;
         }
-        functionType.details.docString = paramSpecEntry.docString;
+        functionType.details.docString = paramSpecValue.docString;
 
         return functionType;
     }
 
-    return paramSpecEntry.paramSpec;
+    return paramSpecValue.paramSpec;
 }
 
 // Recursively walks a type and calls a callback for each TypeVar, allowing

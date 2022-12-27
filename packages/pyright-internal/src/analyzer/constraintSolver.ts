@@ -16,6 +16,7 @@ import {
     AnyType,
     ClassType,
     combineTypes,
+    FunctionParameter,
     FunctionType,
     FunctionTypeFlags,
     isAny,
@@ -32,7 +33,6 @@ import {
     isUnpacked,
     isUnpackedClass,
     isVariadicTypeVar,
-    ParamSpecEntry,
     TupleTypeArgument,
     Type,
     TypeBase,
@@ -736,7 +736,7 @@ function assignTypeToParamSpec(
     } else if (isFunction(srcType)) {
         const functionSrcType = srcType;
         const parameters = srcType.details.parameters.map((p, index) => {
-            const paramSpecEntry: ParamSpecEntry = {
+            const param: FunctionParameter = {
                 category: p.category,
                 name: p.name,
                 isNameSynthesized: p.isNameSynthesized,
@@ -744,7 +744,7 @@ function assignTypeToParamSpec(
                 defaultValueExpression: p.defaultValueExpression,
                 type: FunctionType.getEffectiveParameterType(functionSrcType, index),
             };
-            return paramSpecEntry;
+            return param;
         });
 
         const existingEntry = typeVarContext.getParamSpec(destType);
