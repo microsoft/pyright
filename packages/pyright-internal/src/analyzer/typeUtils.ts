@@ -1135,29 +1135,19 @@ export function applySolvedTypeVars(
     return transformer.apply(type, 0);
 }
 
-// Replaces any type parameters within a TypeVar default type and records
-// information about type parameters that are not "live".
-export function transformTypeVarDefault(
+// Validates that a default type associated with a TypeVar does not refer to
+// other TypeVars or ParamSpecs that are out of scope.
+export function validateTypeVarDefault(
     typeVar: TypeVarType,
     liveTypeParams: TypeVarType[],
-    unappliedTypeVars: Set<string>
-): TypeVarType {
-    // If there is no default type, the default type has already been
-    // transformed, or the default type is concrete, there's
+    invalidTypeVars: Set<string>
+) {
+    // If there is no default type or the default type is concrete, there's
     // no need to do any more work here.
-    if (
-        !typeVar.details.defaultType ||
-        typeVar.transformedDefaultType ||
-        !requiresSpecialization(typeVar.details.defaultType)
-    ) {
-        return typeVar;
+    if (typeVar.details.defaultType && requiresSpecialization(typeVar.details.defaultType)) {
+        const validator = new TypeVarDefaultValidator(liveTypeParams, invalidTypeVars);
+        validator.apply(typeVar.details.defaultType, 0);
     }
-
-    const transformer = new TypeVarDefaultTransformer(liveTypeParams, unappliedTypeVars);
-
-    const updatedDefaultType = transformer.apply(typeVar.details.defaultType, 0);
-
-    return TypeVarType.cloneForDefaultType(typeVar, updatedDefaultType);
 }
 
 // During bidirectional type inference for constructors, an "executed type"
@@ -1503,8 +1493,9 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
 
     if (isClass(type)) {
         const combinedList: TypeVarType[] = [];
-        if (type.typeArguments) {
-            type.typeArguments.forEach((typeArg) => {
+        const typeArgs = type.tupleTypeArguments ? type.tupleTypeArguments.map((e) => e.type) : type.typeArguments;
+        if (typeArgs) {
+            typeArgs.forEach((typeArg) => {
                 addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(typeArg, recursionCount));
             });
         }
@@ -2407,7 +2398,7 @@ export function requiresTypeArguments(classType: ClassType) {
 
         // If the first type parameter has a default type, then no
         // type arguments are needed.
-        if (TypeVarType.getEffectiveDefaultType(firstTypeParam)) {
+        if (firstTypeParam.details.defaultType) {
             return false;
         }
 
@@ -3343,32 +3334,27 @@ class TypeVarTransformer {
     }
 }
 
-// For a TypeVar with a default type, replaces references to type parameters
-// with their scoped counterparts.
-class TypeVarDefaultTransformer extends TypeVarTransformer {
-    constructor(private _liveTypeParams: TypeVarType[], private _unappliedTypeVars: Set<string>) {
+// For a TypeVar with a default type, validates whether the default type is using
+// any other TypeVars that are not currently in scope.
+class TypeVarDefaultValidator extends TypeVarTransformer {
+    constructor(private _liveTypeParams: TypeVarType[], private _invalidTypeVars: Set<string>) {
         super();
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
         const replacementType = this._liveTypeParams.find((param) => param.details.name === typeVar.details.name);
-        if (replacementType && !isParamSpec(replacementType)) {
-            return replacementType;
+        if (!replacementType || isParamSpec(replacementType)) {
+            this._invalidTypeVars.add(typeVar.details.name);
         }
-
-        this._unappliedTypeVars.add(typeVar.details.name);
 
         return UnknownType.create();
     }
 
     override transformParamSpec(paramSpec: TypeVarType) {
         const replacementType = this._liveTypeParams.find((param) => param.details.name === paramSpec.details.name);
-
-        if (replacementType && isParamSpec(replacementType)) {
-            return convertTypeToParamSpecValue(replacementType);
+        if (!replacementType || !isParamSpec(replacementType)) {
+            this._invalidTypeVars.add(paramSpec.details.name);
         }
-
-        this._unappliedTypeVars.add(paramSpec.details.name);
 
         return undefined;
     }
@@ -3431,6 +3417,23 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
                 return UnknownType.create();
             }
+        }
+
+        // If we're solving a default type, handle type variables with no scope ID.
+        if (this._isSolvingDefaultType && !typeVar.scopeId) {
+            const replacementEntry = this._typeVarContext
+                .getTypeVars()
+                .find((entry) => entry.typeVar.details.name === typeVar.details.name);
+
+            if (replacementEntry) {
+                return this._typeVarContext.getTypeVarType(replacementEntry.typeVar);
+            }
+
+            if (typeVar.details.defaultType) {
+                return this.apply(typeVar.details.defaultType, recursionCount);
+            }
+
+            return UnknownType.create();
         }
 
         // If we're solving a default type, handle type variables with no scope ID.
@@ -3548,7 +3551,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
     private _getUnknownParamSpec() {
         const paramSpecValue: ParamSpecValue = {
-            flags: FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck,
+            flags: FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck,
             parameters: FunctionType.getDefaultParameters(/* useUnknown */ true),
             typeVarScopeId: undefined,
             docString: undefined,

@@ -186,6 +186,19 @@ test('TypeVarDefaultFunction1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeVarDefaultFunction2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultFunction2.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('TypeVarDefaultFunction3', () => {
+    const configOptions = new ConfigOptions('.');
+    configOptions.defaultPythonVersion = PythonVersion.V3_12;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultFunction3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('FutureImport1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['futureImport1.py']);
     TestUtils.validateResults(analysisResults, 0);

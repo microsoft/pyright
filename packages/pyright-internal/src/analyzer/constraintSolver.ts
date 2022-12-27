@@ -91,6 +91,16 @@ export function assignTypeToTypeVar(
             return true;
         }
 
+        // Is this the equivalent of an "Unknown" for a ParamSpec?
+        if (
+            destType.details.isParamSpec &&
+            isFunction(srcType) &&
+            FunctionType.isParamSpecValue(srcType) &&
+            FunctionType.shouldSkipArgsKwargsCompatibilityCheck(srcType)
+        ) {
+            return true;
+        }
+
         // Never or NoReturn is always assignable to all type variables unless
         // we're enforcing invariance.
         if (isNever(srcType) && (flags & AssignTypeFlags.EnforceInvariance) === 0) {

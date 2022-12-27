@@ -294,7 +294,7 @@ import {
     specializeTupleClass,
     synthesizeTypeVarForSelfCls,
     transformPossibleRecursiveTypeAlias,
-    transformTypeVarDefault,
+    validateTypeVarDefault,
     VirtualParameterDetails,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
@@ -4577,7 +4577,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const typeVarContext = new TypeVarContext(type.typeAliasInfo.typeVarScopeId);
 
                 type.typeAliasInfo.typeParameters.forEach((param) => {
-                    let defaultType = TypeVarType.getEffectiveDefaultType(param);
+                    let defaultType = param.details.defaultType;
 
                     if (defaultType) {
                         defaultType = applySolvedTypeVars(defaultType, typeVarContext);
@@ -6092,6 +6092,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function adjustTypeArgumentsForVariadicTypeVar(
         typeArgs: TypeResultWithNode[],
         typeParameters: TypeVarType[],
+        typeVarScopeId: TypeVarScopeId,
         errorNode: ExpressionNode
     ): TypeResultWithNode[] {
         const variadicIndex = typeParameters.findIndex((param) => isVariadicTypeVar(param));
@@ -6156,16 +6157,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // Add an empty tuple that maps to the TypeVarTuple type parameter.
                     typeArgs.push({
                         node: errorNode,
-                        type:
-                            TypeVarType.getEffectiveDefaultType(typeParameters[variadicIndex]) ??
-                            convertToInstance(
-                                specializeTupleClass(
-                                    tupleClassType,
-                                    [],
-                                    /* isTypeArgumentExplicit */ true,
-                                    /* isUnpackedTuple */ true
-                                )
-                            ),
+                        type: convertToInstance(
+                            specializeTupleClass(
+                                tupleClassType,
+                                [],
+                                /* isTypeArgumentExplicit */ true,
+                                /* isUnpackedTuple */ true
+                            )
+                        ),
                     });
                 }
             }
@@ -6215,7 +6214,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const typeParameters = baseType.typeAliasInfo.typeParameters;
-        let typeArgs = adjustTypeArgumentsForVariadicTypeVar(getTypeArgs(node, flags), typeParameters, node);
+        let typeArgs = adjustTypeArgumentsForVariadicTypeVar(
+            getTypeArgs(node, flags),
+            typeParameters,
+            baseType.typeAliasInfo.typeVarScopeId,
+            node
+        );
 
         // PEP 612 says that if the class has only one type parameter consisting
         // of a ParamSpec, the list of arguments does not need to be enclosed in
@@ -6348,10 +6352,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     addError(Localizer.Diagnostic.typeArgListNotAllowed(), typeArgs[index].node);
                 }
 
-                const typeArgType: Type =
-                    index < typeArgs.length
-                        ? convertToInstance(typeArgs[index].type)
-                        : TypeVarType.getEffectiveDefaultType(param) ?? UnknownType.create();
+                let typeArgType: Type;
+                if (index < typeArgs.length) {
+                    typeArgType = convertToInstance(typeArgs[index].type);
+                } else if (param.details.defaultType) {
+                    typeArgType = applySolvedTypeVars(param, typeVarContext, { unknownIfNotFound: true });
+                } else {
+                    typeArgType = UnknownType.create();
+                }
+
                 assignTypeToTypeVar(
                     evaluatorInterface,
                     param,
@@ -6535,10 +6544,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isFinalAnnotation,
                         isClassVarAnnotation
                     );
+
                     if (!isAnnotatedClass) {
                         typeArgs = adjustTypeArgumentsForVariadicTypeVar(
                             typeArgs,
                             concreteSubtype.details.typeParameters,
+                            getTypeVarScopeId(concreteSubtype) ?? '',
                             node
                         );
                     }
@@ -15611,7 +15622,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Validate the default types for all type parameters.
         classType.details.typeParameters.forEach((typeParam, index) => {
             if (typeParam.details.defaultType) {
-                classType.details.typeParameters[index] = validateTypeParameterDefault(
+                validateTypeParameterDefault(
                     node.typeParameters?.parameters[index].defaultExpression ?? node.name,
                     typeParam,
                     classType.details.typeParameters.slice(0, index)
@@ -15891,18 +15902,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         errorNode: ExpressionNode,
         typeParam: TypeVarType,
         otherLiveTypeParams: TypeVarType[]
-    ): TypeVarType {
+    ) {
         if (!typeParam.details.defaultType) {
-            return typeParam;
+            return;
         }
 
-        const unappliedTypeVars = new Set<string>();
-        const updatedTypeParam = transformTypeVarDefault(typeParam, otherLiveTypeParams, unappliedTypeVars);
+        const invalidTypeVars = new Set<string>();
+        validateTypeVarDefault(typeParam, otherLiveTypeParams, invalidTypeVars);
 
         // If we found one or more unapplied type variable, report an error.
-        if (unappliedTypeVars.size > 0) {
+        if (invalidTypeVars.size > 0) {
             const diag = new DiagnosticAddendum();
-            unappliedTypeVars.forEach((name) => {
+            invalidTypeVars.forEach((name) => {
                 diag.addMessage(Localizer.DiagnosticAddendum.typeVarDefaultOutOfScope().format({ name }));
             });
 
@@ -15915,8 +15926,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 errorNode
             );
         }
-
-        return updatedTypeParam;
     }
 
     function inferTypeParameterVarianceForClass(classType: ClassType): void {
@@ -16767,6 +16776,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 functionType.details.flags |= FunctionTypeFlags.Generator;
             }
         }
+
+        // Validate the default types for all type parameters.
+        functionType.details.typeParameters.forEach((typeParam, index) => {
+            if (typeParam.details.defaultType) {
+                validateTypeParameterDefault(
+                    node.typeParameters?.parameters[index].defaultExpression ?? node.name,
+                    typeParam,
+                    functionType.details.typeParameters.slice(0, index)
+                );
+            }
+        });
 
         // Clear the "partially evaluated" flag to indicate that the functionType
         // is fully evaluated.
@@ -18917,9 +18937,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (typeArgs) {
             let minTypeArgCount = typeParameters.length;
-            const firstNonDefaultParam = typeParameters.findIndex(
-                (param) => !!TypeVarType.getEffectiveDefaultType(param)
-            );
+            const firstNonDefaultParam = typeParameters.findIndex((param) => !!param.details.defaultType);
             if (firstNonDefaultParam >= 0) {
                 minTypeArgCount = firstNonDefaultParam;
             }
@@ -19099,8 +19117,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return;
             }
 
-            const defaultType = TypeVarType.getEffectiveDefaultType(typeParam) ?? UnknownType.create();
-            const solvedDefaultType = applySolvedTypeVars(defaultType, typeVarContext);
+            const solvedDefaultType = applySolvedTypeVars(typeParam, typeVarContext, { unknownIfNotFound: true });
             typeArgTypes.push(solvedDefaultType);
             if (isParamSpec(typeParam)) {
                 const paramSpecValue = convertTypeToParamSpecValue(solvedDefaultType);

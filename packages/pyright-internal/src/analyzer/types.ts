@@ -2164,10 +2164,6 @@ export interface TypeVarType extends TypeBase {
 
     // May be different from declaredVariance if declared as Auto
     computedVariance?: Variance;
-
-    // Transformed version of the defaultType where unscoped type variables
-    // are replaced with scoped versions.
-    transformedDefaultType?: Type;
 }
 
 export namespace TypeVarType {
@@ -2219,13 +2215,6 @@ export namespace TypeVarType {
         const newInstance = TypeBase.cloneType(type);
         newInstance.isVariadicUnpacked = false;
         newInstance.isVariadicInUnion = false;
-        return newInstance;
-    }
-
-    export function cloneForDefaultType(type: TypeVarType, updatedDefaultType: Type) {
-        assert(type.details.defaultType);
-        const newInstance = TypeBase.cloneType(type);
-        newInstance.transformedDefaultType = updatedDefaultType;
         return newInstance;
     }
 
@@ -2319,10 +2308,6 @@ export namespace TypeVarType {
     // placeholder that has not yet been resolved.
     export function isTypeAliasPlaceholder(type: TypeVarType) {
         return !!type.details.recursiveTypeAliasName && !type.details.boundType;
-    }
-
-    export function getEffectiveDefaultType(type: TypeVarType): Type | undefined {
-        return type.transformedDefaultType ?? type.details.defaultType;
     }
 }
 
