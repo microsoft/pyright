@@ -1141,7 +1141,32 @@ export function applySolvedTypeVars(
         eliminateUnsolvedInUnions,
         typeClassType
     );
-    return transformer.apply(type);
+    return transformer.apply(type, 0);
+}
+
+// Replaces any type parameters within a TypeVar default type and records
+// information about type parameters that are not "live".
+export function transformTypeVarDefault(
+    typeVar: TypeVarType,
+    liveTypeParams: TypeVarType[],
+    unappliedTypeVars: Set<string>
+): TypeVarType {
+    // If there is no default type, the default type has already been
+    // transformed, or the default type is concrete, there's
+    // no need to do any more work here.
+    if (
+        !typeVar.details.defaultType ||
+        typeVar.transformedDefaultType ||
+        !requiresSpecialization(typeVar.details.defaultType)
+    ) {
+        return typeVar;
+    }
+
+    const transformer = new TypeVarDefaultTransformer(liveTypeParams, unappliedTypeVars);
+
+    const updatedDefaultType = transformer.apply(typeVar.details.defaultType, 0);
+
+    return TypeVarType.cloneForDefaultType(typeVar, updatedDefaultType);
 }
 
 // During bidirectional type inference for constructors, an "executed type"
@@ -1167,7 +1192,7 @@ export function transformExpectedTypeForConstructor(
     }
 
     const transformer = new ExpectedConstructorTypeTransformer(liveTypeVarScopes);
-    return transformer.apply(expectedType);
+    return transformer.apply(expectedType, 0);
 }
 
 // Given a protocol class, this function returns a set of all the
@@ -2391,7 +2416,7 @@ export function requiresTypeArguments(classType: ClassType) {
 
         // If the first type parameter has a default type, then no
         // type arguments are needed.
-        if (firstTypeParam.details.defaultType) {
+        if (TypeVarType.getEffectiveDefaultType(firstTypeParam)) {
             return false;
         }
 
@@ -2756,6 +2781,39 @@ function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recurs
     }
 }
 
+export function convertTypeToParamSpecValue(type: Type): ParamSpecValue | undefined {
+    if (isParamSpec(type)) {
+        return {
+            flags: FunctionTypeFlags.None,
+            parameters: [],
+            typeVarScopeId: getTypeVarScopeId(type),
+            docString: undefined,
+            paramSpec: type,
+        };
+    }
+
+    if (isFunction(type)) {
+        return {
+            flags: type.details.flags | FunctionTypeFlags.ParamSpecValue,
+            parameters: type.details.parameters.map((param, index) => {
+                return {
+                    category: param.category,
+                    name: param.name,
+                    hasDefault: param.hasDefault,
+                    defaultValueExpression: param.defaultValueExpression,
+                    isNameSynthesized: param.isNameSynthesized,
+                    type: FunctionType.getEffectiveParameterType(type, index),
+                };
+            }),
+            typeVarScopeId: getTypeVarScopeId(type),
+            docString: type.details.docString,
+            paramSpec: type.details.paramSpec,
+        };
+    }
+
+    return undefined;
+}
+
 export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue, omitParamSpec = false): Type {
     let hasParameters = paramSpecEntry.parameters.length > 0;
 
@@ -2777,7 +2835,7 @@ export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue, omit
             FunctionTypeFlags.ParamSpecValue | paramSpecEntry.flags
         );
 
-        paramSpecEntry.parameters.forEach((entry) => {
+        paramSpecEntry.parameters.forEach((entry, index) => {
             FunctionType.addParameter(functionType, {
                 category: entry.category,
                 name: entry.name,
@@ -2806,7 +2864,7 @@ class TypeVarTransformer {
     private _isTransformingTypeArg = false;
     private _pendingTypeVarTransformations = new Set<string>();
 
-    apply(type: Type, recursionCount = 0): Type {
+    apply(type: Type, recursionCount: number): Type {
         if (recursionCount > maxTypeRecursionCount) {
             return type;
         }
@@ -2866,7 +2924,7 @@ class TypeVarTransformer {
             // _pendingTypeVarTransformations set.
             const typeVarName = TypeVarType.getNameWithScope(type);
             if (!this._pendingTypeVarTransformations.has(typeVarName)) {
-                replacementType = this.transformTypeVar(type) ?? type;
+                replacementType = this.transformTypeVar(type, recursionCount) ?? type;
 
                 if (!this._isTransformingTypeArg) {
                     this._pendingTypeVarTransformations.add(typeVarName);
@@ -2900,7 +2958,7 @@ class TypeVarTransformer {
                 }
 
                 if (this.transformUnionSubtype) {
-                    return this.transformUnionSubtype(subtype, transformedType);
+                    return this.transformUnionSubtype(subtype, transformedType, recursionCount);
                 }
 
                 return transformedType;
@@ -2937,19 +2995,19 @@ class TypeVarTransformer {
         return type;
     }
 
-    transformTypeVar(typeVar: TypeVarType): Type | undefined {
+    transformTypeVar(typeVar: TypeVarType, recursionCount: number): Type | undefined {
         return typeVar;
     }
 
-    transformVariadicTypeVar(paramSpec: TypeVarType): TupleTypeArgument[] | undefined {
+    transformTupleTypeVar(paramSpec: TypeVarType, recursionCount: number): TupleTypeArgument[] | undefined {
         return undefined;
     }
 
-    transformParamSpec(paramSpec: TypeVarType): ParamSpecValue | undefined {
+    transformParamSpec(paramSpec: TypeVarType, recursionCount: number): ParamSpecValue | undefined {
         return undefined;
     }
 
-    transformUnionSubtype(preTransform: Type, postTransform: Type): Type | undefined {
+    transformUnionSubtype(preTransform: Type, postTransform: Type, recursionCount: number): Type | undefined {
         return postTransform;
     }
 
@@ -2991,7 +3049,7 @@ class TypeVarTransformer {
         const typeParams = ClassType.getTypeParameters(classType);
 
         const transformParamSpec = (paramSpec: TypeVarType) => {
-            const paramSpecValue = this.transformParamSpec(paramSpec);
+            const paramSpecValue = this.transformParamSpec(paramSpec, recursionCount);
             if (paramSpecValue) {
                 specializationNeeded = true;
                 return convertParamSpecValueToType(paramSpecValue);
@@ -3038,7 +3096,7 @@ class TypeVarTransformer {
                 } else {
                     const typeParamName = TypeVarType.getNameWithScope(typeParam);
                     if (!this._pendingTypeVarTransformations.has(typeParamName)) {
-                        const transformedType = this.transformTypeVar(typeParam);
+                        const transformedType = this.transformTypeVar(typeParam, recursionCount);
                         replacementType = transformedType ?? typeParam;
 
                         if (replacementType !== typeParam) {
@@ -3075,7 +3133,7 @@ class TypeVarTransformer {
                     }
                 });
             } else if (typeParams.length > 0) {
-                newVariadicTypeArgs = this.transformVariadicTypeVar(typeParams[0]);
+                newVariadicTypeArgs = this.transformTupleTypeVar(typeParams[0], recursionCount);
                 if (newVariadicTypeArgs) {
                     specializationNeeded = true;
                 }
@@ -3103,7 +3161,7 @@ class TypeVarTransformer {
 
         // Handle functions with a parameter specification in a special manner.
         if (functionType.details.paramSpec) {
-            const paramSpec = this.transformParamSpec(functionType.details.paramSpec);
+            const paramSpec = this.transformParamSpec(functionType.details.paramSpec, recursionCount);
             if (paramSpec) {
                 functionType = FunctionType.cloneForParamSpec(functionType, paramSpec);
             }
@@ -3140,7 +3198,7 @@ class TypeVarTransformer {
                 isParamSpec(kwargsParamType) &&
                 isTypeSame(argsParamType, kwargsParamType)
             ) {
-                const paramSpecType = this.transformParamSpec(argsParamType);
+                const paramSpecType = this.transformParamSpec(argsParamType, recursionCount);
                 if (paramSpecType) {
                     if (
                         paramSpecType.parameters.length > 0 ||
@@ -3285,6 +3343,37 @@ class TypeVarTransformer {
     }
 }
 
+// For a TypeVar with a default type, replaces references to type parameters
+// with their scoped counterparts.
+class TypeVarDefaultTransformer extends TypeVarTransformer {
+    constructor(private _liveTypeParams: TypeVarType[], private _unappliedTypeVars: Set<string>) {
+        super();
+    }
+
+    override transformTypeVar(typeVar: TypeVarType) {
+        const replacementType = this._liveTypeParams.find((param) => param.details.name === typeVar.details.name);
+        if (replacementType && !isParamSpec(replacementType)) {
+            return replacementType;
+        }
+
+        this._unappliedTypeVars.add(typeVar.details.name);
+
+        return UnknownType.create();
+    }
+
+    override transformParamSpec(paramSpec: TypeVarType) {
+        const replacementType = this._liveTypeParams.find((param) => param.details.name === paramSpec.details.name);
+
+        if (replacementType && isParamSpec(replacementType)) {
+            return convertTypeToParamSpecValue(replacementType);
+        }
+
+        this._unappliedTypeVars.add(paramSpec.details.name);
+
+        return undefined;
+    }
+}
+
 // Specializes a (potentially generic) type by substituting
 // type variables from a type var map.
 class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
@@ -3298,7 +3387,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         super();
     }
 
-    override transformTypeVar(typeVar: TypeVarType) {
+    override transformTypeVar(typeVar: TypeVarType, recursionCount: number) {
         // If the type variable is unrelated to the scopes we're solving,
         // don't transform that type variable.
         if (typeVar.scopeId && this._typeVarContext.hasSolveForScope(typeVar.scopeId)) {
@@ -3339,11 +3428,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             // var map doesn't contain any entry for it, replace with the
             // default or Unknown.
             if (this._unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
-                if (typeVar.details.defaultType) {
-                    return typeVar.details.defaultType;
-                }
-
-                return UnknownType.create();
+                return this.apply(TypeVarType.getEffectiveDefaultType(typeVar) ?? UnknownType.create(), recursionCount);
             }
         }
 
@@ -3379,14 +3464,12 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         return postTransform;
     }
 
-    override transformVariadicTypeVar(typeVar: TypeVarType): TupleTypeArgument[] | undefined {
+    override transformTupleTypeVar(typeVar: TypeVarType): TupleTypeArgument[] | undefined {
         if (!typeVar.scopeId || !this._typeVarContext.hasSolveForScope(typeVar.scopeId)) {
-            if (
-                typeVar.details.defaultType &&
-                isClassInstance(typeVar.details.defaultType) &&
-                typeVar.details.defaultType.tupleTypeArguments
-            ) {
-                return typeVar.details.defaultType.tupleTypeArguments;
+            const defaultType = TypeVarType.getEffectiveDefaultType(typeVar);
+
+            if (defaultType && isClassInstance(defaultType) && defaultType.tupleTypeArguments) {
+                return defaultType.tupleTypeArguments;
             }
 
             return undefined;
@@ -3395,7 +3478,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         return this._typeVarContext.getTupleTypeVar(typeVar);
     }
 
-    override transformParamSpec(paramSpec: TypeVarType) {
+    override transformParamSpec(paramSpec: TypeVarType, recursionCount: number): ParamSpecValue | undefined {
         if (!paramSpec.scopeId || !this._typeVarContext.hasSolveForScope(paramSpec.scopeId)) {
             return undefined;
         }
@@ -3407,16 +3490,13 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
         if (this._unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
             // Use the default value if there is one.
-            if (paramSpec.details.defaultType && isFunction(paramSpec.details.defaultType)) {
-                const funcType = paramSpec.details.defaultType;
+            const defaultType = TypeVarType.getEffectiveDefaultType(paramSpec);
 
-                return {
-                    flags: funcType.details.flags,
-                    parameters: funcType.details.parameters,
-                    typeVarScopeId: funcType.details.typeVarScopeId,
-                    docString: funcType.details.docString,
-                    paramSpec: funcType.details.paramSpec,
-                };
+            if (defaultType) {
+                const convertedType = convertTypeToParamSpecValue(this.apply(defaultType, recursionCount));
+                if (convertedType) {
+                    return convertedType;
+                }
             }
 
             // Convert to the ParamSpec equivalent of "Unknown".

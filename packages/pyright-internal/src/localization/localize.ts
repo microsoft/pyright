@@ -899,6 +899,8 @@ export namespace Localizer {
         export const typeVarDefaultConstraintMismatch = () =>
             getRawString('Diagnostic.typeVarDefaultConstraintMismatch');
         export const typeVarFirstArg = () => getRawString('Diagnostic.typeVarFirstArg');
+        export const typeVarDefaultInvalidTypeVar = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarDefaultInvalidTypeVar'));
         export const typeVarNoMember = () =>
             new ParameterizedString<{ type: string; name: string }>(getRawString('Diagnostic.typeVarNoMember'));
         export const typeVarNotSubscriptable = () =>
@@ -1290,6 +1292,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; type: string }>(getRawString('DiagnosticAddendum.typeOfSymbol'));
         export const typeUnsupported = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.typeUnsupported'));
+        export const typeVarDefaultOutOfScope = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarDefaultOutOfScope'));
         export const typeVarIsContravariant = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarIsContravariant'));
         export const typeVarIsCovariant = () =>

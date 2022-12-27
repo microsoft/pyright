@@ -238,7 +238,6 @@ import {
     applySolvedTypeVars,
     areTypesSame,
     AssignTypeFlags,
-    buildTypeVarContext,
     buildTypeVarContextFromSpecializedClass,
     ClassMember,
     ClassMemberLookupFlags,
@@ -249,6 +248,7 @@ import {
     convertParamSpecValueToType,
     convertToInstance,
     convertToInstantiable,
+    convertTypeToParamSpecValue,
     derivesFromClassRecursive,
     doForEachSubtype,
     explodeGenericClass,
@@ -293,6 +293,7 @@ import {
     specializeTupleClass,
     synthesizeTypeVarForSelfCls,
     transformPossibleRecursiveTypeAlias,
+    transformTypeVarDefault,
     VirtualParameterDetails,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
@@ -4568,21 +4569,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 let reportMissingTypeArguments = false;
                 const defaultTypeArgs: Type[] = [];
+                const typeVarContext = new TypeVarContext(type.typeAliasInfo.typeVarScopeId);
 
                 type.typeAliasInfo.typeParameters.forEach((param) => {
-                    if (param.details.defaultType) {
-                        defaultTypeArgs.push(param.details.defaultType);
+                    let defaultType = TypeVarType.getEffectiveDefaultType(param);
+
+                    if (defaultType) {
+                        defaultType = applySolvedTypeVars(defaultType, typeVarContext);
                     } else {
-                        defaultTypeArgs.push(UnknownType.create());
+                        defaultType = UnknownType.create();
                         reportMissingTypeArguments = true;
                     }
-                });
 
-                const typeVarContext = buildTypeVarContext(
-                    type.typeAliasInfo.typeParameters,
-                    defaultTypeArgs,
-                    type.typeAliasInfo.typeVarScopeId
-                );
+                    defaultTypeArgs.push(defaultType);
+                    typeVarContext.setTypeVarType(param, defaultType);
+                });
 
                 if (reportMissingTypeArguments) {
                     addDiagnostic(
@@ -6093,6 +6094,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Do we need to adjust the type arguments to map to a variadic type
         // param at the end of the list?
         if (variadicIndex >= 0) {
+            const variadicTypeVar = typeParameters[variadicIndex];
+
             if (tupleClassType && isInstantiableClass(tupleClassType)) {
                 if (variadicIndex < typeArgs.length) {
                     const variadicTypeResults = typeArgs.slice(
@@ -6144,12 +6147,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             ),
                         ];
                     }
-                } else {
+                } else if (!variadicTypeVar.details.defaultType) {
                     // Add an empty tuple that maps to the TypeVarTuple type parameter.
                     typeArgs.push({
                         node: errorNode,
                         type:
-                            typeParameters[variadicIndex].details.defaultType ??
+                            TypeVarType.getEffectiveDefaultType(typeParameters[variadicIndex]) ??
                             convertToInstance(
                                 specializeTupleClass(
                                     tupleClassType,
@@ -6343,7 +6346,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const typeArgType: Type =
                     index < typeArgs.length
                         ? convertToInstance(typeArgs[index].type)
-                        : param.details.defaultType ?? UnknownType.create();
+                        : TypeVarType.getEffectiveDefaultType(param) ?? UnknownType.create();
                 assignTypeToTypeVar(
                     evaluatorInterface,
                     param,
@@ -15608,6 +15611,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
+        // Validate the default types for all type parameters.
+        classType.details.typeParameters.forEach((typeParam, index) => {
+            if (typeParam.details.defaultType) {
+                classType.details.typeParameters[index] = validateTypeParameterDefault(
+                    node.typeParameters?.parameters[index].defaultExpression ?? node.name,
+                    typeParam,
+                    classType.details.typeParameters.slice(0, index)
+                );
+            }
+        });
+
         if (!computeMroLinearization(classType)) {
             addError(Localizer.Diagnostic.methodOrdering(), node.name);
         }
@@ -15870,6 +15884,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return { classType, decoratedType };
+    }
+
+    // Determines whether the type parameters has a default that refers to another
+    // type parameter. If so, validates that it is in the list of "live" type
+    // parameters and updates the scope of the type parameter referred to in the
+    // default type expression.
+    function validateTypeParameterDefault(
+        errorNode: ExpressionNode,
+        typeParam: TypeVarType,
+        otherLiveTypeParams: TypeVarType[]
+    ): TypeVarType {
+        if (!typeParam.details.defaultType) {
+            return typeParam;
+        }
+
+        const unappliedTypeVars = new Set<string>();
+        const updatedTypeParam = transformTypeVarDefault(typeParam, otherLiveTypeParams, unappliedTypeVars);
+
+        // If we found one or more unapplied type variable, report an error.
+        if (unappliedTypeVars.size > 0) {
+            const diag = new DiagnosticAddendum();
+            unappliedTypeVars.forEach((name) => {
+                diag.addMessage(Localizer.DiagnosticAddendum.typeVarDefaultOutOfScope().format({ name }));
+            });
+
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typeVarDefaultInvalidTypeVar().format({
+                    name: typeParam.details.name,
+                }) + diag.getString(),
+                errorNode
+            );
+        }
+
+        return updatedTypeParam;
     }
 
     function inferTypeParameterVarianceForClass(classType: ClassType): void {
@@ -18870,7 +18920,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (typeArgs) {
             let minTypeArgCount = typeParameters.length;
-            const firstNonDefaultParam = typeParameters.findIndex((param) => !!param.details.defaultType);
+            const firstNonDefaultParam = typeParameters.findIndex(
+                (param) => !!TypeVarType.getEffectiveDefaultType(param)
+            );
             if (firstNonDefaultParam >= 0) {
                 minTypeArgCount = firstNonDefaultParam;
             }
@@ -18981,6 +19033,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        const typeVarContext = new TypeVarContext(classType.details.typeVarScopeId);
+
         fullTypeParams.forEach((typeParam, index) => {
             if (typeArgs && index < typeArgs.length) {
                 if (typeParam.details.isParamSpec) {
@@ -18992,6 +19046,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         FunctionType.addDefaultParameters(functionType);
                         functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
                         typeArgTypes.push(functionType);
+                        const paramSpecValue = convertTypeToParamSpecValue(functionType);
+                        if (paramSpecValue) {
+                            typeVarContext.setParamSpec(typeParam, paramSpecValue);
+                        }
                         return;
                     }
 
@@ -19006,6 +19064,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             });
                         });
                         typeArgTypes.push(functionType);
+                        const paramSpecValue = convertTypeToParamSpecValue(functionType);
+                        if (paramSpecValue) {
+                            typeVarContext.setParamSpec(typeParam, paramSpecValue);
+                        }
                         return;
                     }
 
@@ -19034,11 +19096,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                typeArgTypes.push(convertToInstance(typeArgs[index].type));
+                const typeArgType = convertToInstance(typeArgs[index].type);
+                typeArgTypes.push(typeArgType);
+                typeVarContext.setTypeVarType(typeParam, typeArgType);
                 return;
             }
 
-            typeArgTypes.push(typeParam.details.defaultType ?? UnknownType.create());
+            const defaultType = TypeVarType.getEffectiveDefaultType(typeParam) ?? UnknownType.create();
+            const solvedDefaultType = applySolvedTypeVars(defaultType, typeVarContext);
+            typeArgTypes.push(solvedDefaultType);
+            if (isParamSpec(typeParam)) {
+                const paramSpecValue = convertTypeToParamSpecValue(solvedDefaultType);
+                if (paramSpecValue) {
+                    typeVarContext.setParamSpec(typeParam, paramSpecValue);
+                }
+            } else {
+                typeVarContext.setTypeVarType(typeParam, solvedDefaultType);
+            }
         });
 
         typeArgTypes = typeArgTypes.map((typeArgType, index) => {

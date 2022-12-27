@@ -170,6 +170,14 @@ test('TypeVarDefault5', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeVarDefault6', () => {
+    const configOptions = new ConfigOptions('.');
+    configOptions.defaultPythonVersion = PythonVersion.V3_12;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault6.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 8);
+});
+
 test('FutureImport1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['futureImport1.py']);
     TestUtils.validateResults(analysisResults, 0);
