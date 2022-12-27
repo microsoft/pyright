@@ -1,4 +1,4 @@
-# This sample tests support for PEP 696 -- default types for TypeVars.
+# This sample tests basic support for PEP 696 -- default types for TypeVars.
 
 from typing import Any, ParamSpec
 from typing_extensions import TypeVar, TypeVarTuple, Unpack

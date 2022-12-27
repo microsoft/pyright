@@ -1,71 +1,90 @@
-# This sample tests support for PEP 696 -- default types for TypeVars.
-# In particular, it tests the handling of default TypeVar types for
-# generic classes.
+# This sample tests the PEP 695 type parameter syntax extensions introduced
+# in PEP 696 (default types for TypeVarLike).
 
-from typing import Generic
-from typing_extensions import TypeVar, ParamSpec, TypeVarTuple, Unpack
-
+from typing import Any, ParamSpec, TypeVar, Unpack
+from typing_extensions import TypeVarTuple
 
 T1 = TypeVar("T1")
-T2 = TypeVar("T2", default=int)
-T3 = TypeVar("T3", default=str)
-
-class ClassA1(Generic[T2, T3]):
-    ...
-
-def func_a1(a: ClassA1, b: ClassA1[float], c: ClassA1[float, float]):
-    reveal_type(a, expected_text="ClassA1[int, str]")
-    reveal_type(b, expected_text="ClassA1[float, str]")
-    reveal_type(c, expected_text="ClassA1[float, float]")
-
-
-class ClassA2(Generic[T1, T2, T3]):
-    ...
-
-def func_a2(a: ClassA2, b: ClassA2[float], c: ClassA2[float, float], d: ClassA2[float, float, float]):
-    reveal_type(a, expected_text="ClassA2[Unknown, int, str]")
-    reveal_type(b, expected_text="ClassA2[float, int, str]")
-    reveal_type(c, expected_text="ClassA2[float, float, str]")
-    reveal_type(d, expected_text="ClassA2[float, float, float]")
-
-
-P1 = ParamSpec("P1")
-P2 = ParamSpec("P2", default=(int, str))
-P3 = ParamSpec("P3", default=...)
-
-class ClassB1(Generic[P2, P3]):
-    ...
-
-def func_b1(a: ClassB1, b: ClassB1[[float]], c: ClassB1[[float], [float]]):
-    reveal_type(a, expected_text="ClassB1[(int, str), (...)]")
-    reveal_type(b, expected_text="ClassB1[(float), (...)]")
-    reveal_type(c, expected_text="ClassB1[(float), (float)]")
-
-
 Ts1 = TypeVarTuple("Ts1")
-Ts2 = TypeVarTuple("Ts2", default=Unpack[tuple[int, str]])
-Ts3 = TypeVarTuple("Ts3", default=Unpack[tuple[float, ...]])
-Ts4 = TypeVarTuple("Ts4", default=Unpack[tuple[()]])
+P1 = ParamSpec("P1")
 
-class ClassC1(Generic[*Ts2]):
-    ...
 
-class ClassC2(Generic[T3, *Ts3]):
-    ...
+# This should generate an error because default must be a type expression.
+class ClassT1[T = 3]: ...
 
-class ClassC3(Generic[T3, *Ts4]):
-    ...
+class ClassT2[T: float = int]: ...
 
-def func_c1(a: ClassC1, b: ClassC1[*tuple[float]]):
-    reveal_type(a, expected_text="ClassC1[int, str]")
-    reveal_type(b, expected_text="ClassC1[float]")
+# This should generate an error because default must be a subtype of bound
+class ClassT3[T: int = float]: ...
 
-def func_c2(a: ClassC2, b: ClassC2[int], c: ClassC2[int, *tuple[()]]):
-    reveal_type(a, expected_text="ClassC2[str, *tuple[float, ...]]")
-    reveal_type(b, expected_text="ClassC2[int, *tuple[float, ...]]")
-    reveal_type(c, expected_text="ClassC2[int]")
+class ClassT4[T: list[Any] = list[int]]: ...
 
-def func_c3(a: ClassC3, b: ClassC3[int], c: ClassC3[int, *tuple[float]]):
-    reveal_type(a, expected_text="ClassC3[str]")
-    reveal_type(b, expected_text="ClassC3[int]")
-    reveal_type(c, expected_text="ClassC3[int, float]")
+class ClassT5[T: (bytes, str) = str]: ...
+
+# This should generate an error because str | bytes isn't one of the constrained types
+class ClassT6[T: (bytes, str) = str | bytes]: ...
+
+# This should generate an error because T1 is not a valid default
+class ClassT7[T = T1]: ...
+
+# This should generate an error because Ts1 is not a valid default
+class ClassT8[T = Ts1]: ...
+
+# This should generate an error because P1 is not a valid default
+class ClassT9[T = P1]: ...
+
+
+class ClassTs1[*Ts = *tuple[int]]: ...
+
+class ClassTs2[*Ts = Unpack[tuple[int]]]: ...
+
+# This should generate an error because default must be unpacked tuple
+class ClassTs3[*Ts = tuple[int]]: ...
+
+# This should generate an error because default must be unpacked tuple
+class ClassTs4[*Ts = int]: ...
+
+# This should generate an error because default must be unpacked tuple
+class ClassTs5[*Ts = T1]: ...
+
+# This should generate an error because default must be unpacked tuple
+class ClassTs6[*Ts = Ts1]: ...
+
+# This should generate an error because default must be unpacked tuple
+class ClassTs7[*Ts = P1]: ...
+
+class ClassTs8[*Ts = Unpack[tuple[int, ...]]]: ...
+
+# This should generate an error because T1 isn't legal here
+class ClassTs9[*Ts = Unpack[tuple[T1, T1]]]: ...
+
+# This should generate an error because ... isn't legal here
+class ClassTs10[*Ts = ...]: ...
+
+
+class ClassP1[**P = (int, )]: ...
+
+class ClassP2[**P = ...]: ...
+
+class ClassP3[**P = ()]: ...
+
+class ClassP4[**P = (int, str, None, int | None)]: ...
+
+# This should generate an error because T1 isn't legal here
+class ClassP5[**P = (T1, )]: ...
+
+# This should generate an error because ParamSpec must be a tuple of types
+class ClassP6[**P = int]: ...
+
+# This should generate an error because ParamSpec must be a tuple of types
+class ClassP7[**P = 3]: ...
+
+# This should generate an error because ParamSpec must be a tuple of types
+class ClassP8[**P = (1, int)]: ...
+
+# This should generate an error because ParamSpec must be a tuple of types
+class ClassP9[**P = P1]: ...
+
+# This should generate an error because ParamSpec must be a tuple of types
+class ClassP10[**P = Ts1]: ...
+

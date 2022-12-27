@@ -148,42 +148,42 @@ test('TypeVarDefault1', () => {
 });
 
 test('TypeVarDefault2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault2.py']);
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeVarDefault3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault3.py']);
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeVarDefault4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault4.py']);
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeVarDefault5', () => {
     const configOptions = new ConfigOptions('.');
     configOptions.defaultPythonVersion = PythonVersion.V3_12;
 
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault5.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 22);
 });
 
-test('TypeVarDefault6', () => {
+test('TypeVarDefaultClass1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultClass1.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeVarDefaultClass2', () => {
     const configOptions = new ConfigOptions('.');
     configOptions.defaultPythonVersion = PythonVersion.V3_12;
 
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault6.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultClass2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 8);
 });
 
-test('TypeVarDefault7', () => {
+test('TypeVarDefaultClass3', () => {
     const configOptions = new ConfigOptions('.');
     configOptions.defaultPythonVersion = PythonVersion.V3_12;
 
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault7.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultClass3.py'], configOptions);
     TestUtils.validateResults(analysisResults, 8);
+});
+
+test('TypeVarDefaultTypeAlias1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultTypeAlias1.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeVarDefaultFunction1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultFunction1.py']);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('FutureImport1', () => {
