@@ -17,7 +17,8 @@ T1 = TypeVar("T1", default=int)
 # This should generate an error because default must be a type expression.
 T2 = TypeVar("T2", default=3)
 
-T3 = TypeVar("T3", bound=float, default=int)
+TInt = TypeVar("TInt", bound=int)
+T3 = TypeVar("T3", bound=float, default=TInt)
 
 # This should generate an error because default must be a subtype of bound.
 T4 = TypeVar("T4", bound=int, default=float)

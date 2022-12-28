@@ -11156,9 +11156,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // or constraint.
         if (typeVar.details.defaultType && defaultValueNode) {
             const typeVarContext = new TypeVarContext(WildcardTypeVarScopeId);
-            const concreteDefaultType = applySolvedTypeVars(typeVar.details.defaultType, typeVarContext, {
-                unknownIfNotFound: true,
-            });
+            const concreteDefaultType = makeTopLevelTypeVarsConcrete(
+                applySolvedTypeVars(typeVar.details.defaultType, typeVarContext, {
+                    unknownIfNotFound: true,
+                })
+            );
 
             if (typeVar.details.boundType) {
                 if (!assignType(typeVar.details.boundType, concreteDefaultType)) {
