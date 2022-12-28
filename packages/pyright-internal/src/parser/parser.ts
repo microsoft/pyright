@@ -3624,7 +3624,10 @@ export class Parser {
             }
 
             if (nextTokenType !== TokenType.Colon) {
-                sliceExpressions[sliceIndex] = this._parseTestExpression(/* allowAssignmentExpression */ false);
+                // Python 3.10 and newer allow assignment expressions to be used inside of a subscript.
+                const allowAssignmentExpression =
+                    this._parseOptions.isStubFile || this._getLanguageVersion() >= PythonVersion.V3_10;
+                sliceExpressions[sliceIndex] = this._parseTestExpression(allowAssignmentExpression);
             }
             sliceIndex++;
 
