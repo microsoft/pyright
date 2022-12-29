@@ -903,14 +903,19 @@ export function getCodeFlowEngine(
                             !isIncompleteUnknown(effectiveType) &&
                             !firstAntecedentTypeIsIncomplete
                         ) {
+                            // Bump the generation count because we need to recalculate
+                            // other incomplete types based on this now-complete type.
+                            flowIncompleteGeneration++;
                             reportIncomplete = false;
                         }
 
-                        // If we saw a pending entry, do not save over the top of the cache
-                        // entry because we'll overwrite a pending evaluation.
-                        return sawPending
-                            ? { type: effectiveType, isIncomplete: reportIncomplete }
-                            : setCacheEntry(loopNode, effectiveType, reportIncomplete);
+                        // If we saw a pending or incomplete entry, do not save over the top
+                        // of the cache entry because we'll overwrite the partial
+                        if (sawPending || sawIncomplete) {
+                            return { type: effectiveType, isIncomplete: reportIncomplete };
+                        }
+
+                        return setCacheEntry(loopNode, effectiveType, /* isIncomplete */ false);
                     }
 
                     attemptCount++;
