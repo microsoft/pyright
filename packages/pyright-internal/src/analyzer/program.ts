@@ -1142,8 +1142,9 @@ export class Program {
                             const filesVisitedMap = new Map<string, SourceFileInfo>();
 
                             if (!this._detectAndReportImportCycles(file, filesVisitedMap)) {
-                                // If no cycles were reported, set a flag in all of the visited files
-                                // so we don't need to visit them again on subsequent cycle checks.
+                                // If no cycles were found in any of the files we visited,
+                                // set a flag to indicates that we don't need to visit them again
+                                // on subsequent cycle checks.
                                 filesVisitedMap.forEach((sourceFileInfo) => {
                                     sourceFileInfo.sourceFile.setNoCircularDependencyConfirmed();
                                 });
@@ -1214,17 +1215,25 @@ export class Program {
             return false;
         }
 
-        filesVisited.set(sourceFileInfo.sourceFile.getFilePath(), sourceFileInfo);
+        const filePath = normalizePathCase(this._fs, sourceFileInfo.sourceFile.getFilePath());
+
+        filesVisited.set(filePath, sourceFileInfo);
+
         let detectedCycle = false;
 
-        const filePath = normalizePathCase(this._fs, sourceFileInfo.sourceFile.getFilePath());
         if (dependencyMap.has(filePath)) {
+            // We detect a cycle (partial or full). A full cycle is one that is
+            // rooted in the file at the start of our dependency chain. A partial
+            // cycle loops back on some other file in the dependency chain. We
+            // will report only full cycles here and leave the reporting of
+            // partial cycles to other passes.
+            detectedCycle = true;
+
             // Look for chains at least two in length. A file that contains
             // an "import . from X" will technically create a cycle with
             // itself, but those are not interesting to report.
             if (dependencyChain.length > 1 && sourceFileInfo === dependencyChain[0]) {
                 this._logImportCycle(dependencyChain);
-                detectedCycle = true;
             }
         } else {
             // If we've already checked this dependency along

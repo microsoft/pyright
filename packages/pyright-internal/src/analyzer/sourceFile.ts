@@ -612,6 +612,7 @@ export class SourceFile {
     markReanalysisRequired(forceRebinding: boolean): void {
         // Keep the parse info, but reset the analysis to the beginning.
         this._isCheckingNeeded = true;
+        this._noCircularDependencyConfirmed = false;
 
         // If the file contains a wildcard import or __all__ symbols,
         // we need to rebind because a dependent import may have changed.
