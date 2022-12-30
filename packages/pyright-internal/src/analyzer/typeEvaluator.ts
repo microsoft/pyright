@@ -7167,6 +7167,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 index < expectedTypes.length ? expectedTypes[index] : undefined
             )
         );
+        const isIncomplete = entryTypeResults.some((result) => result.isIncomplete);
 
         const type = convertToInstance(
             specializeTupleClass(
@@ -7187,7 +7188,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        return { type, expectedTypeDiagAddendum };
+        return { type, expectedTypeDiagAddendum, isIncomplete };
     }
 
     function getTypeOfTupleInferred(node: TupleNode): TypeResult {
