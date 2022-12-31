@@ -615,7 +615,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let strClassType: Type | undefined;
     let dictClassType: Type | undefined;
     let typedDictClassType: Type | undefined;
-    let incompleteTypeCache: Map<number, Type> | undefined;
+    let incompleteTypeCache = new Map<number, Type>();
     let printExpressionSpaceCount = 0;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
@@ -650,6 +650,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         functionRecursionMap = new Set<number>();
         codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
         typeCache = new Map<number, Type>();
+        incompleteTypeCache = new Map<number, Type>();
         effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
         expectedTypeCache = new Map<number, Type>();
     }
@@ -715,9 +716,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         allowSpeculativeCaching = false
     ) {
         if (isIncomplete) {
-            if (incompleteTypeCache) {
-                incompleteTypeCache.set(node.id, type);
-            }
+            incompleteTypeCache.set(node.id, type);
             return;
         }
 
@@ -18693,31 +18692,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: subnodeType };
         }
 
-        const oldIncompleteCache = incompleteTypeCache;
-        try {
-            // If there isn't already an incompleteTypeCache allocated, allocate
-            // one now. We'll use this same cache for nested calls, but we'll
-            // abandon it once the last nested call completes.
-            if (!incompleteTypeCache) {
-                incompleteTypeCache = new Map<number, Type>();
-            }
-            callback();
-            subnodeType = readTypeCache(subnode, /* flags */ undefined);
-            if (subnodeType) {
-                return { type: subnodeType };
-            }
+        callback();
+        subnodeType = readTypeCache(subnode, /* flags */ undefined);
+        if (subnodeType) {
+            return { type: subnodeType };
+        }
 
-            subnodeType = incompleteTypeCache.get(subnode.id) as Type | undefined;
-            if (subnodeType) {
-                return { type: subnodeType, isIncomplete: true };
-            }
-
-            incompleteTypeCache = oldIncompleteCache;
-        } catch (e) {
-            // We don't use a finally clause here because the debugger doesn't
-            // handle it well when stepping through code.
-            incompleteTypeCache = oldIncompleteCache;
-            throw e;
+        subnodeType = incompleteTypeCache.get(subnode.id) as Type | undefined;
+        if (subnodeType) {
+            return { type: subnodeType, isIncomplete: true };
         }
 
         return undefined;
