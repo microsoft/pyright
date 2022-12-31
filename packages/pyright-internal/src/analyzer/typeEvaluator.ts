@@ -145,7 +145,7 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
-import { CachedType, isIncompleteType, SpeculativeTypeTracker, TypeCache } from './typeCache';
+import { SpeculativeTypeTracker } from './typeCacheUtils';
 import {
     assignToTypedDict,
     assignTypedDictToTypedDict as assignTypedDictToTypedDict,
@@ -598,7 +598,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     let functionRecursionMap = new Set<number>();
     let codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
-    let typeCache: TypeCache = new Map<number, CachedType>();
+    let typeCache = new Map<number, Type>();
     let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
     let expectedTypeCache = new Map<number, Type>();
     let classTypeHooks: ClassTypeHook[] = [];
@@ -615,11 +615,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let strClassType: Type | undefined;
     let dictClassType: Type | undefined;
     let typedDictClassType: Type | undefined;
-    let incompleteTypeCache: TypeCache | undefined;
+    let incompleteTypeCache: Map<number, Type> | undefined;
     let printExpressionSpaceCount = 0;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
-    let returnTypeInferenceTypeCache: TypeCache | undefined;
+    let returnTypeInferenceTypeCache: Map<number, Type> | undefined;
 
     function runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T {
         try {
@@ -649,13 +649,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function disposeEvaluator() {
         functionRecursionMap = new Set<number>();
         codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
-        typeCache = new Map<number, CachedType>();
+        typeCache = new Map<number, Type>();
         effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
         expectedTypeCache = new Map<number, Type>();
     }
 
     function isTypeCached(node: ParseNode) {
-        let cachedType: CachedType | undefined;
+        let cachedType: Type | undefined;
 
         if (returnTypeInferenceTypeCache && isNodeInReturnTypeInferenceContext(node)) {
             cachedType = returnTypeInferenceTypeCache.get(node.id);
@@ -667,7 +667,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function readTypeCache(node: ParseNode, flags: EvaluatorFlags | undefined): Type | undefined {
-        let cachedType: CachedType | undefined;
+        let cachedType: Type | undefined;
 
         // Should we use a temporary cache associated with a contextual
         // analysis of a function, contextualized based on call-site argument types?
@@ -703,8 +703,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        assert(!isIncompleteType(cachedType));
-        return cachedType as Type;
+        return cachedType;
     }
 
     function writeTypeCache(
@@ -18700,7 +18699,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // one now. We'll use this same cache for nested calls, but we'll
             // abandon it once the last nested call completes.
             if (!incompleteTypeCache) {
-                incompleteTypeCache = new Map<number, CachedType>();
+                incompleteTypeCache = new Map<number, Type>();
             }
             callback();
             subnodeType = readTypeCache(subnode, /* flags */ undefined);
@@ -20806,7 +20805,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             try {
-                returnTypeInferenceTypeCache = new Map<number, CachedType>();
+                returnTypeInferenceTypeCache = new Map<number, Type>();
 
                 let allArgTypesAreUnknown = true;
                 functionNode.parameters.forEach((param, index) => {

@@ -37,14 +37,7 @@ import {
 } from './codeFlowTypes';
 import { formatControlFlowGraph } from './codeFlowUtils';
 import { isMatchingExpression, isPartialMatchingExpression, printExpression } from './parseTreeUtils';
-import {
-    CachedType,
-    IncompleteSubtypeInfo,
-    IncompleteType,
-    isIncompleteType,
-    SpeculativeTypeTracker,
-    TypeCache,
-} from './typeCache';
+import { SpeculativeTypeTracker } from './typeCacheUtils';
 import { narrowForKeyAssignment } from './typedDicts';
 import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { getTypeNarrowingCallback } from './typeGuards';
@@ -114,8 +107,43 @@ export interface CodeFlowEngine {
     ) => void;
 }
 
+export interface IncompleteSubtypeInfo {
+    type: Type;
+    isIncomplete: boolean;
+    isPending: boolean;
+    evaluationCount: number;
+}
+
+export interface IncompleteType {
+    isIncompleteType?: true;
+
+    // Type computed so far
+    type: Type | undefined;
+
+    // Array of incomplete subtypes that have been computed so far
+    // (used for loops)
+    incompleteSubtypes: IncompleteSubtypeInfo[];
+
+    // Tracks whether something has changed since this cache entry
+    // was written that might change the incomplete type; if this
+    // doesn't match the global "incomplete generation count", this
+    // cached value is stale
+    generationCount: number;
+
+    // Indicates that the cache entry represents a sentinel
+    // value used to detect and prevent recursion.
+    isRecursionSentinel?: boolean;
+}
+
+// Define a user type guard function for IncompleteType.
+export function isIncompleteType(cachedType: CachedType): cachedType is IncompleteType {
+    return !!(cachedType as IncompleteType).isIncompleteType;
+}
+
+export type CachedType = Type | IncompleteType;
+
 interface CodeFlowTypeCache {
-    cache: TypeCache;
+    cache: Map<number, CachedType | undefined>;
     pendingNodes: Set<number>;
 }
 

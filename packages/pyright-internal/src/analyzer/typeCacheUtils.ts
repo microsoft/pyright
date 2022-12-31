@@ -1,11 +1,10 @@
 /*
- * typeCache.ts
+ * typeCacheUtils.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  * Author: Eric Traut
  *
- * Module used by the type evaluator that caches computed types
- * and stores them by node ID.
+ * Utilities for managing type caches.
  */
 
 import { assert } from '../common/debug';
@@ -13,56 +12,16 @@ import { ParseNode } from '../parser/parseNodes';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { isTypeSame, Type } from './types';
 
-// A type cache maps node IDs to types or pseudo-type objects.
-export type TypeCache = Map<number, CachedType | undefined>;
-
-// An entry within the cache is either a type or an "incomplete type"
-// object that refers to a type.
-export type CachedType = Type | IncompleteType;
-
-export interface IncompleteSubtypeInfo {
-    type: Type;
-    isIncomplete: boolean;
-    isPending: boolean;
-    evaluationCount: number;
-}
-
-export interface IncompleteType {
-    isIncompleteType?: true;
-
-    // Type computed so far
-    type: Type | undefined;
-
-    // Array of incomplete subtypes that have been computed so far
-    // (used for loops)
-    incompleteSubtypes: IncompleteSubtypeInfo[];
-
-    // Tracks whether something has changed since this cache entry
-    // was written that might change the incomplete type; if this
-    // doesn't match the global "incomplete generation count", this
-    // cached value is stale
-    generationCount: number;
-
-    // Indicates that the cache entry represents a sentinel
-    // value used to detect and prevent recursion.
-    isRecursionSentinel?: boolean;
-}
-
-// Define a user type guard function for IncompleteType.
-export function isIncompleteType(cachedType: CachedType): cachedType is IncompleteType {
-    return !!(cachedType as IncompleteType).isIncompleteType;
-}
-
 // Define an interface to track speculative entries that need to
 // be cleaned up when they go out of scope.
-interface TypeCacheEntry {
-    cache: TypeCache;
+interface SpeculativeEntry {
+    cache: Map<number, any>;
     id: number;
 }
 
 interface SpeculativeContext {
     speculativeRootNode: ParseNode;
-    entriesToUndo: TypeCacheEntry[];
+    entriesToUndo: SpeculativeEntry[];
     allowCacheRetention: boolean;
 }
 
@@ -118,7 +77,7 @@ export class SpeculativeTypeTracker {
         return false;
     }
 
-    trackEntry(cache: TypeCache, id: number) {
+    trackEntry(cache: Map<number, any>, id: number) {
         const stackSize = this._speculativeContextStack.length;
         if (stackSize > 0) {
             this._speculativeContextStack[stackSize - 1].entriesToUndo.push({
