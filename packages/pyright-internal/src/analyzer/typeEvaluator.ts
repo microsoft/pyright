@@ -658,18 +658,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         expectedTypeCache = new Map<number, Type>();
     }
 
-    function isTypeCached(node: ParseNode) {
-        let cachedType: TypeCacheEntry | undefined;
-
-        if (returnTypeInferenceTypeCache && isNodeInReturnTypeInferenceContext(node)) {
-            cachedType = returnTypeInferenceTypeCache.get(node.id);
-        } else {
-            cachedType = typeCache.get(node.id);
-        }
-
-        return cachedType !== undefined && !cachedType.isIncomplete;
-    }
-
     function readTypeCacheEntry(node: ParseNode) {
         // Should we use a temporary cache associated with a contextual
         // analysis of a function, contextualized based on call-site argument types?
@@ -678,6 +666,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else {
             return typeCache.get(node.id);
         }
+    }
+
+    function isTypeCached(node: ParseNode) {
+        const cachedEntry = readTypeCacheEntry(node);
+        return cachedEntry !== undefined && !cachedEntry.isIncomplete;
     }
 
     function readTypeCache(node: ParseNode, flags: EvaluatorFlags | undefined): Type | undefined {
