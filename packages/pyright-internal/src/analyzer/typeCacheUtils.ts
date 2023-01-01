@@ -25,8 +25,12 @@ interface SpeculativeContext {
     allowCacheRetention: boolean;
 }
 
-interface SpeculativeTypeEntry {
+export interface TypeResult {
     type: Type;
+    isIncomplete: boolean;
+}
+
+interface SpeculativeTypeEntry extends TypeResult {
     expectedType: Type | undefined;
 }
 
@@ -101,7 +105,7 @@ export class SpeculativeTypeTracker {
         this._speculativeContextStack = stack;
     }
 
-    addSpeculativeType(node: ParseNode, type: Type, expectedType: Type | undefined) {
+    addSpeculativeType(node: ParseNode, typeResult: TypeResult, expectedType: Type | undefined) {
         assert(this._speculativeContextStack.length > 0);
         if (this._speculativeContextStack.some((context) => !context.allowCacheRetention)) {
             return;
@@ -112,10 +116,10 @@ export class SpeculativeTypeTracker {
             cacheEntries = [];
             this._speculativeTypeCache.set(node.id, cacheEntries);
         }
-        cacheEntries.push({ type, expectedType });
+        cacheEntries.push({ type: typeResult.type, isIncomplete: typeResult.isIncomplete, expectedType });
     }
 
-    getSpeculativeType(node: ParseNode, expectedType: Type | undefined) {
+    getSpeculativeType(node: ParseNode, expectedType: Type | undefined): TypeResult | undefined {
         if (
             this._speculativeContextStack.some((context) =>
                 ParseTreeUtils.isNodeContainedWithin(node, context.speculativeRootNode)
@@ -126,10 +130,10 @@ export class SpeculativeTypeTracker {
                 for (const entry of entries) {
                     if (!expectedType) {
                         if (!entry.expectedType) {
-                            return entry.type;
+                            return entry;
                         }
                     } else if (entry.expectedType && isTypeSame(expectedType, entry.expectedType)) {
-                        return entry.type;
+                        return entry;
                     }
                 }
             }

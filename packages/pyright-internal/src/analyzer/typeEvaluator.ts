@@ -589,16 +589,21 @@ interface ClassTypeHook {
     callback: () => void;
 }
 
+interface TypeCacheEntry {
+    type: Type;
+    isIncomplete: boolean;
+    flags: EvaluatorFlags | undefined;
+}
+
 export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
-    const typeCacheFlags = new Map<number, EvaluatorFlags>();
     const asymmetricDescriptorAssignmentCache = new Set<number>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     const suppressedNodeStack: ParseNode[] = [];
 
     let functionRecursionMap = new Set<number>();
     let codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
-    let typeCache = new Map<number, Type>();
+    let typeCache = new Map<number, TypeCacheEntry>();
     let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
     let expectedTypeCache = new Map<number, Type>();
     let classTypeHooks: ClassTypeHook[] = [];
@@ -615,11 +620,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let strClassType: Type | undefined;
     let dictClassType: Type | undefined;
     let typedDictClassType: Type | undefined;
-    let incompleteTypeCache = new Map<number, Type>();
     let printExpressionSpaceCount = 0;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
-    let returnTypeInferenceTypeCache: Map<number, Type> | undefined;
+    let returnTypeInferenceTypeCache: Map<number, TypeCacheEntry> | undefined;
 
     function runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T {
         try {
@@ -649,14 +653,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function disposeEvaluator() {
         functionRecursionMap = new Set<number>();
         codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
-        typeCache = new Map<number, Type>();
-        incompleteTypeCache = new Map<number, Type>();
+        typeCache = new Map<number, TypeCacheEntry>();
         effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
         expectedTypeCache = new Map<number, Type>();
     }
 
     function isTypeCached(node: ParseNode) {
-        let cachedType: Type | undefined;
+        let cachedType: TypeCacheEntry | undefined;
 
         if (returnTypeInferenceTypeCache && isNodeInReturnTypeInferenceContext(node)) {
             cachedType = returnTypeInferenceTypeCache.get(node.id);
@@ -664,27 +667,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             cachedType = typeCache.get(node.id);
         }
 
-        return cachedType !== undefined;
+        return cachedType !== undefined && !cachedType.isIncomplete;
     }
 
-    function readTypeCache(node: ParseNode, flags: EvaluatorFlags | undefined): Type | undefined {
-        let cachedType: Type | undefined;
-
+    function readTypeCacheEntry(node: ParseNode) {
         // Should we use a temporary cache associated with a contextual
         // analysis of a function, contextualized based on call-site argument types?
         if (returnTypeInferenceTypeCache && isNodeInReturnTypeInferenceContext(node)) {
-            cachedType = returnTypeInferenceTypeCache.get(node.id);
+            return returnTypeInferenceTypeCache.get(node.id);
         } else {
-            cachedType = typeCache.get(node.id);
+            return typeCache.get(node.id);
         }
+    }
 
-        if (cachedType === undefined) {
+    function readTypeCache(node: ParseNode, flags: EvaluatorFlags | undefined): Type | undefined {
+        const cacheEntry = readTypeCacheEntry(node);
+        if (!cacheEntry || cacheEntry.isIncomplete) {
             return undefined;
         }
 
         if (evaluatorOptions.verifyTypeCacheEvaluatorFlags || verifyTypeCacheEvaluatorFlags) {
             if (flags !== undefined) {
-                const expectedFlags = typeCacheFlags.get(node.id);
+                const expectedFlags = cacheEntry.flags;
 
                 if (expectedFlags !== undefined && flags !== expectedFlags) {
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
@@ -704,7 +708,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return cachedType;
+        return cacheEntry.type;
     }
 
     function writeTypeCache(
@@ -715,11 +719,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         expectedType?: Type,
         allowSpeculativeCaching = false
     ) {
-        if (isIncomplete) {
-            incompleteTypeCache.set(node.id, type);
-            return;
-        }
-
         // Should we use a temporary cache associated with a contextual
         // analysis of a function, contextualized based on call-site argument types?
         const typeCacheToUse =
@@ -727,13 +726,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ? returnTypeInferenceTypeCache
                 : typeCache;
 
-        typeCacheToUse.set(node.id, type);
-
-        if (evaluatorOptions.verifyTypeCacheEvaluatorFlags || verifyTypeCacheEvaluatorFlags) {
-            if (typeCacheToUse === typeCache && flags !== undefined) {
-                typeCacheFlags.set(node.id, flags);
-            }
-        }
+        typeCacheToUse.set(node.id, { type, isIncomplete, flags });
 
         // If the entry is located within a part of the parse tree that is currently being
         // "speculatively" evaluated, track it so we delete the cached entry when we leave
@@ -741,7 +734,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (speculativeTypeTracker.isSpeculative(node)) {
             speculativeTypeTracker.trackEntry(typeCacheToUse, node.id);
             if (allowSpeculativeCaching) {
-                speculativeTypeTracker.addSpeculativeType(node, type, expectedType);
+                speculativeTypeTracker.addSpeculativeType(node, { type, isIncomplete }, expectedType);
             }
         }
     }
@@ -940,16 +933,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: cachedType };
         } else {
             // Is it cached in the speculative type cache?
-            const speculativeCachedType = speculativeTypeTracker.getSpeculativeType(node, expectedType);
-            if (speculativeCachedType) {
+            const cachedTypeResult = speculativeTypeTracker.getSpeculativeType(node, expectedType);
+            if (cachedTypeResult) {
                 if (printExpressionTypes) {
                     console.log(
                         `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
                             node
-                        )}): Speculative ${printType(speculativeCachedType)}`
+                        )}): Speculative ${printType(cachedTypeResult.type)}`
                     );
                 }
-                return { type: speculativeCachedType };
+                return { type: cachedTypeResult.type, isIncomplete: cachedTypeResult.isIncomplete };
             }
         }
 
@@ -18685,22 +18678,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // within that tree. If the type cannot be determined (because it's part
     // of a cyclical dependency), the function returns undefined.
     function evaluateTypeForSubnode(subnode: ParseNode, callback: () => void): TypeResult | undefined {
-        // If the type cache is already populated, don't bother
-        // doing additional work.
-        let subnodeType = readTypeCache(subnode, /* flags */ undefined);
-        if (subnodeType) {
-            return { type: subnodeType };
+        // If the type cache is already populated with a complete type,
+        // don't bother doing additional work.
+        let cacheEntry = readTypeCacheEntry(subnode);
+        if (cacheEntry && !cacheEntry.isIncomplete) {
+            return { type: cacheEntry.type };
         }
 
         callback();
-        subnodeType = readTypeCache(subnode, /* flags */ undefined);
-        if (subnodeType) {
-            return { type: subnodeType };
-        }
-
-        subnodeType = incompleteTypeCache.get(subnode.id) as Type | undefined;
-        if (subnodeType) {
-            return { type: subnodeType, isIncomplete: true };
+        cacheEntry = readTypeCacheEntry(subnode);
+        if (cacheEntry) {
+            return { type: cacheEntry.type, isIncomplete: cacheEntry.isIncomplete };
         }
 
         return undefined;
@@ -20788,7 +20776,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             try {
-                returnTypeInferenceTypeCache = new Map<number, Type>();
+                returnTypeInferenceTypeCache = new Map<number, TypeCacheEntry>();
 
                 let allArgTypesAreUnknown = true;
                 functionNode.parameters.forEach((param, index) => {
