@@ -593,6 +593,7 @@ interface TypeCacheEntry {
     type: Type;
     isIncomplete: boolean;
     flags: EvaluatorFlags | undefined;
+    expectedTypeDiagAddendum?: DiagnosticAddendum | undefined;
 }
 
 export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
@@ -709,6 +710,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         type: Type,
         flags: EvaluatorFlags | undefined,
         isIncomplete: boolean,
+        expectedTypeDiagAddendum?: DiagnosticAddendum | undefined,
         expectedType?: Type,
         allowSpeculativeCaching = false
     ) {
@@ -719,7 +721,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ? returnTypeInferenceTypeCache
                 : typeCache;
 
-        typeCacheToUse.set(node.id, { type, isIncomplete, flags });
+        typeCacheToUse.set(node.id, { type, isIncomplete, flags, expectedTypeDiagAddendum });
 
         // If the entry is located within a part of the parse tree that is currently being
         // "speculatively" evaluated, track it so we delete the cached entry when we leave
@@ -842,6 +844,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         })?.type;
     }
 
+    function getTypeResult(node: ExpressionNode): TypeResult | undefined {
+        return evaluateTypeForSubnode(node, () => {
+            evaluateTypesForExpressionInContext(node);
+        });
+    }
+
     // Reads the type of the node from the cache.
     function getCachedType(node: ExpressionNode): Type | undefined {
         return readTypeCache(node, EvaluatorFlags.None);
@@ -914,16 +922,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfExpression(node: ExpressionNode, flags = EvaluatorFlags.None, expectedType?: Type): TypeResult {
         // Is this type already cached?
-        const cachedType = readTypeCache(node, flags);
-        if (cachedType) {
+        const cacheEntry = readTypeCacheEntry(node);
+        if (cacheEntry && !cacheEntry.isIncomplete) {
             if (printExpressionTypes) {
                 console.log(
                     `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
                         node
-                    )}): Cached ${printType(cachedType)}`
+                    )}): Cached ${printType(cacheEntry.type)}`
                 );
             }
-            return { type: cachedType };
+            return { type: cacheEntry.type, expectedTypeDiagAddendum: cacheEntry.expectedTypeDiagAddendum };
         } else {
             // Is it cached in the speculative type cache?
             const cachedTypeResult = speculativeTypeTracker.getSpeculativeType(node, expectedType);
@@ -1181,6 +1189,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             typeResult.type,
             flags,
             !!typeResult.isIncomplete,
+            typeResult.expectedTypeDiagAddendum,
             expectedType,
             /* allowSpeculativeCaching */ true
         );
@@ -18681,7 +18690,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         callback();
         cacheEntry = readTypeCacheEntry(subnode);
         if (cacheEntry) {
-            return { type: cacheEntry.type, isIncomplete: cacheEntry.isIncomplete };
+            return {
+                type: cacheEntry.type,
+                isIncomplete: cacheEntry.isIncomplete,
+                expectedTypeDiagAddendum: cacheEntry.expectedTypeDiagAddendum,
+            };
         }
 
         return undefined;
@@ -25018,6 +25031,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const evaluatorInterface: TypeEvaluator = {
         runWithCancellationToken,
         getType,
+        getTypeResult,
         getCachedType,
         getTypeOfExpression,
         getTypeOfAnnotation,

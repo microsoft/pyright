@@ -108,7 +108,7 @@ import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
 import { maxCodeComplexity } from './typeEvaluator';
-import { FunctionArgument, FunctionTypeResult, TypeEvaluator } from './typeEvaluatorTypes';
+import { FunctionArgument, FunctionTypeResult, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     getElementTypeForContainerNarrowing,
     isIsinstanceFilterSubclass,
@@ -896,7 +896,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitReturn(node: ReturnNode): boolean {
-        let returnType: Type;
+        let returnTypeResult: TypeResult;
 
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
         const declaredReturnType = enclosingFunctionNode
@@ -904,10 +904,10 @@ export class Checker extends ParseTreeWalker {
             : undefined;
 
         if (node.returnExpression) {
-            returnType = this._evaluator.getType(node.returnExpression) || UnknownType.create();
+            returnTypeResult = this._evaluator.getTypeResult(node.returnExpression) ?? { type: UnknownType.create() };
         } else {
             // There is no return expression, so "None" is assumed.
-            returnType = NoneType.createInstance();
+            returnTypeResult = { type: NoneType.createInstance() };
         }
 
         // If the enclosing function is async and a generator, the return
@@ -930,13 +930,13 @@ export class Checker extends ParseTreeWalker {
                         node
                     );
                 } else {
-                    const diagAddendum = new DiagnosticAddendum();
+                    let diagAddendum = new DiagnosticAddendum();
                     let returnTypeMatches = false;
 
                     if (
                         this._evaluator.assignType(
                             declaredReturnType,
-                            returnType,
+                            returnTypeResult.type,
                             diagAddendum,
                             new TypeVarContext(),
                             /* srcTypeVarContext */ undefined,
@@ -971,7 +971,7 @@ export class Checker extends ParseTreeWalker {
                                 if (
                                     this._evaluator.assignType(
                                         adjustedReturnType,
-                                        returnType,
+                                        returnTypeResult.type,
                                         diagAddendum,
                                         /* destTypeVarContext */ undefined,
                                         /* srcTypeVarContext */ undefined,
@@ -985,32 +985,39 @@ export class Checker extends ParseTreeWalker {
                     }
 
                     if (!returnTypeMatches) {
+                        // If we have more detailed diagnostic information from
+                        // bidirectional type inference, use that.
+                        if (returnTypeResult.expectedTypeDiagAddendum) {
+                            diagAddendum = returnTypeResult.expectedTypeDiagAddendum;
+                        }
+
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.returnTypeMismatch().format({
-                                exprType: this._evaluator.printType(returnType),
+                                exprType: this._evaluator.printType(returnTypeResult.type),
                                 returnType: this._evaluator.printType(declaredReturnType),
                             }) + diagAddendum.getString(),
-                            node.returnExpression ? node.returnExpression : node
+                            node.returnExpression ? node.returnExpression : node,
+                            returnTypeResult.expectedTypeDiagAddendum?.getEffectiveTextRange()
                         );
                     }
                 }
             }
 
-            if (isUnknown(returnType)) {
+            if (isUnknown(returnTypeResult.type)) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                     DiagnosticRule.reportUnknownVariableType,
                     Localizer.Diagnostic.returnTypeUnknown(),
                     node.returnExpression!
                 );
-            } else if (isPartlyUnknown(returnType)) {
+            } else if (isPartlyUnknown(returnTypeResult.type)) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                     DiagnosticRule.reportUnknownVariableType,
                     Localizer.Diagnostic.returnTypePartiallyUnknown().format({
-                        returnType: this._evaluator.printType(returnType, { expandTypeAlias: true }),
+                        returnType: this._evaluator.printType(returnTypeResult.type, { expandTypeAlias: true }),
                     }),
                     node.returnExpression!
                 );
