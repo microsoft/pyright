@@ -7749,15 +7749,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 // Use speculative mode so we don't output any diagnostics or
                 // record any final types in the type cache.
-                const callResult = useSpeculativeMode(errorNode, () => {
-                    return validateFunctionArgumentTypesWithExpectedType(
-                        errorNode,
-                        matchResults,
-                        effectiveTypeVarContext,
-                        /* skipUnknownArgCheck */ true,
-                        expectedType
-                    );
-                });
+                const callResult = useSpeculativeMode(
+                    errorNode,
+                    () => {
+                        return validateFunctionArgumentTypesWithExpectedType(
+                            errorNode,
+                            matchResults,
+                            effectiveTypeVarContext,
+                            /* skipUnknownArgCheck */ true,
+                            expectedType
+                        );
+                    },
+                    // Don't allow retention of speculative results if the caller
+                    // specified an expectedType because this can influence the results.
+                    !expectedType
+                );
 
                 if (callResult.isTypeIncomplete) {
                     isTypeIncomplete = true;
@@ -7847,7 +7853,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return {
-            argumentErrors: false,
+            argumentErrors: finalCallResult.argumentErrors,
             isArgumentAnyOrUnknown: finalCallResult.isArgumentAnyOrUnknown,
             returnType: combineTypes(returnTypes),
             isTypeIncomplete,
@@ -8059,7 +8065,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Replace the result with an unknown type since we don't know
             // what overload should have been used.
             result.returnType = UnknownType.create();
-            return result;
+            return { ...result, argumentErrors: true };
         }
 
         return { argumentErrors: true, isTypeIncomplete: false };
