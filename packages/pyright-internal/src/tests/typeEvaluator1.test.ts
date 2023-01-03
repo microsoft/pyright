@@ -1030,6 +1030,12 @@ test('Operators8', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Operators9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators9.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions('.');
 

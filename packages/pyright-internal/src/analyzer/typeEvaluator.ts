@@ -11717,7 +11717,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else if (node.operator === OperatorType.BitwiseOr) {
                 // If this is a bitwise or ("|"), use the type of the left operand. This allows
                 // us to support the case where a TypedDict is being updated with a dict expression.
-                expectedOperandType = leftType;
+                if (isClassInstance(leftType) && ClassType.isTypedDictClass(leftType)) {
+                    expectedOperandType = leftType;
+                }
             }
         }
 
