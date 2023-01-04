@@ -164,6 +164,22 @@ export function getTypeNarrowingCallback(
                 }
             }
 
+            // Look for "X is ...", "X is not ...", "X == ...", and "X != ...".
+            if (testExpression.rightExpression.nodeType === ParseNodeType.Ellipsis) {
+                // Allow the LHS to be either a simple expression or an assignment
+                // expression that assigns to a simple name.
+                let leftExpression = testExpression.leftExpression;
+                if (leftExpression.nodeType === ParseNodeType.AssignmentExpression) {
+                    leftExpression = leftExpression.name;
+                }
+
+                if (ParseTreeUtils.isMatchingExpression(reference, leftExpression)) {
+                    return (type: Type) => {
+                        return narrowTypeForIsEllipsis(evaluator, type, adjIsPositiveTest);
+                    };
+                }
+            }
+
             // Look for "type(X) is Y" or "type(X) is not Y".
             if (isOrIsNotOperator && testExpression.leftExpression.nodeType === ParseNodeType.Call) {
                 if (
@@ -868,6 +884,49 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
 
             // See if it's a match for None.
             if (isNoneInstance(subtype) === isPositiveTest) {
+                return subtype;
+            }
+
+            return undefined;
+        }
+    );
+}
+
+// Handle type narrowing for expressions of the form "x is ..." and "x is not ...".
+function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiveTest: boolean) {
+    const expandedType = mapSubtypes(type, (subtype) => {
+        return transformPossibleRecursiveTypeAlias(subtype);
+    });
+
+    return evaluator.mapSubtypesExpandTypeVars(
+        expandedType,
+        /* conditionFilter */ undefined,
+        (subtype, unexpandedSubtype) => {
+            if (isAnyOrUnknown(subtype)) {
+                // We need to assume that "Any" is always both None and not None,
+                // so it matches regardless of whether the test is positive or negative.
+                return subtype;
+            }
+
+            // If this is a TypeVar that isn't constrained, use the unexpanded
+            // TypeVar. For all other cases (including constrained TypeVars),
+            // use the expanded subtype.
+            const adjustedSubtype =
+                isTypeVar(unexpandedSubtype) && unexpandedSubtype.details.constraints.length === 0
+                    ? unexpandedSubtype
+                    : subtype;
+
+            // See if it's a match for object.
+            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
+                return isPositiveTest
+                    ? addConditionToType(NoneType.createInstance(), subtype.condition)
+                    : adjustedSubtype;
+            }
+
+            const isEllipsis = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'ellipsis');
+
+            // See if it's a match for "...".
+            if (isEllipsis === isPositiveTest) {
                 return subtype;
             }
 
