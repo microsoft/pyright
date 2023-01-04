@@ -1366,7 +1366,13 @@ function narrowTypeForIsInstance(
 
             if (isInstanceCheck) {
                 if (isNoneInstance(subtype)) {
-                    const containsNoneType = classTypeList.some((t) => isNoneTypeClass(t));
+                    const containsNoneType = classTypeList.some((t) => {
+                        if (isNoneTypeClass(t)) {
+                            return true;
+                        }
+                        return isInstantiableClass(t) && ClassType.isBuiltIn(t, 'NoneType');
+                    });
+
                     if (isPositiveTest) {
                         return containsNoneType ? subtype : undefined;
                     } else {

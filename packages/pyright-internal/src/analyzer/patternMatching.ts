@@ -503,7 +503,7 @@ function narrowTypeBasedOnClassPattern(
             type,
             /* conditionFilter */ undefined,
             (subjectSubtypeExpanded, subjectSubtypeUnexpanded) => {
-                if (!isClassInstance(subjectSubtypeExpanded)) {
+                if (!isNoneInstance(subjectSubtypeExpanded) && !isClassInstance(subjectSubtypeExpanded)) {
                     return subjectSubtypeUnexpanded;
                 }
 
@@ -521,7 +521,7 @@ function narrowTypeBasedOnClassPattern(
                 // if the types match exactly or the subtype is a final class and
                 // therefore cannot be subclassed.
                 if (!evaluator.assignType(subjectSubtypeExpanded, classInstance)) {
-                    if (!ClassType.isFinal(subjectSubtypeExpanded)) {
+                    if (isClass(subjectSubtypeExpanded) && !ClassType.isFinal(subjectSubtypeExpanded)) {
                         return subjectSubtypeExpanded;
                     }
                 }

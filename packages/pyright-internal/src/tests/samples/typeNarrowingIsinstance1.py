@@ -1,5 +1,6 @@
 # This sample exercises the type analyzer's isinstance type narrowing logic.
 
+from types import NoneType
 from typing import List, Optional, Sized, Type, TypeVar, Union, Any
 
 
@@ -160,3 +161,10 @@ def func8(a: int | list[int] | dict[str, int] | None):
         reveal_type(a, expected_text="int | list[int] | None")
     else:
         reveal_type(a, expected_text="dict[str, int]")
+
+
+def func9(a: int | None):
+    if not isinstance(a, NoneType):
+        reveal_type(a, expected_text="int")
+    else:
+        reveal_type(a, expected_text="None")

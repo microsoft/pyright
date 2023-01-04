@@ -1941,6 +1941,11 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
                     }
                 }
 
+                // Handle NoneType as a special case.
+                if (TypeBase.isInstantiable(subtype) && ClassType.isBuiltIn(subtype, 'NoneType')) {
+                    return NoneType.createInstance();
+                }
+
                 return ClassType.cloneAsInstance(subtype, includeSubclasses);
             }
 
