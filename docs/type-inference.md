@@ -262,7 +262,7 @@ def func1(a: int):
     var2 = (a, a)
 
     # If you want the type to be tuple[int, ...]
-    # (i.e. a homogenous tuple of indeterminate length),
+    # (i.e. a homogeneous tuple of indeterminate length),
     # use a type annotation.
     var3: tuple[int, ...] = (a, a)
 ```
