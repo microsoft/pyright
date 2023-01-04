@@ -39,8 +39,8 @@ def func3() -> Tuple[str, ...]:
     a = "1", 2, 3
 
     # This should generate an error because the
-    # heterogenous tuple can't be assigned to
-    # the homogenous tuple type.
+    # heterogeneous tuple can't be assigned to
+    # the homogeneous tuple type.
     return a
 
 

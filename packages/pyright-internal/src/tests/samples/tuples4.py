@@ -1,4 +1,4 @@
-# This sample tests the translation of a heterogenous tuple
+# This sample tests the translation of a heterogeneous tuple
 # into an Iterable.
 
 from typing import Iterable, TypeVar, Union

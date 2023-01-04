@@ -7,10 +7,10 @@ from typing import Generic, TypeVar
 T1 = TypeVar("T1")
 T2 = TypeVar("T2", default=str)
 
-# This should generate an error becuase T1 is after T2.
+# This should generate an error because T1 is after T2.
 class ClassA(Generic[T2, T1]): ...
 
-# This should generate an error becuase T1 is after T2.
+# This should generate an error because T1 is after T2.
 class ClassB(dict[T2, T1]): ...
 
 class ClassC(dict[T2, T1], Generic[T1, T2]): ...

@@ -4,7 +4,7 @@
 
 from typing import TypeVar
 
-# This should generate an error becuase T1 is after T2.
+# This should generate an error because T1 is after T2.
 class ClassA[T2=str, T1]: ...
 
 # This should generate an error because T1 is after T2.

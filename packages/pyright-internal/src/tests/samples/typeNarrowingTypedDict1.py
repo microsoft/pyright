@@ -80,7 +80,7 @@ def f6(p: Union[TD1, TD2, TD3]):
         reveal_type(v5, expected_text="str")
 
     # This should generate three errors, two for TD1 and TD2 (because
-    # "d" is not a valid key) and one for TD3 (beacuse "d" is not required).
+    # "d" is not a valid key) and one for TD3 (because "d" is not required).
     v6 = p["d"]
 
 
