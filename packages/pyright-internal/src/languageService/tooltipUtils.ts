@@ -16,6 +16,7 @@ import {
     getClassDocString,
     getFunctionDocStringInherited,
     getModuleDocString,
+    getModuleDocStringFromPaths,
     getOverloadedFunctionDocStringsInherited,
     getPropertyDocStringInherited,
     getVariableDocString,
@@ -32,6 +33,7 @@ import {
     Type,
 } from '../analyzer/types';
 import { isDefined } from '../common/core';
+import { ParseNodeType } from '../parser/parseNodes';
 
 // 70 is vscode's default hover width size.
 export function getOverloadedFunctionTooltip(
@@ -91,7 +93,7 @@ export function getOverloadedFunctionDocStringsFromType(
     );
 }
 
-function getDocumentationPartForAlias(
+function getDocumentationPartForTypeAlias(
     sourceMapper: SourceMapper,
     resolvedDecl: Declaration | undefined,
     evaluator: TypeEvaluator,
@@ -160,17 +162,48 @@ function getDocumentationPartForType(
 
 export function getDocumentationPartsForTypeAndDecl(
     sourceMapper: SourceMapper,
-    type: Type,
+    type: Type | undefined,
     resolvedDecl: Declaration | undefined,
     evaluator: TypeEvaluator,
-    symbol?: Symbol,
-    boundObjectOrClass?: ClassType | undefined
+    optional?: {
+        name?: string;
+        symbol?: Symbol;
+        boundObjectOrClass?: ClassType | undefined;
+    }
 ): string | undefined {
     // Get the alias first
-    const aliasDoc = getDocumentationPartForAlias(sourceMapper, resolvedDecl, evaluator, symbol);
+    const aliasDoc = getDocumentationPartForTypeAlias(sourceMapper, resolvedDecl, evaluator, optional?.symbol);
 
     // Combine this with the type doc
-    const typeDoc = getDocumentationPartForType(sourceMapper, type, resolvedDecl, evaluator, boundObjectOrClass);
+    let typeDoc: string | undefined;
+    if (resolvedDecl?.type === DeclarationType.Alias) {
+        // Handle another alias decl special case.
+        // ex) import X.Y
+        //     [X].Y
+        // Asking decl for X gives us "X.Y" rather than "X" since "X" is not actually a symbol.
+        // We need to get corresponding module name to use special code in type eval for this case.
+        if (
+            resolvedDecl.type === DeclarationType.Alias &&
+            resolvedDecl.node &&
+            resolvedDecl.node.nodeType === ParseNodeType.ImportAs &&
+            !!optional?.name &&
+            !resolvedDecl.node.alias
+        ) {
+            const name = resolvedDecl.node.module.nameParts.find((n) => n.value === optional.name);
+            if (name) {
+                const aliasDecls = evaluator.getDeclarationsForNameNode(name) ?? [resolvedDecl];
+                resolvedDecl = aliasDecls.length > 0 ? aliasDecls[0] : resolvedDecl;
+            }
+        }
+
+        typeDoc = getModuleDocStringFromPaths([resolvedDecl.path], sourceMapper);
+    }
+
+    typeDoc =
+        typeDoc ??
+        (type
+            ? getDocumentationPartForType(sourceMapper, type, resolvedDecl, evaluator, optional?.boundObjectOrClass)
+            : undefined);
 
     // Combine with a new line if they both exist
     return aliasDoc && typeDoc ? `${aliasDoc}\n\n${typeDoc}` : aliasDoc || typeDoc;

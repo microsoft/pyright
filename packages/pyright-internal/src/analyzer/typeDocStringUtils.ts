@@ -32,6 +32,7 @@ import {
     Type,
     TypeCategory,
 } from '../analyzer/types';
+import { addIfNotNull } from '../common/collectionUtils';
 import { ModuleNode, ParseNodeType } from '../parser/parseNodes';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
@@ -179,7 +180,7 @@ export function getVariableInStubFileDocStrings(decl: VariableDeclaration, sourc
     return docStrings;
 }
 
-export function getModuleNodeDocString(modules: ModuleNode[]): string | undefined {
+export function getModuleDocStringFromModuleNodes(modules: ModuleNode[]): string | undefined {
     for (const module of modules) {
         if (module.statements) {
             const docString = ParseTreeUtils.getDocString(module.statements);
@@ -192,6 +193,19 @@ export function getModuleNodeDocString(modules: ModuleNode[]): string | undefine
     return undefined;
 }
 
+export function getModuleDocStringFromPaths(filePaths: string[], sourceMapper: SourceMapper) {
+    const modules: ModuleNode[] = [];
+    for (const filePath of filePaths) {
+        if (isStubFile(filePath)) {
+            addIfNotNull(modules, sourceMapper.getModuleNode(filePath));
+        }
+
+        modules.push(...sourceMapper.findModules(filePath));
+    }
+
+    return getModuleDocStringFromModuleNodes(modules);
+}
+
 export function getModuleDocString(
     type: ModuleType,
     resolvedDecl: DeclarationBase | undefined,
@@ -199,10 +213,8 @@ export function getModuleDocString(
 ) {
     let docString = type.docString;
     if (!docString) {
-        if (resolvedDecl && isStubFile(resolvedDecl.path)) {
-            const modules = sourceMapper.findModules(resolvedDecl.path);
-            docString = getModuleNodeDocString(modules);
-        }
+        const filePath = resolvedDecl?.path ?? type.filePath;
+        docString = getModuleDocStringFromPaths([filePath], sourceMapper);
     }
 
     return docString;

@@ -990,7 +990,7 @@ export class TestState {
                         this.verifyCompletionItem(expected, actual);
 
                         if (expected.documentation !== undefined) {
-                            if (actual.documentation === undefined) {
+                            if (actual.documentation === undefined && actual.data) {
                                 this.workspace.serviceInstance.resolveCompletionItem(
                                     filePath,
                                     actual,

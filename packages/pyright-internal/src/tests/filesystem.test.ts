@@ -41,6 +41,21 @@ test('Folders', () => {
     });
 });
 
+test('Folders Recursive', () => {
+    const cwd = normalizeSlashes('/');
+    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
+
+    // no such dir exist
+    assert.throws(() => {
+        fs.chdir('a');
+    });
+
+    const path = combinePaths('/', 'a', 'b', 'c');
+    fs.mkdirSync(path, { recursive: true });
+
+    assert(fs.existsSync(path));
+});
+
 test('Files', () => {
     const cwd = normalizeSlashes('/');
     const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });

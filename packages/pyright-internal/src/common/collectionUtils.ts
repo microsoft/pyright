@@ -377,3 +377,12 @@ export function getMapValues<K, V>(m: Map<K, V>, predicate: (k: K, v: V) => bool
 
     return values;
 }
+
+export function addIfNotNull<T>(arr: T[], t: T): T[] {
+    if (t === undefined) {
+        return arr;
+    }
+
+    arr.push(t);
+    return arr;
+}
