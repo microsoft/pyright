@@ -5368,7 +5368,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             // Don't include variables within typed dict classes.
-            if (ClassType.isTypedDictClass(classType)) {
+            if (isClass(memberInfo.classType) && ClassType.isTypedDictClass(memberInfo.classType)) {
                 const typedDecls = memberInfo.symbol.getTypedDeclarations();
                 if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Variable) {
                     diag?.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
