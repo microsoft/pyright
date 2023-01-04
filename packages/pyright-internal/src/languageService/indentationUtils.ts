@@ -174,7 +174,7 @@ function _getIndentation(
     }
 
     const suiteSpan = convertTextRangeToRange(suite, parseResults.tokenizerOutput.lines);
-    if (preferDedent || suiteSpan.start.line === suiteSpan.end.line) {
+    if (preferDedent || (suiteSpan.start.line === suiteSpan.end.line && suite.statements.length > 0)) {
         // Go one more level up.
         const outerContainer = getContainer(suite, /*includeSelf*/ false);
         return _getIndentationForNode(parseResults, offset, outerContainer ?? parseResults.parseTree, suite);

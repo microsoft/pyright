@@ -929,10 +929,10 @@
         "webpack-dev": "npm run clean && webpack --mode development --watch --progress"
     },
     "dependencies": {
-        "vscode-jsonrpc": "8.1.0-next.1",
-        "vscode-languageclient": "8.1.0-next.1",
-        "vscode-languageserver": "8.1.0-next.1",
-        "vscode-languageserver-protocol": "3.17.3-next.1"
+        "vscode-jsonrpc": "8.1.0-next.5",
+        "vscode-languageclient": "8.1.0-next.4",
+        "vscode-languageserver": "8.1.0-next.4",
+        "vscode-languageserver-protocol": "3.17.3-next.4"
     },
     "devDependencies": {
         "@types/copy-webpack-plugin": "^10.1.0",
@@ -941,7 +941,7 @@
         "copy-webpack-plugin": "^10.2.4",
         "detect-indent": "^6.1.0",
         "shx": "^0.3.4",
-        "ts-loader": "^9.4.1",
+        "ts-loader": "^9.4.2",
         "typescript": "~4.4.4",
         "vsce": "^2.7.0",
         "webpack": "^5.75.0",

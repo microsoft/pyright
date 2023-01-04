@@ -835,29 +835,7 @@ export class Program {
         let shadowFileInfo = this.getSourceFileInfo(shadowImplPath);
 
         if (!shadowFileInfo) {
-            const importName = this._getImportNameForFile(shadowImplPath);
-            const sourceFile = new SourceFile(
-                this._fs,
-                shadowImplPath,
-                importName,
-                /* isThirdPartyImport */ false,
-                /* isInPyTypedPackage */ false,
-                this._console,
-                this._logTracker
-            );
-            shadowFileInfo = {
-                sourceFile,
-                isTracked: false,
-                isOpenByClient: false,
-                isTypeshedFile: false,
-                isThirdPartyImport: false,
-                isThirdPartyPyTypedPresent: false,
-                diagnosticsVersion: undefined,
-                imports: [],
-                importedBy: [],
-                shadows: [],
-                shadowedBy: [],
-            };
+            shadowFileInfo = this._createIntrimFileInfo(shadowImplPath);
             this._addToSourceFileListAndMap(shadowFileInfo);
         }
 
@@ -870,6 +848,34 @@ export class Program {
         }
 
         return shadowFileInfo.sourceFile;
+    }
+
+    private _createIntrimFileInfo(filePath: string) {
+        const importName = this._getImportNameForFile(filePath);
+        const sourceFile = new SourceFile(
+            this._fs,
+            filePath,
+            importName,
+            /* isThirdPartyImport */ false,
+            /* isInPyTypedPackage */ false,
+            this._console,
+            this._logTracker
+        );
+        const sourceFileInfo = {
+            sourceFile,
+            isTracked: false,
+            isOpenByClient: false,
+            isTypeshedFile: false,
+            isThirdPartyImport: false,
+            isThirdPartyPyTypedPresent: false,
+            diagnosticsVersion: undefined,
+            imports: [],
+            importedBy: [],
+            shadows: [],
+            shadowedBy: [],
+        };
+
+        return sourceFileInfo;
     }
 
     private _createNewEvaluator() {
@@ -2588,15 +2594,34 @@ export class Program {
             execEnv,
             this._evaluator!,
             (stubFilePath: string, implFilePath: string) => {
-                const stubFileInfo = this.getSourceFileInfo(stubFilePath);
+                let stubFileInfo = this.getSourceFileInfo(stubFilePath);
                 if (!stubFileInfo) {
-                    return undefined;
+                    // Special case for import statement.
+                    // ex) import X.Y
+                    // SourceFile for X might not be in memory since import `X.Y` only brings in Y
+                    stubFileInfo = this._createIntrimFileInfo(stubFilePath);
+                    this._addToSourceFileListAndMap(stubFileInfo);
                 }
+
                 this._addShadowedFile(stubFileInfo, implFilePath);
                 return this.getBoundSourceFile(implFilePath);
             },
-            (f) => this.getBoundSourceFileInfo(f),
-            (f) => this.getSourceFileInfo(f),
+            (f) => {
+                let fileInfo = this.getBoundSourceFileInfo(f);
+                if (!fileInfo) {
+                    // Special case for import statement.
+                    // ex) import X.Y
+                    // SourceFile for X might not be in memory since import `X.Y` only brings in Y
+                    fileInfo = this._createIntrimFileInfo(f);
+                    this._addToSourceFileListAndMap(fileInfo);
+
+                    // Even though this file is not referenced by anything, make sure
+                    // we have parse tree for doc string.
+                    fileInfo.sourceFile.parse(this._configOptions, this._importResolver);
+                }
+
+                return fileInfo;
+            },
             mapCompiled ?? false,
             preferStubs ?? false,
             from,
