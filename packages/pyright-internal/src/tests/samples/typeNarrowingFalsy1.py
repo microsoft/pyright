@@ -1,4 +1,4 @@
-# This sample tests type narrowing for falsy and truthy values.
+# This sample tests type narrowing for falsey and truthy values.
 
 from typing import Iterable, List, Literal, NamedTuple, Optional, Union
 

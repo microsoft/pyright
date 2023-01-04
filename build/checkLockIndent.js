@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 //@ts-check
 
-// Lerna doesn't do a good job preserving the indention in lock files.
+// Lerna doesn't do a good job preserving the indentation in lock files.
 // Check that the lock files are still indented correctly, otherwise
 // the change will cause problems with merging and the updateDeps script.
 

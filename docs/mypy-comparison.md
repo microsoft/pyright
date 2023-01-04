@@ -153,7 +153,7 @@ The following expression forms are not currently supported by mypy as type guard
 * `len(x) == L` and `len(x) != L` (where x is tuple and L is a literal integer)
 * `x in y` or `x not in y` (where y is instance of list, set, frozenset, deque, tuple, dict, defaultdict, or OrderedDict)
 * `S in D` and `S not in D` (where S is a string literal and D is a final TypedDict)
-* `bool(x)` (where x is any expression that is statically verifiable to be truthy or falsy in all cases)
+* `bool(x)` (where x is any expression that is statically verifiable to be truthy or falsey in all cases)
 
 
 ## Aliased Conditional Expressions
