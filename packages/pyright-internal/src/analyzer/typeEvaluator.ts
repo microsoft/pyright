@@ -590,10 +590,8 @@ interface ClassTypeHook {
 }
 
 interface TypeCacheEntry {
-    type: Type;
-    isIncomplete: boolean;
+    typeResult: TypeResult;
     flags: EvaluatorFlags | undefined;
-    expectedTypeDiagAddendum?: DiagnosticAddendum | undefined;
 }
 
 export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
@@ -671,12 +669,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function isTypeCached(node: ParseNode) {
         const cachedEntry = readTypeCacheEntry(node);
-        return cachedEntry !== undefined && !cachedEntry.isIncomplete;
+        return cachedEntry !== undefined && !cachedEntry.typeResult.isIncomplete;
     }
 
     function readTypeCache(node: ParseNode, flags: EvaluatorFlags | undefined): Type | undefined {
         const cacheEntry = readTypeCacheEntry(node);
-        if (!cacheEntry || cacheEntry.isIncomplete) {
+        if (!cacheEntry || cacheEntry.typeResult.isIncomplete) {
             return undefined;
         }
 
@@ -702,15 +700,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return cacheEntry.type;
+        return cacheEntry.typeResult.type;
     }
 
     function writeTypeCache(
         node: ParseNode,
-        type: Type,
+        typeResult: TypeResult,
         flags: EvaluatorFlags | undefined,
-        isIncomplete: boolean,
-        expectedTypeDiagAddendum?: DiagnosticAddendum | undefined,
         expectedType?: Type,
         allowSpeculativeCaching = false
     ) {
@@ -721,7 +717,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ? returnTypeInferenceTypeCache
                 : typeCache;
 
-        typeCacheToUse.set(node.id, { type, isIncomplete, flags, expectedTypeDiagAddendum });
+        typeCacheToUse.set(node.id, { typeResult, flags });
 
         // If the entry is located within a part of the parse tree that is currently being
         // "speculatively" evaluated, track it so we delete the cached entry when we leave
@@ -729,7 +725,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (speculativeTypeTracker.isSpeculative(node)) {
             speculativeTypeTracker.trackEntry(typeCacheToUse, node.id);
             if (allowSpeculativeCaching) {
-                speculativeTypeTracker.addSpeculativeType(node, { type, isIncomplete }, expectedType);
+                speculativeTypeTracker.addSpeculativeType(node, typeResult, expectedType);
             }
         }
     }
@@ -744,7 +740,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function setTypeForNode(node: ParseNode, type: Type = UnknownType.create(), flags = EvaluatorFlags.None) {
-        writeTypeCache(node, type, flags, /* isIncomplete */ false);
+        writeTypeCache(node, { type }, flags);
     }
 
     function setAsymmetricDescriptorAssignment(node: ParseNode) {
@@ -923,15 +919,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeOfExpression(node: ExpressionNode, flags = EvaluatorFlags.None, expectedType?: Type): TypeResult {
         // Is this type already cached?
         const cacheEntry = readTypeCacheEntry(node);
-        if (cacheEntry && !cacheEntry.isIncomplete) {
+        if (cacheEntry && !cacheEntry.typeResult.isIncomplete) {
             if (printExpressionTypes) {
                 console.log(
                     `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
                         node
-                    )}): Cached ${printType(cacheEntry.type)}`
+                    )}): Cached ${printType(cacheEntry.typeResult.type)} ${
+                        cacheEntry.typeResult.typeErrors ? ' Errors' : ''
+                    }`
                 );
             }
-            return { type: cacheEntry.type, expectedTypeDiagAddendum: cacheEntry.expectedTypeDiagAddendum };
+            return cacheEntry.typeResult;
         } else {
             // Is it cached in the speculative type cache?
             const cachedTypeResult = speculativeTypeTracker.getSpeculativeType(node, expectedType);
@@ -943,7 +941,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         )}): Speculative ${printType(cachedTypeResult.type)}`
                     );
                 }
-                return { type: cachedTypeResult.type, isIncomplete: cachedTypeResult.isIncomplete };
+                return cachedTypeResult;
             }
         }
 
@@ -1184,15 +1182,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        writeTypeCache(
-            node,
-            typeResult.type,
-            flags,
-            !!typeResult.isIncomplete,
-            typeResult.expectedTypeDiagAddendum,
-            expectedType,
-            /* allowSpeculativeCaching */ true
-        );
+        writeTypeCache(node, typeResult, flags, expectedType, /* allowSpeculativeCaching */ true);
 
         if (expectedType && !isAnyOrUnknown(expectedType) && !isNever(expectedType)) {
             expectedTypeCache.set(node.id, expectedType);
@@ -3115,7 +3105,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        writeTypeCache(nameNode, destType, EvaluatorFlags.None, isTypeIncomplete);
+        writeTypeCache(nameNode, { type: destType, isIncomplete: isTypeIncomplete }, EvaluatorFlags.None);
     }
 
     function assignTypeToMemberAccessNode(
@@ -3187,8 +3177,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             setAsymmetricDescriptorAssignment(target);
         }
 
-        writeTypeCache(target.memberName, type, EvaluatorFlags.None, isTypeIncomplete);
-        writeTypeCache(target, type, EvaluatorFlags.None, isTypeIncomplete);
+        writeTypeCache(target.memberName, { type, isIncomplete: isTypeIncomplete }, EvaluatorFlags.None);
+        writeTypeCache(target, { type, isIncomplete: isTypeIncomplete }, EvaluatorFlags.None);
     }
 
     function assignTypeToMemberVariable(
@@ -3451,7 +3441,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             assignTypeToExpression(expr, targetType, isTypeIncomplete, srcExpr, /* ignoreEmptyContainers */ true);
         });
 
-        writeTypeCache(target, type, EvaluatorFlags.None, isTypeIncomplete);
+        writeTypeCache(target, { type, isIncomplete: isTypeIncomplete }, EvaluatorFlags.None);
     }
 
     // Replaces all of the top-level TypeVars (as opposed to TypeVars
@@ -3762,7 +3752,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     EvaluatorFlags.None
                 );
 
-                writeTypeCache(target, type, EvaluatorFlags.None, isTypeIncomplete);
+                writeTypeCache(target, { type, isIncomplete: isTypeIncomplete }, EvaluatorFlags.None);
                 break;
             }
 
@@ -3946,15 +3936,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     { method: 'del' },
                     EvaluatorFlags.None
                 );
-                writeTypeCache(node.memberName, memberType.type, EvaluatorFlags.None, /* isIncomplete */ false);
-                writeTypeCache(node, memberType.type, EvaluatorFlags.None, /* isIncomplete */ false);
+                writeTypeCache(node.memberName, { type: memberType.type }, EvaluatorFlags.None);
+                writeTypeCache(node, { type: memberType.type }, EvaluatorFlags.None);
                 break;
             }
 
             case ParseNodeType.Index: {
                 const baseTypeResult = getTypeOfExpression(node.baseExpression, EvaluatorFlags.DoNotSpecialize);
                 getTypeOfIndexWithBaseType(node, baseTypeResult, { method: 'del' }, EvaluatorFlags.None);
-                writeTypeCache(node, UnboundType.create(), EvaluatorFlags.None, /* isIncomplete */ false);
+                writeTypeCache(node, { type: UnboundType.create() }, EvaluatorFlags.None);
                 break;
             }
 
@@ -4792,8 +4782,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isCodeFlowSupportedForReference(node)) {
             // Before performing code flow analysis, update the cache to prevent recursion.
-            writeTypeCache(node, typeResult.type, flags, /* isIncomplete */ true);
-            writeTypeCache(node.memberName, typeResult.type, flags, /* isIncomplete */ true);
+            writeTypeCache(node, { ...typeResult, isIncomplete: true }, flags);
+            writeTypeCache(node.memberName, { ...typeResult, isIncomplete: true }, flags);
 
             // If the type is initially unbound, see if there's a parent class that
             // potentially initialized the value.
@@ -4855,7 +4845,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Cache the type information in the member name node.
-        writeTypeCache(node.memberName, typeResult.type, flags, !!typeResult.isIncomplete);
+        writeTypeCache(node.memberName, typeResult, flags);
 
         return typeResult;
     }
@@ -6044,7 +6034,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (baseTypeSupportsIndexNarrowing) {
                 // Before performing code flow analysis, update the cache to prevent recursion.
-                writeTypeCache(node, indexTypeResult.type, flags, /* isIncomplete */ false);
+                writeTypeCache(node, indexTypeResult, flags);
 
                 // See if we can refine the type based on code flow analysis.
                 const codeFlowTypeResult = getFlowTypeOfReference(
@@ -7749,21 +7739,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 // Use speculative mode so we don't output any diagnostics or
                 // record any final types in the type cache.
-                const callResult = useSpeculativeMode(
-                    errorNode,
-                    () => {
-                        return validateFunctionArgumentTypesWithExpectedType(
-                            errorNode,
-                            matchResults,
-                            effectiveTypeVarContext,
-                            /* skipUnknownArgCheck */ true,
-                            expectedType
-                        );
-                    },
-                    // Don't allow retention of speculative results if the caller
-                    // specified an expectedType because this can influence the results.
-                    !expectedType
-                );
+                const callResult = useSpeculativeMode(errorNode, () => {
+                    return validateFunctionArgumentTypesWithExpectedType(
+                        errorNode,
+                        matchResults,
+                        effectiveTypeVarContext,
+                        /* skipUnknownArgCheck */ true,
+                        expectedType
+                    );
+                });
 
                 if (callResult.isTypeIncomplete) {
                     isTypeIncomplete = true;
@@ -10791,7 +10775,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 argParam.argument.name &&
                 !speculativeTypeTracker.isSpeculative(argParam.errorNode)
             ) {
-                writeTypeCache(argParam.argument.name, expectedType || argType, EvaluatorFlags.None, isTypeIncomplete);
+                writeTypeCache(
+                    argParam.argument.name,
+                    { type: expectedType || argType, isIncomplete: isTypeIncomplete },
+                    EvaluatorFlags.None
+                );
             }
         } else {
             // Was the argument's type precomputed by the caller?
@@ -11314,7 +11302,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Update the type cache so we don't attempt to re-evaluate this node.
             // The type doesn't matter, so use Any.
-            writeTypeCache(node, AnyType.create(), /* flags */ undefined, /* isIncomplete */ false);
+            writeTypeCache(node, { type: AnyType.create() }, /* flags */ undefined);
             return functionType;
         } else {
             const typeResult = getTypeOfExpressionExpectingType(node, { allowParamSpec: true });
@@ -13366,7 +13354,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Pre-cache the incomplete function type in case the evaluation of the
         // lambda depends on itself.
-        writeTypeCache(node, functionType, EvaluatorFlags.None, /* isIncomplete */ true);
+        writeTypeCache(node, { type: functionType, isIncomplete: true }, EvaluatorFlags.None);
 
         let expectedFunctionTypes: FunctionType[] = [];
         if (expectedType) {
@@ -13423,9 +13411,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (param.name) {
                 writeTypeCache(
                     param.name,
-                    transformVariadicParamType(node, param.category, paramType),
-                    EvaluatorFlags.None,
-                    /* isIncomplete */ false
+                    { type: transformVariadicParamType(node, param.category, paramType) },
+                    EvaluatorFlags.None
                 );
             }
 
@@ -14829,7 +14816,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 computeMroLinearization(specialType);
             }
 
-            writeTypeCache(node, specialType, EvaluatorFlags.None, /* isIncomplete */ false);
+            writeTypeCache(node, { type: specialType }, EvaluatorFlags.None);
             return specialType;
         }
 
@@ -14924,7 +14911,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (fileInfo.isTypingStubFile || fileInfo.isTypingExtensionsStubFile) {
                 rightHandType = handleTypingStubAssignment(node);
                 if (rightHandType) {
-                    writeTypeCache(node.rightExpression, rightHandType, EvaluatorFlags.None, /* isIncomplete */ false);
+                    writeTypeCache(node.rightExpression, { type: rightHandType }, EvaluatorFlags.None);
                 }
             }
 
@@ -14975,19 +14962,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeAliasTypeVar.scopeId = scopeId;
 
                     // Write the type back to the type cache. It will be replaced below.
-                    writeTypeCache(node, typeAliasTypeVar, /* flags */ undefined, /* isIncomplete */ false);
-                    writeTypeCache(
-                        node.leftExpression,
-                        typeAliasTypeVar,
-                        /* flags */ undefined,
-                        /* isIncomplete */ false
-                    );
+                    writeTypeCache(node, { type: typeAliasTypeVar }, /* flags */ undefined);
+                    writeTypeCache(node.leftExpression, { type: typeAliasTypeVar }, /* flags */ undefined);
                     if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation) {
                         writeTypeCache(
                             node.leftExpression.valueExpression,
-                            typeAliasTypeVar,
-                            /* flags */ undefined,
-                            /* isIncomplete */ false
+                            { type: typeAliasTypeVar },
+                            /* flags */ undefined
                         );
                     }
                 }
@@ -15101,7 +15082,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             expectedTypeDiagAddendum
         );
 
-        writeTypeCache(node, rightHandType, EvaluatorFlags.None, isIncomplete);
+        writeTypeCache(node, { type: rightHandType, isIncomplete }, EvaluatorFlags.None);
     }
 
     function isPossibleTypeAliasOrTypedDict(decl: Declaration) {
@@ -15158,7 +15139,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeAliasTypeVar.scopeId = scopeId;
 
         // Write the type to the type cache. It will be replaced below.
-        writeTypeCache(node.name, typeAliasTypeVar, /* flags */ undefined, /* isIncomplete */ false);
+        writeTypeCache(node.name, { type: typeAliasTypeVar }, /* flags */ undefined);
 
         // Set a partial type to handle recursive (self-referential) type aliases.
         const scope = ScopeUtils.getScopeForNode(node);
@@ -15229,7 +15210,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        writeTypeCache(node.name, aliasType, EvaluatorFlags.None, isIncomplete);
+        writeTypeCache(node.name, { type: aliasType, isIncomplete }, EvaluatorFlags.None);
 
         return aliasType;
     }
@@ -15241,7 +15222,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const destTypeResult = getTypeOfAugmentedAssignment(node, /* expectedType */ undefined);
 
-        writeTypeCache(node, destTypeResult.type, EvaluatorFlags.None, !!destTypeResult.isIncomplete);
+        writeTypeCache(node, destTypeResult, EvaluatorFlags.None);
     }
 
     function getPseudoGenericTypeVarName(paramName: string) {
@@ -15321,8 +15302,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             setSymbolResolutionPartialType(classSymbol, classDecl, classType);
         }
         classType.details.flags |= ClassTypeFlags.PartiallyEvaluated;
-        writeTypeCache(node, classType, /* flags */ undefined, /* isIncomplete */ false);
-        writeTypeCache(node.name, classType, /* flags */ undefined, /* isIncomplete */ false);
+        writeTypeCache(node, { type: classType }, /* flags */ undefined);
+        writeTypeCache(node.name, { type: classType }, /* flags */ undefined);
 
         // Keep a list of unique type parameters that are used in the
         // base class arguments.
@@ -15904,10 +15885,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Update the undecorated class type.
-        writeTypeCache(node.name, classType, EvaluatorFlags.None, /* isIncomplete */ false);
+        writeTypeCache(node.name, { type: classType }, EvaluatorFlags.None);
 
         // Update the decorated class type.
-        writeTypeCache(node, decoratedType, EvaluatorFlags.None, /* isIncomplete */ false);
+        writeTypeCache(node, { type: decoratedType }, EvaluatorFlags.None);
 
         // Stash away a reference to the UnionType class if we encounter it.
         // There's no easy way to otherwise reference it.
@@ -16063,7 +16044,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return;
             }
 
-            writeTypeCache(param.name, typeOfParam, EvaluatorFlags.None, /* isIncomplete */ false);
+            writeTypeCache(param.name, { type: typeOfParam }, EvaluatorFlags.None);
             paramTypes.push(typeOfParam);
         });
 
@@ -16483,8 +16464,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (functionDecl && functionSymbol) {
             setSymbolResolutionPartialType(functionSymbol.symbol, functionDecl, functionType);
         }
-        writeTypeCache(node, functionType, /* flags */ undefined, /* isIncomplete */ false);
-        writeTypeCache(node.name, functionType, /* flags */ undefined, /* isIncomplete */ false);
+        writeTypeCache(node, { type: functionType }, /* flags */ undefined);
+        writeTypeCache(node.name, { type: functionType }, /* flags */ undefined);
 
         // Is this an "__init__" method within a pseudo-generic class? If so,
         // we'll add generic types to the constructor's parameters.
@@ -16738,7 +16719,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isUnknown(paramType)) {
                     functionType.details.flags |= FunctionTypeFlags.UnannotatedParams;
                 }
-                writeTypeCache(paramNameNode, paramType, EvaluatorFlags.None, /* isIncomplete */ false);
+                writeTypeCache(paramNameNode, { type: paramType }, EvaluatorFlags.None);
             }
         });
 
@@ -16867,8 +16848,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             decoratedType = addOverloadsToFunctionType(node, decoratedType);
         }
 
-        writeTypeCache(node.name, functionType, EvaluatorFlags.None, /* isIncomplete */ false);
-        writeTypeCache(node, decoratedType, EvaluatorFlags.None, /* isIncomplete */ false);
+        writeTypeCache(node.name, { type: functionType }, EvaluatorFlags.None);
+        writeTypeCache(node, { type: decoratedType }, EvaluatorFlags.None);
 
         return { functionType, decoratedType };
     }
@@ -17628,7 +17609,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                writeTypeCache(node.suite, inferredReturnType, EvaluatorFlags.None, isIncomplete);
+                writeTypeCache(node.suite, { type: inferredReturnType, isIncomplete }, EvaluatorFlags.None);
             } finally {
                 functionRecursionMap.delete(node.id);
             }
@@ -17686,7 +17667,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             node.targetExpression
         );
 
-        writeTypeCache(node, iteratedType, EvaluatorFlags.None, !!iteratorTypeResult.isIncomplete);
+        writeTypeCache(
+            node,
+            { type: iteratedType, isIncomplete: !!iteratorTypeResult.isIncomplete },
+            EvaluatorFlags.None
+        );
     }
 
     function evaluateTypesForExceptStatement(node: ExceptNode): void {
@@ -17754,7 +17739,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             assignTypeToExpression(node.name, targetType, /* isIncomplete */ false, node.name);
         }
 
-        writeTypeCache(node, targetType, EvaluatorFlags.None, /* isIncomplete */ false);
+        writeTypeCache(node, { type: targetType }, EvaluatorFlags.None);
     }
 
     function evaluateTypesForWithStatement(node: WithItemNode): void {
@@ -17869,7 +17854,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             assignTypeToExpression(node.target, scopedType, !!exprTypeResult.isIncomplete, node.target);
         }
 
-        writeTypeCache(node, scopedType, EvaluatorFlags.None, !!exprTypeResult.isIncomplete);
+        writeTypeCache(node, { type: scopedType, isIncomplete: !!exprTypeResult.isIncomplete }, EvaluatorFlags.None);
     }
 
     function evaluateTypesForImportAs(node: ImportAsNode): void {
@@ -17906,7 +17891,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         assignTypeToNameNode(symbolNameNode, symbolType, /* isIncomplete */ false, /* ignoreEmptyContainers */ false);
 
-        writeTypeCache(node, symbolType, EvaluatorFlags.None, /* isIncomplete */ false);
+        writeTypeCache(node, { type: symbolType }, EvaluatorFlags.None);
     }
 
     function evaluateTypesForImportFromAs(node: ImportFromAsNode): void {
@@ -17977,7 +17962,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         assignTypeToNameNode(aliasNode, symbolType, /* isIncomplete */ false, /* ignoreEmptyContainers */ false);
-        writeTypeCache(node, symbolType, EvaluatorFlags.None, /* isIncomplete */ false);
+        writeTypeCache(node, { type: symbolType }, EvaluatorFlags.None);
     }
 
     function evaluateTypesForMatchStatement(node: MatchNode): void {
@@ -18000,7 +17985,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        writeTypeCache(node, subjectType, EvaluatorFlags.None, !!subjectTypeResult.isIncomplete);
+        writeTypeCache(
+            node,
+            { type: subjectType, isIncomplete: !!subjectTypeResult.isIncomplete },
+            EvaluatorFlags.None
+        );
     }
 
     function evaluateTypesForCaseStatement(node: CaseNode): void {
@@ -18056,7 +18045,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             node.pattern
         );
 
-        writeTypeCache(node, subjectType, EvaluatorFlags.None, !!subjectTypeResult.isIncomplete);
+        writeTypeCache(
+            node,
+            { type: subjectType, isIncomplete: !!subjectTypeResult.isIncomplete },
+            EvaluatorFlags.None
+        );
     }
 
     function evaluateTypesForImportFrom(node: ImportFromNode): void {
@@ -18084,7 +18077,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         assignTypeToNameNode(symbolNameNode, symbolType, /* isIncomplete */ false, /* ignoreEmptyContainers */ false);
 
-        writeTypeCache(node, symbolType, EvaluatorFlags.None, /* isIncomplete */ false);
+        writeTypeCache(node, { type: symbolType }, EvaluatorFlags.None);
     }
 
     function evaluateTypesForTypeAnnotationNode(node: TypeAnnotationNode) {
@@ -18100,7 +18093,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(node.valueExpression),
             });
 
-            writeTypeCache(node.valueExpression, annotationType, EvaluatorFlags.None, /* isIncomplete */ false);
+            writeTypeCache(node.valueExpression, { type: annotationType }, EvaluatorFlags.None);
         }
     }
 
@@ -18523,7 +18516,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 adjustParameterAnnotatedType(param, annotatedType)
             );
 
-            writeTypeCache(node.name!, adjType, EvaluatorFlags.None, /* isIncomplete */ false);
+            writeTypeCache(node.name!, { type: adjType }, EvaluatorFlags.None);
             return;
         }
 
@@ -18541,7 +18534,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
 
             if (paramType) {
-                writeTypeCache(node.name!, paramType, EvaluatorFlags.None, /* isIncomplete */ false);
+                writeTypeCache(node.name!, { type: paramType }, EvaluatorFlags.None);
                 return;
             }
         }
@@ -18554,9 +18547,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         writeTypeCache(
             node.name!,
-            transformVariadicParamType(node, node.category, inferredParamType ?? UnknownType.create()),
-            EvaluatorFlags.None,
-            /* isIncomplete */ false
+            { type: transformVariadicParamType(node, node.category, inferredParamType ?? UnknownType.create()) },
+            EvaluatorFlags.None
         );
     }
 
@@ -18691,17 +18683,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the type cache is already populated with a complete type,
         // don't bother doing additional work.
         let cacheEntry = readTypeCacheEntry(subnode);
-        if (cacheEntry && !cacheEntry.isIncomplete) {
-            return { type: cacheEntry.type };
+        if (cacheEntry && !cacheEntry.typeResult.isIncomplete) {
+            return { type: cacheEntry.typeResult.type };
         }
 
         callback();
         cacheEntry = readTypeCacheEntry(subnode);
         if (cacheEntry) {
             return {
-                type: cacheEntry.type,
-                isIncomplete: cacheEntry.isIncomplete,
-                expectedTypeDiagAddendum: cacheEntry.expectedTypeDiagAddendum,
+                type: cacheEntry.typeResult.type,
+                isIncomplete: cacheEntry.typeResult.isIncomplete,
+                expectedTypeDiagAddendum: cacheEntry.typeResult.expectedTypeDiagAddendum,
             };
         }
 
@@ -19885,8 +19877,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Cache the value before we evaluate the bound or the default type in
         // case it refers to itself in a circular manner.
-        writeTypeCache(node, typeVar, /* flags */ undefined, /* isIncomplete */ false);
-        writeTypeCache(node.name, typeVar, /* flags */ undefined, /* isIncomplete */ false);
+        writeTypeCache(node, { type: typeVar }, /* flags */ undefined);
+        writeTypeCache(node.name, { type: typeVar }, /* flags */ undefined);
 
         if (node.boundExpression) {
             if (node.boundExpression.nodeType === ParseNodeType.Tuple) {
@@ -20828,7 +20820,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         paramTypes.push(paramType);
-                        writeTypeCache(param.name, paramType, EvaluatorFlags.None, /* isIncomplete */ false);
+                        writeTypeCache(param.name, { type: paramType }, EvaluatorFlags.None);
                     }
                 });
 

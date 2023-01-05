@@ -27,10 +27,12 @@ interface SpeculativeContext {
 
 export interface TypeResult {
     type: Type;
-    isIncomplete: boolean;
+    isIncomplete?: boolean;
+    typeErrors?: boolean;
 }
 
-interface SpeculativeTypeEntry extends TypeResult {
+interface SpeculativeTypeEntry {
+    typeResult: TypeResult;
     expectedType: Type | undefined;
 }
 
@@ -116,7 +118,7 @@ export class SpeculativeTypeTracker {
             cacheEntries = [];
             this._speculativeTypeCache.set(node.id, cacheEntries);
         }
-        cacheEntries.push({ type: typeResult.type, isIncomplete: typeResult.isIncomplete, expectedType });
+        cacheEntries.push({ typeResult, expectedType });
     }
 
     getSpeculativeType(node: ParseNode, expectedType: Type | undefined): TypeResult | undefined {
@@ -130,10 +132,10 @@ export class SpeculativeTypeTracker {
                 for (const entry of entries) {
                     if (!expectedType) {
                         if (!entry.expectedType) {
-                            return entry;
+                            return entry.typeResult;
                         }
                     } else if (entry.expectedType && isTypeSame(expectedType, entry.expectedType)) {
-                        return entry;
+                        return entry.typeResult;
                     }
                 }
             }
