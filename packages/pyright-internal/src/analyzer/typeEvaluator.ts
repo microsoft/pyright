@@ -724,7 +724,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // this speculative context.
         if (speculativeTypeTracker.isSpeculative(node)) {
             speculativeTypeTracker.trackEntry(typeCacheToUse, node.id);
-            if (allowSpeculativeCaching) {
+            if (allowSpeculativeCaching && !typeResult.isIncomplete) {
                 speculativeTypeTracker.addSpeculativeType(node, typeResult, expectedType);
             }
         }
@@ -8470,10 +8470,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 });
 
-                if (!callResult?.argumentErrors) {
+                if (!callResult!.argumentErrors) {
                     // Call validateCallArguments again, this time without speculative
                     // mode, so any errors are reported.
-                    const callResult = validateCallArguments(
+                    callResult = validateCallArguments(
                         errorNode,
                         argList,
                         { type: constructorMethodType },
@@ -13487,13 +13487,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         };
 
         if (speculativeTypeTracker.isSpeculative(node)) {
-            useSpeculativeMode(
-                node.expression,
-                () => {
-                    inferLambdaReturnType();
-                },
-                /* allowCacheRetention */ false
-            );
+            useSpeculativeMode(node.expression, () => {
+                inferLambdaReturnType();
+            });
         } else {
             inferLambdaReturnType();
         }
@@ -19413,8 +19409,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Disables recording of errors and warnings and disables
     // any caching of types, under the assumption that we're
     // performing speculative evaluations.
-    function useSpeculativeMode<T>(speculativeNode: ParseNode, callback: () => T, allowCacheRetention = true) {
-        speculativeTypeTracker.enterSpeculativeContext(speculativeNode, allowCacheRetention);
+    function useSpeculativeMode<T>(speculativeNode: ParseNode, callback: () => T) {
+        speculativeTypeTracker.enterSpeculativeContext(speculativeNode);
 
         try {
             const result = callback();

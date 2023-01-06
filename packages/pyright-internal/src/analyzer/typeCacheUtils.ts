@@ -22,13 +22,10 @@ interface SpeculativeEntry {
 interface SpeculativeContext {
     speculativeRootNode: ParseNode;
     entriesToUndo: SpeculativeEntry[];
-    allowCacheRetention: boolean;
 }
 
 export interface TypeResult {
     type: Type;
-    isIncomplete?: boolean;
-    typeErrors?: boolean;
 }
 
 interface SpeculativeTypeEntry {
@@ -46,11 +43,10 @@ export class SpeculativeTypeTracker {
     private _speculativeContextStack: SpeculativeContext[] = [];
     private _speculativeTypeCache = new Map<number, SpeculativeTypeEntry[]>();
 
-    enterSpeculativeContext(speculativeRootNode: ParseNode, allowCacheRetention: boolean) {
+    enterSpeculativeContext(speculativeRootNode: ParseNode) {
         this._speculativeContextStack.push({
             speculativeRootNode,
             entriesToUndo: [],
-            allowCacheRetention,
         });
     }
 
@@ -109,10 +105,6 @@ export class SpeculativeTypeTracker {
 
     addSpeculativeType(node: ParseNode, typeResult: TypeResult, expectedType: Type | undefined) {
         assert(this._speculativeContextStack.length > 0);
-        if (this._speculativeContextStack.some((context) => !context.allowCacheRetention)) {
-            return;
-        }
-
         let cacheEntries = this._speculativeTypeCache.get(node.id);
         if (!cacheEntries) {
             cacheEntries = [];
