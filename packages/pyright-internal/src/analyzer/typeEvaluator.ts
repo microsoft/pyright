@@ -23241,6 +23241,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return;
         }
 
+        // If the *args parameter isn't an unpacked TypeVarTuple or tuple,
+        // we have nothing to do.
+        if (!isUnpacked(destDetails.params[destDetails.argsIndex].type)) {
+            return;
+        }
+
         // If the source doesn't have enough positional parameters, we have nothing to do.
         if (srcDetails.params.length < destDetails.argsIndex) {
             return;
@@ -23613,9 +23619,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (
             !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(destType) &&
             srcParamDetails.argsIndex === undefined &&
+            srcType.details.paramSpec === undefined &&
             destParamDetails.argsIndex !== undefined &&
-            !destParamDetails.hasUnpackedVariadicTypeVar &&
-            !targetIncludesParamSpec
+            !destParamDetails.hasUnpackedVariadicTypeVar
         ) {
             diag?.createAddendum().addMessage(
                 Localizer.DiagnosticAddendum.argsParamMissing().format({
