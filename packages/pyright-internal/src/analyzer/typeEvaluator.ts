@@ -4458,7 +4458,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (enclosingScope) {
                             // If the enclosing scope is using type parameter syntax, traditional
                             // type variables can't be used in this context.
-                            if (enclosingScope.typeParameters) {
+                            if (
+                                enclosingScope.typeParameters &&
+                                !enclosingScope.typeParameters.parameters.some(
+                                    (param) => param.name.value === type.details.name
+                                )
+                            ) {
                                 addDiagnostic(
                                     AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                                     DiagnosticRule.reportGeneralTypeIssues,
