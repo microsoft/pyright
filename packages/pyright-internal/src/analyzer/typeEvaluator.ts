@@ -10471,6 +10471,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let specializedReturnType = addConditionToType(
             applySolvedTypeVars(returnType, typeVarContext, {
                 unknownIfNotFound,
+                useUnknownOverDefault: skipUnknownArgCheck,
                 eliminateUnsolvedInUnions,
             }),
             typeCondition

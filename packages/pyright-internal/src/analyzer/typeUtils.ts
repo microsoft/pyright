@@ -226,6 +226,7 @@ export interface ParameterListDetails {
 
 export interface ApplyTypeVarOptions {
     unknownIfNotFound?: boolean;
+    useUnknownOverDefault?: boolean;
     useNarrowBoundOnly?: boolean;
     eliminateUnsolvedInUnions?: boolean;
     typeClassType?: Type;
@@ -3403,7 +3404,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             // default or Unknown.
             if (this._options.unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
                 // Use the default value if there is one.
-                if (typeVar.details.defaultType) {
+                if (typeVar.details.defaultType && !this._options.useUnknownOverDefault) {
                     return this._solveDefaultType(typeVar.details.defaultType, recursionCount);
                 }
 
