@@ -1,9 +1,9 @@
 ## Building Pyright
 
 To install the dependencies for all packages in the repo:
-1. Install [nodejs](https://nodejs.org/en/) version 14.x
+1. Install [nodejs](https://nodejs.org/en/) version 16.x
 2. Open terminal window in main directory of cloned source
-3. Execute `npm install` to install dependencies
+3. Execute `npm run install:all` to install dependencies for projects and sub-projects
 
 
 ## Building the CLI
