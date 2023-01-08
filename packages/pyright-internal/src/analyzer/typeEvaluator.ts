@@ -13493,9 +13493,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         };
 
         if (speculativeTypeTracker.isSpeculative(node)) {
-            useSpeculativeMode(node.expression, () => {
-                inferLambdaReturnType();
-            });
+            // We need to set allowCacheRetention to false because we don't want to
+            // cache the type of the lambda return expression because it depends on
+            // the parameter types that we set above, and the speculative type cache
+            // doesn't know about that context.
+            useSpeculativeMode(
+                node.expression,
+                () => {
+                    inferLambdaReturnType();
+                },
+                /* allowCacheRetention */ false
+            );
         } else {
             inferLambdaReturnType();
         }
@@ -19419,8 +19427,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Disables recording of errors and warnings and disables
     // any caching of types, under the assumption that we're
     // performing speculative evaluations.
-    function useSpeculativeMode<T>(speculativeNode: ParseNode, callback: () => T) {
-        speculativeTypeTracker.enterSpeculativeContext(speculativeNode);
+    function useSpeculativeMode<T>(speculativeNode: ParseNode, callback: () => T, allowCacheRetention = true) {
+        speculativeTypeTracker.enterSpeculativeContext(speculativeNode, allowCacheRetention);
 
         try {
             const result = callback();
