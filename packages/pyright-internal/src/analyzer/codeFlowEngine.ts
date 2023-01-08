@@ -593,11 +593,20 @@ export function getCodeFlowEngine(
                                 if (typeNarrowingCallback) {
                                     const flowTypeResult = getTypeFromFlowNode(conditionalFlowNode.antecedent);
                                     let flowType = flowTypeResult.type;
+                                    let isIncomplete = flowTypeResult.isIncomplete;
+
                                     if (flowType) {
-                                        flowType = typeNarrowingCallback(flowType);
+                                        const flowTypeResult = typeNarrowingCallback(flowType);
+
+                                        if (flowTypeResult) {
+                                            flowType = flowTypeResult.type;
+                                            if (flowTypeResult.isIncomplete) {
+                                                isIncomplete = true;
+                                            }
+                                        }
                                     }
 
-                                    return setCacheEntry(curFlowNode, flowType, flowTypeResult.isIncomplete);
+                                    return setCacheEntry(curFlowNode, flowType, isIncomplete);
                                 }
 
                                 return undefined;
@@ -644,16 +653,21 @@ export function getCodeFlowEngine(
                                             const refTypeInfo = evaluator.getTypeOfExpression(
                                                 conditionalFlowNode.reference!
                                             );
-                                            const narrowedType =
-                                                typeNarrowingCallback(refTypeInfo.type) || refTypeInfo.type;
+
+                                            let narrowedType = refTypeInfo.type;
+                                            let isIncomplete = !!refTypeInfo.isIncomplete;
+
+                                            const narrowedTypeResult = typeNarrowingCallback(refTypeInfo.type);
+                                            if (narrowedTypeResult) {
+                                                narrowedType = narrowedTypeResult.type;
+                                                if (narrowedTypeResult.isIncomplete) {
+                                                    isIncomplete = true;
+                                                }
+                                            }
 
                                             // If the narrowed type is "never", don't allow further exploration.
                                             if (isNever(narrowedType)) {
-                                                return setCacheEntry(
-                                                    curFlowNode,
-                                                    undefined,
-                                                    !!refTypeInfo.isIncomplete
-                                                );
+                                                return setCacheEntry(curFlowNode, undefined, isIncomplete);
                                             }
                                         }
 
