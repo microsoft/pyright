@@ -2,13 +2,15 @@
 # when used to define generic functions and with defaults type
 # expressions that refer to other type variables.
 
-from typing import TypeVar
+from typing import Generic, Self, TypeVar
 
 T1 = TypeVar("T1", default=str)
 T2 = TypeVar("T2", default=list[T1])
 
+
 def func1(x: T1, y: int | T2 = 0) -> T2 | list[T1]:
     ...
+
 
 v1_1 = func1("hi", 3.4)
 reveal_type(v1_1, expected_text="float | list[str]")
@@ -21,3 +23,14 @@ reveal_type(v1_2, expected_text="list[str]")
 def func2(x: T2, y: T1) -> list[T1 | T2]:
     ...
 
+
+T3 = TypeVar("T3", default=int)
+
+
+class ClassA(Generic[T3]):
+    def __init__(self, value: T3):
+        self.value = value
+
+    def func1(self, value: T3) -> Self:
+        self.value = value
+        return self

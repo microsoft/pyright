@@ -15910,7 +15910,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeParam: TypeVarType,
         otherLiveTypeParams: TypeVarType[]
     ) {
-        if (!typeParam.details.defaultType) {
+        if (
+            !typeParam.details.defaultType &&
+            !typeParam.details.isSynthesized &&
+            !typeParam.details.isSynthesizedSelf
+        ) {
             const typeVarWithDefault = otherLiveTypeParams.find((param) => param.details.defaultType);
             if (typeVarWithDefault) {
                 addDiagnostic(
