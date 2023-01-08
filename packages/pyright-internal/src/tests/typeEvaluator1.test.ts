@@ -1300,6 +1300,12 @@ test('Self5', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Self6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self6.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('UnusedVariable1', () => {
     const configOptions = new ConfigOptions('.');
 

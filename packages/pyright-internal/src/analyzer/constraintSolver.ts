@@ -202,7 +202,11 @@ export function assignTypeToTypeVar(
 
     const curEntry = typeVarContext.getTypeVar(destType);
     const curNarrowTypeBound = curEntry?.narrowBound;
-    const curWideTypeBound = curEntry?.wideBound ?? destType.details.boundType;
+
+    let curWideTypeBound = curEntry?.wideBound;
+    if (!curWideTypeBound && !destType.details.isSynthesizedSelf) {
+        curWideTypeBound = destType.details.boundType;
+    }
 
     // Handle the constrained case. This case needs to be handled specially
     // because type narrowing isn't used in this case. For example, if the
@@ -603,7 +607,7 @@ export function assignTypeToTypeVar(
                         makeConcrete = false;
                     } else if (
                         isUnion(newNarrowTypeBound) &&
-                        newNarrowTypeBound.subtypes.some((subtype) => isTypeSame(subtype, curWideTypeBound))
+                        newNarrowTypeBound.subtypes.some((subtype) => isTypeSame(subtype, curWideTypeBound!))
                     ) {
                         makeConcrete = false;
                     }
