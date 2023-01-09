@@ -730,15 +730,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
-    function deleteTypeCacheEntry(node: ParseNode) {
-        const typeCacheToUse =
-            returnTypeInferenceTypeCache && isNodeInReturnTypeInferenceContext(node)
-                ? returnTypeInferenceTypeCache
-                : typeCache;
-
-        typeCacheToUse.delete(node.id);
-    }
-
     function setTypeForNode(node: ParseNode, type: Type = UnknownType.create(), flags = EvaluatorFlags.None) {
         writeTypeCache(node, { type }, flags);
     }
@@ -4840,9 +4831,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Detect, report, and fill in missing type arguments if appropriate.
             typeResult.type = reportMissingTypeArguments(node, typeResult.type, flags);
-
-            deleteTypeCacheEntry(node);
-            deleteTypeCacheEntry(node.memberName);
         }
 
         if (baseTypeResult.isIncomplete) {
@@ -6059,8 +6047,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (codeFlowTypeResult.isIncomplete) {
                     indexTypeResult.isIncomplete = true;
                 }
-
-                deleteTypeCacheEntry(node);
             }
         }
 
@@ -15026,13 +15012,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (typeAliasNameNode) {
-                    // Clear out the temporary types we wrote above.
-                    deleteTypeCacheEntry(node);
-                    deleteTypeCacheEntry(node.leftExpression);
-                    if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation) {
-                        deleteTypeCacheEntry(node.leftExpression.valueExpression);
-                    }
-
                     // If this was a speculative type alias, it becomes a real type alias
                     // only if the evaluated type is an instantiable type.
                     if (
@@ -15180,9 +15159,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (aliasTypeResult.isIncomplete) {
             isIncomplete = true;
         }
-
-        // Clear the temporary type we wrote above.
-        deleteTypeCacheEntry(node.name);
 
         aliasType = transformTypeForTypeAlias(
             aliasType,
