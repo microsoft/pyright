@@ -1137,7 +1137,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             default:
-                assertNever(node);
+                assertNever(node, `Illegal node type: ${(node as any).nodeType}`);
         }
 
         if (!typeResult) {
