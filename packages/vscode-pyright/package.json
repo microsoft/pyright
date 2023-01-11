@@ -929,10 +929,10 @@
         "webpack-dev": "npm run clean && webpack --mode development --watch --progress"
     },
     "dependencies": {
-        "vscode-jsonrpc": "8.1.0-next.5",
-        "vscode-languageclient": "8.1.0-next.4",
-        "vscode-languageserver": "8.1.0-next.4",
-        "vscode-languageserver-protocol": "3.17.3-next.4"
+        "vscode-jsonrpc": "8.1.0-next.6",
+        "vscode-languageclient": "8.1.0-next.5",
+        "vscode-languageserver": "8.1.0-next.5",
+        "vscode-languageserver-protocol": "3.17.3-next.5"
     },
     "devDependencies": {
         "@types/copy-webpack-plugin": "^10.1.0",

@@ -25,7 +25,7 @@ import {
     MarkupKind,
 } from 'vscode-languageserver-types';
 
-import { BackgroundAnalysisBase, IndexOptions } from '../backgroundAnalysisBase';
+import { BackgroundAnalysisBase, IndexOptions, RefreshOptions } from '../backgroundAnalysisBase';
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
@@ -132,6 +132,8 @@ export class AnalyzerService {
     private _backgroundAnalysisProgram: BackgroundAnalysisProgram;
     private _backgroundAnalysisCancellationSource: AbstractCancellationTokenSource | undefined;
     private _disposed = false;
+
+    private _pendingLibraryChanges: RefreshOptions = { changesOnly: true };
 
     constructor(instanceName: string, fs: FileSystem, options: AnalyzerServiceOptions) {
         this._instanceName = instanceName;
@@ -905,20 +907,16 @@ export class AnalyzerService {
         );
     }
 
-    // This is called after a new type stub has been created. It allows
-    // us to invalidate caches and force reanalysis of files that potentially
-    // are affected by the appearance of a new type stub.
     invalidateAndForceReanalysis(
         rebuildUserFileIndexing = true,
         rebuildLibraryIndexing = true,
-        updateTrackedFileList = false
+        refreshOptions?: RefreshOptions
     ) {
-        if (updateTrackedFileList) {
-            this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ false);
-        }
-
-        // Mark all files with one or more errors dirty.
-        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(rebuildUserFileIndexing, rebuildLibraryIndexing);
+        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(
+            rebuildUserFileIndexing,
+            rebuildLibraryIndexing,
+            refreshOptions
+        );
     }
 
     // Forces the service to stop all analysis, discard all its caches,
@@ -1556,7 +1554,9 @@ export class AnalyzerService {
                         return;
                     }
 
-                    this._scheduleLibraryAnalysis();
+                    // If file doesn't exist, it is delete.
+                    const isChange = event === 'change' && this.fs.existsSync(path);
+                    this._scheduleLibraryAnalysis(isChange);
                 });
             } catch {
                 this._console.error(`Exception caught when installing fs watcher for:\n ${watchList.join('\n')}`);
@@ -1572,7 +1572,7 @@ export class AnalyzerService {
         }
     }
 
-    private _scheduleLibraryAnalysis() {
+    private _scheduleLibraryAnalysis(isChange: boolean) {
         if (this._disposed) {
             // Already disposed.
             return;
@@ -1586,6 +1586,9 @@ export class AnalyzerService {
             return;
         }
 
+        // Add pending library files/folders changes.
+        this._pendingLibraryChanges.changesOnly = this._pendingLibraryChanges.changesOnly && isChange;
+
         // Wait for a little while, since library changes
         // tend to happen in big batches when packages
         // are installed or uninstalled.
@@ -1594,8 +1597,13 @@ export class AnalyzerService {
 
             // Invalidate import resolver, mark all files dirty unconditionally,
             // and reanalyze.
-            this.invalidateAndForceReanalysis(/* rebuildUserFileIndexing */ false);
+            this.invalidateAndForceReanalysis(/* rebuildUserFileIndexing */ false, /* rebuildLibraryIndexing */ true, {
+                changesOnly: this._pendingLibraryChanges.changesOnly,
+            });
             this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
+
+            // No more pending changes.
+            this._pendingLibraryChanges.changesOnly = true;
         }, backOffTimeInMS);
     }
 

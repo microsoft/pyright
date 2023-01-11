@@ -36,12 +36,25 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { TextRange } from '../common/textRange';
-import { ImportAsNode, NameNode, ParseNode, ParseNodeType, StringNode } from '../parser/parseNodes';
+import {
+    ClassNode,
+    FunctionNode,
+    ImportAsNode,
+    NameNode,
+    ParseNode,
+    ParseNodeType,
+    StringNode,
+} from '../parser/parseNodes';
 
 export type CollectionResult = {
     node: NameNode | StringNode;
     range: TextRange;
 };
+
+export enum DocumentSymbolCollectorUseCase {
+    Rename,
+    Reference,
+}
 
 // This walker looks for symbols that are semantically equivalent
 // to the requested symbol.
@@ -52,13 +65,14 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         cancellationToken: CancellationToken,
         startingNode?: ParseNode,
         treatModuleInImportAndFromImportSame = false,
-        skipUnreachableCode = true
+        skipUnreachableCode = true,
+        useCase = DocumentSymbolCollectorUseCase.Reference
     ): CollectionResult[] {
-        const symbolName = node.value;
         const declarations = this.getDeclarationsForNode(
             node,
             evaluator,
             /* resolveLocalName */ true,
+            useCase,
             cancellationToken
         );
 
@@ -68,13 +82,14 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         }
 
         const collector = new DocumentSymbolCollector(
-            symbolName,
+            [node.value],
             declarations,
             evaluator,
             cancellationToken,
             startingNode,
             treatModuleInImportAndFromImportSame,
-            skipUnreachableCode
+            skipUnreachableCode,
+            useCase
         );
 
         return collector.collect();
@@ -84,12 +99,13 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         node: NameNode,
         evaluator: TypeEvaluator,
         resolveLocalName: boolean,
+        useCase: DocumentSymbolCollectorUseCase,
         token: CancellationToken,
         sourceMapper?: SourceMapper
     ): Declaration[] {
         throwIfCancellationRequested(token);
 
-        const declarations = this._getDeclarationsForNode(node, evaluator);
+        const declarations = this._getDeclarationsForNode(node, useCase, evaluator);
 
         const resolvedDeclarations: Declaration[] = [];
         declarations.forEach((decl) => {
@@ -113,21 +129,41 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
 
     private _results: CollectionResult[] = [];
     private _dunderAllNameNodes = new Set<StringNode>();
+    private _initFunction: FunctionNode | undefined;
+    private _symbolNames: Set<string> = new Set<string>();
 
     constructor(
-        private _symbolName: string,
+        symbolNames: string[],
         private _declarations: Declaration[],
         private _evaluator: TypeEvaluator,
         private _cancellationToken: CancellationToken,
         private _startingNode: ParseNode,
         private _treatModuleInImportAndFromImportSame = false,
-        private _skipUnreachableCode = true
+        private _skipUnreachableCode = true,
+        private _useCase = DocumentSymbolCollectorUseCase.Reference
     ) {
         super();
+
+        // Start with the symbols passed in
+        symbolNames.forEach((s) => this._symbolNames.add(s));
 
         // Don't report strings in __all__ right away, that will
         // break the assumption on the result ordering.
         this._setDunderAllNodes(this._startingNode);
+
+        // Check if one of our symbols is __init__ and we
+        // have a class declaration in the list and we are
+        // computing symbols for references and not rename.
+        const initDeclaration = _declarations.find(
+            (d) => d.type === DeclarationType.Function && d.node.name.value === '__init__'
+        );
+        if (initDeclaration && _useCase === DocumentSymbolCollectorUseCase.Reference) {
+            const classDeclaration = _declarations.find((d) => d.type === DeclarationType.Class);
+            if (classDeclaration) {
+                this._initFunction = initDeclaration.node as FunctionNode;
+                this._symbolNames.add((classDeclaration.node as ClassNode).name.value);
+            }
+        }
     }
 
     collect() {
@@ -145,20 +181,21 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         throwIfCancellationRequested(this._cancellationToken);
 
         // No need to do any more work if the symbol name doesn't match.
-        if (node.value !== this._symbolName) {
+        if (!this._symbolNames.has(node.value)) {
             return false;
         }
 
         if (this._declarations.length > 0) {
             const declarations = DocumentSymbolCollector._getDeclarationsForNode(
                 node,
+                this._useCase,
                 this._evaluator,
                 this._skipUnreachableCode
             );
 
             if (declarations && declarations.length > 0) {
                 // Does this name share a declaration with the symbol of interest?
-                if (declarations.some((decl) => this._resultsContainsDeclaration(decl))) {
+                if (declarations.some((decl) => this._resultsContainsDeclaration(decl, node))) {
                     this._addResult(node);
                 }
             }
@@ -185,7 +222,39 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         this._results.push({ node, range });
     }
 
-    private _resultsContainsDeclaration(declaration: Declaration) {
+    private _isDeclarationAllowed(resolvedDecl: Declaration, referenceNode: ParseNode) {
+        // Declaration is allowed if:
+        // Matches one of our declarations.
+        // and --
+        // That match is the right kind.
+        const match = this._declarations.find((decl) =>
+            areDeclarationsSame(
+                decl,
+                resolvedDecl,
+                this._treatModuleInImportAndFromImportSame,
+                /* skipRangeForAliases */ true
+            )
+        );
+        if (match) {
+            // Special case for __init__ being one of our symbol names and we have a classname as the other.
+            if (this._initFunction) {
+                // If this is a method, must be an __init__ reference.
+                if (match.type === DeclarationType.Function) {
+                    return true;
+                } else if (match.type === DeclarationType.Class) {
+                    // If this is a class type match, only match on class calls.
+                    // Meaning something like so:
+                    // a = ClassA()
+                    return referenceNode.parent?.nodeType === ParseNodeType.Call;
+                }
+                return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private _resultsContainsDeclaration(declaration: Declaration, referenceNode: ParseNode) {
         // Resolve the declaration.
         const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ false);
         if (!resolvedDecl) {
@@ -194,16 +263,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
 
         // The reference results declarations are already resolved, so we don't
         // need to call resolveAliasDeclaration on them.
-        if (
-            this._declarations.some((decl) =>
-                areDeclarationsSame(
-                    decl,
-                    resolvedDecl!,
-                    this._treatModuleInImportAndFromImportSame,
-                    /* skipRangeForAliases */ true
-                )
-            )
-        ) {
+        if (this._isDeclarationAllowed(resolvedDecl, referenceNode)) {
             return true;
         }
 
@@ -214,14 +274,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             return false;
         }
 
-        return this._declarations.some((decl) =>
-            areDeclarationsSame(
-                decl,
-                resolvedDeclNonlocal,
-                this._treatModuleInImportAndFromImportSame,
-                /* skipRangeForAliases */ true
-            )
-        );
+        return this._isDeclarationAllowed(resolvedDeclNonlocal, referenceNode);
     }
 
     private _getResolveAliasDeclaration(declaration: Declaration) {
@@ -264,7 +317,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         }
 
         dunderAllInfo.stringNodes.forEach((stringNode) => {
-            if (stringNode.value !== this._symbolName) {
+            if (!this._symbolNames.has(stringNode.value)) {
                 return;
             }
 
@@ -273,7 +326,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 return;
             }
 
-            if (!symbolInScope.symbol.getDeclarations().some((d) => this._resultsContainsDeclaration(d))) {
+            if (!symbolInScope.symbol.getDeclarations().some((d) => this._resultsContainsDeclaration(d, stringNode))) {
                 return;
             }
 
@@ -298,18 +351,56 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         declarations.push(itemToAdd);
     }
 
+    private static _getDeclarationsForInitNode(node: NameNode, evaluator: TypeEvaluator): Declaration[] {
+        const parent = ParseTreeUtils.getEnclosingClassOrFunction(node.parent!);
+        // See what type of __init__ we're at.
+        if (parent?.nodeType === ParseNodeType.Class) {
+            // This is a def for '__init__'. We should include the class name too.
+            return this._getDeclarationsForNonModuleNameNode(parent.name, evaluator);
+        } else if (
+            node.parent?.nodeType === ParseNodeType.MemberAccess &&
+            ((node.parent.leftExpression.nodeType === ParseNodeType.Call &&
+                node.parent.leftExpression.leftExpression.nodeType === ParseNodeType.Name &&
+                node.parent.leftExpression.leftExpression.value === 'super') ||
+                (node.parent.leftExpression.nodeType === ParseNodeType.Name &&
+                    node.parent.leftExpression.value === 'super'))
+        ) {
+            // We're on the 'super().__init__' call.
+            const decls = evaluator.getDeclarationsForNameNode(node, /* skipUnreachableCode */ true);
+            if (decls && decls.length > 0 && decls[0].node.parent) {
+                // Parent node of the decl should be the class
+                const classNode = ParseTreeUtils.getEnclosingClass(decls[0].node.parent);
+                if (classNode) {
+                    return this._getDeclarationsForNonModuleNameNode(classNode.name, evaluator);
+                }
+            }
+        }
+
+        return [];
+    }
+
     private static _getDeclarationsForNode(
         node: NameNode,
+        useCase: DocumentSymbolCollectorUseCase,
         evaluator: TypeEvaluator,
         skipUnreachableCode = true
     ): Declaration[] {
+        let result: Declaration[] = [];
+
         // This can handle symbols brought in by wildcard (import *) as long as the declarations that the symbol collector
         // compares against point to the actual alias declaration, not one that uses local name (ex, import alias)
         if (node.parent?.nodeType !== ParseNodeType.ModuleName) {
-            return this._getDeclarationsForNonModuleNameNode(node, evaluator, skipUnreachableCode);
+            result = this._getDeclarationsForNonModuleNameNode(node, evaluator, skipUnreachableCode);
+
+            // Special case for __init__. Might be __init__ on a class.
+            if (node.value === '__init__' && useCase === DocumentSymbolCollectorUseCase.Reference && node.parent) {
+                result.push(...this._getDeclarationsForInitNode(node, evaluator));
+            }
+        } else {
+            result = this._getDeclarationsForModuleNameNode(node, evaluator);
         }
 
-        return this._getDeclarationsForModuleNameNode(node, evaluator);
+        return result;
     }
 
     private static _getDeclarationsForNonModuleNameNode(
@@ -357,6 +448,11 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             const enclosingClass = ParseTreeUtils.getEnclosingClass(methodDecl.node);
             const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
             if (!classResults) {
+                continue;
+            }
+
+            // Skip init and new as being overloads. They're not really overloads.
+            if (methodDecl.node.name.value === '__init__' || methodDecl.node.name.value === '__new__') {
                 continue;
             }
 

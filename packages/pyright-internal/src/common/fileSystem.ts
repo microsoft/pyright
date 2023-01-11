@@ -28,6 +28,7 @@ export interface FileWatcherProvider {
 
 export interface Stats {
     size: number;
+    mtimeMs: number;
 
     isFile(): boolean;
     isDirectory(): boolean;

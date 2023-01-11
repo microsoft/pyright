@@ -59,7 +59,7 @@ import {
     CompletionResultsList,
 } from '../languageService/completionProvider';
 import { DefinitionFilter } from '../languageService/definitionProvider';
-import { DocumentSymbolCollector } from '../languageService/documentSymbolCollector';
+import { DocumentSymbolCollector, DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
 import { IndexOptions, IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { ReferenceCallback, ReferencesResult } from '../languageService/referencesProvider';
@@ -72,6 +72,7 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CacheManager } from './cacheManager';
 import { CircularDependency } from './circularDependency';
 import { Declaration } from './declaration';
+import { getNameFromDeclaration } from './declarationUtils';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { findNodeByOffset, getDocString } from './parseTreeUtils';
@@ -1535,6 +1536,7 @@ export class Program {
                 position,
                 this._evaluator!,
                 reporter,
+                DocumentSymbolCollectorUseCase.Reference,
                 token
             );
 
@@ -1553,7 +1555,7 @@ export class Program {
                         // See if the reference symbol's string is located somewhere within the file.
                         // If not, we can skip additional processing for the file.
                         const fileContents = curSourceFileInfo.sourceFile.getFileContent();
-                        if (!fileContents || fileContents.search(referencesResult.symbolName) >= 0) {
+                        if (!fileContents || referencesResult.symbolNames.some((s) => fileContents.search(s) >= 0)) {
                             this._bindFile(curSourceFileInfo);
 
                             curSourceFileInfo.sourceFile.addReferences(
@@ -1590,7 +1592,7 @@ export class Program {
                         const tempResult = new ReferencesResult(
                             referencesResult.requiresGlobalSearch,
                             referencesResult.nodeAtOffset,
-                            referencesResult.symbolName,
+                            referencesResult.symbolNames,
                             referencesResult.declarations
                         );
 
@@ -1942,6 +1944,7 @@ export class Program {
                 node,
                 this._evaluator!,
                 /* resolveLocalNames */ false,
+                DocumentSymbolCollectorUseCase.Rename,
                 token,
                 this._createSourceMapper(execEnv, token, fileInfo)
             );
@@ -2096,7 +2099,7 @@ export class Program {
                         if (isUserCode(curSourceFileInfo)) {
                             // Make sure searching symbol name exists in the file.
                             const content = curSourceFileInfo.sourceFile.getFileContent() ?? '';
-                            if (content.indexOf(referencesResult.symbolName) < 0) {
+                            if (!referencesResult.symbolNames.some((s) => content.search(s) >= 0)) {
                                 continue;
                             }
 
@@ -2146,6 +2149,7 @@ export class Program {
             position,
             this._evaluator!,
             undefined,
+            DocumentSymbolCollectorUseCase.Reference,
             token
         );
 
@@ -2159,7 +2163,7 @@ export class Program {
         );
 
         return CallHierarchyProvider.getCallForDeclaration(
-            referencesResult.symbolName,
+            getNameFromDeclaration(targetDecl) || referencesResult.symbolNames[0],
             targetDecl,
             this._evaluator!,
             token
@@ -2183,6 +2187,7 @@ export class Program {
             position,
             this._evaluator!,
             undefined,
+            DocumentSymbolCollectorUseCase.Reference,
             token
         );
 
@@ -2202,7 +2207,7 @@ export class Program {
 
                 const itemsToAdd = CallHierarchyProvider.getIncomingCallsForDeclaration(
                     curSourceFileInfo.sourceFile.getFilePath(),
-                    referencesResult.symbolName,
+                    getNameFromDeclaration(targetDecl) || referencesResult.symbolNames[0],
                     targetDecl,
                     curSourceFileInfo.sourceFile.getParseResults()!,
                     this._evaluator!,
@@ -2239,6 +2244,7 @@ export class Program {
             position,
             this._evaluator!,
             undefined,
+            DocumentSymbolCollectorUseCase.Reference,
             token
         );
 
@@ -2348,6 +2354,7 @@ export class Program {
             position,
             this._evaluator!,
             undefined,
+            DocumentSymbolCollectorUseCase.Rename,
             token
         );
 
@@ -2368,7 +2375,7 @@ export class Program {
         return new ReferencesResult(
             referencesResult.requiresGlobalSearch,
             referencesResult.nodeAtOffset,
-            referencesResult.symbolName,
+            referencesResult.symbolNames,
             referencesResult.nonImportDeclarations
         );
     }
