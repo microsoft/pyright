@@ -820,7 +820,11 @@ export class Tokenizer {
 
                 if (!isNaN(intValue)) {
                     const bigIntValue = BigInt(simpleIntText);
-                    if (!isFinite(intValue) || BigInt(intValue) !== bigIntValue) {
+                    if (
+                        !isFinite(intValue) ||
+                        intValue < Number.MAX_SAFE_INTEGER ||
+                        intValue > Number.MAX_SAFE_INTEGER
+                    ) {
                         intValue = bigIntValue;
                     }
 
@@ -871,7 +875,11 @@ export class Tokenizer {
                 let isImaginary = false;
 
                 const bigIntValue = BigInt(simpleIntText);
-                if (!isFinite(intValue) || bigIntValue > Number.MAX_SAFE_INTEGER) {
+                if (
+                    !isFinite(intValue) ||
+                    bigIntValue < Number.MIN_SAFE_INTEGER ||
+                    bigIntValue > Number.MAX_SAFE_INTEGER
+                ) {
                     intValue = bigIntValue;
                 }
 

@@ -3,6 +3,7 @@
 
 from typing import Literal
 
+big_int: Literal[9223372036854775808] = 0x8000000000000000
 
 # This should generate an error.
 y1: Literal[

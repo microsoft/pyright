@@ -12254,7 +12254,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                             } else {
                                                 // Convert back to a simple number if it fits. Leave as a bigint
                                                 // if it doesn't.
-                                                if (newValue === BigInt(Number(newValue))) {
+                                                if (
+                                                    newValue >= Number.MIN_SAFE_INTEGER &&
+                                                    newValue <= Number.MAX_SAFE_INTEGER
+                                                ) {
                                                     newValue = Number(newValue);
                                                 }
 
