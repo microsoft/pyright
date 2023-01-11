@@ -40,6 +40,7 @@ import { AbbreviationMap, CompletionOptions, CompletionResults } from '../langua
 import { CompletionItemData, CompletionProvider } from '../languageService/completionProvider';
 import { DefinitionFilter, DefinitionProvider } from '../languageService/definitionProvider';
 import { DocumentHighlightProvider } from '../languageService/documentHighlightProvider';
+import { DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
 import { DocumentSymbolProvider, IndexOptions, IndexResults } from '../languageService/documentSymbolProvider';
 import { HoverProvider, HoverResults } from '../languageService/hoverProvider';
 import { performQuickAction } from '../languageService/quickActions';
@@ -992,6 +993,7 @@ export class SourceFile {
         node: NameNode,
         evaluator: TypeEvaluator,
         reporter: ReferenceCallback | undefined,
+        useCase: DocumentSymbolCollectorUseCase,
         token: CancellationToken
     ): ReferencesResult | undefined {
         // If we have no completed analysis job, there's nothing to do.
@@ -999,7 +1001,15 @@ export class SourceFile {
             return undefined;
         }
 
-        return ReferencesProvider.getDeclarationForNode(sourceMapper, this._filePath, node, evaluator, reporter, token);
+        return ReferencesProvider.getDeclarationForNode(
+            sourceMapper,
+            this._filePath,
+            node,
+            evaluator,
+            reporter,
+            useCase,
+            token
+        );
     }
 
     getDeclarationForPosition(
@@ -1007,6 +1017,7 @@ export class SourceFile {
         position: Position,
         evaluator: TypeEvaluator,
         reporter: ReferenceCallback | undefined,
+        useCase: DocumentSymbolCollectorUseCase,
         token: CancellationToken
     ): ReferencesResult | undefined {
         // If we have no completed analysis job, there's nothing to do.
@@ -1021,6 +1032,7 @@ export class SourceFile {
             position,
             evaluator,
             reporter,
+            useCase,
             token
         );
     }

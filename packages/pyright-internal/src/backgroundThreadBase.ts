@@ -6,7 +6,7 @@
  * base class for background worker thread.
  */
 
-import { MessagePort, parentPort } from 'worker_threads';
+import { MessagePort, parentPort, TransferListItem } from 'worker_threads';
 
 import { OperationCanceledException, setCancellationFolderName } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
@@ -94,7 +94,11 @@ export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
     return configOptions;
 }
 
-export function run<T = any>(code: () => T, port: MessagePort) {
+export interface MessagePoster {
+    postMessage(value: any, transferList?: ReadonlyArray<TransferListItem>): void;
+}
+
+export function run<T = any>(code: () => T, port: MessagePoster) {
     try {
         const result = code();
         port.postMessage({ kind: 'ok', data: result });

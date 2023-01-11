@@ -11,6 +11,7 @@
 import { CancellationToken } from 'vscode-languageserver';
 
 import { Declaration, DeclarationType, isAliasDeclaration } from '../analyzer/declaration';
+import { getNameFromDeclaration } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol } from '../analyzer/symbol';
@@ -25,7 +26,7 @@ import { DocumentRange, Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { DocumentSymbolCollector } from './documentSymbolCollector';
+import { DocumentSymbolCollector, DocumentSymbolCollectorUseCase } from './documentSymbolCollector';
 
 export type ReferenceCallback = (locations: DocumentRange[]) => void;
 
@@ -37,7 +38,7 @@ export class ReferencesResult {
     constructor(
         readonly requiresGlobalSearch: boolean,
         readonly nodeAtOffset: ParseNode,
-        readonly symbolName: string,
+        readonly symbolNames: string[],
         readonly declarations: Declaration[],
         private readonly _reporter?: ReferenceCallback
     ) {
@@ -58,8 +59,11 @@ export class ReferencesResult {
                 return false;
             }
 
+            // Extract alias for comparison (symbolNames.some can't know d is for an Alias).
+            const alias = d.node.alias?.value;
+
             // Check alias and what we are renaming is same thing.
-            if (d.node.alias?.value !== symbolName) {
+            if (!symbolNames.some((s) => s === alias)) {
                 return false;
             }
 
@@ -100,13 +104,14 @@ export class FindReferencesTreeWalker {
 
     findReferences(rootNode = this._parseResults.parseTree) {
         const collector = new DocumentSymbolCollector(
-            this._referencesResult.symbolName,
+            this._referencesResult.symbolNames,
             this._referencesResult.declarations,
             this._evaluator,
             this._cancellationToken,
             rootNode,
             /* treatModuleInImportAndFromImportSame */ true,
-            /* skipUnreachableCode */ false
+            /* skipUnreachableCode */ false,
+            DocumentSymbolCollectorUseCase.Reference
         );
 
         const results: DocumentRange[] = [];
@@ -137,6 +142,7 @@ export class ReferencesProvider {
         node: NameNode,
         evaluator: TypeEvaluator,
         reporter: ReferenceCallback | undefined,
+        useCase: DocumentSymbolCollectorUseCase,
         token: CancellationToken
     ) {
         throwIfCancellationRequested(token);
@@ -145,6 +151,7 @@ export class ReferencesProvider {
             node,
             evaluator,
             /* resolveLocalNames */ false,
+            useCase,
             token,
             sourceMapper
         );
@@ -154,7 +161,11 @@ export class ReferencesProvider {
         }
 
         const requiresGlobalSearch = isVisibleOutside(evaluator, filePath, node, declarations);
-        return new ReferencesResult(requiresGlobalSearch, node, node.value, declarations, reporter);
+
+        const symbolNames = new Set(declarations.map((d) => getNameFromDeclaration(d)!).filter((n) => !!n));
+        symbolNames.add(node.value);
+
+        return new ReferencesResult(requiresGlobalSearch, node, [...symbolNames.values()], declarations, reporter);
     }
 
     static getDeclarationForPosition(
@@ -164,6 +175,7 @@ export class ReferencesProvider {
         position: Position,
         evaluator: TypeEvaluator,
         reporter: ReferenceCallback | undefined,
+        useCase: DocumentSymbolCollectorUseCase,
         token: CancellationToken
     ): ReferencesResult | undefined {
         throwIfCancellationRequested(token);
@@ -183,7 +195,7 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        return this.getDeclarationForNode(sourceMapper, filePath, node, evaluator, reporter, token);
+        return this.getDeclarationForNode(sourceMapper, filePath, node, evaluator, reporter, useCase, token);
     }
 
     static addReferences(

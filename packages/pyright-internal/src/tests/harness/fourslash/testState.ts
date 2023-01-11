@@ -133,26 +133,30 @@ export class TestState {
         projectRoot: string,
         public testData: FourSlashData,
         mountPaths?: Map<string, string>,
-        hostSpecificFeatures?: HostSpecificFeatures
+        hostSpecificFeatures?: HostSpecificFeatures,
+        testFS?: vfs.TestFileSystem
     ) {
         const vfsInfo = createVfsInfoFromFourSlashData(projectRoot, testData);
-        this.rawConfigJson = vfsInfo.rawConfigJson;
 
-        this._cancellationToken = new TestCancellationToken();
-        this._hostSpecificFeatures = hostSpecificFeatures ?? new TestFeatures();
+        this.testFS =
+            testFS ??
+            createFromFileSystem(
+                host.HOST,
+                vfsInfo.ignoreCase,
+                { cwd: vfsInfo.projectRoot, files: vfsInfo.files, meta: testData.globalOptions },
+                mountPaths
+            );
 
         this.console = new NullConsole();
-        this.testFS = createFromFileSystem(
-            host.HOST,
-            vfsInfo.ignoreCase,
-            { cwd: vfsInfo.projectRoot, files: vfsInfo.files, meta: testData.globalOptions },
-            mountPaths
-        );
+        this._cancellationToken = new TestCancellationToken();
+        this._hostSpecificFeatures = hostSpecificFeatures ?? new TestFeatures();
 
         this.fs = new PyrightFileSystem(this.testFS);
         this._files = vfsInfo.sourceFileNames;
 
+        this.rawConfigJson = vfsInfo.rawConfigJson;
         const configOptions = this._convertGlobalOptionsToConfigOptions(vfsInfo.projectRoot, mountPaths);
+
         if (this.rawConfigJson) {
             configOptions.initializeFromJson(this.rawConfigJson, 'basic', this.console, this.fs, testAccessHost);
             this._applyTestConfigOptions(configOptions);
@@ -1798,9 +1802,20 @@ export class TestState {
     }
 }
 
-export function parseAndGetTestState(code: string, projectRoot = '/', anonymousFileName = 'unnamedFile.py') {
+export function parseAndGetTestState(
+    code: string,
+    projectRoot = '/',
+    anonymousFileName = 'unnamedFile.py',
+    testFS?: vfs.TestFileSystem
+) {
     const data = parseTestData(normalizeSlashes(projectRoot), code, anonymousFileName);
-    const state = new TestState(normalizeSlashes('/'), data);
+    const state = new TestState(
+        normalizeSlashes('/'),
+        data,
+        /* mountPath */ undefined,
+        /* hostSpecificFeatures */ undefined,
+        testFS
+    );
 
     return { data, state };
 }

@@ -13,8 +13,9 @@ import { findNodeByOffset } from '../analyzer/parseTreeUtils';
 import { Program } from '../analyzer/program';
 import { createMapFromItems } from '../common/collectionUtils';
 import { ConfigOptions } from '../common/configOptions';
+import { isArray } from '../common/core';
 import { TextRange } from '../common/textRange';
-import { DocumentSymbolCollector } from '../languageService/documentSymbolCollector';
+import { DocumentSymbolCollector, DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
 import { NameNode } from '../parser/parseNodes';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { parseAndGetTestState } from './harness/fourslash/testState';
@@ -459,6 +460,119 @@ test('overridden symbols multi inheritance test', () => {
     verifyReferencesAtPosition(state.program, state.configOptions, 'foo', marker.fileName, marker.position, ranges);
 });
 
+test('__init__ test', () => {
+    const code = `
+// @filename: test.py
+//// class A:
+////     def __init__(self):
+////         pass
+////
+//// class B:
+////     def __init__(self):
+////         pass
+////
+//// class C(A, B):
+////     def [|/*marker*/__init__|](self):
+////         pass
+////
+//// A()
+//// B()
+//// [|C|]()
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const marker = state.getMarkerByName('marker');
+    const ranges = state.getRangesByText().get('__init__')!;
+    ranges.push(...state.getRangesByText().get('C')!);
+
+    verifyReferencesAtPosition(
+        state.program,
+        state.configOptions,
+        ['__init__', 'C'],
+        marker.fileName,
+        marker.position,
+        ranges
+    );
+});
+
+test('super __init__ test', () => {
+    const code = `
+// @filename: test.py
+//// class A:
+////     def [|__init__|](self):
+////         pass
+////
+//// class B:
+////     def __init__(self):
+////         pass
+////
+//// class C(A, B):
+////     def __init__(self):
+////         super().[|/*marker*/__init__|]()
+////         pass
+////
+//// [|A|]()
+//// B()
+//// C()
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const marker = state.getMarkerByName('marker');
+    const ranges = state.getRangesByText().get('__init__')!;
+    ranges.push(...state.getRangesByText().get('A')!);
+
+    verifyReferencesAtPosition(
+        state.program,
+        state.configOptions,
+        ['__init__', 'A'],
+        marker.fileName,
+        marker.position,
+        ranges
+    );
+});
+
+test('__init__ internal class test', () => {
+    const code = `
+// @filename: test.py
+//// class A:
+////     def __init__(self):
+////         class A_inner:
+////            def [|/*marker*/__init__|](self):
+////                pass
+////         self.inner = [|A_inner|]()
+////         
+////
+//// class B:
+////     def __init__(self):
+////         pass
+////
+//// class C(A, B):
+////     def __init__(self):
+////         pass
+////
+//// A()
+//// B()
+//// C()
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const marker = state.getMarkerByName('marker');
+    const ranges = state.getRangesByText().get('__init__')!;
+    ranges.push(...state.getRangesByText().get('A_inner')!);
+
+    verifyReferencesAtPosition(
+        state.program,
+        state.configOptions,
+        ['__init__', 'A_inner'],
+        marker.fileName,
+        marker.position,
+        ranges
+    );
+});
+
 test('overridden symbols multi inheritance with multiple base with same name test', () => {
     const code = `
 // @filename: test.py
@@ -695,7 +809,7 @@ test('variable overridden test 2', () => {
 function verifyReferencesAtPosition(
     program: Program,
     configOption: ConfigOptions,
-    symbolName: string,
+    symbolNames: string | string[],
     fileName: string,
     position: number,
     ranges: Range[]
@@ -708,6 +822,7 @@ function verifyReferencesAtPosition(
         node as NameNode,
         program.evaluator!,
         /* resolveLocalName */ true,
+        DocumentSymbolCollectorUseCase.Reference,
         CancellationToken.None,
         program.test_createSourceMapper(configOption.findExecEnvironment(fileName))
     );
@@ -715,18 +830,19 @@ function verifyReferencesAtPosition(
     const rangesByFile = createMapFromItems(ranges, (r) => r.fileName);
     for (const rangeFileName of rangesByFile.keys()) {
         const collector = new DocumentSymbolCollector(
-            symbolName,
+            isArray(symbolNames) ? symbolNames : [symbolNames],
             decls,
             program.evaluator!,
             CancellationToken.None,
             program.getBoundSourceFile(rangeFileName)!.getParseResults()!.parseTree,
             /* treatModuleInImportAndFromImportSame */ true,
-            /* skipUnreachableCode */ false
+            /* skipUnreachableCode */ false,
+            DocumentSymbolCollectorUseCase.Reference
         );
 
         const results = collector.collect();
         const rangesOnFile = rangesByFile.get(rangeFileName)!;
-        assert.strictEqual(results.length, rangesOnFile.length, `${rangeFileName}@${symbolName}`);
+        assert.strictEqual(results.length, rangesOnFile.length, `${rangeFileName}@${symbolNames}`);
 
         for (const result of results) {
             assert(rangesOnFile.some((r) => r.pos === result.range.start && r.end === TextRange.getEnd(result.range)));

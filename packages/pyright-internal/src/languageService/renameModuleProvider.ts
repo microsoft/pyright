@@ -78,7 +78,7 @@ import {
     ParseNodeType,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { CollectionResult, DocumentSymbolCollector } from './documentSymbolCollector';
+import { CollectionResult, DocumentSymbolCollector, DocumentSymbolCollectorUseCase } from './documentSymbolCollector';
 
 enum UpdateType {
     File,
@@ -315,7 +315,7 @@ export class RenameModuleProvider {
 
     private _updateSymbolReferences(filePath: string, parseResults: ParseResults) {
         const collector = new DocumentSymbolCollector(
-            getNameFromDeclaration(this._declarations[0]) ?? '',
+            [getNameFromDeclaration(this._declarations[0]) || ''],
             this._declarations,
             this._evaluator!,
             this._token,
@@ -531,6 +531,7 @@ export class RenameModuleProvider {
             nameToBind,
             this._evaluator,
             /* resolveLocalName */ false,
+            DocumentSymbolCollectorUseCase.Rename,
             this._token
         );
         if (declarations.length === 0) {
@@ -538,7 +539,7 @@ export class RenameModuleProvider {
         }
 
         const collector = new DocumentSymbolCollector(
-            nameToBind.value,
+            [nameToBind.value],
             declarations,
             this._evaluator!,
             this._token,
@@ -569,7 +570,7 @@ export class RenameModuleProvider {
 
     private _renameFolderReferences(filePath: string, parseResults: ParseResults) {
         const collector = new DocumentSymbolCollector(
-            this.lastModuleName,
+            [this.lastModuleName],
             this._declarations,
             this._evaluator!,
             this._token,
@@ -587,7 +588,7 @@ export class RenameModuleProvider {
 
     private _renameModuleReferences(filePath: string, parseResults: ParseResults) {
         const collector = new DocumentSymbolCollector(
-            this.lastModuleName,
+            [this.lastModuleName],
             this._declarations,
             this._evaluator!,
             this._token,
@@ -932,6 +933,7 @@ export class RenameModuleProvider {
                 nodeFound,
                 this._evaluator,
                 /* resolveLocalName */ false,
+                DocumentSymbolCollectorUseCase.Rename,
                 this._token
             ).filter((d) => isAliasDeclaration(d)) as AliasDeclaration[];
 
