@@ -926,6 +926,12 @@ function applyDataClassBehaviorOverrideValue(
             let hasUnfrozenBaseClass = false;
             let hasFrozenBaseClass = false;
 
+            if (argValue === false) {
+                classType.details.flags &= ~ClassTypeFlags.FrozenDataClass;
+            } else if (argValue === true) {
+                classType.details.flags |= ClassTypeFlags.FrozenDataClass;
+            }
+
             classType.details.baseClasses.forEach((baseClass) => {
                 if (isInstantiableClass(baseClass) && ClassType.isDataClass(baseClass)) {
                     if (ClassType.isFrozenDataClass(baseClass)) {
@@ -947,8 +953,6 @@ function applyDataClassBehaviorOverrideValue(
             });
 
             if (argValue) {
-                classType.details.flags |= ClassTypeFlags.FrozenDataClass;
-
                 // A frozen dataclass cannot derive from a non-frozen dataclass.
                 if (hasUnfrozenBaseClass) {
                     evaluator.addDiagnostic(
