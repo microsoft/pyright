@@ -81,11 +81,26 @@ def func8(foo: NT1) -> None:
     else:
         reveal_type(foo, expected_text="Never")
 
+
 class NT2(NT1):
     pass
+
 
 def func9(foo: NT2) -> None:
     if foo:
         reveal_type(foo, expected_text="NT2")
     else:
         reveal_type(foo, expected_text="Never")
+
+
+class E:
+    def __init__(self, value: int = 0) -> None:
+        self.value = value
+
+    def __bool__(self) -> bool:
+        return self.value >= 0
+
+    def method(self) -> None:
+        while not self:
+            reveal_type(self, expected_text="E")
+            self.value += 1
