@@ -7,6 +7,9 @@ class Other:
     pass
 
 
+def standalone(obj: object) -> None:
+    print(obj)
+
 class DataTuple(NamedTuple):
     def _m(self):
         pass
@@ -25,8 +28,11 @@ class DataTuple(NamedTuple):
 
     name2: Final[Optional[str]] = None
 
+    not_a_method = standalone
 
 d1 = DataTuple(id=1, aid=Other(), name2="hi")
+d1.not_a_method()
+
 d2 = DataTuple(id=1, aid=Other(), value="v")
 d3 = DataTuple(id=1, aid=Other(), name="hello")
 d4 = DataTuple(id=1, aid=Other(), name=None)

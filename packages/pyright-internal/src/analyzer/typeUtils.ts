@@ -1330,7 +1330,7 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
                     // class member.
                     const isDataclass = ClassType.isDataClass(specializedMroClass);
                     const isTypedDict = ClassType.isTypedDictClass(specializedMroClass);
-                    if (isDataclass || isTypedDict) {
+                    if (hasDeclaredType && (isDataclass || isTypedDict)) {
                         const decls = symbol.getDeclarations();
                         if (decls.length > 0 && decls[0].type === DeclarationType.Variable) {
                             isInstanceMember = true;
