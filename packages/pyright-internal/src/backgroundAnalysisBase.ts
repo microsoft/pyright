@@ -198,7 +198,12 @@ export class BackgroundAnalysisBase {
         /* noop */
     }
 
-    refreshIndexing(configOptions: ConfigOptions, importResolver: ImportResolver, kind: HostKind) {
+    refreshIndexing(
+        configOptions: ConfigOptions,
+        importResolver: ImportResolver,
+        kind: HostKind,
+        refreshOptions?: RefreshOptions
+    ) {
         /* noop */
     }
 
@@ -637,4 +642,9 @@ export interface AnalysisResponse {
 export interface IndexOptions {
     // includeAllSymbols means it will include symbols not shown in __all__ for py file.
     packageDepths: [moduleName: string, maxDepth: number, includeAllSymbols: boolean][];
+}
+
+export interface RefreshOptions {
+    // No files/folders are added or removed. only changes.
+    changesOnly: boolean;
 }

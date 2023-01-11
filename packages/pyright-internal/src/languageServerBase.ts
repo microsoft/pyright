@@ -1414,8 +1414,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         // 5 seconds default
         const defaultBackOffTime = 5 * 1000;
 
-        // 10 mins back off for multi workspace.
-        const multiWorkspaceBackOffTime = 10 * 60 * 1000;
+        // 10 seconds back off for multi workspace.
+        const multiWorkspaceBackOffTime = 10 * 1000;
 
         const libraryReanalysisTimeProvider =
             kinds.length === 1 && kinds[0] === WellKnownWorkspaceKinds.Regular

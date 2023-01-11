@@ -8,7 +8,7 @@
 
 import assert from 'assert';
 
-import { getIndentation } from '../languageService/indentationUtils';
+import { getNewlineIndentation } from '../languageService/indentationUtils';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 
 test('top level indentation', () => {
@@ -354,14 +354,14 @@ test('explicit multiline construct', () => {
 ////
     `;
 
-    testIndentation(code, 4);
+    testIndentation(code, 0);
 });
 
 test('multiple explicit multiline construct', () => {
     const code = `
 //// def foo \\
-////         \\
-////     [|/*marker*/|]
+////         \\[|/*marker*/|]
+////     
 ////
     `;
 
@@ -376,7 +376,7 @@ test('explicit multiline expression', () => {
 ////
     `;
 
-    testIndentation(code, 8);
+    testIndentation(code, 4);
 });
 
 test('explicit multiline expression between lines', () => {
@@ -387,7 +387,7 @@ test('explicit multiline expression between lines', () => {
 ////     b = 1
     `;
 
-    testIndentation(code, 8);
+    testIndentation(code, 4);
 });
 
 test('implicit multiline constructs', () => {
@@ -396,7 +396,7 @@ test('implicit multiline constructs', () => {
 ////     [|/*marker*/|]
     `;
 
-    testIndentation(code, 4);
+    testIndentation(code, 8);
 });
 
 test('multiple implicit multiline constructs', () => {
@@ -432,6 +432,16 @@ test('multiline list', () => {
     testIndentation(code, 7);
 });
 
+test('empty multiline list', () => {
+    const code = `
+//// a = [
+////        [|/*marker*/|]
+////     ]
+    `;
+
+    testIndentation(code, 4);
+});
+
 test('unfinished block', () => {
     const code = `
 //// def foo(a: Union[int, str]):
@@ -445,11 +455,73 @@ test('unfinished block', () => {
     testIndentation(code, 8);
 });
 
+test('func params', () => {
+    const code = `
+//// def foo_bar(
+//// [|/*marker*/|]var1, var2):    
+////     pass
+    `;
+
+    testIndentation(code, 8);
+});
+
+test('func params 2', () => {
+    const code = `
+//// def foo_bar(var1,
+//// [|/*marker*/|]var2):    
+////     pass
+    `;
+
+    testIndentation(code, 12);
+});
+
+test('func params call', () => {
+    const code = `
+//// def foo_bar(var1, var2):    
+////     pass
+//// a = foo_bar(
+//// [|/*marker*/|]var1, var2)
+    `;
+
+    testIndentation(code, 4);
+});
+
+test('nested func params call', () => {
+    const code = `
+//// def foo_bar(var1, var2):    
+////     print(
+//// [|/*marker*/|]var1)
+    `;
+
+    testIndentation(code, 8);
+});
+
+test('nested func params call 2', () => {
+    const code = `
+//// def foo_bar(var1, var2):    
+////     print(var1,
+//// [|/*marker*/|]var1)
+    `;
+
+    testIndentation(code, 10);
+});
+
+test('class func params', () => {
+    const code = `
+//// class Test():
+////     def foo_bar(self, var1, var2):    
+////         print(var1,
+//// [|/*marker*/|]var1)
+    `;
+
+    testIndentation(code, 14);
+});
+
 function testIndentation(code: string, indentation: number, preferDedent?: boolean) {
     const state = parseAndGetTestState(code).state;
     const marker = state.getMarkerByName('marker');
 
     const parseResults = state.program.getBoundSourceFile(marker.fileName)!.getParseResults()!;
-    const actual = getIndentation(parseResults, marker.position, preferDedent);
+    const actual = getNewlineIndentation(parseResults, marker.position, preferDedent);
     assert.strictEqual(actual, indentation);
 }
