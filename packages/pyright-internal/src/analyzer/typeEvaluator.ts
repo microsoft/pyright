@@ -22536,6 +22536,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             isIncompatible = true;
                         }
                     });
+                } else if (remainingSrcSubtypes.length === 0) {
+                    // If we've assigned all of the source subtypes but one or more dest
+                    // TypeVars have gone unmatched, treat this as success.
+                    return true;
                 } else {
                     // Try to assign a union of the remaining source types to
                     // the first destination TypeVar.
