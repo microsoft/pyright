@@ -594,6 +594,11 @@ interface TypeCacheEntry {
     flags: EvaluatorFlags | undefined;
 }
 
+interface BinaryOperationOptions {
+    isLiteralMathAllowed?: boolean;
+    isTupleAddAllowed?: boolean;
+}
+
 export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const asymmetricDescriptorAssignmentCache = new Set<number>();
@@ -11824,6 +11829,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // incomplete because we may be evaluating types within a loop,
         // so the literal values may change each time.
         const isLiteralMathAllowed = !ParseTreeUtils.isWithinLoop(node);
+
+        // Don't special-case tuple __add__ if the left type is a union. This
+        // can result in an infinite loop if we keep creating new tuple types
+        // within a loop construct using __add__.
+        const isTupleAddAllowed = !isUnion(leftType);
+
         let type = validateBinaryOperation(
             node.operator,
             { type: leftType, isIncomplete: leftTypeResult.isIncomplete },
@@ -11831,7 +11842,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             node,
             expectedType,
             diag,
-            isLiteralMathAllowed
+            { isLiteralMathAllowed, isTupleAddAllowed }
         );
 
         if (!diag.isEmpty() || !type) {
@@ -11992,6 +12003,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     getUnionSubtypeCount(leftType) * getUnionSubtypeCount(rightType) <
                                         maxLiteralMathSubtypeCount;
 
+                                // Don't special-case tuple __add__ if the left type is a union. This
+                                // can result in an infinite loop if we keep creating new tuple types
+                                // within a loop construct using __add__.
+                                const isTupleAddAllowed = !isUnion(leftType);
+
                                 returnType = validateBinaryOperation(
                                     binaryOperator,
                                     { type: leftSubtypeUnexpanded, isIncomplete: leftTypeResult.isIncomplete },
@@ -11999,7 +12015,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     node,
                                     expectedType,
                                     diag,
-                                    isLiteralMathAllowed
+                                    { isLiteralMathAllowed, isTupleAddAllowed }
                                 );
                             }
 
@@ -12044,7 +12060,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         errorNode: ExpressionNode,
         expectedType: Type | undefined,
         diag: DiagnosticAddendum,
-        isLiteralMathAllowed: boolean
+        options: BinaryOperationOptions
     ): Type | undefined {
         const leftType = leftTypeResult.type;
         const rightType = rightTypeResult.type;
@@ -12181,7 +12197,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Handle certain operations on certain homogenous literal types
             // using special-case math. For example, Literal[1, 2] + Literal[3, 4]
             // should result in Literal[4, 5, 6].
-            if (isLiteralMathAllowed) {
+            if (options.isLiteralMathAllowed) {
                 const leftLiteralClassName = getLiteralTypeClassName(leftType);
                 if (leftLiteralClassName && !getTypeCondition(leftType)) {
                     const rightLiteralClassName = getLiteralTypeClassName(rightType);
@@ -12294,6 +12310,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                 // Special-case __add__ for tuples when the types for both tuples are known.
                                 if (
+                                    options.isTupleAddAllowed &&
                                     operator === OperatorType.Add &&
                                     isClassInstance(leftSubtypeExpanded) &&
                                     isTupleClass(leftSubtypeExpanded) &&
