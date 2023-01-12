@@ -5770,7 +5770,8 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        if (!this._evaluator.assignType(paramType, expectedType)) {
+        const typeVarContext = new TypeVarContext(getTypeVarScopeId(functionType));
+        if (!this._evaluator.assignType(paramType, expectedType, /* diag */ undefined, typeVarContext)) {
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
