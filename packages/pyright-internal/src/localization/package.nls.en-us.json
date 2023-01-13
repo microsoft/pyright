@@ -428,6 +428,7 @@
         "typedDictTotalParam": "Expected \"total\" parameter to have a value of True or False",
         "typeExpectedClass": "Expected type expression but received \"{type}\"",
         "typeGuardArgCount": "Expected a single type argument after \"TypeGuard\"",
+        "typeGuardParamCount": "User-defined type guard functions and methods must have at least one input parameter",
         "typeNotAwaitable": "\"{type}\" is not awaitable",
         "typeNotCallable": "\"{expression}\" has type \"{type}\" and is not callable",
         "typeNotIntantiable": "\"{type}\" cannot be instantiated",

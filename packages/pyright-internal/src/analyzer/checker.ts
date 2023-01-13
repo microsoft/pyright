@@ -649,13 +649,8 @@ export class Checker extends ParseTreeWalker {
             // Verify common dunder signatures.
             this._validateDunderSignatures(node, functionTypeResult.functionType, containingClassNode !== undefined);
 
-            // Verify that strict type guard functions don't violate the constraints
-            // of strict type guards.
-            this._validateStrictTypeGuardFunction(
-                node,
-                functionTypeResult.functionType,
-                containingClassNode !== undefined
-            );
+            // Verify TypeGuard or StrictTypeGuard functions.
+            this._validateTypeGuardFunction(node, functionTypeResult.functionType, containingClassNode !== undefined);
 
             this._validateFunctionTypeVarUsage(node, functionTypeResult);
         }
@@ -3917,44 +3912,70 @@ export class Checker extends ParseTreeWalker {
         });
     }
 
-    private _validateStrictTypeGuardFunction(node: FunctionNode, functionType: FunctionType, isMethod: boolean) {
-        // Is this a strict type guard function?
-        if (!functionType.details.declaredReturnType) {
+    private _validateTypeGuardFunction(node: FunctionNode, functionType: FunctionType, isMethod: boolean) {
+        const returnType = functionType.details.declaredReturnType;
+        if (!returnType) {
             return;
         }
 
-        if (
-            !isClassInstance(functionType.details.declaredReturnType) ||
-            !ClassType.isBuiltIn(functionType.details.declaredReturnType, 'StrictTypeGuard') ||
-            !functionType.details.declaredReturnType.typeArguments ||
-            functionType.details.declaredReturnType.typeArguments.length < 1
-        ) {
+        if (!isClassInstance(returnType) || !returnType.typeArguments || returnType.typeArguments.length < 1) {
             return;
         }
 
-        const typeGuardType = functionType.details.declaredReturnType.typeArguments[0];
+        const isNormalTypeGuard = ClassType.isBuiltIn(returnType, 'TypeGuard');
+        const isStrictTypeGuard = ClassType.isBuiltIn(returnType, 'StrictTypeGuard');
 
-        // Determine the type of the first parameter.
-        const paramIndex = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;
-        if (paramIndex >= functionType.details.parameters.length) {
+        if (!isNormalTypeGuard && !isStrictTypeGuard) {
             return;
         }
 
-        const paramType = FunctionType.getEffectiveParameterType(functionType, paramIndex);
+        // Make sure there's at least one input parameter provided.
+        let paramCount = functionType.details.parameters.length;
+        if (isMethod) {
+            if (
+                FunctionType.isInstanceMethod(functionType) ||
+                FunctionType.isConstructorMethod(functionType) ||
+                FunctionType.isClassMethod(functionType)
+            ) {
+                paramCount--;
+            }
+        }
 
-        // Verify that the typeGuardType is a narrower type than the paramType.
-        if (!this._evaluator.assignType(paramType, typeGuardType)) {
-            const returnAnnotation = node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation;
-            if (returnAnnotation) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.strictTypeGuardReturnType().format({
-                        type: this._evaluator.printType(paramType),
-                        returnType: this._evaluator.printType(typeGuardType),
-                    }),
-                    returnAnnotation
-                );
+        if (paramCount < 1) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typeGuardParamCount(),
+                node.name
+            );
+        }
+
+        if (isStrictTypeGuard) {
+            const typeGuardType = returnType.typeArguments[0];
+
+            // Determine the type of the first parameter.
+            const paramIndex = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;
+            if (paramIndex >= functionType.details.parameters.length) {
+                return;
+            }
+
+            const paramType = FunctionType.getEffectiveParameterType(functionType, paramIndex);
+
+            // Verify that the typeGuardType is a narrower type than the paramType.
+            if (!this._evaluator.assignType(paramType, typeGuardType)) {
+                const returnAnnotation =
+                    node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation;
+                if (returnAnnotation) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.strictTypeGuardReturnType().format({
+                            type: this._evaluator.printType(paramType),
+                            returnType: this._evaluator.printType(typeGuardType),
+                        }),
+                        returnAnnotation
+                    );
+                }
             }
         }
     }

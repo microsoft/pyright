@@ -831,7 +831,7 @@ test('Enums10', () => {
 test('TypeGuard1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard1.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('TypeGuard2', () => {

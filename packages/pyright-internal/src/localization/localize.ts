@@ -843,6 +843,7 @@ export namespace Localizer {
         export const typeExpectedClass = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeExpectedClass'));
         export const typeGuardArgCount = () => getRawString('Diagnostic.typeGuardArgCount');
+        export const typeGuardParamCount = () => getRawString('Diagnostic.typeGuardParamCount');
         export const typeNotAwaitable = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeNotAwaitable'));
         export const typeNotCallable = () =>

@@ -66,3 +66,14 @@ def bad5(a: int) -> TypeGuard[int]:
     # This should generate an error because only
     # bool values can be returned.
     return 3
+
+# This should generate an error because a type guard function must
+# accept at least one parameter.
+def bad6() -> TypeGuard[int]:
+    return True
+
+class ClassA:
+    # This should generate an error because a type guard function must
+    # accept at least one parameter.
+    def method1(self) -> TypeGuard[int]:
+        return True
