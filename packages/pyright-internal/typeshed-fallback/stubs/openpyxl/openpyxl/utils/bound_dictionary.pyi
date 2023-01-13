@@ -1,7 +1,7 @@
+from _typeshed import Incomplete
 from collections import defaultdict
-from typing import Any
 
-class BoundDictionary(defaultdict[Any, Any]):
-    reference: Any
-    def __init__(self, reference: Any | None = ..., *args, **kw) -> None: ...
+class BoundDictionary(defaultdict[Incomplete, Incomplete]):
+    reference: Incomplete
+    def __init__(self, reference: Incomplete | None = ..., *args, **kw) -> None: ...
     def __getitem__(self, key): ...

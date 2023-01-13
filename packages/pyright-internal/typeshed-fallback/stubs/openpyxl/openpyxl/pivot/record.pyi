@@ -1,37 +1,37 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Record(Serialisable):
     tagname: str
-    m: Any
-    n: Any
-    b: Any
-    e: Any
-    s: Any
-    d: Any
-    x: Any
+    m: Incomplete
+    n: Incomplete
+    b: Incomplete
+    e: Incomplete
+    s: Incomplete
+    d: Incomplete
+    x: Incomplete
     def __init__(
         self,
         _fields=...,
-        m: Any | None = ...,
-        n: Any | None = ...,
-        b: Any | None = ...,
-        e: Any | None = ...,
-        s: Any | None = ...,
-        d: Any | None = ...,
-        x: Any | None = ...,
+        m: Incomplete | None = ...,
+        n: Incomplete | None = ...,
+        b: Incomplete | None = ...,
+        e: Incomplete | None = ...,
+        s: Incomplete | None = ...,
+        d: Incomplete | None = ...,
+        x: Incomplete | None = ...,
     ) -> None: ...
 
 class RecordList(Serialisable):
     mime_type: str
     rel_type: str
     tagname: str
-    r: Any
-    extLst: Any
-    __elements__: Any
-    __attrs__: Any
-    def __init__(self, count: Any | None = ..., r=..., extLst: Any | None = ...) -> None: ...
+    r: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
+    __attrs__: Incomplete
+    def __init__(self, count: Incomplete | None = ..., r=..., extLst: Incomplete | None = ...) -> None: ...
     @property
     def count(self): ...
     def to_tree(self): ...

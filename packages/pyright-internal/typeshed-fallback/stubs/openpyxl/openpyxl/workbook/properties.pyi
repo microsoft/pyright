@@ -1,95 +1,95 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class WorkbookProperties(Serialisable):
     tagname: str
-    date1904: Any
-    dateCompatibility: Any
-    showObjects: Any
-    showBorderUnselectedTables: Any
-    filterPrivacy: Any
-    promptedSolutions: Any
-    showInkAnnotation: Any
-    backupFile: Any
-    saveExternalLinkValues: Any
-    updateLinks: Any
-    codeName: Any
-    hidePivotFieldList: Any
-    showPivotChartFilter: Any
-    allowRefreshQuery: Any
-    publishItems: Any
-    checkCompatibility: Any
-    autoCompressPictures: Any
-    refreshAllConnections: Any
-    defaultThemeVersion: Any
+    date1904: Incomplete
+    dateCompatibility: Incomplete
+    showObjects: Incomplete
+    showBorderUnselectedTables: Incomplete
+    filterPrivacy: Incomplete
+    promptedSolutions: Incomplete
+    showInkAnnotation: Incomplete
+    backupFile: Incomplete
+    saveExternalLinkValues: Incomplete
+    updateLinks: Incomplete
+    codeName: Incomplete
+    hidePivotFieldList: Incomplete
+    showPivotChartFilter: Incomplete
+    allowRefreshQuery: Incomplete
+    publishItems: Incomplete
+    checkCompatibility: Incomplete
+    autoCompressPictures: Incomplete
+    refreshAllConnections: Incomplete
+    defaultThemeVersion: Incomplete
     def __init__(
         self,
-        date1904: Any | None = ...,
-        dateCompatibility: Any | None = ...,
-        showObjects: Any | None = ...,
-        showBorderUnselectedTables: Any | None = ...,
-        filterPrivacy: Any | None = ...,
-        promptedSolutions: Any | None = ...,
-        showInkAnnotation: Any | None = ...,
-        backupFile: Any | None = ...,
-        saveExternalLinkValues: Any | None = ...,
-        updateLinks: Any | None = ...,
-        codeName: Any | None = ...,
-        hidePivotFieldList: Any | None = ...,
-        showPivotChartFilter: Any | None = ...,
-        allowRefreshQuery: Any | None = ...,
-        publishItems: Any | None = ...,
-        checkCompatibility: Any | None = ...,
-        autoCompressPictures: Any | None = ...,
-        refreshAllConnections: Any | None = ...,
-        defaultThemeVersion: Any | None = ...,
+        date1904: Incomplete | None = ...,
+        dateCompatibility: Incomplete | None = ...,
+        showObjects: Incomplete | None = ...,
+        showBorderUnselectedTables: Incomplete | None = ...,
+        filterPrivacy: Incomplete | None = ...,
+        promptedSolutions: Incomplete | None = ...,
+        showInkAnnotation: Incomplete | None = ...,
+        backupFile: Incomplete | None = ...,
+        saveExternalLinkValues: Incomplete | None = ...,
+        updateLinks: Incomplete | None = ...,
+        codeName: Incomplete | None = ...,
+        hidePivotFieldList: Incomplete | None = ...,
+        showPivotChartFilter: Incomplete | None = ...,
+        allowRefreshQuery: Incomplete | None = ...,
+        publishItems: Incomplete | None = ...,
+        checkCompatibility: Incomplete | None = ...,
+        autoCompressPictures: Incomplete | None = ...,
+        refreshAllConnections: Incomplete | None = ...,
+        defaultThemeVersion: Incomplete | None = ...,
     ) -> None: ...
 
 class CalcProperties(Serialisable):
     tagname: str
-    calcId: Any
-    calcMode: Any
-    fullCalcOnLoad: Any
-    refMode: Any
-    iterate: Any
-    iterateCount: Any
-    iterateDelta: Any
-    fullPrecision: Any
-    calcCompleted: Any
-    calcOnSave: Any
-    concurrentCalc: Any
-    concurrentManualCount: Any
-    forceFullCalc: Any
+    calcId: Incomplete
+    calcMode: Incomplete
+    fullCalcOnLoad: Incomplete
+    refMode: Incomplete
+    iterate: Incomplete
+    iterateCount: Incomplete
+    iterateDelta: Incomplete
+    fullPrecision: Incomplete
+    calcCompleted: Incomplete
+    calcOnSave: Incomplete
+    concurrentCalc: Incomplete
+    concurrentManualCount: Incomplete
+    forceFullCalc: Incomplete
     def __init__(
         self,
         calcId: int = ...,
-        calcMode: Any | None = ...,
+        calcMode: Incomplete | None = ...,
         fullCalcOnLoad: bool = ...,
-        refMode: Any | None = ...,
-        iterate: Any | None = ...,
-        iterateCount: Any | None = ...,
-        iterateDelta: Any | None = ...,
-        fullPrecision: Any | None = ...,
-        calcCompleted: Any | None = ...,
-        calcOnSave: Any | None = ...,
-        concurrentCalc: Any | None = ...,
-        concurrentManualCount: Any | None = ...,
-        forceFullCalc: Any | None = ...,
+        refMode: Incomplete | None = ...,
+        iterate: Incomplete | None = ...,
+        iterateCount: Incomplete | None = ...,
+        iterateDelta: Incomplete | None = ...,
+        fullPrecision: Incomplete | None = ...,
+        calcCompleted: Incomplete | None = ...,
+        calcOnSave: Incomplete | None = ...,
+        concurrentCalc: Incomplete | None = ...,
+        concurrentManualCount: Incomplete | None = ...,
+        forceFullCalc: Incomplete | None = ...,
     ) -> None: ...
 
 class FileVersion(Serialisable):
     tagname: str
-    appName: Any
-    lastEdited: Any
-    lowestEdited: Any
-    rupBuild: Any
-    codeName: Any
+    appName: Incomplete
+    lastEdited: Incomplete
+    lowestEdited: Incomplete
+    rupBuild: Incomplete
+    codeName: Incomplete
     def __init__(
         self,
-        appName: Any | None = ...,
-        lastEdited: Any | None = ...,
-        lowestEdited: Any | None = ...,
-        rupBuild: Any | None = ...,
-        codeName: Any | None = ...,
+        appName: Incomplete | None = ...,
+        lastEdited: Incomplete | None = ...,
+        lowestEdited: Incomplete | None = ...,
+        rupBuild: Incomplete | None = ...,
+        codeName: Incomplete | None = ...,
     ) -> None: ...

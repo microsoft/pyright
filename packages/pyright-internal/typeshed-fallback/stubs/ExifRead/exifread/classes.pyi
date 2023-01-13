@@ -1,42 +1,48 @@
-from _typeshed import Incomplete
+from logging import Logger
+from typing import Any
+from typing_extensions import Literal
 
-logger: Incomplete
+from ._types import Reader, TagDict
+
+logger: Logger
 
 class IfdTag:
-    printable: Incomplete
-    tag: Incomplete
-    field_type: Incomplete
-    field_offset: Incomplete
-    field_length: Incomplete
-    values: Incomplete
-    def __init__(self, printable: str, tag: int, field_type: int, values, field_offset: int, field_length: int) -> None: ...
+    printable: str
+    tag: int
+    field_type: int
+    field_offset: int
+    field_length: int
+    values: Any  # either string, bytes or list of data items
+    def __init__(self, printable: str, tag: int, field_type: int, values: Any, field_offset: int, field_length: int) -> None: ...
 
 class ExifHeader:
-    file_handle: Incomplete
-    endian: Incomplete
-    offset: Incomplete
-    fake_exif: Incomplete
-    strict: Incomplete
-    debug: Incomplete
-    detailed: Incomplete
-    truncate_tags: Incomplete
-    tags: Incomplete
+    file_handle: Reader
+    endian: Literal["I", "M"]
+    offset: int
+    fake_exif: bool
+    strict: bool
+    debug: bool
+    detailed: bool
+    truncate_tags: bool
+    tags: dict[str, Any]
     def __init__(
         self,
-        file_handle,
-        endian,
-        offset,
-        fake_exif,
+        file_handle: Reader,
+        endian: Literal["I", "M"],
+        offset: int,
+        fake_exif: bool,
         strict: bool,
         debug: bool = ...,
         detailed: bool = ...,
         truncate_tags: bool = ...,
     ) -> None: ...
-    def s2n(self, offset, length: int, signed: bool = ...) -> int: ...
-    def n2b(self, offset, length) -> bytes: ...
-    def list_ifd(self) -> list[Incomplete]: ...
-    def dump_ifd(self, ifd, ifd_name: str, tag_dict: Incomplete | None = ..., relative: int = ..., stop_tag=...) -> None: ...
+    def s2n(self, offset: int, length: int, signed: bool = ...) -> int: ...
+    def n2b(self, offset: int, length: int) -> bytes: ...
+    def list_ifd(self) -> list[int]: ...
+    def dump_ifd(
+        self, ifd: int, ifd_name: str, tag_dict: TagDict | None = ..., relative: int = ..., stop_tag: str = ...
+    ) -> None: ...
     def extract_tiff_thumbnail(self, thumb_ifd: int) -> None: ...
     def extract_jpeg_thumbnail(self) -> None: ...
     def decode_maker_note(self) -> None: ...
-    def parse_xmp(self, xmp_bytes: bytes): ...
+    def parse_xmp(self, xmp_bytes: bytes) -> None: ...

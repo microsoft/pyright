@@ -1,63 +1,75 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class ExternalCell(Serialisable):  # type: ignore[misc]
-    r: Any
-    t: Any
-    vm: Any
-    v: Any
-    def __init__(self, r: Any | None = ..., t: Any | None = ..., vm: Any | None = ..., v: Any | None = ...) -> None: ...
+    r: Incomplete
+    t: Incomplete
+    vm: Incomplete
+    v: Incomplete
+    def __init__(
+        self, r: Incomplete | None = ..., t: Incomplete | None = ..., vm: Incomplete | None = ..., v: Incomplete | None = ...
+    ) -> None: ...
 
 class ExternalRow(Serialisable):  # type: ignore[misc]
-    r: Any
-    cell: Any
-    __elements__: Any
-    def __init__(self, r=..., cell: Any | None = ...) -> None: ...
+    r: Incomplete
+    cell: Incomplete
+    __elements__: Incomplete
+    def __init__(self, r=..., cell: Incomplete | None = ...) -> None: ...
 
 class ExternalSheetData(Serialisable):  # type: ignore[misc]
-    sheetId: Any
-    refreshError: Any
-    row: Any
-    __elements__: Any
-    def __init__(self, sheetId: Any | None = ..., refreshError: Any | None = ..., row=...) -> None: ...
+    sheetId: Incomplete
+    refreshError: Incomplete
+    row: Incomplete
+    __elements__: Incomplete
+    def __init__(self, sheetId: Incomplete | None = ..., refreshError: Incomplete | None = ..., row=...) -> None: ...
 
 class ExternalSheetDataSet(Serialisable):  # type: ignore[misc]
-    sheetData: Any
-    __elements__: Any
-    def __init__(self, sheetData: Any | None = ...) -> None: ...
+    sheetData: Incomplete
+    __elements__: Incomplete
+    def __init__(self, sheetData: Incomplete | None = ...) -> None: ...
 
 class ExternalSheetNames(Serialisable):  # type: ignore[misc]
-    sheetName: Any
-    __elements__: Any
+    sheetName: Incomplete
+    __elements__: Incomplete
     def __init__(self, sheetName=...) -> None: ...
 
 class ExternalDefinedName(Serialisable):
     tagname: str
-    name: Any
-    refersTo: Any
-    sheetId: Any
-    def __init__(self, name: Any | None = ..., refersTo: Any | None = ..., sheetId: Any | None = ...) -> None: ...
+    name: Incomplete
+    refersTo: Incomplete
+    sheetId: Incomplete
+    def __init__(
+        self, name: Incomplete | None = ..., refersTo: Incomplete | None = ..., sheetId: Incomplete | None = ...
+    ) -> None: ...
 
 class ExternalBook(Serialisable):
     tagname: str
-    sheetNames: Any
-    definedNames: Any
-    sheetDataSet: Any
-    id: Any
-    __elements__: Any
+    sheetNames: Incomplete
+    definedNames: Incomplete
+    sheetDataSet: Incomplete
+    id: Incomplete
+    __elements__: Incomplete
     def __init__(
-        self, sheetNames: Any | None = ..., definedNames=..., sheetDataSet: Any | None = ..., id: Any | None = ...
+        self,
+        sheetNames: Incomplete | None = ...,
+        definedNames=...,
+        sheetDataSet: Incomplete | None = ...,
+        id: Incomplete | None = ...,
     ) -> None: ...
 
 class ExternalLink(Serialisable):
     tagname: str
     mime_type: str
-    externalBook: Any
-    file_link: Any
-    __elements__: Any
+    externalBook: Incomplete
+    file_link: Incomplete
+    __elements__: Incomplete
     def __init__(
-        self, externalBook: Any | None = ..., ddeLink: Any | None = ..., oleLink: Any | None = ..., extLst: Any | None = ...
+        self,
+        externalBook: Incomplete | None = ...,
+        ddeLink: Incomplete | None = ...,
+        oleLink: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
     def to_tree(self): ...
     @property

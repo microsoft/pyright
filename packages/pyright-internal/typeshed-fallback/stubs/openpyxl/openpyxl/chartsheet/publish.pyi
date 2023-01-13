@@ -1,32 +1,32 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class WebPublishItem(Serialisable):
     tagname: str
-    id: Any
-    divId: Any
-    sourceType: Any
-    sourceRef: Any
-    sourceObject: Any
-    destinationFile: Any
-    title: Any
-    autoRepublish: Any
+    id: Incomplete
+    divId: Incomplete
+    sourceType: Incomplete
+    sourceRef: Incomplete
+    sourceObject: Incomplete
+    destinationFile: Incomplete
+    title: Incomplete
+    autoRepublish: Incomplete
     def __init__(
         self,
-        id: Any | None = ...,
-        divId: Any | None = ...,
-        sourceType: Any | None = ...,
-        sourceRef: Any | None = ...,
-        sourceObject: Any | None = ...,
-        destinationFile: Any | None = ...,
-        title: Any | None = ...,
-        autoRepublish: Any | None = ...,
+        id: Incomplete | None = ...,
+        divId: Incomplete | None = ...,
+        sourceType: Incomplete | None = ...,
+        sourceRef: Incomplete | None = ...,
+        sourceObject: Incomplete | None = ...,
+        destinationFile: Incomplete | None = ...,
+        title: Incomplete | None = ...,
+        autoRepublish: Incomplete | None = ...,
     ) -> None: ...
 
 class WebPublishItems(Serialisable):
     tagname: str
-    count: Any
-    webPublishItem: Any
-    __elements__: Any
-    def __init__(self, count: Any | None = ..., webPublishItem: Any | None = ...) -> None: ...
+    count: Incomplete
+    webPublishItem: Incomplete
+    __elements__: Incomplete
+    def __init__(self, count: Incomplete | None = ..., webPublishItem: Incomplete | None = ...) -> None: ...

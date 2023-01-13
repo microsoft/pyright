@@ -1,101 +1,109 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.nested import NestedText
 from openpyxl.descriptors.serialisable import Serialisable
 
 class NumFmt(Serialisable):  # type: ignore[misc]
-    formatCode: Any
-    sourceLinked: Any
-    def __init__(self, formatCode: Any | None = ..., sourceLinked: bool = ...) -> None: ...
+    formatCode: Incomplete
+    sourceLinked: Incomplete
+    def __init__(self, formatCode: Incomplete | None = ..., sourceLinked: bool = ...) -> None: ...
 
 class NumberValueDescriptor(NestedText):
     allow_none: bool
-    expected_type: Any
+    expected_type: Incomplete
     def __set__(self, instance, value) -> None: ...
 
 class NumVal(Serialisable):  # type: ignore[misc]
-    idx: Any
-    formatCode: Any
-    v: Any
-    def __init__(self, idx: Any | None = ..., formatCode: Any | None = ..., v: Any | None = ...) -> None: ...
+    idx: Incomplete
+    formatCode: Incomplete
+    v: Incomplete
+    def __init__(self, idx: Incomplete | None = ..., formatCode: Incomplete | None = ..., v: Incomplete | None = ...) -> None: ...
 
 class NumData(Serialisable):  # type: ignore[misc]
-    formatCode: Any
-    ptCount: Any
-    pt: Any
-    extLst: Any
-    __elements__: Any
-    def __init__(self, formatCode: Any | None = ..., ptCount: Any | None = ..., pt=..., extLst: Any | None = ...) -> None: ...
+    formatCode: Incomplete
+    ptCount: Incomplete
+    pt: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
+    def __init__(
+        self, formatCode: Incomplete | None = ..., ptCount: Incomplete | None = ..., pt=..., extLst: Incomplete | None = ...
+    ) -> None: ...
 
 class NumRef(Serialisable):  # type: ignore[misc]
-    f: Any
-    ref: Any
-    numCache: Any
-    extLst: Any
-    __elements__: Any
-    def __init__(self, f: Any | None = ..., numCache: Any | None = ..., extLst: Any | None = ...) -> None: ...
+    f: Incomplete
+    ref: Incomplete
+    numCache: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
+    def __init__(
+        self, f: Incomplete | None = ..., numCache: Incomplete | None = ..., extLst: Incomplete | None = ...
+    ) -> None: ...
 
 class StrVal(Serialisable):
     tagname: str
-    idx: Any
-    v: Any
-    def __init__(self, idx: int = ..., v: Any | None = ...) -> None: ...
+    idx: Incomplete
+    v: Incomplete
+    def __init__(self, idx: int = ..., v: Incomplete | None = ...) -> None: ...
 
 class StrData(Serialisable):
     tagname: str
-    ptCount: Any
-    pt: Any
-    extLst: Any
-    __elements__: Any
-    def __init__(self, ptCount: Any | None = ..., pt=..., extLst: Any | None = ...) -> None: ...
+    ptCount: Incomplete
+    pt: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
+    def __init__(self, ptCount: Incomplete | None = ..., pt=..., extLst: Incomplete | None = ...) -> None: ...
 
 class StrRef(Serialisable):
     tagname: str
-    f: Any
-    strCache: Any
-    extLst: Any
-    __elements__: Any
-    def __init__(self, f: Any | None = ..., strCache: Any | None = ..., extLst: Any | None = ...) -> None: ...
+    f: Incomplete
+    strCache: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
+    def __init__(
+        self, f: Incomplete | None = ..., strCache: Incomplete | None = ..., extLst: Incomplete | None = ...
+    ) -> None: ...
 
 class NumDataSource(Serialisable):  # type: ignore[misc]
-    numRef: Any
-    numLit: Any
-    def __init__(self, numRef: Any | None = ..., numLit: Any | None = ...) -> None: ...
+    numRef: Incomplete
+    numLit: Incomplete
+    def __init__(self, numRef: Incomplete | None = ..., numLit: Incomplete | None = ...) -> None: ...
 
 class Level(Serialisable):
     tagname: str
-    pt: Any
-    __elements__: Any
+    pt: Incomplete
+    __elements__: Incomplete
     def __init__(self, pt=...) -> None: ...
 
 class MultiLevelStrData(Serialisable):
     tagname: str
-    ptCount: Any
-    lvl: Any
-    extLst: Any
-    __elements__: Any
-    def __init__(self, ptCount: Any | None = ..., lvl=..., extLst: Any | None = ...) -> None: ...
+    ptCount: Incomplete
+    lvl: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
+    def __init__(self, ptCount: Incomplete | None = ..., lvl=..., extLst: Incomplete | None = ...) -> None: ...
 
 class MultiLevelStrRef(Serialisable):
     tagname: str
-    f: Any
-    multiLvlStrCache: Any
-    extLst: Any
-    __elements__: Any
-    def __init__(self, f: Any | None = ..., multiLvlStrCache: Any | None = ..., extLst: Any | None = ...) -> None: ...
+    f: Incomplete
+    multiLvlStrCache: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
+    def __init__(
+        self, f: Incomplete | None = ..., multiLvlStrCache: Incomplete | None = ..., extLst: Incomplete | None = ...
+    ) -> None: ...
 
 class AxDataSource(Serialisable):
     tagname: str
-    numRef: Any
-    numLit: Any
-    strRef: Any
-    strLit: Any
-    multiLvlStrRef: Any
+    numRef: Incomplete
+    numLit: Incomplete
+    strRef: Incomplete
+    strLit: Incomplete
+    multiLvlStrRef: Incomplete
     def __init__(
         self,
-        numRef: Any | None = ...,
-        numLit: Any | None = ...,
-        strRef: Any | None = ...,
-        strLit: Any | None = ...,
-        multiLvlStrRef: Any | None = ...,
+        numRef: Incomplete | None = ...,
+        numLit: Incomplete | None = ...,
+        strRef: Incomplete | None = ...,
+        strLit: Incomplete | None = ...,
+        multiLvlStrRef: Incomplete | None = ...,
     ) -> None: ...

@@ -1,15 +1,15 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class ConditionalFormatting(Serialisable):
     tagname: str
-    sqref: Any
-    cells: Any
-    pivot: Any
-    cfRule: Any
-    rules: Any
-    def __init__(self, sqref=..., pivot: Any | None = ..., cfRule=..., extLst: Any | None = ...) -> None: ...
+    sqref: Incomplete
+    cells: Incomplete
+    pivot: Incomplete
+    cfRule: Incomplete
+    rules: Incomplete
+    def __init__(self, sqref=..., pivot: Incomplete | None = ..., cfRule=..., extLst: Incomplete | None = ...) -> None: ...
     def __eq__(self, other): ...
     def __hash__(self) -> int: ...
     def __contains__(self, coord): ...

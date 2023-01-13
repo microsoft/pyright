@@ -1,74 +1,76 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class GraphicFrameLocking(Serialisable):
-    noGrp: Any
-    noDrilldown: Any
-    noSelect: Any
-    noChangeAspect: Any
-    noMove: Any
-    noResize: Any
-    extLst: Any
+    noGrp: Incomplete
+    noDrilldown: Incomplete
+    noSelect: Incomplete
+    noChangeAspect: Incomplete
+    noMove: Incomplete
+    noResize: Incomplete
+    extLst: Incomplete
     def __init__(
         self,
-        noGrp: Any | None = ...,
-        noDrilldown: Any | None = ...,
-        noSelect: Any | None = ...,
-        noChangeAspect: Any | None = ...,
-        noMove: Any | None = ...,
-        noResize: Any | None = ...,
-        extLst: Any | None = ...,
+        noGrp: Incomplete | None = ...,
+        noDrilldown: Incomplete | None = ...,
+        noSelect: Incomplete | None = ...,
+        noChangeAspect: Incomplete | None = ...,
+        noMove: Incomplete | None = ...,
+        noResize: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class NonVisualGraphicFrameProperties(Serialisable):
     tagname: str
-    graphicFrameLocks: Any
-    extLst: Any
-    def __init__(self, graphicFrameLocks: Any | None = ..., extLst: Any | None = ...) -> None: ...
+    graphicFrameLocks: Incomplete
+    extLst: Incomplete
+    def __init__(self, graphicFrameLocks: Incomplete | None = ..., extLst: Incomplete | None = ...) -> None: ...
 
 class NonVisualGraphicFrame(Serialisable):
     tagname: str
-    cNvPr: Any
-    cNvGraphicFramePr: Any
-    __elements__: Any
-    def __init__(self, cNvPr: Any | None = ..., cNvGraphicFramePr: Any | None = ...) -> None: ...
+    cNvPr: Incomplete
+    cNvGraphicFramePr: Incomplete
+    __elements__: Incomplete
+    def __init__(self, cNvPr: Incomplete | None = ..., cNvGraphicFramePr: Incomplete | None = ...) -> None: ...
 
 class GraphicData(Serialisable):
     tagname: str
-    namespace: Any
-    uri: Any
-    chart: Any
-    def __init__(self, uri=..., chart: Any | None = ...) -> None: ...
+    namespace: Incomplete
+    uri: Incomplete
+    chart: Incomplete
+    def __init__(self, uri=..., chart: Incomplete | None = ...) -> None: ...
 
 class GraphicObject(Serialisable):
     tagname: str
-    namespace: Any
-    graphicData: Any
-    def __init__(self, graphicData: Any | None = ...) -> None: ...
+    namespace: Incomplete
+    graphicData: Incomplete
+    def __init__(self, graphicData: Incomplete | None = ...) -> None: ...
 
 class GraphicFrame(Serialisable):
     tagname: str
-    nvGraphicFramePr: Any
-    xfrm: Any
-    graphic: Any
-    macro: Any
-    fPublished: Any
-    __elements__: Any
+    nvGraphicFramePr: Incomplete
+    xfrm: Incomplete
+    graphic: Incomplete
+    macro: Incomplete
+    fPublished: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        nvGraphicFramePr: Any | None = ...,
-        xfrm: Any | None = ...,
-        graphic: Any | None = ...,
-        macro: Any | None = ...,
-        fPublished: Any | None = ...,
+        nvGraphicFramePr: Incomplete | None = ...,
+        xfrm: Incomplete | None = ...,
+        graphic: Incomplete | None = ...,
+        macro: Incomplete | None = ...,
+        fPublished: Incomplete | None = ...,
     ) -> None: ...
 
 class GroupShape(Serialisable):
-    nvGrpSpPr: Any
-    nonVisualProperties: Any
-    grpSpPr: Any
-    visualProperties: Any
-    pic: Any
-    __elements__: Any
-    def __init__(self, nvGrpSpPr: Any | None = ..., grpSpPr: Any | None = ..., pic: Any | None = ...) -> None: ...
+    nvGrpSpPr: Incomplete
+    nonVisualProperties: Incomplete
+    grpSpPr: Incomplete
+    visualProperties: Incomplete
+    pic: Incomplete
+    __elements__: Incomplete
+    def __init__(
+        self, nvGrpSpPr: Incomplete | None = ..., grpSpPr: Incomplete | None = ..., pic: Incomplete | None = ...
+    ) -> None: ...

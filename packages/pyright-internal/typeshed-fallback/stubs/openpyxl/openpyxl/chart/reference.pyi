@@ -1,34 +1,34 @@
+from _typeshed import Incomplete
 from collections.abc import Generator
-from typing import Any
 
 from openpyxl.descriptors import Strict
 
 class DummyWorksheet:
-    title: Any
+    title: Incomplete
     def __init__(self, title) -> None: ...
 
 class Reference(Strict):
-    min_row: Any
-    max_row: Any
-    min_col: Any
-    max_col: Any
-    range_string: Any
-    worksheet: Any
+    min_row: Incomplete
+    max_row: Incomplete
+    min_col: Incomplete
+    max_col: Incomplete
+    range_string: Incomplete
+    worksheet: Incomplete
     def __init__(
         self,
-        worksheet: Any | None = ...,
-        min_col: Any | None = ...,
-        min_row: Any | None = ...,
-        max_col: Any | None = ...,
-        max_row: Any | None = ...,
-        range_string: Any | None = ...,
+        worksheet: Incomplete | None = ...,
+        min_col: Incomplete | None = ...,
+        min_row: Incomplete | None = ...,
+        max_col: Incomplete | None = ...,
+        max_row: Incomplete | None = ...,
+        range_string: Incomplete | None = ...,
     ) -> None: ...
     def __len__(self) -> int: ...
     def __eq__(self, other): ...
     @property
-    def rows(self) -> Generator[Any, None, None]: ...
+    def rows(self) -> Generator[Incomplete, None, None]: ...
     @property
-    def cols(self) -> Generator[Any, None, None]: ...
+    def cols(self) -> Generator[Incomplete, None, None]: ...
     def pop(self): ...
     @property
     def sheetname(self): ...

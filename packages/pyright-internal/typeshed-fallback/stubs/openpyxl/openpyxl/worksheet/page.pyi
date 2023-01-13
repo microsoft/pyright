@@ -1,50 +1,50 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class PrintPageSetup(Serialisable):
     tagname: str
-    orientation: Any
-    paperSize: Any
-    scale: Any
-    fitToHeight: Any
-    fitToWidth: Any
-    firstPageNumber: Any
-    useFirstPageNumber: Any
-    paperHeight: Any
-    paperWidth: Any
-    pageOrder: Any
-    usePrinterDefaults: Any
-    blackAndWhite: Any
-    draft: Any
-    cellComments: Any
-    errors: Any
-    horizontalDpi: Any
-    verticalDpi: Any
-    copies: Any
-    id: Any
+    orientation: Incomplete
+    paperSize: Incomplete
+    scale: Incomplete
+    fitToHeight: Incomplete
+    fitToWidth: Incomplete
+    firstPageNumber: Incomplete
+    useFirstPageNumber: Incomplete
+    paperHeight: Incomplete
+    paperWidth: Incomplete
+    pageOrder: Incomplete
+    usePrinterDefaults: Incomplete
+    blackAndWhite: Incomplete
+    draft: Incomplete
+    cellComments: Incomplete
+    errors: Incomplete
+    horizontalDpi: Incomplete
+    verticalDpi: Incomplete
+    copies: Incomplete
+    id: Incomplete
     def __init__(
         self,
-        worksheet: Any | None = ...,
-        orientation: Any | None = ...,
-        paperSize: Any | None = ...,
-        scale: Any | None = ...,
-        fitToHeight: Any | None = ...,
-        fitToWidth: Any | None = ...,
-        firstPageNumber: Any | None = ...,
-        useFirstPageNumber: Any | None = ...,
-        paperHeight: Any | None = ...,
-        paperWidth: Any | None = ...,
-        pageOrder: Any | None = ...,
-        usePrinterDefaults: Any | None = ...,
-        blackAndWhite: Any | None = ...,
-        draft: Any | None = ...,
-        cellComments: Any | None = ...,
-        errors: Any | None = ...,
-        horizontalDpi: Any | None = ...,
-        verticalDpi: Any | None = ...,
-        copies: Any | None = ...,
-        id: Any | None = ...,
+        worksheet: Incomplete | None = ...,
+        orientation: Incomplete | None = ...,
+        paperSize: Incomplete | None = ...,
+        scale: Incomplete | None = ...,
+        fitToHeight: Incomplete | None = ...,
+        fitToWidth: Incomplete | None = ...,
+        firstPageNumber: Incomplete | None = ...,
+        useFirstPageNumber: Incomplete | None = ...,
+        paperHeight: Incomplete | None = ...,
+        paperWidth: Incomplete | None = ...,
+        pageOrder: Incomplete | None = ...,
+        usePrinterDefaults: Incomplete | None = ...,
+        blackAndWhite: Incomplete | None = ...,
+        draft: Incomplete | None = ...,
+        cellComments: Incomplete | None = ...,
+        errors: Incomplete | None = ...,
+        horizontalDpi: Incomplete | None = ...,
+        verticalDpi: Incomplete | None = ...,
+        copies: Incomplete | None = ...,
+        id: Incomplete | None = ...,
     ) -> None: ...
     def __bool__(self) -> bool: ...
     @property
@@ -62,29 +62,29 @@ class PrintPageSetup(Serialisable):
 
 class PrintOptions(Serialisable):
     tagname: str
-    horizontalCentered: Any
-    verticalCentered: Any
-    headings: Any
-    gridLines: Any
-    gridLinesSet: Any
+    horizontalCentered: Incomplete
+    verticalCentered: Incomplete
+    headings: Incomplete
+    gridLines: Incomplete
+    gridLinesSet: Incomplete
     def __init__(
         self,
-        horizontalCentered: Any | None = ...,
-        verticalCentered: Any | None = ...,
-        headings: Any | None = ...,
-        gridLines: Any | None = ...,
-        gridLinesSet: Any | None = ...,
+        horizontalCentered: Incomplete | None = ...,
+        verticalCentered: Incomplete | None = ...,
+        headings: Incomplete | None = ...,
+        gridLines: Incomplete | None = ...,
+        gridLinesSet: Incomplete | None = ...,
     ) -> None: ...
     def __bool__(self) -> bool: ...
 
 class PageMargins(Serialisable):
     tagname: str
-    left: Any
-    right: Any
-    top: Any
-    bottom: Any
-    header: Any
-    footer: Any
+    left: Incomplete
+    right: Incomplete
+    top: Incomplete
+    bottom: Incomplete
+    header: Incomplete
+    footer: Incomplete
     def __init__(
         self, left: float = ..., right: float = ..., top: int = ..., bottom: int = ..., header: float = ..., footer: float = ...
     ) -> None: ...

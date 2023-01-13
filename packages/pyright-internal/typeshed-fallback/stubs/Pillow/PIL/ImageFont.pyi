@@ -74,6 +74,7 @@ class FreeTypeFont:
         stroke_width: float = ...,
         anchor: str | None = ...,
         ink=...,
+        start: tuple[float, float] | None = ...,
     ): ...
     def getmask2(
         self,
@@ -86,6 +87,7 @@ class FreeTypeFont:
         stroke_width: float = ...,
         anchor: str | None = ...,
         ink=...,
+        start: tuple[float, float] | None = ...,
         *args,
         **kwargs,
     ): ...

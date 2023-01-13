@@ -1,39 +1,43 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Marker(Serialisable):
     tagname: str
-    symbol: Any
-    size: Any
-    spPr: Any
-    graphicalProperties: Any
-    extLst: Any
-    __elements__: Any
+    symbol: Incomplete
+    size: Incomplete
+    spPr: Incomplete
+    graphicalProperties: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
-        self, symbol: Any | None = ..., size: Any | None = ..., spPr: Any | None = ..., extLst: Any | None = ...
+        self,
+        symbol: Incomplete | None = ...,
+        size: Incomplete | None = ...,
+        spPr: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class DataPoint(Serialisable):
     tagname: str
-    idx: Any
-    invertIfNegative: Any
-    marker: Any
-    bubble3D: Any
-    explosion: Any
-    spPr: Any
-    graphicalProperties: Any
-    pictureOptions: Any
-    extLst: Any
-    __elements__: Any
+    idx: Incomplete
+    invertIfNegative: Incomplete
+    marker: Incomplete
+    bubble3D: Incomplete
+    explosion: Incomplete
+    spPr: Incomplete
+    graphicalProperties: Incomplete
+    pictureOptions: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        idx: Any | None = ...,
-        invertIfNegative: Any | None = ...,
-        marker: Any | None = ...,
-        bubble3D: Any | None = ...,
-        explosion: Any | None = ...,
-        spPr: Any | None = ...,
-        pictureOptions: Any | None = ...,
-        extLst: Any | None = ...,
+        idx: Incomplete | None = ...,
+        invertIfNegative: Incomplete | None = ...,
+        marker: Incomplete | None = ...,
+        bubble3D: Incomplete | None = ...,
+        explosion: Incomplete | None = ...,
+        spPr: Incomplete | None = ...,
+        pictureOptions: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...

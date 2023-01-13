@@ -1,20 +1,26 @@
+from _typeshed import Incomplete
 from abc import abstractmethod
-from typing import Any
 
 from ._3d import _3DBase
 from ._chart import ChartBase
 
 class _BarChartBase(ChartBase):
-    barDir: Any
-    type: Any
-    grouping: Any
-    varyColors: Any
-    ser: Any
-    dLbls: Any
-    dataLabels: Any
-    __elements__: Any
+    barDir: Incomplete
+    type: Incomplete
+    grouping: Incomplete
+    varyColors: Incomplete
+    ser: Incomplete
+    dLbls: Incomplete
+    dataLabels: Incomplete
+    __elements__: Incomplete
     def __init__(
-        self, barDir: str = ..., grouping: str = ..., varyColors: Any | None = ..., ser=..., dLbls: Any | None = ..., **kw
+        self,
+        barDir: str = ...,
+        grouping: str = ...,
+        varyColors: Incomplete | None = ...,
+        ser=...,
+        dLbls: Incomplete | None = ...,
+        **kw,
     ) -> None: ...
     @property
     @abstractmethod
@@ -22,49 +28,54 @@ class _BarChartBase(ChartBase):
 
 class BarChart(_BarChartBase):
     tagname: str
-    barDir: Any
-    grouping: Any
-    varyColors: Any
-    ser: Any
-    dLbls: Any
-    gapWidth: Any
-    overlap: Any
-    serLines: Any
-    extLst: Any
-    x_axis: Any
-    y_axis: Any
-    __elements__: Any
-    legend: Any
+    barDir: Incomplete
+    grouping: Incomplete
+    varyColors: Incomplete
+    ser: Incomplete
+    dLbls: Incomplete
+    gapWidth: Incomplete
+    overlap: Incomplete
+    serLines: Incomplete
+    extLst: Incomplete
+    x_axis: Incomplete
+    y_axis: Incomplete
+    __elements__: Incomplete
+    legend: Incomplete
     def __init__(
-        self, gapWidth: int = ..., overlap: Any | None = ..., serLines: Any | None = ..., extLst: Any | None = ..., **kw
+        self,
+        gapWidth: int = ...,
+        overlap: Incomplete | None = ...,
+        serLines: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
+        **kw,
     ) -> None: ...
 
 class BarChart3D(_BarChartBase, _3DBase):
     tagname: str
-    barDir: Any
-    grouping: Any
-    varyColors: Any
-    ser: Any
-    dLbls: Any
-    view3D: Any
-    floor: Any
-    sideWall: Any
-    backWall: Any
-    gapWidth: Any
-    gapDepth: Any
-    shape: Any
-    serLines: Any
-    extLst: Any
-    x_axis: Any
-    y_axis: Any
-    z_axis: Any
-    __elements__: Any
+    barDir: Incomplete
+    grouping: Incomplete
+    varyColors: Incomplete
+    ser: Incomplete
+    dLbls: Incomplete
+    view3D: Incomplete
+    floor: Incomplete
+    sideWall: Incomplete
+    backWall: Incomplete
+    gapWidth: Incomplete
+    gapDepth: Incomplete
+    shape: Incomplete
+    serLines: Incomplete
+    extLst: Incomplete
+    x_axis: Incomplete
+    y_axis: Incomplete
+    z_axis: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
         gapWidth: int = ...,
         gapDepth: int = ...,
-        shape: Any | None = ...,
-        serLines: Any | None = ...,
-        extLst: Any | None = ...,
+        shape: Incomplete | None = ...,
+        serLines: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
         **kw,
     ) -> None: ...

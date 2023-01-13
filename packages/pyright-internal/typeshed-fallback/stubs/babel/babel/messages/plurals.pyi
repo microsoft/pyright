@@ -1,8 +1,6 @@
-from typing import Any
-
-LC_CTYPE: Any
-PLURALS: Any
-DEFAULT_PLURAL: Any
+LC_CTYPE: str
+PLURALS: dict[str, tuple[int, str]]
+DEFAULT_PLURAL: tuple[int, str]
 
 class _PluralTuple(tuple[int, str]):
     @property
@@ -12,4 +10,4 @@ class _PluralTuple(tuple[int, str]):
     @property
     def plural_forms(self) -> str: ...
 
-def get_plural(locale=...): ...
+def get_plural(locale: str = ...) -> _PluralTuple: ...

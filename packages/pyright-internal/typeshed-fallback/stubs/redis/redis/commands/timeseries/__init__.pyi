@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from ...client import Pipeline as ClientPipeline
@@ -10,4 +11,4 @@ class TimeSeries(TimeSeriesCommands):
     def __init__(self, client: Any | None = ..., **kwargs) -> None: ...
     def pipeline(self, transaction: bool = ..., shard_hint: Any | None = ...) -> Pipeline: ...
 
-class Pipeline(TimeSeriesCommands, ClientPipeline): ...  # type: ignore[misc]
+class Pipeline(TimeSeriesCommands, ClientPipeline[Incomplete]): ...  # type: ignore[misc]

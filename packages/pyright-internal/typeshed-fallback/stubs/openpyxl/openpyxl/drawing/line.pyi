@@ -1,66 +1,66 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class LineEndProperties(Serialisable):
     tagname: str
-    namespace: Any
-    type: Any
-    w: Any
-    len: Any
-    def __init__(self, type: Any | None = ..., w: Any | None = ..., len: Any | None = ...) -> None: ...
+    namespace: Incomplete
+    type: Incomplete
+    w: Incomplete
+    len: Incomplete
+    def __init__(self, type: Incomplete | None = ..., w: Incomplete | None = ..., len: Incomplete | None = ...) -> None: ...
 
 class DashStop(Serialisable):
     tagname: str
-    namespace: Any
-    d: Any
-    length: Any
-    sp: Any
-    space: Any
+    namespace: Incomplete
+    d: Incomplete
+    length: Incomplete
+    sp: Incomplete
+    space: Incomplete
     def __init__(self, d: int = ..., sp: int = ...) -> None: ...
 
 class DashStopList(Serialisable):
-    ds: Any
-    def __init__(self, ds: Any | None = ...) -> None: ...
+    ds: Incomplete
+    def __init__(self, ds: Incomplete | None = ...) -> None: ...
 
 class LineProperties(Serialisable):
     tagname: str
-    namespace: Any
-    w: Any
-    width: Any
-    cap: Any
-    cmpd: Any
-    algn: Any
-    noFill: Any
-    solidFill: Any
-    gradFill: Any
-    pattFill: Any
-    prstDash: Any
-    dashStyle: Any
-    custDash: Any
-    round: Any
-    bevel: Any
-    miter: Any
-    headEnd: Any
-    tailEnd: Any
-    extLst: Any
-    __elements__: Any
+    namespace: Incomplete
+    w: Incomplete
+    width: Incomplete
+    cap: Incomplete
+    cmpd: Incomplete
+    algn: Incomplete
+    noFill: Incomplete
+    solidFill: Incomplete
+    gradFill: Incomplete
+    pattFill: Incomplete
+    prstDash: Incomplete
+    dashStyle: Incomplete
+    custDash: Incomplete
+    round: Incomplete
+    bevel: Incomplete
+    miter: Incomplete
+    headEnd: Incomplete
+    tailEnd: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        w: Any | None = ...,
-        cap: Any | None = ...,
-        cmpd: Any | None = ...,
-        algn: Any | None = ...,
-        noFill: Any | None = ...,
-        solidFill: Any | None = ...,
-        gradFill: Any | None = ...,
-        pattFill: Any | None = ...,
-        prstDash: Any | None = ...,
-        custDash: Any | None = ...,
-        round: Any | None = ...,
-        bevel: Any | None = ...,
-        miter: Any | None = ...,
-        headEnd: Any | None = ...,
-        tailEnd: Any | None = ...,
-        extLst: Any | None = ...,
+        w: Incomplete | None = ...,
+        cap: Incomplete | None = ...,
+        cmpd: Incomplete | None = ...,
+        algn: Incomplete | None = ...,
+        noFill: Incomplete | None = ...,
+        solidFill: Incomplete | None = ...,
+        gradFill: Incomplete | None = ...,
+        pattFill: Incomplete | None = ...,
+        prstDash: Incomplete | None = ...,
+        custDash: Incomplete | None = ...,
+        round: Incomplete | None = ...,
+        bevel: Incomplete | None = ...,
+        miter: Incomplete | None = ...,
+        headEnd: Incomplete | None = ...,
+        tailEnd: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...

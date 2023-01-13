@@ -1,55 +1,55 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class WebPublishObject(Serialisable):
     tagname: str
-    id: Any
-    divId: Any
-    sourceObject: Any
-    destinationFile: Any
-    title: Any
-    autoRepublish: Any
+    id: Incomplete
+    divId: Incomplete
+    sourceObject: Incomplete
+    destinationFile: Incomplete
+    title: Incomplete
+    autoRepublish: Incomplete
     def __init__(
         self,
-        id: Any | None = ...,
-        divId: Any | None = ...,
-        sourceObject: Any | None = ...,
-        destinationFile: Any | None = ...,
-        title: Any | None = ...,
-        autoRepublish: Any | None = ...,
+        id: Incomplete | None = ...,
+        divId: Incomplete | None = ...,
+        sourceObject: Incomplete | None = ...,
+        destinationFile: Incomplete | None = ...,
+        title: Incomplete | None = ...,
+        autoRepublish: Incomplete | None = ...,
     ) -> None: ...
 
 class WebPublishObjectList(Serialisable):
     tagname: str
     # Overwritten by property below
     # count: Integer
-    webPublishObject: Any
-    __elements__: Any
-    def __init__(self, count: Any | None = ..., webPublishObject=...) -> None: ...
+    webPublishObject: Incomplete
+    __elements__: Incomplete
+    def __init__(self, count: Incomplete | None = ..., webPublishObject=...) -> None: ...
     @property
     def count(self): ...
 
 class WebPublishing(Serialisable):
     tagname: str
-    css: Any
-    thicket: Any
-    longFileNames: Any
-    vml: Any
-    allowPng: Any
-    targetScreenSize: Any
-    dpi: Any
-    codePage: Any
-    characterSet: Any
+    css: Incomplete
+    thicket: Incomplete
+    longFileNames: Incomplete
+    vml: Incomplete
+    allowPng: Incomplete
+    targetScreenSize: Incomplete
+    dpi: Incomplete
+    codePage: Incomplete
+    characterSet: Incomplete
     def __init__(
         self,
-        css: Any | None = ...,
-        thicket: Any | None = ...,
-        longFileNames: Any | None = ...,
-        vml: Any | None = ...,
-        allowPng: Any | None = ...,
+        css: Incomplete | None = ...,
+        thicket: Incomplete | None = ...,
+        longFileNames: Incomplete | None = ...,
+        vml: Incomplete | None = ...,
+        allowPng: Incomplete | None = ...,
         targetScreenSize: str = ...,
-        dpi: Any | None = ...,
-        codePage: Any | None = ...,
-        characterSet: Any | None = ...,
+        dpi: Incomplete | None = ...,
+        codePage: Incomplete | None = ...,
+        characterSet: Incomplete | None = ...,
     ) -> None: ...

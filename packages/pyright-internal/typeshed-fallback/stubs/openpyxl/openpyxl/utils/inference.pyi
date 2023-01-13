@@ -1,8 +1,8 @@
-from typing import Any
+from _typeshed import Incomplete
 
-PERCENT_REGEX: Any
-TIME_REGEX: Any
-NUMBER_REGEX: Any
+PERCENT_REGEX: Incomplete
+TIME_REGEX: Incomplete
+NUMBER_REGEX: Incomplete
 
 def cast_numeric(value): ...
 def cast_percentage(value): ...

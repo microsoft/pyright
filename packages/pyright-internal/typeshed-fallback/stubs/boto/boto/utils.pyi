@@ -3,6 +3,7 @@ import io
 import logging.handlers
 import subprocess
 import time
+from _typeshed import StrOrBytesPath
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from email.message import Message
@@ -65,7 +66,7 @@ class ShellCommand:
     wait: bool
     fail_fast: bool
     def __init__(
-        self, command: subprocess._CMD, wait: bool = ..., fail_fast: bool = ..., cwd: subprocess._TXT | None = ...
+        self, command: subprocess._CMD, wait: bool = ..., fail_fast: bool = ..., cwd: StrOrBytesPath | None = ...
     ) -> None: ...
     process: subprocess.Popen[Any]
     def run(self, cwd: subprocess._CMD | None = ...) -> int | None: ...

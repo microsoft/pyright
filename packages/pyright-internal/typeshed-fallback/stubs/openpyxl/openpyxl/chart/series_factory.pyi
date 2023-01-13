@@ -1,5 +1,9 @@
-from typing import Any
+from _typeshed import Incomplete
 
 def SeriesFactory(
-    values, xvalues: Any | None = ..., zvalues: Any | None = ..., title: Any | None = ..., title_from_data: bool = ...
+    values,
+    xvalues: Incomplete | None = ...,
+    zvalues: Incomplete | None = ...,
+    title: Incomplete | None = ...,
+    title_from_data: bool = ...,
 ): ...

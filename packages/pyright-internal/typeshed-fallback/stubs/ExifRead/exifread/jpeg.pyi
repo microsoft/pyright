@@ -1,5 +1,7 @@
-from _typeshed import Incomplete
+from logging import Logger
 
-logger: Incomplete
+from ._types import Reader
 
-def find_jpeg_exif(fh, data, fake_exif) -> tuple[Incomplete, Incomplete, Incomplete]: ...
+logger: Logger
+
+def find_jpeg_exif(fh: Reader, data: bytes, fake_exif: bool) -> tuple[int, bytes, bool]: ...

@@ -1,2 +1,2 @@
 version = "2.9.*"
-requires = []  # requires types-pyasn1 (not available yet)
+requires = ["types-pyasn1"]

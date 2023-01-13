@@ -1,33 +1,35 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class PivotSource(Serialisable):
     tagname: str
-    name: Any
-    fmtId: Any
-    extLst: Any
-    __elements__: Any
-    def __init__(self, name: Any | None = ..., fmtId: Any | None = ..., extLst: Any | None = ...) -> None: ...
+    name: Incomplete
+    fmtId: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
+    def __init__(
+        self, name: Incomplete | None = ..., fmtId: Incomplete | None = ..., extLst: Incomplete | None = ...
+    ) -> None: ...
 
 class PivotFormat(Serialisable):
     tagname: str
-    idx: Any
-    spPr: Any
-    graphicalProperties: Any
-    txPr: Any
-    TextBody: Any
-    marker: Any
-    dLbl: Any
-    DataLabel: Any
-    extLst: Any
-    __elements__: Any
+    idx: Incomplete
+    spPr: Incomplete
+    graphicalProperties: Incomplete
+    txPr: Incomplete
+    TextBody: Incomplete
+    marker: Incomplete
+    dLbl: Incomplete
+    DataLabel: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
         idx: int = ...,
-        spPr: Any | None = ...,
-        txPr: Any | None = ...,
-        marker: Any | None = ...,
-        dLbl: Any | None = ...,
-        extLst: Any | None = ...,
+        spPr: Incomplete | None = ...,
+        txPr: Incomplete | None = ...,
+        marker: Incomplete | None = ...,
+        dLbl: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...

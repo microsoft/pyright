@@ -1,4 +1,4 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors import Strict
 from openpyxl.descriptors.serialisable import Serialisable
@@ -6,45 +6,45 @@ from openpyxl.styles.styleable import StyleableObject
 from openpyxl.utils.bound_dictionary import BoundDictionary
 
 class Dimension(Strict, StyleableObject):
-    __fields__: Any
-    index: Any
-    hidden: Any
-    outlineLevel: Any
-    outline_level: Any
-    collapsed: Any
-    style: Any
+    __fields__: Incomplete
+    index: Incomplete
+    hidden: Incomplete
+    outlineLevel: Incomplete
+    outline_level: Incomplete
+    collapsed: Incomplete
+    style: Incomplete
     def __init__(
-        self, index, hidden, outlineLevel, collapsed, worksheet, visible: bool = ..., style: Any | None = ...
+        self, index, hidden, outlineLevel, collapsed, worksheet, visible: bool = ..., style: Incomplete | None = ...
     ) -> None: ...
     def __iter__(self): ...
     def __copy__(self): ...
 
 class RowDimension(Dimension):
-    __fields__: Any
-    r: Any
-    s: Any
-    ht: Any
-    height: Any
-    thickBot: Any
-    thickTop: Any
+    __fields__: Incomplete
+    r: Incomplete
+    s: Incomplete
+    ht: Incomplete
+    height: Incomplete
+    thickBot: Incomplete
+    thickTop: Incomplete
     def __init__(
         self,
         worksheet,
         index: int = ...,
-        ht: Any | None = ...,
-        customHeight: Any | None = ...,
-        s: Any | None = ...,
-        customFormat: Any | None = ...,
+        ht: Incomplete | None = ...,
+        customHeight: Incomplete | None = ...,
+        s: Incomplete | None = ...,
+        customFormat: Incomplete | None = ...,
         hidden: bool = ...,
         outlineLevel: int = ...,
-        outline_level: Any | None = ...,
+        outline_level: Incomplete | None = ...,
         collapsed: bool = ...,
-        visible: Any | None = ...,
-        height: Any | None = ...,
-        r: Any | None = ...,
-        spans: Any | None = ...,
-        thickBot: Any | None = ...,
-        thickTop: Any | None = ...,
+        visible: Incomplete | None = ...,
+        height: Incomplete | None = ...,
+        r: Incomplete | None = ...,
+        spans: Incomplete | None = ...,
+        thickBot: Incomplete | None = ...,
+        thickTop: Incomplete | None = ...,
         **kw,
     ) -> None: ...
     @property
@@ -53,14 +53,14 @@ class RowDimension(Dimension):
     def customHeight(self): ...
 
 class ColumnDimension(Dimension):
-    width: Any
-    bestFit: Any
-    auto_size: Any
-    index: Any
-    min: Any
-    max: Any
-    collapsed: Any
-    __fields__: Any
+    width: Incomplete
+    bestFit: Incomplete
+    auto_size: Incomplete
+    index: Incomplete
+    min: Incomplete
+    max: Incomplete
+    collapsed: Incomplete
+    __fields__: Incomplete
     def __init__(
         self,
         worksheet,
@@ -69,14 +69,14 @@ class ColumnDimension(Dimension):
         bestFit: bool = ...,
         hidden: bool = ...,
         outlineLevel: int = ...,
-        outline_level: Any | None = ...,
+        outline_level: Incomplete | None = ...,
         collapsed: bool = ...,
-        style: Any | None = ...,
-        min: Any | None = ...,
-        max: Any | None = ...,
+        style: Incomplete | None = ...,
+        min: Incomplete | None = ...,
+        max: Incomplete | None = ...,
         customWidth: bool = ...,
-        visible: Any | None = ...,
-        auto_size: Any | None = ...,
+        visible: Incomplete | None = ...,
+        auto_size: Incomplete | None = ...,
     ) -> None: ...
     @property
     def customWidth(self): ...
@@ -84,40 +84,40 @@ class ColumnDimension(Dimension):
     def to_tree(self): ...
 
 class DimensionHolder(BoundDictionary):
-    worksheet: Any
-    max_outline: Any
-    default_factory: Any
-    def __init__(self, worksheet, reference: str = ..., default_factory: Any | None = ...) -> None: ...
-    def group(self, start, end: Any | None = ..., outline_level: int = ..., hidden: bool = ...) -> None: ...
+    worksheet: Incomplete
+    max_outline: Incomplete
+    default_factory: Incomplete
+    def __init__(self, worksheet, reference: str = ..., default_factory: Incomplete | None = ...) -> None: ...
+    def group(self, start, end: Incomplete | None = ..., outline_level: int = ..., hidden: bool = ...) -> None: ...
     def to_tree(self): ...
 
 class SheetFormatProperties(Serialisable):
     tagname: str
-    baseColWidth: Any
-    defaultColWidth: Any
-    defaultRowHeight: Any
-    customHeight: Any
-    zeroHeight: Any
-    thickTop: Any
-    thickBottom: Any
-    outlineLevelRow: Any
-    outlineLevelCol: Any
+    baseColWidth: Incomplete
+    defaultColWidth: Incomplete
+    defaultRowHeight: Incomplete
+    customHeight: Incomplete
+    zeroHeight: Incomplete
+    thickTop: Incomplete
+    thickBottom: Incomplete
+    outlineLevelRow: Incomplete
+    outlineLevelCol: Incomplete
     def __init__(
         self,
         baseColWidth: int = ...,
-        defaultColWidth: Any | None = ...,
+        defaultColWidth: Incomplete | None = ...,
         defaultRowHeight: int = ...,
-        customHeight: Any | None = ...,
-        zeroHeight: Any | None = ...,
-        thickTop: Any | None = ...,
-        thickBottom: Any | None = ...,
-        outlineLevelRow: Any | None = ...,
-        outlineLevelCol: Any | None = ...,
+        customHeight: Incomplete | None = ...,
+        zeroHeight: Incomplete | None = ...,
+        thickTop: Incomplete | None = ...,
+        thickBottom: Incomplete | None = ...,
+        outlineLevelRow: Incomplete | None = ...,
+        outlineLevelCol: Incomplete | None = ...,
     ) -> None: ...
 
 class SheetDimension(Serialisable):
     tagname: str
-    ref: Any
-    def __init__(self, ref: Any | None = ...) -> None: ...
+    ref: Incomplete
+    def __init__(self, ref: Incomplete | None = ...) -> None: ...
     @property
     def boundaries(self): ...

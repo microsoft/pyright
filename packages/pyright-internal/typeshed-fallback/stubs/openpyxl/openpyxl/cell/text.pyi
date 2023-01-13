@@ -1,80 +1,82 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.styles.fonts import Font
 
 class PhoneticProperties(Serialisable):
     tagname: str
-    fontId: Any
-    type: Any
-    alignment: Any
-    def __init__(self, fontId: Any | None = ..., type: Any | None = ..., alignment: Any | None = ...) -> None: ...
+    fontId: Incomplete
+    type: Incomplete
+    alignment: Incomplete
+    def __init__(
+        self, fontId: Incomplete | None = ..., type: Incomplete | None = ..., alignment: Incomplete | None = ...
+    ) -> None: ...
 
 class PhoneticText(Serialisable):
     tagname: str
-    sb: Any
-    eb: Any
-    t: Any
-    text: Any
-    def __init__(self, sb: Any | None = ..., eb: Any | None = ..., t: Any | None = ...) -> None: ...
+    sb: Incomplete
+    eb: Incomplete
+    t: Incomplete
+    text: Incomplete
+    def __init__(self, sb: Incomplete | None = ..., eb: Incomplete | None = ..., t: Incomplete | None = ...) -> None: ...
 
 class InlineFont(Font):
     tagname: str
-    rFont: Any
-    charset: Any
-    family: Any
-    b: Any
-    i: Any
-    strike: Any
-    outline: Any
-    shadow: Any
-    condense: Any
-    extend: Any
-    color: Any
-    sz: Any
-    u: Any
-    vertAlign: Any
-    scheme: Any
-    __elements__: Any
+    rFont: Incomplete
+    charset: Incomplete
+    family: Incomplete
+    b: Incomplete
+    i: Incomplete
+    strike: Incomplete
+    outline: Incomplete
+    shadow: Incomplete
+    condense: Incomplete
+    extend: Incomplete
+    color: Incomplete
+    sz: Incomplete
+    u: Incomplete
+    vertAlign: Incomplete
+    scheme: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        rFont: Any | None = ...,
-        charset: Any | None = ...,
-        family: Any | None = ...,
-        b: Any | None = ...,
-        i: Any | None = ...,
-        strike: Any | None = ...,
-        outline: Any | None = ...,
-        shadow: Any | None = ...,
-        condense: Any | None = ...,
-        extend: Any | None = ...,
-        color: Any | None = ...,
-        sz: Any | None = ...,
-        u: Any | None = ...,
-        vertAlign: Any | None = ...,
-        scheme: Any | None = ...,
+        rFont: Incomplete | None = ...,
+        charset: Incomplete | None = ...,
+        family: Incomplete | None = ...,
+        b: Incomplete | None = ...,
+        i: Incomplete | None = ...,
+        strike: Incomplete | None = ...,
+        outline: Incomplete | None = ...,
+        shadow: Incomplete | None = ...,
+        condense: Incomplete | None = ...,
+        extend: Incomplete | None = ...,
+        color: Incomplete | None = ...,
+        sz: Incomplete | None = ...,
+        u: Incomplete | None = ...,
+        vertAlign: Incomplete | None = ...,
+        scheme: Incomplete | None = ...,
     ) -> None: ...
 
 class RichText(Serialisable):
     tagname: str
-    rPr: Any
-    font: Any
-    t: Any
-    text: Any
-    __elements__: Any
-    def __init__(self, rPr: Any | None = ..., t: Any | None = ...) -> None: ...
+    rPr: Incomplete
+    font: Incomplete
+    t: Incomplete
+    text: Incomplete
+    __elements__: Incomplete
+    def __init__(self, rPr: Incomplete | None = ..., t: Incomplete | None = ...) -> None: ...
 
 class Text(Serialisable):
     tagname: str
-    t: Any
-    plain: Any
-    r: Any
-    formatted: Any
-    rPh: Any
-    phonetic: Any
-    phoneticPr: Any
-    PhoneticProperties: Any
-    __elements__: Any
-    def __init__(self, t: Any | None = ..., r=..., rPh=..., phoneticPr: Any | None = ...) -> None: ...
+    t: Incomplete
+    plain: Incomplete
+    r: Incomplete
+    formatted: Incomplete
+    rPh: Incomplete
+    phonetic: Incomplete
+    phoneticPr: Incomplete
+    PhoneticProperties: Incomplete
+    __elements__: Incomplete
+    def __init__(self, t: Incomplete | None = ..., r=..., rPh=..., phoneticPr: Incomplete | None = ...) -> None: ...
     @property
     def content(self): ...

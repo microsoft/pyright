@@ -1,5 +1,5 @@
-from typing import Any
+from _typeshed import Incomplete
 
-VER: Any
+VER: Incomplete
 
 def safe_string(value): ...

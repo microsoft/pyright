@@ -1,39 +1,39 @@
+from _typeshed import Incomplete
 from abc import abstractmethod
-from typing import Any
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class AxId(Serialisable):  # type: ignore[misc]
-    val: Any
+    val: Incomplete
     def __init__(self, val) -> None: ...
 
 def PlotArea(): ...
 
 class ChartBase(Serialisable):
-    legend: Any
-    layout: Any
-    roundedCorners: Any
-    axId: Any
-    visible_cells_only: Any
-    display_blanks: Any
-    ser: Any
-    series: Any
-    title: Any
+    legend: Incomplete
+    layout: Incomplete
+    roundedCorners: Incomplete
+    axId: Incomplete
+    visible_cells_only: Incomplete
+    display_blanks: Incomplete
+    ser: Incomplete
+    series: Incomplete
+    title: Incomplete
     anchor: str
     width: int
     height: float
-    style: Any
+    style: Incomplete
     mime_type: str
-    graphical_properties: Any
-    __elements__: Any
-    plot_area: Any
-    pivotSource: Any
-    pivotFormats: Any
+    graphical_properties: Incomplete
+    __elements__: Incomplete
+    plot_area: Incomplete
+    pivotSource: Incomplete
+    pivotFormats: Incomplete
     idx_base: int
     def __init__(self, axId=..., **kw) -> None: ...
     def __hash__(self) -> int: ...
     def __iadd__(self, other): ...
-    def to_tree(self, namespace: Any | None = ..., tagname: Any | None = ..., idx: Any | None = ...): ...  # type: ignore[override]
+    def to_tree(self, namespace: Incomplete | None = ..., tagname: Incomplete | None = ..., idx: Incomplete | None = ...): ...  # type: ignore[override]
     def set_categories(self, labels) -> None: ...
     def add_data(self, data, from_rows: bool = ..., titles_from_data: bool = ...) -> None: ...
     def append(self, value) -> None: ...

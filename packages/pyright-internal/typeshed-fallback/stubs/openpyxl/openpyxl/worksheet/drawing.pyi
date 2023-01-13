@@ -1,8 +1,8 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Drawing(Serialisable):
     tagname: str
-    id: Any
-    def __init__(self, id: Any | None = ...) -> None: ...
+    id: Incomplete
+    def __init__(self, id: Incomplete | None = ...) -> None: ...

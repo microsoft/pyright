@@ -1,6 +1,6 @@
-from _typeshed import Incomplete
+from exifread._types import TagDict
 
-def ev_bias(seq) -> str: ...
+def ev_bias(seq: list[int]) -> str: ...
 
-TAGS_NEW: Incomplete
-TAGS_OLD: Incomplete
+TAGS_NEW: TagDict
+TAGS_OLD: TagDict

@@ -1,6 +1,6 @@
-from _typeshed import Incomplete
+from exifread._types import TagDict
 
-def special_mode(val): ...
+def special_mode(val: bytes) -> str: ...
 
-TAGS: Incomplete
-TAG_0x2020: Incomplete
+TAGS: TagDict
+TAG_0x2020: TagDict

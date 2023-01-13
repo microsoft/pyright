@@ -1,18 +1,18 @@
+from _typeshed import Incomplete
 from collections.abc import Generator
-from typing import Any
 
 class WorkbookParser:
-    archive: Any
-    workbook_part_name: Any
-    wb: Any
-    keep_links: Any
-    sheets: Any
+    archive: Incomplete
+    workbook_part_name: Incomplete
+    wb: Incomplete
+    keep_links: Incomplete
+    sheets: Incomplete
     def __init__(self, archive, workbook_part_name, keep_links: bool = ...) -> None: ...
     @property
     def rels(self): ...
-    caches: Any
+    caches: Incomplete
     def parse(self) -> None: ...
-    def find_sheets(self) -> Generator[Any, None, None]: ...
+    def find_sheets(self) -> Generator[Incomplete, None, None]: ...
     def assign_names(self) -> None: ...
     @property
     def pivot_caches(self): ...

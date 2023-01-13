@@ -3,11 +3,11 @@ from logging import Logger
 from typing import Any, TypeVar
 from typing_extensions import ParamSpec, TypeAlias
 
+import flask
 from flask_sqlalchemy import SQLAlchemy
 
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
-_App: TypeAlias = Any  # flask.Flask is not possible as a dependency yet
 _ConfigureCallback: TypeAlias = Callable[[Config], Config]
 
 alembic_version: tuple[int, int, int]
@@ -25,7 +25,7 @@ class Migrate:
     alembic_ctx_kwargs: dict[str, Any]
     def __init__(
         self,
-        app: _App | None = ...,
+        app: flask.Flask | None = ...,
         db: SQLAlchemy | None = ...,
         directory: str = ...,
         command: str = ...,
@@ -35,7 +35,7 @@ class Migrate:
     ) -> None: ...
     def init_app(
         self,
-        app: _App,
+        app: flask.Flask,
         db: SQLAlchemy | None = ...,
         directory: str | None = ...,
         command: str | None = ...,

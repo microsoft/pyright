@@ -1,21 +1,21 @@
-from typing import Any
+from _typeshed import Incomplete
 
-SUPPORTED_FORMATS: Any
+SUPPORTED_FORMATS: Incomplete
 
 class ExcelReader:
-    archive: Any
-    valid_files: Any
-    read_only: Any
-    keep_vba: Any
-    data_only: Any
-    keep_links: Any
-    shared_strings: Any
+    archive: Incomplete
+    valid_files: Incomplete
+    read_only: Incomplete
+    keep_vba: Incomplete
+    data_only: Incomplete
+    keep_links: Incomplete
+    shared_strings: Incomplete
     def __init__(self, fn, read_only: bool = ..., keep_vba=..., data_only: bool = ..., keep_links: bool = ...) -> None: ...
-    package: Any
+    package: Incomplete
     def read_manifest(self) -> None: ...
     def read_strings(self) -> None: ...
-    parser: Any
-    wb: Any
+    parser: Incomplete
+    wb: Incomplete
     def read_workbook(self) -> None: ...
     def read_properties(self) -> None: ...
     def read_theme(self) -> None: ...

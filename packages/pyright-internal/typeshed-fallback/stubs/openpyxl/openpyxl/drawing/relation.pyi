@@ -1,9 +1,9 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class ChartRelation(Serialisable):
     tagname: str
-    namespace: Any
-    id: Any
+    namespace: Incomplete
+    id: Incomplete
     def __init__(self, id) -> None: ...

@@ -1,4 +1,4 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
@@ -7,66 +7,66 @@ def expand_cell_ranges(range_string): ...
 
 class DataValidation(Serialisable):
     tagname: str
-    sqref: Any
-    cells: Any
-    ranges: Any
-    showErrorMessage: Any
-    showDropDown: Any
-    hide_drop_down: Any
-    showInputMessage: Any
-    allowBlank: Any
-    allow_blank: Any
-    errorTitle: Any
-    error: Any
-    promptTitle: Any
-    prompt: Any
-    formula1: Any
-    formula2: Any
-    type: Any
-    errorStyle: Any
-    imeMode: Any
-    operator: Any
-    validation_type: Any
+    sqref: Incomplete
+    cells: Incomplete
+    ranges: Incomplete
+    showErrorMessage: Incomplete
+    showDropDown: Incomplete
+    hide_drop_down: Incomplete
+    showInputMessage: Incomplete
+    allowBlank: Incomplete
+    allow_blank: Incomplete
+    errorTitle: Incomplete
+    error: Incomplete
+    promptTitle: Incomplete
+    prompt: Incomplete
+    formula1: Incomplete
+    formula2: Incomplete
+    type: Incomplete
+    errorStyle: Incomplete
+    imeMode: Incomplete
+    operator: Incomplete
+    validation_type: Incomplete
     def __init__(
         self,
-        type: Any | None = ...,
-        formula1: Any | None = ...,
-        formula2: Any | None = ...,
+        type: Incomplete | None = ...,
+        formula1: Incomplete | None = ...,
+        formula2: Incomplete | None = ...,
         showErrorMessage: bool = ...,
         showInputMessage: bool = ...,
-        showDropDown: Any | None = ...,
-        allowBlank: Any | None = ...,
+        showDropDown: Incomplete | None = ...,
+        allowBlank: Incomplete | None = ...,
         sqref=...,
-        promptTitle: Any | None = ...,
-        errorStyle: Any | None = ...,
-        error: Any | None = ...,
-        prompt: Any | None = ...,
-        errorTitle: Any | None = ...,
-        imeMode: Any | None = ...,
-        operator: Any | None = ...,
-        allow_blank: Any | None = ...,
+        promptTitle: Incomplete | None = ...,
+        errorStyle: Incomplete | None = ...,
+        error: Incomplete | None = ...,
+        prompt: Incomplete | None = ...,
+        errorTitle: Incomplete | None = ...,
+        imeMode: Incomplete | None = ...,
+        operator: Incomplete | None = ...,
+        allow_blank: Incomplete | None = ...,
     ) -> None: ...
     def add(self, cell) -> None: ...
     def __contains__(self, cell): ...
 
 class DataValidationList(Serialisable):
     tagname: str
-    disablePrompts: Any
-    xWindow: Any
-    yWindow: Any
-    dataValidation: Any
-    __elements__: Any
-    __attrs__: Any
+    disablePrompts: Incomplete
+    xWindow: Incomplete
+    yWindow: Incomplete
+    dataValidation: Incomplete
+    __elements__: Incomplete
+    __attrs__: Incomplete
     def __init__(
         self,
-        disablePrompts: Any | None = ...,
-        xWindow: Any | None = ...,
-        yWindow: Any | None = ...,
-        count: Any | None = ...,
+        disablePrompts: Incomplete | None = ...,
+        xWindow: Incomplete | None = ...,
+        yWindow: Incomplete | None = ...,
+        count: Incomplete | None = ...,
         dataValidation=...,
     ) -> None: ...
     @property
     def count(self): ...
     def __len__(self) -> int: ...
     def append(self, dv) -> None: ...
-    def to_tree(self, tagname: Any | None = ...): ...  # type: ignore[override]
+    def to_tree(self, tagname: Incomplete | None = ...): ...  # type: ignore[override]

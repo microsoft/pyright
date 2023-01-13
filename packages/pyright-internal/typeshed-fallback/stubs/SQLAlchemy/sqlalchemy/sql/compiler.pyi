@@ -1,77 +1,83 @@
-from typing import Any, NamedTuple
+from _typeshed import Incomplete
+from typing import NamedTuple
 
 from ..util import memoized_property
 from . import elements
 
-RESERVED_WORDS: Any
-LEGAL_CHARACTERS: Any
-LEGAL_CHARACTERS_PLUS_SPACE: Any
-ILLEGAL_INITIAL_CHARACTERS: Any
-FK_ON_DELETE: Any
-FK_ON_UPDATE: Any
-FK_INITIALLY: Any
-BIND_PARAMS: Any
-BIND_PARAMS_ESC: Any
-BIND_TEMPLATES: Any
-OPERATORS: Any
-FUNCTIONS: Any
-EXTRACT_MAP: Any
-COMPOUND_KEYWORDS: Any
+RESERVED_WORDS: Incomplete
+LEGAL_CHARACTERS: Incomplete
+LEGAL_CHARACTERS_PLUS_SPACE: Incomplete
+ILLEGAL_INITIAL_CHARACTERS: Incomplete
+FK_ON_DELETE: Incomplete
+FK_ON_UPDATE: Incomplete
+FK_INITIALLY: Incomplete
+BIND_PARAMS: Incomplete
+BIND_PARAMS_ESC: Incomplete
+BIND_TEMPLATES: Incomplete
+OPERATORS: Incomplete
+FUNCTIONS: Incomplete
+EXTRACT_MAP: Incomplete
+COMPOUND_KEYWORDS: Incomplete
 RM_RENDERED_NAME: int
 RM_NAME: int
 RM_OBJECTS: int
 RM_TYPE: int
 
 class ExpandedState(NamedTuple):
-    statement: Any
-    additional_parameters: Any
-    processors: Any
-    positiontup: Any
-    parameter_expansion: Any
+    statement: Incomplete
+    additional_parameters: Incomplete
+    processors: Incomplete
+    positiontup: Incomplete
+    parameter_expansion: Incomplete
 
-NO_LINTING: Any
-COLLECT_CARTESIAN_PRODUCTS: Any
-WARN_LINTING: Any
-FROM_LINTING: Any
+NO_LINTING: Incomplete
+COLLECT_CARTESIAN_PRODUCTS: Incomplete
+WARN_LINTING: Incomplete
+FROM_LINTING: Incomplete
 
 class FromLinter:
-    def lint(self, start: Any | None = ...): ...
+    def lint(self, start: Incomplete | None = ...): ...
     def warn(self) -> None: ...
 
 class Compiled:
-    schema_translate_map: Any
-    execution_options: Any
-    compile_state: Any
-    cache_key: Any
-    dialect: Any
-    preparer: Any
-    statement: Any
-    can_execute: Any
-    string: Any
+    schema_translate_map: Incomplete
+    execution_options: Incomplete
+    compile_state: Incomplete
+    cache_key: Incomplete
+    dialect: Incomplete
+    preparer: Incomplete
+    statement: Incomplete
+    can_execute: Incomplete
+    string: Incomplete
     def __init__(
-        self, dialect, statement, schema_translate_map: Any | None = ..., render_schema_translate: bool = ..., compile_kwargs=...
+        self,
+        dialect,
+        statement,
+        schema_translate_map: Incomplete | None = ...,
+        render_schema_translate: bool = ...,
+        compile_kwargs=...,
     ) -> None: ...
     def visit_unsupported_compilation(self, element, err) -> None: ...
     @property
     def sql_compiler(self) -> None: ...
     def process(self, obj, **kwargs): ...
     def construct_params(
-        self, params: Any | None = ..., extracted_parameters: Any | None = ..., escape_names: bool = ...
+        self, params: Incomplete | None = ..., extracted_parameters: Incomplete | None = ..., escape_names: bool = ...
     ) -> None: ...
     @property
     def params(self): ...
 
 class TypeCompiler:
     ensure_kwarg: str
-    dialect: Any
+    dialect: Incomplete
     def __init__(self, dialect) -> None: ...
     def process(self, type_, **kw): ...
     def visit_unsupported_compilation(self, element, err, **kw) -> None: ...
 
-class _CompileLabel(elements.ColumnElement[Any]):
+class _CompileLabel(elements.ColumnElement[Incomplete]):
     __visit_name__: str
-    element: Any
-    name: Any
+    element: Incomplete
+    name: Incomplete
     def __init__(self, col, name, alt_names=...) -> None: ...
     @property
     def proxy_set(self): ...
@@ -80,45 +86,45 @@ class _CompileLabel(elements.ColumnElement[Any]):
     def self_group(self, **kw): ...
 
 class SQLCompiler(Compiled):
-    extract_map: Any
-    compound_keywords: Any
+    extract_map: Incomplete
+    compound_keywords: Incomplete
     isdelete: bool
     isinsert: bool
     isupdate: bool
     isplaintext: bool
-    returning: Any
+    returning: Incomplete
     returning_precedes_values: bool
     render_table_with_column_in_update_from: bool
     ansi_bind_rules: bool
-    insert_single_values_expr: Any
-    literal_execute_params: Any
-    post_compile_params: Any
-    escaped_bind_names: Any
+    insert_single_values_expr: Incomplete
+    literal_execute_params: Incomplete
+    post_compile_params: Incomplete
+    escaped_bind_names: Incomplete
     has_out_parameters: bool
-    insert_prefetch: Any
-    update_prefetch: Any
+    insert_prefetch: Incomplete
+    update_prefetch: Incomplete
     postfetch_lastrowid: bool
-    positiontup: Any
+    positiontup: Incomplete
     inline: bool
-    column_keys: Any
-    cache_key: Any
-    for_executemany: Any
-    linting: Any
-    binds: Any
-    bind_names: Any
-    stack: Any
-    positional: Any
-    bindtemplate: Any
-    ctes: Any
-    label_length: Any
-    anon_map: Any
-    truncated_names: Any
+    column_keys: Incomplete
+    cache_key: Incomplete
+    for_executemany: Incomplete
+    linting: Incomplete
+    binds: Incomplete
+    bind_names: Incomplete
+    stack: Incomplete
+    positional: Incomplete
+    bindtemplate: Incomplete
+    ctes: Incomplete
+    label_length: Incomplete
+    anon_map: Incomplete
+    truncated_names: Incomplete
     def __init__(
         self,
         dialect,
         statement,
-        cache_key: Any | None = ...,
-        column_keys: Any | None = ...,
+        cache_key: Incomplete | None = ...,
+        column_keys: Incomplete | None = ...,
         for_executemany: bool = ...,
         linting=...,
         **kwargs,
@@ -130,7 +136,7 @@ class SQLCompiler(Compiled):
     def is_subquery(self): ...
     @property
     def sql_compiler(self): ...
-    def construct_params(self, params: Any | None = ..., _group_number: Any | None = ..., _check: bool = ..., extracted_parameters: Any | None = ..., escape_names: bool = ...): ...  # type: ignore[override]
+    def construct_params(self, params: Incomplete | None = ..., _group_number: Incomplete | None = ..., _check: bool = ..., extracted_parameters: Incomplete | None = ..., escape_names: bool = ...): ...  # type: ignore[override]
     @property
     def params(self): ...
     def default_from(self): ...
@@ -141,16 +147,16 @@ class SQLCompiler(Compiled):
     def visit_label(
         self,
         label,
-        add_to_result_map: Any | None = ...,
+        add_to_result_map: Incomplete | None = ...,
         within_label_clause: bool = ...,
         within_columns_clause: bool = ...,
-        render_label_as_label: Any | None = ...,
+        render_label_as_label: Incomplete | None = ...,
         result_map_targets=...,
         **kw,
     ): ...
     def visit_lambda_element(self, element, **kw): ...
     def visit_column(
-        self, column, add_to_result_map: Any | None = ..., include_table: bool = ..., result_map_targets=..., **kwargs
+        self, column, add_to_result_map: Incomplete | None = ..., include_table: bool = ..., result_map_targets=..., **kwargs
     ): ...
     def visit_collation(self, element, **kw): ...
     def visit_fromclause(self, fromclause, **kwargs): ...
@@ -158,8 +164,8 @@ class SQLCompiler(Compiled):
     def visit_typeclause(self, typeclause, **kw): ...
     def post_process_text(self, text): ...
     def escape_literal_column(self, text): ...
-    def visit_textclause(self, textclause, add_to_result_map: Any | None = ..., **kw): ...
-    def visit_textual_select(self, taf, compound_index: Any | None = ..., asfrom: bool = ..., **kw): ...
+    def visit_textclause(self, textclause, add_to_result_map: Incomplete | None = ..., **kw): ...
+    def visit_textual_select(self, taf, compound_index: Incomplete | None = ..., asfrom: bool = ..., **kw): ...
     def visit_null(self, expr, **kw): ...
     def visit_true(self, expr, **kw): ...
     def visit_false(self, expr, **kw): ...
@@ -173,13 +179,13 @@ class SQLCompiler(Compiled):
     def visit_funcfilter(self, funcfilter, **kwargs): ...
     def visit_extract(self, extract, **kwargs): ...
     def visit_scalar_function_column(self, element, **kw): ...
-    def visit_function(self, func, add_to_result_map: Any | None = ..., **kwargs): ...
+    def visit_function(self, func, add_to_result_map: Incomplete | None = ..., **kwargs): ...
     def visit_next_value_func(self, next_value, **kw): ...
     def visit_sequence(self, sequence, **kw) -> None: ...
     def function_argspec(self, func, **kwargs): ...
-    compile_state: Any
-    def visit_compound_select(self, cs, asfrom: bool = ..., compound_index: Any | None = ..., **kwargs): ...
-    def visit_unary(self, unary, add_to_result_map: Any | None = ..., result_map_targets=..., **kw): ...
+    compile_state: Incomplete
+    def visit_compound_select(self, cs, asfrom: bool = ..., compound_index: Incomplete | None = ..., **kwargs): ...
+    def visit_unary(self, unary, add_to_result_map: Incomplete | None = ..., result_map_targets=..., **kw): ...
     def visit_is_true_unary_operator(self, element, operator, **kw): ...
     def visit_is_false_unary_operator(self, element, operator, **kw): ...
     def visit_not_match_op_binary(self, binary, operator, **kw): ...
@@ -189,10 +195,10 @@ class SQLCompiler(Compiled):
     def visit_binary(
         self,
         binary,
-        override_operator: Any | None = ...,
+        override_operator: Incomplete | None = ...,
         eager_grouping: bool = ...,
-        from_linter: Any | None = ...,
-        lateral_from_linter: Any | None = ...,
+        from_linter: Incomplete | None = ...,
+        lateral_from_linter: Incomplete | None = ...,
         **kw,
     ): ...
     def visit_function_as_comparison_op_binary(self, element, operator, **kw): ...
@@ -225,27 +231,29 @@ class SQLCompiler(Compiled):
         render_postcompile: bool = ...,
         **kwargs,
     ): ...
-    def render_literal_bindparam(self, bindparam, render_literal_value=..., **kw): ...
+    def render_literal_bindparam(
+        self, bindparam, render_literal_value=..., bind_expression_template: Incomplete | None = ..., **kw
+    ): ...
     def render_literal_value(self, value, type_): ...
     def bindparam_string(
         self,
         name,
-        positional_names: Any | None = ...,
+        positional_names: Incomplete | None = ...,
         post_compile: bool = ...,
         expanding: bool = ...,
-        escaped_from: Any | None = ...,
+        escaped_from: Incomplete | None = ...,
         **kw,
     ): ...
-    execution_options: Any
+    execution_options: Incomplete
     ctes_recursive: bool
     def visit_cte(
         self,
         cte,
         asfrom: bool = ...,
         ashint: bool = ...,
-        fromhints: Any | None = ...,
-        visiting_cte: Any | None = ...,
-        from_linter: Any | None = ...,
+        fromhints: Incomplete | None = ...,
+        visiting_cte: Incomplete | None = ...,
+        from_linter: Incomplete | None = ...,
         **kwargs,
     ): ...
     def visit_table_valued_alias(self, element, **kw): ...
@@ -256,34 +264,34 @@ class SQLCompiler(Compiled):
         asfrom: bool = ...,
         ashint: bool = ...,
         iscrud: bool = ...,
-        fromhints: Any | None = ...,
+        fromhints: Incomplete | None = ...,
         subquery: bool = ...,
         lateral: bool = ...,
-        enclosing_alias: Any | None = ...,
-        from_linter: Any | None = ...,
+        enclosing_alias: Incomplete | None = ...,
+        from_linter: Incomplete | None = ...,
         **kwargs,
     ): ...
     def visit_subquery(self, subquery, **kw): ...
     def visit_lateral(self, lateral_, **kw): ...
     def visit_tablesample(self, tablesample, asfrom: bool = ..., **kw): ...
-    def visit_values(self, element, asfrom: bool = ..., from_linter: Any | None = ..., **kw): ...
+    def visit_values(self, element, asfrom: bool = ..., from_linter: Incomplete | None = ..., **kw): ...
     def get_render_as_alias_suffix(self, alias_name_text): ...
     def format_from_hint_text(self, sqltext, table, hint, iscrud): ...
     def get_select_hint_text(self, byfroms) -> None: ...
     def get_from_hint_text(self, table, text) -> None: ...
     def get_crud_hint_text(self, table, text) -> None: ...
     def get_statement_hint_text(self, hint_texts): ...
-    translate_select_structure: Any
+    translate_select_structure: Incomplete
     def visit_select(
         self,
         select_stmt,
         asfrom: bool = ...,
         insert_into: bool = ...,
-        fromhints: Any | None = ...,
-        compound_index: Any | None = ...,
-        select_wraps_for: Any | None = ...,
+        fromhints: Incomplete | None = ...,
+        compound_index: Incomplete | None = ...,
+        select_wraps_for: Incomplete | None = ...,
         lateral: bool = ...,
-        from_linter: Any | None = ...,
+        from_linter: Incomplete | None = ...,
         **kwargs,
     ): ...
     def get_cte_preamble(self, recursive): ...
@@ -300,12 +308,12 @@ class SQLCompiler(Compiled):
         asfrom: bool = ...,
         iscrud: bool = ...,
         ashint: bool = ...,
-        fromhints: Any | None = ...,
+        fromhints: Incomplete | None = ...,
         use_schema: bool = ...,
-        from_linter: Any | None = ...,
+        from_linter: Incomplete | None = ...,
         **kwargs,
     ): ...
-    def visit_join(self, join, asfrom: bool = ..., from_linter: Any | None = ..., **kwargs): ...
+    def visit_join(self, join, asfrom: bool = ..., from_linter: Incomplete | None = ..., **kwargs): ...
     def visit_insert(self, insert_stmt, **kw): ...
     def update_limit_clause(self, update_stmt) -> None: ...
     def update_tables_clause(self, update_stmt, from_table, extra_froms, **kw): ...
@@ -339,14 +347,14 @@ class DDLCompiler(Compiled):
     @memoized_property
     def type_compiler(self): ...
     def construct_params(
-        self, params: Any | None = ..., extracted_parameters: Any | None = ..., escape_names: bool = ...
+        self, params: Incomplete | None = ..., extracted_parameters: Incomplete | None = ..., escape_names: bool = ...
     ) -> None: ...
     def visit_ddl(self, ddl, **kwargs): ...
     def visit_create_schema(self, create, **kw): ...
     def visit_drop_schema(self, drop, **kw): ...
     def visit_create_table(self, create, **kw): ...
     def visit_create_column(self, create, first_pk: bool = ..., **kw): ...
-    def create_table_constraints(self, table, _include_foreign_key_constraints: Any | None = ..., **kw): ...
+    def create_table_constraints(self, table, _include_foreign_key_constraints: Incomplete | None = ..., **kw): ...
     def visit_drop_table(self, drop, **kw): ...
     def visit_drop_view(self, drop, **kw): ...
     def visit_create_index(self, create, include_schema: bool = ..., include_table_schema: bool = ..., **kw): ...
@@ -357,7 +365,7 @@ class DDLCompiler(Compiled):
     def visit_set_column_comment(self, create, **kw): ...
     def visit_drop_column_comment(self, drop, **kw): ...
     def get_identity_options(self, identity_options): ...
-    def visit_create_sequence(self, create, prefix: Any | None = ..., **kw): ...
+    def visit_create_sequence(self, create, prefix: Incomplete | None = ..., **kw): ...
     def visit_drop_sequence(self, drop, **kw): ...
     def visit_drop_constraint(self, drop, **kw): ...
     def get_column_specification(self, column, **kwargs): ...
@@ -427,50 +435,50 @@ class StrSQLTypeCompiler(GenericTypeCompiler):
     def visit_user_defined(self, type_, **kw): ...
 
 class IdentifierPreparer:
-    reserved_words: Any
-    legal_characters: Any
-    illegal_initial_characters: Any
-    schema_for_object: Any
-    dialect: Any
-    initial_quote: Any
-    final_quote: Any
-    escape_quote: Any
-    escape_to_quote: Any
-    omit_schema: Any
-    quote_case_sensitive_collations: Any
+    reserved_words: Incomplete
+    legal_characters: Incomplete
+    illegal_initial_characters: Incomplete
+    schema_for_object: Incomplete
+    dialect: Incomplete
+    initial_quote: Incomplete
+    final_quote: Incomplete
+    escape_quote: Incomplete
+    escape_to_quote: Incomplete
+    omit_schema: Incomplete
+    quote_case_sensitive_collations: Incomplete
     def __init__(
         self,
         dialect,
         initial_quote: str = ...,
-        final_quote: Any | None = ...,
+        final_quote: Incomplete | None = ...,
         escape_quote: str = ...,
         quote_case_sensitive_collations: bool = ...,
         omit_schema: bool = ...,
     ) -> None: ...
     def validate_sql_phrase(self, element, reg): ...
     def quote_identifier(self, value): ...
-    def quote_schema(self, schema, force: Any | None = ...): ...
-    def quote(self, ident, force: Any | None = ...): ...
+    def quote_schema(self, schema, force: Incomplete | None = ...): ...
+    def quote(self, ident, force: Incomplete | None = ...): ...
     def format_collation(self, collation_name): ...
     def format_sequence(self, sequence, use_schema: bool = ...): ...
-    def format_label(self, label, name: Any | None = ...): ...
-    def format_alias(self, alias, name: Any | None = ...): ...
-    def format_savepoint(self, savepoint, name: Any | None = ...): ...
+    def format_label(self, label, name: Incomplete | None = ...): ...
+    def format_alias(self, alias, name: Incomplete | None = ...): ...
+    def format_savepoint(self, savepoint, name: Incomplete | None = ...): ...
     def format_constraint(self, constraint, _alembic_quote: bool = ...): ...
     def truncate_and_render_index_name(self, name, _alembic_quote: bool = ...): ...
     def truncate_and_render_constraint_name(self, name, _alembic_quote: bool = ...): ...
     def format_index(self, index): ...
-    def format_table(self, table, use_schema: bool = ..., name: Any | None = ...): ...
+    def format_table(self, table, use_schema: bool = ..., name: Incomplete | None = ...): ...
     def format_schema(self, name): ...
-    def format_label_name(self, name, anon_map: Any | None = ...): ...
+    def format_label_name(self, name, anon_map: Incomplete | None = ...): ...
     def format_column(
         self,
         column,
         use_table: bool = ...,
-        name: Any | None = ...,
-        table_name: Any | None = ...,
+        name: Incomplete | None = ...,
+        table_name: Incomplete | None = ...,
         use_schema: bool = ...,
-        anon_map: Any | None = ...,
+        anon_map: Incomplete | None = ...,
     ): ...
     def format_table_seq(self, table, use_schema: bool = ...): ...
     def unformat_identifiers(self, identifiers): ...

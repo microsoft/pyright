@@ -10,7 +10,8 @@ from redis.asyncio.lock import Lock
 from redis.asyncio.retry import Retry
 from redis.client import AbstractRedis, _CommandOptions, _Key, _StrType, _Value
 from redis.commands import AsyncCoreCommands, AsyncSentinelCommands, RedisModuleCommands
-from redis.typing import ChannelT, EncodableT, KeyT, PatternT
+from redis.credentials import CredentialProvider
+from redis.typing import ChannelT, EncodableT, KeyT, PatternT, StreamIdT
 
 PubSubHandler: TypeAlias = Callable[[dict[str, str]], Awaitable[None]]
 
@@ -63,6 +64,7 @@ class Redis(AbstractRedis, RedisModuleCommands, AsyncCoreCommands[_StrType], Asy
         retry: Retry | None = ...,
         auto_close_connection_pool: bool = ...,
         redis_connect_func: ConnectCallbackT | None = ...,
+        credential_provider: CredentialProvider | None = ...,
     ) -> None: ...
     def __await__(self): ...
     async def initialize(self: Self) -> Self: ...
@@ -82,6 +84,7 @@ class Redis(AbstractRedis, RedisModuleCommands, AsyncCoreCommands[_StrType], Asy
         name: KeyT,
         timeout: float | None = ...,
         sleep: float = ...,
+        blocking: bool = ...,
         blocking_timeout: float | None = ...,
         lock_class: type[Lock] | None = ...,
         thread_local: bool = ...,
@@ -586,7 +589,7 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
         groupname,
         consumername,
         min_idle_time,
-        start_id: int = ...,
+        start_id: StreamIdT = ...,
         count: Incomplete | None = ...,
         justid: bool = ...,
     ) -> Any: ...

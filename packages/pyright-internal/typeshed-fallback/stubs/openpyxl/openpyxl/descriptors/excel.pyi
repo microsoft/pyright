@@ -1,4 +1,4 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from . import Integer, MatchPattern, MinMax, String
 from .serialisable import Serialisable
@@ -10,7 +10,7 @@ class UniversalMeasure(MatchPattern):
     pattern: str
 
 class TextPoint(MinMax):
-    expected_type: Any
+    expected_type: Incomplete
     min: int
     max: int
 
@@ -23,15 +23,15 @@ class Percentage(MinMax):
     def __set__(self, instance, value) -> None: ...
 
 class Extension(Serialisable):
-    uri: Any
-    def __init__(self, uri: Any | None = ...) -> None: ...
+    uri: Incomplete
+    def __init__(self, uri: Incomplete | None = ...) -> None: ...
 
 class ExtensionList(Serialisable):
-    ext: Any
+    ext: Incomplete
     def __init__(self, ext=...) -> None: ...
 
 class Relation(String):
-    namespace: Any
+    namespace: Incomplete
     allow_none: bool
 
 class Base64Binary(MatchPattern):

@@ -1,9 +1,11 @@
-from _typeshed import Self, SupportsRead, SupportsWrite
+from _typeshed import Incomplete, Self, SupportsRead, SupportsWrite
 from collections.abc import Callable, Iterable, Iterator, MutableMapping, Sequence
 from enum import IntEnum
 from pathlib import Path
 from typing import Any, ClassVar, Protocol, SupportsBytes, Union
 from typing_extensions import Literal, TypeAlias
+
+from PIL.PyAccess import PyAccess
 
 from ._imaging import (
     DEFAULT_STRATEGY as DEFAULT_STRATEGY,
@@ -31,53 +33,18 @@ _Color: TypeAlias = Union[int, tuple[int], tuple[int, int, int], tuple[int, int,
 class _Writeable(SupportsWrite[bytes], Protocol):
     def seek(self, __offset: int) -> Any: ...
 
-# obsolete
-NORMAL: Literal[0]
-SEQUENCE: Literal[1]
-CONTAINER: Literal[2]
+NORMAL: Literal[0]  # deprecated
+SEQUENCE: Literal[1]  # deprecated
+CONTAINER: Literal[2]  # deprecated
 
 class DecompressionBombWarning(RuntimeWarning): ...
 class DecompressionBombError(Exception): ...
 
 MAX_IMAGE_PIXELS: int | None
 
-NONE: Literal[0]
-
-FLIP_LEFT_RIGHT: Literal[0]
-FLIP_TOP_BOTTOM: Literal[1]
-ROTATE_90: Literal[2]
-ROTATE_180: Literal[3]
-ROTATE_270: Literal[4]
-TRANSPOSE: Literal[5]
-TRANSVERSE: Literal[6]
-
-AFFINE: Literal[0]
-EXTENT: Literal[1]
-PERSPECTIVE: Literal[2]
-QUAD: Literal[3]
-MESH: Literal[4]
-
-NEAREST: Literal[0]
-BOX: Literal[4]
-BILINEAR: Literal[2]
-LINEAR: Literal[2]
-HAMMING: Literal[5]
-BICUBIC: Literal[3]
-CUBIC: Literal[3]
-LANCZOS: Literal[1]
-ANTIALIAS: Literal[1]
-
-ORDERED: Literal[1]
-RASTERIZE: Literal[2]
-FLOYDSTEINBERG: Literal[3]
-
-WEB: Literal[0]
-ADAPTIVE: Literal[1]
-
-MEDIANCUT: Literal[0]
-MAXCOVERAGE: Literal[1]
-FASTOCTREE: Literal[2]
-LIBIMAGEQUANT: Literal[3]
+LINEAR: Literal[2]  # deprecated
+CUBIC: Literal[3]  # deprecated
+ANTIALIAS: Literal[1]  # deprecated
 
 class Transpose(IntEnum):
     FLIP_LEFT_RIGHT: Literal[0]
@@ -88,12 +55,28 @@ class Transpose(IntEnum):
     TRANSPOSE: Literal[5]
     TRANSVERSE: Literal[6]
 
+# All Transpose items
+FLIP_LEFT_RIGHT: Literal[0]
+FLIP_TOP_BOTTOM: Literal[1]
+ROTATE_90: Literal[2]
+ROTATE_180: Literal[3]
+ROTATE_270: Literal[4]
+TRANSPOSE: Literal[5]
+TRANSVERSE: Literal[6]
+
 class Transform(IntEnum):
     AFFINE: Literal[0]
     EXTENT: Literal[1]
     PERSPECTIVE: Literal[2]
     QUAD: Literal[3]
     MESH: Literal[4]
+
+# All Transform items
+AFFINE: Literal[0]
+EXTENT: Literal[1]
+PERSPECTIVE: Literal[2]
+QUAD: Literal[3]
+MESH: Literal[4]
 
 class Resampling(IntEnum):
     NEAREST: Literal[0]
@@ -103,21 +86,45 @@ class Resampling(IntEnum):
     BOX: Literal[4]
     HAMMING: Literal[5]
 
+# All Resampling items
+NEAREST: Literal[0]
+LANCZOS: Literal[1]
+BILINEAR: Literal[2]
+BICUBIC: Literal[3]
+BOX: Literal[4]
+HAMMING: Literal[5]
+
 class Dither(IntEnum):
     NONE: Literal[0]
     ORDERED: Literal[1]
     RASTERIZE: Literal[2]
     FLOYDSTEINBERG: Literal[3]
 
+# All Dither items
+NONE: Literal[0]
+ORDERED: Literal[1]
+RASTERIZE: Literal[2]
+FLOYDSTEINBERG: Literal[3]
+
 class Palette(IntEnum):
     WEB: Literal[0]
     ADAPTIVE: Literal[1]
+
+# All Palette items
+WEB: Literal[0]
+ADAPTIVE: Literal[1]
 
 class Quantize(IntEnum):
     MEDIANCUT: Literal[0]
     MAXCOVERAGE: Literal[1]
     FASTOCTREE: Literal[2]
     LIBIMAGEQUANT: Literal[3]
+
+# All Quantize items
+MEDIANCUT: Literal[0]
+MAXCOVERAGE: Literal[1]
+FASTOCTREE: Literal[2]
+LIBIMAGEQUANT: Literal[3]
 
 ID: list[str]
 OPEN: dict[str, Any]
@@ -153,9 +160,11 @@ class Image:
     palette: Any
     info: dict[Any, Any]
     readonly: int
-    pyaccess: Any
+    pyaccess: PyAccess | None
     is_animated: bool  # not present on all Image objects
     n_frames: int  # not present on all Image objects
+    # Only defined after a call to save().
+    encoderconfig: tuple[Incomplete, ...]
     @property
     def width(self) -> int: ...
     @property
@@ -200,6 +209,7 @@ class Image:
     def getdata(self, band: int | None = ...): ...
     def getextrema(self): ...
     def getexif(self) -> Exif: ...
+    def get_child_images(self) -> list[Image]: ...
     def getim(self): ...
     def getpalette(self, rawmode: str | None = ...) -> list[int] | None: ...
     def getpixel(self, xy: tuple[int, int]): ...
@@ -296,6 +306,7 @@ class Exif(MutableMapping[int, Any]):
     def load(self, data: bytes) -> None: ...
     def tobytes(self, offset: int = ...) -> bytes: ...
     def get_ifd(self, tag: int): ...
+    def hide_offsets(self) -> None: ...
     def __len__(self) -> int: ...
     def __getitem__(self, tag: int) -> Any: ...
     def __contains__(self, tag: object) -> bool: ...

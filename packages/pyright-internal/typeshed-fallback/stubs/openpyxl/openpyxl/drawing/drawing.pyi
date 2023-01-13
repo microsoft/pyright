@@ -1,10 +1,10 @@
-from typing import Any
+from _typeshed import Incomplete
 
 class Drawing:
     count: int
     name: str
     description: str
-    coordinates: Any
+    coordinates: Incomplete
     left: int
     top: int
     resize_proportional: bool

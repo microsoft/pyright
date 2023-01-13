@@ -1,28 +1,28 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class ControlProperty(Serialisable):
     tagname: str
-    anchor: Any
-    locked: Any
-    defaultSize: Any
-    disabled: Any
-    recalcAlways: Any
-    uiObject: Any
-    autoFill: Any
-    autoLine: Any
-    autoPict: Any
-    macro: Any
-    altText: Any
-    linkedCell: Any
-    listFillRange: Any
-    cf: Any
-    id: Any
-    __elements__: Any
+    anchor: Incomplete
+    locked: Incomplete
+    defaultSize: Incomplete
+    disabled: Incomplete
+    recalcAlways: Incomplete
+    uiObject: Incomplete
+    autoFill: Incomplete
+    autoLine: Incomplete
+    autoPict: Incomplete
+    macro: Incomplete
+    altText: Incomplete
+    linkedCell: Incomplete
+    listFillRange: Incomplete
+    cf: Incomplete
+    id: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        anchor: Any | None = ...,
+        anchor: Incomplete | None = ...,
         locked: bool = ...,
         defaultSize: bool = ...,
         _print: bool = ...,
@@ -32,24 +32,26 @@ class ControlProperty(Serialisable):
         autoFill: bool = ...,
         autoLine: bool = ...,
         autoPict: bool = ...,
-        macro: Any | None = ...,
-        altText: Any | None = ...,
-        linkedCell: Any | None = ...,
-        listFillRange: Any | None = ...,
+        macro: Incomplete | None = ...,
+        altText: Incomplete | None = ...,
+        linkedCell: Incomplete | None = ...,
+        listFillRange: Incomplete | None = ...,
         cf: str = ...,
-        id: Any | None = ...,
+        id: Incomplete | None = ...,
     ) -> None: ...
 
 class Control(Serialisable):
     tagname: str
-    controlPr: Any
-    shapeId: Any
-    name: Any
-    __elements__: Any
-    def __init__(self, controlPr: Any | None = ..., shapeId: Any | None = ..., name: Any | None = ...) -> None: ...
+    controlPr: Incomplete
+    shapeId: Incomplete
+    name: Incomplete
+    __elements__: Incomplete
+    def __init__(
+        self, controlPr: Incomplete | None = ..., shapeId: Incomplete | None = ..., name: Incomplete | None = ...
+    ) -> None: ...
 
 class Controls(Serialisable):
     tagname: str
-    control: Any
-    __elements__: Any
+    control: Incomplete
+    __elements__: Incomplete
     def __init__(self, control=...) -> None: ...

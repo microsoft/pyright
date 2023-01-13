@@ -1,5 +1,5 @@
 import logging
-from _typeshed import Incomplete
+from typing import TextIO
 
 TEXT_NORMAL: int
 TEXT_BOLD: int
@@ -10,16 +10,15 @@ TEXT_BLUE: int
 TEXT_MAGENTA: int
 TEXT_CYAN: int
 
-def get_logger(): ...
-def setup_logger(debug, color) -> None: ...
+def get_logger() -> logging.Logger: ...
+def setup_logger(debug: bool, color: bool) -> None: ...
 
 class Formatter(logging.Formatter):
-    color: Incomplete
-    debug: Incomplete
+    color: bool
+    debug: bool
     def __init__(self, debug: bool = ..., color: bool = ...) -> None: ...
-    def format(self, record): ...
 
-class Handler(logging.StreamHandler[Incomplete]):
-    color: Incomplete
-    debug: Incomplete
-    def __init__(self, log_level, debug: bool = ..., color: bool = ...) -> None: ...
+class Handler(logging.StreamHandler[TextIO]):
+    color: bool
+    debug: bool
+    def __init__(self, log_level: logging._Level, debug: bool = ..., color: bool = ...) -> None: ...

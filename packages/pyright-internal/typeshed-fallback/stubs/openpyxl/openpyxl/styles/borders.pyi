@@ -1,8 +1,8 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
-BORDER_NONE: Any
+BORDER_NONE: Incomplete
 BORDER_DASHDOT: str
 BORDER_DASHDOTDOT: str
 BORDER_DASHED: str
@@ -18,45 +18,47 @@ BORDER_THICK: str
 BORDER_THIN: str
 
 class Side(Serialisable):  # type: ignore[misc]
-    __fields__: Any
-    color: Any
-    style: Any
-    border_style: Any
-    def __init__(self, style: Any | None = ..., color: Any | None = ..., border_style: Any | None = ...) -> None: ...
+    __fields__: Incomplete
+    color: Incomplete
+    style: Incomplete
+    border_style: Incomplete
+    def __init__(
+        self, style: Incomplete | None = ..., color: Incomplete | None = ..., border_style: Incomplete | None = ...
+    ) -> None: ...
 
 class Border(Serialisable):
     tagname: str
-    __fields__: Any
-    __elements__: Any
-    start: Any
-    end: Any
-    left: Any
-    right: Any
-    top: Any
-    bottom: Any
-    diagonal: Any
-    vertical: Any
-    horizontal: Any
-    outline: Any
-    diagonalUp: Any
-    diagonalDown: Any
-    diagonal_direction: Any
+    __fields__: Incomplete
+    __elements__: Incomplete
+    start: Incomplete
+    end: Incomplete
+    left: Incomplete
+    right: Incomplete
+    top: Incomplete
+    bottom: Incomplete
+    diagonal: Incomplete
+    vertical: Incomplete
+    horizontal: Incomplete
+    outline: Incomplete
+    diagonalUp: Incomplete
+    diagonalDown: Incomplete
+    diagonal_direction: Incomplete
     def __init__(
         self,
-        left: Any | None = ...,
-        right: Any | None = ...,
-        top: Any | None = ...,
-        bottom: Any | None = ...,
-        diagonal: Any | None = ...,
-        diagonal_direction: Any | None = ...,
-        vertical: Any | None = ...,
-        horizontal: Any | None = ...,
+        left: Incomplete | None = ...,
+        right: Incomplete | None = ...,
+        top: Incomplete | None = ...,
+        bottom: Incomplete | None = ...,
+        diagonal: Incomplete | None = ...,
+        diagonal_direction: Incomplete | None = ...,
+        vertical: Incomplete | None = ...,
+        horizontal: Incomplete | None = ...,
         diagonalUp: bool = ...,
         diagonalDown: bool = ...,
         outline: bool = ...,
-        start: Any | None = ...,
-        end: Any | None = ...,
+        start: Incomplete | None = ...,
+        end: Incomplete | None = ...,
     ) -> None: ...
     def __iter__(self): ...
 
-DEFAULT_BORDER: Any
+DEFAULT_BORDER: Incomplete

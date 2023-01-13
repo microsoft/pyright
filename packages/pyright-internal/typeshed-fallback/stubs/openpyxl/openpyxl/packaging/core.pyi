@@ -1,51 +1,51 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors import DateTime
 from openpyxl.descriptors.nested import NestedText
 from openpyxl.descriptors.serialisable import Serialisable
 
 class NestedDateTime(DateTime, NestedText):
-    expected_type: Any
-    def to_tree(self, tagname: Any | None = ..., value: Any | None = ..., namespace: Any | None = ...): ...
+    expected_type: Incomplete
+    def to_tree(self, tagname: Incomplete | None = ..., value: Incomplete | None = ..., namespace: Incomplete | None = ...): ...
 
 class QualifiedDateTime(NestedDateTime):
-    def to_tree(self, tagname: Any | None = ..., value: Any | None = ..., namespace: Any | None = ...): ...
+    def to_tree(self, tagname: Incomplete | None = ..., value: Incomplete | None = ..., namespace: Incomplete | None = ...): ...
 
 class DocumentProperties(Serialisable):
     tagname: str
-    namespace: Any
-    category: Any
-    contentStatus: Any
-    keywords: Any
-    lastModifiedBy: Any
-    lastPrinted: Any
-    revision: Any
-    version: Any
-    last_modified_by: Any
-    subject: Any
-    title: Any
-    creator: Any
-    description: Any
-    identifier: Any
-    language: Any
-    created: Any
-    modified: Any
-    __elements__: Any
+    namespace: Incomplete
+    category: Incomplete
+    contentStatus: Incomplete
+    keywords: Incomplete
+    lastModifiedBy: Incomplete
+    lastPrinted: Incomplete
+    revision: Incomplete
+    version: Incomplete
+    last_modified_by: Incomplete
+    subject: Incomplete
+    title: Incomplete
+    creator: Incomplete
+    description: Incomplete
+    identifier: Incomplete
+    language: Incomplete
+    created: Incomplete
+    modified: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        category: Any | None = ...,
-        contentStatus: Any | None = ...,
-        keywords: Any | None = ...,
-        lastModifiedBy: Any | None = ...,
-        lastPrinted: Any | None = ...,
-        revision: Any | None = ...,
-        version: Any | None = ...,
+        category: Incomplete | None = ...,
+        contentStatus: Incomplete | None = ...,
+        keywords: Incomplete | None = ...,
+        lastModifiedBy: Incomplete | None = ...,
+        lastPrinted: Incomplete | None = ...,
+        revision: Incomplete | None = ...,
+        version: Incomplete | None = ...,
         created=...,
         creator: str = ...,
-        description: Any | None = ...,
-        identifier: Any | None = ...,
-        language: Any | None = ...,
+        description: Incomplete | None = ...,
+        identifier: Incomplete | None = ...,
+        language: Incomplete | None = ...,
         modified=...,
-        subject: Any | None = ...,
-        title: Any | None = ...,
+        subject: Incomplete | None = ...,
+        title: Incomplete | None = ...,
     ) -> None: ...

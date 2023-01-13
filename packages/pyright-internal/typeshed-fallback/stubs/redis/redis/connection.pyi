@@ -5,6 +5,7 @@ from socket import socket
 from typing import Any, ClassVar
 from typing_extensions import TypeAlias
 
+from .credentials import CredentialProvider
 from .retry import Retry
 
 ssl_available: bool
@@ -121,6 +122,7 @@ class Connection:
         username: str | None = ...,
         retry: Retry | None = ...,
         redis_connect_func: _ConnectFunc | None = ...,
+        credential_provider: CredentialProvider | None = ...,
     ) -> None: ...
     def __del__(self) -> None: ...
     def register_connect_callback(self, callback: _ConnectFunc) -> None: ...
@@ -187,6 +189,7 @@ class UnixDomainSocketConnection(Connection):
         client_name: str | None = ...,
         retry: Retry | None = ...,
         redis_connect_func: _ConnectFunc | None = ...,
+        credential_provider: CredentialProvider | None = ...,
     ) -> None: ...
 
 # TODO: make generic on `connection_class`

@@ -1,8 +1,8 @@
-from typing import Any
+from _typeshed import Incomplete
 
 DEFAULT_ROW_HEIGHT: float
 BASE_COL_WIDTH: int
-DEFAULT_COLUMN_WIDTH: Any
+DEFAULT_COLUMN_WIDTH: Incomplete
 DEFAULT_LEFT_MARGIN: float
 DEFAULT_TOP_MARGIN: float
 DEFAULT_HEADER: float

@@ -1,19 +1,26 @@
-from _typeshed import Incomplete
+from collections.abc import Callable
+from typing import Any
+from typing_extensions import TypeAlias
 
-TAGS: Incomplete
-CAMERA_SETTINGS: Incomplete
-FOCAL_LENGTH: Incomplete
-SHOT_INFO: Incomplete
-AF_INFO_2: Incomplete
-FILE_INFO: Incomplete
+from exifread._types import TagDict
 
-def add_one(value): ...
-def subtract_one(value): ...
-def convert_temp(value): ...
+TAGS: TagDict
+
+CAMERA_SETTINGS: TagDict
+FOCAL_LENGTH: TagDict
+SHOT_INFO: TagDict
+AF_INFO_2: TagDict
+FILE_INFO: TagDict
+
+def add_one(value: int) -> int: ...
+def subtract_one(value: int) -> int: ...
+def convert_temp(value: int) -> str: ...
+
+_CameraInfo: TypeAlias = dict[int, tuple[str, str, Callable[[int], Any]]]
 
 CAMERA_INFO_TAG_NAME: str
-CAMERA_INFO_5D: Incomplete
-CAMERA_INFO_5DMKII: Incomplete
-CAMERA_INFO_5DMKIII: Incomplete
-CAMERA_INFO_600D: Incomplete
-CAMERA_INFO_MODEL_MAP: Incomplete
+CAMERA_INFO_5D: _CameraInfo
+CAMERA_INFO_5DMKII: _CameraInfo
+CAMERA_INFO_5DMKIII: _CameraInfo
+CAMERA_INFO_600D: _CameraInfo
+CAMERA_INFO_MODEL_MAP: dict[str, _CameraInfo]

@@ -1,21 +1,23 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class RichText(Serialisable):
     tagname: str
-    bodyPr: Any
-    properties: Any
-    lstStyle: Any
-    p: Any
-    paragraphs: Any
-    __elements__: Any
-    def __init__(self, bodyPr: Any | None = ..., lstStyle: Any | None = ..., p: Any | None = ...) -> None: ...
+    bodyPr: Incomplete
+    properties: Incomplete
+    lstStyle: Incomplete
+    p: Incomplete
+    paragraphs: Incomplete
+    __elements__: Incomplete
+    def __init__(
+        self, bodyPr: Incomplete | None = ..., lstStyle: Incomplete | None = ..., p: Incomplete | None = ...
+    ) -> None: ...
 
 class Text(Serialisable):
     tagname: str
-    strRef: Any
-    rich: Any
-    __elements__: Any
-    def __init__(self, strRef: Any | None = ..., rich: Any | None = ...) -> None: ...
-    def to_tree(self, tagname: Any | None = ..., idx: Any | None = ..., namespace: Any | None = ...): ...
+    strRef: Incomplete
+    rich: Incomplete
+    __elements__: Incomplete
+    def __init__(self, strRef: Incomplete | None = ..., rich: Incomplete | None = ...) -> None: ...
+    def to_tree(self, tagname: Incomplete | None = ..., idx: Incomplete | None = ..., namespace: Incomplete | None = ...): ...

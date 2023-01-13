@@ -2,9 +2,8 @@ from collections.abc import Callable, Iterable
 from datetime import timedelta
 from logging import Logger
 from typing import Any
-from typing_extensions import TypeAlias
 
-_App: TypeAlias = Any  # flask is not part of typeshed
+import flask
 
 LOG: Logger
 
@@ -26,7 +25,7 @@ class CORS:
     ) -> None: ...
     def init_app(
         self,
-        app: _App,
+        app: flask.Flask,
         *,
         resources: dict[str, dict[str, Any]] | list[str] | str = ...,
         origins: str | list[str] = ...,

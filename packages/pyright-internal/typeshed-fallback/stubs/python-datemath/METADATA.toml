@@ -1,0 +1,3 @@
+version = "1.5.*"
+# Requires a version of arrow with a `py.typed` file
+requires = ["arrow>=1.0.1"]

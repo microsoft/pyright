@@ -1,3 +1,3 @@
-from _typeshed import Incomplete
+from exifread._types import TagDict
 
-TAGS: Incomplete
+TAGS: TagDict

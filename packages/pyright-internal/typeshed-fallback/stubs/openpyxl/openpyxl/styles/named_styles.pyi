@@ -1,19 +1,19 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class NamedStyle(Serialisable):  # type: ignore[misc]
-    font: Any
-    fill: Any
-    border: Any
-    alignment: Any
-    number_format: Any
-    protection: Any
-    builtinId: Any
-    hidden: Any
+    font: Incomplete
+    fill: Incomplete
+    border: Incomplete
+    alignment: Incomplete
+    number_format: Incomplete
+    protection: Incomplete
+    builtinId: Incomplete
+    hidden: Incomplete
     # Overwritten by property below
     # xfId: Integer
-    name: Any
+    name: Incomplete
     def __init__(
         self,
         name: str = ...,
@@ -21,11 +21,11 @@ class NamedStyle(Serialisable):  # type: ignore[misc]
         fill=...,
         border=...,
         alignment=...,
-        number_format: Any | None = ...,
+        number_format: Incomplete | None = ...,
         protection=...,
-        builtinId: Any | None = ...,
+        builtinId: Incomplete | None = ...,
         hidden: bool = ...,
-        xfId: Any | None = ...,
+        xfId: Incomplete | None = ...,
     ) -> None: ...
     def __setattr__(self, attr: str, value) -> None: ...
     def __iter__(self): ...
@@ -36,7 +36,7 @@ class NamedStyle(Serialisable):  # type: ignore[misc]
     def as_xf(self): ...
     def as_name(self): ...
 
-class NamedStyleList(list[Any]):
+class NamedStyleList(list[Incomplete]):
     @property
     def names(self): ...
     def __getitem__(self, key): ...
@@ -44,32 +44,32 @@ class NamedStyleList(list[Any]):
 
 class _NamedCellStyle(Serialisable):
     tagname: str
-    name: Any
-    xfId: Any
-    builtinId: Any
-    iLevel: Any
-    hidden: Any
-    customBuiltin: Any
-    extLst: Any
-    __elements__: Any
+    name: Incomplete
+    xfId: Incomplete
+    builtinId: Incomplete
+    iLevel: Incomplete
+    hidden: Incomplete
+    customBuiltin: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        name: Any | None = ...,
-        xfId: Any | None = ...,
-        builtinId: Any | None = ...,
-        iLevel: Any | None = ...,
-        hidden: Any | None = ...,
-        customBuiltin: Any | None = ...,
-        extLst: Any | None = ...,
+        name: Incomplete | None = ...,
+        xfId: Incomplete | None = ...,
+        builtinId: Incomplete | None = ...,
+        iLevel: Incomplete | None = ...,
+        hidden: Incomplete | None = ...,
+        customBuiltin: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class _NamedCellStyleList(Serialisable):
     tagname: str
     # Overwritten by property below
     # count: Integer
-    cellStyle: Any
-    __attrs__: Any
-    def __init__(self, count: Any | None = ..., cellStyle=...) -> None: ...
+    cellStyle: Incomplete
+    __attrs__: Incomplete
+    def __init__(self, count: Incomplete | None = ..., cellStyle=...) -> None: ...
     @property
     def count(self): ...
     @property

@@ -1,26 +1,26 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from ._chart import ChartBase
 
 class StockChart(ChartBase):
     tagname: str
-    ser: Any
-    dLbls: Any
-    dataLabels: Any
-    dropLines: Any
-    hiLowLines: Any
-    upDownBars: Any
-    extLst: Any
-    x_axis: Any
-    y_axis: Any
-    __elements__: Any
+    ser: Incomplete
+    dLbls: Incomplete
+    dataLabels: Incomplete
+    dropLines: Incomplete
+    hiLowLines: Incomplete
+    upDownBars: Incomplete
+    extLst: Incomplete
+    x_axis: Incomplete
+    y_axis: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
         ser=...,
-        dLbls: Any | None = ...,
-        dropLines: Any | None = ...,
-        hiLowLines: Any | None = ...,
-        upDownBars: Any | None = ...,
-        extLst: Any | None = ...,
+        dLbls: Incomplete | None = ...,
+        dropLines: Incomplete | None = ...,
+        hiLowLines: Incomplete | None = ...,
+        upDownBars: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
         **kw,
     ) -> None: ...

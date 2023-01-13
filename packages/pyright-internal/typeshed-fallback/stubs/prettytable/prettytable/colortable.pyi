@@ -27,7 +27,7 @@ class Theme:
         junction_color: str = ...,
     ) -> None: ...
     # The following method is broken in upstream code.
-    def format_code(s: str) -> str: ...  # type: ignore[misc]
+    def format_code(s: str) -> str: ...  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]
 
 class Themes:
     DEFAULT: ClassVar[Theme]

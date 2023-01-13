@@ -1,56 +1,56 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class TrendlineLabel(Serialisable):
     tagname: str
-    layout: Any
-    tx: Any
-    numFmt: Any
-    spPr: Any
-    graphicalProperties: Any
-    txPr: Any
-    textProperties: Any
-    extLst: Any
-    __elements__: Any
+    layout: Incomplete
+    tx: Incomplete
+    numFmt: Incomplete
+    spPr: Incomplete
+    graphicalProperties: Incomplete
+    txPr: Incomplete
+    textProperties: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        layout: Any | None = ...,
-        tx: Any | None = ...,
-        numFmt: Any | None = ...,
-        spPr: Any | None = ...,
-        txPr: Any | None = ...,
-        extLst: Any | None = ...,
+        layout: Incomplete | None = ...,
+        tx: Incomplete | None = ...,
+        numFmt: Incomplete | None = ...,
+        spPr: Incomplete | None = ...,
+        txPr: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class Trendline(Serialisable):
     tagname: str
-    name: Any
-    spPr: Any
-    graphicalProperties: Any
-    trendlineType: Any
-    order: Any
-    period: Any
-    forward: Any
-    backward: Any
-    intercept: Any
-    dispRSqr: Any
-    dispEq: Any
-    trendlineLbl: Any
-    extLst: Any
-    __elements__: Any
+    name: Incomplete
+    spPr: Incomplete
+    graphicalProperties: Incomplete
+    trendlineType: Incomplete
+    order: Incomplete
+    period: Incomplete
+    forward: Incomplete
+    backward: Incomplete
+    intercept: Incomplete
+    dispRSqr: Incomplete
+    dispEq: Incomplete
+    trendlineLbl: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        name: Any | None = ...,
-        spPr: Any | None = ...,
+        name: Incomplete | None = ...,
+        spPr: Incomplete | None = ...,
         trendlineType: str = ...,
-        order: Any | None = ...,
-        period: Any | None = ...,
-        forward: Any | None = ...,
-        backward: Any | None = ...,
-        intercept: Any | None = ...,
-        dispRSqr: Any | None = ...,
-        dispEq: Any | None = ...,
-        trendlineLbl: Any | None = ...,
-        extLst: Any | None = ...,
+        order: Incomplete | None = ...,
+        period: Incomplete | None = ...,
+        forward: Incomplete | None = ...,
+        backward: Incomplete | None = ...,
+        intercept: Incomplete | None = ...,
+        dispRSqr: Incomplete | None = ...,
+        dispEq: Incomplete | None = ...,
+        trendlineLbl: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...

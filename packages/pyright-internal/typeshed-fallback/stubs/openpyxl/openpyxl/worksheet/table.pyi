@@ -1,88 +1,88 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors import String
 from openpyxl.descriptors.serialisable import Serialisable
 
-TABLESTYLES: Any
-PIVOTSTYLES: Any
+TABLESTYLES: Incomplete
+PIVOTSTYLES: Incomplete
 
 class TableStyleInfo(Serialisable):
     tagname: str
-    name: Any
-    showFirstColumn: Any
-    showLastColumn: Any
-    showRowStripes: Any
-    showColumnStripes: Any
+    name: Incomplete
+    showFirstColumn: Incomplete
+    showLastColumn: Incomplete
+    showRowStripes: Incomplete
+    showColumnStripes: Incomplete
     def __init__(
         self,
-        name: Any | None = ...,
-        showFirstColumn: Any | None = ...,
-        showLastColumn: Any | None = ...,
-        showRowStripes: Any | None = ...,
-        showColumnStripes: Any | None = ...,
+        name: Incomplete | None = ...,
+        showFirstColumn: Incomplete | None = ...,
+        showLastColumn: Incomplete | None = ...,
+        showRowStripes: Incomplete | None = ...,
+        showColumnStripes: Incomplete | None = ...,
     ) -> None: ...
 
 class XMLColumnProps(Serialisable):
     tagname: str
-    mapId: Any
-    xpath: Any
-    denormalized: Any
-    xmlDataType: Any
-    extLst: Any
-    __elements__: Any
+    mapId: Incomplete
+    xpath: Incomplete
+    denormalized: Incomplete
+    xmlDataType: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        mapId: Any | None = ...,
-        xpath: Any | None = ...,
-        denormalized: Any | None = ...,
-        xmlDataType: Any | None = ...,
-        extLst: Any | None = ...,
+        mapId: Incomplete | None = ...,
+        xpath: Incomplete | None = ...,
+        denormalized: Incomplete | None = ...,
+        xmlDataType: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class TableFormula(Serialisable):
     tagname: str
-    array: Any
-    attr_text: Any
-    text: Any
-    def __init__(self, array: Any | None = ..., attr_text: Any | None = ...) -> None: ...
+    array: Incomplete
+    attr_text: Incomplete
+    text: Incomplete
+    def __init__(self, array: Incomplete | None = ..., attr_text: Incomplete | None = ...) -> None: ...
 
 class TableColumn(Serialisable):
     tagname: str
-    id: Any
-    uniqueName: Any
-    name: Any
-    totalsRowFunction: Any
-    totalsRowLabel: Any
-    queryTableFieldId: Any
-    headerRowDxfId: Any
-    dataDxfId: Any
-    totalsRowDxfId: Any
-    headerRowCellStyle: Any
-    dataCellStyle: Any
-    totalsRowCellStyle: Any
-    calculatedColumnFormula: Any
-    totalsRowFormula: Any
-    xmlColumnPr: Any
-    extLst: Any
-    __elements__: Any
+    id: Incomplete
+    uniqueName: Incomplete
+    name: Incomplete
+    totalsRowFunction: Incomplete
+    totalsRowLabel: Incomplete
+    queryTableFieldId: Incomplete
+    headerRowDxfId: Incomplete
+    dataDxfId: Incomplete
+    totalsRowDxfId: Incomplete
+    headerRowCellStyle: Incomplete
+    dataCellStyle: Incomplete
+    totalsRowCellStyle: Incomplete
+    calculatedColumnFormula: Incomplete
+    totalsRowFormula: Incomplete
+    xmlColumnPr: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        id: Any | None = ...,
-        uniqueName: Any | None = ...,
-        name: Any | None = ...,
-        totalsRowFunction: Any | None = ...,
-        totalsRowLabel: Any | None = ...,
-        queryTableFieldId: Any | None = ...,
-        headerRowDxfId: Any | None = ...,
-        dataDxfId: Any | None = ...,
-        totalsRowDxfId: Any | None = ...,
-        headerRowCellStyle: Any | None = ...,
-        dataCellStyle: Any | None = ...,
-        totalsRowCellStyle: Any | None = ...,
-        calculatedColumnFormula: Any | None = ...,
-        totalsRowFormula: Any | None = ...,
-        xmlColumnPr: Any | None = ...,
-        extLst: Any | None = ...,
+        id: Incomplete | None = ...,
+        uniqueName: Incomplete | None = ...,
+        name: Incomplete | None = ...,
+        totalsRowFunction: Incomplete | None = ...,
+        totalsRowLabel: Incomplete | None = ...,
+        queryTableFieldId: Incomplete | None = ...,
+        headerRowDxfId: Incomplete | None = ...,
+        dataDxfId: Incomplete | None = ...,
+        totalsRowDxfId: Incomplete | None = ...,
+        headerRowCellStyle: Incomplete | None = ...,
+        dataCellStyle: Incomplete | None = ...,
+        totalsRowCellStyle: Incomplete | None = ...,
+        calculatedColumnFormula: Incomplete | None = ...,
+        totalsRowFormula: Incomplete | None = ...,
+        xmlColumnPr: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
     def __iter__(self): ...
     @classmethod
@@ -94,63 +94,63 @@ class TableNameDescriptor(String):
 class Table(Serialisable):
     mime_type: str
     tagname: str
-    id: Any
-    name: Any
-    displayName: Any
-    comment: Any
-    ref: Any
-    tableType: Any
-    headerRowCount: Any
-    insertRow: Any
-    insertRowShift: Any
-    totalsRowCount: Any
-    totalsRowShown: Any
-    published: Any
-    headerRowDxfId: Any
-    dataDxfId: Any
-    totalsRowDxfId: Any
-    headerRowBorderDxfId: Any
-    tableBorderDxfId: Any
-    totalsRowBorderDxfId: Any
-    headerRowCellStyle: Any
-    dataCellStyle: Any
-    totalsRowCellStyle: Any
-    connectionId: Any
-    autoFilter: Any
-    sortState: Any
-    tableColumns: Any
-    tableStyleInfo: Any
-    extLst: Any
-    __elements__: Any
+    id: Incomplete
+    name: Incomplete
+    displayName: Incomplete
+    comment: Incomplete
+    ref: Incomplete
+    tableType: Incomplete
+    headerRowCount: Incomplete
+    insertRow: Incomplete
+    insertRowShift: Incomplete
+    totalsRowCount: Incomplete
+    totalsRowShown: Incomplete
+    published: Incomplete
+    headerRowDxfId: Incomplete
+    dataDxfId: Incomplete
+    totalsRowDxfId: Incomplete
+    headerRowBorderDxfId: Incomplete
+    tableBorderDxfId: Incomplete
+    totalsRowBorderDxfId: Incomplete
+    headerRowCellStyle: Incomplete
+    dataCellStyle: Incomplete
+    totalsRowCellStyle: Incomplete
+    connectionId: Incomplete
+    autoFilter: Incomplete
+    sortState: Incomplete
+    tableColumns: Incomplete
+    tableStyleInfo: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
         id: int = ...,
-        displayName: Any | None = ...,
-        ref: Any | None = ...,
-        name: Any | None = ...,
-        comment: Any | None = ...,
-        tableType: Any | None = ...,
+        displayName: Incomplete | None = ...,
+        ref: Incomplete | None = ...,
+        name: Incomplete | None = ...,
+        comment: Incomplete | None = ...,
+        tableType: Incomplete | None = ...,
         headerRowCount: int = ...,
-        insertRow: Any | None = ...,
-        insertRowShift: Any | None = ...,
-        totalsRowCount: Any | None = ...,
-        totalsRowShown: Any | None = ...,
-        published: Any | None = ...,
-        headerRowDxfId: Any | None = ...,
-        dataDxfId: Any | None = ...,
-        totalsRowDxfId: Any | None = ...,
-        headerRowBorderDxfId: Any | None = ...,
-        tableBorderDxfId: Any | None = ...,
-        totalsRowBorderDxfId: Any | None = ...,
-        headerRowCellStyle: Any | None = ...,
-        dataCellStyle: Any | None = ...,
-        totalsRowCellStyle: Any | None = ...,
-        connectionId: Any | None = ...,
-        autoFilter: Any | None = ...,
-        sortState: Any | None = ...,
+        insertRow: Incomplete | None = ...,
+        insertRowShift: Incomplete | None = ...,
+        totalsRowCount: Incomplete | None = ...,
+        totalsRowShown: Incomplete | None = ...,
+        published: Incomplete | None = ...,
+        headerRowDxfId: Incomplete | None = ...,
+        dataDxfId: Incomplete | None = ...,
+        totalsRowDxfId: Incomplete | None = ...,
+        headerRowBorderDxfId: Incomplete | None = ...,
+        tableBorderDxfId: Incomplete | None = ...,
+        totalsRowBorderDxfId: Incomplete | None = ...,
+        headerRowCellStyle: Incomplete | None = ...,
+        dataCellStyle: Incomplete | None = ...,
+        totalsRowCellStyle: Incomplete | None = ...,
+        connectionId: Incomplete | None = ...,
+        autoFilter: Incomplete | None = ...,
+        sortState: Incomplete | None = ...,
         tableColumns=...,
-        tableStyleInfo: Any | None = ...,
-        extLst: Any | None = ...,
+        tableStyleInfo: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
     def to_tree(self): ...
     @property
@@ -162,16 +162,16 @@ class TablePartList(Serialisable):
     tagname: str
     # Overwritten by property below
     # count: Integer
-    tablePart: Any
-    __elements__: Any
-    __attrs__: Any
-    def __init__(self, count: Any | None = ..., tablePart=...) -> None: ...
+    tablePart: Incomplete
+    __elements__: Incomplete
+    __attrs__: Incomplete
+    def __init__(self, count: Incomplete | None = ..., tablePart=...) -> None: ...
     def append(self, part) -> None: ...
     @property
     def count(self): ...
     def __bool__(self) -> bool: ...
 
-class TableList(dict[Any, Any]):
+class TableList(dict[Incomplete, Incomplete]):
     def add(self, table) -> None: ...
-    def get(self, name: Any | None = ..., table_range: Any | None = ...): ...
+    def get(self, name: Incomplete | None = ..., table_range: Incomplete | None = ...): ...
     def items(self): ...

@@ -1,12 +1,12 @@
-from typing import Any
+from _typeshed import Incomplete
 
-INVALID_TITLE_REGEX: Any
+INVALID_TITLE_REGEX: Incomplete
 
 def avoid_duplicate_name(names, value): ...
 
 class _WorkbookChild:
-    HeaderFooter: Any
-    def __init__(self, parent: Any | None = ..., title: Any | None = ...) -> None: ...
+    HeaderFooter: Incomplete
+    def __init__(self, parent: Incomplete | None = ..., title: Incomplete | None = ...) -> None: ...
     @property
     def parent(self): ...
     @property

@@ -1,7 +1,7 @@
-from _typeshed import Incomplete
+from exifread._types import TagDict
 
-INTEROP_TAGS: Incomplete
-INTEROP_INFO: Incomplete
-GPS_TAGS: Incomplete
-GPS_INFO: Incomplete
-EXIF_TAGS: Incomplete
+INTEROP_TAGS: TagDict
+INTEROP_INFO: tuple[str, TagDict]
+GPS_TAGS: TagDict
+GPS_INFO: tuple[str, TagDict]
+EXIF_TAGS: TagDict

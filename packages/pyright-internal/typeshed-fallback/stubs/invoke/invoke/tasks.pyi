@@ -1,4 +1,4 @@
-from _typeshed import Self
+from _typeshed import Incomplete, Self
 from collections.abc import Callable, Iterable
 from typing import Any, Generic, TypeVar, overload
 from typing_extensions import ParamSpec
@@ -48,7 +48,7 @@ class Task(Generic[_P, _R_co]):
     ) -> None: ...
     @property
     def name(self): ...
-    def __eq__(self, other: Task) -> bool: ...  # type: ignore[override]
+    def __eq__(self, other: Task[Incomplete, Incomplete]) -> bool: ...  # type: ignore[override]
     def __hash__(self) -> int: ...
     def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _R_co: ...
     @property

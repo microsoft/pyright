@@ -1,36 +1,38 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class LegendEntry(Serialisable):
     tagname: str
-    idx: Any
-    delete: Any
-    txPr: Any
-    extLst: Any
-    __elements__: Any
-    def __init__(self, idx: int = ..., delete: bool = ..., txPr: Any | None = ..., extLst: Any | None = ...) -> None: ...
+    idx: Incomplete
+    delete: Incomplete
+    txPr: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
+    def __init__(
+        self, idx: int = ..., delete: bool = ..., txPr: Incomplete | None = ..., extLst: Incomplete | None = ...
+    ) -> None: ...
 
 class Legend(Serialisable):
     tagname: str
-    legendPos: Any
-    position: Any
-    legendEntry: Any
-    layout: Any
-    overlay: Any
-    spPr: Any
-    graphicalProperties: Any
-    txPr: Any
-    textProperties: Any
-    extLst: Any
-    __elements__: Any
+    legendPos: Incomplete
+    position: Incomplete
+    legendEntry: Incomplete
+    layout: Incomplete
+    overlay: Incomplete
+    spPr: Incomplete
+    graphicalProperties: Incomplete
+    txPr: Incomplete
+    textProperties: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
         legendPos: str = ...,
         legendEntry=...,
-        layout: Any | None = ...,
-        overlay: Any | None = ...,
-        spPr: Any | None = ...,
-        txPr: Any | None = ...,
-        extLst: Any | None = ...,
+        layout: Incomplete | None = ...,
+        overlay: Incomplete | None = ...,
+        spPr: Incomplete | None = ...,
+        txPr: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...

@@ -1,21 +1,24 @@
-from typing import Any, NamedTuple
+from collections.abc import Generator, Sequence
+from re import Pattern
+from typing import NamedTuple
 
-operators: Any
-escapes: Any
-name_re: Any
-dotted_name_re: Any
-division_re: Any
-regex_re: Any
-line_re: Any
-line_join_re: Any
-uni_escape_re: Any
+operators: Sequence[str]
+escapes: dict[str, str]
+name_re: Pattern[str]
+dotted_name_re: Pattern[str]
+division_re: Pattern[str]
+regex_re: Pattern[str]
+line_re: Pattern[str]
+line_join_re: Pattern[str]
+uni_escape_re: Pattern[str]
 
 class Token(NamedTuple):
-    type: Any
-    value: Any
-    lineno: Any
+    type: str
+    value: str
+    lineno: int
 
-def get_rules(jsx, dotted, template_string): ...
-def indicates_division(token): ...
-def unquote_string(string): ...
-def tokenize(source, jsx: bool = ..., dotted: bool = ..., template_string: bool = ...) -> None: ...
+# Documented as private
+def get_rules(jsx: bool, dotted: bool, template_string: bool) -> list[tuple[str | None, Pattern[str]]]: ...  # undocumented
+def indicates_division(token: Token) -> bool: ...
+def unquote_string(string: str) -> str: ...
+def tokenize(source: str, jsx: bool = ..., dotted: bool = ..., template_string: bool = ...) -> Generator[Token, None, None]: ...
