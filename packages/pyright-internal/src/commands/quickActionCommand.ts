@@ -8,7 +8,7 @@
 
 import { CancellationToken, ExecuteCommandParams } from 'vscode-languageserver';
 
-import { convertTextEdits } from '../common/textEditUtils';
+import { convertEditActionsToWorkspaceEdit } from '../common/textEditUtils';
 import { LanguageServerInterface } from '../languageServerBase';
 import { ServerCommand } from './commandController';
 import { Commands } from './commands';
@@ -34,7 +34,7 @@ export class QuickActionCommand implements ServerCommand {
                 token
             );
 
-            return convertTextEdits(docUri, editActions);
+            return convertEditActionsToWorkspaceEdit(docUri, editActions);
         }
     }
 }

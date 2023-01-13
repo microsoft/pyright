@@ -1,34 +1,34 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors import Typed
 from openpyxl.descriptors.serialisable import Serialisable
 
-COLOR_INDEX: Any
-BLACK: Any
-WHITE: Any
-BLUE: Any
-aRGB_REGEX: Any
+COLOR_INDEX: Incomplete
+BLACK: Incomplete
+WHITE: Incomplete
+BLUE: Incomplete
+aRGB_REGEX: Incomplete
 
 class RGB(Typed):
-    expected_type: Any
+    expected_type: Incomplete
     def __set__(self, instance, value) -> None: ...
 
 class Color(Serialisable):
     tagname: str
-    rgb: Any
-    indexed: Any
-    auto: Any
-    theme: Any
-    tint: Any
-    type: Any
+    rgb: Incomplete
+    indexed: Incomplete
+    auto: Incomplete
+    theme: Incomplete
+    tint: Incomplete
+    type: Incomplete
     def __init__(
         self,
         rgb=...,
-        indexed: Any | None = ...,
-        auto: Any | None = ...,
-        theme: Any | None = ...,
+        indexed: Incomplete | None = ...,
+        auto: Incomplete | None = ...,
+        theme: Incomplete | None = ...,
         tint: float = ...,
-        index: Any | None = ...,
+        index: Incomplete | None = ...,
         type: str = ...,
     ) -> None: ...
     @property
@@ -41,19 +41,19 @@ class Color(Serialisable):
     def __add__(self, other): ...
 
 class ColorDescriptor(Typed):
-    expected_type: Any
+    expected_type: Incomplete
     def __set__(self, instance, value) -> None: ...
 
 class RgbColor(Serialisable):
     tagname: str
-    rgb: Any
-    def __init__(self, rgb: Any | None = ...) -> None: ...
+    rgb: Incomplete
+    def __init__(self, rgb: Incomplete | None = ...) -> None: ...
 
 class ColorList(Serialisable):
     tagname: str
-    indexedColors: Any
-    mruColors: Any
-    __elements__: Any
+    indexedColors: Incomplete
+    mruColors: Incomplete
+    __elements__: Incomplete
     def __init__(self, indexedColors=..., mruColors=...) -> None: ...
     def __bool__(self) -> bool: ...
     @property

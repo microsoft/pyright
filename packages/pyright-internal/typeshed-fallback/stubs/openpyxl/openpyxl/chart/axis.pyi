@@ -1,70 +1,70 @@
+from _typeshed import Incomplete
 from abc import abstractmethod
-from typing import Any
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class ChartLines(Serialisable):
     tagname: str
-    spPr: Any
-    graphicalProperties: Any
-    def __init__(self, spPr: Any | None = ...) -> None: ...
+    spPr: Incomplete
+    graphicalProperties: Incomplete
+    def __init__(self, spPr: Incomplete | None = ...) -> None: ...
 
 class Scaling(Serialisable):
     tagname: str
-    logBase: Any
-    orientation: Any
-    max: Any
-    min: Any
-    extLst: Any
-    __elements__: Any
+    logBase: Incomplete
+    orientation: Incomplete
+    max: Incomplete
+    min: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        logBase: Any | None = ...,
+        logBase: Incomplete | None = ...,
         orientation: str = ...,
-        max: Any | None = ...,
-        min: Any | None = ...,
-        extLst: Any | None = ...,
+        max: Incomplete | None = ...,
+        min: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class _BaseAxis(Serialisable):
-    axId: Any
-    scaling: Any
-    delete: Any
-    axPos: Any
-    majorGridlines: Any
-    minorGridlines: Any
-    title: Any
-    numFmt: Any
-    number_format: Any
-    majorTickMark: Any
-    minorTickMark: Any
-    tickLblPos: Any
-    spPr: Any
-    graphicalProperties: Any
-    txPr: Any
-    textProperties: Any
-    crossAx: Any
-    crosses: Any
-    crossesAt: Any
-    __elements__: Any
+    axId: Incomplete
+    scaling: Incomplete
+    delete: Incomplete
+    axPos: Incomplete
+    majorGridlines: Incomplete
+    minorGridlines: Incomplete
+    title: Incomplete
+    numFmt: Incomplete
+    number_format: Incomplete
+    majorTickMark: Incomplete
+    minorTickMark: Incomplete
+    tickLblPos: Incomplete
+    spPr: Incomplete
+    graphicalProperties: Incomplete
+    txPr: Incomplete
+    textProperties: Incomplete
+    crossAx: Incomplete
+    crosses: Incomplete
+    crossesAt: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        axId: Any | None = ...,
-        scaling: Any | None = ...,
-        delete: Any | None = ...,
+        axId: Incomplete | None = ...,
+        scaling: Incomplete | None = ...,
+        delete: Incomplete | None = ...,
         axPos: str = ...,
-        majorGridlines: Any | None = ...,
-        minorGridlines: Any | None = ...,
-        title: Any | None = ...,
-        numFmt: Any | None = ...,
-        majorTickMark: Any | None = ...,
-        minorTickMark: Any | None = ...,
-        tickLblPos: Any | None = ...,
-        spPr: Any | None = ...,
-        txPr: Any | None = ...,
-        crossAx: Any | None = ...,
-        crosses: Any | None = ...,
-        crossesAt: Any | None = ...,
+        majorGridlines: Incomplete | None = ...,
+        minorGridlines: Incomplete | None = ...,
+        title: Incomplete | None = ...,
+        numFmt: Incomplete | None = ...,
+        majorTickMark: Incomplete | None = ...,
+        minorTickMark: Incomplete | None = ...,
+        tickLblPos: Incomplete | None = ...,
+        spPr: Incomplete | None = ...,
+        txPr: Incomplete | None = ...,
+        crossAx: Incomplete | None = ...,
+        crosses: Incomplete | None = ...,
+        crossesAt: Incomplete | None = ...,
     ) -> None: ...
     @property
     @abstractmethod
@@ -72,60 +72,68 @@ class _BaseAxis(Serialisable):
 
 class DisplayUnitsLabel(Serialisable):
     tagname: str
-    layout: Any
-    tx: Any
-    text: Any
-    spPr: Any
-    graphicalProperties: Any
-    txPr: Any
-    textPropertes: Any
-    __elements__: Any
+    layout: Incomplete
+    tx: Incomplete
+    text: Incomplete
+    spPr: Incomplete
+    graphicalProperties: Incomplete
+    txPr: Incomplete
+    textPropertes: Incomplete
+    __elements__: Incomplete
     def __init__(
-        self, layout: Any | None = ..., tx: Any | None = ..., spPr: Any | None = ..., txPr: Any | None = ...
+        self,
+        layout: Incomplete | None = ...,
+        tx: Incomplete | None = ...,
+        spPr: Incomplete | None = ...,
+        txPr: Incomplete | None = ...,
     ) -> None: ...
 
 class DisplayUnitsLabelList(Serialisable):
     tagname: str
-    custUnit: Any
-    builtInUnit: Any
-    dispUnitsLbl: Any
-    extLst: Any
-    __elements__: Any
+    custUnit: Incomplete
+    builtInUnit: Incomplete
+    dispUnitsLbl: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
-        self, custUnit: Any | None = ..., builtInUnit: Any | None = ..., dispUnitsLbl: Any | None = ..., extLst: Any | None = ...
+        self,
+        custUnit: Incomplete | None = ...,
+        builtInUnit: Incomplete | None = ...,
+        dispUnitsLbl: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class NumericAxis(_BaseAxis):
     tagname: str
-    axId: Any
-    scaling: Any
-    delete: Any
-    axPos: Any
-    majorGridlines: Any
-    minorGridlines: Any
-    title: Any
-    numFmt: Any
-    majorTickMark: Any
-    minorTickMark: Any
-    tickLblPos: Any
-    spPr: Any
-    txPr: Any
-    crossAx: Any
-    crosses: Any
-    crossesAt: Any
-    crossBetween: Any
-    majorUnit: Any
-    minorUnit: Any
-    dispUnits: Any
-    extLst: Any
-    __elements__: Any
+    axId: Incomplete
+    scaling: Incomplete
+    delete: Incomplete
+    axPos: Incomplete
+    majorGridlines: Incomplete
+    minorGridlines: Incomplete
+    title: Incomplete
+    numFmt: Incomplete
+    majorTickMark: Incomplete
+    minorTickMark: Incomplete
+    tickLblPos: Incomplete
+    spPr: Incomplete
+    txPr: Incomplete
+    crossAx: Incomplete
+    crosses: Incomplete
+    crossesAt: Incomplete
+    crossBetween: Incomplete
+    majorUnit: Incomplete
+    minorUnit: Incomplete
+    dispUnits: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        crossBetween: Any | None = ...,
-        majorUnit: Any | None = ...,
-        minorUnit: Any | None = ...,
-        dispUnits: Any | None = ...,
-        extLst: Any | None = ...,
+        crossBetween: Incomplete | None = ...,
+        majorUnit: Incomplete | None = ...,
+        minorUnit: Incomplete | None = ...,
+        dispUnits: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
         **kw,
     ) -> None: ...
     @classmethod
@@ -133,102 +141,104 @@ class NumericAxis(_BaseAxis):
 
 class TextAxis(_BaseAxis):
     tagname: str
-    axId: Any
-    scaling: Any
-    delete: Any
-    axPos: Any
-    majorGridlines: Any
-    minorGridlines: Any
-    title: Any
-    numFmt: Any
-    majorTickMark: Any
-    minorTickMark: Any
-    tickLblPos: Any
-    spPr: Any
-    txPr: Any
-    crossAx: Any
-    crosses: Any
-    crossesAt: Any
-    auto: Any
-    lblAlgn: Any
-    lblOffset: Any
-    tickLblSkip: Any
-    tickMarkSkip: Any
-    noMultiLvlLbl: Any
-    extLst: Any
-    __elements__: Any
+    axId: Incomplete
+    scaling: Incomplete
+    delete: Incomplete
+    axPos: Incomplete
+    majorGridlines: Incomplete
+    minorGridlines: Incomplete
+    title: Incomplete
+    numFmt: Incomplete
+    majorTickMark: Incomplete
+    minorTickMark: Incomplete
+    tickLblPos: Incomplete
+    spPr: Incomplete
+    txPr: Incomplete
+    crossAx: Incomplete
+    crosses: Incomplete
+    crossesAt: Incomplete
+    auto: Incomplete
+    lblAlgn: Incomplete
+    lblOffset: Incomplete
+    tickLblSkip: Incomplete
+    tickMarkSkip: Incomplete
+    noMultiLvlLbl: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        auto: Any | None = ...,
-        lblAlgn: Any | None = ...,
+        auto: Incomplete | None = ...,
+        lblAlgn: Incomplete | None = ...,
         lblOffset: int = ...,
-        tickLblSkip: Any | None = ...,
-        tickMarkSkip: Any | None = ...,
-        noMultiLvlLbl: Any | None = ...,
-        extLst: Any | None = ...,
+        tickLblSkip: Incomplete | None = ...,
+        tickMarkSkip: Incomplete | None = ...,
+        noMultiLvlLbl: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
         **kw,
     ) -> None: ...
 
 class DateAxis(TextAxis):
     tagname: str
-    axId: Any
-    scaling: Any
-    delete: Any
-    axPos: Any
-    majorGridlines: Any
-    minorGridlines: Any
-    title: Any
-    numFmt: Any
-    majorTickMark: Any
-    minorTickMark: Any
-    tickLblPos: Any
-    spPr: Any
-    txPr: Any
-    crossAx: Any
-    crosses: Any
-    crossesAt: Any
-    auto: Any
-    lblOffset: Any
-    baseTimeUnit: Any
-    majorUnit: Any
-    majorTimeUnit: Any
-    minorUnit: Any
-    minorTimeUnit: Any
-    extLst: Any
-    __elements__: Any
+    axId: Incomplete
+    scaling: Incomplete
+    delete: Incomplete
+    axPos: Incomplete
+    majorGridlines: Incomplete
+    minorGridlines: Incomplete
+    title: Incomplete
+    numFmt: Incomplete
+    majorTickMark: Incomplete
+    minorTickMark: Incomplete
+    tickLblPos: Incomplete
+    spPr: Incomplete
+    txPr: Incomplete
+    crossAx: Incomplete
+    crosses: Incomplete
+    crossesAt: Incomplete
+    auto: Incomplete
+    lblOffset: Incomplete
+    baseTimeUnit: Incomplete
+    majorUnit: Incomplete
+    majorTimeUnit: Incomplete
+    minorUnit: Incomplete
+    minorTimeUnit: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        auto: Any | None = ...,
-        lblOffset: Any | None = ...,
-        baseTimeUnit: Any | None = ...,
-        majorUnit: Any | None = ...,
-        majorTimeUnit: Any | None = ...,
-        minorUnit: Any | None = ...,
-        minorTimeUnit: Any | None = ...,
-        extLst: Any | None = ...,
+        auto: Incomplete | None = ...,
+        lblOffset: Incomplete | None = ...,
+        baseTimeUnit: Incomplete | None = ...,
+        majorUnit: Incomplete | None = ...,
+        majorTimeUnit: Incomplete | None = ...,
+        minorUnit: Incomplete | None = ...,
+        minorTimeUnit: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
         **kw,
     ) -> None: ...
 
 class SeriesAxis(_BaseAxis):
     tagname: str
-    axId: Any
-    scaling: Any
-    delete: Any
-    axPos: Any
-    majorGridlines: Any
-    minorGridlines: Any
-    title: Any
-    numFmt: Any
-    majorTickMark: Any
-    minorTickMark: Any
-    tickLblPos: Any
-    spPr: Any
-    txPr: Any
-    crossAx: Any
-    crosses: Any
-    crossesAt: Any
-    tickLblSkip: Any
-    tickMarkSkip: Any
-    extLst: Any
-    __elements__: Any
-    def __init__(self, tickLblSkip: Any | None = ..., tickMarkSkip: Any | None = ..., extLst: Any | None = ..., **kw) -> None: ...
+    axId: Incomplete
+    scaling: Incomplete
+    delete: Incomplete
+    axPos: Incomplete
+    majorGridlines: Incomplete
+    minorGridlines: Incomplete
+    title: Incomplete
+    numFmt: Incomplete
+    majorTickMark: Incomplete
+    minorTickMark: Incomplete
+    tickLblPos: Incomplete
+    spPr: Incomplete
+    txPr: Incomplete
+    crossAx: Incomplete
+    crosses: Incomplete
+    crossesAt: Incomplete
+    tickLblSkip: Incomplete
+    tickMarkSkip: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
+    def __init__(
+        self, tickLblSkip: Incomplete | None = ..., tickMarkSkip: Incomplete | None = ..., extLst: Incomplete | None = ..., **kw
+    ) -> None: ...

@@ -41,6 +41,7 @@ import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
 import { getTypedDictMembersForClass } from '../analyzer/typedDicts';
+import { getModuleDocStringFromPaths } from '../analyzer/typeDocStringUtils';
 import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { printLiteralValue } from '../analyzer/typePrinter';
 import {
@@ -58,6 +59,7 @@ import {
     isUnknown,
     Type,
     TypeBase,
+    TypeCategory,
     UnknownType,
 } from '../analyzer/types';
 import {
@@ -82,6 +84,7 @@ import { fromLSPAny, toLSPAny } from '../common/lspUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import * as StringUtils from '../common/stringUtils';
+import { convertEditActionsToTextEdits } from '../common/textEditUtils';
 import { comparePositions, Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -224,6 +227,7 @@ export interface CompletionItemData {
     autoImportText?: string;
     symbolLabel?: string;
     funcParensDisabled?: boolean;
+    modulePath?: string;
 }
 
 // MemberAccessInfo attempts to gather info for unknown types
@@ -276,6 +280,7 @@ export interface CompletionOptions {
     includeUserSymbolsInAutoImport: boolean;
     extraCommitChars: boolean;
     importFormat: ImportFormat;
+    triggerCharacter?: string;
 }
 
 export type AbbreviationMap = Map<string, AbbreviationInfo>;
@@ -318,6 +323,7 @@ interface CompletionDetail extends CommonDetail {
     };
     sortText?: string;
     itemDetail?: string;
+    modulePath?: string;
 }
 
 export const autoImportDetail = 'Auto-import';
@@ -511,6 +517,11 @@ export class CompletionProvider {
                 }
             }
 
+            if (curNode.nodeType === ParseNodeType.List && this._options.triggerCharacter === '[') {
+                // If this is an empty list, don't start putting completions up yet.
+                return undefined;
+            }
+
             if (curNode.nodeType === ParseNodeType.ImportFrom) {
                 return this._getImportFromCompletions(curNode, priorWord);
             }
@@ -604,26 +615,49 @@ export class CompletionProvider {
             CompletionProvider._mostRecentCompletions.pop();
         }
 
-        if (completionItemData.symbolLabel) {
-            this._itemToResolve = completionItem;
+        if (!completionItemData.symbolLabel) {
+            return;
+        }
 
-            if (!completionItemData.autoImportText) {
-                // Rerun the completion lookup. It will fill in additional information
-                // about the item to be resolved. We'll ignore the rest of the returned
-                // list. This is a bit wasteful, but all of that information should be
-                // cached, so it's not as bad as it might seem.
-                this.getCompletionsForPosition();
-            } else if (!completionItem.additionalTextEdits) {
-                const completionMap = new CompletionMap();
-                const completionResults = { completionMap };
-
-                this._addAutoImportCompletions(
-                    completionItemData.symbolLabel,
-                    /* similarityLimit */ 1,
-                    /* lazyEdit */ false,
-                    completionResults
-                );
+        if (completionItemData.modulePath) {
+            const documentation = getModuleDocStringFromPaths([completionItemData.modulePath], this._sourceMapper);
+            if (!documentation) {
+                return;
             }
+
+            if (this._options.format === MarkupKind.Markdown) {
+                const markdownString = convertDocStringToMarkdown(documentation);
+                completionItem.documentation = {
+                    kind: MarkupKind.Markdown,
+                    value: markdownString,
+                };
+            } else if (this._options.format === MarkupKind.PlainText) {
+                const plainTextString = convertDocStringToPlainText(documentation);
+                completionItem.documentation = {
+                    kind: MarkupKind.PlainText,
+                    value: plainTextString,
+                };
+            }
+            return;
+        }
+
+        this._itemToResolve = completionItem;
+        if (!completionItemData.autoImportText) {
+            // Rerun the completion lookup. It will fill in additional information
+            // about the item to be resolved. We'll ignore the rest of the returned
+            // list. This is a bit wasteful, but all of that information should be
+            // cached, so it's not as bad as it might seem.
+            this.getCompletionsForPosition();
+        } else if (!completionItem.additionalTextEdits) {
+            const completionMap = new CompletionMap();
+            const completionResults = { completionMap };
+
+            this._addAutoImportCompletions(
+                completionItemData.symbolLabel,
+                /* similarityLimit */ 1,
+                /* lazyEdit */ false,
+                completionResults
+            );
         }
     }
 
@@ -1439,6 +1473,12 @@ export class CompletionProvider {
 
         if (leftType) {
             leftType = this._evaluator.makeTopLevelTypeVarsConcrete(leftType);
+
+            // If this is an unknown type with a "possible type" associated with
+            // it, use the possible type.
+            if (isUnknown(leftType) && leftType.possibleType) {
+                leftType = this._evaluator.makeTopLevelTypeVarsConcrete(leftType.possibleType);
+            }
 
             doForEachSubtype(leftType, (subtype) => {
                 subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
@@ -2429,7 +2469,9 @@ export class CompletionProvider {
         // Add the implicit imports.
         importInfo.implicitImports.forEach((implImport) => {
             if (!importFromNode.imports.find((imp) => imp.name.value === implImport.name)) {
-                this._addNameToCompletions(implImport.name, CompletionItemKind.Module, priorWord, completionMap);
+                this._addNameToCompletions(implImport.name, CompletionItemKind.Module, priorWord, completionMap, {
+                    modulePath: implImport.path,
+                });
             }
         });
 
@@ -2594,163 +2636,108 @@ export class CompletionProvider {
             }
         }
 
-        if (primaryDecl) {
-            let itemKind: CompletionItemKind = CompletionItemKind.Variable;
+        primaryDecl = primaryDecl
+            ? this._evaluator.resolveAliasDeclaration(primaryDecl, /* resolveLocalNames */ true) ?? primaryDecl
+            : undefined;
 
-            primaryDecl = this._evaluator.resolveAliasDeclaration(primaryDecl, /* resolveLocalNames */ true);
-            if (primaryDecl) {
-                itemKind = this._convertDeclarationTypeToItemKind(primaryDecl);
+        const autoImportText = detail.autoImportSource
+            ? this._getAutoImportText(name, detail.autoImportSource, detail.autoImportAlias)
+            : undefined;
 
-                // Handle enum members specially. Enum members normally look like
-                // variables, but the are declared using assignment expressions
-                // within an enum class.
-                if (
-                    primaryDecl.type === DeclarationType.Variable &&
-                    detail.boundObjectOrClass &&
-                    isInstantiableClass(detail.boundObjectOrClass) &&
-                    ClassType.isEnumClass(detail.boundObjectOrClass) &&
-                    primaryDecl.node.parent?.nodeType === ParseNodeType.Assignment
-                ) {
-                    itemKind = CompletionItemKind.EnumMember;
-                }
+        // Are we resolving a completion item? If so, see if this symbol
+        // is the one that we're trying to match.
+        if (this._itemToResolve) {
+            const completionItemData = fromLSPAny<CompletionItemData>(this._itemToResolve.data);
 
-                // Are we resolving a completion item? If so, see if this symbol
-                // is the one that we're trying to match.
-                if (this._itemToResolve) {
-                    const completionItemData = fromLSPAny<CompletionItemData>(this._itemToResolve.data);
-
-                    if (completionItemData.symbolLabel === name && !completionItemData.autoImportText) {
-                        // This call can be expensive to perform on every completion item
-                        // that we return, so we do it lazily in the "resolve" callback.
-                        const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
-                        if (type) {
-                            let typeDetail: string | undefined;
-                            let documentation: string | undefined;
-
-                            switch (primaryDecl.type) {
-                                case DeclarationType.Intrinsic:
-                                case DeclarationType.Variable:
-                                case DeclarationType.Parameter:
-                                case DeclarationType.TypeParameter: {
-                                    let expandTypeAlias = false;
-                                    if (type && TypeBase.isInstantiable(type)) {
-                                        const typeAliasInfo = getTypeAliasInfo(type);
-                                        if (typeAliasInfo) {
-                                            if (typeAliasInfo.name === name) {
-                                                expandTypeAlias = true;
-                                            }
-                                        }
-                                    }
-                                    typeDetail = name + ': ' + this._evaluator.printType(type, { expandTypeAlias });
-                                    break;
-                                }
-
-                                case DeclarationType.Function: {
-                                    const functionType =
-                                        detail.boundObjectOrClass && (isFunction(type) || isOverloadedFunction(type))
-                                            ? this._evaluator.bindFunctionToClassOrObject(
-                                                  detail.boundObjectOrClass,
-                                                  type
-                                              )
-                                            : type;
-                                    if (functionType) {
-                                        if (
-                                            isProperty(functionType) &&
-                                            detail.boundObjectOrClass &&
-                                            isClassInstance(detail.boundObjectOrClass)
-                                        ) {
-                                            const propertyType =
-                                                this._evaluator.getGetterTypeFromProperty(
-                                                    functionType as ClassType,
-                                                    /* inferTypeIfNeeded */ true
-                                                ) || UnknownType.create();
-                                            typeDetail =
-                                                name + ': ' + this._evaluator.printType(propertyType) + ' (property)';
-                                        } else if (isOverloadedFunction(functionType)) {
-                                            // 35 is completion tooltip's default width size
-                                            typeDetail = getOverloadedFunctionTooltip(
-                                                functionType,
-                                                this._evaluator,
-                                                /* columnThreshold */ 35
-                                            );
-                                        } else {
-                                            typeDetail = name + this._evaluator.printType(functionType);
-                                        }
-                                    }
-                                    break;
-                                }
-
-                                case DeclarationType.Class:
-                                case DeclarationType.SpecialBuiltInClass: {
-                                    typeDetail = 'class ' + name + '()';
-                                    break;
-                                }
-
-                                case DeclarationType.Alias: {
-                                    typeDetail = name;
-                                    if (primaryDecl.path) {
-                                        const lookupResults = this._importLookup(primaryDecl.path);
-                                        if (lookupResults) {
-                                            documentation = lookupResults.docString;
-                                        }
-                                    }
-                                    break;
-                                }
-
-                                default: {
-                                    typeDetail = name;
-                                    break;
-                                }
-                            }
-
-                            documentation = getDocumentationPartsForTypeAndDecl(
-                                this._sourceMapper,
-                                type,
-                                primaryDecl,
-                                this._evaluator,
-                                symbol,
-                                detail.boundObjectOrClass
-                            );
-
-                            if (this._options.format === MarkupKind.Markdown) {
-                                let markdownString = '```python\n' + typeDetail + '\n```\n';
-
-                                if (documentation) {
-                                    markdownString += '---\n';
-                                    markdownString += convertDocStringToMarkdown(documentation);
-                                }
-
-                                markdownString = markdownString.trimEnd();
-
-                                this._itemToResolve.documentation = {
-                                    kind: MarkupKind.Markdown,
-                                    value: markdownString,
-                                };
-                            } else if (this._options.format === MarkupKind.PlainText) {
-                                let plainTextString = typeDetail + '\n';
-
-                                if (documentation) {
-                                    plainTextString += '\n';
-                                    plainTextString += convertDocStringToPlainText(documentation);
-                                }
-
-                                plainTextString = plainTextString.trimEnd();
-
-                                this._itemToResolve.documentation = {
-                                    kind: MarkupKind.PlainText,
-                                    value: plainTextString,
-                                };
-                            } else {
-                                fail(`Unsupported markup type: ${this._options.format}`);
-                            }
-                        }
-                    }
-                }
+            if (completionItemData.symbolLabel !== name) {
+                // It's not what we are looking for.
+                return;
             }
 
-            const autoImportText = detail.autoImportSource
-                ? this._getAutoImportText(name, detail.autoImportSource, detail.autoImportAlias)
-                : undefined;
+            if (completionItemData.autoImportText) {
+                if (
+                    completionItemData.autoImportText === autoImportText?.importText &&
+                    detail.edits?.additionalTextEdits
+                ) {
+                    this._itemToResolve.additionalTextEdits = convertEditActionsToTextEdits(
+                        detail.edits.additionalTextEdits
+                    );
+                }
+                return;
+            }
+
+            // This call can be expensive to perform on every completion item
+            // that we return, so we do it lazily in the "resolve" callback.
+            const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
+            if (!type) {
+                // Can't resolve. so bail out.
+                return;
+            }
+
+            const typeDetail = this._getTypeDetail(primaryDecl, type, name, detail);
+            const documentation = getDocumentationPartsForTypeAndDecl(
+                this._sourceMapper,
+                type,
+                primaryDecl,
+                this._evaluator,
+                {
+                    name,
+                    symbol,
+                    boundObjectOrClass: detail.boundObjectOrClass,
+                }
+            );
+
+            if (this._options.format === MarkupKind.Markdown) {
+                let markdownString = '```python\n' + typeDetail + '\n```\n';
+
+                if (documentation) {
+                    markdownString += '---\n';
+                    markdownString += convertDocStringToMarkdown(documentation);
+                }
+
+                markdownString = markdownString.trimEnd();
+
+                this._itemToResolve.documentation = {
+                    kind: MarkupKind.Markdown,
+                    value: markdownString,
+                };
+            } else if (this._options.format === MarkupKind.PlainText) {
+                let plainTextString = typeDetail + '\n';
+
+                if (documentation) {
+                    plainTextString += '\n';
+                    plainTextString += convertDocStringToPlainText(documentation);
+                }
+
+                plainTextString = plainTextString.trimEnd();
+
+                this._itemToResolve.documentation = {
+                    kind: MarkupKind.PlainText,
+                    value: plainTextString,
+                };
+            } else {
+                fail(`Unsupported markup type: ${this._options.format}`);
+            }
+
+            // Bail out. We don't need to add items to completion.
+            return;
+        }
+
+        if (primaryDecl) {
+            let itemKind = this._convertDeclarationTypeToItemKind(primaryDecl);
+
+            // Handle enum members specially. Enum members normally look like
+            // variables, but the are declared using assignment expressions
+            // within an enum class.
+            if (
+                primaryDecl.type === DeclarationType.Variable &&
+                detail.boundObjectOrClass &&
+                isInstantiableClass(detail.boundObjectOrClass) &&
+                ClassType.isEnumClass(detail.boundObjectOrClass) &&
+                primaryDecl.node.parent?.nodeType === ParseNodeType.Assignment
+            ) {
+                itemKind = CompletionItemKind.EnumMember;
+            }
 
             this._addNameToCompletions(detail.autoImportAlias ?? name, itemKind, priorWord, completionMap, {
                 autoImportText,
@@ -2762,12 +2749,92 @@ export class CompletionProvider {
             // Does the symbol have no declaration but instead has a synthesized type?
             const synthesizedType = symbol.getSynthesizedType();
             if (synthesizedType) {
-                const itemKind: CompletionItemKind = CompletionItemKind.Variable;
+                const itemKind: CompletionItemKind = this._convertTypeToItemKind(synthesizedType);
                 this._addNameToCompletions(name, itemKind, priorWord, completionMap, {
                     extraCommitChars: detail.extraCommitChars,
                     funcParensDisabled: detail.funcParensDisabled,
                     edits: detail.edits,
                 });
+            }
+        }
+    }
+
+    private _getTypeDetail(primaryDecl: Declaration | undefined, type: Type, name: string, detail: SymbolDetail) {
+        if (!primaryDecl) {
+            if (isModule(type)) {
+                // Special casing import modules.
+                // submodule imported through `import` statement doesn't have
+                // corresponding decls. so use given name as it is.
+                //
+                // ex) import X.Y
+                // X.[Y]
+                return name;
+            }
+
+            return;
+        }
+
+        switch (primaryDecl.type) {
+            case DeclarationType.Intrinsic:
+            case DeclarationType.Variable:
+            case DeclarationType.Parameter:
+            case DeclarationType.TypeParameter: {
+                let expandTypeAlias = false;
+                if (type && TypeBase.isInstantiable(type)) {
+                    const typeAliasInfo = getTypeAliasInfo(type);
+                    if (typeAliasInfo) {
+                        if (typeAliasInfo.name === name) {
+                            expandTypeAlias = true;
+                        }
+                    }
+                }
+
+                return name + ': ' + this._evaluator.printType(type, { expandTypeAlias });
+            }
+
+            case DeclarationType.Function: {
+                const functionType =
+                    detail.boundObjectOrClass && (isFunction(type) || isOverloadedFunction(type))
+                        ? this._evaluator.bindFunctionToClassOrObject(detail.boundObjectOrClass, type)
+                        : type;
+                if (!functionType) {
+                    return undefined;
+                }
+
+                if (
+                    isProperty(functionType) &&
+                    detail.boundObjectOrClass &&
+                    isClassInstance(detail.boundObjectOrClass)
+                ) {
+                    const propertyType =
+                        this._evaluator.getGetterTypeFromProperty(
+                            functionType as ClassType,
+                            /* inferTypeIfNeeded */ true
+                        ) || UnknownType.create();
+                    return name + ': ' + this._evaluator.printType(propertyType) + ' (property)';
+                }
+
+                if (isOverloadedFunction(functionType)) {
+                    // 35 is completion tooltip's default width size
+                    return getOverloadedFunctionTooltip(functionType, this._evaluator, /* columnThreshold */ 35);
+                } else if (isFunction(functionType)) {
+                    return name + this._evaluator.printType(functionType);
+                } else {
+                    return name + ': ' + this._evaluator.printType(functionType);
+                }
+            }
+
+            case DeclarationType.Class:
+            case DeclarationType.SpecialBuiltInClass: {
+                return 'class ' + name + '()';
+            }
+
+            case DeclarationType.Alias: {
+                return name;
+            }
+
+            default: {
+                return name;
             }
         }
     }
@@ -2824,6 +2891,10 @@ export class CompletionProvider {
 
         if (detail?.funcParensDisabled) {
             completionItemData.funcParensDisabled = true;
+        }
+
+        if (detail?.modulePath) {
+            completionItemData.modulePath = detail.modulePath;
         }
 
         completionItem.data = toLSPAny(completionItemData);
@@ -2929,17 +3000,9 @@ export class CompletionProvider {
         }
 
         if (detail?.edits?.additionalTextEdits) {
-            completionItem.additionalTextEdits = detail.edits.additionalTextEdits.map((te) => {
-                const textEdit: TextEdit = {
-                    range: {
-                        start: { line: te.range.start.line, character: te.range.start.character },
-                        end: { line: te.range.end.line, character: te.range.end.character },
-                    },
-                    newText: te.replacementText,
-                };
-                return textEdit;
-            });
+            completionItem.additionalTextEdits = convertEditActionsToTextEdits(detail.edits.additionalTextEdits);
 
+            // This is for auto import entries from indices which skip symbols.
             if (this._itemToResolve) {
                 const data = fromLSPAny<CompletionItemData>(this._itemToResolve.data);
                 if (data.autoImportText === completionItemData.autoImportText) {
@@ -3046,6 +3109,27 @@ export class CompletionProvider {
         }
     }
 
+    private _convertTypeToItemKind(type: Type): CompletionItemKind {
+        switch (type.category) {
+            case TypeCategory.Module:
+                return CompletionItemKind.Module;
+            case TypeCategory.Class:
+                return CompletionItemKind.Class;
+            case TypeCategory.Function:
+            case TypeCategory.OverloadedFunction:
+                if (isProperty(type)) {
+                    return CompletionItemKind.Property;
+                }
+
+                return CompletionItemKind.Function;
+            case TypeCategory.TypeVar:
+                return CompletionItemKind.TypeParameter;
+
+            default:
+                return CompletionItemKind.Variable;
+        }
+    }
+
     private _getImportModuleCompletions(node: ModuleNameNode): CompletionResults {
         const moduleDescriptor: ImportedModuleDescriptor = {
             leadingDots: node.leadingDots,
@@ -3077,15 +3161,11 @@ export class CompletionProvider {
             completionMap.set(completionItem);
         }
 
-        completions.forEach((completionName) => {
-            if (completionMap.has(completionName)) {
-                return;
-            }
-
-            const completionItem = CompletionItem.create(completionName);
-            completionItem.kind = CompletionItemKind.Module;
-            completionItem.sortText = this._makeSortText(SortCategory.ImportModuleName, completionName);
-            completionMap.set(completionItem);
+        completions.forEach((modulePath, completionName) => {
+            this._addNameToCompletions(completionName, CompletionItemKind.Module, '', completionMap, {
+                sortText: this._makeSortText(SortCategory.ImportModuleName, completionName),
+                modulePath,
+            });
         });
 
         return { completionMap };

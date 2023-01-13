@@ -1,4 +1,4 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors import Sequence
 from openpyxl.descriptors.serialisable import Serialisable
@@ -22,7 +22,7 @@ FILL_PATTERN_LIGHTTRELLIS: str
 FILL_PATTERN_LIGHTUP: str
 FILL_PATTERN_LIGHTVERTICAL: str
 FILL_PATTERN_MEDIUMGRAY: str
-fills: Any
+fills: Incomplete
 
 class Fill(Serialisable):
     tagname: str
@@ -31,49 +31,49 @@ class Fill(Serialisable):
 
 class PatternFill(Fill):
     tagname: str
-    __elements__: Any
-    patternType: Any
-    fill_type: Any
-    fgColor: Any
-    start_color: Any
-    bgColor: Any
-    end_color: Any
+    __elements__: Incomplete
+    patternType: Incomplete
+    fill_type: Incomplete
+    fgColor: Incomplete
+    start_color: Incomplete
+    bgColor: Incomplete
+    end_color: Incomplete
     def __init__(
         self,
-        patternType: Any | None = ...,
+        patternType: Incomplete | None = ...,
         fgColor=...,
         bgColor=...,
-        fill_type: Any | None = ...,
-        start_color: Any | None = ...,
-        end_color: Any | None = ...,
+        fill_type: Incomplete | None = ...,
+        start_color: Incomplete | None = ...,
+        end_color: Incomplete | None = ...,
     ) -> None: ...
-    def to_tree(self, tagname: Any | None = ..., idx: Any | None = ...): ...  # type: ignore[override]
+    def to_tree(self, tagname: Incomplete | None = ..., idx: Incomplete | None = ...): ...  # type: ignore[override]
 
-DEFAULT_EMPTY_FILL: Any
-DEFAULT_GRAY_FILL: Any
+DEFAULT_EMPTY_FILL: Incomplete
+DEFAULT_GRAY_FILL: Incomplete
 
 class Stop(Serialisable):
     tagname: str
-    position: Any
-    color: Any
+    position: Incomplete
+    color: Incomplete
     def __init__(self, color, position) -> None: ...
 
 class StopList(Sequence):
-    expected_type: Any
+    expected_type: Incomplete
     def __set__(self, obj, values) -> None: ...
 
 class GradientFill(Fill):
     tagname: str
-    type: Any
-    fill_type: Any
-    degree: Any
-    left: Any
-    right: Any
-    top: Any
-    bottom: Any
-    stop: Any
+    type: Incomplete
+    fill_type: Incomplete
+    degree: Incomplete
+    left: Incomplete
+    right: Incomplete
+    top: Incomplete
+    bottom: Incomplete
+    stop: Incomplete
     def __init__(
         self, type: str = ..., degree: int = ..., left: int = ..., right: int = ..., top: int = ..., bottom: int = ..., stop=...
     ) -> None: ...
     def __iter__(self): ...
-    def to_tree(self, tagname: Any | None = ..., namespace: Any | None = ..., idx: Any | None = ...): ...  # type: ignore[override]
+    def to_tree(self, tagname: Incomplete | None = ..., namespace: Incomplete | None = ..., idx: Incomplete | None = ...): ...  # type: ignore[override]

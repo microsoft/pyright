@@ -53,6 +53,12 @@ export class TestWalker extends ParseTreeWalker {
                     if (child === node.typeAnnotationComment) {
                         skipCheck = true;
                     }
+
+                    // Portions of chained assignments can occur outside of an
+                    // assignment node's range.
+                    if (child.nodeType === ParseNodeType.Assignment) {
+                        skipCheck = true;
+                    }
                 }
 
                 if (node.nodeType === ParseNodeType.StringList) {

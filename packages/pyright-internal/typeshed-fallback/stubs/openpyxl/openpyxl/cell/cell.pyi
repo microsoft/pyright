@@ -1,14 +1,14 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.styles.styleable import StyleableObject
 
 __docformat__: str
-TIME_TYPES: Any
-TIME_FORMATS: Any
-STRING_TYPES: Any
-KNOWN_TYPES: Any
-ILLEGAL_CHARACTERS_RE: Any
-ERROR_CODES: Any
+TIME_TYPES: Incomplete
+TIME_FORMATS: Incomplete
+STRING_TYPES: Incomplete
+KNOWN_TYPES: Incomplete
+ILLEGAL_CHARACTERS_RE: Incomplete
+ERROR_CODES: Incomplete
 TYPE_STRING: str
 TYPE_FORMULA: str
 TYPE_NUMERIC: str
@@ -17,17 +17,22 @@ TYPE_NULL: str
 TYPE_INLINE: str
 TYPE_ERROR: str
 TYPE_FORMULA_CACHE_STRING: str
-VALID_TYPES: Any
+VALID_TYPES: Incomplete
 
 def get_type(t, value): ...
 def get_time_format(t): ...
 
 class Cell(StyleableObject):
-    row: Any
-    column: Any
+    row: Incomplete
+    column: Incomplete
     data_type: str
     def __init__(
-        self, worksheet, row: Any | None = ..., column: Any | None = ..., value: Any | None = ..., style_array: Any | None = ...
+        self,
+        worksheet,
+        row: Incomplete | None = ...,
+        column: Incomplete | None = ...,
+        value: Incomplete | None = ...,
+        style_array: Incomplete | None = ...,
     ) -> None: ...
     @property
     def coordinate(self): ...
@@ -61,13 +66,13 @@ class Cell(StyleableObject):
 
 class MergedCell(StyleableObject):
     data_type: str
-    comment: Any
-    hyperlink: Any
-    row: Any
-    column: Any
-    def __init__(self, worksheet, row: Any | None = ..., column: Any | None = ...) -> None: ...
+    comment: Incomplete
+    hyperlink: Incomplete
+    row: Incomplete
+    column: Incomplete
+    def __init__(self, worksheet, row: Incomplete | None = ..., column: Incomplete | None = ...) -> None: ...
     @property
     def coordinate(self): ...
-    value: Any
+    value: Incomplete
 
-def WriteOnlyCell(ws: Any | None = ..., value: Any | None = ...): ...
+def WriteOnlyCell(ws: Incomplete | None = ..., value: Incomplete | None = ...): ...

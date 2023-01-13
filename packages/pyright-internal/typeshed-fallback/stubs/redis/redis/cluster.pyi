@@ -10,6 +10,7 @@ from redis.commands import CommandsParser, RedisClusterCommands
 from redis.commands.core import _StrType
 from redis.connection import BaseParser, Connection, ConnectionPool, Encoder, _ConnectionPoolOptions, _Encodable
 from redis.exceptions import MovedError, RedisError
+from redis.retry import Retry
 from redis.typing import EncodableT
 
 def get_node_name(host: str, port: str | int) -> str: ...
@@ -62,6 +63,7 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands[_StrType], Generic
         port: int | None = ...,
         startup_nodes: list[ClusterNode] | None = ...,
         cluster_error_retry_attempts: int = ...,
+        retry: Retry | None = ...,
         require_full_coverage: bool = ...,
         reinitialize_steps: int = ...,
         read_from_replicas: bool = ...,
@@ -205,7 +207,6 @@ class ClusterPipeline(RedisCluster[_StrType], Generic[_StrType]):
         **kwargs,
     ) -> None: ...
     def __len__(self) -> int: ...
-    def __nonzero__(self) -> Literal[True]: ...
     def __bool__(self) -> Literal[True]: ...
     def execute_command(self, *args, **kwargs): ...
     def pipeline_execute_command(self, *args, **options): ...

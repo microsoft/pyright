@@ -1,4 +1,4 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.workbook.child import _WorkbookChild
@@ -6,37 +6,37 @@ from openpyxl.workbook.child import _WorkbookChild
 class Chartsheet(_WorkbookChild, Serialisable):
     tagname: str
     mime_type: str
-    sheetPr: Any
-    sheetViews: Any
-    sheetProtection: Any
-    customSheetViews: Any
-    pageMargins: Any
-    pageSetup: Any
-    drawing: Any
-    drawingHF: Any
-    picture: Any
-    webPublishItems: Any
-    extLst: Any
-    sheet_state: Any
-    headerFooter: Any
-    HeaderFooter: Any
-    __elements__: Any
-    __attrs__: Any
+    sheetPr: Incomplete
+    sheetViews: Incomplete
+    sheetProtection: Incomplete
+    customSheetViews: Incomplete
+    pageMargins: Incomplete
+    pageSetup: Incomplete
+    drawing: Incomplete
+    drawingHF: Incomplete
+    picture: Incomplete
+    webPublishItems: Incomplete
+    extLst: Incomplete
+    sheet_state: Incomplete
+    headerFooter: Incomplete
+    HeaderFooter: Incomplete
+    __elements__: Incomplete
+    __attrs__: Incomplete
     def __init__(
         self,
-        sheetPr: Any | None = ...,
-        sheetViews: Any | None = ...,
-        sheetProtection: Any | None = ...,
-        customSheetViews: Any | None = ...,
-        pageMargins: Any | None = ...,
-        pageSetup: Any | None = ...,
-        headerFooter: Any | None = ...,
-        drawing: Any | None = ...,
-        drawingHF: Any | None = ...,
-        picture: Any | None = ...,
-        webPublishItems: Any | None = ...,
-        extLst: Any | None = ...,
-        parent: Any | None = ...,
+        sheetPr: Incomplete | None = ...,
+        sheetViews: Incomplete | None = ...,
+        sheetProtection: Incomplete | None = ...,
+        customSheetViews: Incomplete | None = ...,
+        pageMargins: Incomplete | None = ...,
+        pageSetup: Incomplete | None = ...,
+        headerFooter: Incomplete | None = ...,
+        drawing: Incomplete | None = ...,
+        drawingHF: Incomplete | None = ...,
+        picture: Incomplete | None = ...,
+        webPublishItems: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
+        parent: Incomplete | None = ...,
         title: str = ...,
         sheet_state: str = ...,
     ) -> None: ...

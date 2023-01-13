@@ -43,6 +43,11 @@ class MACADDR(sqltypes.TypeEngine):
 
 PGMacAddr = MACADDR
 
+class MACADDR8(sqltypes.TypeEngine):
+    __visit_name__: str
+
+PGMacAddr8 = MACADDR8
+
 class MONEY(sqltypes.TypeEngine):
     __visit_name__: str
 

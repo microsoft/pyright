@@ -33,7 +33,7 @@ class SubClass(BaseClass):
         self = cls()
         reveal_type(super(__class__, self), expected_text="BaseClass")
 
-        # This should generate an errorr.
+        # This should generate an error.
         return super(__class__, self).my_method(self, value)
 
     @staticmethod

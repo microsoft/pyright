@@ -14,9 +14,9 @@ import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import {
     ClassType,
     ClassTypeFlags,
+    FunctionParameter,
     FunctionType,
     FunctionTypeFlags,
-    ParamSpecEntry,
     TypeBase,
     TypeCategory,
     TypeFlags,
@@ -344,7 +344,7 @@ function getTypeEvaluatorString(
             return getVarianceString(value);
         }
 
-        if (isParamSpecEntry(this) && key === 'category') {
+        if (isParameter(this) && key === 'category') {
             return getParameterCategoryString(value);
         }
 
@@ -391,7 +391,7 @@ function getTypeEvaluatorString(
         return type.name !== undefined && type.constraints && type.variance !== undefined;
     }
 
-    function isParamSpecEntry(type: any): type is ParamSpecEntry {
+    function isParameter(type: any): type is FunctionParameter {
         return type.category && type.type;
     }
 }

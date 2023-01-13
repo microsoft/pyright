@@ -1,4 +1,4 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors import Strict
 from openpyxl.descriptors.serialisable import Serialisable
@@ -6,27 +6,33 @@ from openpyxl.descriptors.serialisable import Serialisable
 FONT_PATTERN: str
 COLOR_PATTERN: str
 SIZE_REGEX: str
-FORMAT_REGEX: Any
+FORMAT_REGEX: Incomplete
 
 class _HeaderFooterPart(Strict):
-    text: Any
-    font: Any
-    size: Any
+    text: Incomplete
+    font: Incomplete
+    size: Incomplete
     RGB: str
-    color: Any
+    color: Incomplete
     def __init__(
-        self, text: Any | None = ..., font: Any | None = ..., size: Any | None = ..., color: Any | None = ...
+        self,
+        text: Incomplete | None = ...,
+        font: Incomplete | None = ...,
+        size: Incomplete | None = ...,
+        color: Incomplete | None = ...,
     ) -> None: ...
     def __bool__(self) -> bool: ...
     @classmethod
     def from_str(cls, text): ...
 
 class HeaderFooterItem(Strict):
-    left: Any
-    center: Any
-    centre: Any
-    right: Any
-    def __init__(self, left: Any | None = ..., right: Any | None = ..., center: Any | None = ...) -> None: ...
+    left: Incomplete
+    center: Incomplete
+    centre: Incomplete
+    right: Incomplete
+    def __init__(
+        self, left: Incomplete | None = ..., right: Incomplete | None = ..., center: Incomplete | None = ...
+    ) -> None: ...
     def __bool__(self) -> bool: ...
     def to_tree(self, tagname): ...
     @classmethod
@@ -34,28 +40,28 @@ class HeaderFooterItem(Strict):
 
 class HeaderFooter(Serialisable):
     tagname: str
-    differentOddEven: Any
-    differentFirst: Any
-    scaleWithDoc: Any
-    alignWithMargins: Any
-    oddHeader: Any
-    oddFooter: Any
-    evenHeader: Any
-    evenFooter: Any
-    firstHeader: Any
-    firstFooter: Any
-    __elements__: Any
+    differentOddEven: Incomplete
+    differentFirst: Incomplete
+    scaleWithDoc: Incomplete
+    alignWithMargins: Incomplete
+    oddHeader: Incomplete
+    oddFooter: Incomplete
+    evenHeader: Incomplete
+    evenFooter: Incomplete
+    firstHeader: Incomplete
+    firstFooter: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        differentOddEven: Any | None = ...,
-        differentFirst: Any | None = ...,
-        scaleWithDoc: Any | None = ...,
-        alignWithMargins: Any | None = ...,
-        oddHeader: Any | None = ...,
-        oddFooter: Any | None = ...,
-        evenHeader: Any | None = ...,
-        evenFooter: Any | None = ...,
-        firstHeader: Any | None = ...,
-        firstFooter: Any | None = ...,
+        differentOddEven: Incomplete | None = ...,
+        differentFirst: Incomplete | None = ...,
+        scaleWithDoc: Incomplete | None = ...,
+        alignWithMargins: Incomplete | None = ...,
+        oddHeader: Incomplete | None = ...,
+        oddFooter: Incomplete | None = ...,
+        evenHeader: Incomplete | None = ...,
+        evenFooter: Incomplete | None = ...,
+        firstHeader: Incomplete | None = ...,
+        firstFooter: Incomplete | None = ...,
     ) -> None: ...
     def __bool__(self) -> bool: ...

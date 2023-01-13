@@ -1,79 +1,79 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 def get_version(): ...
 
 class DigSigBlob(Serialisable):  # type: ignore[misc]
-    __elements__: Any
-    __attrs__: Any
+    __elements__: Incomplete
+    __attrs__: Incomplete
 
 class VectorLpstr(Serialisable):  # type: ignore[misc]
-    __elements__: Any
-    __attrs__: Any
+    __elements__: Incomplete
+    __attrs__: Incomplete
 
 class VectorVariant(Serialisable):  # type: ignore[misc]
-    __elements__: Any
-    __attrs__: Any
+    __elements__: Incomplete
+    __attrs__: Incomplete
 
 class ExtendedProperties(Serialisable):
     tagname: str
-    Template: Any
-    Manager: Any
-    Company: Any
-    Pages: Any
-    Words: Any
-    Characters: Any
-    PresentationFormat: Any
-    Lines: Any
-    Paragraphs: Any
-    Slides: Any
-    Notes: Any
-    TotalTime: Any
-    HiddenSlides: Any
-    MMClips: Any
-    ScaleCrop: Any
-    HeadingPairs: Any
-    TitlesOfParts: Any
-    LinksUpToDate: Any
-    CharactersWithSpaces: Any
-    SharedDoc: Any
-    HyperlinkBase: Any
-    HLinks: Any
-    HyperlinksChanged: Any
-    DigSig: Any
-    Application: Any
-    AppVersion: Any
-    DocSecurity: Any
-    __elements__: Any
+    Template: Incomplete
+    Manager: Incomplete
+    Company: Incomplete
+    Pages: Incomplete
+    Words: Incomplete
+    Characters: Incomplete
+    PresentationFormat: Incomplete
+    Lines: Incomplete
+    Paragraphs: Incomplete
+    Slides: Incomplete
+    Notes: Incomplete
+    TotalTime: Incomplete
+    HiddenSlides: Incomplete
+    MMClips: Incomplete
+    ScaleCrop: Incomplete
+    HeadingPairs: Incomplete
+    TitlesOfParts: Incomplete
+    LinksUpToDate: Incomplete
+    CharactersWithSpaces: Incomplete
+    SharedDoc: Incomplete
+    HyperlinkBase: Incomplete
+    HLinks: Incomplete
+    HyperlinksChanged: Incomplete
+    DigSig: Incomplete
+    Application: Incomplete
+    AppVersion: Incomplete
+    DocSecurity: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        Template: Any | None = ...,
-        Manager: Any | None = ...,
-        Company: Any | None = ...,
-        Pages: Any | None = ...,
-        Words: Any | None = ...,
-        Characters: Any | None = ...,
-        PresentationFormat: Any | None = ...,
-        Lines: Any | None = ...,
-        Paragraphs: Any | None = ...,
-        Slides: Any | None = ...,
-        Notes: Any | None = ...,
-        TotalTime: Any | None = ...,
-        HiddenSlides: Any | None = ...,
-        MMClips: Any | None = ...,
-        ScaleCrop: Any | None = ...,
-        HeadingPairs: Any | None = ...,
-        TitlesOfParts: Any | None = ...,
-        LinksUpToDate: Any | None = ...,
-        CharactersWithSpaces: Any | None = ...,
-        SharedDoc: Any | None = ...,
-        HyperlinkBase: Any | None = ...,
-        HLinks: Any | None = ...,
-        HyperlinksChanged: Any | None = ...,
-        DigSig: Any | None = ...,
+        Template: Incomplete | None = ...,
+        Manager: Incomplete | None = ...,
+        Company: Incomplete | None = ...,
+        Pages: Incomplete | None = ...,
+        Words: Incomplete | None = ...,
+        Characters: Incomplete | None = ...,
+        PresentationFormat: Incomplete | None = ...,
+        Lines: Incomplete | None = ...,
+        Paragraphs: Incomplete | None = ...,
+        Slides: Incomplete | None = ...,
+        Notes: Incomplete | None = ...,
+        TotalTime: Incomplete | None = ...,
+        HiddenSlides: Incomplete | None = ...,
+        MMClips: Incomplete | None = ...,
+        ScaleCrop: Incomplete | None = ...,
+        HeadingPairs: Incomplete | None = ...,
+        TitlesOfParts: Incomplete | None = ...,
+        LinksUpToDate: Incomplete | None = ...,
+        CharactersWithSpaces: Incomplete | None = ...,
+        SharedDoc: Incomplete | None = ...,
+        HyperlinkBase: Incomplete | None = ...,
+        HLinks: Incomplete | None = ...,
+        HyperlinksChanged: Incomplete | None = ...,
+        DigSig: Incomplete | None = ...,
         Application: str = ...,
-        AppVersion: Any | None = ...,
-        DocSecurity: Any | None = ...,
+        AppVersion: Incomplete | None = ...,
+        DocSecurity: Incomplete | None = ...,
     ) -> None: ...
     def to_tree(self): ...

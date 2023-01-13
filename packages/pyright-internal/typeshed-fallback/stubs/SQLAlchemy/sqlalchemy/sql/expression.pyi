@@ -1,4 +1,4 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from .base import PARSE_AUTOCOMMIT as PARSE_AUTOCOMMIT, ColumnCollection as ColumnCollection, Executable as Executable
 from .dml import Delete as Delete, Insert as Insert, Update as Update, UpdateBase as UpdateBase, ValuesBase as ValuesBase
@@ -154,48 +154,50 @@ __all__ = [
     "values",
 ]
 
-all_: Any
-any_: Any
-and_: Any
-alias: Any
-tablesample: Any
-lateral: Any
-or_: Any
-bindparam: Any
-select: Any
-text: Any
-table: Any
-column: Any
-over: Any
-within_group: Any
-label: Any
-case: Any
-cast: Any
-cte: Any
-values: Any
-extract: Any
-tuple_: Any
-except_: Any
-except_all: Any
-intersect: Any
-intersect_all: Any
-union: Any
-union_all: Any
-exists: Any
-nulls_first: Any
-nullsfirst: Any
-nulls_last: Any
-nullslast: Any
-asc: Any
-desc: Any
-distinct: Any
-type_coerce: Any
-true: Any
-false: Any
-null: Any
-join: Any
-outerjoin: Any
-insert: Any
-update: Any
-delete: Any
-funcfilter: Any
+all_: Incomplete
+any_: Incomplete
+and_: Incomplete
+alias: Incomplete
+tablesample: Incomplete
+lateral: Incomplete
+or_: Incomplete
+bindparam: Incomplete
+select: Incomplete
+
+def text(text: str, bind: Incomplete | None = None) -> TextClause: ...
+
+table: Incomplete
+column: Incomplete
+over: Incomplete
+within_group: Incomplete
+label: Incomplete
+case: Incomplete
+cast: Incomplete
+cte: Incomplete
+values: Incomplete
+extract: Incomplete
+tuple_: Incomplete
+except_: Incomplete
+except_all: Incomplete
+intersect: Incomplete
+intersect_all: Incomplete
+union: Incomplete
+union_all: Incomplete
+exists: Incomplete
+nulls_first: Incomplete
+nullsfirst: Incomplete
+nulls_last: Incomplete
+nullslast: Incomplete
+asc: Incomplete
+desc: Incomplete
+distinct: Incomplete
+type_coerce: Incomplete
+true: Incomplete
+false: Incomplete
+null: Incomplete
+join: Incomplete
+outerjoin: Incomplete
+insert: Incomplete
+update: Incomplete
+delete: Incomplete
+funcfilter: Incomplete

@@ -1,8 +1,8 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class ExternalReference(Serialisable):
     tagname: str
-    id: Any
+    id: Incomplete
     def __init__(self, id) -> None: ...

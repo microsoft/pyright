@@ -58,7 +58,7 @@ export interface IndexResults {
 
 export interface IndexOptions {
     indexingForAutoImportMode: boolean;
-    forceIndexing?: boolean;
+    includeAllSymbols?: boolean;
 }
 
 export type WorkspaceSymbolCallback = (symbols: SymbolInformation[]) => void;
@@ -332,7 +332,7 @@ function collectSymbolIndexData(
         // If we are not py.typed package, symbol must exist in __all__ for auto import mode.
         if (
             options.indexingForAutoImportMode &&
-            !options.forceIndexing &&
+            !options.includeAllSymbols &&
             !fileInfo.isStubFile &&
             !fileInfo.isInPyTypedPackage &&
             !symbol.isInDunderAll()

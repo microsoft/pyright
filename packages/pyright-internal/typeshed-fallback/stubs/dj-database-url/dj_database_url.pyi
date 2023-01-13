@@ -1,7 +1,7 @@
+from _typeshed import Incomplete
 from typing import Any
 from typing_extensions import TypedDict
 
-DJANGO_VERSION: tuple[str | int, ...] | None  # None if django is not installed
 DEFAULT_ENV: str
 SCHEMES: dict[str, str]
 
@@ -21,7 +21,20 @@ class _DBConfig(TypedDict, total=False):
     TIME_ZONE: str
     USER: str
 
-def parse(url: str, engine: str | None = ..., conn_max_age: int = ..., ssl_require: bool = ...) -> _DBConfig: ...
+def parse(
+    url: str,
+    engine: str | None = ...,
+    conn_max_age: int = ...,
+    conn_health_checks: bool = ...,
+    ssl_require: bool = ...,
+    test_options: dict[Incomplete, Incomplete] | None = ...,
+) -> _DBConfig: ...
 def config(
-    env: str = ..., default: str | None = ..., engine: str | None = ..., conn_max_age: int = ..., ssl_require: bool = ...
+    env: str = ...,
+    default: str | None = ...,
+    engine: str | None = ...,
+    conn_max_age: int = ...,
+    conn_health_checks: bool = ...,
+    ssl_require: bool = ...,
+    test_options: dict[Incomplete, Incomplete] | None = ...,
 ) -> _DBConfig: ...

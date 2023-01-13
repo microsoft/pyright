@@ -1,20 +1,20 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class PictureOptions(Serialisable):
     tagname: str
-    applyToFront: Any
-    applyToSides: Any
-    applyToEnd: Any
-    pictureFormat: Any
-    pictureStackUnit: Any
-    __elements__: Any
+    applyToFront: Incomplete
+    applyToSides: Incomplete
+    applyToEnd: Incomplete
+    pictureFormat: Incomplete
+    pictureStackUnit: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        applyToFront: Any | None = ...,
-        applyToSides: Any | None = ...,
-        applyToEnd: Any | None = ...,
-        pictureFormat: Any | None = ...,
-        pictureStackUnit: Any | None = ...,
+        applyToFront: Incomplete | None = ...,
+        applyToSides: Incomplete | None = ...,
+        applyToEnd: Incomplete | None = ...,
+        pictureFormat: Incomplete | None = ...,
+        pictureStackUnit: Incomplete | None = ...,
     ) -> None: ...

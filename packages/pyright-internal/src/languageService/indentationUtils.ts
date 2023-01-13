@@ -43,11 +43,15 @@ interface TokenInfo extends TextRange {
     multilineDocComment: boolean;
 }
 
-export function getIndentation(parseResults: ParseResults, offset: number, preferDedent?: boolean): number {
+export function getNewlineIndentation(
+    parseResults: ParseResults,
+    newlineOffset: number,
+    preferDedent?: boolean
+): number {
     // ex)
     // a = """
     //      | <= here
-    const strIndent = _tryHandleStringLiterals(parseResults, offset);
+    const strIndent = _tryHandleStringLiterals(parseResults, newlineOffset);
     if (strIndent !== undefined) {
         return strIndent;
     }
@@ -58,13 +62,13 @@ export function getIndentation(parseResults: ParseResults, offset: number, prefe
     // or
     // a = (1 +
     //     | <= here
-    const exprIndent = _tryHandleMultilineConstructs(parseResults, offset);
+    const exprIndent = _tryHandleMultilineConstructs(parseResults, newlineOffset);
     if (exprIndent !== undefined) {
         return exprIndent;
     }
 
-    preferDedent = preferDedent ?? _shouldDedentAfterKeyword(parseResults, offset);
-    return Math.max(_getIndentation(parseResults, offset, preferDedent).indentation, 0);
+    preferDedent = preferDedent ?? _shouldDedentAfterKeyword(parseResults, newlineOffset);
+    return Math.max(_getIndentation(parseResults, newlineOffset, preferDedent).indentation, 0);
 }
 
 export function reindentSpan(
@@ -174,7 +178,7 @@ function _getIndentation(
     }
 
     const suiteSpan = convertTextRangeToRange(suite, parseResults.tokenizerOutput.lines);
-    if (preferDedent || suiteSpan.start.line === suiteSpan.end.line) {
+    if (preferDedent || (suiteSpan.start.line === suiteSpan.end.line && suite.statements.length > 0)) {
         // Go one more level up.
         const outerContainer = getContainer(suite, /*includeSelf*/ false);
         return _getIndentationForNode(parseResults, offset, outerContainer ?? parseResults.parseTree, suite);
@@ -303,6 +307,7 @@ function _getIndentationFromIndentToken(tokens: TextRangeCollection<Token>, inde
 
 function _tryHandleMultilineConstructs(parseResults: ParseResults, offset: number): number | undefined {
     const tokens = parseResults.tokenizerOutput.tokens;
+    const lines = parseResults.tokenizerOutput.lines;
 
     // Make sure we use next token to get line delta.
     // This is just to handle how tokenizer associates new lines to which token.
@@ -313,9 +318,6 @@ function _tryHandleMultilineConstructs(parseResults: ParseResults, offset: numbe
     if (index < 0) {
         return undefined;
     }
-
-    const lines = parseResults.tokenizerOutput.lines;
-    const tabSize = _getTabSize(parseResults);
 
     for (let i = index; i > 0; i--) {
         const token = _getTokenAtIndex(tokens, i)!;
@@ -330,35 +332,10 @@ function _tryHandleMultilineConstructs(parseResults: ParseResults, offset: numbe
         if (
             tokenSpan &&
             previousTokenSpan &&
-            previousTokenSpan.end.line < tokenSpan.start.line &&
+            previousTokenSpan.start.line < tokenSpan.start.line &&
             previousToken!.type !== TokenType.NewLine
         ) {
-            const indentationResult = _getIndentation(parseResults, previousToken!.start, /* preferDedent */ false);
-            const currentPosition = convertOffsetToPosition(offset, lines);
-
-            // Handle multiline constructs (explicit or implicit)
-            // ex) def foo \
-            //         | <= here
-            // or
-            //     i = \
-            //         \
-            //         | <= here
-            // or
-            //     a = (
-            //         | <= here
-            const lineDelta =
-                currentPosition.line -
-                (indentationResult.token
-                    ? convertOffsetToPosition(indentationResult.token.start, lines).line
-                    : previousTokenSpan.start.line);
-
-            const indentation = _getFirstNonBlankLineIndentationFromText(
-                parseResults,
-                currentPosition.line,
-                previousTokenSpan.start.line
-            );
-
-            return indentation + (lineDelta === 1 ? tabSize : 0);
+            return _getIndentationForNextLine(parseResults, previousToken, token, offset);
         }
     }
 
@@ -402,6 +379,74 @@ function _tryHandleStringLiterals(parseResults: ParseResults, offset: number): n
     const current = convertOffsetToPosition(offset, lines);
 
     return _getFirstNonBlankLineIndentationFromText(parseResults, current.line, begin.line);
+}
+
+function _getIndentationForNextLine(parseResults: ParseResults, prevToken: Token, nextToken: Token, offset: number) {
+    // Get the last token on the same line as the previous token
+    const lines = parseResults.tokenizerOutput.lines;
+    const lineIndex = convertOffsetToPosition(prevToken.start, lines).line;
+    const line = lines.getItemAt(lineIndex);
+    const tabSize = _getTabSize(parseResults);
+    let token: Token | undefined = prevToken;
+
+    // Go backwards through tokens up until the front of the line
+    let whitespaceOnly = true;
+    while (token && token.start >= line.start) {
+        if (token.type === TokenType.OpenParenthesis && whitespaceOnly) {
+            const baseIndentation = _getIndentation(parseResults, token.start, false).indentation;
+
+            // In PEP 8, this should be this case here:
+            // # Add 4 spaces (an extra level of indentation) to distinguish arguments from the rest.
+            // def long_function_name(
+            //         var_one, var_two, var_three,
+            //         var_four):
+            //     print(var_one)
+            //
+            const node = findNodeByOffset(parseResults.parseTree, token.start - 1);
+            const funcNode = getFirstAncestorOrSelfOfKind(node, ParseNodeType.Function);
+            if (
+                funcNode &&
+                funcNode.nodeType === ParseNodeType.Function &&
+                convertOffsetToPosition(funcNode.start, lines).line === lineIndex
+            ) {
+                return baseIndentation + tabSize * 2;
+            }
+
+            // Not inside a function, just need one tab. See this in PEP 8
+            // # Hanging indents should add a level.
+            // foo = long_function_name(
+            //     var_one, var_two,
+            //     var_three, var_four)
+            return baseIndentation + tabSize;
+        } else if (token.type === TokenType.OpenParenthesis) {
+            // In PEP 8, this should be this case here:
+            // # Aligned with opening delimiter.
+            // def long_function_name(var_one, var_two,
+            //                        var_three, var_four)
+            return token.start - line.start + 1; // + 1 is to accomodate for the paranthesis.
+        } else if (token.type === TokenType.OpenBracket && whitespaceOnly) {
+            // Special case for openbracket, just use the indentation of the current line plus one tab
+            return _getIndentation(parseResults, token.start, false).indentation + tabSize;
+        } else if (token.type === TokenType.OpenBracket) {
+            return token.start - line.start + 1; // + 1 is to accomodate for the bracket
+        } else if (token.type === TokenType.OpenCurlyBrace && whitespaceOnly) {
+            // Special case for opencurlybrace, just use the indentation of the current line plus one tab
+            return _getIndentation(parseResults, token.start, false).indentation + tabSize;
+        } else if (token.type === TokenType.OpenCurlyBrace) {
+            return token.start - line.start + 1; // + 1 is to accomodate for the curlybrace
+        } else if (!_isWhitespaceToken(token.type)) {
+            // Found a non whitespace token before we returned.
+            whitespaceOnly = false;
+        }
+        token = findPreviousNonWhitespaceToken(parseResults.tokenizerOutput.tokens, token.start - 1);
+    }
+
+    // No parenthesis found
+    return _getFirstNonBlankLineIndentationFromText(
+        parseResults,
+        convertOffsetToPosition(offset, parseResults.tokenizerOutput.lines).line,
+        lineIndex
+    );
 }
 
 function _getFirstNonBlankLineIndentationFromText(parseResults: ParseResults, currentLine: number, endingLine: number) {

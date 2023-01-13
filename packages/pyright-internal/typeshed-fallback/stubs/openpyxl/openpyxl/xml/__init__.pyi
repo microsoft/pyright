@@ -1,11 +1,11 @@
-from typing import Any
+from _typeshed import Incomplete
 
 def lxml_available(): ...
 def lxml_env_set(): ...
 
-LXML: Any
+LXML: Incomplete
 
 def defusedxml_available(): ...
 def defusedxml_env_set(): ...
 
-DEFUSEDXML: Any
+DEFUSEDXML: Incomplete

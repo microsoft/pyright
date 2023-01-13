@@ -1,45 +1,45 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class WorkbookProtection(Serialisable):
     tagname: str
-    workbook_password: Any
-    workbookPasswordCharacterSet: Any
-    revision_password: Any
-    revisionsPasswordCharacterSet: Any
-    lockStructure: Any
-    lock_structure: Any
-    lockWindows: Any
-    lock_windows: Any
-    lockRevision: Any
-    lock_revision: Any
-    revisionsAlgorithmName: Any
-    revisionsHashValue: Any
-    revisionsSaltValue: Any
-    revisionsSpinCount: Any
-    workbookAlgorithmName: Any
-    workbookHashValue: Any
-    workbookSaltValue: Any
-    workbookSpinCount: Any
-    __attrs__: Any
+    workbook_password: Incomplete
+    workbookPasswordCharacterSet: Incomplete
+    revision_password: Incomplete
+    revisionsPasswordCharacterSet: Incomplete
+    lockStructure: Incomplete
+    lock_structure: Incomplete
+    lockWindows: Incomplete
+    lock_windows: Incomplete
+    lockRevision: Incomplete
+    lock_revision: Incomplete
+    revisionsAlgorithmName: Incomplete
+    revisionsHashValue: Incomplete
+    revisionsSaltValue: Incomplete
+    revisionsSpinCount: Incomplete
+    workbookAlgorithmName: Incomplete
+    workbookHashValue: Incomplete
+    workbookSaltValue: Incomplete
+    workbookSpinCount: Incomplete
+    __attrs__: Incomplete
     def __init__(
         self,
-        workbookPassword: Any | None = ...,
-        workbookPasswordCharacterSet: Any | None = ...,
-        revisionsPassword: Any | None = ...,
-        revisionsPasswordCharacterSet: Any | None = ...,
-        lockStructure: Any | None = ...,
-        lockWindows: Any | None = ...,
-        lockRevision: Any | None = ...,
-        revisionsAlgorithmName: Any | None = ...,
-        revisionsHashValue: Any | None = ...,
-        revisionsSaltValue: Any | None = ...,
-        revisionsSpinCount: Any | None = ...,
-        workbookAlgorithmName: Any | None = ...,
-        workbookHashValue: Any | None = ...,
-        workbookSaltValue: Any | None = ...,
-        workbookSpinCount: Any | None = ...,
+        workbookPassword: Incomplete | None = ...,
+        workbookPasswordCharacterSet: Incomplete | None = ...,
+        revisionsPassword: Incomplete | None = ...,
+        revisionsPasswordCharacterSet: Incomplete | None = ...,
+        lockStructure: Incomplete | None = ...,
+        lockWindows: Incomplete | None = ...,
+        lockRevision: Incomplete | None = ...,
+        revisionsAlgorithmName: Incomplete | None = ...,
+        revisionsHashValue: Incomplete | None = ...,
+        revisionsSaltValue: Incomplete | None = ...,
+        revisionsSpinCount: Incomplete | None = ...,
+        workbookAlgorithmName: Incomplete | None = ...,
+        workbookHashValue: Incomplete | None = ...,
+        workbookSaltValue: Incomplete | None = ...,
+        workbookSpinCount: Incomplete | None = ...,
     ) -> None: ...
     def set_workbook_password(self, value: str = ..., already_hashed: bool = ...) -> None: ...
     @property
@@ -58,20 +58,20 @@ DocumentSecurity = WorkbookProtection
 
 class FileSharing(Serialisable):
     tagname: str
-    readOnlyRecommended: Any
-    userName: Any
-    reservationPassword: Any
-    algorithmName: Any
-    hashValue: Any
-    saltValue: Any
-    spinCount: Any
+    readOnlyRecommended: Incomplete
+    userName: Incomplete
+    reservationPassword: Incomplete
+    algorithmName: Incomplete
+    hashValue: Incomplete
+    saltValue: Incomplete
+    spinCount: Incomplete
     def __init__(
         self,
-        readOnlyRecommended: Any | None = ...,
-        userName: Any | None = ...,
-        reservationPassword: Any | None = ...,
-        algorithmName: Any | None = ...,
-        hashValue: Any | None = ...,
-        saltValue: Any | None = ...,
-        spinCount: Any | None = ...,
+        readOnlyRecommended: Incomplete | None = ...,
+        userName: Incomplete | None = ...,
+        reservationPassword: Incomplete | None = ...,
+        algorithmName: Incomplete | None = ...,
+        hashValue: Incomplete | None = ...,
+        saltValue: Incomplete | None = ...,
+        spinCount: Incomplete | None = ...,
     ) -> None: ...

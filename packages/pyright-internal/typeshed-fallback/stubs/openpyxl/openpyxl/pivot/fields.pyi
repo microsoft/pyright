@@ -1,180 +1,192 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Index(Serialisable):
     tagname: str
-    v: Any
+    v: Incomplete
     def __init__(self, v: int = ...) -> None: ...
 
 class Tuple(Serialisable):  # type: ignore[misc]
-    fld: Any
-    hier: Any
-    item: Any
-    def __init__(self, fld: Any | None = ..., hier: Any | None = ..., item: Any | None = ...) -> None: ...
+    fld: Incomplete
+    hier: Incomplete
+    item: Incomplete
+    def __init__(self, fld: Incomplete | None = ..., hier: Incomplete | None = ..., item: Incomplete | None = ...) -> None: ...
 
 class TupleList(Serialisable):  # type: ignore[misc]
-    c: Any
-    tpl: Any
-    __elements__: Any
-    def __init__(self, c: Any | None = ..., tpl: Any | None = ...) -> None: ...
+    c: Incomplete
+    tpl: Incomplete
+    __elements__: Incomplete
+    def __init__(self, c: Incomplete | None = ..., tpl: Incomplete | None = ...) -> None: ...
 
 class Missing(Serialisable):
     tagname: str
-    tpls: Any
-    x: Any
-    u: Any
-    f: Any
-    c: Any
-    cp: Any
-    bc: Any
-    fc: Any
-    i: Any
-    un: Any
-    st: Any
-    b: Any
-    __elements__: Any
+    tpls: Incomplete
+    x: Incomplete
+    u: Incomplete
+    f: Incomplete
+    c: Incomplete
+    cp: Incomplete
+    bc: Incomplete
+    fc: Incomplete
+    i: Incomplete
+    un: Incomplete
+    st: Incomplete
+    b: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
         tpls=...,
         x=...,
-        u: Any | None = ...,
-        f: Any | None = ...,
-        c: Any | None = ...,
-        cp: Any | None = ...,
-        _in: Any | None = ...,
-        bc: Any | None = ...,
-        fc: Any | None = ...,
-        i: Any | None = ...,
-        un: Any | None = ...,
-        st: Any | None = ...,
-        b: Any | None = ...,
+        u: Incomplete | None = ...,
+        f: Incomplete | None = ...,
+        c: Incomplete | None = ...,
+        cp: Incomplete | None = ...,
+        _in: Incomplete | None = ...,
+        bc: Incomplete | None = ...,
+        fc: Incomplete | None = ...,
+        i: Incomplete | None = ...,
+        un: Incomplete | None = ...,
+        st: Incomplete | None = ...,
+        b: Incomplete | None = ...,
     ) -> None: ...
 
 class Number(Serialisable):
     tagname: str
-    tpls: Any
-    x: Any
-    v: Any
-    u: Any
-    f: Any
-    c: Any
-    cp: Any
-    bc: Any
-    fc: Any
-    i: Any
-    un: Any
-    st: Any
-    b: Any
-    __elements__: Any
+    tpls: Incomplete
+    x: Incomplete
+    v: Incomplete
+    u: Incomplete
+    f: Incomplete
+    c: Incomplete
+    cp: Incomplete
+    bc: Incomplete
+    fc: Incomplete
+    i: Incomplete
+    un: Incomplete
+    st: Incomplete
+    b: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
         tpls=...,
         x=...,
-        v: Any | None = ...,
-        u: Any | None = ...,
-        f: Any | None = ...,
-        c: Any | None = ...,
-        cp: Any | None = ...,
-        _in: Any | None = ...,
-        bc: Any | None = ...,
-        fc: Any | None = ...,
-        i: Any | None = ...,
-        un: Any | None = ...,
-        st: Any | None = ...,
-        b: Any | None = ...,
+        v: Incomplete | None = ...,
+        u: Incomplete | None = ...,
+        f: Incomplete | None = ...,
+        c: Incomplete | None = ...,
+        cp: Incomplete | None = ...,
+        _in: Incomplete | None = ...,
+        bc: Incomplete | None = ...,
+        fc: Incomplete | None = ...,
+        i: Incomplete | None = ...,
+        un: Incomplete | None = ...,
+        st: Incomplete | None = ...,
+        b: Incomplete | None = ...,
     ) -> None: ...
 
 class Error(Serialisable):
     tagname: str
-    tpls: Any
-    x: Any
-    v: Any
-    u: Any
-    f: Any
-    c: Any
-    cp: Any
-    bc: Any
-    fc: Any
-    i: Any
-    un: Any
-    st: Any
-    b: Any
-    __elements__: Any
+    tpls: Incomplete
+    x: Incomplete
+    v: Incomplete
+    u: Incomplete
+    f: Incomplete
+    c: Incomplete
+    cp: Incomplete
+    bc: Incomplete
+    fc: Incomplete
+    i: Incomplete
+    un: Incomplete
+    st: Incomplete
+    b: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        tpls: Any | None = ...,
+        tpls: Incomplete | None = ...,
         x=...,
-        v: Any | None = ...,
-        u: Any | None = ...,
-        f: Any | None = ...,
-        c: Any | None = ...,
-        cp: Any | None = ...,
-        _in: Any | None = ...,
-        bc: Any | None = ...,
-        fc: Any | None = ...,
-        i: Any | None = ...,
-        un: Any | None = ...,
-        st: Any | None = ...,
-        b: Any | None = ...,
+        v: Incomplete | None = ...,
+        u: Incomplete | None = ...,
+        f: Incomplete | None = ...,
+        c: Incomplete | None = ...,
+        cp: Incomplete | None = ...,
+        _in: Incomplete | None = ...,
+        bc: Incomplete | None = ...,
+        fc: Incomplete | None = ...,
+        i: Incomplete | None = ...,
+        un: Incomplete | None = ...,
+        st: Incomplete | None = ...,
+        b: Incomplete | None = ...,
     ) -> None: ...
 
 class Boolean(Serialisable):
     tagname: str
-    x: Any
-    v: Any
-    u: Any
-    f: Any
-    c: Any
-    cp: Any
-    __elements__: Any
+    x: Incomplete
+    v: Incomplete
+    u: Incomplete
+    f: Incomplete
+    c: Incomplete
+    cp: Incomplete
+    __elements__: Incomplete
     def __init__(
-        self, x=..., v: Any | None = ..., u: Any | None = ..., f: Any | None = ..., c: Any | None = ..., cp: Any | None = ...
+        self,
+        x=...,
+        v: Incomplete | None = ...,
+        u: Incomplete | None = ...,
+        f: Incomplete | None = ...,
+        c: Incomplete | None = ...,
+        cp: Incomplete | None = ...,
     ) -> None: ...
 
 class Text(Serialisable):
     tagname: str
-    tpls: Any
-    x: Any
-    v: Any
-    u: Any
-    f: Any
-    c: Any
-    cp: Any
-    bc: Any
-    fc: Any
-    i: Any
-    un: Any
-    st: Any
-    b: Any
-    __elements__: Any
+    tpls: Incomplete
+    x: Incomplete
+    v: Incomplete
+    u: Incomplete
+    f: Incomplete
+    c: Incomplete
+    cp: Incomplete
+    bc: Incomplete
+    fc: Incomplete
+    i: Incomplete
+    un: Incomplete
+    st: Incomplete
+    b: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
         tpls=...,
         x=...,
-        v: Any | None = ...,
-        u: Any | None = ...,
-        f: Any | None = ...,
-        c: Any | None = ...,
-        cp: Any | None = ...,
-        _in: Any | None = ...,
-        bc: Any | None = ...,
-        fc: Any | None = ...,
-        i: Any | None = ...,
-        un: Any | None = ...,
-        st: Any | None = ...,
-        b: Any | None = ...,
+        v: Incomplete | None = ...,
+        u: Incomplete | None = ...,
+        f: Incomplete | None = ...,
+        c: Incomplete | None = ...,
+        cp: Incomplete | None = ...,
+        _in: Incomplete | None = ...,
+        bc: Incomplete | None = ...,
+        fc: Incomplete | None = ...,
+        i: Incomplete | None = ...,
+        un: Incomplete | None = ...,
+        st: Incomplete | None = ...,
+        b: Incomplete | None = ...,
     ) -> None: ...
 
 class DateTimeField(Serialisable):
     tagname: str
-    x: Any
-    v: Any
-    u: Any
-    f: Any
-    c: Any
-    cp: Any
-    __elements__: Any
+    x: Incomplete
+    v: Incomplete
+    u: Incomplete
+    f: Incomplete
+    c: Incomplete
+    cp: Incomplete
+    __elements__: Incomplete
     def __init__(
-        self, x=..., v: Any | None = ..., u: Any | None = ..., f: Any | None = ..., c: Any | None = ..., cp: Any | None = ...
+        self,
+        x=...,
+        v: Incomplete | None = ...,
+        u: Incomplete | None = ...,
+        f: Incomplete | None = ...,
+        c: Incomplete | None = ...,
+        cp: Incomplete | None = ...,
     ) -> None: ...

@@ -59,6 +59,10 @@ def func4(*a: bytes, **b: bytes):
     pass
 
 
+def func5(**b: str):
+    pass
+
+
 var2: TestClass2 = func1
 
 # This should generate an error.
@@ -69,6 +73,9 @@ var2 = func3
 
 # This should generate an error.
 var2 = func4
+
+# This should generate an error.
+var2 = func5
 
 
 class TestClass3(Protocol):
@@ -81,6 +88,7 @@ var3: TestClass3 = func1
 var3 = func2
 var3 = func3
 var3 = func4
+var3 = func5
 
 
 class TestClass4(Protocol):
@@ -90,12 +98,12 @@ class TestClass4(Protocol):
         pass
 
 
-def func5(x: int) -> None:
+def func6(x: int) -> None:
     pass
 
 
 # This should generate an error.
-var4: TestClass4 = func5
+var4: TestClass4 = func6
 
 
 class TestClass5(Protocol):
@@ -103,11 +111,11 @@ class TestClass5(Protocol):
         ...
 
 
-def func6(a: int, b: str) -> int:
+def func7(a: int, b: str) -> int:
     return 123
 
 
-f: TestClass5 = func6
+f: TestClass5 = func7
 
 
 class TestClass6:

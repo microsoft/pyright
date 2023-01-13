@@ -329,7 +329,6 @@ export namespace Localizer {
         export const declaredReturnTypeUnknown = () => getRawString('Diagnostic.declaredReturnTypeUnknown');
         export const defaultValueContainsCall = () => getRawString('Diagnostic.defaultValueContainsCall');
         export const defaultValueNotAllowed = () => getRawString('Diagnostic.defaultValueNotAllowed');
-        export const defaultValueNotEllipsis = () => getRawString('Diagnostic.defaultValueNotEllipsis');
         export const deprecatedType = () =>
             new ParameterizedString<{ version: string; replacement: string }>(
                 getRawString('Diagnostic.deprecatedType')
@@ -563,8 +562,10 @@ export namespace Localizer {
         export const namedTupleNoTypes = () => getRawString('Diagnostic.namedTupleNoTypes');
         export const namedTupleSecondArg = () => getRawString('Diagnostic.namedTupleSecondArg');
         export const newClsParam = () => getRawString('Diagnostic.newClsParam');
+        export const newTypeBadName = () => getRawString('Diagnostic.newTypeBadName');
         export const newTypeLiteral = () => getRawString('Diagnostic.newTypeLiteral');
         export const newTypeNotAClass = () => getRawString('Diagnostic.newTypeNotAClass');
+        export const newTypeParamCount = () => getRawString('Diagnostic.newTypeParamCount');
         export const newTypeProtocolClass = () => getRawString('Diagnostic.newTypeProtocolClass');
         export const nonDefaultAfterDefault = () => getRawString('Diagnostic.nonDefaultAfterDefault');
         export const noneNotCallable = () => getRawString('Diagnostic.noneNotCallable');
@@ -648,6 +649,8 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.paramSpecNotBound'));
         export const paramSpecNotUsedByOuterScope = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramSpecNotUsedByOuterScope'));
+        export const paramSpecScopedToReturnType = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramSpecScopedToReturnType'));
         export const paramSpecUnknownArg = () => getRawString('Diagnostic.paramSpecUnknownArg');
         export const paramSpecUnknownMember = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramSpecUnknownMember'));
@@ -787,6 +790,7 @@ export namespace Localizer {
         export const tupleInAnnotation = () => getRawString('Diagnostic.tupleInAnnotation');
         export const tupleIndexOutOfRange = () =>
             new ParameterizedString<{ type: string; index: number }>(getRawString('Diagnostic.tupleIndexOutOfRange'));
+        export const typeAliasIllegalExpressionForm = () => getRawString('Diagnostic.typeAliasIllegalExpressionForm');
         export const typeAliasIsRecursiveDirect = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeAliasIsRecursiveDirect'));
         export const typeAliasIsRecursiveIndirect = () =>
@@ -839,6 +843,7 @@ export namespace Localizer {
         export const typeExpectedClass = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeExpectedClass'));
         export const typeGuardArgCount = () => getRawString('Diagnostic.typeGuardArgCount');
+        export const typeGuardParamCount = () => getRawString('Diagnostic.typeGuardParamCount');
         export const typeNotAwaitable = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeNotAwaitable'));
         export const typeNotCallable = () =>
@@ -878,8 +883,6 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; container: string }>(
                 getRawString('Diagnostic.typeParameterNotDeclared')
             );
-        export const typeParameterOutOfScope = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeParameterOutOfScope'));
         export const typePartiallyUnknown = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typePartiallyUnknown'));
         export const typeUnknown = () =>
@@ -897,6 +900,8 @@ export namespace Localizer {
         export const typeVarDefaultConstraintMismatch = () =>
             getRawString('Diagnostic.typeVarDefaultConstraintMismatch');
         export const typeVarFirstArg = () => getRawString('Diagnostic.typeVarFirstArg');
+        export const typeVarDefaultInvalidTypeVar = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarDefaultInvalidTypeVar'));
         export const typeVarNoMember = () =>
             new ParameterizedString<{ type: string; name: string }>(getRawString('Diagnostic.typeVarNoMember'));
         export const typeVarNotSubscriptable = () =>
@@ -907,6 +912,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; param: string }>(
                 getRawString('Diagnostic.typeVarPossiblyUnsolvable')
             );
+        export const typeVarScopedToReturnType = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarScopedToReturnType'));
         export const typeVarSingleConstraint = () => getRawString('Diagnostic.typeVarSingleConstraint');
         export const typeVarsNotInGenericOrProtocol = () => getRawString('Diagnostic.typeVarsNotInGenericOrProtocol');
         export const typeVarTupleContext = () => getRawString('Diagnostic.typeVarTupleContext');
@@ -921,6 +928,8 @@ export namespace Localizer {
         export const typeVarUsedOnlyOnce = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarUsedOnlyOnce'));
         export const typeVarVariance = () => getRawString('Diagnostic.typeVarVariance');
+        export const typeVarWithoutDefault = () =>
+            new ParameterizedString<{ name: string; other: string }>(getRawString('Diagnostic.typeVarWithoutDefault'));
         export const unaccessedClass = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unaccessedClass'));
         export const unaccessedFunction = () =>
@@ -931,12 +940,15 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unaccessedSymbol'));
         export const unaccessedVariable = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unaccessedVariable'));
+        export const unannotatedFunctionSkipped = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unannotatedFunctionSkipped'));
         export const unexpectedAsyncToken = () => getRawString('Diagnostic.unexpectedAsyncToken');
         export const unexpectedExprToken = () => getRawString('Diagnostic.unexpectedExprToken');
         export const unexpectedIndent = () => getRawString('Diagnostic.unexpectedIndent');
         export const unexpectedUnindent = () => getRawString('Diagnostic.unexpectedUnindent');
         export const unhashableDictKey = () => getRawString('Diagnostic.unhashableDictKey');
         export const unhashableSetEntry = () => getRawString('Diagnostic.unhashableSetEntry');
+        export const unionForwardReferenceNotAllowed = () => getRawString('Diagnostic.unionForwardReferenceNotAllowed');
         export const unionSyntaxIllegal = () => getRawString('Diagnostic.unionSyntaxIllegal');
         export const unionTypeArgCount = () => getRawString('Diagnostic.unionTypeArgCount');
         export const uninitializedInstanceVariable = () =>
@@ -1028,9 +1040,13 @@ export namespace Localizer {
             new ParameterizedString<{ types: string }>(getRawString('DiagnosticAddendum.argumentTypes'));
         export const assignToNone = () => getRawString('DiagnosticAddendum.assignToNone');
         export const asyncHelp = () => getRawString('DiagnosticAddendum.asyncHelp');
-        export const baseClassProvidesType = () =>
+        export const baseClassOverriddenType = () =>
             new ParameterizedString<{ baseClass: string; type: string }>(
-                getRawString('DiagnosticAddendum.baseClassProvidesType')
+                getRawString('DiagnosticAddendum.baseClassOverriddenType')
+            );
+        export const baseClassOverridesType = () =>
+            new ParameterizedString<{ baseClass: string; type: string }>(
+                getRawString('DiagnosticAddendum.baseClassOverridesType')
             );
         export const dataClassFrozen = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.dataClassFrozen'));
@@ -1279,6 +1295,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; type: string }>(getRawString('DiagnosticAddendum.typeOfSymbol'));
         export const typeUnsupported = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.typeUnsupported'));
+        export const typeVarDefaultOutOfScope = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarDefaultOutOfScope'));
         export const typeVarIsContravariant = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarIsContravariant'));
         export const typeVarIsCovariant = () =>

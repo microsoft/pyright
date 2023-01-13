@@ -2,7 +2,9 @@
 
 from typing import List, Tuple, Union
 import os
+from typing_extensions import TypeVarTuple, Unpack
 
+Ts = TypeVarTuple("Ts")
 
 def func1() -> Tuple[int, int, int]:
     a = 1, 2, 3
@@ -37,8 +39,8 @@ def func3() -> Tuple[str, ...]:
     a = "1", 2, 3
 
     # This should generate an error because the
-    # heterogenous tuple can't be assigned to
-    # the homogenous tuple type.
+    # heterogeneous tuple can't be assigned to
+    # the homogeneous tuple type.
     return a
 
 
@@ -136,6 +138,9 @@ def func13(
     b: Tuple[()],
     c: Tuple[int, ...],
     d: Union[Tuple[int], Tuple[str, str], Tuple[int, ...]],
+    e: Tuple[int, Unpack[Tuple[str, ...]], float],
+    f: Tuple[int, Unpack[Ts], float],
+    g: Tuple[Unpack[Ts]]
 ):
     v1 = a[0]
     reveal_type(v1, expected_text="int")
@@ -176,6 +181,12 @@ def func13(
     v13: tuple[()] = ()
     # This should generate an error.
     v13[0]
+
+    v14 = e[0]
+    reveal_type(v14, expected_text="int | str | float")
+
+    v15 = f[0]
+    reveal_type(v15, expected_text="int | Union[*Ts@func13] | float")
 
 
 # Test for construction using the tuple constructor

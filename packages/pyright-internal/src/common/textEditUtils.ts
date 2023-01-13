@@ -24,18 +24,22 @@ import { isString } from './core';
 import { convertTextRangeToRange } from './positionUtils';
 import { doRangesIntersect, extendRange, Range, rangesAreEqual, TextRange } from './textRange';
 
-export function convertTextEdits(uri: string, editActions: TextEditAction[] | undefined): WorkspaceEdit {
+export function convertEditActionsToTextEdits(editActions: TextEditAction[]): TextEdit[] {
+    return editActions.map((editAction) => ({
+        range: editAction.range,
+        newText: editAction.replacementText,
+    }));
+}
+
+export function convertEditActionsToWorkspaceEdit(
+    uri: string,
+    editActions: TextEditAction[] | undefined
+): WorkspaceEdit {
     if (!editActions) {
         return {};
     }
 
-    const edits: TextEdit[] = [];
-    editActions.forEach((editAction) => {
-        edits.push({
-            range: editAction.range,
-            newText: editAction.replacementText,
-        });
-    });
+    const edits = convertEditActionsToTextEdits(editActions);
 
     return {
         changes: {

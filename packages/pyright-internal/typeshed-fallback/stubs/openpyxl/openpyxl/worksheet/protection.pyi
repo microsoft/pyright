@@ -1,4 +1,4 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
@@ -11,29 +11,29 @@ class _Protected:
 
 class SheetProtection(Serialisable, _Protected):
     tagname: str
-    sheet: Any
-    enabled: Any
-    objects: Any
-    scenarios: Any
-    formatCells: Any
-    formatColumns: Any
-    formatRows: Any
-    insertColumns: Any
-    insertRows: Any
-    insertHyperlinks: Any
-    deleteColumns: Any
-    deleteRows: Any
-    selectLockedCells: Any
-    selectUnlockedCells: Any
-    sort: Any
-    autoFilter: Any
-    pivotTables: Any
-    saltValue: Any
-    spinCount: Any
-    algorithmName: Any
-    hashValue: Any
-    __attrs__: Any
-    password: Any
+    sheet: Incomplete
+    enabled: Incomplete
+    objects: Incomplete
+    scenarios: Incomplete
+    formatCells: Incomplete
+    formatColumns: Incomplete
+    formatRows: Incomplete
+    insertColumns: Incomplete
+    insertRows: Incomplete
+    insertHyperlinks: Incomplete
+    deleteColumns: Incomplete
+    deleteRows: Incomplete
+    selectLockedCells: Incomplete
+    selectUnlockedCells: Incomplete
+    sort: Incomplete
+    autoFilter: Incomplete
+    pivotTables: Incomplete
+    saltValue: Incomplete
+    spinCount: Incomplete
+    algorithmName: Incomplete
+    hashValue: Incomplete
+    __attrs__: Incomplete
+    password: Incomplete
     def __init__(
         self,
         sheet: bool = ...,
@@ -52,11 +52,11 @@ class SheetProtection(Serialisable, _Protected):
         sort: bool = ...,
         autoFilter: bool = ...,
         pivotTables: bool = ...,
-        password: Any | None = ...,
-        algorithmName: Any | None = ...,
-        saltValue: Any | None = ...,
-        spinCount: Any | None = ...,
-        hashValue: Any | None = ...,
+        password: Incomplete | None = ...,
+        algorithmName: Incomplete | None = ...,
+        saltValue: Incomplete | None = ...,
+        spinCount: Incomplete | None = ...,
+        hashValue: Incomplete | None = ...,
     ) -> None: ...
     def set_password(self, value: str = ..., already_hashed: bool = ...) -> None: ...
     def enable(self) -> None: ...

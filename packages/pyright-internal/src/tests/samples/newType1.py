@@ -32,3 +32,19 @@ def func1(x: Type[_T]) -> Type[_T]:
 
 
 MyString2 = NewType("MyString2", func1(str))
+
+# This should generate an error because NewType requires two arguments.
+NewTypeBad1 = NewType()
+
+# This should generate an error because NewType requires two arguments.
+NewTypeBad2 = NewType("Hi")
+
+# This should generate an error because NewType requires two arguments.
+NewTypeBad3 = NewType("Hi", int, int)
+
+# This should generate an error because the first argument must be a string literal.
+NewTypeBad4 = NewType(int, int)
+
+args = ("Hi", int)
+# This should generate an error because two positional args are needed.
+NewTypeBad5 = NewType(*args)

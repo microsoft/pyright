@@ -23,6 +23,7 @@ import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { convertLevelToCategory, Diagnostic, DiagnosticCategory } from '../common/diagnostic';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextEditAction } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
@@ -39,6 +40,7 @@ import { AbbreviationMap, CompletionOptions, CompletionResults } from '../langua
 import { CompletionItemData, CompletionProvider } from '../languageService/completionProvider';
 import { DefinitionFilter, DefinitionProvider } from '../languageService/definitionProvider';
 import { DocumentHighlightProvider } from '../languageService/documentHighlightProvider';
+import { DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
 import { DocumentSymbolProvider, IndexOptions, IndexResults } from '../languageService/documentSymbolProvider';
 import { HoverProvider, HoverResults } from '../languageService/hoverProvider';
 import { performQuickAction } from '../languageService/quickActions';
@@ -473,18 +475,18 @@ export class SourceFile {
             const category = convertLevelToCategory(this._diagnosticRuleSet.reportImportCycles);
 
             this._circularDependencies.forEach((cirDep) => {
-                diagList.push(
-                    new Diagnostic(
-                        category,
-                        Localizer.Diagnostic.importCycleDetected() +
-                            '\n' +
-                            cirDep
-                                .getPaths()
-                                .map((path) => '  ' + path)
-                                .join('\n'),
-                        getEmptyRange()
-                    )
+                const diag = new Diagnostic(
+                    category,
+                    Localizer.Diagnostic.importCycleDetected() +
+                        '\n' +
+                        cirDep
+                            .getPaths()
+                            .map((path) => '  ' + path)
+                            .join('\n'),
+                    getEmptyRange()
                 );
+                diag.setRule(DiagnosticRule.reportImportCycles);
+                diagList.push(diag);
             });
         }
 
@@ -611,6 +613,7 @@ export class SourceFile {
     markReanalysisRequired(forceRebinding: boolean): void {
         // Keep the parse info, but reset the analysis to the beginning.
         this._isCheckingNeeded = true;
+        this._noCircularDependencyConfirmed = false;
 
         // If the file contains a wildcard import or __all__ symbols,
         // we need to rebind because a dependent import may have changed.
@@ -990,6 +993,7 @@ export class SourceFile {
         node: NameNode,
         evaluator: TypeEvaluator,
         reporter: ReferenceCallback | undefined,
+        useCase: DocumentSymbolCollectorUseCase,
         token: CancellationToken
     ): ReferencesResult | undefined {
         // If we have no completed analysis job, there's nothing to do.
@@ -997,7 +1001,15 @@ export class SourceFile {
             return undefined;
         }
 
-        return ReferencesProvider.getDeclarationForNode(sourceMapper, this._filePath, node, evaluator, reporter, token);
+        return ReferencesProvider.getDeclarationForNode(
+            sourceMapper,
+            this._filePath,
+            node,
+            evaluator,
+            reporter,
+            useCase,
+            token
+        );
     }
 
     getDeclarationForPosition(
@@ -1005,6 +1017,7 @@ export class SourceFile {
         position: Position,
         evaluator: TypeEvaluator,
         reporter: ReferenceCallback | undefined,
+        useCase: DocumentSymbolCollectorUseCase,
         token: CancellationToken
     ): ReferencesResult | undefined {
         // If we have no completed analysis job, there's nothing to do.
@@ -1019,6 +1032,7 @@ export class SourceFile {
             position,
             evaluator,
             reporter,
+            useCase,
             token
         );
     }

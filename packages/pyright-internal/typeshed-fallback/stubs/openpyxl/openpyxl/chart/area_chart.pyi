@@ -1,18 +1,23 @@
+from _typeshed import Incomplete
 from abc import abstractmethod
-from typing import Any
 
 from ._chart import ChartBase
 
 class _AreaChartBase(ChartBase):
-    grouping: Any
-    varyColors: Any
-    ser: Any
-    dLbls: Any
-    dataLabels: Any
-    dropLines: Any
-    __elements__: Any
+    grouping: Incomplete
+    varyColors: Incomplete
+    ser: Incomplete
+    dLbls: Incomplete
+    dataLabels: Incomplete
+    dropLines: Incomplete
+    __elements__: Incomplete
     def __init__(
-        self, grouping: str = ..., varyColors: Any | None = ..., ser=..., dLbls: Any | None = ..., dropLines: Any | None = ...
+        self,
+        grouping: str = ...,
+        varyColors: Incomplete | None = ...,
+        ser=...,
+        dLbls: Incomplete | None = ...,
+        dropLines: Incomplete | None = ...,
     ) -> None: ...
     @property
     @abstractmethod
@@ -20,27 +25,27 @@ class _AreaChartBase(ChartBase):
 
 class AreaChart(_AreaChartBase):
     tagname: str
-    grouping: Any
-    varyColors: Any
-    ser: Any
-    dLbls: Any
-    dropLines: Any
-    x_axis: Any
-    y_axis: Any
-    extLst: Any
-    __elements__: Any
-    def __init__(self, axId: Any | None = ..., extLst: Any | None = ..., **kw) -> None: ...
+    grouping: Incomplete
+    varyColors: Incomplete
+    ser: Incomplete
+    dLbls: Incomplete
+    dropLines: Incomplete
+    x_axis: Incomplete
+    y_axis: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
+    def __init__(self, axId: Incomplete | None = ..., extLst: Incomplete | None = ..., **kw) -> None: ...
 
 class AreaChart3D(AreaChart):
     tagname: str
-    grouping: Any
-    varyColors: Any
-    ser: Any
-    dLbls: Any
-    dropLines: Any
-    gapDepth: Any
-    x_axis: Any
-    y_axis: Any
-    z_axis: Any
-    __elements__: Any
-    def __init__(self, gapDepth: Any | None = ..., **kw) -> None: ...
+    grouping: Incomplete
+    varyColors: Incomplete
+    ser: Incomplete
+    dLbls: Incomplete
+    dropLines: Incomplete
+    gapDepth: Incomplete
+    x_axis: Incomplete
+    y_axis: Incomplete
+    z_axis: Incomplete
+    __elements__: Incomplete
+    def __init__(self, gapDepth: Incomplete | None = ..., **kw) -> None: ...

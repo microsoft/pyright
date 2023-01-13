@@ -159,6 +159,12 @@ class ParentClass:
     def my_method40(self, a: int, /) -> None:
         ...
 
+    def my_method41(self, a: int, b: str, c: str) -> None:
+        ...
+
+    def my_method42(self, a: int, b: int, c: str) -> None:
+        ...
+
 
 T_ChildClass = TypeVar("T_ChildClass", bound="ChildClass")
 
@@ -329,6 +335,12 @@ class ChildClass(ParentClass):
     def my_method40(self, **kwargs: Any) -> None:
         ...
 
+    def my_method41(self, a: int, *args: str) -> None:
+        ...
+
+    # This should generate an error because args doesn't have the right type.
+    def my_method42(self, a: int, *args: int) -> None:
+        ...
 
 class A:
     def test(self, t: Sequence[int]) -> Sequence[str]:

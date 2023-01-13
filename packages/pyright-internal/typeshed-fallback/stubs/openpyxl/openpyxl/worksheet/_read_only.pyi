@@ -1,18 +1,18 @@
-from typing import Any
+from _typeshed import Incomplete
 
 def read_dimension(source): ...
 
 class ReadOnlyWorksheet:
-    cell: Any
-    iter_rows: Any
+    cell: Incomplete
+    iter_rows: Incomplete
     @property
     def values(self): ...
     @property
     def rows(self): ...
-    __getitem__: Any
-    __iter__: Any
-    parent: Any
-    title: Any
+    __getitem__: Incomplete
+    __iter__: Incomplete
+    parent: Incomplete
+    title: Incomplete
     sheet_state: str
     def __init__(self, parent_workbook, title, worksheet_path, shared_strings) -> None: ...
     def calculate_dimension(self, force: bool = ...): ...

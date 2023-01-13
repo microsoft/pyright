@@ -1,2 +1,3 @@
 version = "4.0.*"
-requires = ["types-Flask-SQLAlchemy"]
+# Requires a version of flask with a `py.typed` file
+requires = ["Flask>=2.0.0", "types-Flask-SQLAlchemy"]

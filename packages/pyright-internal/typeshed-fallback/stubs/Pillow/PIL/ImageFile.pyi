@@ -1,4 +1,4 @@
-from _typeshed import Self
+from _typeshed import Incomplete, Self
 from typing import Any, NoReturn
 
 from .Image import Image
@@ -12,7 +12,7 @@ def raise_oserror(error) -> NoReturn: ...
 
 class ImageFile(Image):
     custom_mimetype: Any
-    tile: Any
+    tile: list[Incomplete] | None
     readonly: int
     decoderconfig: Any
     decodermaxblock: Any

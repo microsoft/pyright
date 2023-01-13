@@ -1,15 +1,15 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class FunctionGroup(Serialisable):
     tagname: str
-    name: Any
-    def __init__(self, name: Any | None = ...) -> None: ...
+    name: Incomplete
+    def __init__(self, name: Incomplete | None = ...) -> None: ...
 
 class FunctionGroupList(Serialisable):
     tagname: str
-    builtInGroupCount: Any
-    functionGroup: Any
-    __elements__: Any
+    builtInGroupCount: Incomplete
+    functionGroup: Incomplete
+    __elements__: Incomplete
     def __init__(self, builtInGroupCount: int = ..., functionGroup=...) -> None: ...

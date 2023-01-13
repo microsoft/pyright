@@ -1,9 +1,9 @@
-from typing import Any
+from _typeshed import Incomplete
 
 class ExcelWriter:
-    workbook: Any
-    manifest: Any
-    vba_modified: Any
+    workbook: Incomplete
+    manifest: Incomplete
+    vba_modified: Incomplete
     def __init__(self, workbook, archive) -> None: ...
     def write_data(self) -> None: ...
     def write_worksheet(self, ws) -> None: ...

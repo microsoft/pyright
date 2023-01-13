@@ -1,39 +1,39 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
-horizontal_alignments: Any
-vertical_aligments: Any
+horizontal_alignments: Incomplete
+vertical_aligments: Incomplete
 
 class Alignment(Serialisable):
     tagname: str
-    __fields__: Any
-    horizontal: Any
-    vertical: Any
-    textRotation: Any
-    text_rotation: Any
-    wrapText: Any
-    wrap_text: Any
-    shrinkToFit: Any
-    shrink_to_fit: Any
-    indent: Any
-    relativeIndent: Any
-    justifyLastLine: Any
-    readingOrder: Any
+    __fields__: Incomplete
+    horizontal: Incomplete
+    vertical: Incomplete
+    textRotation: Incomplete
+    text_rotation: Incomplete
+    wrapText: Incomplete
+    wrap_text: Incomplete
+    shrinkToFit: Incomplete
+    shrink_to_fit: Incomplete
+    indent: Incomplete
+    relativeIndent: Incomplete
+    justifyLastLine: Incomplete
+    readingOrder: Incomplete
     def __init__(
         self,
-        horizontal: Any | None = ...,
-        vertical: Any | None = ...,
+        horizontal: Incomplete | None = ...,
+        vertical: Incomplete | None = ...,
         textRotation: int = ...,
-        wrapText: Any | None = ...,
-        shrinkToFit: Any | None = ...,
+        wrapText: Incomplete | None = ...,
+        shrinkToFit: Incomplete | None = ...,
         indent: int = ...,
         relativeIndent: int = ...,
-        justifyLastLine: Any | None = ...,
+        justifyLastLine: Incomplete | None = ...,
         readingOrder: int = ...,
-        text_rotation: Any | None = ...,
-        wrap_text: Any | None = ...,
-        shrink_to_fit: Any | None = ...,
-        mergeCell: Any | None = ...,
+        text_rotation: Incomplete | None = ...,
+        wrap_text: Incomplete | None = ...,
+        shrink_to_fit: Incomplete | None = ...,
+        mergeCell: Incomplete | None = ...,
     ) -> None: ...
     def __iter__(self): ...

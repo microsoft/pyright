@@ -15,7 +15,7 @@ import * as TestUtils from './testUtils';
 test('CallbackProtocol1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callbackProtocol1.py']);
 
-    TestUtils.validateResults(analysisResults, 8);
+    TestUtils.validateResults(analysisResults, 9);
 });
 
 test('CallbackProtocol2', () => {
@@ -126,6 +126,12 @@ test('Assignment10', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Assignment11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignment11.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('AugmentedAssignment1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['augmentedAssignment1.py']);
 
@@ -212,7 +218,7 @@ test('MissingSuper1', () => {
 test('NewType1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType1.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('NewType2', () => {
@@ -990,6 +996,12 @@ test('GenericTypes100', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('GenericTypes101', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes101.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Protocol1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol1.py']);
 
@@ -1023,7 +1035,7 @@ test('Protocol5', () => {
 test('Protocol6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol6.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Protocol7', () => {
@@ -1334,4 +1346,10 @@ test('TypedDict21', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict21.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('TypedDict22', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict22.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
 });

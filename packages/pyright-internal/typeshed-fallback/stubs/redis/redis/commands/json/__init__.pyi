@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from ...client import Pipeline as ClientPipeline
@@ -11,4 +12,4 @@ class JSON(JSONCommands):
     def __init__(self, client, version: Any | None = ..., decoder=..., encoder=...) -> None: ...
     def pipeline(self, transaction: bool = ..., shard_hint: Any | None = ...) -> Pipeline: ...
 
-class Pipeline(JSONCommands, ClientPipeline): ...  # type: ignore[misc]
+class Pipeline(JSONCommands, ClientPipeline[Incomplete]): ...  # type: ignore[misc]

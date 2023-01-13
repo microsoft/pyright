@@ -1,221 +1,223 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class PatternFillProperties(Serialisable):
     tagname: str
-    namespace: Any
-    prst: Any
-    preset: Any
-    fgClr: Any
-    foreground: Any
-    bgClr: Any
-    background: Any
-    __elements__: Any
-    def __init__(self, prst: Any | None = ..., fgClr: Any | None = ..., bgClr: Any | None = ...) -> None: ...
+    namespace: Incomplete
+    prst: Incomplete
+    preset: Incomplete
+    fgClr: Incomplete
+    foreground: Incomplete
+    bgClr: Incomplete
+    background: Incomplete
+    __elements__: Incomplete
+    def __init__(self, prst: Incomplete | None = ..., fgClr: Incomplete | None = ..., bgClr: Incomplete | None = ...) -> None: ...
 
 class RelativeRect(Serialisable):
     tagname: str
-    namespace: Any
-    l: Any
-    left: Any
-    t: Any
-    top: Any
-    r: Any
-    right: Any
-    b: Any
-    bottom: Any
-    def __init__(self, l: Any | None = ..., t: Any | None = ..., r: Any | None = ..., b: Any | None = ...) -> None: ...
+    namespace: Incomplete
+    l: Incomplete
+    left: Incomplete
+    t: Incomplete
+    top: Incomplete
+    r: Incomplete
+    right: Incomplete
+    b: Incomplete
+    bottom: Incomplete
+    def __init__(
+        self, l: Incomplete | None = ..., t: Incomplete | None = ..., r: Incomplete | None = ..., b: Incomplete | None = ...
+    ) -> None: ...
 
 class StretchInfoProperties(Serialisable):
     tagname: str
-    namespace: Any
-    fillRect: Any
+    namespace: Incomplete
+    fillRect: Incomplete
     def __init__(self, fillRect=...) -> None: ...
 
 class GradientStop(Serialisable):
     tagname: str
-    namespace: Any
-    pos: Any
-    scrgbClr: Any
-    RGBPercent: Any
-    srgbClr: Any
-    RGB: Any
-    hslClr: Any
-    sysClr: Any
-    schemeClr: Any
-    prstClr: Any
-    __elements__: Any
+    namespace: Incomplete
+    pos: Incomplete
+    scrgbClr: Incomplete
+    RGBPercent: Incomplete
+    srgbClr: Incomplete
+    RGB: Incomplete
+    hslClr: Incomplete
+    sysClr: Incomplete
+    schemeClr: Incomplete
+    prstClr: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        pos: Any | None = ...,
-        scrgbClr: Any | None = ...,
-        srgbClr: Any | None = ...,
-        hslClr: Any | None = ...,
-        sysClr: Any | None = ...,
-        schemeClr: Any | None = ...,
-        prstClr: Any | None = ...,
+        pos: Incomplete | None = ...,
+        scrgbClr: Incomplete | None = ...,
+        srgbClr: Incomplete | None = ...,
+        hslClr: Incomplete | None = ...,
+        sysClr: Incomplete | None = ...,
+        schemeClr: Incomplete | None = ...,
+        prstClr: Incomplete | None = ...,
     ) -> None: ...
 
 class LinearShadeProperties(Serialisable):
     tagname: str
-    namespace: Any
-    ang: Any
-    scaled: Any
-    def __init__(self, ang: Any | None = ..., scaled: Any | None = ...) -> None: ...
+    namespace: Incomplete
+    ang: Incomplete
+    scaled: Incomplete
+    def __init__(self, ang: Incomplete | None = ..., scaled: Incomplete | None = ...) -> None: ...
 
 class PathShadeProperties(Serialisable):
     tagname: str
-    namespace: Any
-    path: Any
-    fillToRect: Any
-    def __init__(self, path: Any | None = ..., fillToRect: Any | None = ...) -> None: ...
+    namespace: Incomplete
+    path: Incomplete
+    fillToRect: Incomplete
+    def __init__(self, path: Incomplete | None = ..., fillToRect: Incomplete | None = ...) -> None: ...
 
 class GradientFillProperties(Serialisable):
     tagname: str
-    namespace: Any
-    flip: Any
-    rotWithShape: Any
-    gsLst: Any
-    stop_list: Any
-    lin: Any
-    linear: Any
-    path: Any
-    tileRect: Any
-    __elements__: Any
+    namespace: Incomplete
+    flip: Incomplete
+    rotWithShape: Incomplete
+    gsLst: Incomplete
+    stop_list: Incomplete
+    lin: Incomplete
+    linear: Incomplete
+    path: Incomplete
+    tileRect: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        flip: Any | None = ...,
-        rotWithShape: Any | None = ...,
+        flip: Incomplete | None = ...,
+        rotWithShape: Incomplete | None = ...,
         gsLst=...,
-        lin: Any | None = ...,
-        path: Any | None = ...,
-        tileRect: Any | None = ...,
+        lin: Incomplete | None = ...,
+        path: Incomplete | None = ...,
+        tileRect: Incomplete | None = ...,
     ) -> None: ...
 
 class SolidColorFillProperties(Serialisable):
     tagname: str
-    scrgbClr: Any
-    RGBPercent: Any
-    srgbClr: Any
-    RGB: Any
-    hslClr: Any
-    sysClr: Any
-    schemeClr: Any
-    prstClr: Any
-    __elements__: Any
+    scrgbClr: Incomplete
+    RGBPercent: Incomplete
+    srgbClr: Incomplete
+    RGB: Incomplete
+    hslClr: Incomplete
+    sysClr: Incomplete
+    schemeClr: Incomplete
+    prstClr: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        scrgbClr: Any | None = ...,
-        srgbClr: Any | None = ...,
-        hslClr: Any | None = ...,
-        sysClr: Any | None = ...,
-        schemeClr: Any | None = ...,
-        prstClr: Any | None = ...,
+        scrgbClr: Incomplete | None = ...,
+        srgbClr: Incomplete | None = ...,
+        hslClr: Incomplete | None = ...,
+        sysClr: Incomplete | None = ...,
+        schemeClr: Incomplete | None = ...,
+        prstClr: Incomplete | None = ...,
     ) -> None: ...
 
 class Blip(Serialisable):
     tagname: str
-    namespace: Any
-    cstate: Any
-    embed: Any
-    link: Any
-    noGrp: Any
-    noSelect: Any
-    noRot: Any
-    noChangeAspect: Any
-    noMove: Any
-    noResize: Any
-    noEditPoints: Any
-    noAdjustHandles: Any
-    noChangeArrowheads: Any
-    noChangeShapeType: Any
-    extLst: Any
-    alphaBiLevel: Any
-    alphaCeiling: Any
-    alphaFloor: Any
-    alphaInv: Any
-    alphaMod: Any
-    alphaModFix: Any
-    alphaRepl: Any
-    biLevel: Any
-    blur: Any
-    clrChange: Any
-    clrRepl: Any
-    duotone: Any
-    fillOverlay: Any
-    grayscl: Any
-    hsl: Any
-    lum: Any
-    tint: Any
-    __elements__: Any
+    namespace: Incomplete
+    cstate: Incomplete
+    embed: Incomplete
+    link: Incomplete
+    noGrp: Incomplete
+    noSelect: Incomplete
+    noRot: Incomplete
+    noChangeAspect: Incomplete
+    noMove: Incomplete
+    noResize: Incomplete
+    noEditPoints: Incomplete
+    noAdjustHandles: Incomplete
+    noChangeArrowheads: Incomplete
+    noChangeShapeType: Incomplete
+    extLst: Incomplete
+    alphaBiLevel: Incomplete
+    alphaCeiling: Incomplete
+    alphaFloor: Incomplete
+    alphaInv: Incomplete
+    alphaMod: Incomplete
+    alphaModFix: Incomplete
+    alphaRepl: Incomplete
+    biLevel: Incomplete
+    blur: Incomplete
+    clrChange: Incomplete
+    clrRepl: Incomplete
+    duotone: Incomplete
+    fillOverlay: Incomplete
+    grayscl: Incomplete
+    hsl: Incomplete
+    lum: Incomplete
+    tint: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        cstate: Any | None = ...,
-        embed: Any | None = ...,
-        link: Any | None = ...,
-        noGrp: Any | None = ...,
-        noSelect: Any | None = ...,
-        noRot: Any | None = ...,
-        noChangeAspect: Any | None = ...,
-        noMove: Any | None = ...,
-        noResize: Any | None = ...,
-        noEditPoints: Any | None = ...,
-        noAdjustHandles: Any | None = ...,
-        noChangeArrowheads: Any | None = ...,
-        noChangeShapeType: Any | None = ...,
-        extLst: Any | None = ...,
-        alphaBiLevel: Any | None = ...,
-        alphaCeiling: Any | None = ...,
-        alphaFloor: Any | None = ...,
-        alphaInv: Any | None = ...,
-        alphaMod: Any | None = ...,
-        alphaModFix: Any | None = ...,
-        alphaRepl: Any | None = ...,
-        biLevel: Any | None = ...,
-        blur: Any | None = ...,
-        clrChange: Any | None = ...,
-        clrRepl: Any | None = ...,
-        duotone: Any | None = ...,
-        fillOverlay: Any | None = ...,
-        grayscl: Any | None = ...,
-        hsl: Any | None = ...,
-        lum: Any | None = ...,
-        tint: Any | None = ...,
+        cstate: Incomplete | None = ...,
+        embed: Incomplete | None = ...,
+        link: Incomplete | None = ...,
+        noGrp: Incomplete | None = ...,
+        noSelect: Incomplete | None = ...,
+        noRot: Incomplete | None = ...,
+        noChangeAspect: Incomplete | None = ...,
+        noMove: Incomplete | None = ...,
+        noResize: Incomplete | None = ...,
+        noEditPoints: Incomplete | None = ...,
+        noAdjustHandles: Incomplete | None = ...,
+        noChangeArrowheads: Incomplete | None = ...,
+        noChangeShapeType: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
+        alphaBiLevel: Incomplete | None = ...,
+        alphaCeiling: Incomplete | None = ...,
+        alphaFloor: Incomplete | None = ...,
+        alphaInv: Incomplete | None = ...,
+        alphaMod: Incomplete | None = ...,
+        alphaModFix: Incomplete | None = ...,
+        alphaRepl: Incomplete | None = ...,
+        biLevel: Incomplete | None = ...,
+        blur: Incomplete | None = ...,
+        clrChange: Incomplete | None = ...,
+        clrRepl: Incomplete | None = ...,
+        duotone: Incomplete | None = ...,
+        fillOverlay: Incomplete | None = ...,
+        grayscl: Incomplete | None = ...,
+        hsl: Incomplete | None = ...,
+        lum: Incomplete | None = ...,
+        tint: Incomplete | None = ...,
     ) -> None: ...
 
 class TileInfoProperties(Serialisable):
-    tx: Any
-    ty: Any
-    sx: Any
-    sy: Any
-    flip: Any
-    algn: Any
+    tx: Incomplete
+    ty: Incomplete
+    sx: Incomplete
+    sy: Incomplete
+    flip: Incomplete
+    algn: Incomplete
     def __init__(
         self,
-        tx: Any | None = ...,
-        ty: Any | None = ...,
-        sx: Any | None = ...,
-        sy: Any | None = ...,
-        flip: Any | None = ...,
-        algn: Any | None = ...,
+        tx: Incomplete | None = ...,
+        ty: Incomplete | None = ...,
+        sx: Incomplete | None = ...,
+        sy: Incomplete | None = ...,
+        flip: Incomplete | None = ...,
+        algn: Incomplete | None = ...,
     ) -> None: ...
 
 class BlipFillProperties(Serialisable):
     tagname: str
-    dpi: Any
-    rotWithShape: Any
-    blip: Any
-    srcRect: Any
-    tile: Any
-    stretch: Any
-    __elements__: Any
+    dpi: Incomplete
+    rotWithShape: Incomplete
+    blip: Incomplete
+    srcRect: Incomplete
+    tile: Incomplete
+    stretch: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        dpi: Any | None = ...,
-        rotWithShape: Any | None = ...,
-        blip: Any | None = ...,
-        tile: Any | None = ...,
+        dpi: Incomplete | None = ...,
+        rotWithShape: Incomplete | None = ...,
+        blip: Incomplete | None = ...,
+        tile: Incomplete | None = ...,
         stretch=...,
-        srcRect: Any | None = ...,
+        srcRect: Incomplete | None = ...,
     ) -> None: ...

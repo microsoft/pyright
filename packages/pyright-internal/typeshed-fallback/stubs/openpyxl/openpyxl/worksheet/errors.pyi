@@ -1,33 +1,33 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Extension(Serialisable):
     tagname: str
-    uri: Any
-    def __init__(self, uri: Any | None = ...) -> None: ...
+    uri: Incomplete
+    def __init__(self, uri: Incomplete | None = ...) -> None: ...
 
 class ExtensionList(Serialisable):
     tagname: str
-    ext: Any
-    __elements__: Any
+    ext: Incomplete
+    __elements__: Incomplete
     def __init__(self, ext=...) -> None: ...
 
 class IgnoredError(Serialisable):
     tagname: str
-    sqref: Any
-    evalError: Any
-    twoDigitTextYear: Any
-    numberStoredAsText: Any
-    formula: Any
-    formulaRange: Any
-    unlockedFormula: Any
-    emptyCellReference: Any
-    listDataValidation: Any
-    calculatedColumn: Any
+    sqref: Incomplete
+    evalError: Incomplete
+    twoDigitTextYear: Incomplete
+    numberStoredAsText: Incomplete
+    formula: Incomplete
+    formulaRange: Incomplete
+    unlockedFormula: Incomplete
+    emptyCellReference: Incomplete
+    listDataValidation: Incomplete
+    calculatedColumn: Incomplete
     def __init__(
         self,
-        sqref: Any | None = ...,
+        sqref: Incomplete | None = ...,
         evalError: bool = ...,
         twoDigitTextYear: bool = ...,
         numberStoredAsText: bool = ...,
@@ -41,7 +41,7 @@ class IgnoredError(Serialisable):
 
 class IgnoredErrors(Serialisable):
     tagname: str
-    ignoredError: Any
-    extLst: Any
-    __elements__: Any
-    def __init__(self, ignoredError=..., extLst: Any | None = ...) -> None: ...
+    ignoredError: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
+    def __init__(self, ignoredError=..., extLst: Incomplete | None = ...) -> None: ...

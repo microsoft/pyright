@@ -1,23 +1,23 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from .geometry import Point2D, PositiveSize2D, Transform2D
 
 class XDRPoint2D(Point2D):
-    namespace: Any
-    x: Any
-    y: Any
+    namespace: Incomplete
+    x: Incomplete
+    y: Incomplete
 
 class XDRPositiveSize2D(PositiveSize2D):
-    namespace: Any
-    cx: Any
-    cy: Any
+    namespace: Incomplete
+    cx: Incomplete
+    cy: Incomplete
 
 class XDRTransform2D(Transform2D):
-    namespace: Any
-    rot: Any
-    flipH: Any
-    flipV: Any
-    off: Any
-    ext: Any
-    chOff: Any
-    chExt: Any
+    namespace: Incomplete
+    rot: Incomplete
+    flipH: Incomplete
+    flipV: Incomplete
+    off: Incomplete
+    ext: Incomplete
+    chOff: Incomplete
+    chExt: Incomplete

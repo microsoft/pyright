@@ -10,7 +10,13 @@
 import { Dirent, ReadStream, WriteStream } from 'fs';
 import { URI } from 'vscode-uri';
 
-import { FileSystem, FileWatcher, FileWatcherEventHandler, TmpfileOptions } from '../../../common/fileSystem';
+import {
+    FileSystem,
+    FileWatcher,
+    FileWatcherEventHandler,
+    MkDirOptions,
+    TmpfileOptions,
+} from '../../../common/fileSystem';
 import * as pathUtil from '../../../common/pathUtils';
 import { bufferFrom, createIOError } from '../utils';
 import { closeIterator, getIterator, Metadata, nextResult, SortedMap } from './../utils';
@@ -614,9 +620,14 @@ export class TestFileSystem implements FileSystem {
      *
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
-    mkdirSync(path: string) {
+    mkdirSync(path: string, options?: MkDirOptions) {
         if (this.isReadonly) {
             throw createIOError('EROFS');
+        }
+
+        if (options?.recursive) {
+            this.mkdirpSync(path);
+            return;
         }
 
         this._mkdir(this._walk(this._resolve(path), /*noFollow*/ true));

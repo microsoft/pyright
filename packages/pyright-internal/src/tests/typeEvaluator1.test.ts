@@ -321,6 +321,12 @@ test('TypeNarrowingIsNoneTuple2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeNarrowingIsEllipsis1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsEllipsis1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeNarrowingLiteral1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingLiteral1.py']);
 
@@ -389,6 +395,12 @@ test('TypeNarrowingIsinstance8', () => {
 
 test('TypeNarrowingIsinstance10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance10.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingIsinstance11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance11.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
@@ -619,6 +631,12 @@ test('Lambda6', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Lambda7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda7.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Call1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call1.py']);
 
@@ -667,6 +685,12 @@ test('Call7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call7.py']);
 
     TestUtils.validateResults(analysisResults, 4);
+});
+
+test('Call8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call8.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Function1', () => {
@@ -982,6 +1006,12 @@ test('Properties13', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Properties14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties14.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Operators1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators1.py']);
 
@@ -1020,6 +1050,12 @@ test('Operators7', () => {
 
 test('Operators8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators8.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Operators9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators9.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
@@ -1260,6 +1296,12 @@ test('Self4', () => {
 
 test('Self5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self5.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Self6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self6.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

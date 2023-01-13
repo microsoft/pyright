@@ -130,6 +130,12 @@
       "title": "Infer strict types for dictionary expressions",
       "default": false
     },
+    "analyzeUnannotatedFunctions": {
+      "$id": "#/properties/analyzeUnannotatedFunctions",
+      "type": "boolean",
+      "title": "Analyze and report diagnostics for functions that have no annotations",
+      "default": true
+    },
     "strictParameterNoneValue": {
       "$id": "#/properties/strictParameterNoneValue",
       "type": "boolean",

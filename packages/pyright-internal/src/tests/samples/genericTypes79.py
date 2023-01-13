@@ -35,3 +35,7 @@ def func3(value: _T) -> Callable[[_T], None]:
 
 
 x: Callable[[Tuple[bool]], None] = func3((True,))
+
+def func4(v: _T, f: Callable[[_T], None]): ...
+def func5(v: Literal[1, 2], f: Callable[[Literal[1, 2]], None]):
+    func4(v, f)

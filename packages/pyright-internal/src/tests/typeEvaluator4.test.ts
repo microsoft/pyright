@@ -304,6 +304,16 @@ test('Overload11', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Overload12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload12.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Overload13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload13.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Final1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final1.py']);
     TestUtils.validateResults(analysisResults, 1);
@@ -1137,6 +1147,12 @@ test('TypeVar11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar11.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeVar12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar12.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('Annotated1', () => {

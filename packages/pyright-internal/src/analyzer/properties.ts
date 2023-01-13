@@ -298,6 +298,10 @@ function addGetMethodToPropertySymbolTable(propertyObject: ClassType, fget: Func
         : propertyObject;
     getFunction1.details.declaration = fget.details.declaration;
 
+    // Override the scope ID since we're using parameter types from the
+    // decorated function.
+    getFunction1.details.typeVarScopeId = getTypeVarScopeId(fget);
+
     const getFunction2 = FunctionType.createSynthesizedInstance('__get__', FunctionTypeFlags.Overloaded);
     FunctionType.addParameter(getFunction2, {
         category: ParameterCategory.Simple,
@@ -307,12 +311,14 @@ function addGetMethodToPropertySymbolTable(propertyObject: ClassType, fget: Func
     });
 
     const objType = fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create();
+
     FunctionType.addParameter(getFunction2, {
         category: ParameterCategory.Simple,
         name: 'obj',
         type: objType,
         hasDeclaredType: true,
     });
+
     FunctionType.addParameter(getFunction2, {
         category: ParameterCategory.Simple,
         name: 'objtype',
@@ -343,18 +349,27 @@ function addSetMethodToPropertySymbolTable(propertyObject: ClassType, fset: Func
         type: AnyType.create(),
         hasDeclaredType: true,
     });
+
     let objType = fset.details.parameters.length > 0 ? fset.details.parameters[0].type : AnyType.create();
     if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
         objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
     }
+
     FunctionType.addParameter(setFunction, {
         category: ParameterCategory.Simple,
         name: 'obj',
         type: combineTypes([objType, NoneType.createInstance()]),
         hasDeclaredType: true,
     });
+
     setFunction.details.declaredReturnType = NoneType.createInstance();
+
+    // Adopt the TypeVarScopeId of the fset function in case it has any
+    // TypeVars that need to be solved.
+    setFunction.details.typeVarScopeId = getTypeVarScopeId(fset);
+
     let setParamType: Type = UnknownType.create();
+
     if (
         fset.details.parameters.length >= 2 &&
         fset.details.parameters[1].category === ParameterCategory.Simple &&
@@ -382,10 +397,17 @@ function addDelMethodToPropertySymbolTable(propertyObject: ClassType, fdel: Func
         type: AnyType.create(),
         hasDeclaredType: true,
     });
+
+    // Adopt the TypeVarScopeId of the fdel function in case it has any
+    // TypeVars that need to be solved.
+    delFunction.details.typeVarScopeId = getTypeVarScopeId(fdel);
+
     let objType = fdel.details.parameters.length > 0 ? fdel.details.parameters[0].type : AnyType.create();
+
     if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
         objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
     }
+
     FunctionType.addParameter(delFunction, {
         category: ParameterCategory.Simple,
         name: 'obj',

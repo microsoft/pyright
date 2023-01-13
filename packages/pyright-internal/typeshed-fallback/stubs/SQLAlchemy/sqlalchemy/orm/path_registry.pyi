@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any, ClassVar
 
 from ..sql.traversals import HasCacheKey
@@ -100,7 +101,7 @@ class AbstractEntityRegistry(PathRegistry):
 class SlotsEntityRegistry(AbstractEntityRegistry):
     inherit_cache: bool
 
-class CachingEntityRegistry(AbstractEntityRegistry, dict):  # type: ignore[misc]
+class CachingEntityRegistry(AbstractEntityRegistry, dict[Incomplete, Incomplete]):  # type: ignore[misc]
     inherit_cache: bool
     def __getitem__(self, entity): ...
     def __missing__(self, key): ...

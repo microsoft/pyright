@@ -10,7 +10,7 @@
 import { CancellationToken } from 'vscode-languageserver';
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 
-import { BackgroundAnalysisBase, IndexOptions } from '../backgroundAnalysisBase';
+import { BackgroundAnalysisBase, IndexOptions, RefreshOptions } from '../backgroundAnalysisBase';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
@@ -158,12 +158,21 @@ export class BackgroundAnalysisProgram {
         );
     }
 
+    analyzeFile(filePath: string, token: CancellationToken): boolean {
+        return this._program.analyzeFile(filePath, token);
+    }
+
     startIndexing(indexOptions: IndexOptions) {
         this._backgroundAnalysis?.startIndexing(indexOptions, this._configOptions, this.importResolver, this.host.kind);
     }
 
-    refreshIndexing() {
-        this._backgroundAnalysis?.refreshIndexing(this._configOptions, this.importResolver, this.host.kind);
+    refreshIndexing(refreshOptions?: RefreshOptions) {
+        this._backgroundAnalysis?.refreshIndexing(
+            this._configOptions,
+            this.importResolver,
+            this.host.kind,
+            refreshOptions
+        );
     }
 
     cancelIndexing() {
@@ -203,9 +212,13 @@ export class BackgroundAnalysisProgram {
         return this._program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
     }
 
-    invalidateAndForceReanalysis(rebuildUserFileIndexing: boolean, rebuildLibraryIndexing: boolean) {
+    invalidateAndForceReanalysis(
+        rebuildUserFileIndexing: boolean,
+        rebuildLibraryIndexing: boolean,
+        refreshOptions?: RefreshOptions
+    ) {
         if (rebuildLibraryIndexing) {
-            this.refreshIndexing();
+            this.refreshIndexing(refreshOptions);
         }
 
         this._backgroundAnalysis?.invalidateAndForceReanalysis(rebuildUserFileIndexing);

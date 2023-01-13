@@ -77,9 +77,7 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
 
         // Wait for all workspaces to be initialized before attempting to find the best workspace. Otherwise
         // the list of files won't be complete and the `contains` check might fail.
-        for (const workspace of this.values()) {
-            await workspace.isInitialized.promise;
-        }
+        await Promise.all([...this.values()].map((w) => w.isInitialized.promise));
 
         // The order of how we find the best matching workspace for the given file is
         // 1. The given file is the workspace itself (ex, a file being a virtual workspace itself).

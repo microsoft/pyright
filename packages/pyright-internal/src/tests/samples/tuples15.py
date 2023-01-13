@@ -14,3 +14,15 @@ def func1(a: Tuple[int, int, int], b: Tuple[str, str]):
 
 def func2(a: Tuple[int, int, int], b: Tuple[str, ...]):
     reveal_type(a + b, expected_text="tuple[int | str, ...]")
+
+
+def func3(input_list):
+    output_tuple = ()
+
+    for _, value in enumerate([]):
+        if value is None:
+            output_tuple += (None,)
+            continue
+        output_tuple += (input_list[value],)
+
+    return output_tuple

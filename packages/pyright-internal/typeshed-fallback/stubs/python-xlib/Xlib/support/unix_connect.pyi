@@ -7,9 +7,6 @@ from typing_extensions import Literal, TypeAlias
 
 from Xlib._typing import Unused
 
-F_SETFD: int
-FD_CLOEXEC: int
-
 if sys.platform == "darwin":
     SUPPORTED_PROTOCOLS: tuple[None, Literal["tcp"], Literal["unix"], Literal["darwin"]]
     _Protocol: TypeAlias = Literal[None, "tcp", "unix", "darwin"]

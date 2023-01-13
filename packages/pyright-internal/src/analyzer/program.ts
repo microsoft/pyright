@@ -59,7 +59,7 @@ import {
     CompletionResultsList,
 } from '../languageService/completionProvider';
 import { DefinitionFilter } from '../languageService/definitionProvider';
-import { DocumentSymbolCollector } from '../languageService/documentSymbolCollector';
+import { DocumentSymbolCollector, DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
 import { IndexOptions, IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { ReferenceCallback, ReferencesResult } from '../languageService/referencesProvider';
@@ -72,6 +72,7 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CacheManager } from './cacheManager';
 import { CircularDependency } from './circularDependency';
 import { Declaration } from './declaration';
+import { getNameFromDeclaration } from './declarationUtils';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { findNodeByOffset, getDocString } from './parseTreeUtils';
@@ -576,6 +577,18 @@ export class Program {
         });
     }
 
+    // Performs parsing and analysis of a single file in the program. If the file is not part of
+    // the program returns false to indicate analysis was not performed.
+    analyzeFile(filePath: string, token: CancellationToken = CancellationToken.None): boolean {
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            const sourceFileInfo = this.getSourceFileInfo(filePath);
+            if (sourceFileInfo && this._checkTypes(sourceFileInfo, token)) {
+                return true;
+            }
+            return false;
+        });
+    }
+
     indexWorkspace(callback: (path: string, results: IndexResults) => void, token: CancellationToken): number {
         if (!this._configOptions.indexing) {
             return 0;
@@ -823,29 +836,7 @@ export class Program {
         let shadowFileInfo = this.getSourceFileInfo(shadowImplPath);
 
         if (!shadowFileInfo) {
-            const importName = this._getImportNameForFile(shadowImplPath);
-            const sourceFile = new SourceFile(
-                this._fs,
-                shadowImplPath,
-                importName,
-                /* isThirdPartyImport */ false,
-                /* isInPyTypedPackage */ false,
-                this._console,
-                this._logTracker
-            );
-            shadowFileInfo = {
-                sourceFile,
-                isTracked: false,
-                isOpenByClient: false,
-                isTypeshedFile: false,
-                isThirdPartyImport: false,
-                isThirdPartyPyTypedPresent: false,
-                diagnosticsVersion: undefined,
-                imports: [],
-                importedBy: [],
-                shadows: [],
-                shadowedBy: [],
-            };
+            shadowFileInfo = this._createIntrimFileInfo(shadowImplPath);
             this._addToSourceFileListAndMap(shadowFileInfo);
         }
 
@@ -858,6 +849,34 @@ export class Program {
         }
 
         return shadowFileInfo.sourceFile;
+    }
+
+    private _createIntrimFileInfo(filePath: string) {
+        const importName = this._getImportNameForFile(filePath);
+        const sourceFile = new SourceFile(
+            this._fs,
+            filePath,
+            importName,
+            /* isThirdPartyImport */ false,
+            /* isInPyTypedPackage */ false,
+            this._console,
+            this._logTracker
+        );
+        const sourceFileInfo = {
+            sourceFile,
+            isTracked: false,
+            isOpenByClient: false,
+            isTypeshedFile: false,
+            isThirdPartyImport: false,
+            isThirdPartyPyTypedPresent: false,
+            diagnosticsVersion: undefined,
+            imports: [],
+            importedBy: [],
+            shadows: [],
+            shadowedBy: [],
+        };
+
+        return sourceFileInfo;
     }
 
     private _createNewEvaluator() {
@@ -874,7 +893,6 @@ export class Program {
                 printTypeFlags: Program._getPrintTypeFlags(this._configOptions),
                 logCalls: this._configOptions.logTypeEvaluationTime,
                 minimumLoggingThreshold: this._configOptions.typeEvaluationTimeThreshold,
-                analyzeUnannotatedFunctions: this._configOptions.analyzeUnannotatedFunctions,
                 evaluateUnknownImportsAsAny: !!this._configOptions.evaluateUnknownImportsAsAny,
                 verifyTypeCacheEvaluatorFlags: !!this._configOptions.internalTestMode,
             },
@@ -1131,8 +1149,9 @@ export class Program {
                             const filesVisitedMap = new Map<string, SourceFileInfo>();
 
                             if (!this._detectAndReportImportCycles(file, filesVisitedMap)) {
-                                // If no cycles were reported, set a flag in all of the visited files
-                                // so we don't need to visit them again on subsequent cycle checks.
+                                // If no cycles were found in any of the files we visited,
+                                // set a flag to indicates that we don't need to visit them again
+                                // on subsequent cycle checks.
                                 filesVisitedMap.forEach((sourceFileInfo) => {
                                     sourceFileInfo.sourceFile.setNoCircularDependencyConfirmed();
                                 });
@@ -1203,17 +1222,25 @@ export class Program {
             return false;
         }
 
-        filesVisited.set(sourceFileInfo.sourceFile.getFilePath(), sourceFileInfo);
+        const filePath = normalizePathCase(this._fs, sourceFileInfo.sourceFile.getFilePath());
+
+        filesVisited.set(filePath, sourceFileInfo);
+
         let detectedCycle = false;
 
-        const filePath = normalizePathCase(this._fs, sourceFileInfo.sourceFile.getFilePath());
         if (dependencyMap.has(filePath)) {
+            // We detect a cycle (partial or full). A full cycle is one that is
+            // rooted in the file at the start of our dependency chain. A partial
+            // cycle loops back on some other file in the dependency chain. We
+            // will report only full cycles here and leave the reporting of
+            // partial cycles to other passes.
+            detectedCycle = true;
+
             // Look for chains at least two in length. A file that contains
             // an "import . from X" will technically create a cycle with
             // itself, but those are not interesting to report.
             if (dependencyChain.length > 1 && sourceFileInfo === dependencyChain[0]) {
                 this._logImportCycle(dependencyChain);
-                detectedCycle = true;
             }
         } else {
             // If we've already checked this dependency along
@@ -1509,6 +1536,7 @@ export class Program {
                 position,
                 this._evaluator!,
                 reporter,
+                DocumentSymbolCollectorUseCase.Reference,
                 token
             );
 
@@ -1527,7 +1555,7 @@ export class Program {
                         // See if the reference symbol's string is located somewhere within the file.
                         // If not, we can skip additional processing for the file.
                         const fileContents = curSourceFileInfo.sourceFile.getFileContent();
-                        if (!fileContents || fileContents.search(referencesResult.symbolName) >= 0) {
+                        if (!fileContents || referencesResult.symbolNames.some((s) => fileContents.search(s) >= 0)) {
                             this._bindFile(curSourceFileInfo);
 
                             curSourceFileInfo.sourceFile.addReferences(
@@ -1564,7 +1592,7 @@ export class Program {
                         const tempResult = new ReferencesResult(
                             referencesResult.requiresGlobalSearch,
                             referencesResult.nodeAtOffset,
-                            referencesResult.symbolName,
+                            referencesResult.symbolNames,
                             referencesResult.declarations
                         );
 
@@ -1604,7 +1632,7 @@ export class Program {
             const content = sourceFileInfo.sourceFile.getFileContent() ?? '';
             if (
                 options.indexingForAutoImportMode &&
-                !options.forceIndexing &&
+                !options.includeAllSymbols &&
                 !sourceFileInfo.sourceFile.isStubFile() &&
                 !sourceFileInfo.sourceFile.isThirdPartyPyTypedPresent()
             ) {
@@ -1916,6 +1944,7 @@ export class Program {
                 node,
                 this._evaluator!,
                 /* resolveLocalNames */ false,
+                DocumentSymbolCollectorUseCase.Rename,
                 token,
                 this._createSourceMapper(execEnv, token, fileInfo)
             );
@@ -2070,7 +2099,7 @@ export class Program {
                         if (isUserCode(curSourceFileInfo)) {
                             // Make sure searching symbol name exists in the file.
                             const content = curSourceFileInfo.sourceFile.getFileContent() ?? '';
-                            if (content.indexOf(referencesResult.symbolName) < 0) {
+                            if (!referencesResult.symbolNames.some((s) => content.search(s) >= 0)) {
                                 continue;
                             }
 
@@ -2120,6 +2149,7 @@ export class Program {
             position,
             this._evaluator!,
             undefined,
+            DocumentSymbolCollectorUseCase.Reference,
             token
         );
 
@@ -2133,7 +2163,7 @@ export class Program {
         );
 
         return CallHierarchyProvider.getCallForDeclaration(
-            referencesResult.symbolName,
+            getNameFromDeclaration(targetDecl) || referencesResult.symbolNames[0],
             targetDecl,
             this._evaluator!,
             token
@@ -2157,6 +2187,7 @@ export class Program {
             position,
             this._evaluator!,
             undefined,
+            DocumentSymbolCollectorUseCase.Reference,
             token
         );
 
@@ -2176,7 +2207,7 @@ export class Program {
 
                 const itemsToAdd = CallHierarchyProvider.getIncomingCallsForDeclaration(
                     curSourceFileInfo.sourceFile.getFilePath(),
-                    referencesResult.symbolName,
+                    getNameFromDeclaration(targetDecl) || referencesResult.symbolNames[0],
                     targetDecl,
                     curSourceFileInfo.sourceFile.getParseResults()!,
                     this._evaluator!,
@@ -2213,6 +2244,7 @@ export class Program {
             position,
             this._evaluator!,
             undefined,
+            DocumentSymbolCollectorUseCase.Reference,
             token
         );
 
@@ -2322,6 +2354,7 @@ export class Program {
             position,
             this._evaluator!,
             undefined,
+            DocumentSymbolCollectorUseCase.Rename,
             token
         );
 
@@ -2342,7 +2375,7 @@ export class Program {
         return new ReferencesResult(
             referencesResult.requiresGlobalSearch,
             referencesResult.nodeAtOffset,
-            referencesResult.symbolName,
+            referencesResult.symbolNames,
             referencesResult.nonImportDeclarations
         );
     }
@@ -2568,15 +2601,34 @@ export class Program {
             execEnv,
             this._evaluator!,
             (stubFilePath: string, implFilePath: string) => {
-                const stubFileInfo = this.getSourceFileInfo(stubFilePath);
+                let stubFileInfo = this.getSourceFileInfo(stubFilePath);
                 if (!stubFileInfo) {
-                    return undefined;
+                    // Special case for import statement.
+                    // ex) import X.Y
+                    // SourceFile for X might not be in memory since import `X.Y` only brings in Y
+                    stubFileInfo = this._createIntrimFileInfo(stubFilePath);
+                    this._addToSourceFileListAndMap(stubFileInfo);
                 }
+
                 this._addShadowedFile(stubFileInfo, implFilePath);
                 return this.getBoundSourceFile(implFilePath);
             },
-            (f) => this.getBoundSourceFileInfo(f),
-            (f) => this.getSourceFileInfo(f),
+            (f) => {
+                let fileInfo = this.getBoundSourceFileInfo(f);
+                if (!fileInfo) {
+                    // Special case for import statement.
+                    // ex) import X.Y
+                    // SourceFile for X might not be in memory since import `X.Y` only brings in Y
+                    fileInfo = this._createIntrimFileInfo(f);
+                    this._addToSourceFileListAndMap(fileInfo);
+
+                    // Even though this file is not referenced by anything, make sure
+                    // we have parse tree for doc string.
+                    fileInfo.sourceFile.parse(this._configOptions, this._importResolver);
+                }
+
+                return fileInfo;
+            },
             mapCompiled ?? false,
             preferStubs ?? false,
             from,
@@ -2624,7 +2676,7 @@ export class Program {
                 ) {
                     thirdPartyImportAllowed = true;
                 }
-            } else if (importer.isThirdPartyImport) {
+            } else if (importer.isThirdPartyImport && this._configOptions.useLibraryCodeForTypes) {
                 // If the importing file is a third-party import, allow importing of
                 // additional third-party imports. This supports the case where the importer
                 // is in a py.typed library but is importing from another non-py.typed

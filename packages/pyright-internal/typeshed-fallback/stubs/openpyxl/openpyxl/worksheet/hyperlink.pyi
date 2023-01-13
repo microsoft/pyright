@@ -1,29 +1,29 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Hyperlink(Serialisable):
     tagname: str
-    ref: Any
-    location: Any
-    tooltip: Any
-    display: Any
-    id: Any
-    target: Any
-    __attrs__: Any
+    ref: Incomplete
+    location: Incomplete
+    tooltip: Incomplete
+    display: Incomplete
+    id: Incomplete
+    target: Incomplete
+    __attrs__: Incomplete
     def __init__(
         self,
-        ref: Any | None = ...,
-        location: Any | None = ...,
-        tooltip: Any | None = ...,
-        display: Any | None = ...,
-        id: Any | None = ...,
-        target: Any | None = ...,
+        ref: Incomplete | None = ...,
+        location: Incomplete | None = ...,
+        tooltip: Incomplete | None = ...,
+        display: Incomplete | None = ...,
+        id: Incomplete | None = ...,
+        target: Incomplete | None = ...,
     ) -> None: ...
 
 class HyperlinkList(Serialisable):
     tagname: str
-    hyperlink: Any
+    hyperlink: Incomplete
     def __init__(self, hyperlink=...) -> None: ...
     def __bool__(self) -> bool: ...
     def __len__(self) -> int: ...

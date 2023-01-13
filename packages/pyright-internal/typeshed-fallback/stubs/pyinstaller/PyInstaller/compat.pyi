@@ -7,6 +7,7 @@ from typing_extensions import Literal, TypeAlias
 
 _OpenFile: TypeAlias = StrOrBytesPath | FileDescriptor
 
+strict_collect_mode: bool
 is_64bits: bool
 is_py35: Literal[True]
 is_py36: Literal[True]

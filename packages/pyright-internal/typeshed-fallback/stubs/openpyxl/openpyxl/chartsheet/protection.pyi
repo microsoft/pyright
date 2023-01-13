@@ -1,25 +1,25 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.worksheet.protection import _Protected
 
 class ChartsheetProtection(Serialisable, _Protected):
     tagname: str
-    algorithmName: Any
-    hashValue: Any
-    saltValue: Any
-    spinCount: Any
-    content: Any
-    objects: Any
-    __attrs__: Any
-    password: Any
+    algorithmName: Incomplete
+    hashValue: Incomplete
+    saltValue: Incomplete
+    spinCount: Incomplete
+    content: Incomplete
+    objects: Incomplete
+    __attrs__: Incomplete
+    password: Incomplete
     def __init__(
         self,
-        content: Any | None = ...,
-        objects: Any | None = ...,
-        hashValue: Any | None = ...,
-        spinCount: Any | None = ...,
-        saltValue: Any | None = ...,
-        algorithmName: Any | None = ...,
-        password: Any | None = ...,
+        content: Incomplete | None = ...,
+        objects: Incomplete | None = ...,
+        hashValue: Incomplete | None = ...,
+        spinCount: Incomplete | None = ...,
+        saltValue: Incomplete | None = ...,
+        algorithmName: Incomplete | None = ...,
+        password: Incomplete | None = ...,
     ) -> None: ...

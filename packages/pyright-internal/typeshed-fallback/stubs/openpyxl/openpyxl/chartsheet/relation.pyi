@@ -1,69 +1,69 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class SheetBackgroundPicture(Serialisable):
     tagname: str
-    id: Any
+    id: Incomplete
     def __init__(self, id) -> None: ...
 
 class DrawingHF(Serialisable):
-    id: Any
-    lho: Any
-    leftHeaderOddPages: Any
-    lhe: Any
-    leftHeaderEvenPages: Any
-    lhf: Any
-    leftHeaderFirstPage: Any
-    cho: Any
-    centerHeaderOddPages: Any
-    che: Any
-    centerHeaderEvenPages: Any
-    chf: Any
-    centerHeaderFirstPage: Any
-    rho: Any
-    rightHeaderOddPages: Any
-    rhe: Any
-    rightHeaderEvenPages: Any
-    rhf: Any
-    rightHeaderFirstPage: Any
-    lfo: Any
-    leftFooterOddPages: Any
-    lfe: Any
-    leftFooterEvenPages: Any
-    lff: Any
-    leftFooterFirstPage: Any
-    cfo: Any
-    centerFooterOddPages: Any
-    cfe: Any
-    centerFooterEvenPages: Any
-    cff: Any
-    centerFooterFirstPage: Any
-    rfo: Any
-    rightFooterOddPages: Any
-    rfe: Any
-    rightFooterEvenPages: Any
-    rff: Any
-    rightFooterFirstPage: Any
+    id: Incomplete
+    lho: Incomplete
+    leftHeaderOddPages: Incomplete
+    lhe: Incomplete
+    leftHeaderEvenPages: Incomplete
+    lhf: Incomplete
+    leftHeaderFirstPage: Incomplete
+    cho: Incomplete
+    centerHeaderOddPages: Incomplete
+    che: Incomplete
+    centerHeaderEvenPages: Incomplete
+    chf: Incomplete
+    centerHeaderFirstPage: Incomplete
+    rho: Incomplete
+    rightHeaderOddPages: Incomplete
+    rhe: Incomplete
+    rightHeaderEvenPages: Incomplete
+    rhf: Incomplete
+    rightHeaderFirstPage: Incomplete
+    lfo: Incomplete
+    leftFooterOddPages: Incomplete
+    lfe: Incomplete
+    leftFooterEvenPages: Incomplete
+    lff: Incomplete
+    leftFooterFirstPage: Incomplete
+    cfo: Incomplete
+    centerFooterOddPages: Incomplete
+    cfe: Incomplete
+    centerFooterEvenPages: Incomplete
+    cff: Incomplete
+    centerFooterFirstPage: Incomplete
+    rfo: Incomplete
+    rightFooterOddPages: Incomplete
+    rfe: Incomplete
+    rightFooterEvenPages: Incomplete
+    rff: Incomplete
+    rightFooterFirstPage: Incomplete
     def __init__(
         self,
-        id: Any | None = ...,
-        lho: Any | None = ...,
-        lhe: Any | None = ...,
-        lhf: Any | None = ...,
-        cho: Any | None = ...,
-        che: Any | None = ...,
-        chf: Any | None = ...,
-        rho: Any | None = ...,
-        rhe: Any | None = ...,
-        rhf: Any | None = ...,
-        lfo: Any | None = ...,
-        lfe: Any | None = ...,
-        lff: Any | None = ...,
-        cfo: Any | None = ...,
-        cfe: Any | None = ...,
-        cff: Any | None = ...,
-        rfo: Any | None = ...,
-        rfe: Any | None = ...,
-        rff: Any | None = ...,
+        id: Incomplete | None = ...,
+        lho: Incomplete | None = ...,
+        lhe: Incomplete | None = ...,
+        lhf: Incomplete | None = ...,
+        cho: Incomplete | None = ...,
+        che: Incomplete | None = ...,
+        chf: Incomplete | None = ...,
+        rho: Incomplete | None = ...,
+        rhe: Incomplete | None = ...,
+        rhf: Incomplete | None = ...,
+        lfo: Incomplete | None = ...,
+        lfe: Incomplete | None = ...,
+        lff: Incomplete | None = ...,
+        cfo: Incomplete | None = ...,
+        cfe: Incomplete | None = ...,
+        cff: Incomplete | None = ...,
+        rfo: Incomplete | None = ...,
+        rfe: Incomplete | None = ...,
+        rff: Incomplete | None = ...,
     ) -> None: ...

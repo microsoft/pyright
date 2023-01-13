@@ -3,14 +3,17 @@
 import sys
 from _typeshed import StrOrBytesPath
 from collections.abc import Iterable
-from pathlib import Path
-from typing import Any
-from typing_extensions import TypeAlias, TypedDict
+from pathlib import Path, PurePosixPath
+from typing_extensions import TypedDict
 
 if sys.version_info >= (3, 8):
     from importlib.metadata import PackagePath as _PackagePath
 else:
-    _PackagePath: TypeAlias = Any
+    # Same as importlib_metadata.PackagePath
+    class _PackagePath(PurePosixPath):
+        def read_text(self, encoding: str = ...) -> str: ...
+        def read_binary(self) -> str: ...
+        def locate(self) -> Path: ...
 
 CONDA_ROOT: Path
 CONDA_META_DIR: Path

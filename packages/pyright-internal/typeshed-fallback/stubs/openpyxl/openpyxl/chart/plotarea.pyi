@@ -1,66 +1,66 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class DataTable(Serialisable):
     tagname: str
-    showHorzBorder: Any
-    showVertBorder: Any
-    showOutline: Any
-    showKeys: Any
-    spPr: Any
-    graphicalProperties: Any
-    txPr: Any
-    extLst: Any
-    __elements__: Any
+    showHorzBorder: Incomplete
+    showVertBorder: Incomplete
+    showOutline: Incomplete
+    showKeys: Incomplete
+    spPr: Incomplete
+    graphicalProperties: Incomplete
+    txPr: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        showHorzBorder: Any | None = ...,
-        showVertBorder: Any | None = ...,
-        showOutline: Any | None = ...,
-        showKeys: Any | None = ...,
-        spPr: Any | None = ...,
-        txPr: Any | None = ...,
-        extLst: Any | None = ...,
+        showHorzBorder: Incomplete | None = ...,
+        showVertBorder: Incomplete | None = ...,
+        showOutline: Incomplete | None = ...,
+        showKeys: Incomplete | None = ...,
+        spPr: Incomplete | None = ...,
+        txPr: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class PlotArea(Serialisable):
     tagname: str
-    layout: Any
-    dTable: Any
-    spPr: Any
-    graphicalProperties: Any
-    extLst: Any
-    areaChart: Any
-    area3DChart: Any
-    lineChart: Any
-    line3DChart: Any
-    stockChart: Any
-    radarChart: Any
-    scatterChart: Any
-    pieChart: Any
-    pie3DChart: Any
-    doughnutChart: Any
-    barChart: Any
-    bar3DChart: Any
-    ofPieChart: Any
-    surfaceChart: Any
-    surface3DChart: Any
-    bubbleChart: Any
-    valAx: Any
-    catAx: Any
-    dateAx: Any
-    serAx: Any
-    __elements__: Any
+    layout: Incomplete
+    dTable: Incomplete
+    spPr: Incomplete
+    graphicalProperties: Incomplete
+    extLst: Incomplete
+    areaChart: Incomplete
+    area3DChart: Incomplete
+    lineChart: Incomplete
+    line3DChart: Incomplete
+    stockChart: Incomplete
+    radarChart: Incomplete
+    scatterChart: Incomplete
+    pieChart: Incomplete
+    pie3DChart: Incomplete
+    doughnutChart: Incomplete
+    barChart: Incomplete
+    bar3DChart: Incomplete
+    ofPieChart: Incomplete
+    surfaceChart: Incomplete
+    surface3DChart: Incomplete
+    bubbleChart: Incomplete
+    valAx: Incomplete
+    catAx: Incomplete
+    dateAx: Incomplete
+    serAx: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        layout: Any | None = ...,
-        dTable: Any | None = ...,
-        spPr: Any | None = ...,
+        layout: Incomplete | None = ...,
+        dTable: Incomplete | None = ...,
+        spPr: Incomplete | None = ...,
         _charts=...,
         _axes=...,
-        extLst: Any | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
-    def to_tree(self, tagname: Any | None = ..., idx: Any | None = ..., namespace: Any | None = ...): ...
+    def to_tree(self, tagname: Incomplete | None = ..., idx: Incomplete | None = ..., namespace: Incomplete | None = ...): ...
     @classmethod
     def from_tree(cls, node): ...

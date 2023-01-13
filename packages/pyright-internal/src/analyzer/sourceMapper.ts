@@ -53,7 +53,6 @@ export class SourceMapper {
         private _evaluator: TypeEvaluator,
         private _fileBinder: ShadowFileBinder,
         private _boundSourceGetter: BoundSourceGetter,
-        private _sourceGetter: BoundSourceGetter,
         private _mapCompiled: boolean,
         private _preferStubs: boolean,
         private _fromFile: SourceFileInfo | undefined,
@@ -61,8 +60,18 @@ export class SourceMapper {
     ) {}
 
     findModules(stubFilePath: string): ModuleNode[] {
-        const sourceFiles = this._getBoundSourceFilesFromStubFile(stubFilePath);
-        return sourceFiles.map((sf) => sf.getParseResults()?.parseTree).filter(isDefined);
+        const sourceFiles = this._isStubThatShouldBeMappedToImplementation(stubFilePath)
+            ? this._getBoundSourceFilesFromStubFile(stubFilePath)
+            : [this._boundSourceGetter(stubFilePath)?.sourceFile];
+
+        return sourceFiles
+            .filter(isDefined)
+            .map((sf) => sf.getParseResults()?.parseTree)
+            .filter(isDefined);
+    }
+
+    getModuleNode(filePath: string): ModuleNode | undefined {
+        return this._boundSourceGetter(filePath)?.sourceFile.getParseResults()?.parseTree;
     }
 
     findDeclarations(stubDecl: Declaration): Declaration[] {
@@ -94,7 +103,7 @@ export class SourceMapper {
     }
 
     isUserCode(path: string): boolean {
-        return isUserCode(this._sourceGetter(path));
+        return isUserCode(this._boundSourceGetter(path));
     }
 
     getNextFileName(path: string) {

@@ -1,4 +1,5 @@
 version = "4.11.*"
+requires = ["types-html5lib"]
 
 [tool.stubtest]
 extras = ["lxml", "html5lib"]

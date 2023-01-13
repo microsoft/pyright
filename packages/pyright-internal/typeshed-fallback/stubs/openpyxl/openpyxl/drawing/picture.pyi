@@ -1,70 +1,72 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class PictureLocking(Serialisable):
     tagname: str
-    namespace: Any
-    noCrop: Any
-    noGrp: Any
-    noSelect: Any
-    noRot: Any
-    noChangeAspect: Any
-    noMove: Any
-    noResize: Any
-    noEditPoints: Any
-    noAdjustHandles: Any
-    noChangeArrowheads: Any
-    noChangeShapeType: Any
-    extLst: Any
-    __elements__: Any
+    namespace: Incomplete
+    noCrop: Incomplete
+    noGrp: Incomplete
+    noSelect: Incomplete
+    noRot: Incomplete
+    noChangeAspect: Incomplete
+    noMove: Incomplete
+    noResize: Incomplete
+    noEditPoints: Incomplete
+    noAdjustHandles: Incomplete
+    noChangeArrowheads: Incomplete
+    noChangeShapeType: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        noCrop: Any | None = ...,
-        noGrp: Any | None = ...,
-        noSelect: Any | None = ...,
-        noRot: Any | None = ...,
-        noChangeAspect: Any | None = ...,
-        noMove: Any | None = ...,
-        noResize: Any | None = ...,
-        noEditPoints: Any | None = ...,
-        noAdjustHandles: Any | None = ...,
-        noChangeArrowheads: Any | None = ...,
-        noChangeShapeType: Any | None = ...,
-        extLst: Any | None = ...,
+        noCrop: Incomplete | None = ...,
+        noGrp: Incomplete | None = ...,
+        noSelect: Incomplete | None = ...,
+        noRot: Incomplete | None = ...,
+        noChangeAspect: Incomplete | None = ...,
+        noMove: Incomplete | None = ...,
+        noResize: Incomplete | None = ...,
+        noEditPoints: Incomplete | None = ...,
+        noAdjustHandles: Incomplete | None = ...,
+        noChangeArrowheads: Incomplete | None = ...,
+        noChangeShapeType: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class NonVisualPictureProperties(Serialisable):
     tagname: str
-    preferRelativeResize: Any
-    picLocks: Any
-    extLst: Any
-    __elements__: Any
-    def __init__(self, preferRelativeResize: Any | None = ..., picLocks: Any | None = ..., extLst: Any | None = ...) -> None: ...
+    preferRelativeResize: Incomplete
+    picLocks: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
+    def __init__(
+        self, preferRelativeResize: Incomplete | None = ..., picLocks: Incomplete | None = ..., extLst: Incomplete | None = ...
+    ) -> None: ...
 
 class PictureNonVisual(Serialisable):
     tagname: str
-    cNvPr: Any
-    cNvPicPr: Any
-    __elements__: Any
-    def __init__(self, cNvPr: Any | None = ..., cNvPicPr: Any | None = ...) -> None: ...
+    cNvPr: Incomplete
+    cNvPicPr: Incomplete
+    __elements__: Incomplete
+    def __init__(self, cNvPr: Incomplete | None = ..., cNvPicPr: Incomplete | None = ...) -> None: ...
 
 class PictureFrame(Serialisable):
     tagname: str
-    macro: Any
-    fPublished: Any
-    nvPicPr: Any
-    blipFill: Any
-    spPr: Any
-    graphicalProperties: Any
-    style: Any
-    __elements__: Any
+    macro: Incomplete
+    fPublished: Incomplete
+    nvPicPr: Incomplete
+    blipFill: Incomplete
+    spPr: Incomplete
+    graphicalProperties: Incomplete
+    style: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        macro: Any | None = ...,
-        fPublished: Any | None = ...,
-        nvPicPr: Any | None = ...,
-        blipFill: Any | None = ...,
-        spPr: Any | None = ...,
-        style: Any | None = ...,
+        macro: Incomplete | None = ...,
+        fPublished: Incomplete | None = ...,
+        nvPicPr: Incomplete | None = ...,
+        blipFill: Incomplete | None = ...,
+        spPr: Incomplete | None = ...,
+        style: Incomplete | None = ...,
     ) -> None: ...

@@ -1,31 +1,31 @@
+from _typeshed import Incomplete
 from collections.abc import Generator
-from typing import Any
 
 from openpyxl.descriptors.serialisable import Serialisable
 
-mimetypes: Any
+mimetypes: Incomplete
 
 class FileExtension(Serialisable):
     tagname: str
-    Extension: Any
-    ContentType: Any
+    Extension: Incomplete
+    ContentType: Incomplete
     def __init__(self, Extension, ContentType) -> None: ...
 
 class Override(Serialisable):
     tagname: str
-    PartName: Any
-    ContentType: Any
+    PartName: Incomplete
+    ContentType: Incomplete
     def __init__(self, PartName, ContentType) -> None: ...
 
-DEFAULT_TYPES: Any
-DEFAULT_OVERRIDE: Any
+DEFAULT_TYPES: Incomplete
+DEFAULT_OVERRIDE: Incomplete
 
 class Manifest(Serialisable):
     tagname: str
-    Default: Any
-    Override: Any
+    Default: Incomplete
+    Override: Incomplete
     path: str
-    __elements__: Any
+    __elements__: Incomplete
     def __init__(self, Default=..., Override=...) -> None: ...
     @property
     def filenames(self): ...
@@ -34,5 +34,5 @@ class Manifest(Serialisable):
     def to_tree(self): ...
     def __contains__(self, content_type): ...
     def find(self, content_type): ...
-    def findall(self, content_type) -> Generator[Any, None, None]: ...
+    def findall(self, content_type) -> Generator[Incomplete, None, None]: ...
     def append(self, obj) -> None: ...

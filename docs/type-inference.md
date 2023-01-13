@@ -262,7 +262,7 @@ def func1(a: int):
     var2 = (a, a)
 
     # If you want the type to be tuple[int, ...]
-    # (i.e. a homogenous tuple of indeterminate length),
+    # (i.e. a homogeneous tuple of indeterminate length),
     # use a type annotation.
     var3: tuple[int, ...] = (a, a)
 ```
@@ -325,7 +325,7 @@ When inferring the type of a dictionary expression (in the absence of bidirectio
 3. If the dict contains multiple elements where the keys or values differ in type, the behavior depends on the `strictDictionaryInference` configuration setting. By default this setting is off.
 
     * If `strictDictionaryInference` is off, infer `dict[Unknown, Unknown]`.
-    * Otherwise use the union of all key and value types `dict[Union[(keys), Union[(values)]]]`.
+    * Otherwise use the union of all key and value types `dict[Union[(keys)], Union[(values)]]`.
 
 
 ```python

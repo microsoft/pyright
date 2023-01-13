@@ -734,10 +734,6 @@ export class Binder extends ParseTreeWalker {
             if (param.boundExpression) {
                 this.walk(param.boundExpression);
             }
-
-            if (param.defaultExpression) {
-                this.walk(param.defaultExpression);
-            }
         });
 
         node.parameters.forEach((param) => {
@@ -763,6 +759,12 @@ export class Binder extends ParseTreeWalker {
                 );
             } else {
                 this._activeTypeParams.set(name.value, symbol);
+            }
+        });
+
+        node.parameters.forEach((param) => {
+            if (param.defaultExpression) {
+                this.walk(param.defaultExpression);
             }
         });
 
@@ -816,6 +818,15 @@ export class Binder extends ParseTreeWalker {
         if (node.typeAnnotationComment) {
             this.walk(node.typeAnnotationComment);
             this._addTypeDeclarationForVariable(node.leftExpression, node.typeAnnotationComment);
+        }
+
+        if (node.chainedTypeAnnotationComment) {
+            this._addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.annotationNotSupported(),
+                node.chainedTypeAnnotationComment
+            );
         }
 
         // If the assignment target base expression is potentially a
@@ -2466,7 +2477,7 @@ export class Binder extends ParseTreeWalker {
                 node,
                 path: pathOfLastSubmodule,
                 loadSymbolsFromPath: false,
-                range: importAlias ? convertTextRangeToRange(importAlias, this._fileInfo.lines) : getEmptyRange(),
+                range: getEmptyRange(),
                 usesLocalName: !!importAlias,
                 moduleName: importInfo.importName,
                 firstNamePart: firstNamePartValue,
@@ -2481,7 +2492,7 @@ export class Binder extends ParseTreeWalker {
                 node,
                 path: pathOfLastSubmodule,
                 loadSymbolsFromPath: true,
-                range: importAlias ? convertTextRangeToRange(importAlias, this._fileInfo.lines) : getEmptyRange(),
+                range: getEmptyRange(),
                 usesLocalName: !!importAlias,
                 moduleName: importInfo?.importName ?? '',
                 firstNamePart: firstNamePartValue,

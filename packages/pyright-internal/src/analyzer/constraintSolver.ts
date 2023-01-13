@@ -16,8 +16,8 @@ import {
     AnyType,
     ClassType,
     combineTypes,
+    FunctionParameter,
     FunctionType,
-    FunctionTypeFlags,
     isAny,
     isAnyOrUnknown,
     isClass,
@@ -30,8 +30,9 @@ import {
     isUnion,
     isUnknown,
     isUnpacked,
+    isUnpackedClass,
     isVariadicTypeVar,
-    ParamSpecEntry,
+    TupleTypeArgument,
     Type,
     TypeBase,
     TypeVarScopeId,
@@ -43,10 +44,10 @@ import {
     addConditionToType,
     AssignTypeFlags,
     buildTypeVarContextFromSpecializedClass,
-    containsLiteralType,
     convertParamSpecValueToType,
     convertToInstance,
     convertToInstantiable,
+    convertTypeToParamSpecValue,
     getTypeCondition,
     getTypeVarScopeId,
     isEffectivelyInstantiable,
@@ -87,6 +88,22 @@ export function assignTypeToTypeVar(
     // type variable.
     if (!typeVarContext.hasSolveForScope(destType.scopeId)) {
         if (isAnyOrUnknown(srcType) || (isClass(srcType) && ClassType.derivesFromAnyOrUnknown(srcType))) {
+            return true;
+        }
+
+        // Is this the equivalent of an "Unknown" for a ParamSpec?
+        if (
+            destType.details.isParamSpec &&
+            isFunction(srcType) &&
+            FunctionType.isParamSpecValue(srcType) &&
+            FunctionType.shouldSkipArgsKwargsCompatibilityCheck(srcType)
+        ) {
+            return true;
+        }
+
+        // Never or NoReturn is always assignable to all type variables unless
+        // we're enforcing invariance.
+        if (isNever(srcType) && (flags & AssignTypeFlags.EnforceInvariance) === 0) {
             return true;
         }
 
@@ -185,7 +202,11 @@ export function assignTypeToTypeVar(
 
     const curEntry = typeVarContext.getTypeVar(destType);
     const curNarrowTypeBound = curEntry?.narrowBound;
-    const curWideTypeBound = curEntry?.wideBound ?? destType.details.boundType;
+
+    let curWideTypeBound = curEntry?.wideBound;
+    if (!curWideTypeBound && !destType.details.isSynthesizedSelf) {
+        curWideTypeBound = destType.details.boundType;
+    }
 
     // Handle the constrained case. This case needs to be handled specially
     // because type narrowing isn't used in this case. For example, if the
@@ -383,14 +404,7 @@ export function assignTypeToTypeVar(
     let newWideTypeBound = curWideTypeBound;
     const diagAddendum = diag ? new DiagnosticAddendum() : undefined;
 
-    // Strip literals if the existing value contains no literals. This allows
-    // for explicit (but no implicit) literal specialization of a generic class.
-    const retainLiterals =
-        (flags & AssignTypeFlags.RetainLiteralsForTypeVar) !== 0 ||
-        typeVarContext.getRetainLiterals(destType) ||
-        (destType.details.boundType && containsLiteralType(destType.details.boundType)) ||
-        destType.details.constraints.some((t) => containsLiteralType(t));
-    let adjSrcType = retainLiterals ? srcType : evaluator.stripLiteralValue(srcType);
+    let adjSrcType = srcType;
 
     if (TypeBase.isInstantiable(destType)) {
         if (isEffectivelyInstantiable(adjSrcType)) {
@@ -406,7 +420,18 @@ export function assignTypeToTypeVar(
         }
     }
 
-    if (isContravariant || (flags & AssignTypeFlags.AllowTypeVarNarrowing) !== 0) {
+    if ((flags & AssignTypeFlags.PopulatingExpectedType) !== 0) {
+        // If we're populating the expected type, constrain either the
+        // narrow type bound, wide type bound or both.
+        if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+            newNarrowTypeBound = adjSrcType;
+            newWideTypeBound = adjSrcType;
+        } else if (isContravariant) {
+            newNarrowTypeBound = adjSrcType;
+        } else {
+            newWideTypeBound = adjSrcType;
+        }
+    } else if (isContravariant) {
         // Update the wide type bound.
         if (!curWideTypeBound) {
             newWideTypeBound = adjSrcType;
@@ -521,18 +546,6 @@ export function assignTypeToTypeVar(
                     return false;
                 }
 
-                // Don't allow widening for variadic type variables.
-                const possibleVariadic = destType;
-                if (isVariadicTypeVar(possibleVariadic)) {
-                    diag?.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: evaluator.printType(curNarrowTypeBound),
-                            destType: evaluator.printType(adjSrcType),
-                        })
-                    );
-                    return false;
-                }
-
                 if (
                     evaluator.assignType(
                         adjSrcType,
@@ -545,6 +558,19 @@ export function assignTypeToTypeVar(
                     )
                 ) {
                     newNarrowTypeBound = adjSrcType;
+                } else if (isVariadicTypeVar(destType)) {
+                    const widenedType = widenTypeForVariadicTypeVar(curNarrowTypeBound, adjSrcType);
+                    if (!widenedType) {
+                        diag?.addMessage(
+                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                sourceType: evaluator.printType(curNarrowTypeBound),
+                                destType: evaluator.printType(adjSrcType),
+                            })
+                        );
+                        return false;
+                    }
+
+                    newNarrowTypeBound = widenedType;
                 } else {
                     const objectType = evaluator.getObjectType();
 
@@ -581,7 +607,7 @@ export function assignTypeToTypeVar(
                         makeConcrete = false;
                     } else if (
                         isUnion(newNarrowTypeBound) &&
-                        newNarrowTypeBound.subtypes.some((subtype) => isTypeSame(subtype, curWideTypeBound))
+                        newNarrowTypeBound.subtypes.some((subtype) => isTypeSame(subtype, curWideTypeBound!))
                     ) {
                         makeConcrete = false;
                     }
@@ -592,9 +618,9 @@ export function assignTypeToTypeVar(
                         makeConcrete ? evaluator.makeTopLevelTypeVarsConcrete(curWideTypeBound) : curWideTypeBound,
                         newNarrowTypeBound,
                         diag?.createAddendum(),
-                        new TypeVarContext(destType.scopeId),
+                        /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
-                        flags & AssignTypeFlags.IgnoreTypeVarScope,
+                        AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount
                     )
                 ) {
@@ -657,7 +683,26 @@ export function assignTypeToTypeVar(
     }
 
     if (!typeVarContext.isLocked() && isTypeVarInScope) {
-        typeVarContext.setTypeVarType(destType, newNarrowTypeBound, newWideTypeBound, retainLiterals);
+        let newNarrowTypeBoundNoLiterals: Type | undefined;
+
+        if (
+            newNarrowTypeBound &&
+            (flags & (AssignTypeFlags.PopulatingExpectedType | AssignTypeFlags.RetainLiteralsForTypeVar)) === 0
+        ) {
+            const strippedLiteral = isVariadicTypeVar(destType)
+                ? stripLiteralValueForUnpackedTuple(evaluator, newNarrowTypeBound)
+                : evaluator.stripLiteralValue(newNarrowTypeBound);
+
+            // Strip the literals from the narrow type bound and see if it is still
+            // narrower than the wide bound.
+            if (strippedLiteral !== newNarrowTypeBound) {
+                if (!newWideTypeBound || evaluator.assignType(newWideTypeBound, strippedLiteral)) {
+                    newNarrowTypeBoundNoLiterals = strippedLiteral;
+                }
+            }
+        }
+
+        typeVarContext.setTypeVarType(destType, newNarrowTypeBound, newNarrowTypeBoundNoLiterals, newWideTypeBound);
     }
 
     return true;
@@ -672,30 +717,24 @@ function assignTypeToParamSpec(
     recursionCount = 0
 ) {
     if (isTypeVar(srcType) && srcType.details.isParamSpec) {
-        const existingEntry = typeVarContext.getParamSpec(destType);
-        if (existingEntry) {
-            if (existingEntry.parameters.length === 0 && existingEntry.paramSpec) {
+        const existingType = typeVarContext.getParamSpecType(destType);
+        if (existingType) {
+            if (existingType.details.parameters.length === 0 && existingType.details.paramSpec) {
                 // If there's an existing entry that matches, that's fine.
-                if (isTypeSame(existingEntry.paramSpec, srcType, {}, recursionCount)) {
+                if (isTypeSame(existingType.details.paramSpec, srcType, {}, recursionCount)) {
                     return true;
                 }
             }
         } else {
             if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.scopeId)) {
-                typeVarContext.setParamSpec(destType, {
-                    flags: FunctionTypeFlags.None,
-                    parameters: [],
-                    typeVarScopeId: undefined,
-                    docString: undefined,
-                    paramSpec: srcType,
-                });
+                typeVarContext.setTypeVarType(destType, convertTypeToParamSpecValue(srcType));
             }
             return true;
         }
     } else if (isFunction(srcType)) {
         const functionSrcType = srcType;
         const parameters = srcType.details.parameters.map((p, index) => {
-            const paramSpecEntry: ParamSpecEntry = {
+            const param: FunctionParameter = {
                 category: p.category,
                 name: p.name,
                 isNameSynthesized: p.isNameSynthesized,
@@ -703,25 +742,20 @@ function assignTypeToParamSpec(
                 defaultValueExpression: p.defaultValueExpression,
                 type: FunctionType.getEffectiveParameterType(functionSrcType, index),
             };
-            return paramSpecEntry;
+            return param;
         });
 
-        const existingEntry = typeVarContext.getParamSpec(destType);
-        if (existingEntry) {
-            if (existingEntry.paramSpec === srcType.details.paramSpec) {
+        const existingType = typeVarContext.getParamSpecType(destType);
+        if (existingType) {
+            if (existingType.details.paramSpec === srcType.details.paramSpec) {
                 // Convert the remaining portion of the signature to a function
                 // for comparison purposes.
-                const existingFunction = convertParamSpecValueToType(existingEntry, /* omitParamSpec */ true);
-                const assignedFunction = convertParamSpecValueToType(
-                    {
-                        parameters,
-                        flags: srcType.details.flags,
-                        typeVarScopeId: srcType.details.typeVarScopeId,
-                        docString: undefined,
-                        paramSpec: undefined,
-                    },
-                    /* omitParamSpec */ true
-                );
+                const existingFunction = convertParamSpecValueToType(existingType, /* omitParamSpec */ true);
+                const assignedFunction = FunctionType.createInstance('', '', '', srcType.details.flags);
+                parameters.forEach((param) => {
+                    FunctionType.addParameter(assignedFunction, param);
+                });
+                assignedFunction.details.typeVarScopeId = srcType.details.typeVarScopeId;
 
                 if (
                     evaluator.assignType(
@@ -739,13 +773,14 @@ function assignTypeToParamSpec(
             }
         } else {
             if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.scopeId)) {
-                typeVarContext.setParamSpec(destType, {
-                    parameters,
-                    typeVarScopeId: srcType.details.typeVarScopeId,
-                    flags: srcType.details.flags,
-                    docString: srcType.details.docString,
-                    paramSpec: srcType.details.paramSpec,
+                const newFunction = FunctionType.createInstance('', '', '', srcType.details.flags);
+                parameters.forEach((param) => {
+                    FunctionType.addParameter(newFunction, param);
                 });
+                newFunction.details.typeVarScopeId = srcType.details.typeVarScopeId;
+                newFunction.details.docString = srcType.details.docString;
+                newFunction.details.paramSpec = srcType.details.paramSpec;
+                typeVarContext.setTypeVarType(destType, newFunction);
             }
             return true;
         }
@@ -819,8 +854,8 @@ export function populateTypeVarContextBasedOnExpectedType(
                     typeVarContext.setTypeVarType(
                         entry.typeVar,
                         TypeVarType.getVariance(entry.typeVar) === Variance.Covariant ? undefined : typeVarType,
-                        TypeVarType.getVariance(entry.typeVar) === Variance.Contravariant ? undefined : typeVarType,
-                        entry.retainLiteral
+                        /* narrowBoundNoLiterals */ undefined,
+                        TypeVarType.getVariance(entry.typeVar) === Variance.Contravariant ? undefined : typeVarType
                     );
                 }
             }
@@ -897,6 +932,7 @@ export function populateTypeVarContextBasedOnExpectedType(
                         typeVarContext.setTypeVarType(
                             targetTypeVar,
                             TypeVarType.getVariance(typeVar) === Variance.Covariant ? undefined : expectedTypeArgValue,
+                            /* narrowBoundNoLiterals */ undefined,
                             TypeVarType.getVariance(typeVar) === Variance.Contravariant
                                 ? undefined
                                 : expectedTypeArgValue
@@ -912,4 +948,74 @@ export function populateTypeVarContextBasedOnExpectedType(
     }
 
     return false;
+}
+
+// For normal TypeVars, the constraint solver can widen a type by combining
+// two otherwise incompatible types into a union. For TypeVarTuples, we need
+// to do the equivalent operation for unpacked tuples.
+function widenTypeForVariadicTypeVar(type1: Type, type2: Type): Type | undefined {
+    // If the two types are not unpacked tuples, we can't combine them.
+    if (!isUnpackedClass(type1) || !isUnpackedClass(type2)) {
+        return undefined;
+    }
+
+    // If the two unpacked tuples are not the same length, we can't combine them.
+    if (
+        !type1.tupleTypeArguments ||
+        !type2.tupleTypeArguments ||
+        type1.tupleTypeArguments.length !== type2.tupleTypeArguments.length
+    ) {
+        return undefined;
+    }
+
+    let canCombine = true;
+
+    const tupleTypeArgs: TupleTypeArgument[] = type1.tupleTypeArguments.map((arg1, index) => {
+        const arg2 = type2.tupleTypeArguments![index];
+
+        // If an entry is unbound in length and the corresponding entry in the
+        // other tuple is not (or vice versa), we can't combine them.
+        if (arg1.isUnbounded !== arg2.isUnbounded) {
+            canCombine = false;
+        }
+
+        return {
+            isUnbounded: arg1.isUnbounded,
+            type: combineTypes([arg1.type, arg2.type]),
+        };
+    });
+
+    if (!canCombine) {
+        return undefined;
+    }
+
+    return specializeTupleClass(type1, tupleTypeArgs, /* isTypeArgumentExplicit */ true, /* isUnpackedTuple */ true);
+}
+
+// If the provided type is an unpacked tuple, this function strips the
+// literals from types of the corresponding elements.
+function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type): Type {
+    if (!isUnpackedClass(type) || !type.tupleTypeArguments) {
+        return type;
+    }
+
+    let strippedLiteral = false;
+    const tupleTypeArgs: TupleTypeArgument[] = type.tupleTypeArguments.map((arg) => {
+        const strippedType = evaluator.stripLiteralValue(arg.type);
+
+        if (strippedType !== arg.type) {
+            strippedLiteral = true;
+        }
+
+        return {
+            isUnbounded: arg.isUnbounded,
+            type: strippedType,
+        };
+    });
+
+    if (!strippedLiteral) {
+        return type;
+    }
+
+    return specializeTupleClass(type, tupleTypeArgs, /* isTypeArgumentExplicit */ true, /* isUnpackedTuple */ true);
 }

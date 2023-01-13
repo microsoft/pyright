@@ -1,599 +1,607 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class HierarchyUsage(Serialisable):
     tagname: str
-    hierarchyUsage: Any
-    def __init__(self, hierarchyUsage: Any | None = ...) -> None: ...
+    hierarchyUsage: Incomplete
+    def __init__(self, hierarchyUsage: Incomplete | None = ...) -> None: ...
 
 class ColHierarchiesUsage(Serialisable):
     tagname: str
-    colHierarchyUsage: Any
-    __elements__: Any
-    __attrs__: Any
-    def __init__(self, count: Any | None = ..., colHierarchyUsage=...) -> None: ...
+    colHierarchyUsage: Incomplete
+    __elements__: Incomplete
+    __attrs__: Incomplete
+    def __init__(self, count: Incomplete | None = ..., colHierarchyUsage=...) -> None: ...
     @property
     def count(self): ...
 
 class RowHierarchiesUsage(Serialisable):
     tagname: str
-    rowHierarchyUsage: Any
-    __elements__: Any
-    __attrs__: Any
-    def __init__(self, count: Any | None = ..., rowHierarchyUsage=...) -> None: ...
+    rowHierarchyUsage: Incomplete
+    __elements__: Incomplete
+    __attrs__: Incomplete
+    def __init__(self, count: Incomplete | None = ..., rowHierarchyUsage=...) -> None: ...
     @property
     def count(self): ...
 
 class PivotFilter(Serialisable):
     tagname: str
-    fld: Any
-    mpFld: Any
-    type: Any
-    evalOrder: Any
-    id: Any
-    iMeasureHier: Any
-    iMeasureFld: Any
-    name: Any
-    description: Any
-    stringValue1: Any
-    stringValue2: Any
-    autoFilter: Any
-    extLst: Any
-    __elements__: Any
+    fld: Incomplete
+    mpFld: Incomplete
+    type: Incomplete
+    evalOrder: Incomplete
+    id: Incomplete
+    iMeasureHier: Incomplete
+    iMeasureFld: Incomplete
+    name: Incomplete
+    description: Incomplete
+    stringValue1: Incomplete
+    stringValue2: Incomplete
+    autoFilter: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        fld: Any | None = ...,
-        mpFld: Any | None = ...,
-        type: Any | None = ...,
-        evalOrder: Any | None = ...,
-        id: Any | None = ...,
-        iMeasureHier: Any | None = ...,
-        iMeasureFld: Any | None = ...,
-        name: Any | None = ...,
-        description: Any | None = ...,
-        stringValue1: Any | None = ...,
-        stringValue2: Any | None = ...,
-        autoFilter: Any | None = ...,
-        extLst: Any | None = ...,
+        fld: Incomplete | None = ...,
+        mpFld: Incomplete | None = ...,
+        type: Incomplete | None = ...,
+        evalOrder: Incomplete | None = ...,
+        id: Incomplete | None = ...,
+        iMeasureHier: Incomplete | None = ...,
+        iMeasureFld: Incomplete | None = ...,
+        name: Incomplete | None = ...,
+        description: Incomplete | None = ...,
+        stringValue1: Incomplete | None = ...,
+        stringValue2: Incomplete | None = ...,
+        autoFilter: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class PivotFilters(Serialisable):  # type: ignore[misc]
-    count: Any
-    filter: Any
-    __elements__: Any
-    def __init__(self, count: Any | None = ..., filter: Any | None = ...) -> None: ...
+    count: Incomplete
+    filter: Incomplete
+    __elements__: Incomplete
+    def __init__(self, count: Incomplete | None = ..., filter: Incomplete | None = ...) -> None: ...
 
 class PivotTableStyle(Serialisable):
     tagname: str
-    name: Any
-    showRowHeaders: Any
-    showColHeaders: Any
-    showRowStripes: Any
-    showColStripes: Any
-    showLastColumn: Any
+    name: Incomplete
+    showRowHeaders: Incomplete
+    showColHeaders: Incomplete
+    showRowStripes: Incomplete
+    showColStripes: Incomplete
+    showLastColumn: Incomplete
     def __init__(
         self,
-        name: Any | None = ...,
-        showRowHeaders: Any | None = ...,
-        showColHeaders: Any | None = ...,
-        showRowStripes: Any | None = ...,
-        showColStripes: Any | None = ...,
-        showLastColumn: Any | None = ...,
+        name: Incomplete | None = ...,
+        showRowHeaders: Incomplete | None = ...,
+        showColHeaders: Incomplete | None = ...,
+        showRowStripes: Incomplete | None = ...,
+        showColStripes: Incomplete | None = ...,
+        showLastColumn: Incomplete | None = ...,
     ) -> None: ...
 
 class MemberList(Serialisable):
     tagname: str
-    level: Any
-    member: Any
-    __elements__: Any
-    def __init__(self, count: Any | None = ..., level: Any | None = ..., member=...) -> None: ...
+    level: Incomplete
+    member: Incomplete
+    __elements__: Incomplete
+    def __init__(self, count: Incomplete | None = ..., level: Incomplete | None = ..., member=...) -> None: ...
     @property
     def count(self): ...
 
 class MemberProperty(Serialisable):
     tagname: str
-    name: Any
-    showCell: Any
-    showTip: Any
-    showAsCaption: Any
-    nameLen: Any
-    pPos: Any
-    pLen: Any
-    level: Any
-    field: Any
+    name: Incomplete
+    showCell: Incomplete
+    showTip: Incomplete
+    showAsCaption: Incomplete
+    nameLen: Incomplete
+    pPos: Incomplete
+    pLen: Incomplete
+    level: Incomplete
+    field: Incomplete
     def __init__(
         self,
-        name: Any | None = ...,
-        showCell: Any | None = ...,
-        showTip: Any | None = ...,
-        showAsCaption: Any | None = ...,
-        nameLen: Any | None = ...,
-        pPos: Any | None = ...,
-        pLen: Any | None = ...,
-        level: Any | None = ...,
-        field: Any | None = ...,
+        name: Incomplete | None = ...,
+        showCell: Incomplete | None = ...,
+        showTip: Incomplete | None = ...,
+        showAsCaption: Incomplete | None = ...,
+        nameLen: Incomplete | None = ...,
+        pPos: Incomplete | None = ...,
+        pLen: Incomplete | None = ...,
+        level: Incomplete | None = ...,
+        field: Incomplete | None = ...,
     ) -> None: ...
 
 class PivotHierarchy(Serialisable):
     tagname: str
-    outline: Any
-    multipleItemSelectionAllowed: Any
-    subtotalTop: Any
-    showInFieldList: Any
-    dragToRow: Any
-    dragToCol: Any
-    dragToPage: Any
-    dragToData: Any
-    dragOff: Any
-    includeNewItemsInFilter: Any
-    caption: Any
-    mps: Any
-    members: Any
-    extLst: Any
-    __elements__: Any
+    outline: Incomplete
+    multipleItemSelectionAllowed: Incomplete
+    subtotalTop: Incomplete
+    showInFieldList: Incomplete
+    dragToRow: Incomplete
+    dragToCol: Incomplete
+    dragToPage: Incomplete
+    dragToData: Incomplete
+    dragOff: Incomplete
+    includeNewItemsInFilter: Incomplete
+    caption: Incomplete
+    mps: Incomplete
+    members: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        outline: Any | None = ...,
-        multipleItemSelectionAllowed: Any | None = ...,
-        subtotalTop: Any | None = ...,
-        showInFieldList: Any | None = ...,
-        dragToRow: Any | None = ...,
-        dragToCol: Any | None = ...,
-        dragToPage: Any | None = ...,
-        dragToData: Any | None = ...,
-        dragOff: Any | None = ...,
-        includeNewItemsInFilter: Any | None = ...,
-        caption: Any | None = ...,
+        outline: Incomplete | None = ...,
+        multipleItemSelectionAllowed: Incomplete | None = ...,
+        subtotalTop: Incomplete | None = ...,
+        showInFieldList: Incomplete | None = ...,
+        dragToRow: Incomplete | None = ...,
+        dragToCol: Incomplete | None = ...,
+        dragToPage: Incomplete | None = ...,
+        dragToData: Incomplete | None = ...,
+        dragOff: Incomplete | None = ...,
+        includeNewItemsInFilter: Incomplete | None = ...,
+        caption: Incomplete | None = ...,
         mps=...,
-        members: Any | None = ...,
-        extLst: Any | None = ...,
+        members: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class Reference(Serialisable):
     tagname: str
-    field: Any
-    selected: Any
-    byPosition: Any
-    relative: Any
-    defaultSubtotal: Any
-    sumSubtotal: Any
-    countASubtotal: Any
-    avgSubtotal: Any
-    maxSubtotal: Any
-    minSubtotal: Any
-    productSubtotal: Any
-    countSubtotal: Any
-    stdDevSubtotal: Any
-    stdDevPSubtotal: Any
-    varSubtotal: Any
-    varPSubtotal: Any
-    x: Any
-    extLst: Any
-    __elements__: Any
+    field: Incomplete
+    selected: Incomplete
+    byPosition: Incomplete
+    relative: Incomplete
+    defaultSubtotal: Incomplete
+    sumSubtotal: Incomplete
+    countASubtotal: Incomplete
+    avgSubtotal: Incomplete
+    maxSubtotal: Incomplete
+    minSubtotal: Incomplete
+    productSubtotal: Incomplete
+    countSubtotal: Incomplete
+    stdDevSubtotal: Incomplete
+    stdDevPSubtotal: Incomplete
+    varSubtotal: Incomplete
+    varPSubtotal: Incomplete
+    x: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        field: Any | None = ...,
-        count: Any | None = ...,
-        selected: Any | None = ...,
-        byPosition: Any | None = ...,
-        relative: Any | None = ...,
-        defaultSubtotal: Any | None = ...,
-        sumSubtotal: Any | None = ...,
-        countASubtotal: Any | None = ...,
-        avgSubtotal: Any | None = ...,
-        maxSubtotal: Any | None = ...,
-        minSubtotal: Any | None = ...,
-        productSubtotal: Any | None = ...,
-        countSubtotal: Any | None = ...,
-        stdDevSubtotal: Any | None = ...,
-        stdDevPSubtotal: Any | None = ...,
-        varSubtotal: Any | None = ...,
-        varPSubtotal: Any | None = ...,
-        x: Any | None = ...,
-        extLst: Any | None = ...,
+        field: Incomplete | None = ...,
+        count: Incomplete | None = ...,
+        selected: Incomplete | None = ...,
+        byPosition: Incomplete | None = ...,
+        relative: Incomplete | None = ...,
+        defaultSubtotal: Incomplete | None = ...,
+        sumSubtotal: Incomplete | None = ...,
+        countASubtotal: Incomplete | None = ...,
+        avgSubtotal: Incomplete | None = ...,
+        maxSubtotal: Incomplete | None = ...,
+        minSubtotal: Incomplete | None = ...,
+        productSubtotal: Incomplete | None = ...,
+        countSubtotal: Incomplete | None = ...,
+        stdDevSubtotal: Incomplete | None = ...,
+        stdDevPSubtotal: Incomplete | None = ...,
+        varSubtotal: Incomplete | None = ...,
+        varPSubtotal: Incomplete | None = ...,
+        x: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
     @property
     def count(self): ...
 
 class PivotArea(Serialisable):
     tagname: str
-    references: Any
-    extLst: Any
-    field: Any
-    type: Any
-    dataOnly: Any
-    labelOnly: Any
-    grandRow: Any
-    grandCol: Any
-    cacheIndex: Any
-    outline: Any
-    offset: Any
-    collapsedLevelsAreSubtotals: Any
-    axis: Any
-    fieldPosition: Any
-    __elements__: Any
+    references: Incomplete
+    extLst: Incomplete
+    field: Incomplete
+    type: Incomplete
+    dataOnly: Incomplete
+    labelOnly: Incomplete
+    grandRow: Incomplete
+    grandCol: Incomplete
+    cacheIndex: Incomplete
+    outline: Incomplete
+    offset: Incomplete
+    collapsedLevelsAreSubtotals: Incomplete
+    axis: Incomplete
+    fieldPosition: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
         references=...,
-        extLst: Any | None = ...,
-        field: Any | None = ...,
+        extLst: Incomplete | None = ...,
+        field: Incomplete | None = ...,
         type: str = ...,
         dataOnly: bool = ...,
-        labelOnly: Any | None = ...,
-        grandRow: Any | None = ...,
-        grandCol: Any | None = ...,
-        cacheIndex: Any | None = ...,
+        labelOnly: Incomplete | None = ...,
+        grandRow: Incomplete | None = ...,
+        grandCol: Incomplete | None = ...,
+        cacheIndex: Incomplete | None = ...,
         outline: bool = ...,
-        offset: Any | None = ...,
-        collapsedLevelsAreSubtotals: Any | None = ...,
-        axis: Any | None = ...,
-        fieldPosition: Any | None = ...,
+        offset: Incomplete | None = ...,
+        collapsedLevelsAreSubtotals: Incomplete | None = ...,
+        axis: Incomplete | None = ...,
+        fieldPosition: Incomplete | None = ...,
     ) -> None: ...
 
 class ChartFormat(Serialisable):
     tagname: str
-    chart: Any
-    format: Any
-    series: Any
-    pivotArea: Any
-    __elements__: Any
+    chart: Incomplete
+    format: Incomplete
+    series: Incomplete
+    pivotArea: Incomplete
+    __elements__: Incomplete
     def __init__(
-        self, chart: Any | None = ..., format: Any | None = ..., series: Any | None = ..., pivotArea: Any | None = ...
+        self,
+        chart: Incomplete | None = ...,
+        format: Incomplete | None = ...,
+        series: Incomplete | None = ...,
+        pivotArea: Incomplete | None = ...,
     ) -> None: ...
 
 class ConditionalFormat(Serialisable):
     tagname: str
-    scope: Any
-    type: Any
-    priority: Any
-    pivotAreas: Any
-    extLst: Any
-    __elements__: Any
+    scope: Incomplete
+    type: Incomplete
+    priority: Incomplete
+    pivotAreas: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        scope: Any | None = ...,
-        type: Any | None = ...,
-        priority: Any | None = ...,
+        scope: Incomplete | None = ...,
+        type: Incomplete | None = ...,
+        priority: Incomplete | None = ...,
         pivotAreas=...,
-        extLst: Any | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class Format(Serialisable):
     tagname: str
-    action: Any
-    dxfId: Any
-    pivotArea: Any
-    extLst: Any
-    __elements__: Any
+    action: Incomplete
+    dxfId: Incomplete
+    pivotArea: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
-        self, action: str = ..., dxfId: Any | None = ..., pivotArea: Any | None = ..., extLst: Any | None = ...
+        self,
+        action: str = ...,
+        dxfId: Incomplete | None = ...,
+        pivotArea: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class DataField(Serialisable):
     tagname: str
-    name: Any
-    fld: Any
-    subtotal: Any
-    showDataAs: Any
-    baseField: Any
-    baseItem: Any
-    numFmtId: Any
-    extLst: Any
-    __elements__: Any
+    name: Incomplete
+    fld: Incomplete
+    subtotal: Incomplete
+    showDataAs: Incomplete
+    baseField: Incomplete
+    baseItem: Incomplete
+    numFmtId: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        name: Any | None = ...,
-        fld: Any | None = ...,
+        name: Incomplete | None = ...,
+        fld: Incomplete | None = ...,
         subtotal: str = ...,
         showDataAs: str = ...,
         baseField: int = ...,
         baseItem: int = ...,
-        numFmtId: Any | None = ...,
-        extLst: Any | None = ...,
+        numFmtId: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class PageField(Serialisable):
     tagname: str
-    fld: Any
-    item: Any
-    hier: Any
-    name: Any
-    cap: Any
-    extLst: Any
-    __elements__: Any
+    fld: Incomplete
+    item: Incomplete
+    hier: Incomplete
+    name: Incomplete
+    cap: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        fld: Any | None = ...,
-        item: Any | None = ...,
-        hier: Any | None = ...,
-        name: Any | None = ...,
-        cap: Any | None = ...,
-        extLst: Any | None = ...,
+        fld: Incomplete | None = ...,
+        item: Incomplete | None = ...,
+        hier: Incomplete | None = ...,
+        name: Incomplete | None = ...,
+        cap: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class RowColItem(Serialisable):
     tagname: str
-    t: Any
-    r: Any
-    i: Any
-    x: Any
-    __elements__: Any
+    t: Incomplete
+    r: Incomplete
+    i: Incomplete
+    x: Incomplete
+    __elements__: Incomplete
     def __init__(self, t: str = ..., r: int = ..., i: int = ..., x=...) -> None: ...
 
 class RowColField(Serialisable):
     tagname: str
-    x: Any
-    def __init__(self, x: Any | None = ...) -> None: ...
+    x: Incomplete
+    def __init__(self, x: Incomplete | None = ...) -> None: ...
 
 class AutoSortScope(Serialisable):  # type: ignore[misc]
-    pivotArea: Any
-    __elements__: Any
-    def __init__(self, pivotArea: Any | None = ...) -> None: ...
+    pivotArea: Incomplete
+    __elements__: Incomplete
+    def __init__(self, pivotArea: Incomplete | None = ...) -> None: ...
 
 class FieldItem(Serialisable):
     tagname: str
-    n: Any
-    t: Any
-    h: Any
-    s: Any
-    sd: Any
-    f: Any
-    m: Any
-    c: Any
-    x: Any
-    d: Any
-    e: Any
+    n: Incomplete
+    t: Incomplete
+    h: Incomplete
+    s: Incomplete
+    sd: Incomplete
+    f: Incomplete
+    m: Incomplete
+    c: Incomplete
+    x: Incomplete
+    d: Incomplete
+    e: Incomplete
     def __init__(
         self,
-        n: Any | None = ...,
+        n: Incomplete | None = ...,
         t: str = ...,
-        h: Any | None = ...,
-        s: Any | None = ...,
+        h: Incomplete | None = ...,
+        s: Incomplete | None = ...,
         sd: bool = ...,
-        f: Any | None = ...,
-        m: Any | None = ...,
-        c: Any | None = ...,
-        x: Any | None = ...,
-        d: Any | None = ...,
-        e: Any | None = ...,
+        f: Incomplete | None = ...,
+        m: Incomplete | None = ...,
+        c: Incomplete | None = ...,
+        x: Incomplete | None = ...,
+        d: Incomplete | None = ...,
+        e: Incomplete | None = ...,
     ) -> None: ...
 
 class PivotField(Serialisable):
     tagname: str
-    items: Any
-    autoSortScope: Any
-    extLst: Any
-    name: Any
-    axis: Any
-    dataField: Any
-    subtotalCaption: Any
-    showDropDowns: Any
-    hiddenLevel: Any
-    uniqueMemberProperty: Any
-    compact: Any
-    allDrilled: Any
-    numFmtId: Any
-    outline: Any
-    subtotalTop: Any
-    dragToRow: Any
-    dragToCol: Any
-    multipleItemSelectionAllowed: Any
-    dragToPage: Any
-    dragToData: Any
-    dragOff: Any
-    showAll: Any
-    insertBlankRow: Any
-    serverField: Any
-    insertPageBreak: Any
-    autoShow: Any
-    topAutoShow: Any
-    hideNewItems: Any
-    measureFilter: Any
-    includeNewItemsInFilter: Any
-    itemPageCount: Any
-    sortType: Any
-    dataSourceSort: Any
-    nonAutoSortDefault: Any
-    rankBy: Any
-    defaultSubtotal: Any
-    sumSubtotal: Any
-    countASubtotal: Any
-    avgSubtotal: Any
-    maxSubtotal: Any
-    minSubtotal: Any
-    productSubtotal: Any
-    countSubtotal: Any
-    stdDevSubtotal: Any
-    stdDevPSubtotal: Any
-    varSubtotal: Any
-    varPSubtotal: Any
-    showPropCell: Any
-    showPropTip: Any
-    showPropAsCaption: Any
-    defaultAttributeDrillState: Any
-    __elements__: Any
+    items: Incomplete
+    autoSortScope: Incomplete
+    extLst: Incomplete
+    name: Incomplete
+    axis: Incomplete
+    dataField: Incomplete
+    subtotalCaption: Incomplete
+    showDropDowns: Incomplete
+    hiddenLevel: Incomplete
+    uniqueMemberProperty: Incomplete
+    compact: Incomplete
+    allDrilled: Incomplete
+    numFmtId: Incomplete
+    outline: Incomplete
+    subtotalTop: Incomplete
+    dragToRow: Incomplete
+    dragToCol: Incomplete
+    multipleItemSelectionAllowed: Incomplete
+    dragToPage: Incomplete
+    dragToData: Incomplete
+    dragOff: Incomplete
+    showAll: Incomplete
+    insertBlankRow: Incomplete
+    serverField: Incomplete
+    insertPageBreak: Incomplete
+    autoShow: Incomplete
+    topAutoShow: Incomplete
+    hideNewItems: Incomplete
+    measureFilter: Incomplete
+    includeNewItemsInFilter: Incomplete
+    itemPageCount: Incomplete
+    sortType: Incomplete
+    dataSourceSort: Incomplete
+    nonAutoSortDefault: Incomplete
+    rankBy: Incomplete
+    defaultSubtotal: Incomplete
+    sumSubtotal: Incomplete
+    countASubtotal: Incomplete
+    avgSubtotal: Incomplete
+    maxSubtotal: Incomplete
+    minSubtotal: Incomplete
+    productSubtotal: Incomplete
+    countSubtotal: Incomplete
+    stdDevSubtotal: Incomplete
+    stdDevPSubtotal: Incomplete
+    varSubtotal: Incomplete
+    varPSubtotal: Incomplete
+    showPropCell: Incomplete
+    showPropTip: Incomplete
+    showPropAsCaption: Incomplete
+    defaultAttributeDrillState: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
         items=...,
-        autoSortScope: Any | None = ...,
-        name: Any | None = ...,
-        axis: Any | None = ...,
-        dataField: Any | None = ...,
-        subtotalCaption: Any | None = ...,
+        autoSortScope: Incomplete | None = ...,
+        name: Incomplete | None = ...,
+        axis: Incomplete | None = ...,
+        dataField: Incomplete | None = ...,
+        subtotalCaption: Incomplete | None = ...,
         showDropDowns: bool = ...,
-        hiddenLevel: Any | None = ...,
-        uniqueMemberProperty: Any | None = ...,
+        hiddenLevel: Incomplete | None = ...,
+        uniqueMemberProperty: Incomplete | None = ...,
         compact: bool = ...,
-        allDrilled: Any | None = ...,
-        numFmtId: Any | None = ...,
+        allDrilled: Incomplete | None = ...,
+        numFmtId: Incomplete | None = ...,
         outline: bool = ...,
         subtotalTop: bool = ...,
         dragToRow: bool = ...,
         dragToCol: bool = ...,
-        multipleItemSelectionAllowed: Any | None = ...,
+        multipleItemSelectionAllowed: Incomplete | None = ...,
         dragToPage: bool = ...,
         dragToData: bool = ...,
         dragOff: bool = ...,
         showAll: bool = ...,
-        insertBlankRow: Any | None = ...,
-        serverField: Any | None = ...,
-        insertPageBreak: Any | None = ...,
-        autoShow: Any | None = ...,
+        insertBlankRow: Incomplete | None = ...,
+        serverField: Incomplete | None = ...,
+        insertPageBreak: Incomplete | None = ...,
+        autoShow: Incomplete | None = ...,
         topAutoShow: bool = ...,
-        hideNewItems: Any | None = ...,
-        measureFilter: Any | None = ...,
-        includeNewItemsInFilter: Any | None = ...,
+        hideNewItems: Incomplete | None = ...,
+        measureFilter: Incomplete | None = ...,
+        includeNewItemsInFilter: Incomplete | None = ...,
         itemPageCount: int = ...,
         sortType: str = ...,
-        dataSourceSort: Any | None = ...,
-        nonAutoSortDefault: Any | None = ...,
-        rankBy: Any | None = ...,
+        dataSourceSort: Incomplete | None = ...,
+        nonAutoSortDefault: Incomplete | None = ...,
+        rankBy: Incomplete | None = ...,
         defaultSubtotal: bool = ...,
-        sumSubtotal: Any | None = ...,
-        countASubtotal: Any | None = ...,
-        avgSubtotal: Any | None = ...,
-        maxSubtotal: Any | None = ...,
-        minSubtotal: Any | None = ...,
-        productSubtotal: Any | None = ...,
-        countSubtotal: Any | None = ...,
-        stdDevSubtotal: Any | None = ...,
-        stdDevPSubtotal: Any | None = ...,
-        varSubtotal: Any | None = ...,
-        varPSubtotal: Any | None = ...,
-        showPropCell: Any | None = ...,
-        showPropTip: Any | None = ...,
-        showPropAsCaption: Any | None = ...,
-        defaultAttributeDrillState: Any | None = ...,
-        extLst: Any | None = ...,
+        sumSubtotal: Incomplete | None = ...,
+        countASubtotal: Incomplete | None = ...,
+        avgSubtotal: Incomplete | None = ...,
+        maxSubtotal: Incomplete | None = ...,
+        minSubtotal: Incomplete | None = ...,
+        productSubtotal: Incomplete | None = ...,
+        countSubtotal: Incomplete | None = ...,
+        stdDevSubtotal: Incomplete | None = ...,
+        stdDevPSubtotal: Incomplete | None = ...,
+        varSubtotal: Incomplete | None = ...,
+        varPSubtotal: Incomplete | None = ...,
+        showPropCell: Incomplete | None = ...,
+        showPropTip: Incomplete | None = ...,
+        showPropAsCaption: Incomplete | None = ...,
+        defaultAttributeDrillState: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class Location(Serialisable):
     tagname: str
-    ref: Any
-    firstHeaderRow: Any
-    firstDataRow: Any
-    firstDataCol: Any
-    rowPageCount: Any
-    colPageCount: Any
+    ref: Incomplete
+    firstHeaderRow: Incomplete
+    firstDataRow: Incomplete
+    firstDataCol: Incomplete
+    rowPageCount: Incomplete
+    colPageCount: Incomplete
     def __init__(
         self,
-        ref: Any | None = ...,
-        firstHeaderRow: Any | None = ...,
-        firstDataRow: Any | None = ...,
-        firstDataCol: Any | None = ...,
-        rowPageCount: Any | None = ...,
-        colPageCount: Any | None = ...,
+        ref: Incomplete | None = ...,
+        firstHeaderRow: Incomplete | None = ...,
+        firstDataRow: Incomplete | None = ...,
+        firstDataCol: Incomplete | None = ...,
+        rowPageCount: Incomplete | None = ...,
+        colPageCount: Incomplete | None = ...,
     ) -> None: ...
 
 class TableDefinition(Serialisable):
     mime_type: str
     rel_type: str
     tagname: str
-    cache: Any
-    name: Any
-    cacheId: Any
-    dataOnRows: Any
-    dataPosition: Any
-    dataCaption: Any
-    grandTotalCaption: Any
-    errorCaption: Any
-    showError: Any
-    missingCaption: Any
-    showMissing: Any
-    pageStyle: Any
-    pivotTableStyle: Any
-    vacatedStyle: Any
-    tag: Any
-    updatedVersion: Any
-    minRefreshableVersion: Any
-    asteriskTotals: Any
-    showItems: Any
-    editData: Any
-    disableFieldList: Any
-    showCalcMbrs: Any
-    visualTotals: Any
-    showMultipleLabel: Any
-    showDataDropDown: Any
-    showDrill: Any
-    printDrill: Any
-    showMemberPropertyTips: Any
-    showDataTips: Any
-    enableWizard: Any
-    enableDrill: Any
-    enableFieldProperties: Any
-    preserveFormatting: Any
-    useAutoFormatting: Any
-    pageWrap: Any
-    pageOverThenDown: Any
-    subtotalHiddenItems: Any
-    rowGrandTotals: Any
-    colGrandTotals: Any
-    fieldPrintTitles: Any
-    itemPrintTitles: Any
-    mergeItem: Any
-    showDropZones: Any
-    createdVersion: Any
-    indent: Any
-    showEmptyRow: Any
-    showEmptyCol: Any
-    showHeaders: Any
-    compact: Any
-    outline: Any
-    outlineData: Any
-    compactData: Any
-    published: Any
-    gridDropZones: Any
-    immersive: Any
-    multipleFieldFilters: Any
-    chartFormat: Any
-    rowHeaderCaption: Any
-    colHeaderCaption: Any
-    fieldListSortAscending: Any
-    mdxSubqueries: Any
-    customListSort: Any
-    autoFormatId: Any
-    applyNumberFormats: Any
-    applyBorderFormats: Any
-    applyFontFormats: Any
-    applyPatternFormats: Any
-    applyAlignmentFormats: Any
-    applyWidthHeightFormats: Any
-    location: Any
-    pivotFields: Any
-    rowFields: Any
-    rowItems: Any
-    colFields: Any
-    colItems: Any
-    pageFields: Any
-    dataFields: Any
-    formats: Any
-    conditionalFormats: Any
-    chartFormats: Any
-    pivotHierarchies: Any
-    pivotTableStyleInfo: Any
-    filters: Any
-    rowHierarchiesUsage: Any
-    colHierarchiesUsage: Any
-    extLst: Any
-    id: Any
-    __elements__: Any
+    cache: Incomplete
+    name: Incomplete
+    cacheId: Incomplete
+    dataOnRows: Incomplete
+    dataPosition: Incomplete
+    dataCaption: Incomplete
+    grandTotalCaption: Incomplete
+    errorCaption: Incomplete
+    showError: Incomplete
+    missingCaption: Incomplete
+    showMissing: Incomplete
+    pageStyle: Incomplete
+    pivotTableStyle: Incomplete
+    vacatedStyle: Incomplete
+    tag: Incomplete
+    updatedVersion: Incomplete
+    minRefreshableVersion: Incomplete
+    asteriskTotals: Incomplete
+    showItems: Incomplete
+    editData: Incomplete
+    disableFieldList: Incomplete
+    showCalcMbrs: Incomplete
+    visualTotals: Incomplete
+    showMultipleLabel: Incomplete
+    showDataDropDown: Incomplete
+    showDrill: Incomplete
+    printDrill: Incomplete
+    showMemberPropertyTips: Incomplete
+    showDataTips: Incomplete
+    enableWizard: Incomplete
+    enableDrill: Incomplete
+    enableFieldProperties: Incomplete
+    preserveFormatting: Incomplete
+    useAutoFormatting: Incomplete
+    pageWrap: Incomplete
+    pageOverThenDown: Incomplete
+    subtotalHiddenItems: Incomplete
+    rowGrandTotals: Incomplete
+    colGrandTotals: Incomplete
+    fieldPrintTitles: Incomplete
+    itemPrintTitles: Incomplete
+    mergeItem: Incomplete
+    showDropZones: Incomplete
+    createdVersion: Incomplete
+    indent: Incomplete
+    showEmptyRow: Incomplete
+    showEmptyCol: Incomplete
+    showHeaders: Incomplete
+    compact: Incomplete
+    outline: Incomplete
+    outlineData: Incomplete
+    compactData: Incomplete
+    published: Incomplete
+    gridDropZones: Incomplete
+    immersive: Incomplete
+    multipleFieldFilters: Incomplete
+    chartFormat: Incomplete
+    rowHeaderCaption: Incomplete
+    colHeaderCaption: Incomplete
+    fieldListSortAscending: Incomplete
+    mdxSubqueries: Incomplete
+    customListSort: Incomplete
+    autoFormatId: Incomplete
+    applyNumberFormats: Incomplete
+    applyBorderFormats: Incomplete
+    applyFontFormats: Incomplete
+    applyPatternFormats: Incomplete
+    applyAlignmentFormats: Incomplete
+    applyWidthHeightFormats: Incomplete
+    location: Incomplete
+    pivotFields: Incomplete
+    rowFields: Incomplete
+    rowItems: Incomplete
+    colFields: Incomplete
+    colItems: Incomplete
+    pageFields: Incomplete
+    dataFields: Incomplete
+    formats: Incomplete
+    conditionalFormats: Incomplete
+    chartFormats: Incomplete
+    pivotHierarchies: Incomplete
+    pivotTableStyleInfo: Incomplete
+    filters: Incomplete
+    rowHierarchiesUsage: Incomplete
+    colHierarchiesUsage: Incomplete
+    extLst: Incomplete
+    id: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        name: Any | None = ...,
-        cacheId: Any | None = ...,
+        name: Incomplete | None = ...,
+        cacheId: Incomplete | None = ...,
         dataOnRows: bool = ...,
-        dataPosition: Any | None = ...,
-        dataCaption: Any | None = ...,
-        grandTotalCaption: Any | None = ...,
-        errorCaption: Any | None = ...,
+        dataPosition: Incomplete | None = ...,
+        dataCaption: Incomplete | None = ...,
+        grandTotalCaption: Incomplete | None = ...,
+        errorCaption: Incomplete | None = ...,
         showError: bool = ...,
-        missingCaption: Any | None = ...,
+        missingCaption: Incomplete | None = ...,
         showMissing: bool = ...,
-        pageStyle: Any | None = ...,
-        pivotTableStyle: Any | None = ...,
-        vacatedStyle: Any | None = ...,
-        tag: Any | None = ...,
+        pageStyle: Incomplete | None = ...,
+        pivotTableStyle: Incomplete | None = ...,
+        vacatedStyle: Incomplete | None = ...,
+        tag: Incomplete | None = ...,
         updatedVersion: int = ...,
         minRefreshableVersion: int = ...,
         asteriskTotals: bool = ...,
@@ -634,21 +642,21 @@ class TableDefinition(Serialisable):
         published: bool = ...,
         gridDropZones: bool = ...,
         immersive: bool = ...,
-        multipleFieldFilters: Any | None = ...,
+        multipleFieldFilters: Incomplete | None = ...,
         chartFormat: int = ...,
-        rowHeaderCaption: Any | None = ...,
-        colHeaderCaption: Any | None = ...,
-        fieldListSortAscending: Any | None = ...,
-        mdxSubqueries: Any | None = ...,
-        customListSort: Any | None = ...,
-        autoFormatId: Any | None = ...,
+        rowHeaderCaption: Incomplete | None = ...,
+        colHeaderCaption: Incomplete | None = ...,
+        fieldListSortAscending: Incomplete | None = ...,
+        mdxSubqueries: Incomplete | None = ...,
+        customListSort: Incomplete | None = ...,
+        autoFormatId: Incomplete | None = ...,
         applyNumberFormats: bool = ...,
         applyBorderFormats: bool = ...,
         applyFontFormats: bool = ...,
         applyPatternFormats: bool = ...,
         applyAlignmentFormats: bool = ...,
         applyWidthHeightFormats: bool = ...,
-        location: Any | None = ...,
+        location: Incomplete | None = ...,
         pivotFields=...,
         rowFields=...,
         rowItems=...,
@@ -660,12 +668,12 @@ class TableDefinition(Serialisable):
         conditionalFormats=...,
         chartFormats=...,
         pivotHierarchies=...,
-        pivotTableStyleInfo: Any | None = ...,
+        pivotTableStyleInfo: Incomplete | None = ...,
         filters=...,
-        rowHierarchiesUsage: Any | None = ...,
-        colHierarchiesUsage: Any | None = ...,
-        extLst: Any | None = ...,
-        id: Any | None = ...,
+        rowHierarchiesUsage: Incomplete | None = ...,
+        colHierarchiesUsage: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
+        id: Incomplete | None = ...,
     ) -> None: ...
     def to_tree(self): ...
     @property

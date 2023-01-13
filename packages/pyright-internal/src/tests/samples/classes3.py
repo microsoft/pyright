@@ -2,6 +2,9 @@
 # the type metaclass) are accessible without a type error.
 
 
+from typing import TypeVar
+
+
 class TestClass:
     # These should be accessible within the class body
     print(__doc__)
@@ -46,3 +49,12 @@ class NonMeta:
     def method1(self) -> str:
         # This should generate an error
         return self.__name__
+
+
+_T = TypeVar("_T")
+
+
+def func1(cls: type[_T]) -> _T:
+    x1 = cls.__dict__
+    x2 = cls.__mro__
+    return cls()

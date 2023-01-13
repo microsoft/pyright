@@ -83,7 +83,12 @@ import {
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
-export type TypeNarrowingCallback = (type: Type) => Type | undefined;
+export interface TypeNarrowingResult {
+    type: Type;
+    isIncomplete: boolean;
+}
+
+export type TypeNarrowingCallback = (type: Type) => TypeNarrowingResult | undefined;
 
 // Given a reference expression and a test expression, returns a callback that
 // can be used to narrow the type described by the reference expression.
@@ -140,7 +145,7 @@ export function getTypeNarrowingCallback(
 
                 if (ParseTreeUtils.isMatchingExpression(reference, leftExpression)) {
                     return (type: Type) => {
-                        return narrowTypeForIsNone(evaluator, type, adjIsPositiveTest);
+                        return { type: narrowTypeForIsNone(evaluator, type, adjIsPositiveTest), isIncomplete: false };
                     };
                 }
 
@@ -158,9 +163,31 @@ export function getTypeNarrowingCallback(
                     const indexValue = leftExpression.items[0].valueExpression.value;
                     if (typeof indexValue === 'number') {
                         return (type: Type) => {
-                            return narrowTupleTypeForIsNone(evaluator, type, adjIsPositiveTest, indexValue);
+                            return {
+                                type: narrowTupleTypeForIsNone(evaluator, type, adjIsPositiveTest, indexValue),
+                                isIncomplete: false,
+                            };
                         };
                     }
+                }
+            }
+
+            // Look for "X is ...", "X is not ...", "X == ...", and "X != ...".
+            if (testExpression.rightExpression.nodeType === ParseNodeType.Ellipsis) {
+                // Allow the LHS to be either a simple expression or an assignment
+                // expression that assigns to a simple name.
+                let leftExpression = testExpression.leftExpression;
+                if (leftExpression.nodeType === ParseNodeType.AssignmentExpression) {
+                    leftExpression = leftExpression.name;
+                }
+
+                if (ParseTreeUtils.isMatchingExpression(reference, leftExpression)) {
+                    return (type: Type) => {
+                        return {
+                            type: narrowTypeForIsEllipsis(evaluator, type, adjIsPositiveTest),
+                            isIncomplete: false,
+                        };
+                    };
                 }
             }
 
@@ -178,13 +205,15 @@ export function getTypeNarrowingCallback(
                         ).type;
 
                         if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'type')) {
-                            const classType = evaluator.makeTopLevelTypeVarsConcrete(
-                                evaluator.getTypeOfExpression(testExpression.rightExpression).type
-                            );
+                            const classTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                            const classType = evaluator.makeTopLevelTypeVarsConcrete(classTypeResult.type);
 
                             if (isInstantiableClass(classType)) {
                                 return (type: Type) => {
-                                    return narrowTypeForTypeIs(evaluator, type, classType, adjIsPositiveTest);
+                                    return {
+                                        type: narrowTypeForTypeIs(evaluator, type, classType, adjIsPositiveTest),
+                                        isIncomplete: !!classTypeResult.isIncomplete,
+                                    };
                                 };
                             }
                         }
@@ -195,20 +224,25 @@ export function getTypeNarrowingCallback(
             // Look for "X is Y" or "X is not Y" where Y is a an enum or bool literal.
             if (isOrIsNotOperator) {
                 if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
-                    const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
+                    const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                    const rightType = rightTypeResult.type;
+
                     if (
                         isClassInstance(rightType) &&
                         (ClassType.isEnumClass(rightType) || ClassType.isBuiltIn(rightType, 'bool')) &&
                         rightType.literalValue !== undefined
                     ) {
                         return (type: Type) => {
-                            return narrowTypeForLiteralComparison(
-                                evaluator,
-                                type,
-                                rightType,
-                                adjIsPositiveTest,
-                                /* isIsOperator */ true
-                            );
+                            return {
+                                type: narrowTypeForLiteralComparison(
+                                    evaluator,
+                                    type,
+                                    rightType,
+                                    adjIsPositiveTest,
+                                    /* isIsOperator */ true
+                                ),
+                                isIncomplete: !!rightTypeResult.isIncomplete,
+                            };
                         };
                     }
                 }
@@ -220,32 +254,42 @@ export function getTypeNarrowingCallback(
                     testExpression.operator === OperatorType.Equals ? isPositiveTest : !isPositiveTest;
 
                 if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
-                    const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
+                    const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                    const rightType = rightTypeResult.type;
+
                     if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
                         return (type: Type) => {
-                            return narrowTypeForLiteralComparison(
-                                evaluator,
-                                type,
-                                rightType,
-                                adjIsPositiveTest,
-                                /* isIsOperator */ false
-                            );
+                            return {
+                                type: narrowTypeForLiteralComparison(
+                                    evaluator,
+                                    type,
+                                    rightType,
+                                    adjIsPositiveTest,
+                                    /* isIsOperator */ false
+                                ),
+                                isIncomplete: !!rightTypeResult.isIncomplete,
+                            };
                         };
                     }
                 }
 
                 // Look for <literal> == X or <literal> != X
                 if (ParseTreeUtils.isMatchingExpression(reference, testExpression.rightExpression)) {
-                    const leftType = evaluator.getTypeOfExpression(testExpression.leftExpression).type;
+                    const leftTypeResult = evaluator.getTypeOfExpression(testExpression.leftExpression);
+                    const leftType = leftTypeResult.type;
+
                     if (isClassInstance(leftType) && leftType.literalValue !== undefined) {
                         return (type: Type) => {
-                            return narrowTypeForLiteralComparison(
-                                evaluator,
-                                type,
-                                leftType,
-                                adjIsPositiveTest,
-                                /* isIsOperator */ false
-                            );
+                            return {
+                                type: narrowTypeForLiteralComparison(
+                                    evaluator,
+                                    type,
+                                    leftType,
+                                    adjIsPositiveTest,
+                                    /* isIsOperator */ false
+                                ),
+                                isIncomplete: !!leftTypeResult.isIncomplete,
+                            };
                         };
                     }
                 }
@@ -258,35 +302,44 @@ export function getTypeNarrowingCallback(
                     testExpression.leftExpression.items[0].argumentCategory === ArgumentCategory.Simple &&
                     ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.baseExpression)
                 ) {
-                    const indexType = evaluator.getTypeOfExpression(
+                    const indexTypeResult = evaluator.getTypeOfExpression(
                         testExpression.leftExpression.items[0].valueExpression
-                    ).type;
+                    );
+                    const indexType = indexTypeResult.type;
 
                     if (isClassInstance(indexType) && isLiteralType(indexType)) {
                         if (ClassType.isBuiltIn(indexType, 'str')) {
                             const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
                             if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
                                 return (type: Type) => {
-                                    return narrowTypeForDiscriminatedDictEntryComparison(
-                                        evaluator,
-                                        type,
-                                        indexType,
-                                        rightType,
-                                        adjIsPositiveTest
-                                    );
+                                    return {
+                                        type: narrowTypeForDiscriminatedDictEntryComparison(
+                                            evaluator,
+                                            type,
+                                            indexType,
+                                            rightType,
+                                            adjIsPositiveTest
+                                        ),
+                                        isIncomplete: !!indexTypeResult.isIncomplete,
+                                    };
                                 };
                             }
                         } else if (ClassType.isBuiltIn(indexType, 'int')) {
-                            const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
+                            const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                            const rightType = rightTypeResult.type;
+
                             if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
                                 return (type: Type) => {
-                                    return narrowTypeForDiscriminatedTupleComparison(
-                                        evaluator,
-                                        type,
-                                        indexType,
-                                        rightType,
-                                        adjIsPositiveTest
-                                    );
+                                    return {
+                                        type: narrowTypeForDiscriminatedTupleComparison(
+                                            evaluator,
+                                            type,
+                                            indexType,
+                                            rightType,
+                                            adjIsPositiveTest
+                                        ),
+                                        isIncomplete: !!rightTypeResult.isIncomplete,
+                                    };
                                 };
                             }
                         }
@@ -305,17 +358,21 @@ export function getTypeNarrowingCallback(
                 const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
 
                 if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                    const callType = evaluator.getTypeOfExpression(
+                    const callTypeResult = evaluator.getTypeOfExpression(
                         testExpression.leftExpression.leftExpression,
                         EvaluatorFlags.DoNotSpecialize
-                    ).type;
+                    );
+                    const callType = callTypeResult.type;
 
                     if (isFunction(callType) && callType.details.fullName === 'builtins.len') {
                         const tupleLength = testExpression.rightExpression.value;
 
                         if (typeof tupleLength === 'number') {
                             return (type: Type) => {
-                                return narrowTypeForTupleLength(evaluator, type, tupleLength, adjIsPositiveTest);
+                                return {
+                                    type: narrowTypeForTupleLength(evaluator, type, tupleLength, adjIsPositiveTest),
+                                    isIncomplete: !!callTypeResult.isIncomplete,
+                                };
                             };
                         }
                     }
@@ -328,17 +385,22 @@ export function getTypeNarrowingCallback(
                 testExpression.leftExpression.nodeType === ParseNodeType.MemberAccess &&
                 ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.leftExpression)
             ) {
-                const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
+                const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                const rightType = rightTypeResult.type;
                 const memberName = testExpression.leftExpression.memberName;
+
                 if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
                     return (type: Type) => {
-                        return narrowTypeForDiscriminatedLiteralFieldComparison(
-                            evaluator,
-                            type,
-                            memberName.value,
-                            rightType,
-                            adjIsPositiveTest
-                        );
+                        return {
+                            type: narrowTypeForDiscriminatedLiteralFieldComparison(
+                                evaluator,
+                                type,
+                                memberName.value,
+                                rightType,
+                                adjIsPositiveTest
+                            ),
+                            isIncomplete: !!rightTypeResult.isIncomplete,
+                        };
                     };
                 }
             }
@@ -349,21 +411,26 @@ export function getTypeNarrowingCallback(
                 testExpression.leftExpression.nodeType === ParseNodeType.MemberAccess &&
                 ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.leftExpression)
             ) {
-                const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
+                const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                const rightType = rightTypeResult.type;
                 const memberName = testExpression.leftExpression.memberName;
+
                 if (
                     isClassInstance(rightType) &&
                     (ClassType.isEnumClass(rightType) || ClassType.isBuiltIn(rightType, 'bool')) &&
                     rightType.literalValue !== undefined
                 ) {
                     return (type: Type) => {
-                        return narrowTypeForDiscriminatedLiteralFieldComparison(
-                            evaluator,
-                            type,
-                            memberName.value,
-                            rightType,
-                            adjIsPositiveTest
-                        );
+                        return {
+                            type: narrowTypeForDiscriminatedLiteralFieldComparison(
+                                evaluator,
+                                type,
+                                memberName.value,
+                                rightType,
+                                adjIsPositiveTest
+                            ),
+                            isIncomplete: !!rightTypeResult.isIncomplete,
+                        };
                     };
                 }
             }
@@ -378,12 +445,15 @@ export function getTypeNarrowingCallback(
             ) {
                 const memberName = testExpression.leftExpression.memberName;
                 return (type: Type) => {
-                    return narrowTypeForDiscriminatedFieldNoneComparison(
-                        evaluator,
-                        type,
-                        memberName.value,
-                        adjIsPositiveTest
-                    );
+                    return {
+                        type: narrowTypeForDiscriminatedFieldNoneComparison(
+                            evaluator,
+                            type,
+                            memberName.value,
+                            adjIsPositiveTest
+                        ),
+                        isIncomplete: false,
+                    };
                 };
             }
         }
@@ -391,29 +461,38 @@ export function getTypeNarrowingCallback(
         if (testExpression.operator === OperatorType.In || testExpression.operator === OperatorType.NotIn) {
             // Look for "x in y" or "x not in y" where y is one of several built-in types.
             if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
-                const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
+                const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                const rightType = rightTypeResult.type;
                 const adjIsPositiveTest =
                     testExpression.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
 
                 return (type: Type) => {
-                    return narrowTypeForContainerType(evaluator, type, rightType, adjIsPositiveTest);
+                    return {
+                        type: narrowTypeForContainerType(evaluator, type, rightType, adjIsPositiveTest),
+                        isIncomplete: !!rightTypeResult.isIncomplete,
+                    };
                 };
             }
 
             if (ParseTreeUtils.isMatchingExpression(reference, testExpression.rightExpression)) {
                 // Look for <string literal> in y where y is a union that contains
                 // one or more TypedDicts.
-                const leftType = evaluator.getTypeOfExpression(testExpression.leftExpression).type;
+                const leftTypeResult = evaluator.getTypeOfExpression(testExpression.leftExpression);
+                const leftType = leftTypeResult.type;
+
                 if (isClassInstance(leftType) && ClassType.isBuiltIn(leftType, 'str') && isLiteralType(leftType)) {
                     const adjIsPositiveTest =
                         testExpression.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
                     return (type: Type) => {
-                        return narrowTypeForTypedDictKey(
-                            evaluator,
-                            type,
-                            ClassType.cloneAsInstantiable(leftType),
-                            adjIsPositiveTest
-                        );
+                        return {
+                            type: narrowTypeForTypedDictKey(
+                                evaluator,
+                                type,
+                                ClassType.cloneAsInstantiable(leftType),
+                                adjIsPositiveTest
+                            ),
+                            isIncomplete: !!leftTypeResult.isIncomplete,
+                        };
                     };
                 }
             }
@@ -428,25 +507,29 @@ export function getTypeNarrowingCallback(
             // of valid class types.
             const arg0Expr = testExpression.arguments[0].valueExpression;
             const arg1Expr = testExpression.arguments[1].valueExpression;
+
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                const callType = evaluator.getTypeOfExpression(
+                const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.leftExpression,
                     EvaluatorFlags.DoNotSpecialize
-                ).type;
+                );
+                const callType = callTypeResult.type;
 
                 if (
                     isFunction(callType) &&
                     (callType.details.builtInName === 'isinstance' || callType.details.builtInName === 'issubclass')
                 ) {
                     const isInstanceCheck = callType.details.builtInName === 'isinstance';
-                    const arg1Type = evaluator.getTypeOfExpression(
+                    const arg1TypeResult = evaluator.getTypeOfExpression(
                         arg1Expr,
                         EvaluatorFlags.EvaluateStringLiteralAsType |
                             EvaluatorFlags.ParamSpecDisallowed |
                             EvaluatorFlags.TypeVarTupleDisallowed
-                    ).type;
+                    );
+                    const arg1Type = arg1TypeResult.type;
 
                     const classTypeList = getIsInstanceClassTypes(arg1Type);
+                    const isIncomplete = !!callTypeResult.isIncomplete || !!arg1TypeResult.isIncomplete;
 
                     if (classTypeList) {
                         return (type: Type) => {
@@ -460,19 +543,34 @@ export function getTypeNarrowingCallback(
                                 testExpression
                             );
                             if (!isNever(narrowedType)) {
-                                return narrowedType;
+                                return {
+                                    type: narrowedType,
+                                    isIncomplete,
+                                };
                             }
 
                             // Try again with intersection types allowed.
-                            return narrowTypeForIsInstance(
-                                evaluator,
+                            return {
+                                type: narrowTypeForIsInstance(
+                                    evaluator,
+                                    type,
+                                    classTypeList,
+                                    isInstanceCheck,
+                                    isPositiveTest,
+                                    /* allowIntersections */ true,
+                                    testExpression
+                                ),
+                                isIncomplete,
+                            };
+                        };
+                    } else if (isIncomplete) {
+                        // If the type is incomplete, it may include unknowns, which will result
+                        // in classTypeList being undefined.
+                        return (type: Type) => {
+                            return {
                                 type,
-                                classTypeList,
-                                isInstanceCheck,
-                                isPositiveTest,
-                                /* allowIntersections */ true,
-                                testExpression
-                            );
+                                isIncomplete: true,
+                            };
                         };
                     }
                 }
@@ -483,10 +581,11 @@ export function getTypeNarrowingCallback(
         if (testExpression.arguments.length === 1) {
             const arg0Expr = testExpression.arguments[0].valueExpression;
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                const callType = evaluator.getTypeOfExpression(
+                const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.leftExpression,
                     EvaluatorFlags.DoNotSpecialize
-                ).type;
+                );
+                const callType = callTypeResult.type;
 
                 if (isFunction(callType) && callType.details.builtInName === 'callable') {
                     return (type: Type) => {
@@ -508,7 +607,7 @@ export function getTypeNarrowingCallback(
                             );
                         }
 
-                        return narrowedType;
+                        return { type: narrowedType, isIncomplete: !!callTypeResult.isIncomplete };
                     };
                 }
             }
@@ -517,14 +616,18 @@ export function getTypeNarrowingCallback(
         // Look for "bool(X)"
         if (testExpression.arguments.length === 1 && !testExpression.arguments[0].name) {
             if (ParseTreeUtils.isMatchingExpression(reference, testExpression.arguments[0].valueExpression)) {
-                const callType = evaluator.getTypeOfExpression(
+                const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.leftExpression,
                     EvaluatorFlags.DoNotSpecialize
-                ).type;
+                );
+                const callType = callTypeResult.type;
 
                 if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'bool')) {
                     return (type: Type) => {
-                        return narrowTypeForTruthiness(evaluator, type, isPositiveTest);
+                        return {
+                            type: narrowTypeForTruthiness(evaluator, type, isPositiveTest),
+                            isIncomplete: !!callTypeResult.isIncomplete,
+                        };
                     };
                 }
             }
@@ -545,10 +648,11 @@ export function getTypeNarrowingCallback(
                     );
                 };
 
-                const callType = evaluator.getTypeOfExpression(
+                const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.leftExpression,
                     EvaluatorFlags.DoNotSpecialize
-                ).type;
+                );
+                const callType = callTypeResult.type;
 
                 if (isFunction(callType) && isFunctionReturnTypeGuard(callType)) {
                     isPossiblyTypeGuard = true;
@@ -561,7 +665,9 @@ export function getTypeNarrowingCallback(
 
                 if (isPossiblyTypeGuard) {
                     // Evaluate the type guard call expression.
-                    const functionReturnType = evaluator.getTypeOfExpression(testExpression).type;
+                    const functionReturnTypeResult = evaluator.getTypeOfExpression(testExpression);
+                    const functionReturnType = functionReturnTypeResult.type;
+
                     if (
                         isClassInstance(functionReturnType) &&
                         ClassType.isBuiltIn(functionReturnType, 'bool') &&
@@ -569,15 +675,19 @@ export function getTypeNarrowingCallback(
                     ) {
                         const isStrictTypeGuard = !!functionReturnType.isStrictTypeGuard;
                         const typeGuardType = functionReturnType.typeGuardType;
+                        const isIncomplete = !!callTypeResult.isIncomplete || !!functionReturnTypeResult.isIncomplete;
 
                         return (type: Type) => {
-                            return narrowTypeForUserDefinedTypeGuard(
-                                evaluator,
-                                type,
-                                typeGuardType,
-                                isPositiveTest,
-                                isStrictTypeGuard
-                            );
+                            return {
+                                type: narrowTypeForUserDefinedTypeGuard(
+                                    evaluator,
+                                    type,
+                                    typeGuardType,
+                                    isPositiveTest,
+                                    isStrictTypeGuard
+                                ),
+                                isIncomplete,
+                            };
                         };
                     }
                 }
@@ -587,7 +697,10 @@ export function getTypeNarrowingCallback(
 
     if (ParseTreeUtils.isMatchingExpression(reference, testExpression)) {
         return (type: Type) => {
-            return narrowTypeForTruthiness(evaluator, type, isPositiveTest);
+            return {
+                type: narrowTypeForTruthiness(evaluator, type, isPositiveTest),
+                isIncomplete: false,
+            };
         };
     }
 
@@ -792,6 +905,8 @@ function narrowTypeForUserDefinedTypeGuard(
 // Narrow the type based on whether the subtype can be true or false.
 function narrowTypeForTruthiness(evaluator: TypeEvaluator, type: Type, isPositiveTest: boolean) {
     return mapSubtypes(type, (subtype) => {
+        subtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
         if (isPositiveTest) {
             if (evaluator.canBeTruthy(subtype)) {
                 return evaluator.removeFalsinessFromType(subtype);
@@ -868,6 +983,49 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
 
             // See if it's a match for None.
             if (isNoneInstance(subtype) === isPositiveTest) {
+                return subtype;
+            }
+
+            return undefined;
+        }
+    );
+}
+
+// Handle type narrowing for expressions of the form "x is ..." and "x is not ...".
+function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiveTest: boolean) {
+    const expandedType = mapSubtypes(type, (subtype) => {
+        return transformPossibleRecursiveTypeAlias(subtype);
+    });
+
+    return evaluator.mapSubtypesExpandTypeVars(
+        expandedType,
+        /* conditionFilter */ undefined,
+        (subtype, unexpandedSubtype) => {
+            if (isAnyOrUnknown(subtype)) {
+                // We need to assume that "Any" is always both None and not None,
+                // so it matches regardless of whether the test is positive or negative.
+                return subtype;
+            }
+
+            // If this is a TypeVar that isn't constrained, use the unexpanded
+            // TypeVar. For all other cases (including constrained TypeVars),
+            // use the expanded subtype.
+            const adjustedSubtype =
+                isTypeVar(unexpandedSubtype) && unexpandedSubtype.details.constraints.length === 0
+                    ? unexpandedSubtype
+                    : subtype;
+
+            // See if it's a match for object.
+            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
+                return isPositiveTest
+                    ? addConditionToType(NoneType.createInstance(), subtype.condition)
+                    : adjustedSubtype;
+            }
+
+            const isEllipsis = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'ellipsis');
+
+            // See if it's a match for "...".
+            if (isEllipsis === isPositiveTest) {
                 return subtype;
             }
 
@@ -1091,7 +1249,7 @@ function narrowTypeForIsInstance(
                                     specializedFilterType = applySolvedTypeVars(
                                         unspecializedFilterType,
                                         typeVarContext,
-                                        /* unknownIfNotFound */ true
+                                        { unknownIfNotFound: true }
                                     ) as ClassType;
                                 }
                             }
@@ -1307,7 +1465,13 @@ function narrowTypeForIsInstance(
 
             if (isInstanceCheck) {
                 if (isNoneInstance(subtype)) {
-                    const containsNoneType = classTypeList.some((t) => isNoneTypeClass(t));
+                    const containsNoneType = classTypeList.some((t) => {
+                        if (isNoneTypeClass(t)) {
+                            return true;
+                        }
+                        return isInstantiableClass(t) && ClassType.isBuiltIn(t, 'NoneType');
+                    });
+
                     if (isPositiveTest) {
                         return containsNoneType ? subtype : undefined;
                     } else {

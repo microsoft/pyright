@@ -113,7 +113,9 @@ class _Settings(TypedDict):
 
 class Session(SessionRedirectMixin):
     __attrs__: Any
-    headers: CaseInsensitiveDict[str | bytes]
+    # See https://github.com/psf/requests/issues/5020#issuecomment-989082461:
+    # requests sets this as a CaseInsensitiveDict, but users may set it to any MutableMapping
+    headers: MutableMapping[str, str | bytes]
     auth: _Auth | None
     proxies: _TextMapping
     # Don't complain if:

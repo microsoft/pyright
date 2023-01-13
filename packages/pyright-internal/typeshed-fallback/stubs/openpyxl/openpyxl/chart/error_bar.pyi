@@ -1,32 +1,32 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class ErrorBars(Serialisable):
     tagname: str
-    errDir: Any
-    direction: Any
-    errBarType: Any
-    style: Any
-    errValType: Any
-    size: Any
-    noEndCap: Any
-    plus: Any
-    minus: Any
-    val: Any
-    spPr: Any
-    graphicalProperties: Any
-    extLst: Any
-    __elements__: Any
+    errDir: Incomplete
+    direction: Incomplete
+    errBarType: Incomplete
+    style: Incomplete
+    errValType: Incomplete
+    size: Incomplete
+    noEndCap: Incomplete
+    plus: Incomplete
+    minus: Incomplete
+    val: Incomplete
+    spPr: Incomplete
+    graphicalProperties: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        errDir: Any | None = ...,
+        errDir: Incomplete | None = ...,
         errBarType: str = ...,
         errValType: str = ...,
-        noEndCap: Any | None = ...,
-        plus: Any | None = ...,
-        minus: Any | None = ...,
-        val: Any | None = ...,
-        spPr: Any | None = ...,
-        extLst: Any | None = ...,
+        noEndCap: Incomplete | None = ...,
+        plus: Incomplete | None = ...,
+        minus: Incomplete | None = ...,
+        val: Incomplete | None = ...,
+        spPr: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...

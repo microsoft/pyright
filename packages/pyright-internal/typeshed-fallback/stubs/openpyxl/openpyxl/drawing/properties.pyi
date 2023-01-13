@@ -1,91 +1,97 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
 class GroupShapeProperties(Serialisable):
     tagname: str
-    bwMode: Any
-    xfrm: Any
-    scene3d: Any
-    extLst: Any
+    bwMode: Incomplete
+    xfrm: Incomplete
+    scene3d: Incomplete
+    extLst: Incomplete
     def __init__(
-        self, bwMode: Any | None = ..., xfrm: Any | None = ..., scene3d: Any | None = ..., extLst: Any | None = ...
+        self,
+        bwMode: Incomplete | None = ...,
+        xfrm: Incomplete | None = ...,
+        scene3d: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class GroupLocking(Serialisable):
     tagname: str
-    namespace: Any
-    noGrp: Any
-    noUngrp: Any
-    noSelect: Any
-    noRot: Any
-    noChangeAspect: Any
-    noMove: Any
-    noResize: Any
-    noChangeArrowheads: Any
-    noEditPoints: Any
-    noAdjustHandles: Any
-    noChangeShapeType: Any
-    extLst: Any
-    __elements__: Any
+    namespace: Incomplete
+    noGrp: Incomplete
+    noUngrp: Incomplete
+    noSelect: Incomplete
+    noRot: Incomplete
+    noChangeAspect: Incomplete
+    noMove: Incomplete
+    noResize: Incomplete
+    noChangeArrowheads: Incomplete
+    noEditPoints: Incomplete
+    noAdjustHandles: Incomplete
+    noChangeShapeType: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        noGrp: Any | None = ...,
-        noUngrp: Any | None = ...,
-        noSelect: Any | None = ...,
-        noRot: Any | None = ...,
-        noChangeAspect: Any | None = ...,
-        noChangeArrowheads: Any | None = ...,
-        noMove: Any | None = ...,
-        noResize: Any | None = ...,
-        noEditPoints: Any | None = ...,
-        noAdjustHandles: Any | None = ...,
-        noChangeShapeType: Any | None = ...,
-        extLst: Any | None = ...,
+        noGrp: Incomplete | None = ...,
+        noUngrp: Incomplete | None = ...,
+        noSelect: Incomplete | None = ...,
+        noRot: Incomplete | None = ...,
+        noChangeAspect: Incomplete | None = ...,
+        noChangeArrowheads: Incomplete | None = ...,
+        noMove: Incomplete | None = ...,
+        noResize: Incomplete | None = ...,
+        noEditPoints: Incomplete | None = ...,
+        noAdjustHandles: Incomplete | None = ...,
+        noChangeShapeType: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class NonVisualGroupDrawingShapeProps(Serialisable):
     tagname: str
-    grpSpLocks: Any
-    extLst: Any
-    __elements__: Any
-    def __init__(self, grpSpLocks: Any | None = ..., extLst: Any | None = ...) -> None: ...
+    grpSpLocks: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
+    def __init__(self, grpSpLocks: Incomplete | None = ..., extLst: Incomplete | None = ...) -> None: ...
 
 class NonVisualDrawingShapeProps(Serialisable):
     tagname: str
-    spLocks: Any
-    txBax: Any
-    extLst: Any
-    __elements__: Any
-    txBox: Any
-    def __init__(self, spLocks: Any | None = ..., txBox: Any | None = ..., extLst: Any | None = ...) -> None: ...
+    spLocks: Incomplete
+    txBax: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
+    txBox: Incomplete
+    def __init__(
+        self, spLocks: Incomplete | None = ..., txBox: Incomplete | None = ..., extLst: Incomplete | None = ...
+    ) -> None: ...
 
 class NonVisualDrawingProps(Serialisable):
     tagname: str
-    id: Any
-    name: Any
-    descr: Any
-    hidden: Any
-    title: Any
-    hlinkClick: Any
-    hlinkHover: Any
-    extLst: Any
-    __elements__: Any
+    id: Incomplete
+    name: Incomplete
+    descr: Incomplete
+    hidden: Incomplete
+    title: Incomplete
+    hlinkClick: Incomplete
+    hlinkHover: Incomplete
+    extLst: Incomplete
+    __elements__: Incomplete
     def __init__(
         self,
-        id: Any | None = ...,
-        name: Any | None = ...,
-        descr: Any | None = ...,
-        hidden: Any | None = ...,
-        title: Any | None = ...,
-        hlinkClick: Any | None = ...,
-        hlinkHover: Any | None = ...,
-        extLst: Any | None = ...,
+        id: Incomplete | None = ...,
+        name: Incomplete | None = ...,
+        descr: Incomplete | None = ...,
+        hidden: Incomplete | None = ...,
+        title: Incomplete | None = ...,
+        hlinkClick: Incomplete | None = ...,
+        hlinkHover: Incomplete | None = ...,
+        extLst: Incomplete | None = ...,
     ) -> None: ...
 
 class NonVisualGroupShape(Serialisable):
     tagname: str
-    cNvPr: Any
-    cNvGrpSpPr: Any
-    __elements__: Any
-    def __init__(self, cNvPr: Any | None = ..., cNvGrpSpPr: Any | None = ...) -> None: ...
+    cNvPr: Incomplete
+    cNvGrpSpPr: Incomplete
+    __elements__: Incomplete
+    def __init__(self, cNvPr: Incomplete | None = ..., cNvGrpSpPr: Incomplete | None = ...) -> None: ...

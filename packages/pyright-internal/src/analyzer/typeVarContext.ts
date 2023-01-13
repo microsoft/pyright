@@ -13,8 +13,9 @@ import { assert } from '../common/debug';
 import {
     AnyType,
     ClassType,
+    FunctionType,
+    isFunction,
     maxTypeRecursionCount,
-    ParamSpecValue,
     TupleTypeArgument,
     Type,
     TypeCategory,
@@ -22,25 +23,21 @@ import {
     TypeVarType,
     WildcardTypeVarScopeId,
 } from './types';
-import { doForEachSubtype } from './typeUtils';
+import { applySolvedTypeVars, doForEachSubtype } from './typeUtils';
 
 export interface TypeVarMapEntry {
     typeVar: TypeVarType;
 
-    // The final type must "fit" between the narrow and
-    // wide type bound.
+    // The final type must "fit" between the narrow and wide type bound.
+    // If there are literal subtypes in the narrowBound, these are stripped,
+    // and the resulting widened type is placed in narrowBoundNoLiterals as
+    // long as they fit within the wideBound.
     narrowBound?: Type | undefined;
+    narrowBoundNoLiterals?: Type | undefined;
     wideBound?: Type | undefined;
-
-    retainLiteral?: boolean | undefined;
 }
 
-export interface ParamSpecMapEntry {
-    paramSpec: TypeVarType;
-    type: ParamSpecValue;
-}
-
-export interface VariadicTypeVarMapEntry {
+export interface TupleTypeVarMapEntry {
     typeVar: TypeVarType;
     types: TupleTypeArgument[];
 }
@@ -48,8 +45,7 @@ export interface VariadicTypeVarMapEntry {
 export class TypeVarContext {
     private _solveForScopes: TypeVarScopeId[] | undefined;
     private _typeVarMap: Map<string, TypeVarMapEntry>;
-    private _variadicTypeVarMap: Map<string, VariadicTypeVarMapEntry> | undefined;
-    private _paramSpecMap: Map<string, ParamSpecMapEntry>;
+    private _tupleTypeVarMap: Map<string, TupleTypeVarMapEntry> | undefined;
     private _isLocked = false;
 
     constructor(solveForScopes?: TypeVarScopeId[] | TypeVarScopeId) {
@@ -62,7 +58,6 @@ export class TypeVarContext {
         }
 
         this._typeVarMap = new Map<string, TypeVarMapEntry>();
-        this._paramSpecMap = new Map<string, ParamSpecMapEntry>();
     }
 
     clone() {
@@ -72,16 +67,17 @@ export class TypeVarContext {
         }
 
         this._typeVarMap.forEach((value) => {
-            newTypeVarMap.setTypeVarType(value.typeVar, value.narrowBound, value.wideBound, value.retainLiteral);
+            newTypeVarMap.setTypeVarType(
+                value.typeVar,
+                value.narrowBound,
+                value.narrowBoundNoLiterals,
+                value.wideBound
+            );
         });
 
-        this._paramSpecMap.forEach((value) => {
-            newTypeVarMap.setParamSpec(value.paramSpec, value.type);
-        });
-
-        if (this._variadicTypeVarMap) {
-            this._variadicTypeVarMap.forEach((value) => {
-                newTypeVarMap.setVariadicTypeVar(value.typeVar, value.types);
+        if (this._tupleTypeVarMap) {
+            this._tupleTypeVarMap.forEach((value) => {
+                newTypeVarMap.setTupleTypeVar(value.typeVar, value.types);
             });
         }
 
@@ -93,8 +89,7 @@ export class TypeVarContext {
     // Copies a cloned type var map back into this object.
     copyFromClone(clone: TypeVarContext) {
         this._typeVarMap = clone._typeVarMap;
-        this._paramSpecMap = clone._paramSpecMap;
-        this._variadicTypeVarMap = clone._variadicTypeVarMap;
+        this._tupleTypeVarMap = clone._tupleTypeVarMap;
         this._isLocked = clone._isLocked;
     }
 
@@ -125,7 +120,7 @@ export class TypeVarContext {
     }
 
     isEmpty() {
-        return this._typeVarMap.size === 0 && this._paramSpecMap.size === 0;
+        return this._typeVarMap.size === 0;
     }
 
     // Provides a "score" - a value that values completeness (number
@@ -145,8 +140,6 @@ export class TypeVarContext {
             score += 1.0 - this._getComplexityScoreForType(typeVarType);
         });
 
-        score += this._paramSpecMap.size;
-
         return score;
     }
 
@@ -159,34 +152,54 @@ export class TypeVarContext {
         if (!entry) {
             return undefined;
         }
-        if (entry.narrowBound) {
+
+        if (useNarrowBoundOnly) {
             return entry.narrowBound;
         }
-        if (!useNarrowBoundOnly) {
-            return entry.wideBound;
+
+        // Prefer the narrow version with no literals. It will be undefined
+        // if the literal type couldn't be widened due to constraints imposed
+        // by the wide bound.
+        return entry.narrowBoundNoLiterals ?? entry.narrowBound ?? entry.wideBound;
+    }
+
+    getParamSpecType(reference: TypeVarType): FunctionType | undefined {
+        const entry = this._typeVarMap.get(this._getKey(reference));
+        if (!entry?.narrowBound) {
+            return undefined;
         }
+
+        if (isFunction(entry.narrowBound)) {
+            return entry.narrowBound;
+        }
+
         return undefined;
     }
 
-    setTypeVarType(reference: TypeVarType, narrowBound: Type | undefined, wideBound?: Type, retainLiteral?: boolean) {
-        assert(!this._isLocked);
+    setTypeVarType(
+        reference: TypeVarType,
+        narrowBound: Type | undefined,
+        narrowBoundNoLiterals?: Type,
+        wideBound?: Type
+    ) {
+        assert(!this._isLocked, 'TypeVarContext is locked');
         const key = this._getKey(reference);
-        this._typeVarMap.set(key, { typeVar: reference, narrowBound, wideBound, retainLiteral });
+        this._typeVarMap.set(key, { typeVar: reference, narrowBound, narrowBoundNoLiterals, wideBound });
     }
 
-    getVariadicTypeVar(reference: TypeVarType): TupleTypeArgument[] | undefined {
-        return this._variadicTypeVarMap?.get(this._getKey(reference))?.types;
+    getTupleTypeVar(reference: TypeVarType): TupleTypeArgument[] | undefined {
+        return this._tupleTypeVarMap?.get(this._getKey(reference))?.types;
     }
 
-    setVariadicTypeVar(reference: TypeVarType, types: TupleTypeArgument[]) {
+    setTupleTypeVar(reference: TypeVarType, types: TupleTypeArgument[]) {
         assert(!this._isLocked);
         const key = this._getKey(reference);
 
-        // Allocate variadic map on demand since most classes don't use it.
-        if (!this._variadicTypeVarMap) {
-            this._variadicTypeVarMap = new Map<string, VariadicTypeVarMapEntry>();
+        // Allocate tuple TypeVar map on demand since most classes don't use it.
+        if (!this._tupleTypeVarMap) {
+            this._tupleTypeVarMap = new Map<string, TupleTypeVarMapEntry>();
         }
-        this._variadicTypeVarMap.set(key, { typeVar: reference, types });
+        this._tupleTypeVarMap.set(key, { typeVar: reference, types });
     }
 
     getTypeVar(reference: TypeVarType): TypeVarMapEntry | undefined {
@@ -204,20 +217,42 @@ export class TypeVarContext {
         return entries;
     }
 
-    hasParamSpec(reference: TypeVarType): boolean {
-        return this._paramSpecMap.has(this._getKey(reference));
+    // Applies solved TypeVars from one context to this context.
+    applySourceContextTypeVars(srcContext: TypeVarContext) {
+        // If there are no solved TypeVars, don't bother.
+        if (srcContext.getTypeVarCount() === 0) {
+            return;
+        }
+
+        const wasLocked = this.isLocked();
+        this.unlock();
+
+        this._typeVarMap.forEach((entry) => {
+            const newNarrowTypeBound = entry.narrowBound
+                ? applySolvedTypeVars(entry.narrowBound, srcContext)
+                : undefined;
+            const newNarrowTypeBoundNoLiterals = entry.narrowBoundNoLiterals
+                ? applySolvedTypeVars(entry.narrowBoundNoLiterals, srcContext)
+                : undefined;
+            const newWideTypeBound = entry.wideBound ? applySolvedTypeVars(entry.wideBound, srcContext) : undefined;
+
+            this.setTypeVarType(entry.typeVar, newNarrowTypeBound, newNarrowTypeBoundNoLiterals, newWideTypeBound);
+        });
+
+        this._tupleTypeVarMap?.forEach((entry) => {
+            const updatedTypes: TupleTypeArgument[] = entry.types.map((arg) => {
+                return { isUnbounded: arg.isUnbounded, type: applySolvedTypeVars(arg.type, srcContext) };
+            });
+
+            this.setTupleTypeVar(entry.typeVar, updatedTypes);
+        });
+
+        if (wasLocked) {
+            this.lock();
+        }
     }
 
-    getParamSpec(reference: TypeVarType): ParamSpecValue | undefined {
-        return this._paramSpecMap.get(this._getKey(reference))?.type;
-    }
-
-    setParamSpec(reference: TypeVarType, type: ParamSpecValue) {
-        assert(!this._isLocked);
-        this._paramSpecMap.set(this._getKey(reference), { paramSpec: reference, type });
-    }
-
-    typeVarCount() {
+    getTypeVarCount() {
         return this._typeVarMap.size;
     }
 
@@ -228,11 +263,6 @@ export class TypeVarContext {
         }
 
         return undefined;
-    }
-
-    getRetainLiterals(reference: TypeVarType): boolean {
-        const entry = this._typeVarMap.get(this._getKey(reference));
-        return !!entry?.retainLiteral;
     }
 
     lock() {

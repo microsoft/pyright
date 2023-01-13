@@ -1,51 +1,17 @@
-# This sample tests support for PEP 696 -- default types for TypeVars.
-# In particular, it tests the case where a TypeVarLike goes unsolved
-# in a call, and a default value is used rather than Unknown.
+# This sample tests error handling for PEP 696. TypeVars without default
+# types cannot be after TypeVars with default types. This is the same as
+# typeVarDefault3 except that it uses PEP 695 syntax.
 
+from typing import TypeVar
 
-from typing import Callable, Generic, ParamSpec, TypeVar, TypeVarTuple, Unpack
+# This should generate an error because T1 is after T2.
+class ClassA[T2=str, T1]: ...
 
-
-T = TypeVar("T", default=str)
-
-def func1(x: int | T) -> list[T]:
+# This should generate an error because T1 is after T2.
+def funcA[T2=str, T1](a: T2, b: T1) -> T1 | T2:
     ...
 
-v1_1 = func1(3.4)
-reveal_type(v1_1, expected_text="list[float]")
+# This should generate an error because T1 is after T2.
+type TA_A[T2=str, T1] = dict[T2, T1]
 
-v1_2 = func1(3)
-reveal_type(v1_2, expected_text="list[str]")
-
-
-P = ParamSpec("P", default=(int, str, str))
-
-class ClassA(Generic[P]):
-    def __init__(self, x: Callable[P, None]) -> None:
-        ...
-
-def func2(x: int | ClassA[P]) -> ClassA[P]:
-    ...
-
-def callback1(x: str) -> None:
-    ...
-
-v2_1 = func2(ClassA(callback1))
-reveal_type(v2_1, expected_text="ClassA[(x: str)]")
-
-
-v2_2 = func2(3)
-reveal_type(v2_2, expected_text="ClassA[(int, str, str)]")
-
-
-Ts = TypeVarTuple("Ts", default=Unpack[tuple[int, str, float]])
-
-def func3(x: int | Callable[[*Ts], None]) -> tuple[*Ts]:
-    ...
-
-v3_1 = func3(callback1)
-reveal_type(v3_1, expected_text="tuple[str]")
-
-v3_2 = func3(3)
-reveal_type(v3_2, expected_text="tuple[int, str, float]")
 

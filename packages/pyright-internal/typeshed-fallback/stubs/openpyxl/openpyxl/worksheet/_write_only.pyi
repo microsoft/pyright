@@ -1,20 +1,20 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from openpyxl.workbook.child import _WorkbookChild
 
 class WriteOnlyWorksheet(_WorkbookChild):
-    mime_type: Any
-    add_chart: Any
-    add_image: Any
-    add_table: Any
+    mime_type: Incomplete
+    add_chart: Incomplete
+    add_image: Incomplete
+    add_table: Incomplete
     @property
     def tables(self): ...
     @property
     def print_titles(self): ...
-    print_title_cols: Any
-    print_title_rows: Any
-    freeze_panes: Any
-    print_area: Any
+    print_title_cols: Incomplete
+    print_title_rows: Incomplete
+    freeze_panes: Incomplete
+    print_area: Incomplete
     @property
     def sheet_view(self): ...
     def __init__(self, parent, title) -> None: ...

@@ -265,6 +265,12 @@ export namespace UnboundType {
 export interface UnknownType extends TypeBase {
     category: TypeCategory.Unknown;
     isIncomplete: boolean;
+
+    // A "possible type" is a form of a "weak union" where the actual
+    // type is unknown, but it could be one of the subtypes in the union.
+    // This is used for overload matching in cases where more than one
+    // overload matches due to an argument that evaluates to Any or Unknown.
+    possibleType?: Type;
 }
 
 export namespace UnknownType {
@@ -281,6 +287,17 @@ export namespace UnknownType {
 
     export function create(isIncomplete = false) {
         return isIncomplete ? _incompleteInstance : _instance;
+    }
+
+    export function createPossibleType(possibleType: Type) {
+        const unknownWithPossibleType: UnknownType = {
+            category: TypeCategory.Unknown,
+            flags: TypeFlags.Instantiable | TypeFlags.Instance,
+            isIncomplete: false,
+            possibleType,
+        };
+
+        return unknownWithPossibleType;
     }
 }
 
@@ -1093,16 +1110,14 @@ export namespace ClassType {
     }
 }
 
-export interface ParamSpecEntry {
+export interface FunctionParameter {
     category: ParameterCategory;
     name?: string | undefined;
     isNameSynthesized?: boolean;
     hasDefault?: boolean | undefined;
     defaultValueExpression?: ExpressionNode | undefined;
     type: Type;
-}
 
-export interface FunctionParameter extends ParamSpecEntry {
     isTypeInferred?: boolean | undefined;
     defaultType?: Type | undefined;
     hasDeclaredType?: boolean | undefined;
@@ -1205,6 +1220,11 @@ interface FunctionDetails {
     // Parameter specification used only for Callable types created
     // with a ParamSpec representing the parameters.
     paramSpec?: TypeVarType | undefined;
+
+    // If the function is generic (has one or more typeParameters) and
+    // one or more of these appear only within the return type and within
+    // a callable, they are rescoped to that callable.
+    rescopedTypeParameters?: TypeVarType[];
 }
 
 export interface SpecializedFunctionTypes {
@@ -1257,14 +1277,6 @@ export interface FunctionType extends TypeBase {
 
     // The type var scope for the class that the function was bound to
     boundTypeVarScopeId?: TypeVarScopeId | undefined;
-}
-
-export interface ParamSpecValue {
-    flags: FunctionTypeFlags;
-    parameters: ParamSpecEntry[];
-    typeVarScopeId: TypeVarScopeId | undefined;
-    docString: string | undefined;
-    paramSpec: TypeVarType | undefined;
 }
 
 export namespace FunctionType {
@@ -1417,7 +1429,7 @@ export namespace FunctionType {
     }
 
     // Creates a new function based on the parameters of another function.
-    export function cloneForParamSpec(type: FunctionType, paramSpecValue: ParamSpecValue | undefined): FunctionType {
+    export function cloneForParamSpec(type: FunctionType, paramSpecValue: FunctionType | undefined): FunctionType {
         const newFunction = create(
             type.details.name,
             type.details.fullName,
@@ -1437,25 +1449,25 @@ export namespace FunctionType {
         if (paramSpecValue) {
             newFunction.details.parameters = [
                 ...type.details.parameters,
-                ...paramSpecValue.parameters.map((specEntry) => {
+                ...paramSpecValue.details.parameters.map((param) => {
                     return {
-                        category: specEntry.category,
-                        name: specEntry.name,
-                        hasDefault: specEntry.hasDefault,
-                        defaultValueExpression: specEntry.defaultValueExpression,
-                        isNameSynthesized: specEntry.isNameSynthesized,
+                        category: param.category,
+                        name: param.name,
+                        hasDefault: param.hasDefault,
+                        defaultValueExpression: param.defaultValueExpression,
+                        isNameSynthesized: param.isNameSynthesized,
                         hasDeclaredType: true,
-                        type: specEntry.type,
+                        type: param.type,
                     };
                 }),
             ];
 
             if (!newFunction.details.docString) {
-                newFunction.details.docString = paramSpecValue.docString;
+                newFunction.details.docString = paramSpecValue.details.docString;
             }
 
             newFunction.details.flags =
-                (paramSpecValue.flags &
+                (paramSpecValue.details.flags &
                     (FunctionTypeFlags.ClassMethod |
                         FunctionTypeFlags.StaticMethod |
                         FunctionTypeFlags.ConstructorMethod |
@@ -1475,7 +1487,7 @@ export namespace FunctionType {
                 if (type.specializedTypes.parameterDefaultArgs) {
                     newFunction.specializedTypes.parameterDefaultArgs = [...type.specializedTypes.parameterDefaultArgs];
                 }
-                paramSpecValue.parameters.forEach((paramInfo) => {
+                paramSpecValue.details.parameters.forEach((paramInfo) => {
                     newFunction.specializedTypes!.parameterTypes.push(paramInfo.type);
                     if (newFunction.specializedTypes!.parameterDefaultArgs) {
                         // Assume that the parameters introduced via paramSpec have no specialized
@@ -1485,7 +1497,7 @@ export namespace FunctionType {
                 });
             }
 
-            newFunction.details.paramSpec = paramSpecValue.paramSpec;
+            newFunction.details.paramSpec = paramSpecValue.details.paramSpec;
         }
 
         return newFunction;
@@ -1502,7 +1514,7 @@ export namespace FunctionType {
         return newFunction;
     }
 
-    export function cloneForParamSpecApplication(type: FunctionType, paramSpecValue: ParamSpecValue): FunctionType {
+    export function cloneForParamSpecApplication(type: FunctionType, paramSpecValue: FunctionType): FunctionType {
         const newFunction = TypeBase.cloneType(type);
 
         // Make a shallow clone of the details.
@@ -1516,14 +1528,18 @@ export namespace FunctionType {
 
         // Update the flags of the function.
         newFunction.details.flags &= ~FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
-        if (paramSpecValue.flags & FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck) {
+        if (paramSpecValue.details.flags & FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck) {
             newFunction.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
         }
 
         // If there is a position-only separator in the captured param spec signature,
         // remove the position-only separator in the existing signature. Otherwise,
         // we'll end up with redundant position-only separators.
-        if (paramSpecValue.parameters.some((entry) => entry.category === ParameterCategory.Simple && !entry.name)) {
+        if (
+            paramSpecValue.details.parameters.some(
+                (entry) => entry.category === ParameterCategory.Simple && !entry.name
+            )
+        ) {
             if (newFunction.details.parameters.length > 0) {
                 const lastParam = newFunction.details.parameters[newFunction.details.parameters.length - 1];
                 if (lastParam.category === ParameterCategory.Simple && !lastParam.name) {
@@ -1532,21 +1548,21 @@ export namespace FunctionType {
             }
         }
 
-        paramSpecValue.parameters.forEach((specEntry) => {
+        paramSpecValue.details.parameters.forEach((param) => {
             newFunction.details.parameters.push({
-                category: specEntry.category,
-                name: specEntry.name,
-                hasDefault: specEntry.hasDefault,
-                defaultValueExpression: specEntry.defaultValueExpression,
-                isNameSynthesized: specEntry.isNameSynthesized,
+                category: param.category,
+                name: param.name,
+                hasDefault: param.hasDefault,
+                defaultValueExpression: param.defaultValueExpression,
+                isNameSynthesized: param.isNameSynthesized,
                 hasDeclaredType: true,
-                type: specEntry.type,
+                type: param.type,
             });
         });
 
-        newFunction.details.paramSpec = paramSpecValue.paramSpec;
+        newFunction.details.paramSpec = paramSpecValue.details.paramSpec;
         if (!newFunction.details.docString) {
-            newFunction.details.docString = paramSpecValue.docString;
+            newFunction.details.docString = paramSpecValue.details.docString;
         }
 
         return newFunction;
@@ -2115,18 +2131,19 @@ export interface TypeVarType extends TypeBase {
     category: TypeCategory.TypeVar;
     details: TypeVarDetails;
 
-    // An ID that uniquely identifies the scope in which this TypeVar is defined.
+    // An ID that uniquely identifies the scope to which this TypeVar is bound
     scopeId?: TypeVarScopeId | undefined;
 
     // A human-readable name of the function, class, or type alias that
-    // provides the scope for this type variable. This might not be unique,
-    // so it should be used only for error messages.
+    // provides the scope to which this type variable is bound. Unlike the
+    // scopeId, this might not be unique, so it should be used only for error
+    // messages.
     scopeName?: string | undefined;
 
-    // If the TypeVar is bound to a scope, this is the scope type.
+    // If the TypeVar is bound to a scope, this is the scope type
     scopeType?: TypeVarScopeType;
 
-    // String formatted as <name>.<scopeId>.
+    // String formatted as <name>.<scopeId>
     nameWithScope?: string | undefined;
 
     // Is this variadic TypeVar unpacked (i.e. Unpack or * operator applied)?
@@ -2136,10 +2153,10 @@ export interface TypeVarType extends TypeBase {
     // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
     isVariadicInUnion?: boolean | undefined;
 
-    // Represents access to "args" or "kwargs" of a ParamSpec.
+    // Represents access to "args" or "kwargs" of a ParamSpec
     paramSpecAccess?: ParamSpecAccess;
 
-    // May be different from declaredVariance if the latter is Auto.
+    // May be different from declaredVariance if declared as Auto
     computedVariance?: Variance;
 }
 

@@ -36,6 +36,10 @@ export class CreateTypeStubCommand implements ServerCommand {
 
                 const infoMessage = `Type stub was successfully created for '${importName}'.`;
                 this._ls.window.showInformationMessage(infoMessage);
+
+                // This is called after a new type stub has been created. It allows
+                // us to invalidate caches and force reanalysis of files that potentially
+                // are affected by the appearance of a new type stub.
                 this._ls.reanalyze();
             } catch (err) {
                 const isCancellation = OperationCanceledException.is(err);

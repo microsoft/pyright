@@ -307,6 +307,9 @@ export interface CallResult {
     // Were any errors discovered when evaluating argument types?
     argumentErrors: boolean;
 
+    // Did one or more arguments evaluated to Any or Unknown?
+    isArgumentAnyOrUnknown?: boolean;
+
     // The parameter associated with the "active" argument (used
     // for signature help provider)
     activeParam?: FunctionParameter | undefined;
@@ -328,6 +331,7 @@ export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
     getType: (node: ExpressionNode) => Type | undefined;
+    getTypeResult: (node: ExpressionNode) => TypeResult | undefined;
     getCachedType: (node: ExpressionNode) => Type | undefined;
     getTypeOfExpression: (node: ExpressionNode, flags?: EvaluatorFlags, expectedType?: Type) => TypeResult;
     getTypeOfAnnotation: (node: ExpressionNode, options?: AnnotationTypeOptions) => Type;
@@ -492,7 +496,8 @@ export interface TypeEvaluator {
         diagLevel: DiagnosticLevel,
         rule: string,
         message: string,
-        node: ParseNode
+        node: ParseNode,
+        range?: TextRange
     ) => Diagnostic | undefined;
     addDiagnosticForTextRange: (
         fileInfo: AnalyzerFileInfo,

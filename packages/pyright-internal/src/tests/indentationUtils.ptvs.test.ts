@@ -8,7 +8,7 @@
 
 import assert from 'assert';
 
-import { getIndentation } from '../languageService/indentationUtils';
+import { getNewlineIndentation } from '../languageService/indentationUtils';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 
 test('top level statement - pass', () => {
@@ -26,7 +26,7 @@ test('top level statement - function', () => {
 ////  [|/*marker*/|]
     `;
 
-    testIndentation(code, 0);
+    testIndentation(code, 4);
 });
 
 test('function with open paren at end of file', () => {
@@ -48,7 +48,7 @@ test('function with open paren between top level statement', () => {
 //// def bar(): pass
     `;
 
-    testIndentation(code, 4);
+    testIndentation(code, 8); // Based on PEP8
 });
 
 test('function with open paren', () => {
@@ -58,7 +58,7 @@ test('function with open paren', () => {
 ////
     `;
 
-    testIndentation(code, 4);
+    testIndentation(code, 8);
 });
 
 test('function with parameter', () => {
@@ -68,7 +68,7 @@ test('function with parameter', () => {
 ////
     `;
 
-    testIndentation(code, 4);
+    testIndentation(code, 6);
 });
 
 test('call with open paren at end of file', () => {
@@ -110,7 +110,7 @@ test('call with parameter', () => {
 ////
     `;
 
-    testIndentation(code, 4);
+    testIndentation(code, 2);
 });
 
 test('list', () => {
@@ -130,7 +130,7 @@ test('list with spaces', () => {
 ////
     `;
 
-    testIndentation(code, 17);
+    testIndentation(code, 8);
 });
 
 test('list with nested', () => {
@@ -150,7 +150,7 @@ test('list with spaces and element', () => {
 ////
     `;
 
-    testIndentation(code, 17);
+    testIndentation(code, 10);
 });
 
 test('list with nested with element', () => {
@@ -160,7 +160,7 @@ test('list with nested with element', () => {
 ////
     `;
 
-    testIndentation(code, 4);
+    testIndentation(code, 7);
 });
 
 test('set', () => {
@@ -213,10 +213,10 @@ test('nested list in dict', () => {
 ////
     `;
 
-    testIndentation(code, 4);
+    testIndentation(code, 5);
 });
 
-test('nested list in dict', () => {
+test('nested list in dict 2', () => {
     const code = `
 //// abc = {'x': [
 ////     ['''str''',
@@ -259,7 +259,7 @@ test('dict first key with list', () => {
 ////
     `;
 
-    testIndentation(code, 6);
+    testIndentation(code, 4);
 });
 
 test('dict key list element on its own line', () => {
@@ -311,7 +311,7 @@ test('explicit multiline expression', () => {
 ////
     `;
 
-    testIndentation(code, 8);
+    testIndentation(code, 4);
 });
 
 test('explicit multiline expression next statement', () => {
@@ -383,6 +383,6 @@ function testIndentation(code: string, indentation: number, preferDedent?: boole
     const marker = state.getMarkerByName('marker');
 
     const parseResults = state.program.getBoundSourceFile(marker.fileName)!.getParseResults()!;
-    const actual = getIndentation(parseResults, marker.position, preferDedent);
+    const actual = getNewlineIndentation(parseResults, marker.position, preferDedent);
     assert.strictEqual(actual, indentation);
 }
