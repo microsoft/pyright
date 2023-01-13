@@ -1186,6 +1186,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!typeResult.isIncomplete && !typeResult.expectedTypeDiagAddendum) {
                 const diag = new DiagnosticAddendum();
                 if (!assignType(expectedType, typeResult.type, diag)) {
+                    typeResult.typeErrors = true;
                     typeResult.expectedTypeDiagAddendum = diag;
                     diag.addTextRange(node);
                 }
@@ -8294,14 +8295,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     skipUnknownArgCheck
                 );
 
+                if (callResult.isTypeIncomplete) {
+                    isTypeIncomplete = true;
+                }
+
                 if (callResult.argumentErrors) {
                     reportedErrors = true;
                 } else {
                     let newReturnType = callResult.returnType;
-
-                    if (callResult.isTypeIncomplete) {
-                        isTypeIncomplete = true;
-                    }
 
                     // If the constructor returned an object whose type matches the class of
                     // the original type being constructed, use the return type in case it was

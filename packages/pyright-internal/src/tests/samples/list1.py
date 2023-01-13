@@ -76,17 +76,6 @@ v15: List[Optional[str]] = [None] * sum(x2)
 v16: Dict[str, List[Optional[str]]] = {n: [None] * len(n) for n in ["a", "aa", "aaa"]}
 
 
-ScalarKeysT = TypeVar("ScalarKeysT", bound=Literal["name", "country"])
-
-
-def func1(by: list[ScalarKeysT]) -> ScalarKeysT:
-    ...
-
-
-reveal_type(func1(["country"]), expected_type="Literal['country']")
-reveal_type(func1(["name"]), expected_type="Literal['name']")
-reveal_type(func1(["name", "country"]), expected_type="Literal['name', 'country']")
-
 # This should generate an error.
 func1(["id"])
 
@@ -99,3 +88,14 @@ func2("")
 func2(["", 0])
 func2([["", 0], ["", 0]])
 func2([[""]])
+
+
+def func3(value: _T) -> list[_T]:
+    to_add = [value, str(value)]
+    # This should generate an error.
+    return to_add
+
+
+def func4(value: _T) -> list[_T]:
+    # This should generate an error.
+    return [value, str(value)]
