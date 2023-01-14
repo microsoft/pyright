@@ -1265,8 +1265,8 @@ export function getCodeFlowEngine(
                             const arg1Type = evaluator.getTypeOfExpression(
                                 arg1Expr,
                                 EvaluatorFlags.EvaluateStringLiteralAsType |
-                                    EvaluatorFlags.ParamSpecDisallowed |
-                                    EvaluatorFlags.TypeVarTupleDisallowed
+                                    EvaluatorFlags.DisallowParamSpec |
+                                    EvaluatorFlags.DisallowTypeVarTuple
                             ).type;
 
                             if (isInstantiableClass(arg1Type)) {

@@ -557,8 +557,8 @@ export function getTypeNarrowingCallback(
                     const arg1TypeResult = evaluator.getTypeOfExpression(
                         arg1Expr,
                         EvaluatorFlags.EvaluateStringLiteralAsType |
-                            EvaluatorFlags.ParamSpecDisallowed |
-                            EvaluatorFlags.TypeVarTupleDisallowed
+                            EvaluatorFlags.DisallowParamSpec |
+                            EvaluatorFlags.DisallowTypeVarTuple
                     );
                     const arg1Type = arg1TypeResult.type;
 

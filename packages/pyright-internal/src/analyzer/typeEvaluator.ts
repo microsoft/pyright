@@ -1116,8 +1116,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     EvaluatorFlags.ExpectingType |
                         EvaluatorFlags.ExpectingTypeAnnotation |
                         EvaluatorFlags.EvaluateStringLiteralAsType |
-                        EvaluatorFlags.ParamSpecDisallowed |
-                        EvaluatorFlags.TypeVarTupleDisallowed |
+                        EvaluatorFlags.DisallowParamSpec |
+                        EvaluatorFlags.DisallowTypeVarTuple |
                         EvaluatorFlags.VariableTypeAnnotation
                 );
                 break;
@@ -1151,7 +1151,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (reportExpectingTypeErrors && !typeResult.isIncomplete) {
-            if (flags & EvaluatorFlags.TypeVarTupleDisallowed) {
+            if (flags & EvaluatorFlags.DisallowTypeVarTuple) {
                 if (isVariadicTypeVar(typeResult.type) && !typeResult.type.isVariadicInUnion) {
                     addError(Localizer.Diagnostic.typeVarTupleContext(), node);
                     typeResult.type = UnknownType.create();
@@ -1260,7 +1260,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const iterTypeResult = getTypeOfExpression(node.expression, flags, iterExpectedType);
         const iterType = iterTypeResult.type;
         if (
-            (flags & EvaluatorFlags.TypeVarTupleDisallowed) === 0 &&
+            (flags & EvaluatorFlags.DisallowTypeVarTuple) === 0 &&
             isVariadicTypeVar(iterType) &&
             !iterType.isVariadicUnpacked
         ) {
@@ -1483,21 +1483,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!options?.allowFinal) {
-            evaluatorFlags |= EvaluatorFlags.FinalDisallowed;
+            evaluatorFlags |= EvaluatorFlags.DisallowFinal;
         }
 
         if (!options?.allowClassVar) {
-            evaluatorFlags |= EvaluatorFlags.ClassVarDisallowed;
+            evaluatorFlags |= EvaluatorFlags.DisallowClassVar;
         }
 
         if (!options?.allowTypeVarTuple) {
-            evaluatorFlags |= EvaluatorFlags.TypeVarTupleDisallowed;
+            evaluatorFlags |= EvaluatorFlags.DisallowTypeVarTuple;
         } else {
             evaluatorFlags |= EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple;
         }
 
         if (!options?.allowParamSpec) {
-            evaluatorFlags |= EvaluatorFlags.ParamSpecDisallowed;
+            evaluatorFlags |= EvaluatorFlags.DisallowParamSpec;
         }
 
         if (options?.associateTypeVarsWithScope) {
@@ -4252,7 +4252,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isParamSpec(type)) {
-            if (flags & EvaluatorFlags.ParamSpecDisallowed) {
+            if (flags & EvaluatorFlags.DisallowParamSpec) {
                 addError(Localizer.Diagnostic.paramSpecContext(), node);
                 type = UnknownType.create();
             }
@@ -6061,7 +6061,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Handle "Required" and "NotRequired" specially.
-        if ((flags & EvaluatorFlags.RequiredAllowed) !== 0) {
+        if ((flags & EvaluatorFlags.AllowRequired) !== 0) {
             if (isInstantiableClass(baseTypeResult.type)) {
                 if (ClassType.isBuiltIn(baseTypeResult.type, 'Required')) {
                     indexTypeResult.isRequired = true;
@@ -6908,18 +6908,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let adjFlags = flags;
 
         if (isFinalAnnotation || isClassVarAnnotation) {
-            adjFlags |= EvaluatorFlags.ClassVarDisallowed | EvaluatorFlags.FinalDisallowed;
+            adjFlags |= EvaluatorFlags.DisallowClassVar | EvaluatorFlags.DisallowFinal;
         } else {
             adjFlags &= ~(
                 EvaluatorFlags.DoNotSpecialize |
-                EvaluatorFlags.ParamSpecDisallowed |
-                EvaluatorFlags.TypeVarTupleDisallowed |
-                EvaluatorFlags.RequiredAllowed |
+                EvaluatorFlags.DisallowParamSpec |
+                EvaluatorFlags.DisallowTypeVarTuple |
+                EvaluatorFlags.AllowRequired |
                 EvaluatorFlags.EnforceTypeVarVarianceConsistency
             );
 
             if (!isAnnotatedClass) {
-                adjFlags |= EvaluatorFlags.ClassVarDisallowed | EvaluatorFlags.FinalDisallowed;
+                adjFlags |= EvaluatorFlags.DisallowClassVar | EvaluatorFlags.DisallowFinal;
             }
 
             adjFlags |= EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple;
@@ -6936,10 +6936,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeResult = {
                     ...getTypeOfExpression(
                         expr,
-                        EvaluatorFlags.ParamSpecDisallowed |
-                            EvaluatorFlags.TypeVarTupleDisallowed |
+                        EvaluatorFlags.DisallowParamSpec |
+                            EvaluatorFlags.DisallowTypeVarTuple |
                             EvaluatorFlags.DoNotSpecialize |
-                            EvaluatorFlags.ClassVarDisallowed
+                            EvaluatorFlags.DisallowClassVar
                     ),
                     node: expr,
                 };
@@ -7026,7 +7026,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 addError(Localizer.Diagnostic.protocolNotAllowedInTypeArgument(), node);
             }
 
-            if ((flags & EvaluatorFlags.ClassVarDisallowed) !== 0) {
+            if ((flags & EvaluatorFlags.DisallowClassVar) !== 0) {
                 // "ClassVar" is not allowed as a type argument.
                 if (isClass(typeResult.type) && ClassType.isBuiltIn(typeResult.type, 'ClassVar')) {
                     addError(Localizer.Diagnostic.classVarNotAllowed(), node);
@@ -10788,8 +10788,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else {
                 const flags = argParam.expectingType
                     ? EvaluatorFlags.EvaluateStringLiteralAsType |
-                      EvaluatorFlags.ParamSpecDisallowed |
-                      EvaluatorFlags.TypeVarTupleDisallowed
+                      EvaluatorFlags.DisallowParamSpec |
+                      EvaluatorFlags.DisallowTypeVarTuple
                     : EvaluatorFlags.None;
                 const exprTypeResult = getTypeOfExpression(argParam.argument.valueExpression, flags, expectedType);
                 argType = exprTypeResult.type;
@@ -10821,8 +10821,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const argTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
                     EvaluatorFlags.EvaluateStringLiteralAsType |
-                        EvaluatorFlags.ParamSpecDisallowed |
-                        EvaluatorFlags.TypeVarTupleDisallowed
+                        EvaluatorFlags.DisallowParamSpec |
+                        EvaluatorFlags.DisallowTypeVarTuple
                 );
                 argType = argTypeResult.type;
                 if (argTypeResult.isIncomplete) {
@@ -14124,7 +14124,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvaluatorFlags
     ): Type {
-        if (flags & EvaluatorFlags.ClassVarDisallowed) {
+        if (flags & EvaluatorFlags.DisallowClassVar) {
             addError(Localizer.Diagnostic.classVarNotAllowed(), errorNode);
             return AnyType.create();
         }
@@ -14304,7 +14304,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if ((flags & EvaluatorFlags.RequiredAllowed) !== 0) {
+        if ((flags & EvaluatorFlags.AllowRequired) !== 0) {
             isUsageLegal = true;
         }
 
@@ -14394,7 +14394,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvaluatorFlags
     ): Type {
-        if (flags & EvaluatorFlags.FinalDisallowed) {
+        if (flags & EvaluatorFlags.DisallowFinal) {
             addError(Localizer.Diagnostic.finalContext(), errorNode);
             return AnyType.create();
         }
@@ -14945,9 +14945,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             flags |=
                 EvaluatorFlags.ExpectingType |
                 EvaluatorFlags.EvaluateStringLiteralAsType |
-                EvaluatorFlags.ParamSpecDisallowed |
-                EvaluatorFlags.TypeVarTupleDisallowed |
-                EvaluatorFlags.ClassVarDisallowed;
+                EvaluatorFlags.DisallowParamSpec |
+                EvaluatorFlags.DisallowTypeVarTuple |
+                EvaluatorFlags.DisallowClassVar;
             flags &= ~EvaluatorFlags.DoNotSpecialize;
         }
 
@@ -19305,9 +19305,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfExpressionExpectingType(node: ExpressionNode, options?: ExpectedTypeOptions): TypeResult {
         let flags =
-            EvaluatorFlags.ExpectingType |
-            EvaluatorFlags.EvaluateStringLiteralAsType |
-            EvaluatorFlags.ClassVarDisallowed;
+            EvaluatorFlags.ExpectingType | EvaluatorFlags.EvaluateStringLiteralAsType | EvaluatorFlags.DisallowClassVar;
 
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         if (fileInfo.isStubFile) {
@@ -19317,21 +19315,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!options?.allowFinal) {
-            flags |= EvaluatorFlags.FinalDisallowed;
+            flags |= EvaluatorFlags.DisallowFinal;
         }
 
         if (options?.allowRequired) {
-            flags |= EvaluatorFlags.RequiredAllowed | EvaluatorFlags.ExpectingTypeAnnotation;
+            flags |= EvaluatorFlags.AllowRequired | EvaluatorFlags.ExpectingTypeAnnotation;
         }
 
         if (options?.allowUnpackedTuple) {
             flags |= EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple;
         } else {
-            flags |= EvaluatorFlags.TypeVarTupleDisallowed;
+            flags |= EvaluatorFlags.DisallowTypeVarTuple;
         }
 
         if (!options?.allowParamSpec) {
-            flags |= EvaluatorFlags.ParamSpecDisallowed;
+            flags |= EvaluatorFlags.DisallowParamSpec;
         }
 
         return getTypeOfExpression(node, flags);
