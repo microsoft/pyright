@@ -246,6 +246,40 @@ export function getTypeNarrowingCallback(
                         };
                     }
                 }
+
+                // Look for X[<literal>] is <literal> or X[<literal>] is not <literal>
+                if (
+                    testExpression.leftExpression.nodeType === ParseNodeType.Index &&
+                    testExpression.leftExpression.items.length === 1 &&
+                    !testExpression.leftExpression.trailingComma &&
+                    testExpression.leftExpression.items[0].argumentCategory === ArgumentCategory.Simple &&
+                    ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.baseExpression)
+                ) {
+                    const indexTypeResult = evaluator.getTypeOfExpression(
+                        testExpression.leftExpression.items[0].valueExpression
+                    );
+                    const indexType = indexTypeResult.type;
+
+                    if (isClassInstance(indexType) && isLiteralType(indexType)) {
+                        if (ClassType.isBuiltIn(indexType, 'str')) {
+                            const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
+                            if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
+                                return (type: Type) => {
+                                    return {
+                                        type: narrowTypeForDiscriminatedDictEntryComparison(
+                                            evaluator,
+                                            type,
+                                            indexType,
+                                            rightType,
+                                            adjIsPositiveTest
+                                        ),
+                                        isIncomplete: !!indexTypeResult.isIncomplete,
+                                    };
+                                };
+                            }
+                        }
+                    }
+                }
             }
 
             if (equalsOrNotEqualsOperator) {

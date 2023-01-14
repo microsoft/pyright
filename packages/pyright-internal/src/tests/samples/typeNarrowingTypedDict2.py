@@ -23,11 +23,22 @@ class OtherEvent(TypedDict):
 Event = Union[NewJobEvent, CancelJobEvent, OtherEvent]
 
 
-def process_event(event: Event) -> None:
+def process_event1(event: Event) -> None:
     if event["tag"] == "new-job":
         reveal_type(event, expected_text="NewJobEvent")
         event["job_name"]
     elif event["tag"] == 2:
+        reveal_type(event, expected_text="CancelJobEvent")
+        event["job_id"]
+    else:
+        reveal_type(event, expected_text="OtherEvent")
+        event["message"]
+
+def process_event2(event: Event) -> None:
+    if event["tag"] is "new-job":
+        reveal_type(event, expected_text="NewJobEvent")
+        event["job_name"]
+    elif event["tag"] is 2:
         reveal_type(event, expected_text="CancelJobEvent")
         event["job_id"]
     else:
