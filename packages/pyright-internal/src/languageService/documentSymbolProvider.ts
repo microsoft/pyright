@@ -293,6 +293,13 @@ function appendDocumentSymbolsRecursive(
             continue;
         }
 
+        // It's possible for a name to be '' under certain error
+        // conditions (such as a decorator with no associated function
+        // or class).
+        if (!symbolData.name) {
+            continue;
+        }
+
         const children: DocumentSymbol[] = [];
         appendDocumentSymbolsRecursive(symbolData.children, children, token);
 
