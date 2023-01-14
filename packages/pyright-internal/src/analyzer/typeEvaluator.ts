@@ -10769,12 +10769,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // to true if this is the first pass through the parameter list because
             // a wide bound on a TypeVar (if a narrow bound has not yet been established)
             // will unnecessarily constrain the expected type.
-            let expectedType: Type | undefined =
-                isTypeVar(argParam.paramType) &&
-                functionType !== undefined &&
-                argParam.paramType.scopeId === functionType.details.typeVarScopeId
-                    ? undefined
-                    : applySolvedTypeVars(argParam.paramType, typeVarContext, { useNarrowBoundOnly });
+            let expectedType: Type | undefined;
+            if (!isTypeVar(argParam.paramType) || argParam.paramType.scopeId !== functionType?.details.typeVarScopeId) {
+                expectedType = applySolvedTypeVars(argParam.paramType, typeVarContext, { useNarrowBoundOnly });
+            }
 
             // If the expected type is unknown, don't use an expected type. Instead,
             // use default rules for evaluating the expression type.
@@ -10792,13 +10790,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                       EvaluatorFlags.DisallowTypeVarTuple
                     : EvaluatorFlags.None;
                 const exprTypeResult = getTypeOfExpression(argParam.argument.valueExpression, flags, expectedType);
+
                 argType = exprTypeResult.type;
+
                 if (exprTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
                 }
+
                 if (exprTypeResult.typeErrors) {
                     isCompatible = false;
                 }
+
                 expectedTypeDiag = exprTypeResult.expectedTypeDiagAddendum;
             }
 
@@ -10809,7 +10811,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 writeTypeCache(
                     argParam.argument.name,
-                    { type: expectedType || argType, isIncomplete: isTypeIncomplete },
+                    { type: expectedType ?? argType, isIncomplete: isTypeIncomplete },
                     EvaluatorFlags.None
                 );
             }
