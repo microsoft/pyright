@@ -10,6 +10,7 @@
 
 import { DiagnosticRuleSet, ExecutionEnvironment } from '../common/configOptions';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
+import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Scope } from './scope';
@@ -54,5 +55,20 @@ export interface AnalyzerFileInfo {
 }
 
 export function isAnnotationEvaluationPostponed(fileInfo: AnalyzerFileInfo) {
-    return fileInfo.futureImports.has('annotations') || fileInfo.isStubFile;
+    if (fileInfo.isStubFile) {
+        return true;
+    }
+
+    if (fileInfo.futureImports.has('annotations')) {
+        return true;
+    }
+
+    // As of November 22, the Python steering council has tentatively
+    // approved PEP 649 for Python 3.12.
+    // https://discuss.python.org/t/pep-649-deferred-evaluation-of-annotations-tentatively-accepted/21331
+    if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_12) {
+        return true;
+    }
+
+    return false;
 }
