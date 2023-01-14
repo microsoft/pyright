@@ -187,6 +187,9 @@ export interface DiagnosticRuleSet {
     // Report attempts to redefine variables that are in all-caps.
     reportConstantRedefinition: DiagnosticLevel;
 
+    // Report use of deprecated classes or functions.
+    reportDeprecated: DiagnosticLevel;
+
     // Report usage of method override that is incompatible with
     // the base class method of the same name?
     reportIncompatibleMethodOverride: DiagnosticLevel;
@@ -361,6 +364,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportTypeCommentUsage,
         DiagnosticRule.reportPrivateImportUsage,
         DiagnosticRule.reportConstantRedefinition,
+        DiagnosticRule.reportDeprecated,
         DiagnosticRule.reportIncompatibleMethodOverride,
         DiagnosticRule.reportIncompatibleVariableOverride,
         DiagnosticRule.reportInconsistentConstructor,
@@ -445,6 +449,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportTypeCommentUsage: 'none',
         reportPrivateImportUsage: 'none',
         reportConstantRedefinition: 'none',
+        reportDeprecated: 'none',
         reportIncompatibleMethodOverride: 'none',
         reportIncompatibleVariableOverride: 'none',
         reportInconsistentConstructor: 'none',
@@ -525,6 +530,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportTypeCommentUsage: 'none',
         reportPrivateImportUsage: 'error',
         reportConstantRedefinition: 'none',
+        reportDeprecated: 'none',
         reportIncompatibleMethodOverride: 'none',
         reportIncompatibleVariableOverride: 'none',
         reportInconsistentConstructor: 'none',
@@ -605,6 +611,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportTypeCommentUsage: 'error',
         reportPrivateImportUsage: 'error',
         reportConstantRedefinition: 'error',
+        reportDeprecated: 'error',
         reportIncompatibleMethodOverride: 'error',
         reportIncompatibleVariableOverride: 'error',
         reportInconsistentConstructor: 'error',

@@ -316,6 +316,12 @@
       "title": "Controls reporting of attempts to redefine variables that are in all-caps",
       "default": "none"
     },
+    "reportDeprecated": {
+      "$id": "#/properties/reportDeprecated",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of use of deprecated class or function",
+      "default": "none"
+    },
     "reportIncompatibleMethodOverride": {
       "$id": "#/properties/reportIncompatibleMethodOverride",
       "$ref": "#/definitions/diagnostic",

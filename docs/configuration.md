@@ -112,6 +112,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 <a name="reportConstantRedefinition"></a> **reportConstantRedefinition** [boolean or string, optional]: Generate or suppress diagnostics for attempts to redefine variables whose names are all-caps with underscores and numerals. The default value for this setting is 'none'.
 
+<a name="reportDeprecated"></a> **reportDeprecated** [boolean or string, optional]: Generate or suppress diagnostics for use of a class or function that has been marked as deprecated. The default value for this setting is 'none'.
+
 <a name="reportIncompatibleMethodOverride"></a> **reportIncompatibleMethodOverride** [boolean or string, optional]: Generate or suppress diagnostics for methods that override a method of the same name in a base class in an incompatible manner (wrong number of parameters, incompatible parameter types, or incompatible return type). The default value for this setting is 'none'.
 
 <a name="reportIncompatibleVariableOverride"></a> **reportIncompatibleVariableOverride** [boolean or string, optional]: Generate or suppress diagnostics for class variable declarations that override a symbol of the same name in a base class with a type that is incompatible with the base class symbol type. The default value for this setting is 'none'.
@@ -321,6 +323,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportUnboundVariable                     | "none"     | "error"    | "error"    |
 | reportUnusedCoroutine                     | "none"     | "error"    | "error"    |
 | reportConstantRedefinition                | "none"     | "none"     | "error"    |
+| reportDeprecated                          | "none"     | "none"     | "error"    |
 | reportDuplicateImport                     | "none"     | "none"     | "error"    |
 | reportFunctionMemberAccess                | "none"     | "none"     | "error"    |
 | reportImportCycles                        | "none"     | "none"     | "error"    |

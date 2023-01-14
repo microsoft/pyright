@@ -36,6 +36,7 @@ Pyright supports [configuration files](/docs/configuration.md) that provide gran
 * [PEP 695](https://www.python.org/dev/peps/pep-0695/) (draft) Type parameter syntax
 * [PEP 696](https://www.python.org/dev/peps/pep-0696/) (draft) Type defaults for TypeVarLikes
 * [PEP 698](https://www.python.org/dev/peps/pep-0698/) (draft) Override decorator for static typing
+* [PEP 702](https://www.python.org/dev/peps/pep-0702/) (draft) Marking deprecations
 * Type inference for function return values, instance variables, class variables, and globals
 * Type guards that understand conditional code flow constructs like if/else statements
 

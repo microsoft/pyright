@@ -182,6 +182,9 @@ export interface TypeResult {
     // Is the type wrapped in a "Required" or "NotRequired" class?
     isRequired?: boolean;
     isNotRequired?: boolean;
+
+    // If a call expression, which overloads were used to satisfy it?
+    overloadsUsedForCall?: FunctionType[];
 }
 
 export interface TypeResultWithNode extends TypeResult {
@@ -319,6 +322,11 @@ export interface CallResult {
     // is used for overloaded constructors where the arguments to the
     // constructor influence the specialized type of the constructed object.
     specializedInitSelfType?: Type | undefined;
+
+    // The overload or overloads used to satisfy the call. There can
+    // be multiple overloads in the case where the call type is a union
+    // or we have used union expansion for arguments.
+    overloadsUsedForCall: FunctionType[];
 }
 
 export interface PrintTypeOptions {

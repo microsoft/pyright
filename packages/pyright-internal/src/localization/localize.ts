@@ -329,6 +329,8 @@ export namespace Localizer {
         export const declaredReturnTypeUnknown = () => getRawString('Diagnostic.declaredReturnTypeUnknown');
         export const defaultValueContainsCall = () => getRawString('Diagnostic.defaultValueContainsCall');
         export const defaultValueNotAllowed = () => getRawString('Diagnostic.defaultValueNotAllowed');
+        export const deprecatedClass = () => getRawString('Diagnostic.deprecatedClass');
+        export const deprecatedFunction = () => getRawString('Diagnostic.deprecatedFunction');
         export const deprecatedType = () =>
             new ParameterizedString<{ version: string; replacement: string }>(
                 getRawString('Diagnostic.deprecatedType')

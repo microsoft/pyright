@@ -497,6 +497,7 @@ interface ClassDetails {
     typeParameters: TypeVarType[];
     typeVarScopeId?: TypeVarScopeId | undefined;
     docString?: string | undefined;
+    deprecatedMessage?: string | undefined;
     dataClassEntries?: DataClassEntry[] | undefined;
     dataClassBehaviors?: DataClassBehaviors | undefined;
     typedDictEntries?: Map<string, TypedDictEntry> | undefined;
@@ -1212,6 +1213,7 @@ interface FunctionDetails {
     constructorTypeVarScopeId?: TypeVarScopeId | undefined;
     builtInName?: string | undefined;
     docString?: string | undefined;
+    deprecatedMessage?: string | undefined;
 
     // Transforms to apply if this function is used
     // as a decorator.

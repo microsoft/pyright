@@ -7287,6 +7287,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (callResult.argumentErrors) {
                     typeResult.typeErrors = true;
+                } else {
+                    typeResult.overloadsUsedForCall = callResult.overloadsUsedForCall;
                 }
 
                 if (callResult.isTypeIncomplete) {
@@ -7698,6 +7700,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             typeVarContext: TypeVarContext;
         }[] = [];
         let isTypeIncomplete = false;
+        const overloadsUsedForCall: FunctionType[] = [];
 
         for (let expandedTypesIndex = 0; expandedTypesIndex < expandedArgTypes.length; expandedTypesIndex++) {
             let matchedOverload: FunctionType | undefined;
@@ -7751,6 +7754,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (!callResult.argumentErrors && callResult.returnType) {
+                    overloadsUsedForCall.push(overload);
+
                     matchedOverload = overload;
                     matchedOverloads.push({
                         overload: matchedOverload,
@@ -7804,7 +7809,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (!matchedOverload) {
-                return { argumentErrors: true, isTypeIncomplete };
+                return { argumentErrors: true, isTypeIncomplete, overloadsUsedForCall };
             }
         }
 
@@ -7839,6 +7844,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             returnType: combineTypes(returnTypes),
             isTypeIncomplete,
             specializedInitSelfType: finalCallResult.specializedInitSelfType,
+            overloadsUsedForCall,
         };
     }
 
@@ -7952,7 +7958,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
             }
 
-            return { argumentErrors: true, isTypeIncomplete: false };
+            return { argumentErrors: true, isTypeIncomplete: false, overloadsUsedForCall: [] };
         }
 
         // Create a helper lambda that evaluates the overload that matches
@@ -8049,7 +8055,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { ...result, argumentErrors: true };
         }
 
-        return { argumentErrors: true, isTypeIncomplete: false };
+        return { argumentErrors: true, isTypeIncomplete: false, overloadsUsedForCall: [] };
     }
 
     // Replaces each item in the expandedArgTypes with n items where n is
@@ -8124,6 +8130,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let reportedErrors = false;
         let isTypeIncomplete = false;
         let usedMetaclassCallMethod = false;
+        const overloadsUsedForCall: FunctionType[] = [];
 
         // Create a helper function that determines whether we should skip argument
         // validation for either __init__ or __new__. This is required for certain
@@ -8166,6 +8173,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (expectedCallResult.isTypeIncomplete) {
                         isTypeIncomplete = true;
                     }
+
+                    overloadsUsedForCall.push(...expectedCallResult.overloadsUsedForCall);
                 }
             }
 
@@ -8202,6 +8211,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (callResult.isTypeIncomplete) {
                         isTypeIncomplete = true;
                     }
+
+                    overloadsUsedForCall.push(...callResult.overloadsUsedForCall);
                 } else {
                     reportedErrors = true;
                 }
@@ -8425,7 +8436,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const result: CallResult = { argumentErrors: reportedErrors, returnType, isTypeIncomplete };
+        const result: CallResult = {
+            argumentErrors: reportedErrors,
+            returnType,
+            isTypeIncomplete,
+            overloadsUsedForCall,
+        };
 
         return result;
     }
@@ -8443,6 +8459,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): CallResult | undefined {
         let isTypeIncomplete = false;
         let argumentErrors = false;
+        const overloadsUsedForCall: FunctionType[] = [];
 
         const returnType = mapSubtypes(expectedType, (expectedSubType) => {
             expectedSubType = transformPossibleRecursiveTypeAlias(expectedSubType);
@@ -8486,6 +8503,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         argumentErrors = true;
                     }
 
+                    overloadsUsedForCall.push(...callResult.overloadsUsedForCall);
+
                     return applyExpectedSubtypeForConstructor(type, expectedSubType, typeVarContext);
                 }
             }
@@ -8497,7 +8516,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        return { returnType, isTypeIncomplete, argumentErrors };
+        return { returnType, isTypeIncomplete, argumentErrors, overloadsUsedForCall };
     }
 
     function applyExpectedSubtypeForConstructor(
@@ -8584,9 +8603,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let argumentErrors = false;
         let isTypeIncomplete = false;
         let specializedInitSelfType: Type | undefined;
+        const overloadsUsedForCall: FunctionType[] = [];
 
         if (recursionCount > maxTypeRecursionCount) {
-            return { returnType: UnknownType.create(), argumentErrors: true };
+            return { returnType: UnknownType.create(), argumentErrors: true, overloadsUsedForCall };
         }
         recursionCount++;
 
@@ -8601,7 +8621,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }),
                 exprNode
             );
-            return { returnType: UnknownType.create(), argumentErrors: true };
+            return { returnType: UnknownType.create(), argumentErrors: true, overloadsUsedForCall };
         }
 
         const returnType = mapSubtypesExpandTypeVars(
@@ -8675,6 +8695,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             isTypeIncomplete = true;
                         }
 
+                        overloadsUsedForCall.push(...functionResult.overloadsUsedForCall);
+
                         if (functionResult.argumentErrors) {
                             argumentErrors = true;
                         } else {
@@ -8746,6 +8768,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             skipUnknownArgCheck,
                             expectedType
                         );
+
+                        overloadsUsedForCall.push(...functionResult.overloadsUsedForCall);
 
                         if (functionResult.isTypeIncomplete) {
                             isTypeIncomplete = true;
@@ -8953,6 +8977,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 expectedType
                             );
 
+                            overloadsUsedForCall.push(...constructorResult.overloadsUsedForCall);
+
                             if (constructorResult.argumentErrors) {
                                 argumentErrors = true;
                             }
@@ -9023,6 +9049,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     expectedType,
                                     recursionCount
                                 );
+
+                                overloadsUsedForCall.push(...functionResult.overloadsUsedForCall);
+
                                 if (functionResult.argumentErrors) {
                                     argumentErrors = true;
                                 }
@@ -9082,6 +9111,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             recursionCount
                         );
 
+                        overloadsUsedForCall.push(...callResult.overloadsUsedForCall);
+
                         if (callResult.argumentErrors) {
                             argumentErrors = true;
                         }
@@ -9109,6 +9140,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             returnType: isNever(returnType) && !returnType.isNoReturn ? undefined : returnType,
             isTypeIncomplete,
             specializedInitSelfType,
+            overloadsUsedForCall,
         };
     }
 
@@ -10507,6 +10539,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isTypeIncomplete,
             activeParam: matchResults.activeParam,
             specializedInitSelfType,
+            overloadsUsedForCall: argumentErrors ? [] : [type],
         };
     }
 
@@ -10551,6 +10584,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return {
                 argumentErrors: true,
                 activeParam: matchResults.activeParam,
+                overloadsUsedForCall: [],
             };
         }
 
@@ -16176,6 +16210,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 }
             }
+
+            if (isOverloadedFunction(decoratorCallType)) {
+                if (
+                    decoratorCallType.overloads.length > 0 &&
+                    decoratorCallType.overloads[0].details.builtInName === 'deprecated'
+                ) {
+                    originalClassType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
+                    return inputClassType;
+                }
+            }
         }
 
         if (isOverloadedFunction(decoratorType)) {
@@ -16190,6 +16234,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
                 return inputClassType;
             }
+
+            if (decoratorType.overloads.length > 0 && decoratorType.overloads[0].details.builtInName === 'deprecated') {
+                originalClassType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
+                return inputClassType;
+            }
         } else if (isFunction(decoratorType)) {
             if (decoratorType.details.builtInName === 'final') {
                 originalClassType.details.flags |= ClassTypeFlags.Final;
@@ -16198,7 +16247,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // behavior because its function definition results in a cyclical
                 // dependency between builtins, typing and _typeshed stubs.
                 return inputClassType;
-            } else if (decoratorType.details.builtInName === 'runtime_checkable') {
+            }
+
+            if (decoratorType.details.builtInName === 'runtime_checkable') {
                 originalClassType.details.flags |= ClassTypeFlags.RuntimeCheckable;
 
                 // Don't call getTypeOfDecorator for runtime_checkable. It appears
@@ -16236,6 +16287,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return getTypeOfDecorator(decoratorNode, inputClassType);
+    }
+
+    // Given a @typing.deprecated decorator node, returns either '' or a custom
+    // deprecation message if one is provided.
+    function getCustomDeprecationMessage(decorator: DecoratorNode): string {
+        if (
+            decorator.expression.nodeType === ParseNodeType.Call &&
+            decorator.expression.arguments.length > 0 &&
+            decorator.expression.arguments[0].argumentCategory === ArgumentCategory.Simple &&
+            decorator.expression.arguments[0].valueExpression.nodeType === ParseNodeType.StringList &&
+            decorator.expression.arguments[0].valueExpression.strings.length === 1
+        ) {
+            return decorator.expression.arguments[0].valueExpression.strings[0].value;
+        }
+
+        return '';
     }
 
     // Runs any registered "callback hooks" that depend on the specified class type.
@@ -17203,6 +17270,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return inputFunctionType;
                 }
             }
+
+            if (isOverloadedFunction(decoratorCallType)) {
+                if (
+                    decoratorCallType.overloads.length > 0 &&
+                    decoratorCallType.overloads[0].details.builtInName === 'deprecated'
+                ) {
+                    undecoratedType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
+                    return inputFunctionType;
+                }
+            }
         }
 
         let returnType = getTypeOfDecorator(decoratorNode, inputFunctionType);
@@ -17248,6 +17325,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
                 }
+            }
+        } else if (isOverloadedFunction(decoratorType)) {
+            if (decoratorType.overloads.length > 0 && decoratorType.overloads[0].details.builtInName === 'deprecated') {
+                undecoratedType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
+                return inputFunctionType;
             }
         } else if (isInstantiableClass(decoratorType)) {
             if (ClassType.isBuiltIn(decoratorType)) {
@@ -18695,17 +18777,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // don't bother doing additional work.
         let cacheEntry = readTypeCacheEntry(subnode);
         if (cacheEntry && !cacheEntry.typeResult.isIncomplete) {
-            return { type: cacheEntry.typeResult.type };
+            return cacheEntry.typeResult;
         }
 
         callback();
         cacheEntry = readTypeCacheEntry(subnode);
         if (cacheEntry) {
-            return {
-                type: cacheEntry.typeResult.type,
-                isIncomplete: cacheEntry.typeResult.isIncomplete,
-                expectedTypeDiagAddendum: cacheEntry.typeResult.expectedTypeDiagAddendum,
-            };
+            return cacheEntry.typeResult;
         }
 
         return undefined;

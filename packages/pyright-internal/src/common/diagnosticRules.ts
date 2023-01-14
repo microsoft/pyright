@@ -46,6 +46,7 @@ export enum DiagnosticRule {
     reportTypeCommentUsage = 'reportTypeCommentUsage',
     reportPrivateImportUsage = 'reportPrivateImportUsage',
     reportConstantRedefinition = 'reportConstantRedefinition',
+    reportDeprecated = 'reportDeprecated',
     reportIncompatibleMethodOverride = 'reportIncompatibleMethodOverride',
     reportIncompatibleVariableOverride = 'reportIncompatibleVariableOverride',
     reportInconsistentConstructor = 'reportInconsistentConstructor',

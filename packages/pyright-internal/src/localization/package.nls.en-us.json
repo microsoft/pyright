@@ -89,6 +89,8 @@
         "declaredReturnTypeUnknown": "Declared return type is unknown",
         "defaultValueContainsCall": "Function calls and mutable objects not allowed within parameter default value expression",
         "defaultValueNotAllowed": "Parameter with \"*\" or \"**\" cannot have default value",
+        "deprecatedClass": "This class is deprecated",
+        "deprecatedFunction": "This function is deprecated",
         "deprecatedType": "This type is deprecated as of Python {version}; use \"{replacement}\" instead",
         "delTargetExpr": "Expression cannot be deleted",
         "dictExpandIllegalInComprehension": "Dictionary expansion not allowed in comprehension",

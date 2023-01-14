@@ -473,6 +473,17 @@
                                 "error"
                             ]
                         },
+                        "reportDeprecated": {
+                            "type": "string",
+                            "description": "Diagnostics for use of deprecated classes or functions.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportIncompatibleMethodOverride": {
                             "type": "string",
                             "description": "Diagnostics for methods that override a method of the same name in a base class in an incompatible manner (wrong number of parameters, incompatible parameter types, or incompatible return type).",

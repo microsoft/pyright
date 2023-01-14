@@ -1374,9 +1374,9 @@ export class Checker extends ParseTreeWalker {
             this._reportUnboundName(node);
         }
 
-        // Report the use of a deprecated symbol. For now, this functionality
-        // is disabled. We'll leave it in place for the future.
-        // this._reportDeprecatedUse(node);
+        // Report the use of a deprecated symbol.
+        const type = this._evaluator.getType(node);
+        this._reportDeprecatedUse(node, type);
 
         return true;
     }
@@ -1392,7 +1392,9 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitMemberAccess(node: MemberAccessNode) {
-        this._evaluator.getType(node);
+        const type = this._evaluator.getType(node);
+        this._reportDeprecatedUse(node.memberName, type);
+
         this._conditionallyReportPrivateUsage(node.memberName);
 
         // Walk the leftExpression but not the memberName.
@@ -1474,6 +1476,9 @@ export class Checker extends ParseTreeWalker {
             this._addMissingModuleSourceDiagnosticIfNeeded(importResult, node.name);
             break;
         }
+
+        const type = this._evaluator.getType(node.alias ?? node.name);
+        this._reportDeprecatedUse(node.name, type);
 
         return false;
     }
@@ -3562,31 +3567,109 @@ export class Checker extends ParseTreeWalker {
         return false;
     }
 
-    private _reportDeprecatedUse(node: NameNode) {
-        const deprecatedForm = deprecatedAliases.get(node.value) ?? deprecatedSpecialForms.get(node.value);
-
-        if (!deprecatedForm) {
-            return;
-        }
-
-        const type = this._evaluator.getType(node);
-
+    private _reportDeprecatedUse(node: NameNode, type: Type | undefined) {
         if (!type) {
             return;
         }
 
-        if (!isInstantiableClass(type) || type.details.fullName !== deprecatedForm.fullName) {
-            return;
+        let errorMessage: string | undefined;
+        let deprecatedMessage: string | undefined;
+
+        doForEachSubtype(type, (subtype) => {
+            if (isClass(subtype)) {
+                if (
+                    !subtype.includeSubclasses &&
+                    subtype.details.deprecatedMessage !== undefined &&
+                    node.value === subtype.details.name
+                ) {
+                    deprecatedMessage = subtype.details.deprecatedMessage;
+                    errorMessage = Localizer.Diagnostic.deprecatedClass();
+                }
+            } else if (isFunction(subtype)) {
+                if (subtype.details.deprecatedMessage !== undefined && node.value === subtype.details.name) {
+                    deprecatedMessage = subtype.details.deprecatedMessage;
+                    errorMessage = Localizer.Diagnostic.deprecatedFunction();
+                }
+            } else if (isOverloadedFunction(subtype)) {
+                // Determine if the node is part of a call expression. If so,
+                // we can determine which overload(s) were used to satisfy
+                // the call expression and determine whether any of them
+                // are deprecated.
+                let callTypeResult: TypeResult | undefined;
+                if (node.parent?.nodeType === ParseNodeType.Call && node.parent.leftExpression === node) {
+                    callTypeResult = this._evaluator.getTypeResult(node.parent);
+                } else if (
+                    node.parent?.nodeType === ParseNodeType.MemberAccess &&
+                    node.parent.memberName === node &&
+                    node.parent.parent?.nodeType === ParseNodeType.Call &&
+                    node.parent.parent.leftExpression === node.parent
+                ) {
+                    callTypeResult = this._evaluator.getTypeResult(node.parent.parent);
+                }
+
+                if (
+                    callTypeResult &&
+                    callTypeResult.overloadsUsedForCall &&
+                    callTypeResult.overloadsUsedForCall.length > 0
+                ) {
+                    callTypeResult.overloadsUsedForCall.forEach((overload) => {
+                        if (overload.details.deprecatedMessage !== undefined && node.value === overload.details.name) {
+                            deprecatedMessage = overload.details.deprecatedMessage;
+                            errorMessage = Localizer.Diagnostic.deprecatedFunction();
+                        }
+                    });
+                }
+            }
+        });
+
+        if (errorMessage) {
+            const diag = new DiagnosticAddendum();
+            if (deprecatedMessage) {
+                diag.addMessage(deprecatedMessage);
+            }
+
+            if (this._fileInfo.diagnosticRuleSet.reportDeprecated === 'none') {
+                this._evaluator.addDeprecated(errorMessage + diag.getString(), node);
+            } else {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportDeprecated,
+                    DiagnosticRule.reportDeprecated,
+                    errorMessage + diag.getString(),
+                    node
+                );
+            }
         }
 
-        if (this._fileInfo.executionEnvironment.pythonVersion >= deprecatedForm.version) {
-            this._evaluator.addDeprecated(
-                Localizer.Diagnostic.deprecatedType().format({
-                    version: versionToString(deprecatedForm.version),
-                    replacement: deprecatedForm.replacementText,
-                }),
-                node
-            );
+        // We'll leave this disabled for now because this would be too noisy for most
+        // code bases. We may want to add it at some future date.
+        if (0) {
+            const deprecatedForm = deprecatedAliases.get(node.value) ?? deprecatedSpecialForms.get(node.value);
+
+            if (deprecatedForm) {
+                if (isInstantiableClass(type) && type.details.fullName === deprecatedForm.fullName) {
+                    if (this._fileInfo.executionEnvironment.pythonVersion >= deprecatedForm.version) {
+                        if (this._fileInfo.diagnosticRuleSet.reportDeprecated === 'none') {
+                            this._evaluator.addDeprecated(
+                                Localizer.Diagnostic.deprecatedType().format({
+                                    version: versionToString(deprecatedForm.version),
+                                    replacement: deprecatedForm.replacementText,
+                                }),
+                                node
+                            );
+                        } else {
+                            this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticRuleSet.reportDeprecated,
+                                DiagnosticRule.reportDeprecated,
+                                Localizer.Diagnostic.deprecatedType().format({
+                                    version: versionToString(deprecatedForm.version),
+                                    replacement: deprecatedForm.replacementText,
+                                }),
+                                node
+                            );
+                        }
+                    }
+                }
+            }
         }
     }
 
