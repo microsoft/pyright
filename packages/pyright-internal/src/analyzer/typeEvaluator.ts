@@ -1661,6 +1661,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function canBeFalsy(type: Type, recursionCount = 0): boolean {
+        type = makeTopLevelTypeVarsConcrete(type);
+
         if (recursionCount > maxTypeRecursionCount) {
             return true;
         }
@@ -1746,6 +1748,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function canBeTruthy(type: Type, recursionCount = 0): boolean {
+        type = makeTopLevelTypeVarsConcrete(type);
+
         if (recursionCount > maxTypeRecursionCount) {
             return true;
         }
@@ -1829,17 +1833,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // and return only the "None".
     function removeTruthinessFromType(type: Type): Type {
         return mapSubtypes(type, (subtype) => {
-            if (isClassInstance(subtype)) {
-                if (subtype.literalValue !== undefined) {
+            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
+
+            if (isClassInstance(concreteSubtype)) {
+                if (concreteSubtype.literalValue !== undefined) {
                     // If the object is already definitely falsy, it's fine to
                     // include, otherwise it should be removed.
-                    return !subtype.literalValue ? subtype : undefined;
+                    return !concreteSubtype.literalValue ? subtype : undefined;
                 }
 
                 // If the object is a bool, make it "false", since
                 // "true" is a truthy value.
-                if (ClassType.isBuiltIn(subtype, 'bool')) {
-                    return ClassType.cloneWithLiteral(subtype, /* value */ false);
+                if (ClassType.isBuiltIn(concreteSubtype, 'bool')) {
+                    return ClassType.cloneWithLiteral(concreteSubtype, /* value */ false);
                 }
             }
 
@@ -1858,17 +1864,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // and return only the "int".
     function removeFalsinessFromType(type: Type): Type {
         return mapSubtypes(type, (subtype) => {
-            if (isClassInstance(subtype)) {
-                if (subtype.literalValue !== undefined) {
+            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
+
+            if (isClassInstance(concreteSubtype)) {
+                if (concreteSubtype.literalValue !== undefined) {
                     // If the object is already definitely truthy, it's fine to
                     // include, otherwise it should be removed.
-                    return subtype.literalValue ? subtype : undefined;
+                    return concreteSubtype.literalValue ? subtype : undefined;
                 }
 
                 // If the object is a bool, make it "true", since
                 // "false" is a falsy value.
-                if (ClassType.isBuiltIn(subtype, 'bool')) {
-                    return ClassType.cloneWithLiteral(subtype, /* value */ true);
+                if (ClassType.isBuiltIn(concreteSubtype, 'bool')) {
+                    return ClassType.cloneWithLiteral(concreteSubtype, /* value */ true);
                 }
             }
 

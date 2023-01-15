@@ -939,8 +939,6 @@ function narrowTypeForUserDefinedTypeGuard(
 // Narrow the type based on whether the subtype can be true or false.
 function narrowTypeForTruthiness(evaluator: TypeEvaluator, type: Type, isPositiveTest: boolean) {
     return mapSubtypes(type, (subtype) => {
-        subtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
-
         if (isPositiveTest) {
             if (evaluator.canBeTruthy(subtype)) {
                 return evaluator.removeFalsinessFromType(subtype);
