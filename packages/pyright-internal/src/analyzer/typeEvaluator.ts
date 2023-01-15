@@ -18439,19 +18439,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // but TypeAlias expressions are not handled there.
                 nodeToEvaluate = parent;
                 continue;
-            } else {
-                // Check for expression types that are always contextual.
-                if (
-                    nodeToEvaluate.nodeType !== ParseNodeType.Dictionary &&
-                    nodeToEvaluate.nodeType !== ParseNodeType.List &&
-                    nodeToEvaluate.nodeType !== ParseNodeType.Lambda &&
-                    nodeToEvaluate.nodeType !== ParseNodeType.Set &&
-                    nodeToEvaluate.nodeType !== ParseNodeType.Tuple &&
-                    nodeToEvaluate.nodeType !== ParseNodeType.Unpack &&
-                    nodeToEvaluate.nodeType !== ParseNodeType.ListComprehension
-                ) {
-                    break;
-                }
             }
 
             if (!isExpressionNode(parent)) {
