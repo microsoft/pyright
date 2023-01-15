@@ -351,7 +351,7 @@
         "requiredNotInTypedDict": "\"Required\" is not allowed in this context",
         "returnInAsyncGenerator": "Return statement with value is not allowed in async generator",
         "returnOutsideFunction": "\"return\" can be used only within a function",
-        "returnMissing": "Function with declared type of \"{returnType}\" must return value",
+        "returnMissing": "Function with declared type of \"{returnType}\" must return value on all code paths",
         "returnTypeContravariant": "Contravariant type variable cannot be used in return type",
         "returnTypeMismatch": "Expression of type \"{exprType}\" cannot be assigned to return type \"{returnType}\"",
         "returnTypeUnknown": "Return type is unknown",
