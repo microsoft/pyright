@@ -232,6 +232,11 @@ export interface ApplyTypeVarOptions {
     typeClassType?: Type;
 }
 
+export interface InferenceContext {
+    expectedType: Type;
+    typeVarContext?: TypeVarContext;
+}
+
 // Examines the input parameters within a function signature and creates a
 // "virtual list" of parameters, stripping out any markers and expanding
 // any *args with unpacked tuples.
@@ -459,6 +464,24 @@ export function isOptionalType(type: Type): boolean {
 
 export function isIncompleteUnknown(type: Type): boolean {
     return isUnknown(type) && type.isIncomplete;
+}
+
+export function makeInferenceContext(expectedType: undefined, typeVarContext?: TypeVarContext): undefined;
+export function makeInferenceContext(expectedType: Type, typeVarContext?: TypeVarContext): InferenceContext;
+export function makeInferenceContext(
+    expectedType: Type | undefined,
+    typeVarContext?: TypeVarContext
+): InferenceContext | undefined;
+
+export function makeInferenceContext(
+    expectedType: Type | undefined,
+    typeVarContext?: TypeVarContext
+): InferenceContext | undefined {
+    if (!expectedType) {
+        return undefined;
+    }
+
+    return { expectedType, typeVarContext };
 }
 
 // Calls a callback for each subtype and combines the results

@@ -300,6 +300,11 @@ export interface FunctionResult {
     isTypeIncomplete: boolean;
 }
 
+export interface InferenceContext {
+    expectedType: Type;
+    typeVarContext?: TypeVarContext;
+}
+
 export interface CallResult {
     // Specialized return type of call
     returnType?: Type | undefined;
@@ -341,7 +346,7 @@ export interface TypeEvaluator {
     getType: (node: ExpressionNode) => Type | undefined;
     getTypeResult: (node: ExpressionNode) => TypeResult | undefined;
     getCachedType: (node: ExpressionNode) => Type | undefined;
-    getTypeOfExpression: (node: ExpressionNode, flags?: EvaluatorFlags, expectedType?: Type) => TypeResult;
+    getTypeOfExpression: (node: ExpressionNode, flags?: EvaluatorFlags, context?: InferenceContext) => TypeResult;
     getTypeOfAnnotation: (node: ExpressionNode, options?: AnnotationTypeOptions) => Type;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
@@ -367,7 +372,7 @@ export interface TypeEvaluator {
         type: OverloadedFunctionType,
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean,
-        expectedType: Type | undefined
+        inferenceContext: InferenceContext | undefined
     ) => CallResult;
 
     isAfterNodeReachable: (node: ParseNode) => boolean;
@@ -439,7 +444,7 @@ export interface TypeEvaluator {
         args: TypeResult[],
         magicMethodName: string,
         errorNode: ExpressionNode,
-        expectedType: Type | undefined
+        inferenceContext: InferenceContext | undefined
     ) => Type | undefined;
     bindFunctionToClassOrObject: (
         baseType: ClassType | undefined,

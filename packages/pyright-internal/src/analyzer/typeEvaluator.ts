@@ -168,6 +168,7 @@ import {
     ExpectedTypeResult,
     FunctionArgument,
     FunctionTypeResult,
+    InferenceContext,
     maxSubtypesForInferredType,
     PrintTypeOptions,
     TypeEvaluator,
@@ -277,6 +278,7 @@ import {
     isVarianceOfTypeArgumentCompatible,
     lookUpClassMember,
     lookUpObjectMember,
+    makeInferenceContext,
     mapSubtypes,
     ParameterListDetails,
     ParameterSource,
@@ -712,7 +714,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         node: ParseNode,
         typeResult: TypeResult,
         flags: EvaluatorFlags | undefined,
-        expectedType?: Type,
+        inferenceContext?: InferenceContext,
         allowSpeculativeCaching = false
     ) {
         // Should we use a temporary cache associated with a contextual
@@ -730,7 +732,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (speculativeTypeTracker.isSpeculative(node)) {
             speculativeTypeTracker.trackEntry(typeCacheToUse, node.id);
             if (allowSpeculativeCaching && !typeResult.isIncomplete) {
-                speculativeTypeTracker.addSpeculativeType(node, typeResult, expectedType);
+                speculativeTypeTracker.addSpeculativeType(node, typeResult, inferenceContext?.expectedType);
             }
         }
     }
@@ -912,7 +914,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
-    function getTypeOfExpression(node: ExpressionNode, flags = EvaluatorFlags.None, expectedType?: Type): TypeResult {
+    function getTypeOfExpression(
+        node: ExpressionNode,
+        flags = EvaluatorFlags.None,
+        inferenceContext?: InferenceContext
+    ): TypeResult {
         // Is this type already cached?
         const cacheEntry = readTypeCacheEntry(node);
         if (cacheEntry && !cacheEntry.typeResult.isIncomplete) {
@@ -928,7 +934,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return cacheEntry.typeResult;
         } else {
             // Is it cached in the speculative type cache?
-            const cachedTypeResult = speculativeTypeTracker.getSpeculativeType(node, expectedType);
+            const cachedTypeResult = speculativeTypeTracker.getSpeculativeType(node, inferenceContext?.expectedType);
             if (cachedTypeResult) {
                 if (printExpressionTypes) {
                     console.log(
@@ -953,7 +959,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // will be thrown at this point.
         checkForCancellation();
 
-        expectedType = transformPossibleRecursiveTypeAlias(expectedType);
+        if (inferenceContext) {
+            inferenceContext.expectedType = transformPossibleRecursiveTypeAlias(inferenceContext.expectedType);
+        }
 
         // If we haven't already fetched some core type definitions from the
         // typeshed stubs, do so here. It would be better to fetch this when it's
@@ -981,12 +989,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Call: {
-                typeResult = getTypeOfCall(node, expectedType, flags);
+                typeResult = getTypeOfCall(node, inferenceContext, flags);
                 break;
             }
 
             case ParseNodeType.Tuple: {
-                typeResult = getTypeOfTuple(node, expectedType, flags);
+                typeResult = getTypeOfTuple(node, inferenceContext, flags);
                 break;
             }
 
@@ -1020,23 +1028,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.UnaryOperation: {
-                typeResult = getTypeOfUnaryOperation(node, expectedType);
+                typeResult = getTypeOfUnaryOperation(node, inferenceContext);
                 break;
             }
 
             case ParseNodeType.BinaryOperation: {
-                typeResult = getTypeOfBinaryOperation(node, expectedType, flags);
+                typeResult = getTypeOfBinaryOperation(node, inferenceContext, flags);
                 break;
             }
 
             case ParseNodeType.AugmentedAssignment: {
-                typeResult = getTypeOfAugmentedAssignment(node, expectedType);
+                typeResult = getTypeOfAugmentedAssignment(node, inferenceContext);
                 break;
             }
 
             case ParseNodeType.List:
             case ParseNodeType.Set: {
-                typeResult = getTypeOfListOrSet(node, expectedType);
+                typeResult = getTypeOfListOrSet(node, inferenceContext);
                 break;
             }
 
@@ -1046,27 +1054,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Await: {
-                typeResult = getTypeOfAwaitOperator(node, flags, expectedType);
+                typeResult = getTypeOfAwaitOperator(node, flags, inferenceContext);
                 break;
             }
 
             case ParseNodeType.Ternary: {
-                typeResult = getTypeOfTernary(node, flags, expectedType);
+                typeResult = getTypeOfTernary(node, flags, inferenceContext);
                 break;
             }
 
             case ParseNodeType.ListComprehension: {
-                typeResult = getTypeOfListComprehension(node, expectedType);
+                typeResult = getTypeOfListComprehension(node, inferenceContext);
                 break;
             }
 
             case ParseNodeType.Dictionary: {
-                typeResult = getTypeOfDictionary(node, expectedType);
+                typeResult = getTypeOfDictionary(node, inferenceContext);
                 break;
             }
 
             case ParseNodeType.Lambda: {
-                typeResult = getTypeOfLambda(node, expectedType);
+                typeResult = getTypeOfLambda(node, inferenceContext);
                 break;
             }
 
@@ -1106,7 +1114,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Unpack: {
-                typeResult = getTypeOfUnpackOperator(node, flags, expectedType);
+                typeResult = getTypeOfUnpackOperator(node, flags, inferenceContext);
                 break;
             }
 
@@ -1178,14 +1186,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        writeTypeCache(node, typeResult, flags, expectedType, /* allowSpeculativeCaching */ true);
+        writeTypeCache(node, typeResult, flags, inferenceContext, /* allowSpeculativeCaching */ true);
 
-        if (expectedType && !isAnyOrUnknown(expectedType) && !isNever(expectedType)) {
-            expectedTypeCache.set(node.id, expectedType);
+        if (
+            inferenceContext &&
+            !isAnyOrUnknown(inferenceContext.expectedType) &&
+            !isNever(inferenceContext.expectedType)
+        ) {
+            expectedTypeCache.set(node.id, inferenceContext.expectedType);
 
             if (!typeResult.isIncomplete && !typeResult.expectedTypeDiagAddendum) {
                 const diag = new DiagnosticAddendum();
-                if (!assignType(expectedType, typeResult.type, diag)) {
+
+                // Make sure the resulting type is assignable to the expected type.
+                // Use the "solve for scopes" of the associated typeVarContext if
+                // it is provided.
+                if (
+                    !assignType(
+                        inferenceContext.expectedType,
+                        typeResult.type,
+                        diag,
+                        new TypeVarContext(inferenceContext.typeVarContext?.getSolveForScopes())
+                    )
+                ) {
                     typeResult.typeErrors = true;
                     typeResult.expectedTypeDiagAddendum = diag;
                     diag.addTextRange(node);
@@ -1205,12 +1228,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return typeResult;
     }
 
-    function getTypeOfAwaitOperator(node: AwaitNode, flags: EvaluatorFlags, expectedType?: Type) {
-        const effectiveExpectedType = expectedType
-            ? createAwaitableReturnType(node, expectedType, /* isGenerator */ false)
+    function getTypeOfAwaitOperator(node: AwaitNode, flags: EvaluatorFlags, inferenceContext?: InferenceContext) {
+        const effectiveExpectedType = inferenceContext
+            ? createAwaitableReturnType(node, inferenceContext.expectedType, /* isGenerator */ false)
             : undefined;
 
-        const exprTypeResult = getTypeOfExpression(node.expression, flags, effectiveExpectedType);
+        const exprTypeResult = getTypeOfExpression(node.expression, flags, makeInferenceContext(effectiveExpectedType));
         const typeResult: TypeResult = {
             type: getTypeOfAwaitable(exprTypeResult.type, node.expression),
         };
@@ -1244,20 +1267,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return typeResult;
     }
 
-    function getTypeOfUnpackOperator(node: UnpackNode, flags: EvaluatorFlags, expectedType?: Type) {
+    function getTypeOfUnpackOperator(node: UnpackNode, flags: EvaluatorFlags, inferenceContext?: InferenceContext) {
         let typeResult: TypeResult | undefined;
         let iterExpectedType: Type | undefined;
 
-        if (expectedType) {
+        if (inferenceContext) {
             const iterableType = getBuiltInType(node, 'Iterable');
             if (iterableType && isInstantiableClass(iterableType)) {
                 iterExpectedType = ClassType.cloneAsInstance(
-                    ClassType.cloneForSpecialization(iterableType, [expectedType], /* isTypeArgumentExplicit */ true)
+                    ClassType.cloneForSpecialization(
+                        iterableType,
+                        [inferenceContext.expectedType],
+                        /* isTypeArgumentExplicit */ true
+                    )
                 );
             }
         }
 
-        const iterTypeResult = getTypeOfExpression(node.expression, flags, iterExpectedType);
+        const iterTypeResult = getTypeOfExpression(node.expression, flags, makeInferenceContext(iterExpectedType));
         const iterType = iterTypeResult.type;
         if (
             (flags & EvaluatorFlags.DisallowTypeVarTuple) === 0 &&
@@ -3867,7 +3894,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         [],
                                         concreteSubtype,
                                         /* skipUnknownArgCheck */ false,
-                                        /* expectedType */ undefined
+                                        /* inferenceContext */ undefined
                                     );
                                 });
 
@@ -7037,27 +7064,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return typeResult;
     }
 
-    function getTypeOfTuple(node: TupleNode, expectedType: Type | undefined, flags: EvaluatorFlags): TypeResult {
-        if ((flags & EvaluatorFlags.ExpectingType) !== 0 && node.expressions.length === 0 && !expectedType) {
+    function getTypeOfTuple(
+        node: TupleNode,
+        inferenceContext: InferenceContext | undefined,
+        flags: EvaluatorFlags
+    ): TypeResult {
+        if ((flags & EvaluatorFlags.ExpectingType) !== 0 && node.expressions.length === 0 && !inferenceContext) {
             return { type: makeTupleObject([]), isEmptyTupleShorthand: true };
         }
 
         // If the expected type is a union, recursively call for each of the subtypes
         // to find one that matches.
-        let effectiveExpectedType = expectedType;
-        let expectedTypeContainsAny = expectedType && isAny(expectedType);
+        let effectiveExpectedType = inferenceContext?.expectedType;
+        let expectedTypeContainsAny = inferenceContext && isAny(inferenceContext.expectedType);
 
-        if (expectedType && isUnion(expectedType)) {
+        if (inferenceContext && isUnion(inferenceContext.expectedType)) {
             let matchingSubtype: Type | undefined;
 
-            doForEachSubtype(expectedType, (subtype) => {
+            doForEachSubtype(inferenceContext.expectedType, (subtype) => {
                 if (isAny(subtype)) {
                     expectedTypeContainsAny = true;
                 }
 
                 if (!matchingSubtype) {
                     const subtypeResult = useSpeculativeMode(node, () => {
-                        return getTypeOfTupleExpected(node, subtype);
+                        return getTypeOfTupleWithContext(
+                            node,
+                            makeInferenceContext(subtype, inferenceContext?.typeVarContext)
+                        );
                     });
 
                     if (subtypeResult && assignType(subtype, subtypeResult.type)) {
@@ -7071,7 +7105,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
         if (effectiveExpectedType) {
-            const result = getTypeOfTupleExpected(node, effectiveExpectedType);
+            const result = getTypeOfTupleWithContext(
+                node,
+                makeInferenceContext(effectiveExpectedType, inferenceContext?.typeVarContext)
+            );
             if (result && !result.typeErrors) {
                 return result;
             }
@@ -7090,9 +7127,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { ...typeResult, expectedTypeDiagAddendum };
     }
 
-    function getTypeOfTupleExpected(node: TupleNode, expectedType: Type): TypeResult | undefined {
-        expectedType = transformPossibleRecursiveTypeAlias(expectedType);
-        if (!isClassInstance(expectedType)) {
+    function getTypeOfTupleWithContext(node: TupleNode, inferenceContext: InferenceContext): TypeResult | undefined {
+        inferenceContext.expectedType = transformPossibleRecursiveTypeAlias(inferenceContext.expectedType);
+        if (!isClassInstance(inferenceContext.expectedType)) {
             return undefined;
         }
 
@@ -7103,9 +7140,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Build an array of expected types.
         let expectedTypes: Type[] = [];
 
-        if (isTupleClass(expectedType) && expectedType.tupleTypeArguments) {
-            expectedTypes = expectedType.tupleTypeArguments.map((t) => transformPossibleRecursiveTypeAlias(t.type));
-            const unboundedIndex = expectedType.tupleTypeArguments.findIndex((t) => t.isUnbounded);
+        if (isTupleClass(inferenceContext.expectedType) && inferenceContext.expectedType.tupleTypeArguments) {
+            expectedTypes = inferenceContext.expectedType.tupleTypeArguments.map((t) =>
+                transformPossibleRecursiveTypeAlias(t.type)
+            );
+            const unboundedIndex = inferenceContext.expectedType.tupleTypeArguments.findIndex((t) => t.isUnbounded);
             if (unboundedIndex >= 0) {
                 if (expectedTypes.length > node.expressions.length) {
                     expectedTypes.splice(unboundedIndex, 1);
@@ -7121,7 +7160,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 !populateTypeVarContextBasedOnExpectedType(
                     evaluatorInterface,
                     ClassType.cloneAsInstance(tupleClassType),
-                    expectedType,
+                    inferenceContext.expectedType,
                     tupleTypeVarContext,
                     getTypeVarScopesForNode(node)
                 )
@@ -7144,7 +7183,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             getTypeOfExpression(
                 expr,
                 /* flags */ undefined,
-                index < expectedTypes.length ? expectedTypes[index] : undefined
+                makeInferenceContext(index < expectedTypes.length ? expectedTypes[index] : undefined)
             )
         );
         const isIncomplete = entryTypeResults.some((result) => result.isIncomplete);
@@ -7230,7 +7269,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return entryTypes;
     }
 
-    function getTypeOfCall(node: CallNode, expectedType: Type | undefined, flags: EvaluatorFlags): TypeResult {
+    function getTypeOfCall(
+        node: CallNode,
+        inferenceContext: InferenceContext | undefined,
+        flags: EvaluatorFlags
+    ): TypeResult {
         const baseTypeResult = getTypeOfExpression(node.leftExpression, EvaluatorFlags.DoNotSpecialize);
 
         const argList = node.arguments.map((arg) => {
@@ -7255,13 +7298,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 node.leftExpression.value === 'reveal_type'
             ) {
                 // Handle the implicit "reveal_type" call.
-                typeResult = getTypeOfRevealType(node, expectedType);
+                typeResult = getTypeOfRevealType(node, inferenceContext);
             } else if (isFunction(baseTypeResult.type) && baseTypeResult.type.details.builtInName === 'reveal_type') {
                 // Handle the "typing.reveal_type" call.
-                typeResult = getTypeOfRevealType(node, expectedType);
+                typeResult = getTypeOfRevealType(node, inferenceContext);
             } else if (isFunction(baseTypeResult.type) && baseTypeResult.type.details.builtInName === 'assert_type') {
                 // Handle the "typing.assert_type" call.
-                typeResult = getTypeOfAssertType(node, expectedType);
+                typeResult = getTypeOfAssertType(node, inferenceContext);
             } else if (
                 isAnyOrUnknown(baseTypeResult.type) &&
                 node.leftExpression.nodeType === ParseNodeType.Name &&
@@ -7280,7 +7323,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     baseTypeResult,
                     /* typeVarContext */ undefined,
                     /* skipUnknownArgCheck */ false,
-                    expectedType
+                    inferenceContext
                 );
 
                 typeResult.type = callResult.returnType ?? UnknownType.create();
@@ -7344,7 +7387,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return typeResult;
     }
 
-    function getTypeOfAssertType(node: CallNode, expectedType: Type | undefined): TypeResult {
+    function getTypeOfAssertType(node: CallNode, inferenceContext: InferenceContext | undefined): TypeResult {
         if (
             node.arguments.length !== 2 ||
             node.arguments[0].argumentCategory !== ArgumentCategory.Simple ||
@@ -7359,7 +7402,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const arg0TypeResult = getTypeOfExpression(
             node.arguments[0].valueExpression,
             /* flags */ undefined,
-            expectedType
+            inferenceContext
         );
         if (arg0TypeResult.isIncomplete) {
             return { type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
@@ -7382,7 +7425,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { type: arg0TypeResult.type };
     }
 
-    function getTypeOfRevealType(node: CallNode, expectedType: Type | undefined): TypeResult {
+    function getTypeOfRevealType(node: CallNode, inferenceContext: InferenceContext | undefined): TypeResult {
         let arg0Value: ExpressionNode | undefined;
         let expectedRevealTypeNode: ExpressionNode | undefined;
         let expectedRevealType: Type | undefined;
@@ -7421,7 +7464,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: UnknownType.create() };
         }
 
-        const typeResult = getTypeOfExpression(arg0Value, /* flags */ undefined, expectedType);
+        const typeResult = getTypeOfExpression(arg0Value, /* flags */ undefined, inferenceContext);
         const type = typeResult.type;
 
         const exprString = ParseTreeUtils.printExpression(arg0Value);
@@ -7691,7 +7734,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         argParamMatches: MatchArgsToParamsResult[],
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean,
-        expectedType: Type | undefined
+        inferenceContext: InferenceContext | undefined
     ): CallResult {
         const returnTypes: Type[] = [];
         const matchedOverloads: {
@@ -7745,7 +7788,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         matchResults,
                         effectiveTypeVarContext,
                         /* skipUnknownArgCheck */ true,
-                        expectedType
+                        inferenceContext
                     );
                 });
 
@@ -7831,7 +7874,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             matchedOverloads[0].matchResults,
             finalTypeVarContext,
             skipUnknownArgCheck,
-            expectedType
+            inferenceContext
         );
 
         if (finalCallResult.isTypeIncomplete) {
@@ -7910,7 +7953,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         type: OverloadedFunctionType,
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean,
-        expectedType: Type | undefined
+        inferenceContext: InferenceContext | undefined
     ): CallResult {
         let filteredMatchResults: MatchArgsToParamsResult[] = [];
         let contextFreeArgTypes: Type[] | undefined;
@@ -7979,7 +8022,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 lastMatch,
                 effectiveTypeVarContext,
                 skipUnknownArgCheck,
-                expectedType
+                inferenceContext
             );
         };
 
@@ -8000,7 +8043,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 filteredMatchResults,
                 typeVarContext,
                 skipUnknownArgCheck,
-                expectedType
+                inferenceContext
             );
 
             if (callResult.isTypeIncomplete) {
@@ -8016,7 +8059,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!contextFreeArgTypes) {
                 useSpeculativeMode(errorNode, () => {
                     // Evaluate the types of each argument expression without regard to
-                    // the expectedType. We'll use this to determine whether we need to do
+                    // the context. We'll use this to determine whether we need to do
                     // union expansion.
                     contextFreeArgTypes = argList.map((arg) => {
                         if (arg.typeResult) {
@@ -8123,7 +8166,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         argList: FunctionArgument[],
         type: ClassType,
         skipUnknownArgCheck: boolean,
-        expectedType: Type | undefined
+        inferenceContext: InferenceContext | undefined
     ): CallResult {
         let validatedTypes = false;
         let returnType: Type | undefined;
@@ -8157,13 +8200,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If there is an expected type, analyze the constructor call
             // for each of the subtypes that comprise the expected type. If
             // one or more analyzes with no errors, use those results.
-            if (expectedType) {
+            if (inferenceContext) {
                 const expectedCallResult = validateConstructorMethodWithExpectedType(
                     errorNode,
                     argList,
                     type,
                     skipUnknownArgCheck,
-                    expectedType,
+                    inferenceContext,
                     initMethodType
                 );
 
@@ -8204,7 +8247,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     returnType = applyExpectedTypeForConstructor(
                         adjustedClassType,
-                        /* expectedType */ undefined,
+                        /* inferenceContext */ undefined,
                         typeVarContext
                     );
 
@@ -8270,13 +8313,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 // If there is an expected type that was not applied above when
                 // handling the __init__ method, try to apply it with the __new__ method.
-                if (expectedType && !returnType) {
+                if (inferenceContext && !returnType) {
                     const expectedCallResult = validateConstructorMethodWithExpectedType(
                         errorNode,
                         argList,
                         type,
                         skipUnknownArgCheck,
-                        expectedType,
+                        inferenceContext,
                         constructorMethodType
                     );
 
@@ -8354,9 +8397,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (!returnType) {
-                    returnType = applyExpectedTypeForConstructor(type, expectedType, typeVarContext);
+                    returnType = applyExpectedTypeForConstructor(type, inferenceContext, typeVarContext);
                 } else if (isClassInstance(returnType) && isTupleClass(returnType) && !returnType.tupleTypeArguments) {
-                    returnType = applyExpectedTypeForTupleConstructor(returnType, expectedType);
+                    returnType = applyExpectedTypeForTupleConstructor(returnType, inferenceContext);
                 }
                 validatedTypes = true;
             }
@@ -8395,7 +8438,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!returnType) {
             // There was no __init__ or __new__ method or we couldn't match the provided
             // arguments to them.
-            if (!expectedType && type.typeArguments) {
+            if (!inferenceContext && type.typeArguments) {
                 // If there was no expected type but the type was already specialized,
                 // assume that we're constructing an instance of the specialized type.
                 returnType = convertToInstance(type);
@@ -8404,17 +8447,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // type if provided.
                 const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
 
-                if (expectedType) {
+                if (inferenceContext) {
                     populateTypeVarContextBasedOnExpectedType(
                         evaluatorInterface,
                         ClassType.cloneAsInstance(type),
-                        expectedType,
+                        inferenceContext.expectedType,
                         typeVarContext,
                         getTypeVarScopesForNode(errorNode)
                     );
                 }
 
-                returnType = applyExpectedTypeForConstructor(type, expectedType, typeVarContext);
+                returnType = applyExpectedTypeForConstructor(type, inferenceContext, typeVarContext);
             }
         }
 
@@ -8454,14 +8497,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         argList: FunctionArgument[],
         type: ClassType,
         skipUnknownArgCheck: boolean,
-        expectedType: Type,
+        inferenceContext: InferenceContext,
         constructorMethodType: Type
     ): CallResult | undefined {
         let isTypeIncomplete = false;
         let argumentErrors = false;
         const overloadsUsedForCall: FunctionType[] = [];
 
-        const returnType = mapSubtypes(expectedType, (expectedSubType) => {
+        const returnType = mapSubtypes(inferenceContext.expectedType, (expectedSubType) => {
             expectedSubType = transformPossibleRecursiveTypeAlias(expectedSubType);
             const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
             if (
@@ -8542,13 +8585,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // arguments are not specified but can be provided by the expected type.
     function applyExpectedTypeForConstructor(
         type: ClassType,
-        expectedType: Type | undefined,
+        inferenceContext: InferenceContext | undefined,
         typeVarContext: TypeVarContext
     ): Type {
         let unsolvedTypeVarsAreUnknown = true;
 
-        if (expectedType) {
-            const specializedExpectedType = mapSubtypes(expectedType, (expectedSubtype) => {
+        if (inferenceContext) {
+            const specializedExpectedType = mapSubtypes(inferenceContext.expectedType, (expectedSubtype) => {
                 return applyExpectedSubtypeForConstructor(type, expectedSubtype, typeVarContext);
             });
 
@@ -8572,16 +8615,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Similar to applyExpectedTypeForConstructor, this function handles the
     // special case of the tuple class.
-    function applyExpectedTypeForTupleConstructor(type: ClassType, expectedType: Type | undefined) {
+    function applyExpectedTypeForTupleConstructor(type: ClassType, inferenceContext: InferenceContext | undefined) {
         let specializedType = type;
 
         if (
-            expectedType &&
-            isClassInstance(expectedType) &&
-            isTupleClass(expectedType) &&
-            expectedType.tupleTypeArguments
+            inferenceContext &&
+            isClassInstance(inferenceContext.expectedType) &&
+            isTupleClass(inferenceContext.expectedType) &&
+            inferenceContext.expectedType.tupleTypeArguments
         ) {
-            specializedType = specializeTupleClass(type, expectedType.tupleTypeArguments);
+            specializedType = specializeTupleClass(type, inferenceContext.expectedType.tupleTypeArguments);
         }
 
         return specializedType;
@@ -8597,7 +8640,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         callTypeResult: TypeResult,
         typeVarContext?: TypeVarContext,
         skipUnknownArgCheck = false,
-        expectedType?: Type,
+        inferenceContext?: InferenceContext,
         recursionCount = 0
     ): CallResult {
         let argumentErrors = false;
@@ -8688,7 +8731,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             expandedSubtype,
                             effectiveTypeVarContext,
                             skipUnknownArgCheck,
-                            expectedType
+                            inferenceContext
                         );
 
                         if (functionResult.isTypeIncomplete) {
@@ -8766,7 +8809,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             expandedSubtype,
                             typeVarContext,
                             skipUnknownArgCheck,
-                            expectedType
+                            inferenceContext
                         );
 
                         overloadsUsedForCall.push(...functionResult.overloadsUsedForCall);
@@ -8828,7 +8871,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         argList,
                                         expandedSubtype,
                                         skipUnknownArgCheck,
-                                        expectedType
+                                        inferenceContext
                                     );
 
                                     // Handle the 'type' call specially.
@@ -8974,7 +9017,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 argList,
                                 expandedSubtype,
                                 skipUnknownArgCheck,
-                                expectedType
+                                inferenceContext
                             );
 
                             overloadsUsedForCall.push(...constructorResult.overloadsUsedForCall);
@@ -9046,7 +9089,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     { type: memberType },
                                     typeVarContext,
                                     skipUnknownArgCheck,
-                                    expectedType,
+                                    inferenceContext,
                                     recursionCount
                                 );
 
@@ -9107,7 +9150,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             { type: expandedSubtype },
                             typeVarContext,
                             skipUnknownArgCheck,
-                            expectedType,
+                            inferenceContext,
                             recursionCount
                         );
 
@@ -10154,15 +10197,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         matchResults: MatchArgsToParamsResult,
         typeVarContext: TypeVarContext,
         skipUnknownArgCheck = false,
-        expectedType: Type | undefined
+        inferenceContext: InferenceContext | undefined
     ): CallResult {
         const type = matchResults.overload;
 
         if (
-            !expectedType ||
-            isAnyOrUnknown(expectedType) ||
-            isNever(expectedType) ||
-            requiresSpecialization(expectedType) ||
+            !inferenceContext ||
+            isAnyOrUnknown(inferenceContext.expectedType) ||
+            isNever(inferenceContext.expectedType) ||
+            requiresSpecialization(inferenceContext.expectedType) ||
             !type.details.declaredReturnType ||
             !requiresSpecialization(FunctionType.getSpecializedReturnType(type) ?? UnknownType.create())
         ) {
@@ -10170,7 +10213,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const effectiveReturnType = getFunctionEffectiveReturnType(type);
-        let effectiveExpectedType: Type | undefined = expectedType;
+        let effectiveExpectedType: Type | undefined = inferenceContext.expectedType;
         let effectiveFlags = AssignTypeFlags.Default;
         if (containsLiteralType(effectiveExpectedType, /* includeTypeArgs */ true)) {
             effectiveFlags |= AssignTypeFlags.RetainLiteralsForTypeVar;
@@ -10179,7 +10222,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the expected type is a union, we don't know which type is expected.
         // We may or may not be able to make use of the expected type. We'll evaluate
         // speculatively to see if using the expected type works.
-        if (isUnion(expectedType)) {
+        if (isUnion(inferenceContext.expectedType)) {
             let speculativeResults: CallResult | undefined;
 
             useSpeculativeMode(errorNode, () => {
@@ -10568,7 +10611,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         type: FunctionType,
         typeVarContext: TypeVarContext,
         skipUnknownArgCheck = false,
-        expectedType?: Type
+        inferenceContext?: InferenceContext
     ): CallResult {
         const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, type, 0);
 
@@ -10593,7 +10636,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             matchResults,
             typeVarContext,
             skipUnknownArgCheck,
-            expectedType
+            inferenceContext
         );
     }
 
@@ -10789,7 +10832,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                       EvaluatorFlags.DisallowParamSpec |
                       EvaluatorFlags.DisallowTypeVarTuple
                     : EvaluatorFlags.None;
-                const exprTypeResult = getTypeOfExpression(argParam.argument.valueExpression, flags, expectedType);
+                const exprTypeResult = getTypeOfExpression(
+                    argParam.argument.valueExpression,
+                    flags,
+                    makeInferenceContext(expectedType, typeVarContext)
+                );
 
                 argType = exprTypeResult.type;
 
@@ -10826,7 +10873,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         EvaluatorFlags.DisallowParamSpec |
                         EvaluatorFlags.DisallowTypeVarTuple
                 );
+
                 argType = argTypeResult.type;
+
                 if (argTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
                 }
@@ -11563,7 +11612,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { type };
     }
 
-    function getTypeOfUnaryOperation(node: UnaryOperationNode, expectedType: Type | undefined): TypeResult {
+    function getTypeOfUnaryOperation(
+        node: UnaryOperationNode,
+        inferenceContext: InferenceContext | undefined
+    ): TypeResult {
         const exprTypeResult = getTypeOfExpression(node.expression);
         let exprType = makeTopLevelTypeVarsConcrete(exprTypeResult.type);
         const isIncomplete = exprTypeResult.isIncomplete;
@@ -11636,20 +11688,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     type = exprType;
                 } else {
                     const magicMethodName = unaryOperatorMap[node.operator];
-                    type = getTypeOfMagicMethodReturn(exprType, [], magicMethodName, node, expectedType);
+                    type = getTypeOfMagicMethodReturn(exprType, [], magicMethodName, node, inferenceContext);
                 }
 
                 if (!type) {
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
-                    if (expectedType) {
+                    if (inferenceContext) {
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.typeNotSupportUnaryOperatorBidirectional().format({
                                 operator: ParseTreeUtils.printOperator(node.operator),
                                 type: printType(exprType),
-                                expectedType: printType(expectedType),
+                                expectedType: printType(inferenceContext.expectedType),
                             }),
                             node
                         );
@@ -11674,7 +11726,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfBinaryOperation(
         node: BinaryOperationNode,
-        expectedType: Type | undefined,
+        inferenceContext: InferenceContext | undefined,
         flags: EvaluatorFlags
     ): TypeResult {
         const leftExpression = node.leftExpression;
@@ -11691,7 +11743,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ParseTreeUtils.operatorSupportsChaining(rightExpression.operator)
             ) {
                 // Evaluate the right expression so it is type checked.
-                getTypeOfBinaryOperation(rightExpression, expectedType, flags);
+                getTypeOfBinaryOperation(rightExpression, inferenceContext, flags);
 
                 // Use the left side of the right expression for comparison purposes.
                 rightExpression = rightExpression.leftExpression;
@@ -11702,7 +11754,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // of the magic method for that operation. However, the "or" and "and" operators
         // have no magic method, so we apply the expected type directly to both operands.
         let expectedOperandType =
-            node.operator === OperatorType.Or || node.operator === OperatorType.And ? expectedType : undefined;
+            node.operator === OperatorType.Or || node.operator === OperatorType.And
+                ? inferenceContext?.expectedType
+                : undefined;
 
         // Handle the very special case where the expected type is a list
         // and the operator is a multiply. This comes up in the common case
@@ -11710,21 +11764,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let expectedLeftOperandType: Type | undefined;
         if (
             node.operator === OperatorType.Multiply &&
-            expectedType &&
-            isClassInstance(expectedType) &&
-            ClassType.isBuiltIn(expectedType, 'list') &&
-            expectedType.typeArguments &&
-            expectedType.typeArguments.length >= 1 &&
+            inferenceContext &&
+            isClassInstance(inferenceContext.expectedType) &&
+            ClassType.isBuiltIn(inferenceContext.expectedType, 'list') &&
+            inferenceContext.expectedType.typeArguments &&
+            inferenceContext.expectedType.typeArguments.length >= 1 &&
             node.leftExpression.nodeType === ParseNodeType.List
         ) {
-            expectedLeftOperandType = expectedType;
+            expectedLeftOperandType = inferenceContext.expectedType;
         }
 
-        const leftTypeResult = getTypeOfExpression(
-            leftExpression,
-            flags,
-            expectedOperandType || expectedLeftOperandType
-        );
+        const effectiveExpectedType = expectedOperandType ?? expectedLeftOperandType;
+        const leftTypeResult = getTypeOfExpression(leftExpression, flags, makeInferenceContext(effectiveExpectedType));
         let leftType = leftTypeResult.type;
 
         if (!expectedOperandType) {
@@ -11745,7 +11796,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const rightTypeResult = getTypeOfExpression(rightExpression, flags, expectedOperandType);
+        const rightTypeResult = getTypeOfExpression(rightExpression, flags, makeInferenceContext(expectedOperandType));
         let rightType = rightTypeResult.type;
 
         if (leftTypeResult.isIncomplete || rightTypeResult.isIncomplete) {
@@ -11877,7 +11928,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             { type: leftType, isIncomplete: leftTypeResult.isIncomplete },
             { type: rightType, isIncomplete: rightTypeResult.isIncomplete },
             node,
-            expectedType,
+            inferenceContext,
             diag,
             { isLiteralMathAllowed, isTupleAddAllowed }
         );
@@ -11945,7 +11996,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return true;
     }
 
-    function getTypeOfAugmentedAssignment(node: AugmentedAssignmentNode, expectedType: Type | undefined): TypeResult {
+    function getTypeOfAugmentedAssignment(
+        node: AugmentedAssignmentNode,
+        inferenceContext: InferenceContext | undefined
+    ): TypeResult {
         const operatorMap: { [operator: number]: [string, OperatorType] } = {
             [OperatorType.AddEqual]: ['__iadd__', OperatorType.Add],
             [OperatorType.SubtractEqual]: ['__isub__', OperatorType.Subtract],
@@ -11976,7 +12030,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             expectedOperandType = leftType;
         }
 
-        const rightTypeResult = getTypeOfExpression(node.rightExpression, /* flags */ undefined, expectedOperandType);
+        const rightTypeResult = getTypeOfExpression(
+            node.rightExpression,
+            /* flags */ undefined,
+            makeInferenceContext(expectedOperandType)
+        );
         const rightType = rightTypeResult.type;
         const isIncomplete = !!rightTypeResult.isIncomplete || !!leftTypeResult.isIncomplete;
 
@@ -12001,7 +12059,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 [{ type: rightSubtypeUnexpanded, isIncomplete: rightTypeResult.isIncomplete }],
                                 magicMethodName,
                                 node,
-                                expectedType
+                                inferenceContext
                             );
 
                             if (!returnType && leftSubtypeUnexpanded !== leftSubtypeExpanded) {
@@ -12011,7 +12069,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     [{ type: rightSubtypeUnexpanded, isIncomplete: rightTypeResult.isIncomplete }],
                                     magicMethodName,
                                     node,
-                                    expectedType
+                                    inferenceContext
                                 );
                             }
 
@@ -12022,7 +12080,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     [{ type: rightSubtypeExpanded, isIncomplete: rightTypeResult.isIncomplete }],
                                     magicMethodName,
                                     node,
-                                    expectedType
+                                    inferenceContext
                                 );
                             }
 
@@ -12050,7 +12108,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     { type: leftSubtypeUnexpanded, isIncomplete: leftTypeResult.isIncomplete },
                                     { type: rightSubtypeUnexpanded, isIncomplete: rightTypeResult.isIncomplete },
                                     node,
-                                    expectedType,
+                                    inferenceContext,
                                     diag,
                                     { isLiteralMathAllowed, isTupleAddAllowed }
                                 );
@@ -12095,7 +12153,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         leftTypeResult: TypeResult,
         rightTypeResult: TypeResult,
         errorNode: ExpressionNode,
-        expectedType: Type | undefined,
+        inferenceContext: InferenceContext | undefined,
         diag: DiagnosticAddendum,
         options: BinaryOperationOptions
     ): Type | undefined {
@@ -12169,7 +12227,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     [{ type: leftSubtype, isIncomplete: leftTypeResult.isIncomplete }],
                                     '__contains__',
                                     errorNode,
-                                    /* expectedType */ undefined
+                                    /* inferenceContext */ undefined
                                 );
 
                                 if (!returnType) {
@@ -12374,7 +12432,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     [{ type: rightSubtypeUnexpanded, isIncomplete: rightTypeResult.isIncomplete }],
                                     magicMethodName,
                                     errorNode,
-                                    expectedType
+                                    inferenceContext
                                 );
 
                                 if (!resultType && leftSubtypeUnexpanded !== leftSubtypeExpanded) {
@@ -12384,7 +12442,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         [{ type: rightSubtypeUnexpanded, isIncomplete: rightTypeResult.isIncomplete }],
                                         magicMethodName,
                                         errorNode,
-                                        expectedType
+                                        inferenceContext
                                     );
                                 }
 
@@ -12395,7 +12453,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         [{ type: rightSubtypeExpanded, isIncomplete: rightTypeResult.isIncomplete }],
                                         magicMethodName,
                                         errorNode,
-                                        expectedType
+                                        inferenceContext
                                     );
                                 }
 
@@ -12407,7 +12465,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         [{ type: leftSubtypeUnexpanded, isIncomplete: leftTypeResult.isIncomplete }],
                                         altMagicMethodName,
                                         errorNode,
-                                        expectedType
+                                        inferenceContext
                                     );
 
                                     if (!resultType && rightSubtypeUnexpanded !== rightSubtypeExpanded) {
@@ -12422,7 +12480,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                             ],
                                             altMagicMethodName,
                                             errorNode,
-                                            expectedType
+                                            inferenceContext
                                         );
                                     }
 
@@ -12433,19 +12491,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                             [{ type: leftSubtypeExpanded, isIncomplete: leftTypeResult.isIncomplete }],
                                             altMagicMethodName,
                                             errorNode,
-                                            expectedType
+                                            inferenceContext
                                         );
                                     }
                                 }
 
                                 if (!resultType) {
-                                    if (expectedType) {
+                                    if (inferenceContext) {
                                         diag.addMessage(
                                             Localizer.Diagnostic.typeNotSupportBinaryOperatorBidirectional().format({
                                                 operator: ParseTreeUtils.printOperator(operator),
                                                 leftType: printType(leftSubtypeExpanded),
                                                 rightType: printType(rightSubtypeExpanded),
-                                                expectedType: printType(expectedType),
+                                                expectedType: printType(inferenceContext.expectedType),
                                             })
                                         );
                                     } else {
@@ -12474,7 +12532,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         args: TypeResult[],
         magicMethodName: string,
         errorNode: ExpressionNode,
-        expectedType: Type | undefined
+        inferenceContext: InferenceContext | undefined
     ): Type | undefined {
         let magicMethodSupported = true;
 
@@ -12521,7 +12579,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         { type: magicMethodType! },
                         /* typeVarContext */ undefined,
                         /* skipUnknownArgCheck */ true,
-                        expectedType
+                        inferenceContext
                     );
                 });
 
@@ -12583,23 +12641,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return type;
     }
 
-    function getTypeOfDictionary(node: DictionaryNode, expectedType: Type | undefined): TypeResult {
+    function getTypeOfDictionary(node: DictionaryNode, inferenceContext: InferenceContext | undefined): TypeResult {
         // If the expected type is a union, analyze for each of the subtypes
         // to find one that matches.
-        let effectiveExpectedType = expectedType;
+        let effectiveExpectedType = inferenceContext?.expectedType;
 
-        if (expectedType && isUnion(expectedType)) {
+        if (inferenceContext && isUnion(inferenceContext.expectedType)) {
             let matchingSubtype: Type | undefined;
             let matchingSubtypeResult: TypeResult | undefined;
 
-            doForEachSubtype(expectedType, (subtype) => {
+            doForEachSubtype(inferenceContext.expectedType, (subtype) => {
                 // Use shortcut if we've already found a match.
                 if (matchingSubtypeResult && !matchingSubtypeResult.typeErrors) {
                     return;
                 }
 
                 const subtypeResult = useSpeculativeMode(node, () => {
-                    return getTypeOfDictionaryExpected(node, subtype);
+                    return getTypeOfDictionaryWithContext(
+                        node,
+                        makeInferenceContext(subtype, inferenceContext?.typeVarContext)
+                    );
                 });
 
                 if (subtypeResult && assignType(subtype, subtypeResult.type)) {
@@ -12618,27 +12679,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let expectedTypeDiagAddendum = undefined;
         if (effectiveExpectedType) {
             expectedTypeDiagAddendum = new DiagnosticAddendum();
-            const result = getTypeOfDictionaryExpected(node, effectiveExpectedType, expectedTypeDiagAddendum);
+            const result = getTypeOfDictionaryWithContext(
+                node,
+                makeInferenceContext(effectiveExpectedType, inferenceContext?.typeVarContext),
+                expectedTypeDiagAddendum
+            );
             if (result) {
                 return result;
             }
         }
 
-        const result = getTypeOfDictionaryInferred(node, /* hasExpectedType */ !!expectedType);
+        const result = getTypeOfDictionaryInferred(node, /* hasExpectedType */ !!inferenceContext);
         return { ...result, expectedTypeDiagAddendum };
     }
 
-    // Attempts to infer the type of a dictionary statement. If an expectedType
-    // is provided, the resulting type must be compatible with the expected type.
-    // If this isn't possible, undefined is returned.
-    function getTypeOfDictionaryExpected(
+    function getTypeOfDictionaryWithContext(
         node: DictionaryNode,
-        expectedType: Type,
+        inferenceContext: InferenceContext,
         expectedDiagAddendum?: DiagnosticAddendum
     ): TypeResult | undefined {
-        expectedType = transformPossibleRecursiveTypeAlias(expectedType);
+        inferenceContext.expectedType = transformPossibleRecursiveTypeAlias(inferenceContext.expectedType);
+        const concreteExpectedType = makeTopLevelTypeVarsConcrete(inferenceContext.expectedType);
 
-        if (!isClassInstance(expectedType)) {
+        if (!isClassInstance(concreteExpectedType)) {
             return undefined;
         }
 
@@ -12647,8 +12710,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isIncomplete = false;
 
         // Handle TypedDict's as a special case.
-        if (ClassType.isTypedDictClass(expectedType)) {
-            const expectedTypedDictEntries = getTypedDictMembersForClass(evaluatorInterface, expectedType);
+        if (ClassType.isTypedDictClass(concreteExpectedType)) {
+            const expectedTypedDictEntries = getTypedDictMembersForClass(evaluatorInterface, concreteExpectedType);
 
             // Infer the key and value types if possible.
             if (
@@ -12666,10 +12729,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isIncomplete = true;
             }
 
-            if (ClassType.isTypedDictClass(expectedType)) {
+            if (ClassType.isTypedDictClass(concreteExpectedType)) {
                 const resultTypedDict = assignToTypedDict(
                     evaluatorInterface,
-                    expectedType,
+                    concreteExpectedType,
                     keyTypes,
                     valueTypes,
                     // Don't overwrite existing expectedDiagAddendum messages if they were
@@ -12697,7 +12760,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !populateTypeVarContextBasedOnExpectedType(
                 evaluatorInterface,
                 builtInDict,
-                expectedType,
+                inferenceContext.expectedType,
                 dictTypeVarContext,
                 getTypeVarScopesForNode(node)
             )
@@ -12736,8 +12799,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // cannot be narrowed further. Other super-types like Mapping, Collection,
         // and Iterable use covariant value types, so they can be narrowed.
         const isValueTypeInvariant =
-            isClassInstance(expectedType) &&
-            (ClassType.isBuiltIn(expectedType, 'dict') || ClassType.isBuiltIn(expectedType, 'MutableMapping'));
+            isClassInstance(inferenceContext.expectedType) &&
+            (ClassType.isBuiltIn(inferenceContext.expectedType, 'dict') ||
+                ClassType.isBuiltIn(inferenceContext.expectedType, 'MutableMapping'));
 
         const specializedKeyType = inferTypeArgFromExpectedType(
             expectedKeyType,
@@ -12841,7 +12905,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const keyTypeResult = getTypeOfExpression(
                     entryNode.keyExpression,
                     /* flags */ undefined,
-                    expectedKeyType ?? (forceStrictInference ? NeverType.createNever() : undefined)
+                    makeInferenceContext(
+                        expectedKeyType ?? (forceStrictInference ? NeverType.createNever() : undefined)
+                    )
                 );
 
                 if (keyTypeResult.isIncomplete) {
@@ -12863,16 +12929,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isLiteralType(keyType) &&
                     expectedTypedDictEntries.has(keyType.literalValue as string)
                 ) {
+                    const effectiveValueType = expectedTypedDictEntries.get(keyType.literalValue as string)!.valueType;
                     valueTypeResult = getTypeOfExpression(
                         entryNode.valueExpression,
                         /* flags */ undefined,
-                        expectedTypedDictEntries.get(keyType.literalValue as string)!.valueType
+                        makeInferenceContext(effectiveValueType)
                     );
                 } else {
+                    const effectiveValueType =
+                        expectedValueType ?? (forceStrictInference ? NeverType.createNever() : undefined);
                     valueTypeResult = getTypeOfExpression(
                         entryNode.valueExpression,
                         /* flags */ undefined,
-                        expectedValueType ?? (forceStrictInference ? NeverType.createNever() : undefined)
+                        makeInferenceContext(effectiveValueType)
                     );
                 }
 
@@ -13003,23 +13072,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return isIncomplete;
     }
 
-    function getTypeOfListOrSet(node: ListNode | SetNode, expectedType: Type | undefined): TypeResult {
+    function getTypeOfListOrSet(node: ListNode | SetNode, inferenceContext: InferenceContext | undefined): TypeResult {
         // If the expected type is a union, recursively call for each of the subtypes
         // to find one that matches.
-        let effectiveExpectedType = expectedType;
+        let effectiveExpectedType = inferenceContext?.expectedType;
 
-        if (expectedType && isUnion(expectedType)) {
+        if (inferenceContext && isUnion(inferenceContext.expectedType)) {
             let matchingSubtype: Type | undefined;
             let matchingSubtypeResult: TypeResult | undefined;
 
-            doForEachSubtype(expectedType, (subtype) => {
+            doForEachSubtype(inferenceContext.expectedType, (subtype) => {
                 // Use shortcut if we've already found a match.
                 if (matchingSubtypeResult && !matchingSubtypeResult.typeErrors) {
                     return;
                 }
 
                 const subtypeResult = useSpeculativeMode(node, () => {
-                    return getTypeOfListOrSetExpected(node, subtype);
+                    return getTypeOfListOrSetWithContext(
+                        node,
+                        makeInferenceContext(subtype, inferenceContext?.typeVarContext)
+                    );
                 });
 
                 if (subtypeResult && assignType(subtype, subtypeResult.type)) {
@@ -13037,7 +13109,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
         if (effectiveExpectedType) {
-            const result = getTypeOfListOrSetExpected(node, effectiveExpectedType);
+            const result = getTypeOfListOrSetWithContext(
+                node,
+                makeInferenceContext(effectiveExpectedType, inferenceContext?.typeVarContext)
+            );
             if (result && !result.typeErrors) {
                 return result;
             }
@@ -13045,20 +13120,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             expectedTypeDiagAddendum = result?.expectedTypeDiagAddendum;
         }
 
-        const typeResult = getTypeOfListOrSetInferred(node, /* hasExpectedType */ expectedType !== undefined);
+        const typeResult = getTypeOfListOrSetInferred(node, /* hasExpectedType */ inferenceContext !== undefined);
         return { ...typeResult, expectedTypeDiagAddendum };
     }
 
     // Attempts to determine the type of a list or set statement based on an expected type.
     // Returns undefined if that type cannot be honored.
-    function getTypeOfListOrSetExpected(node: ListNode | SetNode, expectedType: Type): TypeResult | undefined {
+    function getTypeOfListOrSetWithContext(
+        node: ListNode | SetNode,
+        inferenceContext: InferenceContext
+    ): TypeResult | undefined {
         const builtInClassName = node.nodeType === ParseNodeType.List ? 'list' : 'set';
-        expectedType = transformPossibleRecursiveTypeAlias(expectedType);
+        inferenceContext.expectedType = transformPossibleRecursiveTypeAlias(inferenceContext.expectedType);
+
         let isIncomplete = false;
         let typeErrors = false;
         const verifyHashable = node.nodeType === ParseNodeType.Set;
 
-        if (!isClassInstance(expectedType)) {
+        if (!isClassInstance(inferenceContext.expectedType)) {
             return undefined;
         }
 
@@ -13072,7 +13151,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !populateTypeVarContextBasedOnExpectedType(
                 evaluatorInterface,
                 builtInListOrSet,
-                expectedType,
+                inferenceContext.expectedType,
                 typeVarContext,
                 getTypeVarScopesForNode(node)
             )
@@ -13098,7 +13177,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (entry.nodeType === ParseNodeType.ListComprehension) {
                 entryTypeResult = getElementTypeFromListComprehension(entry, expectedEntryType);
             } else {
-                entryTypeResult = getTypeOfExpression(entry, /* flags */ undefined, expectedEntryType);
+                entryTypeResult = getTypeOfExpression(
+                    entry,
+                    /* flags */ undefined,
+                    makeInferenceContext(expectedEntryType, inferenceContext?.typeVarContext)
+                );
             }
 
             entryTypes.push(entryTypeResult.type);
@@ -13121,7 +13204,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         const isExpectedTypeListOrSet =
-            isClassInstance(expectedType) && ClassType.isBuiltIn(expectedType, builtInClassName);
+            isClassInstance(inferenceContext.expectedType) &&
+            ClassType.isBuiltIn(inferenceContext.expectedType, builtInClassName);
         const specializedEntryType = inferTypeArgFromExpectedType(
             expectedEntryType,
             entryTypes,
@@ -13301,7 +13385,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return undefined;
     }
 
-    function getTypeOfTernary(node: TernaryNode, flags: EvaluatorFlags, expectedType: Type | undefined): TypeResult {
+    function getTypeOfTernary(
+        node: TernaryNode,
+        flags: EvaluatorFlags,
+        inferenceContext: InferenceContext | undefined
+    ): TypeResult {
         getTypeOfExpression(node.testExpression);
 
         const typesToCombine: Type[] = [];
@@ -13309,7 +13397,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let typeErrors = false;
 
         if (isNodeReachable(node.ifExpression)) {
-            const ifType = getTypeOfExpression(node.ifExpression, flags, expectedType);
+            const ifType = getTypeOfExpression(node.ifExpression, flags, inferenceContext);
             typesToCombine.push(ifType.type);
             if (ifType.isIncomplete) {
                 isIncomplete = true;
@@ -13320,7 +13408,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isNodeReachable(node.elseExpression)) {
-            const elseType = getTypeOfExpression(node.elseExpression, flags, expectedType);
+            const elseType = getTypeOfExpression(node.elseExpression, flags, inferenceContext);
             typesToCombine.push(elseType.type);
             if (elseType.isIncomplete) {
                 isIncomplete = true;
@@ -13360,7 +13448,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (node.expression) {
-            const exprResult = getTypeOfExpression(node.expression, /* flags */ undefined, expectedYieldType);
+            const exprResult = getTypeOfExpression(
+                node.expression,
+                /* flags */ undefined,
+                makeInferenceContext(expectedYieldType)
+            );
             if (exprResult.isIncomplete) {
                 isIncomplete = true;
             }
@@ -13396,7 +13488,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { type: returnedType || UnknownType.create() };
     }
 
-    function getTypeOfLambda(node: LambdaNode, expectedType: Type | undefined): TypeResult {
+    function getTypeOfLambda(node: LambdaNode, inferenceContext: InferenceContext | undefined): TypeResult {
         let isIncomplete = false;
         const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.PartiallyEvaluated);
         functionType.details.typeVarScopeId = getScopeIdForNode(node);
@@ -13406,8 +13498,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         writeTypeCache(node, { type: functionType, isIncomplete: true }, EvaluatorFlags.None);
 
         let expectedFunctionTypes: FunctionType[] = [];
-        if (expectedType) {
-            mapSubtypes(expectedType, (subtype) => {
+        if (inferenceContext) {
+            mapSubtypes(inferenceContext.expectedType, (subtype) => {
                 if (isFunction(subtype)) {
                     expectedFunctionTypes.push(subtype);
                 }
@@ -13528,7 +13620,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // evaluation scope for the return expression and do not allow retention
         // of the cached types.
         const inferLambdaReturnType = () => {
-            const returnTypeResult = getTypeOfExpression(node.expression, /* flags */ undefined, expectedReturnType);
+            const returnTypeResult = getTypeOfExpression(
+                node.expression,
+                /* flags */ undefined,
+                makeInferenceContext(expectedReturnType)
+            );
+
             functionType.inferredReturnType = returnTypeResult.type;
             if (returnTypeResult.isIncomplete) {
                 isIncomplete = true;
@@ -13557,7 +13654,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { type: functionType, isIncomplete };
     }
 
-    function getTypeOfListComprehension(node: ListComprehensionNode, expectedType?: Type): TypeResult {
+    function getTypeOfListComprehension(node: ListComprehensionNode, inferenceContext?: InferenceContext): TypeResult {
         let isIncomplete = false;
         let typeErrors = false;
 
@@ -13575,8 +13672,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         let expectedElementType: Type | undefined;
-        if (expectedType) {
-            expectedElementType = getTypeOfIterator({ type: expectedType }, isAsync, /* errorNode */ undefined)?.type;
+        if (inferenceContext) {
+            expectedElementType = getTypeOfIterator(
+                { type: inferenceContext.expectedType },
+                isAsync,
+                /* errorNode */ undefined
+            )?.type;
         }
 
         const elementTypeResult = getElementTypeFromListComprehension(node, expectedElementType);
@@ -13592,9 +13693,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // is expected to be an AsyncGenerator.
         if (
             !isAsync &&
-            expectedType &&
-            isClassInstance(expectedType) &&
-            ClassType.isBuiltIn(expectedType, 'AsyncGenerator')
+            inferenceContext &&
+            isClassInstance(inferenceContext.expectedType) &&
+            ClassType.isBuiltIn(inferenceContext.expectedType, 'AsyncGenerator')
         ) {
             isAsync = true;
         }
@@ -13718,7 +13819,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const keyTypeResult = getTypeOfExpression(
                 node.expression.keyExpression,
                 /* flags */ undefined,
-                expectedKeyType
+                makeInferenceContext(expectedKeyType)
             );
             if (keyTypeResult.isIncomplete) {
                 isIncomplete = true;
@@ -13734,7 +13835,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const valueTypeResult = getTypeOfExpression(
                 node.expression.valueExpression,
                 /* flags */ undefined,
-                expectedValueOrElementType
+                makeInferenceContext(expectedValueOrElementType)
             );
             if (valueTypeResult.isIncomplete) {
                 isIncomplete = true;
@@ -13750,12 +13851,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             type = makeTupleObject([keyType, valueType]);
         } else if (node.expression.nodeType === ParseNodeType.DictionaryExpandEntry) {
             // The parser should have reported an error in this case because it's not allowed.
-            getTypeOfExpression(node.expression.expandExpression, /* flags */ undefined, expectedValueOrElementType);
+            getTypeOfExpression(
+                node.expression.expandExpression,
+                /* flags */ undefined,
+                makeInferenceContext(expectedValueOrElementType)
+            );
         } else if (isExpressionNode(node)) {
             const exprTypeResult = getTypeOfExpression(
                 node.expression as ExpressionNode,
                 /* flags */ undefined,
-                expectedValueOrElementType
+                makeInferenceContext(expectedValueOrElementType)
             );
             if (exprTypeResult.isIncomplete) {
                 isIncomplete = true;
@@ -15026,7 +15131,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                const srcTypeResult = getTypeOfExpression(node.rightExpression, flags, declaredType);
+                const srcTypeResult = getTypeOfExpression(
+                    node.rightExpression,
+                    flags,
+                    makeInferenceContext(declaredType)
+                );
                 let srcType = srcTypeResult.type;
                 expectedTypeDiagAddendum = srcTypeResult.expectedTypeDiagAddendum;
                 if (srcTypeResult.isIncomplete) {
@@ -15263,7 +15372,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return;
         }
 
-        const destTypeResult = getTypeOfAugmentedAssignment(node, /* expectedType */ undefined);
+        const destTypeResult = getTypeOfAugmentedAssignment(node, /* inferenceContext */ undefined);
 
         writeTypeCache(node, destTypeResult, EvaluatorFlags.None);
     }
@@ -16358,7 +16467,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     { type: initSubclassMethodType },
                     /* typeVarContext */ undefined,
                     /* skipUnknownArgCheck */ false,
-                    NoneType.createInstance()
+                    makeInferenceContext(NoneType.createInstance())
                 );
             }
         } else if (classType.details.effectiveMetaclass && isClass(classType.details.effectiveMetaclass)) {
@@ -16677,7 +16786,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 defaultValueType = getTypeOfExpression(
                     param.defaultValue,
                     EvaluatorFlags.ConvertEllipsisToAny,
-                    annotatedType
+                    makeInferenceContext(annotatedType)
                 ).type;
             }
 
@@ -16996,7 +17105,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const defaultArgType = getTypeOfExpression(
                 param.defaultValue,
                 EvaluatorFlags.ConvertEllipsisToAny,
-                type
+                makeInferenceContext(type)
             ).type;
 
             if (!isAny(defaultArgType)) {
@@ -17874,7 +17983,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     [],
                     enterMethodName,
                     node.expression,
-                    /* expectedType */ undefined
+                    /* inferenceContext */ undefined
                 );
 
                 if (enterType) {
@@ -17893,7 +18002,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             [],
                             '__aenter__',
                             node.expression,
-                            /* expectedType */ undefined
+                            /* inferenceContext */ undefined
                         )
                     ) {
                         additionalHelp.addMessage(Localizer.DiagnosticAddendum.asyncHelp());
@@ -17928,7 +18037,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     [anyArg, anyArg, anyArg],
                     exitMethodName,
                     node.expression,
-                    /* expectedType */ undefined
+                    /* inferenceContext */ undefined
                 );
 
                 if (exitType) {
@@ -18538,7 +18647,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const declaredReturnType = enclosingFunctionNode
                         ? getFunctionDeclaredReturnType(enclosingFunctionNode)
                         : undefined;
-                    getTypeOfExpression(parent.returnExpression, EvaluatorFlags.None, declaredReturnType);
+                    getTypeOfExpression(
+                        parent.returnExpression,
+                        EvaluatorFlags.None,
+                        makeInferenceContext(declaredReturnType)
+                    );
                     return;
                 }
                 break;
