@@ -43,6 +43,7 @@ import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes'
 import { getTypeNarrowingCallback } from './typeGuards';
 import {
     ClassType,
+    cleanIncompleteUnknown,
     combineTypes,
     FunctionType,
     isClass,
@@ -56,7 +57,6 @@ import {
     maxTypeRecursionCount,
     NeverType,
     OverloadedFunctionType,
-    removeIncompleteUnknownFromUnion,
     Type,
     TypeVarType,
     UnboundType,
@@ -384,7 +384,10 @@ export function getCodeFlowEngine(
                         // If the cached entry is incomplete, we can use it only if nothing
                         // has changed that may cause the previously-reported incomplete type to change.
                         if (cachedEntry.generationCount === flowIncompleteGeneration) {
-                            return { type: cachedEntry.type, isIncomplete: true };
+                            return {
+                                type: cachedEntry.type ? cleanIncompleteUnknown(cachedEntry.type) : undefined,
+                                isIncomplete: true,
+                            };
                         }
                     }
 
@@ -926,10 +929,7 @@ export function getCodeFlowEngine(
                         // it. Otherwise we might end up resolving the cycle with a type
                         // that includes an undesirable unknown.
                         if (effectiveType) {
-                            const typeWithoutUnknown = removeIncompleteUnknownFromUnion(effectiveType);
-                            if (!isNever(typeWithoutUnknown)) {
-                                effectiveType = typeWithoutUnknown;
-                            }
+                            effectiveType = cleanIncompleteUnknown(effectiveType);
                         }
                     }
 
