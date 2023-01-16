@@ -474,7 +474,6 @@ export interface TypeEvaluator {
         diag: DiagnosticAddendum,
         enforceParamNames?: boolean
     ) => boolean;
-    validateInitSubclassArgs: (node: ClassNode, classType: ClassType, argList: FunctionArgument[]) => void;
     assignTypeToExpression: (
         target: ExpressionNode,
         type: Type,

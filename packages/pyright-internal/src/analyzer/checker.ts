@@ -108,7 +108,7 @@ import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
 import { maxCodeComplexity } from './typeEvaluator';
-import { FunctionArgument, FunctionTypeResult, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { FunctionTypeResult, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     getElementTypeForContainerNarrowing,
     isIsinstanceFilterSubclass,
@@ -390,8 +390,6 @@ export class Checker extends ParseTreeWalker {
             this._validateDataClassPostInit(classTypeResult.classType, node);
 
             this._validateProtocolCompatibility(classTypeResult.classType, node);
-
-            this._validateInitSubclassArgs(classTypeResult.classType, node);
 
             this._reportDuplicateEnumMembers(classTypeResult.classType);
 
@@ -4267,25 +4265,6 @@ export class Checker extends ParseTreeWalker {
                 }
             }
         });
-    }
-
-    private _validateInitSubclassArgs(classType: ClassType, node: ClassNode) {
-        const argList: FunctionArgument[] = [];
-
-        // Collect arguments that will be passed to the `__init_subclass__`
-        // method described in PEP 487.
-        node.arguments.forEach((arg) => {
-            if (arg.name && arg.name.value !== 'metaclass') {
-                argList.push({
-                    argumentCategory: ArgumentCategory.Simple,
-                    node: arg,
-                    name: arg.name,
-                    valueExpression: arg.valueExpression,
-                });
-            }
-        });
-
-        this._evaluator.validateInitSubclassArgs(node, classType, argList);
     }
 
     // If a non-protocol class explicitly inherits from a protocol class, this method

@@ -16059,6 +16059,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             unionType = ClassType.cloneAsInstance(classType);
         }
 
+        // Validate that arguments passed to `__init_subclass__` are of the correct type.
+        validateInitSubclassArgs(node, classType);
+
         return { classType, decoratedType };
     }
 
@@ -16453,7 +16456,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         computeEffectiveMetaclass(type, errorNode);
     }
 
-    function validateInitSubclassArgs(node: ClassNode, classType: ClassType, argList: FunctionArgument[]) {
+    function validateInitSubclassArgs(node: ClassNode, classType: ClassType) {
+        // Collect arguments that will be passed to the `__init_subclass__`
+        // method described in PEP 487 and validate it.
+        const argList: FunctionArgument[] = [];
+
+        node.arguments.forEach((arg) => {
+            if (arg.name && arg.name.value !== 'metaclass') {
+                argList.push({
+                    argumentCategory: ArgumentCategory.Simple,
+                    node: arg,
+                    name: arg.name,
+                    valueExpression: arg.valueExpression,
+                });
+            }
+        });
+
         const errorNode = argList.length > 0 ? argList[0].node!.name! : node.name;
         const initSubclassMethodInfo = getTypeOfClassMemberName(
             errorNode,
@@ -18515,6 +18533,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ) {
                     nodeToEvaluate = argumentNode.parent;
                     continue;
+                }
+
+                if (argumentNode.parent.nodeType === ParseNodeType.Class) {
+                    // If this is an argument node within a class declaration,
+                    // evaluate the full class declaration node.
+                    getTypeOfClass(argumentNode.parent);
+                    return;
                 }
             }
 
@@ -25299,7 +25324,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         narrowConstrainedTypeVar,
         assignType,
         validateOverrideMethod,
-        validateInitSubclassArgs,
         assignTypeToExpression,
         assignClassToSelf,
         getTypedDictClassType,
