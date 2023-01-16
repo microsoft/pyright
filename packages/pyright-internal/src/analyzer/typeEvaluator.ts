@@ -11740,6 +11740,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const leftExpression = node.leftExpression;
         let rightExpression = node.rightExpression;
         let isIncomplete = false;
+        let typeErrors = false;
 
         // If this is a comparison and the left expression is also a comparison,
         // we need to change the behavior to accommodate python's "chained
@@ -11942,6 +11943,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
 
         if (!diag.isEmpty() || !type) {
+            typeErrors = true;
+
             if (!isIncomplete) {
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
@@ -11975,7 +11978,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             type = UnknownType.create();
         }
 
-        return { type, isIncomplete };
+        return { type, isIncomplete, typeErrors };
     }
 
     function customMetaclassSupportsMethod(type: Type, methodName: string): boolean {

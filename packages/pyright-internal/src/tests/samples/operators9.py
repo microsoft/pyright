@@ -20,4 +20,6 @@ x1 = to(int) | to(float)
 
 
 def func1(f: set[Literal["A", "B"]]):
-    g: set[Literal["A", "B"]] = f | f
+    v1: set[Literal["A", "B"]] = f | f
+
+    v2 = " ".join({"A"} | {"B"})
