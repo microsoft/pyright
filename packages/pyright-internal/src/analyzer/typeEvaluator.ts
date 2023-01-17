@@ -25042,9 +25042,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             });
 
-            if (newOverloadType.overloads.length === 1) {
-                return newOverloadType.overloads[0];
-            } else if (newOverloadType.overloads.length === 0) {
+            if (newOverloadType.overloads.filter((t) => FunctionType.isOverloaded(t)).length === 0) {
                 // No overloads matched, so rebind with the errorNode
                 // to report the error(s) to the user.
                 if (errorNode) {
@@ -25061,6 +25059,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     });
                 }
                 return undefined;
+            } else if (newOverloadType.overloads.length === 1) {
+                return newOverloadType.overloads[0];
             }
 
             return newOverloadType;
