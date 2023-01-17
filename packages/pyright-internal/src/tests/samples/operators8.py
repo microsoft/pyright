@@ -43,7 +43,7 @@ def func2(cond: bool):
 
 def func3(cond: bool):
     c1 = b"Hi " + (b"Steve" if cond else b"Amy")
-    reveal_type(c1, expected_text="Literal[b'Hi Steve', b'Hi Amy']")
+    reveal_type(c1, expected_text='Literal[b"Hi Steve", b"Hi Amy"]')
 
 
 def func4(a: Literal[True], b: Literal[False]):

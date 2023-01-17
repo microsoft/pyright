@@ -46,3 +46,13 @@ b: Literal[-2] = +-+2
 # This should generate an error because literals are
 # not instantiable.
 c = Literal[1]()
+
+
+bytes1 = b"\x7f"
+reveal_type(bytes1, expected_text='Literal[b"\\x7f"]')
+bytes2 = b"\x20"
+reveal_type(bytes2, expected_text='Literal[b" "]')
+bytes3 = b'"'
+reveal_type(bytes3, expected_text='Literal[b"\\""]')
+bytes4 = b"'"
+reveal_type(bytes4, expected_text='Literal[b"\'"]')

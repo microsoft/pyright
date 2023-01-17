@@ -631,27 +631,46 @@ export function printLiteralValue(type: ClassType, quotation = "'"): string {
 
     let literalStr: string;
     if (typeof literalValue === 'string') {
-        const prefix = type.details.name === 'bytes' ? 'b' : '';
+        let effectiveLiteralValue = literalValue;
 
         // Limit the length of the string literal.
-        let effectiveLiteralValue = literalValue;
         const maxLiteralStringLength = 50;
         if (literalValue.length > maxLiteralStringLength) {
             effectiveLiteralValue = literalValue.substring(0, maxLiteralStringLength) + '…';
         }
 
-        // JSON.stringify will perform proper escaping for " case.
-        // So, we only need to do our own escaping for ' case.
-        literalStr = JSON.stringify(effectiveLiteralValue).toString();
-        if (quotation !== '"') {
-            literalStr = `'${literalStr
-                .substring(1, literalStr.length - 1)
-                .replace(escapedDoubleQuoteRegEx, '"')
-                .replace(singleTickRegEx, "\\'")}'`;
-        }
+        if (type.details.name === 'bytes') {
+            let bytesString = '';
 
-        if (prefix) {
-            literalStr = `${prefix}${literalStr}`;
+            // There's no good built-in conversion routine in javascript to convert
+            // bytes strings. Determine on a character-by-character basis whether
+            // it can be rendered into an ASCII character. If not, use an escape.
+            for (let i = 0; i < effectiveLiteralValue.length; i++) {
+                const char = effectiveLiteralValue.substring(i, i + 1);
+                const charCode = char.charCodeAt(0);
+
+                if (charCode >= 20 && charCode <= 126) {
+                    if (charCode === 34) {
+                        bytesString += '\\' + char;
+                    } else {
+                        bytesString += char;
+                    }
+                } else {
+                    bytesString += `\\x${((charCode >> 4) & 0xf).toString(16)}${(charCode & 0xf).toString(16)}`;
+                }
+            }
+
+            literalStr = `b"${bytesString}"`;
+        } else {
+            // JSON.stringify will perform proper escaping for " case.
+            // So, we only need to do our own escaping for ' case.
+            literalStr = JSON.stringify(effectiveLiteralValue).toString();
+            if (quotation !== '"') {
+                literalStr = `'${literalStr
+                    .substring(1, literalStr.length - 1)
+                    .replace(escapedDoubleQuoteRegEx, '"')
+                    .replace(singleTickRegEx, "\\'")}'`;
+            }
         }
     } else if (typeof literalValue === 'boolean') {
         literalStr = literalValue ? 'True' : 'False';
