@@ -1990,7 +1990,7 @@ export interface UnionType extends TypeBase {
     literalStrMap?: Map<string, UnionableType> | undefined;
     literalIntMap?: Map<bigint | number, UnionableType> | undefined;
     typeAliasSources?: Set<UnionType>;
-    includesTypeAliasPlaceholder?: boolean;
+    includesRecursiveTypeAlias?: boolean;
 }
 
 export namespace UnionType {
@@ -2025,10 +2025,10 @@ export namespace UnionType {
         unionType.flags &= newType.flags;
         unionType.subtypes.push(newType);
 
-        if (isTypeVar(newType) && TypeVarType.isTypeAliasPlaceholder(newType)) {
-            // Note that at least one type alias placeholder was included in
+        if (isTypeVar(newType) && newType.details.recursiveTypeAliasName) {
+            // Note that at least one recursive type alias was included in
             // this union. We'll need to expand it before the union is used.
-            unionType.includesTypeAliasPlaceholder = true;
+            unionType.includesRecursiveTypeAlias = true;
         }
     }
 

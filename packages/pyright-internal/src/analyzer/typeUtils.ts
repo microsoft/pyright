@@ -870,7 +870,7 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
             return applySolvedTypeVars(unspecializedType, typeVarContext);
         }
 
-        if (isUnion(type) && type.includesTypeAliasPlaceholder) {
+        if (isUnion(type) && type.includesRecursiveTypeAlias) {
             let newType = mapSubtypes(type, (subtype) => transformPossibleRecursiveTypeAlias(subtype));
 
             if (newType !== type && type.typeAliasInfo) {
