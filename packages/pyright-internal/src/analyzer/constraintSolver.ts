@@ -42,6 +42,7 @@ import {
 } from './types';
 import {
     addConditionToType,
+    applySolvedTypeVars,
     AssignTypeFlags,
     buildTypeVarContextFromSpecializedClass,
     convertParamSpecValueToType,
@@ -532,7 +533,7 @@ export function assignTypeToTypeVar(
                 ) {
                     newNarrowTypeBound = adjSrcType;
                 } else {
-                    newNarrowTypeBound = curNarrowTypeBound;
+                    newNarrowTypeBound = applySolvedTypeVars(curNarrowTypeBound, typeVarContext);
                 }
             } else {
                 // We need to widen the type.
@@ -573,6 +574,7 @@ export function assignTypeToTypeVar(
                     newNarrowTypeBound = widenedType;
                 } else {
                     const objectType = evaluator.getObjectType();
+                    const curSolvedNarrowTypeBound = applySolvedTypeVars(curNarrowTypeBound, typeVarContext);
 
                     // In some extreme edge cases, the narrow type bound can become
                     // a union with so many subtypes that performance grinds to a
@@ -580,15 +582,15 @@ export function assignTypeToTypeVar(
                     // to an 'object' instead of making the union even bigger. This
                     // is still a valid solution to the TypeVar.
                     if (
-                        isUnion(curNarrowTypeBound) &&
-                        curNarrowTypeBound.subtypes.length > maxSubtypesForInferredType &&
+                        isUnion(curSolvedNarrowTypeBound) &&
+                        curSolvedNarrowTypeBound.subtypes.length > maxSubtypesForInferredType &&
                         (destType as TypeVarType).details.boundType !== undefined &&
                         objectType &&
                         isClassInstance(objectType)
                     ) {
-                        newNarrowTypeBound = combineTypes([curNarrowTypeBound, objectType]);
+                        newNarrowTypeBound = combineTypes([curSolvedNarrowTypeBound, objectType]);
                     } else {
-                        newNarrowTypeBound = combineTypes([curNarrowTypeBound, adjSrcType]);
+                        newNarrowTypeBound = combineTypes([curSolvedNarrowTypeBound, adjSrcType]);
                     }
                 }
             }
