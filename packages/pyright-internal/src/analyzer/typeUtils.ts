@@ -1238,6 +1238,31 @@ function getProtocolSymbolsRecursive(classType: ClassType, symbolMap: Map<string
     });
 }
 
+// Determines the maximum depth of a tuple. For example, if the type is
+// tuple[tuple[tuple[int]]], its depth would be 3.
+export function getTupleDepth(type: Type, recursionCount = 0) {
+    if (recursionCount > maxTypeRecursionCount) {
+        return 1;
+    }
+
+    recursionCount++;
+
+    if (!isClassInstance(type) || !type.tupleTypeArguments) {
+        return 0;
+    }
+
+    let maxChildDepth = 0;
+
+    type.tupleTypeArguments.forEach((typeArgInfo) => {
+        doForEachSubtype(typeArgInfo.type, (subtype) => {
+            const childDepth = getTupleDepth(subtype, recursionCount);
+            maxChildDepth = Math.max(childDepth, maxChildDepth);
+        });
+    });
+
+    return 1 + maxChildDepth;
+}
+
 export function lookUpObjectMember(
     objectType: Type,
     memberName: string,

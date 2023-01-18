@@ -258,6 +258,7 @@ import {
     getLiteralTypeClassName,
     getParameterListDetails,
     getSpecializedTupleType,
+    getTupleDepth,
     getTypeCondition,
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
@@ -7227,6 +7228,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const type = convertToInstance(specializeTupleClass(tupleClassType, buildTupleTypesList(entryTypeResults)));
+
+        // In certain loops, it's possible to construct arbitrarily-deep tuples
+        // which can lead to infinite type analysis. Prevent this by detecting
+        // the condition.
+        if (isIncomplete) {
+            const maxInferredTupleDepth = 8;
+            if (getTupleDepth(type) > maxInferredTupleDepth) {
+                return { type: UnknownType.create() };
+            }
+        }
 
         return { type, isIncomplete };
     }
