@@ -23211,11 +23211,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* errorNode */ undefined,
                     recursionCount
                 ) as FunctionType | undefined;
+
                 if (constructorFunction) {
                     constructorFunction = FunctionType.clone(constructorFunction);
                     constructorFunction.details.declaredReturnType = objectType;
+
                     if (constructorFunction.specializedTypes) {
                         constructorFunction.specializedTypes.returnType = objectType;
+                    }
+
+                    if (!constructorFunction.details.docString && classType.details.docString) {
+                        constructorFunction.details.docString = classType.details.docString;
                     }
                 }
                 return constructorFunction;
@@ -23253,7 +23259,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const newType = getTypeOfMember(newInfo);
 
             const convertNewToConstructor = (newSubtype: FunctionType) => {
-                return bindFunctionToClassOrObject(
+                let constructorFunction = bindFunctionToClassOrObject(
                     classType,
                     newSubtype,
                     /* memberClass */ undefined,
@@ -23261,6 +23267,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     recursionCount,
                     /* treatConstructorAsClassMember */ true
                 ) as FunctionType | undefined;
+
+                if (constructorFunction) {
+                    constructorFunction = FunctionType.clone(constructorFunction);
+
+                    if (!constructorFunction.details.docString && classType.details.docString) {
+                        constructorFunction.details.docString = classType.details.docString;
+                    }
+                }
+
+                return constructorFunction;
             };
 
             if (isFunction(newType)) {
@@ -23291,6 +23307,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
         constructorFunction.details.declaredReturnType = ClassType.cloneAsInstance(classType);
         FunctionType.addDefaultParameters(constructorFunction);
+
+        if (!constructorFunction.details.docString && classType.details.docString) {
+            constructorFunction.details.docString = classType.details.docString;
+        }
+
         return constructorFunction;
     }
 
