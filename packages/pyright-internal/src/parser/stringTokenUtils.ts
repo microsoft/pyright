@@ -241,7 +241,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                 }
                 strOffset++;
             } else {
-                if (isRaw) {
+                if (isRaw || (isFormat && formatSegment.isExpression)) {
                     localValue = '\\' + String.fromCharCode(curChar);
                     strOffset++;
                 } else {

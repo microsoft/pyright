@@ -64,3 +64,11 @@ j = f"{}"
 
 # f-string with quotes within quotes within quotes.
 k = f"""{"#M's#".replace(f"'", '')!r}"""
+
+
+# f-strings with escape characters in the format string section.
+my_str = ""
+width = 3
+l = f"{my_str:\>{width}s}"
+m = f"{my_str:\x00>{width}s}"
+n = f"{my_str:\u2007>{width}s}"
