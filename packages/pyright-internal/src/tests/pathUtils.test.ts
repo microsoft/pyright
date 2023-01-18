@@ -8,9 +8,11 @@
  */
 
 import assert from 'assert';
+import * as os from 'os';
 import * as path from 'path';
 
 import { Comparison } from '../common/core';
+import { expandPathVariables } from '../common/envVarUtils';
 import {
     changeAnyExtension,
     combinePathComponents,
@@ -207,6 +209,22 @@ test('resolvePath1', () => {
 
 test('resolvePath2', () => {
     assert.equal(resolvePaths('/path', 'to', '..', 'from', 'file.ext/'), normalizeSlashes('/path/from/file.ext/'));
+});
+
+test('resolvePath3 ~ escape', () => {
+    const homedir = os.homedir();
+    assert.equal(
+        resolvePaths(expandPathVariables('', '~/path'), 'to', '..', 'from', 'file.ext/'),
+        normalizeSlashes(`${homedir}/path/from/file.ext/`)
+    );
+});
+
+test('resolvePath4 ~ escape in middle', () => {
+    const homedir = os.homedir();
+    assert.equal(
+        resolvePaths('/path', expandPathVariables('', '~/file.ext/')),
+        normalizeSlashes(`${homedir}/file.ext/`)
+    );
 });
 
 test('comparePaths1', () => {

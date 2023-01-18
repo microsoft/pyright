@@ -542,7 +542,7 @@ export class AnalyzerService {
         this._console.info('');
         this._console.info('Analysis stats');
 
-        const boundFileCount = this._program.getFileCount();
+        const boundFileCount = this._program.getFileCount(/* userFileOnly */ false);
         this._console.info('Total files parsed and bound: ' + boundFileCount.toString());
 
         const checkedFileCount = this._program.getUserFileCount();

@@ -360,8 +360,13 @@ export class ImportResolver {
         return suggestions;
     }
 
-    getConfigOption() {
+    getConfigOptions() {
         return this._configOptions;
+    }
+
+    setConfigOptions(configOptions: ConfigOptions): void {
+        this._configOptions = configOptions;
+        this.invalidateCache();
     }
 
     private _getCompletionSuggestionsStrict(

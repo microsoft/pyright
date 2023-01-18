@@ -381,6 +381,22 @@ function _tryHandleStringLiterals(parseResults: ParseResults, offset: number): n
     return _getFirstNonBlankLineIndentationFromText(parseResults, current.line, begin.line);
 }
 
+function _isOpenToken(token: Token) {
+    return (
+        token.type === TokenType.OpenParenthesis ||
+        token.type === TokenType.OpenBracket ||
+        token.type === TokenType.OpenCurlyBrace
+    );
+}
+
+function _isCloseToken(token: Token) {
+    return (
+        token.type === TokenType.CloseParenthesis ||
+        token.type === TokenType.CloseBracket ||
+        token.type === TokenType.CloseCurlyBrace
+    );
+}
+
 function _getIndentationForNextLine(parseResults: ParseResults, prevToken: Token, nextToken: Token, offset: number) {
     // Get the last token on the same line as the previous token
     const lines = parseResults.tokenizerOutput.lines;
@@ -391,49 +407,51 @@ function _getIndentationForNextLine(parseResults: ParseResults, prevToken: Token
 
     // Go backwards through tokens up until the front of the line
     let whitespaceOnly = true;
+    let closeCount = 0;
     while (token && token.start >= line.start) {
-        if (token.type === TokenType.OpenParenthesis && whitespaceOnly) {
-            const baseIndentation = _getIndentation(parseResults, token.start, false).indentation;
+        if (_isCloseToken(token)) {
+            whitespaceOnly = false;
+            closeCount += 1;
+        } else if (_isOpenToken(token) && closeCount === 0) {
+            // Special case for parenthesis
+            if (token.type === TokenType.OpenParenthesis && whitespaceOnly) {
+                const baseIndentation = _getIndentation(parseResults, token.start, false).indentation;
 
-            // In PEP 8, this should be this case here:
-            // # Add 4 spaces (an extra level of indentation) to distinguish arguments from the rest.
-            // def long_function_name(
-            //         var_one, var_two, var_three,
-            //         var_four):
-            //     print(var_one)
-            //
-            const node = findNodeByOffset(parseResults.parseTree, token.start - 1);
-            const funcNode = getFirstAncestorOrSelfOfKind(node, ParseNodeType.Function);
-            if (
-                funcNode &&
-                funcNode.nodeType === ParseNodeType.Function &&
-                convertOffsetToPosition(funcNode.start, lines).line === lineIndex
-            ) {
-                return baseIndentation + tabSize * 2;
+                // In PEP 8, this should be this case here:
+                // # Add 4 spaces (an extra level of indentation) to distinguish arguments from the rest.
+                // def long_function_name(
+                //         var_one, var_two, var_three,
+                //         var_four):
+                //     print(var_one)
+                //
+                const node = findNodeByOffset(parseResults.parseTree, token.start - 1);
+                const funcNode = getFirstAncestorOrSelfOfKind(node, ParseNodeType.Function);
+                if (
+                    funcNode &&
+                    funcNode.nodeType === ParseNodeType.Function &&
+                    convertOffsetToPosition(funcNode.start, lines).line === lineIndex
+                ) {
+                    return baseIndentation + tabSize * 2;
+                }
+
+                // Not inside a function, just need one tab. See this in PEP 8
+                // # Hanging indents should add a level.
+                // foo = long_function_name(
+                //     var_one, var_two,
+                //     var_three, var_four)
+                return baseIndentation + tabSize;
+            } else if (whitespaceOnly) {
+                return _getIndentation(parseResults, token.start, false).indentation + tabSize;
+            } else {
+                // In PEP 8, this should be this case here:
+                // # Aligned with opening delimiter.
+                // def long_function_name(var_one, var_two,
+                //                        var_three, var_four)
+                return token.start - line.start + 1; // + 1 is to accomodate for the paranthesis.
             }
-
-            // Not inside a function, just need one tab. See this in PEP 8
-            // # Hanging indents should add a level.
-            // foo = long_function_name(
-            //     var_one, var_two,
-            //     var_three, var_four)
-            return baseIndentation + tabSize;
-        } else if (token.type === TokenType.OpenParenthesis) {
-            // In PEP 8, this should be this case here:
-            // # Aligned with opening delimiter.
-            // def long_function_name(var_one, var_two,
-            //                        var_three, var_four)
-            return token.start - line.start + 1; // + 1 is to accomodate for the paranthesis.
-        } else if (token.type === TokenType.OpenBracket && whitespaceOnly) {
-            // Special case for openbracket, just use the indentation of the current line plus one tab
-            return _getIndentation(parseResults, token.start, false).indentation + tabSize;
-        } else if (token.type === TokenType.OpenBracket) {
-            return token.start - line.start + 1; // + 1 is to accomodate for the bracket
-        } else if (token.type === TokenType.OpenCurlyBrace && whitespaceOnly) {
-            // Special case for opencurlybrace, just use the indentation of the current line plus one tab
-            return _getIndentation(parseResults, token.start, false).indentation + tabSize;
-        } else if (token.type === TokenType.OpenCurlyBrace) {
-            return token.start - line.start + 1; // + 1 is to accomodate for the curlybrace
+        } else if (_isOpenToken(token) && closeCount > 0) {
+            closeCount--;
+            whitespaceOnly = false;
         } else if (!_isWhitespaceToken(token.type)) {
             // Found a non whitespace token before we returned.
             whitespaceOnly = false;
