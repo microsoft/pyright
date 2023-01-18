@@ -695,6 +695,8 @@ export function getTypeNarrowingCallback(
                     OverloadedFunctionType.getOverloads(callType).some((o) => isFunctionReturnTypeGuard(o))
                 ) {
                     isPossiblyTypeGuard = true;
+                } else if (isClassInstance(callType)) {
+                    isPossiblyTypeGuard = true;
                 }
 
                 if (isPossiblyTypeGuard) {
