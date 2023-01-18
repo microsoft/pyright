@@ -25042,7 +25042,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             });
 
-            if (newOverloadType.overloads.filter((t) => FunctionType.isOverloaded(t)).length === 0) {
+            if (OverloadedFunctionType.getOverloads(newOverloadType).length === 0) {
                 // No overloads matched, so rebind with the errorNode
                 // to report the error(s) to the user.
                 if (errorNode) {
