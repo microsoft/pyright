@@ -1544,7 +1544,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _getImportResult(node: ImportFromAsNode, filePath: string) {
-        const execEnv = this._importResolver.getConfigOption().findExecEnvironment(filePath);
+        const execEnv = this._importResolver.getConfigOptions().findExecEnvironment(filePath);
         const moduleNameNode = (node.parent as ImportFromNode).module;
 
         // Handle both absolute and relative imports.

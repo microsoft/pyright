@@ -517,6 +517,63 @@ test('class func params', () => {
     testIndentation(code, 14);
 });
 
+test('nested closures', () => {
+    const code = `
+//// import pytest
+////
+//// class TestStuff:
+////     @pytest.mark.parametrize(
+////         ["given", "expected"],
+////             [
+////                 ("A", ["A"]),
+////                 ("A ", ["A"]),
+////                 (" A", ["A"]),
+//// [|/*marker*/|]
+////                 ("A, B", ["A", "B"]),
+////                 ("A,B", ["A", "B"]),
+////                 (" A, B", ["A", "B"]),
+////                 ("A B", ["A B"]),
+////             ],
+////         )
+////     def test(given, expected):
+////         pass
+    `;
+
+    testIndentation(code, 16);
+});
+
+test('nested closures 2', () => {
+    const code = `
+//// import pytest
+////
+//// class TestStuff:
+////     @pytest.mark.parametrize(
+////         ["given", "expected"]
+//// [|/*marker*/|]
+////         )
+////     def test(given, expected):
+////         pass
+    `;
+
+    testIndentation(code, 8);
+});
+
+test('nested closures 3', () => {
+    const code = `
+//// import pytest
+////
+//// class TestStuff:
+////     @pytest.mark.parametrize(
+////         ["given", "expected"
+//// [|/*marker*/|]
+////         )
+////     def test(given, expected):
+////         pass
+    `;
+
+    testIndentation(code, 9);
+});
+
 function testIndentation(code: string, indentation: number, preferDedent?: boolean) {
     const state = parseAndGetTestState(code).state;
     const marker = state.getMarkerByName('marker');

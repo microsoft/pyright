@@ -212,6 +212,7 @@ export class Program {
 
     setConfigOptions(configOptions: ConfigOptions) {
         this._configOptions = configOptions;
+        this._importResolver.setConfigOptions(configOptions);
 
         // Create a new evaluator with the updated config options.
         this._createNewEvaluator();
@@ -450,7 +451,11 @@ export class Program {
         }
     }
 
-    getFileCount() {
+    getFileCount(userFileOnly = true) {
+        if (userFileOnly) {
+            return this._sourceFileList.filter((f) => isUserCode(f)).length;
+        }
+
         return this._sourceFileList.length;
     }
 
