@@ -75,3 +75,7 @@ def func3(a: Any, b: str):
     v3 = overload3(a)
     reveal_type(v3, expected_text="str")
 
+
+def func4(a: Any):
+    d = dict(a)
+    reveal_type(d, expected_text="dict[Any, Any]")

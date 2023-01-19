@@ -7763,13 +7763,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }[] = [];
         let isTypeIncomplete = false;
         const overloadsUsedForCall: FunctionType[] = [];
+        let isDefinitiveMatchFound = false;
 
         for (let expandedTypesIndex = 0; expandedTypesIndex < expandedArgTypes.length; expandedTypesIndex++) {
             let matchedOverload: FunctionType | undefined;
             const argTypeOverride = expandedArgTypes[expandedTypesIndex];
             const hasArgTypeOverride = argTypeOverride.some((a) => a !== undefined);
             const possibleMatchResults: Type[] = [];
-            let isDefinitiveMatchFound = false;
+            isDefinitiveMatchFound = false;
 
             for (let overloadIndex = 0; overloadIndex < argParamMatches.length; overloadIndex++) {
                 const overload = argParamMatches[overloadIndex].overload;
@@ -7879,7 +7880,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // resulting type var context back into the caller's type var context.
         // Use the type var context from the last matched overload because it
         // includes the type var solutions for all earlier matched overloads.
-        if (typeVarContext) {
+        if (typeVarContext && isDefinitiveMatchFound) {
             typeVarContext.copyFromClone(matchedOverloads[matchedOverloads.length - 1].typeVarContext);
         }
 
