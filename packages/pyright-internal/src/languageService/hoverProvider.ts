@@ -271,9 +271,11 @@ export class HoverProvider {
                     label = isProperty ? 'property' : 'method';
                 }
 
-                const type = evaluator.getType(node);
+                let type = evaluator.getType(node);
                 const sep = isProperty ? ': ' : '';
                 if (type) {
+                    type = this._limitOverloadBasedOnCall(node, evaluator, type);
+
                     if (isOverloadedFunction(type)) {
                         this._addResultsPart(
                             parts,
@@ -482,8 +484,27 @@ export class HoverProvider {
     }
 
     private static _getTypeText(node: NameNode, evaluator: TypeEvaluator, expandTypeAlias = false): string {
-        const type = evaluator.getType(node) || UnknownType.create();
+        let type = evaluator.getType(node) || UnknownType.create();
+        type = this._limitOverloadBasedOnCall(node, evaluator, type);
         return ': ' + evaluator.printType(type, { expandTypeAlias });
+    }
+
+    private static _limitOverloadBasedOnCall(node: NameNode, evaluator: TypeEvaluator, type: Type) {
+        // If it's an overloaded function, see if it's part of a call expression.
+        // If so, we may be able to eliminate some of the overloads based on
+        // the overload resolution.
+        if (isOverloadedFunction(type)) {
+            const callNode = ParseTreeUtils.getCallForName(node);
+            if (callNode) {
+                const callTypeResult = evaluator.getTypeResult(callNode);
+
+                if (callTypeResult?.overloadsUsedForCall && callTypeResult.overloadsUsedForCall.length > 0) {
+                    type = OverloadedFunctionType.create(callTypeResult.overloadsUsedForCall);
+                }
+            }
+        }
+
+        return type;
     }
 
     private static _addDocumentationPart(
