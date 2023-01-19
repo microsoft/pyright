@@ -513,6 +513,25 @@ export function printOperator(operator: OperatorType): string {
     return 'unknown';
 }
 
+// If the name node is the LHS of a call expression or is a member
+// name in the LHS of a call expression, returns the call node.
+export function getCallForName(node: NameNode): CallNode | undefined {
+    if (node.parent?.nodeType === ParseNodeType.Call && node.parent.leftExpression === node) {
+        return node.parent;
+    }
+
+    if (
+        node.parent?.nodeType === ParseNodeType.MemberAccess &&
+        node.parent.memberName === node &&
+        node.parent.parent?.nodeType === ParseNodeType.Call &&
+        node.parent.parent.leftExpression === node.parent
+    ) {
+        return node.parent.parent;
+    }
+
+    return undefined;
+}
+
 export function getEnclosingSuite(node: ParseNode): SuiteNode | undefined {
     let curNode = node.parent;
 
