@@ -499,7 +499,11 @@ export class HoverProvider {
                 const callTypeResult = evaluator.getTypeResult(callNode);
 
                 if (callTypeResult?.overloadsUsedForCall && callTypeResult.overloadsUsedForCall.length > 0) {
-                    type = OverloadedFunctionType.create(callTypeResult.overloadsUsedForCall);
+                    if (callTypeResult.overloadsUsedForCall.length === 1) {
+                        type = callTypeResult.overloadsUsedForCall[0];
+                    } else {
+                        type = OverloadedFunctionType.create(callTypeResult.overloadsUsedForCall);
+                    }
                 }
             }
         }
