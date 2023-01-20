@@ -15495,6 +15495,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const initSubclassArgs: FunctionArgument[] = [];
         let metaclassNode: ExpressionNode | undefined;
+        let isMetaclassDeferred = false;
         let exprFlags =
             EvaluatorFlags.ExpectingType |
             EvaluatorFlags.AllowGenericClassType |
@@ -15535,14 +15536,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
                         argType = UnknownType.create();
                     } else {
-                        if (ClassType.isPartiallyEvaluated(argType)) {
+                        if (
+                            ClassType.isPartiallyEvaluated(argType) ||
+                            argType.details.mro.some((t) => isClass(t) && ClassType.isPartiallyEvaluated(t))
+                        ) {
                             // If the base class is partially evaluated, install a callback
                             // so we can fix up this class (e.g. compute the MRO) when the
                             // dependent class is completed.
                             classTypeHooks.push({
                                 dependency: argType,
-                                callback: () => completeClassTypeDeferred(classType, node.name),
+                                callback: () => completeClassTypeDeferred(classType, node, node.name),
                             });
+                            isMetaclassDeferred = true;
                         }
 
                         if (ClassType.isBuiltIn(argType, 'Protocol')) {
@@ -16072,7 +16077,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Validate that arguments passed to `__init_subclass__` are of the correct type.
-        validateInitSubclassArgs(node, classType);
+        // Defer this if the metaclass calculation is deferred.
+        if (!isMetaclassDeferred) {
+            validateInitSubclassArgs(node, classType);
+        }
 
         return { classType, decoratedType };
     }
@@ -16267,6 +16275,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         effectiveMetaclass = baseClassMeta ? UnknownType.create() : undefined;
                         break;
                     }
+
+                    if (ClassType.isEnumClass(baseClass)) {
+                        classType.details.flags |= ClassTypeFlags.EnumClass;
+                    }
                 } else {
                     // If one of the base classes is unknown, then the effective
                     // metaclass is also unknowable.
@@ -16458,7 +16470,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Recomputes the MRO and effective metaclass for the class after dependent
     // classes have been fully constructed.
-    function completeClassTypeDeferred(type: ClassType, errorNode: ParseNode) {
+    function completeClassTypeDeferred(type: ClassType, node: ClassNode, errorNode: ParseNode) {
         // Recompute the MRO linearization.
         if (!computeMroLinearization(type)) {
             addError(Localizer.Diagnostic.methodOrdering(), errorNode);
@@ -16466,6 +16478,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Recompute the effective metaclass.
         computeEffectiveMetaclass(type, errorNode);
+
+        validateInitSubclassArgs(node, type);
     }
 
     function validateInitSubclassArgs(node: ClassNode, classType: ClassType) {
