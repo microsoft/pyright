@@ -81,7 +81,7 @@ export function reindentSpan(
     const texts: string[] = [];
 
     // Currently _convertTokenStreams converts text in the span as whitespace and non whitespace
-    // and then this function puts those back to string with reidentation if needed.
+    // and then this function puts those back to string with reindentation if needed.
     //
     // Another approach we can take is converting the text in 2 chunks that require reindentation and not
     // and process chunks that require reindentation line by line (like how it currently does for
@@ -447,7 +447,8 @@ function _getIndentationForNextLine(parseResults: ParseResults, prevToken: Token
                 // # Aligned with opening delimiter.
                 // def long_function_name(var_one, var_two,
                 //                        var_three, var_four)
-                return token.start - line.start + 1; // + 1 is to accomodate for the paranthesis.
+                // + 1 is to accommodate for the parenthesis.
+                return token.start - line.start + 1;
             }
         } else if (_isOpenToken(token) && closeCount > 0) {
             closeCount--;
@@ -547,7 +548,6 @@ function _getTokenAtIndex(tokens: TextRangeCollection<Token>, index: number) {
 }
 
 function _shouldDedentAfterKeyword(parseResults: ParseResults, offset: number) {
-    // Keeping the PTVS smart indenter behavior.
     // For now, we won't include all small statements that can put at single line.
     // See parser.ts to see all small statements or see python grammar.
     // ex) def foo(): pass
