@@ -447,7 +447,7 @@ function _getIndentationForNextLine(parseResults: ParseResults, prevToken: Token
                 // # Aligned with opening delimiter.
                 // def long_function_name(var_one, var_two,
                 //                        var_three, var_four)
-                return token.start - line.start + 1; // + 1 is to accomodate for the paranthesis.
+                return token.start - line.start + 1; // + 1 is to accommodate for the paranthesis.
             }
         } else if (_isOpenToken(token) && closeCount > 0) {
             closeCount--;
