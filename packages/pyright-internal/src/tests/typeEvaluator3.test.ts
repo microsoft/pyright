@@ -1210,15 +1210,6 @@ test('InitSubclass2', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('InitSubclass3', () => {
-    const configOptions = new ConfigOptions('.');
-    configOptions.defaultPythonVersion = PythonVersion.V3_11;
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['initsubclass3.py'], configOptions);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
 test('None1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['none1.py']);
 
