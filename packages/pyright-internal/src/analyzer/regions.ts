@@ -39,14 +39,8 @@ export function getRegionComments(parseResults: ParseResults): RegionComment[] {
     return comments;
 }
 
-// A comment starting with "region" is only treated as a region if it is not followed by an identifier character.
-// So these are regions:
-// #region
-// # region
-// #region: foo
-//
-// And these are not:
-// #region_name
+// A comment starting with "region" or "endregion" is only treated as a region/endregion
+// if it is not followed by an identifier character.
 const StartRegionRegx = /^\s*region\b/;
 const EndRegionRegex = /^\s*endregion\b/;
 
