@@ -42,6 +42,7 @@ import {
     TypeAnnotationNode,
     TypeParameterScopeNode,
 } from '../parser/parseNodes';
+import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { TokenizerOutput } from '../parser/tokenizer';
 import { KeywordType, OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { getScope } from './analyzerNodeInfo';
@@ -1516,7 +1517,7 @@ export function getCallNodeAndActiveParameterIndex(
     while (curNode !== undefined) {
         // make sure we only look at callNodes when we are inside their arguments
         if (curNode.nodeType === ParseNodeType.Call) {
-            if (isOffsetInsideCallArgs(curNode, insertionOffset)) {
+            if (isOffsetInsideCallArgs(tokens, curNode, insertionOffset)) {
                 callNode = curNode;
                 break;
             }
@@ -1591,19 +1592,77 @@ export function getCallNodeAndActiveParameterIndex(
         activeOrFake,
     };
 
-    function isOffsetInsideCallArgs(node: CallNode, offset: number) {
-        let found = true;
+    function isOffsetInsideCallArgs(tokens: TextRangeCollection<Token>, node: CallNode, offset: number) {
         const argumentStart =
             node.leftExpression.length > 0 ? TextRange.getEnd(node.leftExpression) - 1 : node.leftExpression.start;
-        const index = tokens.getItemAtPosition(argumentStart);
-        if (index >= 0 && index + 1 < tokens.count) {
-            const token = tokens.getItemAt(index + 1);
-            if (token.type === TokenType.OpenParenthesis && insertionOffset < TextRange.getEnd(token)) {
-                // position must be after '('
-                found = false;
+
+        // Handle obvious case first.
+        const callEndOffset = TextRange.getEnd(node);
+        if (offset < argumentStart || callEndOffset < offset) {
+            return false;
+        }
+
+        if (node.arguments.length > 0) {
+            const start = node.arguments[0].start;
+            const end = TextRange.getEnd(node.arguments[node.arguments.length - 1]);
+            if (start <= offset && offset < end) {
+                return true;
             }
         }
-        return found;
+
+        const index = tokens.getItemAtPosition(argumentStart);
+        if (index < 0 || tokens.count <= index) {
+            // Somehow, we can't get token. To be safe, we will allow
+            // signature help to show up.
+            return true;
+        }
+
+        const token = tokens.getItemAt(index);
+        if (
+            token.type === TokenType.String &&
+            (token as StringToken).flags & StringTokenFlags.Format &&
+            TextRange.contains(token, offset)
+        ) {
+            // tokenizer won't tokenize format string segments. We get one token
+            // for the whole format string. We need to dig in.
+            const stringToken = token as StringToken;
+            const result = StringTokenUtils.getUnescapedString(stringToken);
+            const offsetInSegment = offset - stringToken.start - stringToken.prefixLength - stringToken.quoteMarkLength;
+            const segment = result.formatStringSegments.find(
+                (s) => s.offset <= offsetInSegment && offsetInSegment < s.offset + s.length
+            );
+            if (!segment || !segment.isExpression) {
+                // Just to be safe, allow signature help.
+                return true;
+            }
+
+            const length = Math.min(
+                segment.length,
+                callEndOffset -
+                    stringToken.start -
+                    stringToken.prefixLength -
+                    stringToken.quoteMarkLength -
+                    segment.offset
+            );
+
+            for (let i = offsetInSegment - segment.offset; i < length; i++) {
+                const ch = segment.value[i];
+                if (ch === '(') {
+                    // position must be after '('
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        const nextToken = tokens.getItemAt(index + 1);
+        if (nextToken.type === TokenType.OpenParenthesis && offset < TextRange.getEnd(nextToken)) {
+            // position must be after '('
+            return false;
+        }
+
+        return true;
     }
 }
 
