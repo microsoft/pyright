@@ -47,8 +47,8 @@ export function getRegionComments(parseResults: ParseResults): RegionComment[] {
 //
 // And these are not:
 // #region_name
-const StartRegionRegx = /^\s*region[^\w]/;
-const EndRegionRegex = /^\s*endregion[^\w]/;
+const StartRegionRegx = /^\s*region\b/;
+const EndRegionRegex = /^\s*endregion\b/;
 
 function getRegionCommentType(comment: Comment, parseResults: ParseResults): RegionCommentType | undefined {
     const hashOffset = comment.start - 1;
