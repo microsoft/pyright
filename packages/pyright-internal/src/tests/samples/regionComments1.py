@@ -5,6 +5,10 @@
 #  endregion
 #endregion
 
+#region_not a region
+#region: foo
+#endregion
+
 #region Extra endregion
 #endregion
 #endregion

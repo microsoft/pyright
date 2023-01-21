@@ -39,8 +39,10 @@ export function getRegionComments(parseResults: ParseResults): RegionComment[] {
     return comments;
 }
 
-const StartRegionRegx = /^\s*region(\s*)(.*)$/;
-const EndRegionRegex = /^\s*endregion(\s*)(.*)$/;
+// A comment starting with "region" or "endregion" is only treated as a region/endregion
+// if it is not followed by an identifier character.
+const StartRegionRegx = /^\s*region\b/;
+const EndRegionRegex = /^\s*endregion\b/;
 
 function getRegionCommentType(comment: Comment, parseResults: ParseResults): RegionCommentType | undefined {
     const hashOffset = comment.start - 1;
@@ -59,16 +61,10 @@ function getRegionCommentType(comment: Comment, parseResults: ParseResults): Reg
     const startRegionMatch = StartRegionRegx.exec(comment.value);
     const endRegionMatch = EndRegionRegex.exec(comment.value);
 
-    // If the # region is followed by a space or has nothing after it, it's treated as a region.
-    // Whereas, # regionfoo should not be a region.
-    if (startRegionMatch && startRegionMatch.length > 2) {
-        return startRegionMatch[1].length > 0 || (startRegionMatch[1].length === 0 && startRegionMatch[2].length === 0)
-            ? RegionCommentType.Region
-            : undefined;
-    } else if (endRegionMatch && endRegionMatch.length > 2) {
-        return endRegionMatch[1].length > 0 || (endRegionMatch[1].length === 0 && endRegionMatch[2].length === 0)
-            ? RegionCommentType.EndRegion
-            : undefined;
+    if (startRegionMatch) {
+        return RegionCommentType.Region;
+    } else if (endRegionMatch) {
+        return RegionCommentType.EndRegion;
     } else {
         return undefined;
     }
