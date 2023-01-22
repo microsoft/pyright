@@ -2688,6 +2688,13 @@ export class Program {
                 // library. It also supports the case where someone explicitly opens a
                 // library source file in their editor.
                 thirdPartyImportAllowed = true;
+            } else if (
+                importResult.isNamespacePackage &&
+                importResult.filteredImplicitImports.some((implicitImport) => !!implicitImport.pyTypedInfo)
+            ) {
+                // Handle the case where the import targets a namespace package, and a
+                // submodule contained within it has a py.typed marker.
+                thirdPartyImportAllowed = true;
             }
 
             // Some libraries ship with stub files that import from non-stubs. Don't

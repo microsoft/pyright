@@ -2354,6 +2354,7 @@ export class ImportResolver {
                         isNativeLib: false,
                         name: dirName,
                         path,
+                        pyTypedInfo: getPyTypedInfo(this.fileSystem, combinePaths(dirPath, dirName)),
                     };
 
                     implicitImportMap.set(implicitImport.name, implicitImport);

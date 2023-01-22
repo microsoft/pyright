@@ -20,6 +20,7 @@ export interface ImplicitImport {
     isNativeLib: boolean;
     name: string;
     path: string;
+    pyTypedInfo?: PyTypedInfo | undefined;
 }
 
 export interface ImportResult {
