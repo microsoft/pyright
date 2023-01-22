@@ -841,7 +841,7 @@ export class Program {
         let shadowFileInfo = this.getSourceFileInfo(shadowImplPath);
 
         if (!shadowFileInfo) {
-            shadowFileInfo = this._createIntrimFileInfo(shadowImplPath);
+            shadowFileInfo = this._createInterimFileInfo(shadowImplPath);
             this._addToSourceFileListAndMap(shadowFileInfo);
         }
 
@@ -856,7 +856,7 @@ export class Program {
         return shadowFileInfo.sourceFile;
     }
 
-    private _createIntrimFileInfo(filePath: string) {
+    private _createInterimFileInfo(filePath: string) {
         const importName = this._getImportNameForFile(filePath);
         const sourceFile = new SourceFile(
             this._fs,
@@ -2611,7 +2611,7 @@ export class Program {
                     // Special case for import statement.
                     // ex) import X.Y
                     // SourceFile for X might not be in memory since import `X.Y` only brings in Y
-                    stubFileInfo = this._createIntrimFileInfo(stubFilePath);
+                    stubFileInfo = this._createInterimFileInfo(stubFilePath);
                     this._addToSourceFileListAndMap(stubFileInfo);
                 }
 
@@ -2624,7 +2624,7 @@ export class Program {
                     // Special case for import statement.
                     // ex) import X.Y
                     // SourceFile for X might not be in memory since import `X.Y` only brings in Y
-                    fileInfo = this._createIntrimFileInfo(f);
+                    fileInfo = this._createInterimFileInfo(f);
                     this._addToSourceFileListAndMap(fileInfo);
 
                     // Even though this file is not referenced by anything, make sure
