@@ -962,8 +962,12 @@ export function getTypeOfIndexedTypedDict(
 // If the specified type has a non-required key, this method marks the
 // key as present.
 export function narrowForKeyAssignment(classType: ClassType, key: string) {
-    assert(ClassType.isTypedDictClass(classType));
-    assert(classType.details.typedDictEntries);
+    // We should never be called if the classType is not a TypedDict or if typedDictEntries
+    // is empty, but this can theoretically happen in the presence of certain circular
+    // dependencies.
+    if (!ClassType.isTypedDictClass(classType) || !classType.details.typedDictEntries) {
+        return classType;
+    }
 
     const tdEntry = classType.details.typedDictEntries.get(key);
     if (!tdEntry || tdEntry.isRequired) {
