@@ -405,12 +405,6 @@ test('TypeNarrowingIsinstance11', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('TypeNarrowingIsinstance12', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance12.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
 test('TypeNarrowingTupleLength1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTupleLength1.py']);
 
