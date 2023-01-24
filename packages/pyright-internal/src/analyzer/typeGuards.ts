@@ -1592,8 +1592,8 @@ function narrowTypeForIsInstance(
         return combineTypes(anyOrUnknownSubstitutions);
     }
 
-    if (anyOrUnknown.length > 0) {
-        return combineTypes([filteredType, ...anyOrUnknown]);
+    if (isNever(filteredType) && anyOrUnknown.length > 0) {
+        return combineTypes(anyOrUnknown);
     }
 
     return filteredType;
