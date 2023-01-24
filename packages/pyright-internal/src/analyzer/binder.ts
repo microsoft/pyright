@@ -1883,7 +1883,7 @@ export class Binder extends ParseTreeWalker {
                             node: importSymbolNode,
                             path: implicitImport.path,
                             loadSymbolsFromPath: true,
-                            range: convertTextRangeToRange(importSymbolNode, this._fileInfo.lines),
+                            range: getEmptyRange(),
                             usesLocalName: false,
                             moduleName: this._fileInfo.moduleName,
                             isInExceptSuite: this._isInExceptSuite,
