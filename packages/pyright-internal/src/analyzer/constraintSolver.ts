@@ -124,7 +124,7 @@ export function assignTypeToTypeVar(
                     /* diag */ undefined,
                     /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
-                    flags,
+                    flags & ~AssignTypeFlags.EnforceInvariance,
                     recursionCount
                 )
             ) {
