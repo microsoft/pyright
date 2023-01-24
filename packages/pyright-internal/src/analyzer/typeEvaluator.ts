@@ -22596,34 +22596,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const overloadDiag = diag?.createAddendum();
 
             // All overloads in the dest must be assignable.
-            const destOverloads = OverloadedFunctionType.getOverloads(destType);
-
-            // If the source is also an overload with the same number of overloads,
-            // there's a good chance that there's a one-to-one mapping. Try this
-            // first before using an n^2 algorithm.
-            if (isOverloadedFunction(srcType)) {
-                const srcOverloads = OverloadedFunctionType.getOverloads(srcType);
-                if (destOverloads.length === srcOverloads.length) {
-                    if (
-                        destOverloads.every((destOverload, index) => {
-                            const srcOverload = srcOverloads[index];
-                            return assignType(
-                                destOverload,
-                                srcOverload,
-                                /* diag */ undefined,
-                                destTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(destOverload)),
-                                srcTypeVarContext,
-                                flags,
-                                recursionCount
-                            );
-                        })
-                    ) {
-                        return true;
-                    }
-                }
-            }
-
-            const isAssignable = destOverloads.every((destOverload) => {
+            const isAssignable = OverloadedFunctionType.getOverloads(destType).every((destOverload) => {
                 if (destTypeVarContext) {
                     destTypeVarContext.addSolveForScope(getTypeVarScopeId(destOverload));
                 }
