@@ -189,7 +189,12 @@ export function transformTypeForPossibleEnumClass(
     }
 
     if (isMemberOfEnumeration) {
-        const enumLiteral = new EnumLiteral(enumClassInfo.classType.details.name, node.value, valueType);
+        const enumLiteral = new EnumLiteral(
+            enumClassInfo.classType.details.fullName,
+            enumClassInfo.classType.details.name,
+            node.value,
+            valueType
+        );
         return ClassType.cloneAsInstance(ClassType.cloneWithLiteral(enumClassInfo.classType, enumLiteral));
     }
 
