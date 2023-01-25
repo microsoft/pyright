@@ -35,6 +35,9 @@ import {
 import { isDefined } from '../common/core';
 import { ParseNodeType } from '../parser/parseNodes';
 
+// The number of spaces to indent each parameter, after moving to a newline in tooltips.
+const functionParamIndentOffset = 4;
+
 export function getToolTipForType(
     type: Type,
     label: string,
@@ -96,7 +99,7 @@ export function getFunctionTooltip(
     formatFunctionSignature = false
 ) {
     const labelFormatted = label.length === 0 ? '' : `(${label}) `;
-    const indentStr = formatFunctionSignature ? '\n' + ' '.repeat(4) : '';
+    const indentStr = formatFunctionSignature ? '\n' + ' '.repeat(functionParamIndentOffset) : '';
     const funcParts = evaluator.printFunctionParts(type);
     const paramSignature = formatSignature(funcParts, indentStr, formatFunctionSignature);
     const sep = isProperty ? ': ' : '';
@@ -120,7 +123,7 @@ export function getConstructorTooltip(
             classText += overload + '\n\n';
         });
     } else if (isFunction(type)) {
-        const indentStr = formatFunctionSignature ? '\n' + ' '.repeat(4) : ' ';
+        const indentStr = formatFunctionSignature ? '\n' + ' '.repeat(functionParamIndentOffset) : ' ';
         const funcParts = evaluator.printFunctionParts(type);
         const paramSignature = formatSignature(funcParts, indentStr, formatFunctionSignature);
         classText += constructorName + paramSignature;
