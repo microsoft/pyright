@@ -1718,6 +1718,7 @@ export class Program {
                 position,
                 format,
                 this._evaluator!,
+                this._configOptions.formatFunctionSignature,
                 token
             );
         });

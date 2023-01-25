@@ -35,14 +35,39 @@ import {
 import { isDefined } from '../common/core';
 import { ParseNodeType } from '../parser/parseNodes';
 
+export function getToolTipForType(
+    type: Type,
+    label: string,
+    name: string,
+    evaluator: TypeEvaluator,
+    isProperty: boolean,
+    applyFormat = false
+): string {
+    let signatureString = '';
+    if (isOverloadedFunction(type)) {
+        signatureString = label.length > 0 ? `(${label})\n` : '';
+        signatureString += `${getOverloadedFunctionTooltip(type, evaluator, applyFormat)}`;
+    } else if (isFunction(type)) {
+        signatureString = `${getFunctionTooltip(label, name, type, evaluator, isProperty, applyFormat)}`;
+    } else {
+        signatureString = label.length > 0 ? `(${label}) ` : '';
+        signatureString += `${name}: ${evaluator.printType(type)}`;
+    }
+
+    return signatureString;
+}
+
 // 70 is vscode's default hover width size.
 export function getOverloadedFunctionTooltip(
     type: OverloadedFunctionType,
     evaluator: TypeEvaluator,
+    applyFormat = false,
     columnThreshold = 70
 ) {
     let content = '';
-    const overloads = OverloadedFunctionType.getOverloads(type).map((o) => o.details.name + evaluator.printType(o));
+    const overloads = OverloadedFunctionType.getOverloads(type).map((o) =>
+        getFunctionTooltip(/* label */ '', o.details.name, o, evaluator, /* isProperty */ false, applyFormat)
+    );
 
     for (let i = 0; i < overloads.length; i++) {
         if (i !== 0 && overloads[i].length > columnThreshold && overloads[i - 1].length <= columnThreshold) {
@@ -60,6 +85,53 @@ export function getOverloadedFunctionTooltip(
     }
 
     return content;
+}
+
+export function getFunctionTooltip(
+    label: string,
+    functionName: string,
+    type: FunctionType,
+    evaluator: TypeEvaluator,
+    isProperty = false,
+    formatFunctionSignature = false
+) {
+    const labelFormatted = label.length === 0 ? '' : `(${label}) `;
+    const indentStr = formatFunctionSignature ? '\n' + ' '.repeat(4) : '';
+    const funcParts = evaluator.printFunctionParts(type);
+    const paramSignature = formatSignature(funcParts, indentStr, formatFunctionSignature);
+    const sep = isProperty ? ': ' : '';
+    return `${labelFormatted}${functionName}${sep}${paramSignature} -> ${funcParts[1]}`;
+}
+
+export function getConstructorTooltip(
+    label: string,
+    constructorName: string,
+    type: FunctionType | OverloadedFunctionType,
+    evaluator: TypeEvaluator,
+    formatFunctionSignature = false
+) {
+    let classText = label.length === 0 ? '' : `(${label}) `;
+
+    if (isOverloadedFunction(type)) {
+        const overloads = type.overloads.map((overload) =>
+            getConstructorTooltip('', constructorName, overload, evaluator, formatFunctionSignature)
+        );
+        overloads.forEach((overload, index) => {
+            classText += overload + '\n\n';
+        });
+    } else if (isFunction(type)) {
+        const indentStr = formatFunctionSignature ? '\n' + ' '.repeat(4) : ' ';
+        const funcParts = evaluator.printFunctionParts(type);
+        const paramSignature = formatSignature(funcParts, indentStr, formatFunctionSignature);
+        classText += constructorName + paramSignature;
+    }
+    return classText;
+}
+
+function formatSignature(funcParts: [string[], string], indentStr: string, formatFunctionSignature = false) {
+    return formatFunctionSignature && funcParts[0].length > 1
+        ? `(${funcParts[0].join(',' + indentStr)}${indentStr})`
+        : `(${funcParts[0].join(', ')})`;
 }
 
 export function getFunctionDocStringFromType(type: FunctionType, sourceMapper: SourceMapper, evaluator: TypeEvaluator) {

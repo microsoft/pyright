@@ -128,6 +128,7 @@ export class TestLanguageService implements LanguageServerInterface {
             useLibraryCodeForTypes: this._workspace.serviceInstance.getConfigOptions().useLibraryCodeForTypes,
             disableLanguageServices: this._workspace.disableLanguageServices,
             autoImportCompletions: this._workspace.serviceInstance.getConfigOptions().autoImportCompletions,
+            formatFunctionSignature: this._workspace.serviceInstance.getConfigOptions().formatFunctionSignature,
         };
 
         return Promise.resolve(settings);

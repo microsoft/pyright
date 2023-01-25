@@ -88,6 +88,7 @@ export class PyrightServer extends LanguageServerBase {
             diagnosticSeverityOverrides: {},
             logLevel: LogLevel.Info,
             autoImportCompletions: true,
+            formatFunctionSignature: false,
         };
 
         try {
@@ -180,6 +181,10 @@ export class PyrightServer extends LanguageServerBase {
 
                 if (pythonAnalysisSection.typeEvaluationTimeThreshold !== undefined) {
                     serverSettings.typeEvaluationTimeThreshold = pythonAnalysisSection.typeEvaluationTimeThreshold;
+                }
+
+                if (pythonAnalysisSection.formatFunctionSignature !== undefined) {
+                    serverSettings.formatFunctionSignature = pythonAnalysisSection.formatFunctionSignature;
                 }
             } else {
                 serverSettings.autoSearchPaths = true;

@@ -115,7 +115,7 @@ import { StringToken, StringTokenFlags, Token, TokenType } from '../parser/token
 import { AbbreviationInfo, AutoImporter, AutoImportResult, ImportFormat, ModuleSymbolMap } from './autoImporter';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { IndexResults } from './documentSymbolProvider';
-import { getAutoImportText, getDocumentationPartsForTypeAndDecl, getOverloadedFunctionTooltip } from './tooltipUtils';
+import { getAutoImportText, getDocumentationPartsForTypeAndDecl, getToolTipForType } from './tooltipUtils';
 
 namespace Keywords {
     const base: string[] = [
@@ -2814,14 +2814,14 @@ export class CompletionProvider {
                     return name + ': ' + this._evaluator.printType(propertyType) + ' (property)';
                 }
 
-                if (isOverloadedFunction(functionType)) {
-                    // 35 is completion tooltip's default width size
-                    return getOverloadedFunctionTooltip(functionType, this._evaluator, /* columnThreshold */ 35);
-                } else if (isFunction(functionType)) {
-                    return name + this._evaluator.printType(functionType);
-                } else {
-                    return name + ': ' + this._evaluator.printType(functionType);
-                }
+                return getToolTipForType(
+                    functionType,
+                    /*label*/ '',
+                    name,
+                    this._evaluator,
+                    /*isProperty*/ false,
+                    this._configOptions.formatFunctionSignature
+                );
             }
 
             case DeclarationType.Class:

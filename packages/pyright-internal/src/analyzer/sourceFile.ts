@@ -1094,6 +1094,7 @@ export class SourceFile {
         position: Position,
         format: MarkupKind,
         evaluator: TypeEvaluator,
+        formatFunctionSignature: boolean,
         token: CancellationToken
     ): HoverResults | undefined {
         // If this file hasn't been bound, no hover info is available.
@@ -1101,7 +1102,15 @@ export class SourceFile {
             return undefined;
         }
 
-        return HoverProvider.getHoverForPosition(sourceMapper, this._parseResults, position, format, evaluator, token);
+        return HoverProvider.getHoverForPosition(
+            sourceMapper,
+            this._parseResults,
+            position,
+            format,
+            evaluator,
+            formatFunctionSignature,
+            token
+        );
     }
 
     getDocumentHighlight(

@@ -897,6 +897,12 @@
                     "description": "Use library implementations to extract type information when type stub is not present.",
                     "scope": "resource"
                 },
+                "python.analysis.formatFunctionSignature": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enables inserting a newline between function parameters when displaying function signatures.",
+                    "scope": "resource"
+                },
                 "pyright.disableLanguageServices": {
                     "type": "boolean",
                     "default": false,

@@ -142,6 +142,7 @@ export interface ServerSettings {
     fileSpecs?: string[];
     excludeFileSpecs?: string[];
     ignoreFileSpecs?: string[];
+    formatFunctionSignature?: boolean | undefined;
 }
 
 export enum WellKnownWorkspaceKinds {

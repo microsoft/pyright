@@ -658,6 +658,7 @@ export class ConfigOptions {
         this.projectRoot = projectRoot;
         this.typeCheckingMode = typeCheckingMode;
         this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
+        this.formatFunctionSignature = false;
     }
 
     // Absolute directory of project. All relative paths in the config
@@ -772,6 +773,9 @@ export class ConfigOptions {
     // When a symbol cannot be resolved from an import, should it be
     // treated as Any rather than Unknown?
     evaluateUnknownImportsAsAny?: boolean;
+
+    // Insert a newline after each parameter in a function signature.
+    formatFunctionSignature: boolean;
 
     static getDiagnosticRuleSet(typeCheckingMode?: string): DiagnosticRuleSet {
         if (typeCheckingMode === 'strict') {
@@ -1141,6 +1145,15 @@ export class ConfigOptions {
                 console.error(`Config "typeEvaluationTimeThreshold" field must be a number.`);
             } else {
                 this.typeEvaluationTimeThreshold = configObj.typeEvaluationTimeThreshold;
+            }
+        }
+
+        // Read the "formatFunctionSignature" setting.
+        if (configObj.formatFunctionSignature !== undefined) {
+            if (typeof configObj.formatFunctionSignature !== 'boolean') {
+                console.error(`Config "formatFunctionSignature" field must be true or false.`);
+            } else {
+                this.formatFunctionSignature = configObj.formatFunctionSignature;
             }
         }
     }
