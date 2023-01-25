@@ -152,7 +152,7 @@ function formatSignature(
     return functionSignatureDisplay === SignatureDisplayType.formatted &&
         funcParts.length > 0 &&
         funcParts[0].length > 1
-        ? `(${funcParts[0].join(',' + indentStr)}${indentStr})`
+        ? `(${indentStr}${funcParts[0].join(',' + indentStr)}\n)`
         : `(${funcParts[0].join(', ')})`;
 }
 
