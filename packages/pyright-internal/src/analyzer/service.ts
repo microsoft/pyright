@@ -814,12 +814,6 @@ export class AnalyzerService {
             reportDuplicateSetting('useLibraryCodeForTypes', configOptions.useLibraryCodeForTypes);
         }
 
-        if (configOptions.formatFunctionSignature === undefined) {
-            configOptions.formatFunctionSignature = !!commandLineOptions.formatFunctionSignature;
-        } else if (commandLineOptions.formatFunctionSignature !== undefined) {
-            reportDuplicateSetting('formatFunctionSignature', configOptions.formatFunctionSignature);
-        }
-
         // If there was no stub path specified, use a default path.
         if (commandLineOptions.stubPath) {
             if (!configOptions.stubPath) {

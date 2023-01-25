@@ -32,6 +32,7 @@ import {
     OverloadedFunctionType,
     Type,
 } from '../analyzer/types';
+import { SignatureDisplayType } from '../common/configOptions';
 import { isDefined } from '../common/core';
 import { ParseNodeType } from '../parser/parseNodes';
 
@@ -44,14 +45,14 @@ export function getToolTipForType(
     name: string,
     evaluator: TypeEvaluator,
     isProperty: boolean,
-    applyFormat = false
+    functionSignatureDisplay: SignatureDisplayType
 ): string {
     let signatureString = '';
     if (isOverloadedFunction(type)) {
         signatureString = label.length > 0 ? `(${label})\n` : '';
-        signatureString += `${getOverloadedFunctionTooltip(type, evaluator, applyFormat)}`;
+        signatureString += `${getOverloadedFunctionTooltip(type, evaluator, functionSignatureDisplay)}`;
     } else if (isFunction(type)) {
-        signatureString = `${getFunctionTooltip(label, name, type, evaluator, isProperty, applyFormat)}`;
+        signatureString = `${getFunctionTooltip(label, name, type, evaluator, isProperty, functionSignatureDisplay)}`;
     } else {
         signatureString = label.length > 0 ? `(${label}) ` : '';
         signatureString += `${name}: ${evaluator.printType(type)}`;
@@ -64,12 +65,19 @@ export function getToolTipForType(
 export function getOverloadedFunctionTooltip(
     type: OverloadedFunctionType,
     evaluator: TypeEvaluator,
-    applyFormat = false,
+    functionSignatureDisplay: SignatureDisplayType,
     columnThreshold = 70
 ) {
     let content = '';
     const overloads = OverloadedFunctionType.getOverloads(type).map((o) =>
-        getFunctionTooltip(/* label */ '', o.details.name, o, evaluator, /* isProperty */ false, applyFormat)
+        getFunctionTooltip(
+            /* label */ '',
+            o.details.name,
+            o,
+            evaluator,
+            /* isProperty */ false,
+            functionSignatureDisplay
+        )
     );
 
     for (let i = 0; i < overloads.length; i++) {
@@ -96,12 +104,13 @@ export function getFunctionTooltip(
     type: FunctionType,
     evaluator: TypeEvaluator,
     isProperty = false,
-    formatFunctionSignature = false
+    functionSignatureDisplay: SignatureDisplayType
 ) {
     const labelFormatted = label.length === 0 ? '' : `(${label}) `;
-    const indentStr = formatFunctionSignature ? '\n' + ' '.repeat(functionParamIndentOffset) : '';
+    const indentStr =
+        functionSignatureDisplay === SignatureDisplayType.formatted ? '\n' + ' '.repeat(functionParamIndentOffset) : '';
     const funcParts = evaluator.printFunctionParts(type);
-    const paramSignature = formatSignature(funcParts, indentStr, formatFunctionSignature);
+    const paramSignature = formatSignature(funcParts, indentStr, functionSignatureDisplay);
     const sep = isProperty ? ': ' : '';
     return `${labelFormatted}${functionName}${sep}${paramSignature} -> ${funcParts[1]}`;
 }
@@ -111,28 +120,38 @@ export function getConstructorTooltip(
     constructorName: string,
     type: FunctionType | OverloadedFunctionType,
     evaluator: TypeEvaluator,
-    formatFunctionSignature = false
+    functionSignatureDisplay: SignatureDisplayType
 ) {
     let classText = label.length === 0 ? '' : `(${label}) `;
 
     if (isOverloadedFunction(type)) {
         const overloads = type.overloads.map((overload) =>
-            getConstructorTooltip('', constructorName, overload, evaluator, formatFunctionSignature)
+            getConstructorTooltip('', constructorName, overload, evaluator, functionSignatureDisplay)
         );
         overloads.forEach((overload, index) => {
             classText += overload + '\n\n';
         });
     } else if (isFunction(type)) {
-        const indentStr = formatFunctionSignature ? '\n' + ' '.repeat(functionParamIndentOffset) : ' ';
+        const indentStr =
+            functionSignatureDisplay === SignatureDisplayType.formatted
+                ? '\n' + ' '.repeat(functionParamIndentOffset)
+                : ' ';
         const funcParts = evaluator.printFunctionParts(type);
-        const paramSignature = formatSignature(funcParts, indentStr, formatFunctionSignature);
+        const paramSignature = formatSignature(funcParts, indentStr, functionSignatureDisplay);
         classText += constructorName + paramSignature;
     }
     return classText;
 }
 
-function formatSignature(funcParts: [string[], string], indentStr: string, formatFunctionSignature = false) {
-    return formatFunctionSignature && funcParts[0].length > 1
+// Only formats signature if there is more than one parameter
+function formatSignature(
+    funcParts: [string[], string],
+    indentStr: string,
+    functionSignatureDisplay: SignatureDisplayType
+) {
+    return functionSignatureDisplay === SignatureDisplayType.formatted &&
+        funcParts.length > 0 &&
+        funcParts[0].length > 1
         ? `(${funcParts[0].join(',' + indentStr)}${indentStr})`
         : `(${funcParts[0].join(', ')})`;
 }

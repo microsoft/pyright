@@ -2,7 +2,7 @@
 
 // @filename: pyrightconfig.json
 //// {
-////   "formatFunctionSignature": true
+////   "functionSignatureDisplay": "formatted"
 //// }
 
 // @filename: test.py

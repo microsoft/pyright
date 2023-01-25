@@ -495,8 +495,8 @@ export class Program {
         return this._configOptions.checkOnlyOpenFiles || false;
     }
 
-    isFormatFunctionSignature() {
-        return this._configOptions.formatFunctionSignature || false;
+    functionSignatureDisplay() {
+        return this._configOptions.functionSignatureDisplay;
     }
 
     containsSourceFileIn(folder: string): boolean {
@@ -1722,7 +1722,7 @@ export class Program {
                 position,
                 format,
                 this._evaluator!,
-                this.isFormatFunctionSignature(),
+                this.functionSignatureDisplay(),
                 token
             );
         });

@@ -164,7 +164,6 @@ function getEffectiveCommandLineOptions(
     commandLineOptions.fileSpecs = serverSettings.fileSpecs ?? [];
     commandLineOptions.excludeFileSpecs = serverSettings.excludeFileSpecs ?? [];
     commandLineOptions.ignoreFileSpecs = serverSettings.ignoreFileSpecs ?? [];
-    commandLineOptions.formatFunctionSignature = serverSettings.formatFunctionSignature;
 
     return commandLineOptions;
 }

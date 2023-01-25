@@ -138,7 +138,4 @@ export class CommandLineOptions {
 
     // Analyze functions and methods that have no type annotations?
     analyzeUnannotatedFunctions?: boolean;
-
-    // Inserts a newline between function parameters when displaying function signatures.
-    formatFunctionSignature?: boolean;
 }

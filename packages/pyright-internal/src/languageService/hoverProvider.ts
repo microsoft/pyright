@@ -37,6 +37,7 @@ import {
     lookUpClassMember,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { SignatureDisplayType } from '../common/configOptions';
 import { assertNever, fail } from '../common/debug';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
@@ -62,7 +63,7 @@ export class HoverProvider {
         position: Position,
         format: MarkupKind,
         evaluator: TypeEvaluator,
-        formatFunctionSignature: boolean,
+        functionSignatureDisplay: SignatureDisplayType,
         token: CancellationToken
     ): HoverResults | undefined {
         throwIfCancellationRequested(token);
@@ -108,7 +109,7 @@ export class HoverProvider {
                     primaryDeclaration,
                     node,
                     evaluator,
-                    formatFunctionSignature
+                    functionSignatureDisplay
                 );
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
@@ -156,7 +157,7 @@ export class HoverProvider {
         declaration: Declaration,
         node: NameNode,
         evaluator: TypeEvaluator,
-        formatFunctionSignature: boolean
+        functionSignatureDisplay: SignatureDisplayType
     ): void {
         const resolvedDecl = evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
         if (!resolvedDecl) {
@@ -255,7 +256,7 @@ export class HoverProvider {
                         parts,
                         sourceMapper,
                         resolvedDecl,
-                        formatFunctionSignature
+                        functionSignatureDisplay
                     )
                 ) {
                     return;
@@ -285,7 +286,7 @@ export class HoverProvider {
                         node.value,
                         evaluator,
                         isProperty,
-                        formatFunctionSignature
+                        functionSignatureDisplay
                     );
                     this._addResultsPart(parts, signatureString, /* python */ true);
                 }
@@ -365,7 +366,7 @@ export class HoverProvider {
         parts: HoverTextPart[],
         sourceMapper: SourceMapper,
         declaration: Declaration,
-        formatFunctionSignature: boolean
+        functionSignatureDisplay: SignatureDisplayType
     ) {
         // If the class is used as part of a call (i.e. it is being
         // instantiated), include the constructor arguments within the
@@ -450,7 +451,7 @@ export class HoverProvider {
         if (methodType && (isFunction(methodType) || isOverloadedFunction(methodType))) {
             this._addResultsPart(
                 parts,
-                getConstructorTooltip(/* label */ 'class', node.value, methodType, evaluator, formatFunctionSignature),
+                getConstructorTooltip(/* label */ 'class', node.value, methodType, evaluator, functionSignatureDisplay),
                 /* python */ true
             );
             const addedDoc = this._addDocumentationPartForType(

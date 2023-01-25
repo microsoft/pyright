@@ -65,6 +65,11 @@ export class ExecutionEnvironment {
 
 export type DiagnosticLevel = 'none' | 'information' | 'warning' | 'error';
 
+export enum SignatureDisplayType {
+    compact = 'compact',
+    formatted = 'formatted',
+}
+
 export interface DiagnosticRuleSet {
     // Should "Unknown" types be reported as "Any"?
     printUnknownAsAny: boolean;
@@ -658,6 +663,7 @@ export class ConfigOptions {
         this.projectRoot = projectRoot;
         this.typeCheckingMode = typeCheckingMode;
         this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
+        this.functionSignatureDisplay = SignatureDisplayType.formatted;
     }
 
     // Absolute directory of project. All relative paths in the config
@@ -773,8 +779,8 @@ export class ConfigOptions {
     // treated as Any rather than Unknown?
     evaluateUnknownImportsAsAny?: boolean;
 
-    // Insert a newline after each parameter in a function signature.
-    formatFunctionSignature?: boolean;
+    // Controls how hover and completion function signatures are displayed.
+    functionSignatureDisplay: SignatureDisplayType;
 
     static getDiagnosticRuleSet(typeCheckingMode?: string): DiagnosticRuleSet {
         if (typeCheckingMode === 'strict') {
@@ -1147,12 +1153,17 @@ export class ConfigOptions {
             }
         }
 
-        // Read the "formatFunctionSignature" setting.
-        if (configObj.formatFunctionSignature !== undefined) {
-            if (typeof configObj.formatFunctionSignature !== 'boolean') {
-                console.error(`Config "formatFunctionSignature" field must be true or false.`);
+        // Read the "functionSignatureDisplay" setting.
+        if (configObj.functionSignatureDisplay !== undefined) {
+            if (typeof configObj.functionSignatureDisplay !== 'string') {
+                console.error(`Config "functionSignatureDisplay" field must be true or false.`);
             } else {
-                this.formatFunctionSignature = configObj.formatFunctionSignature;
+                if (
+                    configObj.functionSignatureDisplay === 'compact' ||
+                    configObj.functionSignatureDisplay === 'formatted'
+                ) {
+                    this.functionSignatureDisplay = configObj.functionSignatureDisplay as SignatureDisplayType;
+                }
             }
         }
     }

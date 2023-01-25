@@ -148,12 +148,6 @@
       "title": "Allow \"# type: ignore\" comments",
       "default": true
     },
-    "formatFunctionSignature": {
-      "$id": "#/properties/formatFunctionSignature",
-      "type": "boolean",
-      "title": "Inserts a newline between function parameters when displaying function signatures",
-      "default": false
-    },
     "reportGeneralTypeIssues": {
       "$id": "#/properties/reportGeneralTypeIssues",
       "$ref": "#/definitions/diagnostic",

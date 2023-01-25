@@ -22,7 +22,7 @@ import { BackgroundAnalysis } from './backgroundAnalysis';
 import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandController } from './commands/commandController';
 import { getCancellationFolderName } from './common/cancellationUtils';
-import { ConfigOptions } from './common/configOptions';
+import { ConfigOptions, SignatureDisplayType } from './common/configOptions';
 import { ConsoleWithLogLevel, LogLevel } from './common/console';
 import { isDebugMode, isString } from './common/core';
 import { expandPathVariables } from './common/envVarUtils';
@@ -88,7 +88,7 @@ export class PyrightServer extends LanguageServerBase {
             diagnosticSeverityOverrides: {},
             logLevel: LogLevel.Info,
             autoImportCompletions: true,
-            formatFunctionSignature: false,
+            functionSignatureDisplay: SignatureDisplayType.formatted,
         };
 
         try {
@@ -181,10 +181,6 @@ export class PyrightServer extends LanguageServerBase {
 
                 if (pythonAnalysisSection.typeEvaluationTimeThreshold !== undefined) {
                     serverSettings.typeEvaluationTimeThreshold = pythonAnalysisSection.typeEvaluationTimeThreshold;
-                }
-
-                if (pythonAnalysisSection.formatFunctionSignature !== undefined) {
-                    serverSettings.formatFunctionSignature = pythonAnalysisSection.formatFunctionSignature;
                 }
             } else {
                 serverSettings.autoSearchPaths = true;

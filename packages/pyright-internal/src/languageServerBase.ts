@@ -92,7 +92,7 @@ import {
     DiagnosticSeverityOverridesMap,
     getDiagnosticSeverityOverrides,
 } from './common/commandLineOptions';
-import { ConfigOptions, getDiagLevelDiagnosticRules } from './common/configOptions';
+import { ConfigOptions, getDiagLevelDiagnosticRules, SignatureDisplayType } from './common/configOptions';
 import { ConsoleInterface, ConsoleWithLogLevel, LogLevel } from './common/console';
 import { createDeferred } from './common/deferred';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
@@ -142,7 +142,7 @@ export interface ServerSettings {
     fileSpecs?: string[];
     excludeFileSpecs?: string[];
     ignoreFileSpecs?: string[];
-    formatFunctionSignature?: boolean | undefined;
+    functionSignatureDisplay?: SignatureDisplayType | undefined;
 }
 
 export enum WellKnownWorkspaceKinds {
