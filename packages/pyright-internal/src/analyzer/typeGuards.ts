@@ -1460,6 +1460,7 @@ function narrowTypeForIsInstance(
     };
 
     const anyOrUnknownSubstitutions: Type[] = [];
+    const anyOrUnknown: Type[] = [];
 
     const filteredType = evaluator.mapSubtypesExpandTypeVars(
         expandedTypes,
@@ -1492,6 +1493,7 @@ function narrowTypeForIsInstance(
                     );
                 }
 
+                anyOrUnknown.push(subtype);
                 return undefined;
             }
 
@@ -1586,8 +1588,12 @@ function narrowTypeForIsInstance(
     // Any/Unknown. For example, if the statement is "isinstance(x, list)"
     // and the type of x is "List[str] | int | Any", the result should be
     // "List[str]", not "List[str] | List[Unknown]".
-    if (anyOrUnknownSubstitutions.length > 0) {
-        return combineTypes([filteredType, ...anyOrUnknownSubstitutions]);
+    if (isNever(filteredType) && anyOrUnknownSubstitutions.length > 0) {
+        return combineTypes(anyOrUnknownSubstitutions);
+    }
+
+    if (isNever(filteredType) && anyOrUnknown.length > 0) {
+        return combineTypes(anyOrUnknown);
     }
 
     return filteredType;

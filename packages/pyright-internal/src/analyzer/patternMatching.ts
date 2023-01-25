@@ -61,6 +61,7 @@ import {
     lookUpClassMember,
     mapSubtypes,
     partiallySpecializeType,
+    preserveUnknown,
     specializeClassType,
     specializeTupleClass,
 } from './typeUtils';
@@ -798,7 +799,7 @@ function narrowTypeBasedOnValuePattern(
                         if (isAnyOrUnknown(valueSubtypeExpanded) || isAnyOrUnknown(subjectSubtypeExpanded)) {
                             // If either type is "Unknown" (versus Any), propagate the Unknown.
                             return isUnknown(valueSubtypeExpanded) || isUnknown(subjectSubtypeExpanded)
-                                ? UnknownType.create()
+                                ? preserveUnknown(valueSubtypeExpanded, subjectSubtypeExpanded)
                                 : AnyType.create();
                         }
 

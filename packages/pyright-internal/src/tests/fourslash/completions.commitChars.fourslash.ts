@@ -8,6 +8,10 @@
 // @filename: test1.py
 //// from .samp[|/*marker3*/|]
 
+// @filename: test2.py
+//// from samples import *
+//// [|/*marker4*/|]
+
 // @filename: samples.py
 //// import fooLib as fooLib
 //// def fooFunc(): ...
@@ -55,7 +59,26 @@
                 {
                     label: 'samples',
                     kind: Consts.CompletionItemKind.Module,
-                    commitCharacters: undefined,
+                    commitCharacters: [],
+                },
+            ],
+        },
+        marker4: {
+            completions: [
+                {
+                    label: 'fooLib',
+                    kind: Consts.CompletionItemKind.Module,
+                    commitCharacters: [],
+                },
+                {
+                    label: 'fooFunc',
+                    kind: Consts.CompletionItemKind.Function,
+                    commitCharacters: [],
+                },
+                {
+                    label: 'fooClass',
+                    kind: Consts.CompletionItemKind.Class,
+                    commitCharacters: [],
                 },
             ],
         },

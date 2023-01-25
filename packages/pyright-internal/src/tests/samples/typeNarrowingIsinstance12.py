@@ -37,3 +37,10 @@ def func5(val: str | int | Any):
         reveal_type(val, expected_text="str")
     else:
         reveal_type(val, expected_text="int | Any")
+
+
+def func6(val: list[str] | Any):
+    if isinstance(val, list):
+        reveal_type(val, expected_text="list[str]")
+    else:
+        reveal_type(val, expected_text="Any")

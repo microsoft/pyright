@@ -2614,7 +2614,7 @@ export class CompletionProvider {
                     this._addSymbol(name, symbol, priorWord, completionMap, {
                         boundObjectOrClass,
                         funcParensDisabled: isInImport,
-                        extraCommitChars: !isInImport,
+                        extraCommitChars: !isInImport && !!priorWord,
                     });
                 }
             }

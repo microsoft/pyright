@@ -89,3 +89,17 @@ def func9(x: int | None):
             return 1
         case int():
             return 2
+
+def func10(source: Color | None = None) -> list[str]:
+    results = [""]
+    for x in [""]:
+        match source:
+            case None:
+                results.append(x)
+            case Color.red:
+                pass
+            case Color.green:
+                pass
+            case Color.blue:
+                pass
+    return results
