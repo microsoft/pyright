@@ -24,7 +24,6 @@ import {
     TextEdit,
     WorkspaceEdit,
 } from 'vscode-languageserver';
-import { config } from 'yargs';
 
 import { BackgroundAnalysisProgramFactory } from '../../../analyzer/backgroundAnalysisProgram';
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
