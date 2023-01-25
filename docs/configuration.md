@@ -252,7 +252,7 @@ The following is an example of a pyright config file:
     {
       "root": "src"
     }
-  ],
+  ]
 }
 ```
 
