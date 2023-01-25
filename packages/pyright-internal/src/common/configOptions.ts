@@ -658,7 +658,6 @@ export class ConfigOptions {
         this.projectRoot = projectRoot;
         this.typeCheckingMode = typeCheckingMode;
         this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
-        this.formatFunctionSignature = false;
     }
 
     // Absolute directory of project. All relative paths in the config
@@ -775,7 +774,7 @@ export class ConfigOptions {
     evaluateUnknownImportsAsAny?: boolean;
 
     // Insert a newline after each parameter in a function signature.
-    formatFunctionSignature: boolean;
+    formatFunctionSignature?: boolean;
 
     static getDiagnosticRuleSet(typeCheckingMode?: string): DiagnosticRuleSet {
         if (typeCheckingMode === 'strict') {

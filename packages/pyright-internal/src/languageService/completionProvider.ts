@@ -2820,7 +2820,7 @@ export class CompletionProvider {
                     name,
                     this._evaluator,
                     /*isProperty*/ false,
-                    this._configOptions.formatFunctionSignature
+                    this._configOptions.formatFunctionSignature ?? false
                 );
             }
 

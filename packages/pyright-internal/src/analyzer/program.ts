@@ -495,6 +495,10 @@ export class Program {
         return this._configOptions.checkOnlyOpenFiles || false;
     }
 
+    isFormatFunctionSignature() {
+        return this._configOptions.formatFunctionSignature || false;
+    }
+
     containsSourceFileIn(folder: string): boolean {
         const normalized = normalizePathCase(this._fs, folder);
         return this._sourceFileList.some((i) => i.sourceFile.getFilePath().startsWith(normalized));
@@ -1718,7 +1722,7 @@ export class Program {
                 position,
                 format,
                 this._evaluator!,
-                this._configOptions.formatFunctionSignature,
+                this.isFormatFunctionSignature(),
                 token
             );
         });
