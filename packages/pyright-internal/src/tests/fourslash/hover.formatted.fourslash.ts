@@ -37,10 +37,10 @@
 //// [|/*overload*/bar|]
 
 helper.verifyHover('markdown', {
-    a_constructor: '```python\n(class) A(x: int,\n    y: int\n    )\n```',
-    b_constructorOverloads: '```python\n(class) B()\n\nB(x: int,\n    y: int\n    )\n\n\n```',
+    a_constructor: '```python\n(class) A(\n    x: int,\n    y: int\n)\n```',
+    b_constructorOverloads: '```python\n(class) B()\n\nB(\n    x: int,\n    y: int\n)\n\n\n```',
     paramFunc0: '```python\n(function) foo() -> None\n```',
     paramFunc1: '```python\n(function) foo1(x: int) -> None\n```',
-    paramFunc2: '```python\n(function) foo2(x: int,\n    y: int\n    ) -> None\n```',
-    overload: '```python\n(function)\nbar() -> int\nbar(x: str,\n    y: int\n    ) -> int\n```',
+    paramFunc2: '```python\n(function) foo2(\n    x: int,\n    y: int\n) -> None\n```',
+    overload: '```python\n(function)\nbar() -> int\nbar(\n    x: str,\n    y: int\n) -> int\n```',
 });
