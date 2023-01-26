@@ -197,6 +197,11 @@ test('Import14', () => {
     assert.strictEqual(analysisResults[1].errors.length, 0);
 });
 
+test('Import15', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import15.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('DunderAll1', () => {
     const configOptions = new ConfigOptions('.');
 

@@ -20600,6 +20600,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     declIndexToConsider = index;
                 }
             });
+        } else {
+            // Handle the case where there are multiple imports — one of them in
+            // a try block and one or more in except blocks. In this case, we'll
+            // use the one in the try block rather than the excepts.
+            if (decls.length > 1 && decls.every((decl) => decl.type === DeclarationType.Alias)) {
+                const nonExceptDecls = decls.filter(
+                    (decl) => decl.type === DeclarationType.Alias && !decl.isInExceptSuite
+                );
+                if (nonExceptDecls.length === 1) {
+                    declIndexToConsider = decls.findIndex((decl) => decl === nonExceptDecls[0]);
+                }
+            }
         }
 
         let sawExplicitTypeAlias = false;
