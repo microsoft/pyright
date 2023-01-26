@@ -2873,8 +2873,7 @@ export class Binder extends ParseTreeWalker {
         expression: ExpressionNode,
         expressionList: CodeFlowReferenceExpressionNode[],
         filterForNeverNarrowing = false,
-        isComplexExpression = false,
-        allowInstanceOrClassVariableAccess = true
+        isComplexExpression = false
     ): boolean {
         switch (expression.nodeType) {
             case ParseNodeType.Name:
@@ -2895,13 +2894,6 @@ export class Binder extends ParseTreeWalker {
                     }
                 }
 
-                if (!allowInstanceOrClassVariableAccess && expression.nodeType === ParseNodeType.MemberAccess) {
-                    const memberAccessInfo = this._getMemberAccessInfo(expression);
-                    if (memberAccessInfo) {
-                        return false;
-                    }
-                }
-
                 if (isCodeFlowSupportedForReference(expression)) {
                     expressionList.push(expression);
 
@@ -2911,7 +2903,10 @@ export class Binder extends ParseTreeWalker {
                         // can be narrowed based on the attribute type.
                         if (expression.nodeType === ParseNodeType.MemberAccess) {
                             if (isCodeFlowSupportedForReference(expression.leftExpression)) {
-                                expressionList.push(expression.leftExpression);
+                                // We don't ever narrow `self` or `cls`, so we can exempt these.
+                                if (!this._getMemberAccessInfo(expression)) {
+                                    expressionList.push(expression.leftExpression);
+                                }
                             }
                         }
                     }
@@ -2974,8 +2969,7 @@ export class Binder extends ParseTreeWalker {
                         expression.leftExpression,
                         expressionList,
                         filterForNeverNarrowing,
-                        /* isComplexExpression */ true,
-                        /* allowInstanceOrClassVariableAccess */ false
+                        /* isComplexExpression */ true
                     );
 
                     // Look for "X is Y" or "X is not Y" and X == <literal>, X != <literal>.
