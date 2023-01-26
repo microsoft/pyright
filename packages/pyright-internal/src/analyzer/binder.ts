@@ -2873,7 +2873,8 @@ export class Binder extends ParseTreeWalker {
         expression: ExpressionNode,
         expressionList: CodeFlowReferenceExpressionNode[],
         filterForNeverNarrowing = false,
-        isComplexExpression = false
+        isComplexExpression = false,
+        allowInstanceOrClassVariableAccess = true
     ): boolean {
         switch (expression.nodeType) {
             case ParseNodeType.Name:
@@ -2890,6 +2891,13 @@ export class Binder extends ParseTreeWalker {
                     // or truthy narrowing) because it's too expensive and
                     // provides relatively little utility.
                     if (!isComplexExpression) {
+                        return false;
+                    }
+                }
+
+                if (!allowInstanceOrClassVariableAccess && expression.nodeType === ParseNodeType.MemberAccess) {
+                    const memberAccessInfo = this._getMemberAccessInfo(expression);
+                    if (memberAccessInfo) {
                         return false;
                     }
                 }
@@ -2966,24 +2974,12 @@ export class Binder extends ParseTreeWalker {
                         expression.leftExpression,
                         expressionList,
                         filterForNeverNarrowing,
-                        /* isComplexExpression */ true
+                        /* isComplexExpression */ true,
+                        /* allowInstanceOrClassVariableAccess */ false
                     );
 
-                    // Look for "X is Y" or "X is not Y".
-                    if (isOrIsNotOperator) {
-                        return isLeftNarrowing;
-                    }
-
-                    // Look for X == <literal>, X != <literal> or <literal> == X, <literal> != X
-                    if (equalsOrNotEqualsOperator) {
-                        const isRightNarrowing = this._isNarrowingExpression(
-                            expression.rightExpression,
-                            expressionList,
-                            filterForNeverNarrowing,
-                            /* isComplexExpression */ true
-                        );
-                        return isLeftNarrowing || isRightNarrowing;
-                    }
+                    // Look for "X is Y" or "X is not Y" and X == <literal>, X != <literal>.
+                    return isLeftNarrowing;
                 }
 
                 // Look for "<string> in Y" or "<string> not in Y".
