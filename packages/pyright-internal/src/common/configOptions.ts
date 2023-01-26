@@ -65,6 +65,11 @@ export class ExecutionEnvironment {
 
 export type DiagnosticLevel = 'none' | 'information' | 'warning' | 'error';
 
+export enum SignatureDisplayType {
+    compact = 'compact',
+    formatted = 'formatted',
+}
+
 export interface DiagnosticRuleSet {
     // Should "Unknown" types be reported as "Any"?
     printUnknownAsAny: boolean;
@@ -658,6 +663,7 @@ export class ConfigOptions {
         this.projectRoot = projectRoot;
         this.typeCheckingMode = typeCheckingMode;
         this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
+        this.functionSignatureDisplay = SignatureDisplayType.formatted;
     }
 
     // Absolute directory of project. All relative paths in the config
@@ -772,6 +778,9 @@ export class ConfigOptions {
     // When a symbol cannot be resolved from an import, should it be
     // treated as Any rather than Unknown?
     evaluateUnknownImportsAsAny?: boolean;
+
+    // Controls how hover and completion function signatures are displayed.
+    functionSignatureDisplay: SignatureDisplayType;
 
     static getDiagnosticRuleSet(typeCheckingMode?: string): DiagnosticRuleSet {
         if (typeCheckingMode === 'strict') {
@@ -1141,6 +1150,20 @@ export class ConfigOptions {
                 console.error(`Config "typeEvaluationTimeThreshold" field must be a number.`);
             } else {
                 this.typeEvaluationTimeThreshold = configObj.typeEvaluationTimeThreshold;
+            }
+        }
+
+        // Read the "functionSignatureDisplay" setting.
+        if (configObj.functionSignatureDisplay !== undefined) {
+            if (typeof configObj.functionSignatureDisplay !== 'string') {
+                console.error(`Config "functionSignatureDisplay" field must be true or false.`);
+            } else {
+                if (
+                    configObj.functionSignatureDisplay === 'compact' ||
+                    configObj.functionSignatureDisplay === 'formatted'
+                ) {
+                    this.functionSignatureDisplay = configObj.functionSignatureDisplay as SignatureDisplayType;
+                }
             }
         }
     }

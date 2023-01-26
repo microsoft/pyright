@@ -22,7 +22,7 @@ import { BackgroundAnalysis } from './backgroundAnalysis';
 import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandController } from './commands/commandController';
 import { getCancellationFolderName } from './common/cancellationUtils';
-import { ConfigOptions } from './common/configOptions';
+import { ConfigOptions, SignatureDisplayType } from './common/configOptions';
 import { ConsoleWithLogLevel, LogLevel } from './common/console';
 import { isDebugMode, isString } from './common/core';
 import { expandPathVariables } from './common/envVarUtils';
@@ -88,6 +88,7 @@ export class PyrightServer extends LanguageServerBase {
             diagnosticSeverityOverrides: {},
             logLevel: LogLevel.Info,
             autoImportCompletions: true,
+            functionSignatureDisplay: SignatureDisplayType.formatted,
         };
 
         try {

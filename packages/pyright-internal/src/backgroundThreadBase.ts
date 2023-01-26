@@ -90,6 +90,7 @@ export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
     configOptions.exclude = jsonObject.exclude.map((f: any) => getFileSpec(f));
     configOptions.ignore = jsonObject.ignore.map((f: any) => getFileSpec(f));
     configOptions.strict = jsonObject.strict.map((f: any) => getFileSpec(f));
+    configOptions.functionSignatureDisplay = jsonObject.functionSignatureDisplay;
 
     return configOptions;
 }

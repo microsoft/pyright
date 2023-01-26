@@ -19,7 +19,12 @@ import { isMainThread } from 'worker_threads';
 
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { OperationCanceledException } from '../common/cancellationUtils';
-import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
+import {
+    ConfigOptions,
+    ExecutionEnvironment,
+    getBasicDiagnosticRuleSet,
+    SignatureDisplayType,
+} from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { convertLevelToCategory, Diagnostic, DiagnosticCategory } from '../common/diagnostic';
@@ -1094,6 +1099,7 @@ export class SourceFile {
         position: Position,
         format: MarkupKind,
         evaluator: TypeEvaluator,
+        functionSignatureDisplay: SignatureDisplayType,
         token: CancellationToken
     ): HoverResults | undefined {
         // If this file hasn't been bound, no hover info is available.
@@ -1101,7 +1107,15 @@ export class SourceFile {
             return undefined;
         }
 
-        return HoverProvider.getHoverForPosition(sourceMapper, this._parseResults, position, format, evaluator, token);
+        return HoverProvider.getHoverForPosition(
+            sourceMapper,
+            this._parseResults,
+            position,
+            format,
+            evaluator,
+            functionSignatureDisplay,
+            token
+        );
     }
 
     getDocumentHighlight(

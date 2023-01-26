@@ -31,7 +31,7 @@ import { Program } from '../../../analyzer/program';
 import { AnalyzerService } from '../../../analyzer/service';
 import { CommandResult } from '../../../commands/commandResult';
 import { appendArray } from '../../../common/collectionUtils';
-import { ConfigOptions } from '../../../common/configOptions';
+import { ConfigOptions, SignatureDisplayType } from '../../../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../../../common/console';
 import { Comparison, isNumber, isString, toBoolean } from '../../../common/core';
 import * as debug from '../../../common/debug';
@@ -1329,7 +1329,12 @@ export class TestState {
         const configOptions = new ConfigOptions(projectRoot);
 
         // add more global options as we need them
-        return this._applyTestConfigOptions(configOptions, mountPaths);
+        const newConfigOptions = this._applyTestConfigOptions(configOptions, mountPaths);
+
+        // default tests to run use compact signatures.
+        newConfigOptions.functionSignatureDisplay = SignatureDisplayType.compact;
+
+        return newConfigOptions;
     }
 
     private _applyTestConfigOptions(configOptions: ConfigOptions, mountPaths?: Map<string, string>) {
@@ -1353,6 +1358,10 @@ export class TestState {
             for (const mountPath of mountPaths.keys()) {
                 configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, mountPath));
             }
+        }
+
+        if (configOptions.functionSignatureDisplay === undefined) {
+            configOptions.functionSignatureDisplay === SignatureDisplayType.compact;
         }
 
         return configOptions;
