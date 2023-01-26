@@ -2886,6 +2886,7 @@ export function convertParamSpecValueToType(paramSpecValue: FunctionType, omitPa
 class TypeVarTransformer {
     private _isTransformingTypeArg = false;
     private _pendingTypeVarTransformations = new Set<string>();
+    private _pendingFunctionTransformations: (FunctionType | OverloadedFunctionType)[] = [];
 
     apply(type: Type, recursionCount: number): Type {
         if (recursionCount > maxTypeRecursionCount) {
@@ -3004,10 +3005,26 @@ class TypeVarTransformer {
         }
 
         if (isFunction(type)) {
-            return this._transformTypeVarsInFunctionType(type, recursionCount);
+            // Prevent recursion.
+            if (this._pendingFunctionTransformations.some((t) => t === type)) {
+                return type;
+            }
+
+            this._pendingFunctionTransformations.push(type);
+            const result = this._transformTypeVarsInFunctionType(type, recursionCount);
+            this._pendingFunctionTransformations.pop();
+
+            return result;
         }
 
         if (isOverloadedFunction(type)) {
+            // Prevent recursion.
+            if (this._pendingFunctionTransformations.some((t) => t === type)) {
+                return type;
+            }
+
+            this._pendingFunctionTransformations.push(type);
+
             let requiresUpdate = false;
 
             // Specialize each of the functions in the overload.
@@ -3019,6 +3036,8 @@ class TypeVarTransformer {
                     requiresUpdate = true;
                 }
             });
+
+            this._pendingFunctionTransformations.pop();
 
             // Construct a new overload with the specialized function types.
             return requiresUpdate ? OverloadedFunctionType.create(newOverloads) : type;
