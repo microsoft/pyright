@@ -1171,6 +1171,11 @@ test('List2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('List3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['list3.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Comparison1', () => {
     const configOptions = new ConfigOptions('.');
 

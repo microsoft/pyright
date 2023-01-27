@@ -1238,27 +1238,38 @@ function getProtocolSymbolsRecursive(classType: ClassType, symbolMap: Map<string
     });
 }
 
-// Determines the maximum depth of a tuple. For example, if the type is
-// tuple[tuple[tuple[int]]], its depth would be 3.
-export function getTupleDepth(type: Type, recursionCount = 0) {
+// Determines the maximum depth of a tuple, list, set or dictionary.
+// For example, if the type is tuple[tuple[tuple[int]]], its depth would be 3.
+export function getContainerDepth(type: Type, recursionCount = 0) {
     if (recursionCount > maxTypeRecursionCount) {
         return 1;
     }
 
     recursionCount++;
 
-    if (!isClassInstance(type) || !type.tupleTypeArguments) {
+    if (!isClassInstance(type)) {
         return 0;
     }
 
     let maxChildDepth = 0;
 
-    type.tupleTypeArguments.forEach((typeArgInfo) => {
-        doForEachSubtype(typeArgInfo.type, (subtype) => {
-            const childDepth = getTupleDepth(subtype, recursionCount);
-            maxChildDepth = Math.max(childDepth, maxChildDepth);
+    if (type.tupleTypeArguments) {
+        type.tupleTypeArguments.forEach((typeArgInfo) => {
+            doForEachSubtype(typeArgInfo.type, (subtype) => {
+                const childDepth = getContainerDepth(subtype, recursionCount);
+                maxChildDepth = Math.max(childDepth, maxChildDepth);
+            });
         });
-    });
+    } else if (type.typeArguments) {
+        type.typeArguments.forEach((typeArg) => {
+            doForEachSubtype(typeArg, (subtype) => {
+                const childDepth = getContainerDepth(subtype, recursionCount);
+                maxChildDepth = Math.max(childDepth, maxChildDepth);
+            });
+        });
+    } else {
+        return 0;
+    }
 
     return 1 + maxChildDepth;
 }

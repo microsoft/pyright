@@ -253,12 +253,12 @@ import {
     derivesFromClassRecursive,
     doForEachSubtype,
     explodeGenericClass,
+    getContainerDepth,
     getDeclaredGeneratorReturnType,
     getGeneratorTypeArgs,
     getLiteralTypeClassName,
     getParameterListDetails,
     getSpecializedTupleType,
-    getTupleDepth,
     getTypeCondition,
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
@@ -549,6 +549,11 @@ const maxOverloadUnionExpansionCount = 64;
 // Maximum number of recursive function return type inference attempts
 // that can be concurrently pending before we give up.
 const maxInferFunctionReturnRecursionCount = 12;
+
+// In certain loops, it's possible to construct arbitrarily-deep containers
+// (tuples, lists, sets, or dicts) which can lead to infinite type analysis.
+// This limits the depth.
+const maxInferredContainerDepth = 8;
 
 // Maximum recursion amount when comparing two recursive type aliases.
 // Increasing this can greatly increase the time required to evaluate
@@ -7229,12 +7234,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const type = convertToInstance(specializeTupleClass(tupleClassType, buildTupleTypesList(entryTypeResults)));
 
-        // In certain loops, it's possible to construct arbitrarily-deep tuples
-        // which can lead to infinite type analysis. Prevent this by detecting
-        // the condition.
         if (isIncomplete) {
-            const maxInferredTupleDepth = 8;
-            if (getTupleDepth(type) > maxInferredTupleDepth) {
+            if (getContainerDepth(type) > maxInferredContainerDepth) {
                 return { type: UnknownType.create() };
             }
         }
@@ -12905,6 +12906,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
               )
             : UnknownType.create();
 
+        if (isIncomplete) {
+            if (getContainerDepth(type) > maxInferredContainerDepth) {
+                return { type: UnknownType.create() };
+            }
+        }
+
         return { type, isIncomplete };
     }
 
@@ -13313,6 +13320,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                   )
               )
             : UnknownType.create();
+
+        if (isIncomplete) {
+            if (getContainerDepth(type) > maxInferredContainerDepth) {
+                return { type: UnknownType.create() };
+            }
+        }
 
         return { type, isIncomplete, typeErrors };
     }
