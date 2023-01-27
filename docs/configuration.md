@@ -288,9 +288,9 @@ executionEnvironments = [
 
 ## Diagnostic Rule Defaults
 
-Each diagnostic rule has a default severity level that is dictated by the specified type checking mode. The default for each rule can be overridden in the configuration file or settings. In strict type checking mode, overrides may only increase the severity level (e.g. from “warning” to “error”).
+Each diagnostic rule has a default severity level that is dictated by the specified type checking mode. The default for each rule can be overridden in the configuration file or settings. In strict type checking mode, overrides may only increase the severity level (e.g. from `"warning"` to `"error"`).
 
-The following table lists the default severity levels for each diagnostic rule within each type checking mode ("off", "basic" and "strict").
+The following table lists the default severity levels for each diagnostic rule within each type checking mode (`"off"`, `"basic"` and `"strict"`).
 
 | Diagnostic Rule                           | Off        | Basic      | Strict     |
 | :---------------------------------------- | :--------- | :--------- | :--------- |
