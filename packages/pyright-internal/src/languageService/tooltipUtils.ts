@@ -118,7 +118,7 @@ export function getFunctionTooltip(
 export function getConstructorTooltip(
     label: string,
     constructorName: string,
-    type: FunctionType | OverloadedFunctionType,
+    type: Type,
     evaluator: TypeEvaluator,
     functionSignatureDisplay: SignatureDisplayType
 ) {

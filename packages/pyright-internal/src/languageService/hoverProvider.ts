@@ -402,7 +402,7 @@ export class HoverProvider {
             return false;
         }
 
-        let methodType: FunctionType | OverloadedFunctionType | undefined;
+        let methodType: Type | undefined;
 
         // Try to get the `__init__` method first because it typically has more type information than `__new__`.
         // Don't exclude `object.__init__` since in the plain case we want to show Foo().
@@ -449,6 +449,8 @@ export class HoverProvider {
         }
 
         if (methodType && (isFunction(methodType) || isOverloadedFunction(methodType))) {
+            methodType = this._limitOverloadBasedOnCall(node, evaluator, methodType);
+
             this._addResultsPart(
                 parts,
                 getConstructorTooltip(/* label */ 'class', node.value, methodType, evaluator, functionSignatureDisplay),
@@ -477,7 +479,7 @@ export class HoverProvider {
         return ': ' + evaluator.printType(type, { expandTypeAlias });
     }
 
-    private static _limitOverloadBasedOnCall(node: NameNode, evaluator: TypeEvaluator, type: Type) {
+    private static _limitOverloadBasedOnCall(node: NameNode, evaluator: TypeEvaluator, type: Type): Type {
         // If it's an overloaded function, see if it's part of a call expression.
         // If so, we may be able to eliminate some of the overloads based on
         // the overload resolution.
