@@ -1227,6 +1227,11 @@ export class Checker extends ParseTreeWalker {
             if (!ParseTreeUtils.isWithinAssertExpression(node)) {
                 this._validateComparisonTypes(node);
             }
+        } else if (node.operator === OperatorType.Is || node.operator === OperatorType.IsNot) {
+            // Don't apply this rule if it's within an assert.
+            if (!ParseTreeUtils.isWithinAssertExpression(node)) {
+                this._validateComparisonTypesForIsOperator(node);
+            }
         } else if (node.operator === OperatorType.In || node.operator === OperatorType.NotIn) {
             // Don't apply this rule if it's within an assert.
             if (!ParseTreeUtils.isWithinAssertExpression(node)) {
@@ -1789,6 +1794,48 @@ export class Checker extends ParseTreeWalker {
                 getMessage().format({
                     leftType: this._evaluator.printType(leftType, { expandTypeAlias: true }),
                     rightType: this._evaluator.printType(elementType, { expandTypeAlias: true }),
+                }),
+                node
+            );
+        }
+    }
+
+    // Determines whether the types of the two operands for an "is" or "is not"
+    // operation have overlapping types.
+    private _validateComparisonTypesForIsOperator(node: BinaryOperationNode) {
+        const rightType = this._evaluator.getType(node.rightExpression);
+
+        if (!rightType || !isNoneInstance(rightType)) {
+            return;
+        }
+
+        const leftType = this._evaluator.getType(node.leftExpression);
+        if (!leftType) {
+            return;
+        }
+
+        let foundMatchForNone = false;
+        doForEachSubtype(leftType, (subtype) => {
+            subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
+            if (this._evaluator.assignType(subtype, NoneType.createInstance())) {
+                foundMatchForNone = true;
+            }
+        });
+
+        const getMessage = () => {
+            return node.operator === OperatorType.Is
+                ? Localizer.Diagnostic.comparisonAlwaysFalse()
+                : Localizer.Diagnostic.comparisonAlwaysTrue();
+        };
+
+        if (!foundMatchForNone) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportUnnecessaryComparison,
+                DiagnosticRule.reportUnnecessaryComparison,
+                getMessage().format({
+                    leftType: this._evaluator.printType(leftType, { expandTypeAlias: true }),
+                    rightType: this._evaluator.printType(rightType),
                 }),
                 node
             );
