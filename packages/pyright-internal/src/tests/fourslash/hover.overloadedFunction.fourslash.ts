@@ -18,6 +18,6 @@
 //// [|/*marker2*/func|]("hi")
 
 helper.verifyHover('markdown', {
-    marker1: '```python\n(function) func(a: int) -> int\n```',
-    marker2: '```python\n(function) func(a: str) -> str\n```',
+    marker1: '```python\n(function) def func(a: int) -> int\n```',
+    marker2: '```python\n(function) def func(a: str) -> str\n```',
 });

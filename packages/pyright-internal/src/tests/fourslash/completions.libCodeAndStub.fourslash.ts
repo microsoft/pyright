@@ -57,7 +57,8 @@ await helper.verifyCompletion('included', 'markdown', {
             {
                 label: 'is_valid',
                 kind: Consts.CompletionItemKind.Method,
-                documentation: '```python\nis_valid(text: str) -> bool\n```\n---\nChecks if the input string is valid.',
+                documentation:
+                    '```python\ndef is_valid(text: str) -> bool\n```\n---\nChecks if the input string is valid.',
             },
         ],
     },
