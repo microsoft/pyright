@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any, ClassVar
 
 import passlib.utils.handlers as uh
@@ -38,14 +39,14 @@ class _Argon2Common(  # type: ignore[misc]
     @classmethod
     def using(  # type: ignore[override]
         cls,
-        type: Any | None = ...,
-        memory_cost: Any | None = ...,
-        salt_len: Any | None = ...,
-        time_cost: Any | None = ...,
-        digest_size: Any | None = ...,
-        checksum_size: Any | None = ...,
-        hash_len: Any | None = ...,
-        max_threads: Any | None = ...,
+        type: Incomplete | None = ...,
+        memory_cost: Incomplete | None = ...,
+        salt_len: Incomplete | None = ...,
+        time_cost: Incomplete | None = ...,
+        digest_size: Incomplete | None = ...,
+        checksum_size: Incomplete | None = ...,
+        hash_len: Incomplete | None = ...,
+        max_threads: Incomplete | None = ...,
         **kwds,
     ): ...
     @classmethod
@@ -54,11 +55,11 @@ class _Argon2Common(  # type: ignore[misc]
     def from_string(cls, hash): ...
     def __init__(
         self,
-        type: Any | None = ...,
+        type: Incomplete | None = ...,
         type_d: bool = ...,
-        version: Any | None = ...,
-        memory_cost: Any | None = ...,
-        data: Any | None = ...,
+        version: Incomplete | None = ...,
+        memory_cost: Incomplete | None = ...,
+        data: Incomplete | None = ...,
         **kwds,
     ) -> None: ...
 

@@ -1,4 +1,3 @@
-import sys
 from _typeshed import Incomplete, StrOrBytesPath
 from collections.abc import Callable, Generator
 from typing import NamedTuple, SupportsFloat, TypeVar, overload
@@ -9,12 +8,16 @@ from PIL import Image
 _Unused: TypeAlias = object
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
-# TODO: cv2.Mat is not available as a type yet: https://github.com/microsoft/python-type-stubs/issues/211
+# TODO: cv2.Mat is not available as a type yet:
+# https://github.com/microsoft/python-type-stubs/issues/211
+# https://github.com/microsoft/python-type-stubs/tree/main/cv2
+# https://github.com/opencv/opencv/pull/20370
 # cv2.Mat is just an alias for a numpy NDArray, but can't import that either.
+# Because pyscreeze does not declare it as a dependency, stub_uploader won't let it.
 _Mat: TypeAlias = Incomplete
 
 useOpenCV: bool
-RUNNING_PYTHON_2 = sys.version_info < (3,)
+RUNNING_PYTHON_2: Literal[False]
 GRAYSCALE_DEFAULT: Literal[False]
 USE_IMAGE_NOT_FOUND_EXCEPTION: bool
 scrotExists: bool
@@ -37,6 +40,7 @@ class RGB(NamedTuple):
 class PyScreezeException(Exception): ...
 class ImageNotFoundException(PyScreezeException): ...
 
+# _locateAll_opencv
 def requiresPillow(wrappedFunction: Callable[_P, _R]) -> Callable[_P, _R]: ...
 @overload
 def locate(

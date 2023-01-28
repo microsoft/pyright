@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from collections.abc import Mapping
 from typing import Any
 
@@ -7,7 +8,7 @@ class MethodDispatcher(dict[Any, Any]):
     default: Any
     def __init__(self, items=...) -> None: ...
     def __getitem__(self, key): ...
-    def __get__(self, instance, owner: Any | None = ...): ...
+    def __get__(self, instance, owner: Incomplete | None = ...): ...
 
 class BoundMethodDispatcher(Mapping[Any, Any]):
     instance: Any

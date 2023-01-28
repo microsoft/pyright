@@ -165,11 +165,11 @@ class TextIOWrapper(TextIOBase, TextIO):
     def reconfigure(
         self,
         *,
-        encoding: str | None = ...,
-        errors: str | None = ...,
-        newline: str | None = ...,
-        line_buffering: bool | None = ...,
-        write_through: bool | None = ...,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+        line_buffering: bool | None = None,
+        write_through: bool | None = None,
     ) -> None: ...
     # These are inherited from TextIOBase, but must exist in the stub to satisfy mypy.
     def __enter__(self: Self) -> Self: ...
@@ -190,7 +190,7 @@ class StringIO(TextIOWrapper):
 
 class IncrementalNewlineDecoder(codecs.IncrementalDecoder):
     def __init__(self, decoder: codecs.IncrementalDecoder | None, translate: bool, errors: str = ...) -> None: ...
-    def decode(self, input: ReadableBuffer | str, final: bool = ...) -> str: ...
+    def decode(self, input: ReadableBuffer | str, final: bool = False) -> str: ...
     @property
     def newlines(self) -> str | tuple[str, ...] | None: ...
     def setstate(self, __state: tuple[bytes, int]) -> None: ...

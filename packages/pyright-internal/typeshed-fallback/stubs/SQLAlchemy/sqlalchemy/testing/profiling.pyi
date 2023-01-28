@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 class ProfileStatsFile:
@@ -8,7 +9,7 @@ class ProfileStatsFile:
     data: Any
     dump: Any
     sort: Any
-    def __init__(self, filename, sort: str = ..., dump: Any | None = ...): ...
+    def __init__(self, filename, sort: str = ..., dump: Incomplete | None = ...): ...
     @property
     def platform_key(self): ...
     def has_stats(self): ...

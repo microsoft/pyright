@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from collections.abc import Iterable, Iterator
 from logging import Logger
 from typing import Any
@@ -29,7 +30,7 @@ class EncodingDetector:
     known_definite_encodings: list[str]
     user_encodings: list[str]
     exclude_encodings: set[str]
-    chardet_encoding: Any | None
+    chardet_encoding: Incomplete | None
     is_html: bool
     declared_encoding: str | None
     markup: Any
@@ -61,7 +62,7 @@ class UnicodeDammit:
     detector: EncodingDetector
     markup: Any
     unicode_markup: str
-    original_encoding: Any | None
+    original_encoding: Incomplete | None
     def __init__(
         self,
         markup,

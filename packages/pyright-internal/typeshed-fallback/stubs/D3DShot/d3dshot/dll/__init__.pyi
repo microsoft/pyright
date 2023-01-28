@@ -20,8 +20,8 @@ if sys.platform == "win32":
 else:
     _HRESULT: TypeAlias = Incomplete
 
-# TODO: Use comtypes.IUnknown once we can import non-types dependencies
-# See: #5768
+# comtypes is not typed
+# from comtypes import IUnknown
 class _IUnknown(_CData):
     def QueryInterface(self, interface: type, iid: _CData | None = ...) -> _HRESULT: ...
     def AddRef(self) -> c_ulong: ...

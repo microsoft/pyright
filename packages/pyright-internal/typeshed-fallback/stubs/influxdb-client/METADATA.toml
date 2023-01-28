@@ -1,5 +1,6 @@
-version = "1.35.*"
+version = "1.36.*"
 requires = ["types-urllib3"]
 
 [tool.stubtest]
 ignore_missing_stub = false
+extras = ["extra"]

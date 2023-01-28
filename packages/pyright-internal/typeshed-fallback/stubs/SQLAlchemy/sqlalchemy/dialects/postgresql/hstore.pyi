@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 import sqlalchemy.types as sqltypes
@@ -8,7 +9,7 @@ class HSTORE(sqltypes.Indexable, sqltypes.Concatenable, sqltypes.TypeEngine):
     __visit_name__: str
     hashable: bool
     text_type: Any
-    def __init__(self, text_type: Any | None = ...) -> None: ...
+    def __init__(self, text_type: Incomplete | None = ...) -> None: ...
 
     class Comparator(sqltypes.Indexable.Comparator[Any], sqltypes.Concatenable.Comparator[Any]):
         def has_key(self, other): ...

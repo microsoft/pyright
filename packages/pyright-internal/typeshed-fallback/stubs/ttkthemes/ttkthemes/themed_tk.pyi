@@ -1,5 +1,5 @@
 import tkinter
-from typing import Any
+from _typeshed import Incomplete
 
 from ._widget import ThemedWidget
 
@@ -23,8 +23,8 @@ class ThemedTk(tkinter.Tk, ThemedWidget):
     ) -> None: ...
     def set_theme(self, theme_name, toplevel: bool | None = ..., themebg: bool | None = ...) -> None: ...
     # TODO: currently no good way to say "use the same big list of kwargs as parent class but also add these"
-    def config(self, kw: Any | None = ..., **kwargs): ...  # type: ignore[override]
+    def config(self, kw: Incomplete | None = ..., **kwargs): ...  # type: ignore[override]
     def cget(self, k): ...
-    def configure(self, kw: Any | None = ..., **kwargs): ...  # type: ignore[override]
+    def configure(self, kw: Incomplete | None = ..., **kwargs): ...  # type: ignore[override]
     def __getitem__(self, k): ...
     def __setitem__(self, k, v) -> None: ...

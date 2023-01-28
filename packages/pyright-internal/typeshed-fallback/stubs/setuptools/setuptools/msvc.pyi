@@ -1,10 +1,5 @@
+from _typeshed import Incomplete
 from typing import Any
-
-class winreg:
-    HKEY_USERS: Any
-    HKEY_CURRENT_USER: Any
-    HKEY_LOCAL_MACHINE: Any
-    HKEY_CLASSES_ROOT: Any
 
 PLAT_SPEC_TO_RUNTIME: Any
 
@@ -56,7 +51,7 @@ class SystemInfo:
     pi: Any
     known_vs_paths: Any
     vs_ver: Any
-    def __init__(self, registry_info, vc_ver: Any | None = ...) -> None: ...
+    def __init__(self, registry_info, vc_ver: Incomplete | None = ...) -> None: ...
     def find_reg_vs_vers(self): ...
     def find_programdata_vs_vers(self): ...
     @property
@@ -94,7 +89,7 @@ class EnvironmentInfo:
     pi: Any
     ri: Any
     si: Any
-    def __init__(self, arch, vc_ver: Any | None = ..., vc_min_ver: int = ...) -> None: ...
+    def __init__(self, arch, vc_ver: Incomplete | None = ..., vc_min_ver: int = ...) -> None: ...
     @property
     def vs_ver(self): ...
     @property

@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from . import roles
@@ -9,7 +10,14 @@ selectable: Any
 sqltypes: Any
 traversals: Any
 
-def expect(role, element, apply_propagate_attrs: Any | None = ..., argname: Any | None = ..., post_inspect: bool = ..., **kw): ...
+def expect(
+    role,
+    element,
+    apply_propagate_attrs: Incomplete | None = ...,
+    argname: Incomplete | None = ...,
+    post_inspect: bool = ...,
+    **kw,
+): ...
 def expect_as_key(role, element, **kw): ...
 def expect_col_expression_collection(role, expressions) -> None: ...
 

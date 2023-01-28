@@ -1,5 +1,5 @@
 from d3dshot.capture_outputs.numpy_capture_output import NumpyCaptureOutput
 
-# TODO: Once we can import non-types dependencies, this CaptureOutput should be float based
-# See: #5768
+# stub_uploader doesn't allow numpy because D3DShot doesn't declare it as a dependency
+# this CaptureOutput should be float based
 class NumpyFloatCaptureOutput(NumpyCaptureOutput): ...

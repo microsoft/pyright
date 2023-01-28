@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any, ClassVar, Generic, TypeVar
 
 from ..sql.operators import ColumnOperators
@@ -50,39 +51,39 @@ class RelationshipProperty(StrategizedProperty):
     def __init__(
         self,
         argument,
-        secondary: Any | None = ...,
-        primaryjoin: Any | None = ...,
-        secondaryjoin: Any | None = ...,
-        foreign_keys: Any | None = ...,
-        uselist: Any | None = ...,
+        secondary: Incomplete | None = ...,
+        primaryjoin: Incomplete | None = ...,
+        secondaryjoin: Incomplete | None = ...,
+        foreign_keys: Incomplete | None = ...,
+        uselist: Incomplete | None = ...,
         order_by: bool = ...,
-        backref: Any | None = ...,
-        back_populates: Any | None = ...,
-        overlaps: Any | None = ...,
+        backref: Incomplete | None = ...,
+        back_populates: Incomplete | None = ...,
+        overlaps: Incomplete | None = ...,
         post_update: bool = ...,
         cascade: bool = ...,
         viewonly: bool = ...,
         lazy: str = ...,
-        collection_class: Any | None = ...,
+        collection_class: Incomplete | None = ...,
         passive_deletes=...,
         passive_updates=...,
-        remote_side: Any | None = ...,
+        remote_side: Incomplete | None = ...,
         enable_typechecks=...,
-        join_depth: Any | None = ...,
-        comparator_factory: Any | None = ...,
+        join_depth: Incomplete | None = ...,
+        comparator_factory: Incomplete | None = ...,
         single_parent: bool = ...,
         innerjoin: bool = ...,
-        distinct_target_key: Any | None = ...,
-        doc: Any | None = ...,
+        distinct_target_key: Incomplete | None = ...,
+        doc: Incomplete | None = ...,
         active_history=...,
         cascade_backrefs=...,
         load_on_pending: bool = ...,
         bake_queries: bool = ...,
-        _local_remote_pairs: Any | None = ...,
-        query_class: Any | None = ...,
-        info: Any | None = ...,
-        omit_join: Any | None = ...,
-        sync_backref: Any | None = ...,
+        _local_remote_pairs: Incomplete | None = ...,
+        query_class: Incomplete | None = ...,
+        info: Incomplete | None = ...,
+        omit_join: Incomplete | None = ...,
+        sync_backref: Incomplete | None = ...,
         _legacy_inactive_history_style: bool = ...,
     ) -> None: ...
     def instrument_class(self, mapper) -> None: ...
@@ -90,7 +91,12 @@ class RelationshipProperty(StrategizedProperty):
     class Comparator(PropComparator[_T], Generic[_T]):
         prop: Any
         def __init__(
-            self, prop, parentmapper, adapt_to_entity: Any | None = ..., of_type: Any | None = ..., extra_criteria=...
+            self,
+            prop,
+            parentmapper,
+            adapt_to_entity: Incomplete | None = ...,
+            of_type: Incomplete | None = ...,
+            extra_criteria=...,
         ) -> None: ...
         def adapt_to_entity(self, adapt_to_entity): ...
         @memoized_property
@@ -103,8 +109,8 @@ class RelationshipProperty(StrategizedProperty):
         def in_(self, other) -> ColumnOperators[_T]: ...
         __hash__: ClassVar[None]  # type: ignore[assignment]
         def __eq__(self, other): ...
-        def any(self, criterion: Any | None = ..., **kwargs): ...
-        def has(self, criterion: Any | None = ..., **kwargs): ...
+        def any(self, criterion: Incomplete | None = ..., **kwargs): ...
+        def has(self, criterion: Incomplete | None = ..., **kwargs): ...
         def contains(self, other, **kwargs) -> ColumnOperators[_T]: ...
         def __ne__(self, other) -> ColumnOperators[_T]: ...  # type: ignore[override]
         @memoized_property
@@ -113,7 +119,7 @@ class RelationshipProperty(StrategizedProperty):
     def merge(
         self, session, source_state, source_dict, dest_state, dest_dict, load, _recursive, _resolve_conflict_map
     ) -> None: ...
-    def cascade_iterator(self, type_, state, dict_, visited_states, halt_on: Any | None = ...) -> None: ...
+    def cascade_iterator(self, type_, state, dict_, visited_states, halt_on: Incomplete | None = ...) -> None: ...
     @memoized_property
     def entity(self): ...
     @memoized_property
@@ -145,16 +151,16 @@ class JoinCondition:
         child_persist_selectable,
         parent_local_selectable,
         child_local_selectable,
-        primaryjoin: Any | None = ...,
-        secondary: Any | None = ...,
-        secondaryjoin: Any | None = ...,
-        parent_equivalents: Any | None = ...,
-        child_equivalents: Any | None = ...,
-        consider_as_foreign_keys: Any | None = ...,
-        local_remote_pairs: Any | None = ...,
-        remote_side: Any | None = ...,
+        primaryjoin: Incomplete | None = ...,
+        secondary: Incomplete | None = ...,
+        secondaryjoin: Incomplete | None = ...,
+        parent_equivalents: Incomplete | None = ...,
+        child_equivalents: Incomplete | None = ...,
+        consider_as_foreign_keys: Incomplete | None = ...,
+        local_remote_pairs: Incomplete | None = ...,
+        remote_side: Incomplete | None = ...,
         self_referential: bool = ...,
-        prop: Any | None = ...,
+        prop: Incomplete | None = ...,
         support_sync: bool = ...,
         can_be_synced_fn=...,
     ): ...
@@ -170,7 +176,9 @@ class JoinCondition:
     def local_columns(self): ...
     @memoized_property
     def foreign_key_columns(self): ...
-    def join_targets(self, source_selectable, dest_selectable, aliased, single_crit: Any | None = ..., extra_criteria=...): ...
+    def join_targets(
+        self, source_selectable, dest_selectable, aliased, single_crit: Incomplete | None = ..., extra_criteria=...
+    ): ...
     def create_lazy_clause(self, reverse_direction: bool = ...): ...
 
 class _ColInAnnotations:

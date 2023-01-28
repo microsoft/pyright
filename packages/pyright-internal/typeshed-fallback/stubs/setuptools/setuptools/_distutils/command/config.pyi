@@ -1,6 +1,6 @@
+from _typeshed import Incomplete
 from collections.abc import Sequence
 from re import Pattern
-from typing import Any
 
 from ..ccompiler import CCompiler
 from ..cmd import Command
@@ -80,4 +80,4 @@ class config(Command):
         self, header: str, include_dirs: Sequence[str] | None = ..., library_dirs: Sequence[str] | None = ..., lang: str = ...
     ) -> bool: ...
 
-def dump_file(filename: str, head: Any | None = ...) -> None: ...
+def dump_file(filename: str, head: Incomplete | None = ...) -> None: ...

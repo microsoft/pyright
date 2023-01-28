@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from .base import BaseEndpoint as BaseEndpoint
@@ -18,9 +19,11 @@ class AuthorizationEndpoint(BaseEndpoint):
         self,
         uri,
         http_method: str = ...,
-        body: Any | None = ...,
-        headers: Any | None = ...,
-        scopes: Any | None = ...,
-        credentials: Any | None = ...,
+        body: Incomplete | None = ...,
+        headers: Incomplete | None = ...,
+        scopes: Incomplete | None = ...,
+        credentials: Incomplete | None = ...,
     ): ...
-    def validate_authorization_request(self, uri, http_method: str = ..., body: Any | None = ..., headers: Any | None = ...): ...
+    def validate_authorization_request(
+        self, uri, http_method: str = ..., body: Incomplete | None = ..., headers: Incomplete | None = ...
+    ): ...

@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 class AssertRule:
@@ -13,7 +14,7 @@ class CursorSQL(SQLMatchRule):
     statement: Any
     params: Any
     consume_statement: Any
-    def __init__(self, statement, params: Any | None = ..., consume_statement: bool = ...) -> None: ...
+    def __init__(self, statement, params: Incomplete | None = ..., consume_statement: bool = ...) -> None: ...
     errormessage: Any
     is_consumed: bool
     def process_statement(self, execute_observed) -> None: ...
@@ -22,7 +23,7 @@ class CompiledSQL(SQLMatchRule):
     statement: Any
     params: Any
     dialect: Any
-    def __init__(self, statement, params: Any | None = ..., dialect: str = ...) -> None: ...
+    def __init__(self, statement, params: Incomplete | None = ..., dialect: str = ...) -> None: ...
     is_consumed: bool
     errormessage: Any
     def process_statement(self, execute_observed) -> None: ...
@@ -32,7 +33,7 @@ class RegexSQL(CompiledSQL):
     orig_regex: Any
     params: Any
     dialect: Any
-    def __init__(self, regex, params: Any | None = ..., dialect: str = ...) -> None: ...
+    def __init__(self, regex, params: Incomplete | None = ..., dialect: str = ...) -> None: ...
 
 class DialectSQL(CompiledSQL): ...
 

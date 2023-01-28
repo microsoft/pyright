@@ -2,12 +2,13 @@ from _typeshed import Incomplete
 from collections import defaultdict
 from collections.abc import Generator, Iterable
 
+from .encryption import StandardSecurityHandler
 from .syntax import PDFArray, PDFObject, PDFString
 
 class NumberTree(PDFObject):
     nums: defaultdict[Incomplete, list[Incomplete]]
     def __init__(self) -> None: ...
-    def serialize(self, obj_dict: object = ...) -> str: ...
+    def serialize(self, obj_dict: object = ..., _security_handler: StandardSecurityHandler | None = None) -> str: ...
 
 class StructTreeRoot(PDFObject):
     type: str

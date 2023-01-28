@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 __author__: str
@@ -9,11 +10,11 @@ class FlexTemplate:
     splitting_pdf: Any
     handlers: Any
     texts: Any
-    def __init__(self, pdf, elements: Any | None = ...) -> None: ...
+    def __init__(self, pdf, elements: Incomplete | None = ...) -> None: ...
     elements: Any
     keys: Any
     def load_elements(self, elements) -> None: ...
-    def parse_csv(self, infile, delimiter: str = ..., decimal_sep: str = ..., encoding: Any | None = ...): ...
+    def parse_csv(self, infile, delimiter: str = ..., decimal_sep: str = ..., encoding: Incomplete | None = ...): ...
     def __setitem__(self, name, value) -> None: ...
     set: Any
     def __contains__(self, name): ...
@@ -24,8 +25,8 @@ class FlexTemplate:
 class Template(FlexTemplate):
     def __init__(
         self,
-        infile: Any | None = ...,
-        elements: Any | None = ...,
+        infile: Incomplete | None = ...,
+        elements: Incomplete | None = ...,
         format: str = ...,
         orientation: str = ...,
         unit: str = ...,
@@ -36,4 +37,4 @@ class Template(FlexTemplate):
         keywords: str = ...,
     ) -> None: ...
     def add_page(self) -> None: ...
-    def render(self, outfile: Any | None = ..., dest: Any | None = ...) -> None: ...  # type: ignore[override]
+    def render(self, outfile: Incomplete | None = ..., dest: Incomplete | None = ...) -> None: ...  # type: ignore[override]

@@ -3,6 +3,7 @@ from _typeshed import Incomplete, StrPath
 from collections.abc import Callable, Iterable, Sequence
 from contextlib import _GeneratorContextManager
 from io import BytesIO
+from re import Pattern
 from typing import Any, ClassVar, NamedTuple, overload
 from typing_extensions import Literal, TypeAlias
 
@@ -72,6 +73,8 @@ class FPDF:
     MARKDOWN_BOLD_MARKER: ClassVar[str]
     MARKDOWN_ITALICS_MARKER: ClassVar[str]
     MARKDOWN_UNDERLINE_MARKER: ClassVar[str]
+    MARKDOWN_LINK_REGEX: ClassVar[Pattern[str]]
+    MARKDOWN_LINK_COLOR: ClassVar[Incomplete | None]
 
     HTML2FPDF_CLASS: ClassVar[type[HTML2FPDF]]
 
@@ -144,6 +147,16 @@ class FPDF:
         format: _Format | tuple[float, float] = ...,
         font_cache_dir: Literal["DEPRECATED"] = ...,
     ) -> None: ...
+    # The following definition crashes stubtest 0.991, but seems to be fixed
+    # in later versions.
+    # def set_encryption(
+    #    self,
+    #    owner_password: str,
+    #    user_password: str | None = None,
+    #    encryption_method: EncryptionMethod | str = ...,
+    #    permissions: AccessPermission = ...,
+    #    encrypt_metadata: bool = False,
+    # ) -> None: ...
     # args and kwargs are passed to HTML2FPDF_CLASS constructor.
     def write_html(self, text: str, *args: Any, **kwargs: Any) -> None: ...
     @property
@@ -288,8 +301,8 @@ class FPDF:
     def set_font_size(self, size: float) -> None: ...
     def set_char_spacing(self, spacing: float) -> None: ...
     def set_stretching(self, stretching: float) -> None: ...
-    def add_link(self) -> int: ...
-    def set_link(self, link, y: int = ..., x: int = ..., page: int = ..., zoom: float | Literal["null"] = ...) -> None: ...
+    def add_link(self, y: float = 0, x: float = 0, page: int = -1, zoom: float | Literal["null"] = "null") -> int: ...
+    def set_link(self, link, y: float = 0, x: float = 0, page: int = -1, zoom: float | Literal["null"] = "null") -> None: ...
     def link(
         self, x: float, y: float, w: float, h: float, link: str | int, alt_text: str | None = ..., border_width: int = ...
     ) -> AnnotationDict: ...
@@ -364,6 +377,9 @@ class FPDF:
     def text(self, x: float, y: float, txt: str = ...) -> None: ...
     def rotate(self, angle: float, x: float | None = ..., y: float | None = ...) -> None: ...
     def rotation(self, angle: float, x: float | None = ..., y: float | None = ...) -> _GeneratorContextManager[None]: ...
+    def skew(
+        self, ax: float = 0, ay: float = 0, x: float | None = None, y: float | None = None
+    ) -> _GeneratorContextManager[None]: ...
     def local_context(
         self,
         font_family: Incomplete | None = ...,
@@ -415,14 +431,15 @@ class FPDF:
     def image(
         self,
         name: str | Image.Image | BytesIO | StrPath,
-        x: float | None = ...,
-        y: float | None = ...,
-        w: float = ...,
-        h: float = ...,
-        type: str = ...,
-        link: str = ...,
-        title: str | None = ...,
-        alt_text: str | None = ...,
+        x: float | Align | None = None,
+        y: float | None = None,
+        w: float = 0,
+        h: float = 0,
+        type: str = "",
+        link: str = "",
+        title: str | None = None,
+        alt_text: str | None = None,
+        dims: tuple[float, float] | None = None,
     ) -> _Image: ...
     def ln(self, h: float | None = ...) -> None: ...
     def get_x(self) -> float: ...
@@ -477,4 +494,4 @@ class FPDF:
         level5: TitleStyle | None = ...,
         level6: TitleStyle | None = ...,
     ) -> None: ...
-    def start_section(self, name: str, level: int = ...) -> None: ...
+    def start_section(self, name: str, level: int = 0, strict: bool = True) -> None: ...

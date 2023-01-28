@@ -1,4 +1,4 @@
-from _typeshed import Self
+from _typeshed import Incomplete, Self
 from collections.abc import Callable, Iterable, Iterator
 from re import Pattern
 from typing import Any, Generic, TypeVar, overload
@@ -330,12 +330,12 @@ class Tag(PageElement):
     @property
     def descendants(self) -> Iterable[PageElement]: ...
     def select_one(
-        self, selector: str, namespaces: Any | None = ..., *, flags: int = ..., custom: dict[str, str] | None = ...
+        self, selector: str, namespaces: Incomplete | None = ..., *, flags: int = ..., custom: dict[str, str] | None = ...
     ) -> Tag | None: ...
     def select(
         self,
         selector: str,
-        namespaces: Any | None = ...,
+        namespaces: Incomplete | None = ...,
         limit: int | None = ...,
         *,
         flags: int = ...,

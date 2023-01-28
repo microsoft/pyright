@@ -1,7 +1,7 @@
 import importlib.abc
 import types
 import zipimport
-from _typeshed import Self
+from _typeshed import Incomplete, Self
 from abc import ABCMeta
 from collections.abc import Callable, Generator, Iterable, Sequence
 from typing import IO, Any, TypeVar, overload
@@ -79,7 +79,7 @@ class Requirement:
     specs: list[tuple[str, str]]
     # TODO: change this to packaging.markers.Marker | None once we can import
     #       packaging.markers
-    marker: Any | None
+    marker: Incomplete | None
     @staticmethod
     def parse(s: str | Iterable[str]) -> Requirement: ...
     def __contains__(self, item: Distribution | str | tuple[str, ...]) -> bool: ...

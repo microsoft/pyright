@@ -1,5 +1,5 @@
 import abc
-from _typeshed import Self
+from _typeshed import Incomplete, Self
 from typing import Any, ClassVar
 
 from passlib.ifc import PasswordHash
@@ -11,8 +11,10 @@ PADDED_B64_CHARS = PADDED_BASE64_CHARS
 UC_HEX_CHARS = UPPER_HEX_CHARS
 LC_HEX_CHARS = LOWER_HEX_CHARS
 
-def parse_mc2(hash, prefix, sep=..., handler: Any | None = ...): ...
-def parse_mc3(hash, prefix, sep=..., rounds_base: int = ..., default_rounds: Any | None = ..., handler: Any | None = ...): ...
+def parse_mc2(hash, prefix, sep=..., handler: Incomplete | None = ...): ...
+def parse_mc3(
+    hash, prefix, sep=..., rounds_base: int = ..., default_rounds: Incomplete | None = ..., handler: Incomplete | None = ...
+): ...
 def render_mc2(ident, salt, checksum, sep=...): ...
 def render_mc3(ident, rounds, salt, checksum, sep=..., rounds_base: int = ...): ...
 
@@ -64,14 +66,14 @@ class HasEncodingContext(GenericHandler):
     def __init__(self, encoding: str | None = ..., **kwds) -> None: ...
 
 class HasUserContext(GenericHandler):
-    user: Any | None
-    def __init__(self, user: Any | None = ..., **kwds) -> None: ...
+    user: Incomplete | None
+    def __init__(self, user: Incomplete | None = ..., **kwds) -> None: ...
     @classmethod
-    def hash(cls, secret, user: Any | None = ..., **context): ...
+    def hash(cls, secret, user: Incomplete | None = ..., **context): ...
     @classmethod
-    def verify(cls, secret, hash, user: Any | None = ..., **context): ...
+    def verify(cls, secret, hash, user: Incomplete | None = ..., **context): ...
     @classmethod
-    def genhash(cls, secret, config, user: Any | None = ..., **context): ...
+    def genhash(cls, secret, config, user: Incomplete | None = ..., **context): ...
 
 class HasRawChecksum(GenericHandler): ...
 
@@ -81,8 +83,8 @@ class HasManyIdents(GenericHandler):
     ident_aliases: ClassVar[dict[str, str] | None]
     ident: str  # type: ignore[misc]
     @classmethod
-    def using(cls, default_ident: Any | None = ..., ident: Any | None = ..., **kwds): ...  # type: ignore[override]
-    def __init__(self, ident: Any | None = ..., **kwds) -> None: ...
+    def using(cls, default_ident: Incomplete | None = ..., ident: Incomplete | None = ..., **kwds): ...  # type: ignore[override]
+    def __init__(self, ident: Incomplete | None = ..., **kwds) -> None: ...
 
 class HasSalt(GenericHandler):
     min_salt_size: ClassVar[int]
@@ -113,24 +115,24 @@ class HasRounds(GenericHandler):
     @classmethod
     def using(  # type: ignore[override]
         cls,
-        min_desired_rounds: Any | None = ...,
-        max_desired_rounds: Any | None = ...,
-        default_rounds: Any | None = ...,
-        vary_rounds: Any | None = ...,
-        min_rounds: Any | None = ...,
-        max_rounds: Any | None = ...,
-        rounds: Any | None = ...,
+        min_desired_rounds: Incomplete | None = ...,
+        max_desired_rounds: Incomplete | None = ...,
+        default_rounds: Incomplete | None = ...,
+        vary_rounds: Incomplete | None = ...,
+        min_rounds: Incomplete | None = ...,
+        max_rounds: Incomplete | None = ...,
+        rounds: Incomplete | None = ...,
         **kwds,
     ): ...
-    def __init__(self, rounds: Any | None = ..., **kwds) -> None: ...
+    def __init__(self, rounds: Incomplete | None = ..., **kwds) -> None: ...
     @classmethod
-    def bitsize(cls, rounds: Any | None = ..., vary_rounds: float = ..., **kwds): ...
+    def bitsize(cls, rounds: Incomplete | None = ..., vary_rounds: float = ..., **kwds): ...
 
 class ParallelismMixin(GenericHandler):
     parallelism: int
     @classmethod
-    def using(cls, parallelism: Any | None = ..., **kwds): ...  # type: ignore[override]
-    def __init__(self, parallelism: Any | None = ..., **kwds) -> None: ...
+    def using(cls, parallelism: Incomplete | None = ..., **kwds): ...  # type: ignore[override]
+    def __init__(self, parallelism: Incomplete | None = ..., **kwds) -> None: ...
 
 class BackendMixin(PasswordHash, metaclass=abc.ABCMeta):
     backends: ClassVar[tuple[str, ...] | None]
@@ -150,7 +152,14 @@ class PrefixWrapper:
     orig_prefix: Any
     __doc__: Any
     def __init__(
-        self, name, wrapped, prefix=..., orig_prefix=..., lazy: bool = ..., doc: Any | None = ..., ident: Any | None = ...
+        self,
+        name,
+        wrapped,
+        prefix=...,
+        orig_prefix=...,
+        lazy: bool = ...,
+        doc: Incomplete | None = ...,
+        ident: Incomplete | None = ...,
     ) -> None: ...
     @property
     def wrapped(self): ...

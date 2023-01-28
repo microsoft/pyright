@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from collections.abc import Callable, Iterable
 from datetime import timedelta
 from logging import Logger
@@ -10,7 +11,7 @@ LOG: Logger
 class CORS:
     def __init__(
         self,
-        app: Any | None = ...,
+        app: Incomplete | None = ...,
         *,
         resources: dict[str, dict[str, Any]] | list[str] | str | None = ...,
         origins: str | list[str] | None = ...,

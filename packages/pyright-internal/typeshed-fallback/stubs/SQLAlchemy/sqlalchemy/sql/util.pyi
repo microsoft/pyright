@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from . import visitors
@@ -41,15 +42,15 @@ class _repr_params(_repr_base):
     ismulti: Any
     batches: Any
     max_chars: Any
-    def __init__(self, params, batches, max_chars: int = ..., ismulti: Any | None = ...) -> None: ...
+    def __init__(self, params, batches, max_chars: int = ..., ismulti: Incomplete | None = ...) -> None: ...
 
 def adapt_criterion_to_null(crit, nulls): ...
-def splice_joins(left, right, stop_on: Any | None = ...): ...
+def splice_joins(left, right, stop_on: Incomplete | None = ...): ...
 def reduce_columns(columns, *clauses, **kw): ...
 def criterion_as_pairs(
     expression,
-    consider_as_foreign_keys: Any | None = ...,
-    consider_as_referenced_keys: Any | None = ...,
+    consider_as_foreign_keys: Incomplete | None = ...,
+    consider_as_referenced_keys: Incomplete | None = ...,
     any_operator: bool = ...,
 ): ...
 
@@ -64,12 +65,12 @@ class ClauseAdapter(visitors.ReplacingExternalTraversal):
     def __init__(
         self,
         selectable,
-        equivalents: Any | None = ...,
-        include_fn: Any | None = ...,
-        exclude_fn: Any | None = ...,
+        equivalents: Incomplete | None = ...,
+        include_fn: Incomplete | None = ...,
+        exclude_fn: Incomplete | None = ...,
         adapt_on_names: bool = ...,
         anonymize_labels: bool = ...,
-        adapt_from_selectables: Any | None = ...,
+        adapt_from_selectables: Incomplete | None = ...,
     ) -> None: ...
     def replace(self, col, _include_singleton_constants: bool = ...): ...
 
@@ -80,14 +81,14 @@ class ColumnAdapter(ClauseAdapter):
     def __init__(
         self,
         selectable,
-        equivalents: Any | None = ...,
+        equivalents: Incomplete | None = ...,
         adapt_required: bool = ...,
-        include_fn: Any | None = ...,
-        exclude_fn: Any | None = ...,
+        include_fn: Incomplete | None = ...,
+        exclude_fn: Incomplete | None = ...,
         adapt_on_names: bool = ...,
         allow_label_resolve: bool = ...,
         anonymize_labels: bool = ...,
-        adapt_from_selectables: Any | None = ...,
+        adapt_from_selectables: Incomplete | None = ...,
     ) -> None: ...
 
     class _IncludeExcludeMapping:

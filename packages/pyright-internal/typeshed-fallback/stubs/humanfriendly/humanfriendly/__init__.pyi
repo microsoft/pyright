@@ -1,4 +1,5 @@
 import datetime
+from _typeshed import Incomplete
 from re import Pattern
 from types import TracebackType
 from typing import Any, NamedTuple
@@ -36,7 +37,7 @@ class Timer:
     resumable: bool
     start_time: float
     total_time: float
-    def __init__(self, start_time: Any | None = ..., resumable: bool = ...) -> None: ...
+    def __init__(self, start_time: Incomplete | None = ..., resumable: bool = ...) -> None: ...
     def __enter__(self): ...
     def __exit__(
         self,

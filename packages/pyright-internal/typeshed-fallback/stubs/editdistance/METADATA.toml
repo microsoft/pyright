@@ -2,4 +2,3 @@ version = "0.6.*"
 
 [tool.stubtest]
 ignore_missing_stub = false
-

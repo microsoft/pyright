@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from . import fixtures
@@ -14,7 +15,7 @@ class Parent(fixtures.ComparableEntity): ...
 class Screen:
     obj: Any
     parent: Any
-    def __init__(self, obj, parent: Any | None = ...) -> None: ...
+    def __init__(self, obj, parent: Incomplete | None = ...) -> None: ...
 
 class Foo:
     data: str

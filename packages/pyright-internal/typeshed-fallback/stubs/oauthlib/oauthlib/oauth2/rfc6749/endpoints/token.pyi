@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from .base import BaseEndpoint as BaseEndpoint
@@ -19,10 +20,10 @@ class TokenEndpoint(BaseEndpoint):
         self,
         uri,
         http_method: str = ...,
-        body: Any | None = ...,
-        headers: Any | None = ...,
-        credentials: Any | None = ...,
-        grant_type_for_scope: Any | None = ...,
-        claims: Any | None = ...,
+        body: Incomplete | None = ...,
+        headers: Incomplete | None = ...,
+        credentials: Incomplete | None = ...,
+        grant_type_for_scope: Incomplete | None = ...,
+        claims: Incomplete | None = ...,
     ): ...
     def validate_token_request(self, request) -> None: ...

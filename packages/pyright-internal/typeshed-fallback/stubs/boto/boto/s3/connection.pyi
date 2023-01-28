@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from boto.connection import AWSAuthConnection
@@ -52,26 +53,26 @@ class S3Connection(AWSAuthConnection):
     anon: Any
     def __init__(
         self,
-        aws_access_key_id: Any | None = ...,
-        aws_secret_access_key: Any | None = ...,
+        aws_access_key_id: Incomplete | None = ...,
+        aws_secret_access_key: Incomplete | None = ...,
         is_secure: bool = ...,
-        port: Any | None = ...,
-        proxy: Any | None = ...,
-        proxy_port: Any | None = ...,
-        proxy_user: Any | None = ...,
-        proxy_pass: Any | None = ...,
+        port: Incomplete | None = ...,
+        proxy: Incomplete | None = ...,
+        proxy_port: Incomplete | None = ...,
+        proxy_user: Incomplete | None = ...,
+        proxy_pass: Incomplete | None = ...,
         host: Any = ...,
         debug: int = ...,
-        https_connection_factory: Any | None = ...,
+        https_connection_factory: Incomplete | None = ...,
         calling_format: Any = ...,
         path: str = ...,
         provider: str = ...,
         bucket_class: type[Bucket] = ...,
-        security_token: Any | None = ...,
+        security_token: Incomplete | None = ...,
         suppress_consec_slashes: bool = ...,
         anon: bool = ...,
-        validate_certs: Any | None = ...,
-        profile_name: Any | None = ...,
+        validate_certs: Incomplete | None = ...,
+        profile_name: Incomplete | None = ...,
     ) -> None: ...
     def __iter__(self): ...
     def __contains__(self, bucket_name): ...
@@ -82,14 +83,14 @@ class S3Connection(AWSAuthConnection):
         bucket_name,
         key,
         expires_in: int = ...,
-        acl: Any | None = ...,
-        success_action_redirect: Any | None = ...,
-        max_content_length: Any | None = ...,
+        acl: Incomplete | None = ...,
+        success_action_redirect: Incomplete | None = ...,
+        max_content_length: Incomplete | None = ...,
         http_method: str = ...,
-        fields: Any | None = ...,
-        conditions: Any | None = ...,
+        fields: Incomplete | None = ...,
+        conditions: Incomplete | None = ...,
         storage_class: str = ...,
-        server_side_encryption: Any | None = ...,
+        server_side_encryption: Incomplete | None = ...,
     ): ...
     def generate_url_sigv4(
         self,
@@ -100,8 +101,8 @@ class S3Connection(AWSAuthConnection):
         headers: dict[str, str] | None = ...,
         force_http: bool = ...,
         response_headers: dict[str, str] | None = ...,
-        version_id: Any | None = ...,
-        iso_date: Any | None = ...,
+        version_id: Incomplete | None = ...,
+        iso_date: Incomplete | None = ...,
     ): ...
     def generate_url(
         self,
@@ -114,26 +115,28 @@ class S3Connection(AWSAuthConnection):
         force_http: bool = ...,
         response_headers: dict[str, str] | None = ...,
         expires_in_absolute: bool = ...,
-        version_id: Any | None = ...,
+        version_id: Incomplete | None = ...,
     ): ...
     def get_all_buckets(self, headers: dict[str, str] | None = ...): ...
     def get_canonical_user_id(self, headers: dict[str, str] | None = ...): ...
     def get_bucket(self, bucket_name: str, validate: bool = ..., headers: dict[str, str] | None = ...) -> Bucket: ...
     def head_bucket(self, bucket_name, headers: dict[str, str] | None = ...): ...
     def lookup(self, bucket_name, validate: bool = ..., headers: dict[str, str] | None = ...): ...
-    def create_bucket(self, bucket_name, headers: dict[str, str] | None = ..., location: Any = ..., policy: Any | None = ...): ...
+    def create_bucket(
+        self, bucket_name, headers: dict[str, str] | None = ..., location: Any = ..., policy: Incomplete | None = ...
+    ): ...
     def delete_bucket(self, bucket, headers: dict[str, str] | None = ...): ...
     def make_request(  # type: ignore[override]
         self,
         method,
         bucket: str = ...,
         key: str = ...,
-        headers: Any | None = ...,
+        headers: Incomplete | None = ...,
         data: str = ...,
-        query_args: Any | None = ...,
-        sender: Any | None = ...,
-        override_num_retries: Any | None = ...,
-        retry_handler: Any | None = ...,
+        query_args: Incomplete | None = ...,
+        sender: Incomplete | None = ...,
+        override_num_retries: Incomplete | None = ...,
+        retry_handler: Incomplete | None = ...,
         *args,
         **kwargs,
     ): ...

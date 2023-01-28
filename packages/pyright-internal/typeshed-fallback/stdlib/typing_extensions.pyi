@@ -6,7 +6,7 @@ import typing
 from _collections_abc import dict_items, dict_keys, dict_values
 from _typeshed import IdentityFunction, Incomplete
 from collections.abc import Iterable
-from typing import (  # noqa: Y022,Y027,Y039
+from typing import (  # noqa: Y022,Y039
     TYPE_CHECKING as TYPE_CHECKING,
     Any as Any,
     AsyncContextManager as AsyncContextManager,
@@ -151,9 +151,9 @@ OrderedDict = _Alias()
 
 def get_type_hints(
     obj: Callable[..., Any],
-    globalns: dict[str, Any] | None = ...,
-    localns: dict[str, Any] | None = ...,
-    include_extras: bool = ...,
+    globalns: dict[str, Any] | None = None,
+    localns: dict[str, Any] | None = None,
+    include_extras: bool = False,
 ) -> dict[str, Any]: ...
 def get_args(tp: Any) -> tuple[Any, ...]: ...
 def get_origin(tp: Any) -> Any | None: ...
@@ -291,9 +291,9 @@ class ParamSpec:
         self,
         name: str,
         *,
-        bound: None | type[Any] | str = ...,
-        contravariant: bool = ...,
-        covariant: bool = ...,
+        bound: None | type[Any] | str = None,
+        contravariant: bool = False,
+        covariant: bool = False,
         default: type[Any] | str | None = ...,
     ) -> None: ...
     @property

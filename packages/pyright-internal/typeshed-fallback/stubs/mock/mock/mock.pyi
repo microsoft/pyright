@@ -1,4 +1,4 @@
-from _typeshed import Self
+from _typeshed import Incomplete, Self
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from contextlib import AbstractContextManager
 from types import TracebackType
@@ -47,8 +47,8 @@ class _Call(tuple[Any, ...]):
     def __new__(
         cls: type[Self],
         value: Any = ...,
-        name: Any | None = ...,
-        parent: Any | None = ...,
+        name: Incomplete | None = ...,
+        parent: Incomplete | None = ...,
         two: bool = ...,
         from_kall: bool = ...,
     ) -> Self: ...
@@ -56,7 +56,12 @@ class _Call(tuple[Any, ...]):
     parent: Any
     from_kall: Any
     def __init__(
-        self, value: Any = ..., name: Any | None = ..., parent: Any | None = ..., two: bool = ..., from_kall: bool = ...
+        self,
+        value: Any = ...,
+        name: Incomplete | None = ...,
+        parent: Incomplete | None = ...,
+        two: bool = ...,
+        from_kall: bool = ...,
     ) -> None: ...
     def __eq__(self, other: object) -> bool: ...
     def __ne__(self, __other: object) -> bool: ...
@@ -80,11 +85,11 @@ class NonCallableMock(Base, Any):
     def __new__(
         cls: type[Self],
         spec: list[str] | object | type[object] | None = ...,
-        wraps: Any | None = ...,
+        wraps: Incomplete | None = ...,
         name: str | None = ...,
         spec_set: list[str] | object | type[object] | None = ...,
         parent: NonCallableMock | None = ...,
-        _spec_state: Any | None = ...,
+        _spec_state: Incomplete | None = ...,
         _new_name: str = ...,
         _new_parent: NonCallableMock | None = ...,
         _spec_as_instance: bool = ...,
@@ -95,11 +100,11 @@ class NonCallableMock(Base, Any):
     def __init__(
         self,
         spec: list[str] | object | type[object] | None = ...,
-        wraps: Any | None = ...,
+        wraps: Incomplete | None = ...,
         name: str | None = ...,
         spec_set: list[str] | object | type[object] | None = ...,
         parent: NonCallableMock | None = ...,
-        _spec_state: Any | None = ...,
+        _spec_state: Incomplete | None = ...,
         _new_name: str = ...,
         _new_parent: NonCallableMock | None = ...,
         _spec_as_instance: bool = ...,
@@ -138,16 +143,16 @@ class CallableMixin(Base):
     side_effect: Any
     def __init__(
         self,
-        spec: Any | None = ...,
-        side_effect: Any | None = ...,
+        spec: Incomplete | None = ...,
+        side_effect: Incomplete | None = ...,
         return_value: Any = ...,
-        wraps: Any | None = ...,
-        name: Any | None = ...,
-        spec_set: Any | None = ...,
-        parent: Any | None = ...,
-        _spec_state: Any | None = ...,
+        wraps: Incomplete | None = ...,
+        name: Incomplete | None = ...,
+        spec_set: Incomplete | None = ...,
+        parent: Incomplete | None = ...,
+        _spec_state: Incomplete | None = ...,
         _new_name: Any = ...,
-        _new_parent: Any | None = ...,
+        _new_parent: Incomplete | None = ...,
         **kwargs: Any,
     ) -> None: ...
     def __call__(_mock_self, *args: Any, **kwargs: Any) -> Any: ...
@@ -172,11 +177,11 @@ class _patch(Generic[_T]):
         getter: Callable[[], Any],
         attribute: str,
         new: _T,
-        spec: Any | None,
+        spec: Incomplete | None,
         create: bool,
-        spec_set: Any | None,
-        autospec: Any | None,
-        new_callable: Any | None,
+        spec_set: Incomplete | None,
+        autospec: Incomplete | None,
+        new_callable: Incomplete | None,
         kwargs: Mapping[str, Any],
         *,
         unsafe: bool = ...,
@@ -222,11 +227,11 @@ class _patcher:
         self,
         target: Any,
         *,
-        spec: Any | None = ...,
+        spec: Incomplete | None = ...,
         create: bool = ...,
-        spec_set: Any | None = ...,
-        autospec: Any | None = ...,
-        new_callable: Any | None = ...,
+        spec_set: Incomplete | None = ...,
+        autospec: Incomplete | None = ...,
+        new_callable: Incomplete | None = ...,
         unsafe: bool = ...,
         **kwargs: Any,
     ) -> _patch[MagicMock | AsyncMock]: ...
@@ -238,11 +243,11 @@ class _patcher:
         self,
         target: Any,
         new: _T,
-        spec: Any | None = ...,
+        spec: Incomplete | None = ...,
         create: bool = ...,
-        spec_set: Any | None = ...,
-        autospec: Any | None = ...,
-        new_callable: Any | None = ...,
+        spec_set: Incomplete | None = ...,
+        autospec: Incomplete | None = ...,
+        new_callable: Incomplete | None = ...,
         *,
         unsafe: bool = ...,
         **kwargs: Any,
@@ -253,11 +258,11 @@ class _patcher:
         target: Any,
         attribute: str,
         *,
-        spec: Any | None = ...,
+        spec: Incomplete | None = ...,
         create: bool = ...,
-        spec_set: Any | None = ...,
-        autospec: Any | None = ...,
-        new_callable: Any | None = ...,
+        spec_set: Incomplete | None = ...,
+        autospec: Incomplete | None = ...,
+        new_callable: Incomplete | None = ...,
         unsafe: bool = ...,
         **kwargs: Any,
     ) -> _patch[MagicMock | AsyncMock]: ...
@@ -267,11 +272,11 @@ class _patcher:
         target: Any,
         attribute: str,
         new: _T,
-        spec: Any | None = ...,
+        spec: Incomplete | None = ...,
         create: bool = ...,
-        spec_set: Any | None = ...,
-        autospec: Any | None = ...,
-        new_callable: Any | None = ...,
+        spec_set: Incomplete | None = ...,
+        autospec: Incomplete | None = ...,
+        new_callable: Incomplete | None = ...,
         *,
         unsafe: bool = ...,
         **kwargs: Any,
@@ -279,11 +284,11 @@ class _patcher:
     def multiple(
         self,
         target: Any,
-        spec: Any | None = ...,
+        spec: Incomplete | None = ...,
         create: bool = ...,
-        spec_set: Any | None = ...,
-        autospec: Any | None = ...,
-        new_callable: Any | None = ...,
+        spec_set: Incomplete | None = ...,
+        autospec: Incomplete | None = ...,
+        new_callable: Incomplete | None = ...,
         *,
         unsafe: bool = ...,
         **kwargs: _T,
@@ -327,7 +332,7 @@ class MagicProxy(Base):
     parent: Any
     def __init__(self, name: str, parent: Any) -> None: ...
     def create_mock(self) -> Any: ...
-    def __get__(self, obj: Any, _type: Any | None = ...) -> Any: ...
+    def __get__(self, obj: Any, _type: Incomplete | None = ...) -> Any: ...
 
 class _ANY:
     def __eq__(self, other: object) -> Literal[True]: ...
@@ -339,8 +344,8 @@ def create_autospec(
     spec: Any,
     spec_set: Any = ...,
     instance: Any = ...,
-    _parent: Any | None = ...,
-    _name: Any | None = ...,
+    _parent: Incomplete | None = ...,
+    _name: Incomplete | None = ...,
     *,
     unsafe: bool = ...,
     **kwargs: Any,
@@ -357,13 +362,13 @@ class _SpecState:
         self,
         spec: Any,
         spec_set: Any = ...,
-        parent: Any | None = ...,
-        name: Any | None = ...,
-        ids: Any | None = ...,
+        parent: Incomplete | None = ...,
+        name: Incomplete | None = ...,
+        ids: Incomplete | None = ...,
         instance: Any = ...,
     ) -> None: ...
 
-def mock_open(mock: Any | None = ..., read_data: Any = ...) -> Any: ...
+def mock_open(mock: Incomplete | None = ..., read_data: Any = ...) -> Any: ...
 
 class PropertyMock(Mock):
     def __get__(self: Self, obj: _T, obj_type: type[_T] | None = ...) -> Self: ...

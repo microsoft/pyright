@@ -1,0 +1,13 @@
+from _typeshed import Incomplete
+from typing import overload
+
+from tensorflow import RaggedTensor, Tensor, _TensorCompatible
+from tensorflow.sparse import SparseTensor
+
+@overload
+def abs(x: _TensorCompatible, name: str | None = None) -> Tensor: ...
+@overload
+def abs(x: SparseTensor, name: str | None = None) -> SparseTensor: ...
+@overload
+def abs(x: RaggedTensor, name: str | None = None) -> RaggedTensor: ...
+def __getattr__(name: str) -> Incomplete: ...

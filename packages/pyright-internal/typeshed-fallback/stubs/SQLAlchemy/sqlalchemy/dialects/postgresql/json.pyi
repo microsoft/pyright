@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 import sqlalchemy.types as sqltypes
@@ -8,7 +9,7 @@ class JSONPathType(sqltypes.JSON.JSONPathType):
 
 class JSON(sqltypes.JSON):
     astext_type: Any
-    def __init__(self, none_as_null: bool = ..., astext_type: Any | None = ...) -> None: ...
+    def __init__(self, none_as_null: bool = ..., astext_type: Incomplete | None = ...) -> None: ...
 
     class Comparator(sqltypes.JSON.Comparator):
         @property

@@ -1,5 +1,4 @@
-from _typeshed import Self
-from typing import Any
+from _typeshed import Incomplete, Self
 
 from stripe import api_requestor as api_requestor
 from stripe.api_resources.abstract import (
@@ -20,5 +19,9 @@ class Invoice(CreateableAPIResource, DeletableAPIResource, ListableAPIResource, 
     def void_invoice(self: Self, idempotency_key: str | None = ..., **params) -> Self: ...
     @classmethod
     def upcoming(
-        cls, api_key: Any | None = ..., stripe_version: Any | None = ..., stripe_account: Any | None = ..., **params
+        cls,
+        api_key: Incomplete | None = ...,
+        stripe_version: Incomplete | None = ...,
+        stripe_account: Incomplete | None = ...,
+        **params,
     ) -> Invoice: ...

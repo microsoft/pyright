@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 import docutils.utils
@@ -12,7 +13,7 @@ class SilentReporter(docutils.utils.Reporter):
         source,
         report_level,
         halt_level,
-        stream: Any | None = ...,
+        stream: Incomplete | None = ...,
         debug: int = ...,
         encoding: str = ...,
         error_handler: str = ...,

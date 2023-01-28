@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from ..orm import interfaces
@@ -9,7 +10,7 @@ class hybrid_method(interfaces.InspectionAttrInfo):
     is_attribute: bool
     extension_type: Any
     func: Any
-    def __init__(self, func, expr: Any | None = ...) -> None: ...
+    def __init__(self, func, expr: Incomplete | None = ...) -> None: ...
     def __get__(self, instance, owner): ...
     expr: Any
     def expression(self, expr): ...
@@ -26,11 +27,11 @@ class hybrid_property(interfaces.InspectionAttrInfo):
     def __init__(
         self,
         fget,
-        fset: Any | None = ...,
-        fdel: Any | None = ...,
-        expr: Any | None = ...,
-        custom_comparator: Any | None = ...,
-        update_expr: Any | None = ...,
+        fset: Incomplete | None = ...,
+        fdel: Incomplete | None = ...,
+        expr: Incomplete | None = ...,
+        custom_comparator: Incomplete | None = ...,
+        update_expr: Incomplete | None = ...,
     ) -> None: ...
     def __get__(self, instance, owner): ...
     def __set__(self, instance, value) -> None: ...

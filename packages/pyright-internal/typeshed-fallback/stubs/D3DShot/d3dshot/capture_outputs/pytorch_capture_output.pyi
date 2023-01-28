@@ -6,8 +6,7 @@ from typing_extensions import Literal, TypeAlias
 from d3dshot.capture_output import CaptureOutput
 from PIL import Image
 
-# TODO: Complete types once we can import non-types dependencies
-# See: https://github.com/python/typeshed/issues/5768
+# stub_uploader doesn't allow torch because D3DShot doesn't declare it as a dependency
 # from torch import Tensor
 _Tensor: TypeAlias = Incomplete
 

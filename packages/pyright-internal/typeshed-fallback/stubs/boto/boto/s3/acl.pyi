@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from .connection import S3Connection
@@ -9,7 +10,7 @@ class Policy:
     parent: Any
     namespace: Any
     acl: ACL
-    def __init__(self, parent: Any | None = ...) -> None: ...
+    def __init__(self, parent: Incomplete | None = ...) -> None: ...
     owner: User
     def startElement(self, name: str, attrs: dict[str, Any], connection: S3Connection) -> None | User | ACL: ...
     def endElement(self, name: str, value: Any, connection: S3Connection) -> None: ...

@@ -11,7 +11,10 @@ class Fragment:
     characters: list[str]
     graphics_state: dict[str, Incomplete]
     k: float
-    def __init__(self, characters: list[str] | str, graphics_state: dict[str, Incomplete], k: float) -> None: ...
+    url: str | None
+    def __init__(
+        self, characters: list[str] | str, graphics_state: dict[str, Incomplete], k: float, url: str | None = None
+    ) -> None: ...
     @property
     def font(self): ...
     @font.setter
@@ -96,6 +99,7 @@ class CurrentLine:
         k: float,
         original_fragment_index: int,
         original_character_index: int,
+        url: str | None = None,
     ): ...
     def manual_break(self, justify: bool = ..., trailing_nl: bool = ...): ...
     def automatic_break_possible(self): ...

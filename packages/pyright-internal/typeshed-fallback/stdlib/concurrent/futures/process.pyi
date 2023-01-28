@@ -55,7 +55,7 @@ class _ResultItem:
     if sys.version_info >= (3, 11):
         exit_pid: int | None
         def __init__(
-            self, work_id: int, exception: Exception | None = ..., result: Any | None = ..., exit_pid: int | None = ...
+            self, work_id: int, exception: Exception | None = None, result: Any | None = None, exit_pid: int | None = None
         ) -> None: ...
     else:
         def __init__(self, work_id: int, exception: Exception | None = ..., result: Any | None = ...) -> None: ...
@@ -74,7 +74,7 @@ class _SafeQueue(Queue[Future[Any]]):
     if sys.version_info >= (3, 9):
         def __init__(
             self,
-            max_size: int | None = ...,
+            max_size: int | None = 0,
             *,
             ctx: BaseContext,
             pending_work_items: dict[int, _WorkItem[Any]],
@@ -95,9 +95,9 @@ if sys.version_info >= (3, 11):
     def _sendback_result(
         result_queue: SimpleQueue[_WorkItem[Any]],
         work_id: int,
-        result: Any | None = ...,
-        exception: Exception | None = ...,
-        exit_pid: int | None = ...,
+        result: Any | None = None,
+        exception: Exception | None = None,
+        exit_pid: int | None = None,
     ) -> None: ...
 
 else:
@@ -111,7 +111,7 @@ if sys.version_info >= (3, 11):
         result_queue: SimpleQueue[_ResultItem],
         initializer: Callable[..., object] | None,
         initargs: tuple[Any, ...],
-        max_tasks: int | None = ...,
+        max_tasks: int | None = None,
     ) -> None: ...
 
 else:
@@ -171,12 +171,12 @@ class ProcessPoolExecutor(Executor):
     if sys.version_info >= (3, 11):
         def __init__(
             self,
-            max_workers: int | None = ...,
-            mp_context: BaseContext | None = ...,
-            initializer: Callable[..., object] | None = ...,
+            max_workers: int | None = None,
+            mp_context: BaseContext | None = None,
+            initializer: Callable[..., object] | None = None,
             initargs: tuple[Any, ...] = ...,
             *,
-            max_tasks_per_child: int | None = ...,
+            max_tasks_per_child: int | None = None,
         ) -> None: ...
     else:
         def __init__(

@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from . import Connector
@@ -12,7 +13,7 @@ class PyODBCConnector(Connector):
     default_paramstyle: str
     use_setinputsizes: bool
     pyodbc_driver_name: Any
-    def __init__(self, supports_unicode_binds: Any | None = ..., use_setinputsizes: bool = ..., **kw) -> None: ...
+    def __init__(self, supports_unicode_binds: Incomplete | None = ..., use_setinputsizes: bool = ..., **kw) -> None: ...
     @classmethod
     def dbapi(cls): ...
     def create_connect_args(self, url): ...

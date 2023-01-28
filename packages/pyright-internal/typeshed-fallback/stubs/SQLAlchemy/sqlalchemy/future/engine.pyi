@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any, overload
 from typing_extensions import Literal
 
@@ -12,7 +13,7 @@ NO_OPTIONS: Any
 def create_engine(url: URL | str, *, strategy: Literal["mock"], **kwargs) -> MockConnection: ...  # type: ignore[misc]
 @overload
 def create_engine(
-    url: URL | str, *, module: Any | None = ..., enable_from_linting: bool = ..., future: bool = ..., **kwargs
+    url: URL | str, *, module: Incomplete | None = ..., enable_from_linting: bool = ..., future: bool = ..., **kwargs
 ) -> Engine: ...
 
 class Connection(_LegacyConnection):
@@ -21,8 +22,8 @@ class Connection(_LegacyConnection):
     def commit(self) -> None: ...
     def rollback(self) -> None: ...
     def close(self) -> None: ...
-    def execute(self, statement, parameters: Any | None = ..., execution_options: Any | None = ...): ...  # type: ignore[override]
-    def scalar(self, statement, parameters: Any | None = ..., execution_options: Any | None = ...): ...  # type: ignore[override]
+    def execute(self, statement, parameters: Incomplete | None = ..., execution_options: Incomplete | None = ...): ...  # type: ignore[override]
+    def scalar(self, statement, parameters: Incomplete | None = ..., execution_options: Incomplete | None = ...): ...  # type: ignore[override]
 
 class Engine(_LegacyEngine):
     transaction: Any

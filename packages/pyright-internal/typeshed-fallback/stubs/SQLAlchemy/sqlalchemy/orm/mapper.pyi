@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from ..sql import base as sql_base
@@ -45,27 +46,27 @@ class Mapper(ORMFromClauseRole, ORMEntityColumnsClauseRole, sql_base.MemoizedHas
     def __init__(
         self,
         class_,
-        local_table: Any | None = ...,
-        properties: Any | None = ...,
-        primary_key: Any | None = ...,
+        local_table: Incomplete | None = ...,
+        properties: Incomplete | None = ...,
+        primary_key: Incomplete | None = ...,
         non_primary: bool = ...,
-        inherits: Any | None = ...,
-        inherit_condition: Any | None = ...,
-        inherit_foreign_keys: Any | None = ...,
+        inherits: Incomplete | None = ...,
+        inherit_condition: Incomplete | None = ...,
+        inherit_foreign_keys: Incomplete | None = ...,
         always_refresh: bool = ...,
-        version_id_col: Any | None = ...,
-        version_id_generator: Any | None = ...,
-        polymorphic_on: Any | None = ...,
-        _polymorphic_map: Any | None = ...,
-        polymorphic_identity: Any | None = ...,
+        version_id_col: Incomplete | None = ...,
+        version_id_generator: Incomplete | None = ...,
+        polymorphic_on: Incomplete | None = ...,
+        _polymorphic_map: Incomplete | None = ...,
+        polymorphic_identity: Incomplete | None = ...,
         concrete: bool = ...,
-        with_polymorphic: Any | None = ...,
-        polymorphic_load: Any | None = ...,
+        with_polymorphic: Incomplete | None = ...,
+        polymorphic_load: Incomplete | None = ...,
         allow_partial_pks: bool = ...,
         batch: bool = ...,
-        column_prefix: Any | None = ...,
-        include_properties: Any | None = ...,
-        exclude_properties: Any | None = ...,
+        column_prefix: Incomplete | None = ...,
+        include_properties: Incomplete | None = ...,
+        exclude_properties: Incomplete | None = ...,
         passive_updates: bool = ...,
         passive_deletes: bool = ...,
         confirm_deleted_rows: bool = ...,
@@ -125,11 +126,11 @@ class Mapper(ORMFromClauseRole, ORMEntityColumnsClauseRole, sql_base.MemoizedHas
     def primary_mapper(self): ...
     @property
     def primary_base_mapper(self): ...
-    def identity_key_from_row(self, row, identity_token: Any | None = ..., adapter: Any | None = ...): ...
-    def identity_key_from_primary_key(self, primary_key, identity_token: Any | None = ...): ...
+    def identity_key_from_row(self, row, identity_token: Incomplete | None = ..., adapter: Incomplete | None = ...): ...
+    def identity_key_from_primary_key(self, primary_key, identity_token: Incomplete | None = ...): ...
     def identity_key_from_instance(self, instance): ...
     def primary_key_from_instance(self, instance): ...
-    def cascade_iterator(self, type_, state, halt_on: Any | None = ...) -> None: ...
+    def cascade_iterator(self, type_, state, halt_on: Incomplete | None = ...) -> None: ...
 
 class _OptGetColumnsNotAvailable(Exception): ...
 

@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from ..sql import base as sql_base, expression, util as sql_util
@@ -40,7 +41,7 @@ class ORMAdapter(sql_util.ColumnAdapter):
     def __init__(
         self,
         entity,
-        equivalents: Any | None = ...,
+        equivalents: Incomplete | None = ...,
         adapt_required: bool = ...,
         allow_label_resolve: bool = ...,
         anonymize_labels: bool = ...,
@@ -51,13 +52,13 @@ class AliasedClass:
     def __init__(
         self,
         mapped_class_or_ac,
-        alias: Any | None = ...,
-        name: Any | None = ...,
+        alias: Incomplete | None = ...,
+        name: Incomplete | None = ...,
         flat: bool = ...,
         adapt_on_names: bool = ...,
         with_polymorphic_mappers=...,
-        with_polymorphic_discriminator: Any | None = ...,
-        base_alias: Any | None = ...,
+        with_polymorphic_discriminator: Incomplete | None = ...,
+        base_alias: Incomplete | None = ...,
         use_mapper_path: bool = ...,
         represents_outer_join: bool = ...,
     ) -> None: ...
@@ -118,18 +119,20 @@ class LoaderCriteriaOption(CriteriaOption):
     def process_compile_state(self, compile_state) -> None: ...
     def get_global_criteria(self, attributes) -> None: ...
 
-def aliased(element, alias: Any | None = ..., name: Any | None = ..., flat: bool = ..., adapt_on_names: bool = ...): ...
+def aliased(
+    element, alias: Incomplete | None = ..., name: Incomplete | None = ..., flat: bool = ..., adapt_on_names: bool = ...
+): ...
 def with_polymorphic(
     base,
     classes,
     selectable: bool = ...,
     flat: bool = ...,
-    polymorphic_on: Any | None = ...,
+    polymorphic_on: Incomplete | None = ...,
     aliased: bool = ...,
     adapt_on_names: bool = ...,
     innerjoin: bool = ...,
     _use_mapper_path: bool = ...,
-    _existing_alias: Any | None = ...,
+    _existing_alias: Incomplete | None = ...,
 ) -> AliasedClass: ...
 
 class Bundle(ORMColumnsClauseRole, SupportsCloneAnnotations, sql_base.MemoizedHasCacheKey, InspectionAttr):
@@ -163,19 +166,28 @@ class _ORMJoin(expression.Join):
         self,
         left,
         right,
-        onclause: Any | None = ...,
+        onclause: Incomplete | None = ...,
         isouter: bool = ...,
         full: bool = ...,
-        _left_memo: Any | None = ...,
-        _right_memo: Any | None = ...,
+        _left_memo: Incomplete | None = ...,
+        _right_memo: Incomplete | None = ...,
         _extra_criteria=...,
     ) -> None: ...
-    def join(self, right, onclause: Any | None = ..., isouter: bool = ..., full: bool = ..., join_to_left: Any | None = ...): ...
-    def outerjoin(self, right, onclause: Any | None = ..., full: bool = ..., join_to_left: Any | None = ...): ...
+    def join(
+        self,
+        right,
+        onclause: Incomplete | None = ...,
+        isouter: bool = ...,
+        full: bool = ...,
+        join_to_left: Incomplete | None = ...,
+    ): ...
+    def outerjoin(self, right, onclause: Incomplete | None = ..., full: bool = ..., join_to_left: Incomplete | None = ...): ...
 
-def join(left, right, onclause: Any | None = ..., isouter: bool = ..., full: bool = ..., join_to_left: Any | None = ...): ...
-def outerjoin(left, right, onclause: Any | None = ..., full: bool = ..., join_to_left: Any | None = ...): ...
-def with_parent(instance, prop, from_entity: Any | None = ...): ...
+def join(
+    left, right, onclause: Incomplete | None = ..., isouter: bool = ..., full: bool = ..., join_to_left: Incomplete | None = ...
+): ...
+def outerjoin(left, right, onclause: Incomplete | None = ..., full: bool = ..., join_to_left: Incomplete | None = ...): ...
+def with_parent(instance, prop, from_entity: Incomplete | None = ...): ...
 def has_identity(object_): ...
 def was_deleted(object_): ...
 def randomize_unitofwork() -> None: ...

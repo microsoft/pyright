@@ -1,4 +1,4 @@
-from _typeshed import Self
+from _typeshed import Incomplete, Self
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any
 from typing_extensions import Literal, TypeAlias
@@ -18,7 +18,7 @@ class BuiltinFilter(MultibandFilter):
 class Kernel(BuiltinFilter):
     name: str
     filterargs: _FilterArgs
-    def __init__(self, size: Sequence[int], kernel: Sequence[int], scale: Any | None = ..., offset: int = ...) -> None: ...
+    def __init__(self, size: Sequence[int], kernel: Sequence[int], scale: Incomplete | None = ..., offset: int = ...) -> None: ...
 
 class RankFilter(Filter):
     name: str
@@ -133,6 +133,6 @@ class Color3DLUT(MultibandFilter):
         callback: Callable[..., Iterable[float]],
         with_normals: bool = ...,
         channels: Literal[3, 4] | None = ...,
-        target_mode: Any | None = ...,
+        target_mode: Incomplete | None = ...,
     ) -> Self: ...
     def filter(self, image) -> Image: ...

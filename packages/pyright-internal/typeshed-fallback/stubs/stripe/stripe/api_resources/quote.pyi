@@ -1,4 +1,4 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from stripe import api_requestor as api_requestor
 from stripe.api_resources.abstract import (
@@ -16,9 +16,9 @@ class Quote(CreateableAPIResource, ListableAPIResource, UpdateableAPIResource):
     def list_line_items(self, idempotency_key: str | None = ..., **params): ...
     def pdf(
         self,
-        api_key: Any | None = ...,
-        api_version: Any | None = ...,
-        stripe_version: Any | None = ...,
-        stripe_account: Any | None = ...,
+        api_key: Incomplete | None = ...,
+        api_version: Incomplete | None = ...,
+        stripe_version: Incomplete | None = ...,
+        stripe_account: Incomplete | None = ...,
         **params,
     ): ...

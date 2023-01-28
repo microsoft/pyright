@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any, Generic, TypeVar
 
 from . import attributes, strategies
@@ -20,20 +21,20 @@ class DynamicAttributeImpl(attributes.AttributeImpl):
     target_mapper: Any
     query_class: Any
     def __init__(
-        self, class_, key, typecallable, dispatch, target_mapper, order_by, query_class: Any | None = ..., **kw
+        self, class_, key, typecallable, dispatch, target_mapper, order_by, query_class: Incomplete | None = ..., **kw
     ) -> None: ...
     def get(self, state, dict_, passive=...): ...
-    def get_collection(self, state, dict_, user_data: Any | None = ..., passive=...): ...
-    def fire_append_event(self, state, dict_, value, initiator, collection_history: Any | None = ...) -> None: ...
-    def fire_remove_event(self, state, dict_, value, initiator, collection_history: Any | None = ...) -> None: ...
+    def get_collection(self, state, dict_, user_data: Incomplete | None = ..., passive=...): ...
+    def fire_append_event(self, state, dict_, value, initiator, collection_history: Incomplete | None = ...) -> None: ...
+    def fire_remove_event(self, state, dict_, value, initiator, collection_history: Incomplete | None = ...) -> None: ...
     def set(
         self,
         state,
         dict_,
         value,
-        initiator: Any | None = ...,
+        initiator: Incomplete | None = ...,
         passive=...,
-        check_old: Any | None = ...,
+        check_old: Incomplete | None = ...,
         pop: bool = ...,
         _adapt: bool = ...,
     ) -> None: ...
@@ -73,7 +74,7 @@ class CollectionHistory:
     unchanged_items: Any
     added_items: Any
     deleted_items: Any
-    def __init__(self, attr, state, apply_to: Any | None = ...) -> None: ...
+    def __init__(self, attr, state, apply_to: Incomplete | None = ...) -> None: ...
     @property
     def added_plus_unchanged(self): ...
     @property

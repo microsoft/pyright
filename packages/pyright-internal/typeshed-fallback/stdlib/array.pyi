@@ -3,7 +3,7 @@ from _typeshed import ReadableBuffer, Self, SupportsRead, SupportsWrite
 from collections.abc import Iterable
 
 # pytype crashes if array inherits from collections.abc.MutableSequence instead of typing.MutableSequence
-from typing import Any, Generic, MutableSequence, TypeVar, overload  # noqa: Y027
+from typing import Any, Generic, MutableSequence, TypeVar, overload  # noqa: Y022
 from typing_extensions import Literal, SupportsIndex, TypeAlias
 
 _IntTypeCode: TypeAlias = Literal["b", "B", "h", "H", "i", "I", "l", "L", "q", "Q"]

@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from ...sql import expression
@@ -10,7 +11,7 @@ class aggregate_order_by(expression.ColumnElement[Any]):
     type: Any
     order_by: Any
     def __init__(self, target, *order_by) -> None: ...
-    def self_group(self, against: Any | None = ...): ...
+    def self_group(self, against: Incomplete | None = ...): ...
     def get_children(self, **kwargs): ...
 
 class ExcludeConstraint(ColumnCollectionConstraint):

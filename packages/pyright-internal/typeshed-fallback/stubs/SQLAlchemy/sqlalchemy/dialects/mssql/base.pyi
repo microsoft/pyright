@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any, overload
 from typing_extensions import Literal
 
@@ -46,7 +47,7 @@ class _MSDate(sqltypes.Date):
 
 class TIME(sqltypes.TIME):
     precision: Any
-    def __init__(self, precision: Any | None = ..., **kwargs) -> None: ...
+    def __init__(self, precision: Incomplete | None = ..., **kwargs) -> None: ...
     def bind_processor(self, dialect): ...
     def result_processor(self, dialect, coltype): ...
 
@@ -66,12 +67,12 @@ class SMALLDATETIME(_DateTimeBase, sqltypes.DateTime):
 class DATETIME2(_DateTimeBase, sqltypes.DateTime):
     __visit_name__: str
     precision: Any
-    def __init__(self, precision: Any | None = ..., **kw) -> None: ...
+    def __init__(self, precision: Incomplete | None = ..., **kw) -> None: ...
 
 class DATETIMEOFFSET(_DateTimeBase, sqltypes.DateTime):
     __visit_name__: str
     precision: Any
-    def __init__(self, precision: Any | None = ..., **kw) -> None: ...
+    def __init__(self, precision: Incomplete | None = ..., **kw) -> None: ...
 
 class _UnicodeLiteral:
     def literal_processor(self, dialect): ...
@@ -100,7 +101,7 @@ class VARBINARY(sqltypes.VARBINARY, sqltypes.LargeBinary):
     @overload
     def __init__(self, *, filestream: Literal[True]) -> None: ...
     @overload
-    def __init__(self, length: Any | None = ..., filestream: Literal[False] = ...) -> None: ...
+    def __init__(self, length: Incomplete | None = ..., filestream: Literal[False] = ...) -> None: ...
 
 class IMAGE(sqltypes.LargeBinary):
     __visit_name__: str
@@ -222,7 +223,7 @@ class MSSQLCompiler(compiler.SQLCompiler):
     def translate_select_structure(self, select_stmt, **kwargs): ...
     def visit_table(self, table, mssql_aliased: bool = ..., iscrud: bool = ..., **kwargs): ...  # type: ignore[override]
     def visit_alias(self, alias, **kw): ...
-    def visit_column(self, column, add_to_result_map: Any | None = ..., **kw): ...  # type: ignore[override]
+    def visit_column(self, column, add_to_result_map: Incomplete | None = ..., **kw): ...  # type: ignore[override]
     def visit_extract(self, extract, **kw): ...
     def visit_savepoint(self, savepoint_stmt): ...
     def visit_rollback_to_savepoint(self, savepoint_stmt): ...
@@ -261,7 +262,7 @@ class MSDDLCompiler(compiler.DDLCompiler):
 class MSIdentifierPreparer(compiler.IdentifierPreparer):
     reserved_words: Any
     def __init__(self, dialect) -> None: ...
-    def quote_schema(self, schema, force: Any | None = ...): ...
+    def quote_schema(self, schema, force: Incomplete | None = ...): ...
 
 class MSDialect(default.DefaultDialect):
     name: str
@@ -295,14 +296,14 @@ class MSDialect(default.DefaultDialect):
     isolation_level: Any
     def __init__(
         self,
-        query_timeout: Any | None = ...,
+        query_timeout: Incomplete | None = ...,
         use_scope_identity: bool = ...,
         schema_name: str = ...,
-        isolation_level: Any | None = ...,
-        deprecate_large_types: Any | None = ...,
-        json_serializer: Any | None = ...,
-        json_deserializer: Any | None = ...,
-        legacy_schema_aliasing: Any | None = ...,
+        isolation_level: Incomplete | None = ...,
+        deprecate_large_types: Incomplete | None = ...,
+        json_serializer: Incomplete | None = ...,
+        json_deserializer: Incomplete | None = ...,
+        legacy_schema_aliasing: Incomplete | None = ...,
         ignore_no_transaction_on_rollback: bool = ...,
         **opts,
     ) -> None: ...

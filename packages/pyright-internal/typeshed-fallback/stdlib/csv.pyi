@@ -121,9 +121,9 @@ class DictWriter(Generic[_T]):
         self,
         f: SupportsWrite[str],
         fieldnames: Collection[_T],
-        restval: Any | None = ...,
-        extrasaction: Literal["raise", "ignore"] = ...,
-        dialect: _DialectLike = ...,
+        restval: Any | None = "",
+        extrasaction: Literal["raise", "ignore"] = "raise",
+        dialect: _DialectLike = "excel",
         *,
         delimiter: str = ...,
         quotechar: str | None = ...,
@@ -146,5 +146,5 @@ class DictWriter(Generic[_T]):
 
 class Sniffer:
     preferred: list[str]
-    def sniff(self, sample: str, delimiters: str | None = ...) -> type[Dialect]: ...
+    def sniff(self, sample: str, delimiters: str | None = None) -> type[Dialect]: ...
     def has_header(self, sample: str) -> bool: ...

@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from passlib.exc import (
@@ -14,10 +15,10 @@ class AppWallet:
     default_tag: Any
     def __init__(
         self,
-        secrets: Any | None = ...,
-        default_tag: Any | None = ...,
-        encrypt_cost: Any | None = ...,
-        secrets_path: Any | None = ...,
+        secrets: Incomplete | None = ...,
+        default_tag: Incomplete | None = ...,
+        encrypt_cost: Incomplete | None = ...,
+        secrets_path: Incomplete | None = ...,
     ) -> None: ...
     @property
     def has_secrets(self): ...
@@ -39,27 +40,27 @@ class TOTP:
     @classmethod
     def using(
         cls,
-        digits: Any | None = ...,
-        alg: Any | None = ...,
-        period: Any | None = ...,
-        issuer: Any | None = ...,
-        wallet: Any | None = ...,
-        now: Any | None = ...,
+        digits: Incomplete | None = ...,
+        alg: Incomplete | None = ...,
+        period: Incomplete | None = ...,
+        issuer: Incomplete | None = ...,
+        wallet: Incomplete | None = ...,
+        now: Incomplete | None = ...,
         **kwds,
     ): ...
     @classmethod
     def new(cls, **kwds): ...
     def __init__(
         self,
-        key: Any | None = ...,
+        key: Incomplete | None = ...,
         format: str = ...,
         new: bool = ...,
-        digits: Any | None = ...,
-        alg: Any | None = ...,
-        size: Any | None = ...,
-        period: Any | None = ...,
-        label: Any | None = ...,
-        issuer: Any | None = ...,
+        digits: Incomplete | None = ...,
+        alg: Incomplete | None = ...,
+        size: Incomplete | None = ...,
+        period: Incomplete | None = ...,
+        label: Incomplete | None = ...,
+        issuer: Incomplete | None = ...,
         changed: bool = ...,
         **kwds,
     ) -> None: ...
@@ -79,21 +80,23 @@ class TOTP:
     @classmethod
     def normalize_time(cls, time): ...
     def normalize_token(self_or_cls, token): ...
-    def generate(self, time: Any | None = ...): ...
+    def generate(self, time: Incomplete | None = ...): ...
     @classmethod
     def verify(cls, token, source, **kwds): ...
-    def match(self, token, time: Any | None = ..., window: int = ..., skew: int = ..., last_counter: Any | None = ...): ...
+    def match(
+        self, token, time: Incomplete | None = ..., window: int = ..., skew: int = ..., last_counter: Incomplete | None = ...
+    ): ...
     @classmethod
     def from_source(cls, source): ...
     @classmethod
     def from_uri(cls, uri): ...
-    def to_uri(self, label: Any | None = ..., issuer: Any | None = ...): ...
+    def to_uri(self, label: Incomplete | None = ..., issuer: Incomplete | None = ...): ...
     @classmethod
     def from_json(cls, source): ...
-    def to_json(self, encrypt: Any | None = ...): ...
+    def to_json(self, encrypt: Incomplete | None = ...): ...
     @classmethod
     def from_dict(cls, source): ...
-    def to_dict(self, encrypt: Any | None = ...): ...
+    def to_dict(self, encrypt: Incomplete | None = ...): ...
 
 class TotpToken(SequenceMixin):
     totp: Any

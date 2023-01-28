@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any, ClassVar
 
 class HasDescriptionCode:
@@ -21,7 +22,7 @@ class AmbiguousForeignKeysError(ArgumentError): ...
 class CircularDependencyError(SQLAlchemyError):
     cycles: Any
     edges: Any
-    def __init__(self, message, cycles, edges, msg: Any | None = ..., code: Any | None = ...) -> None: ...
+    def __init__(self, message, cycles, edges, msg: Incomplete | None = ..., code: Incomplete | None = ...) -> None: ...
     def __reduce__(self): ...
 
 class CompileError(SQLAlchemyError): ...
@@ -82,7 +83,14 @@ class StatementError(SQLAlchemyError):
     hide_parameters: Any
     detail: Any
     def __init__(
-        self, message, statement, params, orig, hide_parameters: bool = ..., code: Any | None = ..., ismulti: Any | None = ...
+        self,
+        message,
+        statement,
+        params,
+        orig,
+        hide_parameters: bool = ...,
+        code: Incomplete | None = ...,
+        ismulti: Incomplete | None = ...,
     ) -> None: ...
     def add_detail(self, msg) -> None: ...
     def __reduce__(self): ...
@@ -98,8 +106,8 @@ class DBAPIError(StatementError):
         dbapi_base_err,
         hide_parameters: bool = ...,
         connection_invalidated: bool = ...,
-        dialect: Any | None = ...,
-        ismulti: Any | None = ...,
+        dialect: Incomplete | None = ...,
+        ismulti: Incomplete | None = ...,
     ): ...
     def __reduce__(self): ...
     connection_invalidated: Any
@@ -110,8 +118,8 @@ class DBAPIError(StatementError):
         orig,
         hide_parameters: bool = ...,
         connection_invalidated: bool = ...,
-        code: Any | None = ...,
-        ismulti: Any | None = ...,
+        code: Incomplete | None = ...,
+        ismulti: Incomplete | None = ...,
     ) -> None: ...
 
 class InterfaceError(DBAPIError): ...

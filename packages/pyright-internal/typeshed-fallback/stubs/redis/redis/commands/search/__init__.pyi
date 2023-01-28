@@ -1,4 +1,4 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from .commands import SearchCommands
 
@@ -10,7 +10,7 @@ class Search(SearchCommands):
             doc_id,
             nosave: bool = ...,
             score: float = ...,
-            payload: Any | None = ...,
+            payload: Incomplete | None = ...,
             replace: bool = ...,
             partial: bool = ...,
             no_create: bool = ...,

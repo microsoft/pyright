@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from . import roles
@@ -41,7 +42,7 @@ class UpdateBase(roles.DMLRole, HasCTE, HasCompileState, DialectKWArgs, HasPrefi
     def returning(self, *cols) -> None: ...
     @property
     def exported_columns(self): ...
-    def with_hint(self, text, selectable: Any | None = ..., dialect_name: str = ...) -> None: ...
+    def with_hint(self, text, selectable: Incomplete | None = ..., dialect_name: str = ...) -> None: ...
 
 class ValuesBase(UpdateBase):
     __visit_name__: str
@@ -59,11 +60,11 @@ class Insert(ValuesBase):
     def __init__(
         self,
         table,
-        values: Any | None = ...,
+        values: Incomplete | None = ...,
         inline: bool = ...,
-        bind: Any | None = ...,
-        prefixes: Any | None = ...,
-        returning: Any | None = ...,
+        bind: Incomplete | None = ...,
+        prefixes: Incomplete | None = ...,
+        returning: Incomplete | None = ...,
         return_defaults: bool = ...,
         **dialect_kw,
     ) -> None: ...
@@ -83,12 +84,12 @@ class Update(DMLWhereBase, ValuesBase):
     def __init__(
         self,
         table,
-        whereclause: Any | None = ...,
-        values: Any | None = ...,
+        whereclause: Incomplete | None = ...,
+        values: Incomplete | None = ...,
         inline: bool = ...,
-        bind: Any | None = ...,
-        prefixes: Any | None = ...,
-        returning: Any | None = ...,
+        bind: Incomplete | None = ...,
+        prefixes: Incomplete | None = ...,
+        returning: Incomplete | None = ...,
         return_defaults: bool = ...,
         preserve_parameter_order: bool = ...,
         **dialect_kw,
@@ -103,9 +104,9 @@ class Delete(DMLWhereBase, UpdateBase):
     def __init__(
         self,
         table,
-        whereclause: Any | None = ...,
-        bind: Any | None = ...,
-        returning: Any | None = ...,
-        prefixes: Any | None = ...,
+        whereclause: Incomplete | None = ...,
+        bind: Incomplete | None = ...,
+        returning: Incomplete | None = ...,
+        prefixes: Incomplete | None = ...,
         **dialect_kw,
     ) -> None: ...

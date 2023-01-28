@@ -6,8 +6,7 @@ from typing_extensions import Literal, TypeAlias
 from d3dshot.capture_output import CaptureOutput
 from PIL import Image
 
-# TODO: Complete types once we can import non-types dependencies
-# See: #5768
+# stub_uploader doesn't allow numpy because D3DShot doesn't declare it as a dependency
 # import numpy as np
 # import numpy.typing as npt
 # _NDArray: TypeAlias = npt.NDArray[np.int32]

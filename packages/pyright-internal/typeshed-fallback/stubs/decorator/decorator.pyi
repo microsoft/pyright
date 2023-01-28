@@ -1,10 +1,11 @@
+import inspect
 from builtins import dict as _dict  # alias to avoid conflicts with attribute name
 from collections.abc import Callable, Iterator
 from contextlib import _GeneratorContextManager
 from inspect import Signature, getfullargspec as getfullargspec, iscoroutinefunction as iscoroutinefunction
 from re import Pattern
 from typing import Any, TypeVar
-from typing_extensions import ParamSpec
+from typing_extensions import Literal, ParamSpec
 
 _C = TypeVar("_C", bound=Callable[..., Any])
 _Func = TypeVar("_Func", bound=Callable[..., Any])
@@ -14,6 +15,7 @@ _P = ParamSpec("_P")
 def get_init(cls: type) -> None: ...
 
 DEF: Pattern[str]
+POS: Literal[inspect._ParameterKind.POSITIONAL_OR_KEYWORD]
 
 class FunctionMaker:
     args: list[str]

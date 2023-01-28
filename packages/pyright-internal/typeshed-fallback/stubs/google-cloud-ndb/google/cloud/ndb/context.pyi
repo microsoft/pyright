@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from collections.abc import Callable
 from typing import Any, NamedTuple
 
@@ -35,24 +36,24 @@ class _Context(_ContextTuple):
     def __new__(
         cls,
         client,
-        id: Any | None = ...,
+        id: Incomplete | None = ...,
         namespace=...,
-        eventloop: Any | None = ...,
-        batches: Any | None = ...,
-        commit_batches: Any | None = ...,
-        transaction: Any | None = ...,
-        cache: Any | None = ...,
-        cache_policy: Any | None = ...,
-        global_cache: Any | None = ...,
+        eventloop: Incomplete | None = ...,
+        batches: Incomplete | None = ...,
+        commit_batches: Incomplete | None = ...,
+        transaction: Incomplete | None = ...,
+        cache: Incomplete | None = ...,
+        cache_policy: Incomplete | None = ...,
+        global_cache: Incomplete | None = ...,
         global_cache_policy: Callable[[Key], bool] | None = ...,
-        global_cache_timeout_policy: Any | None = ...,
-        datastore_policy: Any | None = ...,
-        on_commit_callbacks: Any | None = ...,
-        transaction_complete_callbacks: Any | None = ...,
+        global_cache_timeout_policy: Incomplete | None = ...,
+        datastore_policy: Incomplete | None = ...,
+        on_commit_callbacks: Incomplete | None = ...,
+        transaction_complete_callbacks: Incomplete | None = ...,
         legacy_data: bool = ...,
-        retry: Any | None = ...,
-        rpc_time: Any | None = ...,
-        wait_time: Any | None = ...,
+        retry: Incomplete | None = ...,
+        rpc_time: Incomplete | None = ...,
+        wait_time: Incomplete | None = ...,
     ): ...
     def new(self, **kwargs): ...
     rpc_time: int

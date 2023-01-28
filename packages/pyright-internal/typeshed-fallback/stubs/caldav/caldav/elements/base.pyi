@@ -1,4 +1,4 @@
-from _typeshed import Self
+from _typeshed import Incomplete, Self
 from collections.abc import Iterable
 from typing import Any, ClassVar
 from typing_extensions import TypeAlias
@@ -9,8 +9,8 @@ class BaseElement:
     tag: ClassVar[str | None]
     children: list[BaseElement]
     value: str | None
-    attributes: Any | None
-    caldav_class: Any | None
+    attributes: Incomplete | None
+    caldav_class: Incomplete | None
     def __init__(self, name: str | None = ..., value: str | bytes | None = ...) -> None: ...
     def __add__(self: Self, other: BaseElement) -> Self: ...
     def xmlelement(self) -> _Element: ...

@@ -1,6 +1,7 @@
 from _typeshed import Incomplete
 from typing_extensions import Final
 
+from .encryption import StandardSecurityHandler
 from .output import ContentWithoutID, OutputProducer
 from .syntax import PDFContentStream, PDFObject
 
@@ -34,7 +35,7 @@ class PDFXrefAndTrailer(ContentWithoutID):
     def is_first_xref(self) -> bool: ...
     @property
     def is_main_xref(self) -> bool: ...
-    def serialize(self) -> str: ...
+    def serialize(self, _security_handler: StandardSecurityHandler | None = None) -> str: ...
 
 class PDFHintStream(PDFContentStream):
     s: Incomplete | None

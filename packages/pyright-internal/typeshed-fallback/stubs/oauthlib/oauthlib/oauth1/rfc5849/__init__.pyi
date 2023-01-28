@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 log: Any
@@ -37,20 +38,27 @@ class Client:
     def __init__(
         self,
         client_key,
-        client_secret: Any | None = ...,
-        resource_owner_key: Any | None = ...,
-        resource_owner_secret: Any | None = ...,
-        callback_uri: Any | None = ...,
+        client_secret: Incomplete | None = ...,
+        resource_owner_key: Incomplete | None = ...,
+        resource_owner_secret: Incomplete | None = ...,
+        callback_uri: Incomplete | None = ...,
         signature_method=...,
         signature_type=...,
-        rsa_key: Any | None = ...,
-        verifier: Any | None = ...,
-        realm: Any | None = ...,
+        rsa_key: Incomplete | None = ...,
+        verifier: Incomplete | None = ...,
+        realm: Incomplete | None = ...,
         encoding: str = ...,
-        decoding: Any | None = ...,
-        nonce: Any | None = ...,
-        timestamp: Any | None = ...,
+        decoding: Incomplete | None = ...,
+        nonce: Incomplete | None = ...,
+        timestamp: Incomplete | None = ...,
     ): ...
     def get_oauth_signature(self, request): ...
     def get_oauth_params(self, request): ...
-    def sign(self, uri, http_method: str = ..., body: Any | None = ..., headers: Any | None = ..., realm: Any | None = ...): ...
+    def sign(
+        self,
+        uri,
+        http_method: str = ...,
+        body: Incomplete | None = ...,
+        headers: Incomplete | None = ...,
+        realm: Incomplete | None = ...,
+    ): ...

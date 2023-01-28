@@ -1,4 +1,6 @@
 version = "0.5.*"
+# Requires a version of numpy with a `py.typed` file
+requires = ["types-cffi", "numpy>=1.20"]
 
 [tool.stubtest]
 ignore_missing_stub = false

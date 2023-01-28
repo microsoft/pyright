@@ -7,10 +7,8 @@ from typing_extensions import Literal, TypeAlias
 from PIL import Image
 
 _Frame: TypeAlias = Image.Image | Incomplete
-# TODO: Complete types once we can import non-types dependencies
-# See: #5768
+# stub_uploader doesn't allow numpy and torch because D3DShot doesn't declare it as a dependency
 # from torch import Tensor
-# from comtypes import IUnknown
 # import numpy.typing as npt
 # _Frame: TypeAlias = Image.Image | npt.NDArray[np.int32] | npt.NDArray[np.float32] | Tensor
 

@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from collections.abc import MutableMapping
 from numbers import Rational
 from typing import Any, ClassVar
@@ -143,7 +144,7 @@ class TiffImageFile(ImageFile):
     format_description: ClassVar[str]
     tag_v2: Any
     tag: Any
-    def __init__(self, fp: Any | None = ..., filename: Any | None = ...) -> None: ...
+    def __init__(self, fp: Incomplete | None = ..., filename: Incomplete | None = ...) -> None: ...
     @property
     def n_frames(self): ...
     im: Any

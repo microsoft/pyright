@@ -1,4 +1,5 @@
 import datetime
+from _typeshed import Incomplete
 from typing import Any
 
 NSP_COMPATIBLE: Any
@@ -12,7 +13,7 @@ def get_unresolved_attrs(parser_object): ...
 
 date_order_chart: Any
 
-def resolve_date_order(order, lst: Any | None = ...): ...
+def resolve_date_order(order, lst: Incomplete | None = ...): ...
 
 class _time_parser:
     time_directives: Any

@@ -1,5 +1,6 @@
-from _typeshed import Incomplete, Self
-from enum import Enum, Flag, IntEnum
+from _typeshed import Self
+from enum import Enum, Flag, IntEnum, IntFlag
+from typing_extensions import Literal
 
 from .syntax import Name
 
@@ -182,4 +183,23 @@ class FontDescriptorFlags(Flag):
     ITALIC: int
     FORCE_BOLD: int
 
-__pdoc__: Incomplete
+class AccessPermission(IntFlag):
+    PRINT_LOW_RES: int
+    MODIFY: int
+    COPY: int
+    ANNOTATION: int
+    FILL_FORMS: int
+    COPY_FOR_ACCESSIBILITY: int
+    ASSEMBLE: int
+    PRINT_HIGH_RES: int
+    @classmethod
+    def all(cls) -> int: ...
+    @classmethod
+    def none(cls) -> Literal[0]: ...
+
+class EncryptionMethod(Enum):
+    NO_ENCRYPTION: int
+    RC4: int
+    AES_128: int
+
+__pdoc__: dict[str, bool]

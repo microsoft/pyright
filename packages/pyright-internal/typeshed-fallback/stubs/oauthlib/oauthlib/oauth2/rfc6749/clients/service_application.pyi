@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from .base import Client as Client
@@ -11,23 +12,23 @@ class ServiceApplicationClient(Client):
     def __init__(
         self,
         client_id,
-        private_key: Any | None = ...,
-        subject: Any | None = ...,
-        issuer: Any | None = ...,
-        audience: Any | None = ...,
+        private_key: Incomplete | None = ...,
+        subject: Incomplete | None = ...,
+        issuer: Incomplete | None = ...,
+        audience: Incomplete | None = ...,
         **kwargs,
     ) -> None: ...
     def prepare_request_body(  # type: ignore[override]
         self,
-        private_key: Any | None = ...,
-        subject: Any | None = ...,
-        issuer: Any | None = ...,
-        audience: Any | None = ...,
-        expires_at: Any | None = ...,
-        issued_at: Any | None = ...,
-        extra_claims: Any | None = ...,
+        private_key: Incomplete | None = ...,
+        subject: Incomplete | None = ...,
+        issuer: Incomplete | None = ...,
+        audience: Incomplete | None = ...,
+        expires_at: Incomplete | None = ...,
+        issued_at: Incomplete | None = ...,
+        extra_claims: Incomplete | None = ...,
         body: str = ...,
-        scope: Any | None = ...,
+        scope: Incomplete | None = ...,
         include_client_id: bool = ...,
         **kwargs,
     ): ...

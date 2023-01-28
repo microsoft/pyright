@@ -37,8 +37,8 @@ class QueryContext:
         params,
         session,
         load_options,
-        execution_options: Any | None = ...,
-        bind_arguments: Any | None = ...,
+        execution_options: Incomplete | None = ...,
+        bind_arguments: Incomplete | None = ...,
     ) -> None: ...
 
 class ORMCompileState(CompileState):

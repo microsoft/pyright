@@ -152,7 +152,7 @@ class Session(SessionRedirectMixin):
         stream: bool | None = ...,
         verify: _Verify | None = ...,
         cert: _Cert | None = ...,
-        json: Any | None = ...,
+        json: Incomplete | None = ...,
     ) -> Response: ...
     def get(
         self,
@@ -171,7 +171,7 @@ class Session(SessionRedirectMixin):
         stream: bool | None = ...,
         verify: _Verify | None = ...,
         cert: _Cert | None = ...,
-        json: Any | None = ...,
+        json: Incomplete | None = ...,
     ) -> Response: ...
     def options(
         self,
@@ -190,7 +190,7 @@ class Session(SessionRedirectMixin):
         stream: bool | None = ...,
         verify: _Verify | None = ...,
         cert: _Cert | None = ...,
-        json: Any | None = ...,
+        json: Incomplete | None = ...,
     ) -> Response: ...
     def head(
         self,
@@ -209,13 +209,13 @@ class Session(SessionRedirectMixin):
         stream: bool | None = ...,
         verify: _Verify | None = ...,
         cert: _Cert | None = ...,
-        json: Any | None = ...,
+        json: Incomplete | None = ...,
     ) -> Response: ...
     def post(
         self,
         url: str | bytes,
         data: _Data | None = ...,
-        json: Any | None = ...,
+        json: Incomplete | None = ...,
         *,
         params: _Params | None = ...,
         headers: _HeadersUpdateMapping | None = ...,
@@ -247,7 +247,7 @@ class Session(SessionRedirectMixin):
         stream: bool | None = ...,
         verify: _Verify | None = ...,
         cert: _Cert | None = ...,
-        json: Any | None = ...,
+        json: Incomplete | None = ...,
     ) -> Response: ...
     def patch(
         self,
@@ -266,7 +266,7 @@ class Session(SessionRedirectMixin):
         stream: bool | None = ...,
         verify: _Verify | None = ...,
         cert: _Cert | None = ...,
-        json: Any | None = ...,
+        json: Incomplete | None = ...,
     ) -> Response: ...
     def delete(
         self,
@@ -285,7 +285,7 @@ class Session(SessionRedirectMixin):
         stream: bool | None = ...,
         verify: _Verify | None = ...,
         cert: _Cert | None = ...,
-        json: Any | None = ...,
+        json: Incomplete | None = ...,
     ) -> Response: ...
     def send(
         self,

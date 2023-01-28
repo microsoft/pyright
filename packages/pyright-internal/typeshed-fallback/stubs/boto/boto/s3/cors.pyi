@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 class CORSRule:
@@ -9,12 +10,12 @@ class CORSRule:
     expose_header: Any
     def __init__(
         self,
-        allowed_method: Any | None = ...,
-        allowed_origin: Any | None = ...,
-        id: Any | None = ...,
-        allowed_header: Any | None = ...,
-        max_age_seconds: Any | None = ...,
-        expose_header: Any | None = ...,
+        allowed_method: Incomplete | None = ...,
+        allowed_origin: Incomplete | None = ...,
+        id: Incomplete | None = ...,
+        allowed_header: Incomplete | None = ...,
+        max_age_seconds: Incomplete | None = ...,
+        expose_header: Incomplete | None = ...,
     ) -> None: ...
     def startElement(self, name, attrs, connection): ...
     def endElement(self, name, value, connection): ...
@@ -28,8 +29,8 @@ class CORSConfiguration(list[CORSRule]):
         self,
         allowed_method,
         allowed_origin,
-        id: Any | None = ...,
-        allowed_header: Any | None = ...,
-        max_age_seconds: Any | None = ...,
-        expose_header: Any | None = ...,
+        id: Incomplete | None = ...,
+        allowed_header: Incomplete | None = ...,
+        max_age_seconds: Incomplete | None = ...,
+        expose_header: Incomplete | None = ...,
     ): ...

@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from ..util.langhelpers import public_factory as public_factory
@@ -84,7 +85,7 @@ from .util import (
     with_polymorphic as with_polymorphic,
 )
 
-def create_session(bind: Any | None = ..., **kwargs): ...
+def create_session(bind: Incomplete | None = ..., **kwargs): ...
 
 with_loader_criteria: Any
 relationship: Any

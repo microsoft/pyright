@@ -24,14 +24,18 @@ Typeshed supports Python versions 3.7 and up.
 
 ## Using
 
-If you're just using mypy (or pytype or PyCharm), as opposed to
+If you're just using a type checker ([mypy](https://github.com/python/mypy/),
+[pyright](https://github.com/microsoft/pyright),
+[pytype](https://github.com/google/pytype/), PyCharm, ...), as opposed to
 developing it, you don't need to interact with the typeshed repo at
-all: a copy of standard library part of typeshed is bundled with mypy.
+all: a copy of standard library part of typeshed is bundled with type checkers.
 And type stubs for third party packages and modules you are using can
 be installed from PyPI. For example, if you are using `six` and `requests`,
 you can install the type stubs using
 
-    $ pip install types-six types-requests
+```bash
+$ pip install types-six types-requests
+```
 
 These PyPI packages follow [PEP 561](http://www.python.org/dev/peps/pep-0561/)
 and are automatically released (multiple times a day, when needed) by

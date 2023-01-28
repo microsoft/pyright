@@ -5,6 +5,8 @@ from typing import Any, TypeVar
 
 _R = TypeVar("_R")
 
+logging_logger: Logger
+
 def retry_call(
     f: Callable[..., _R],
     fargs: Sequence[Any] | None = ...,

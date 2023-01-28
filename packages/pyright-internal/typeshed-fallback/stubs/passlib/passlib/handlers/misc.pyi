@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any, ClassVar
 
 import passlib.utils.handlers as uh
@@ -18,7 +19,7 @@ class unix_disabled(DisabledHash, uh.MinimalHandler):
     setting_kwds: ClassVar[tuple[str, ...]]
     context_kwds: ClassVar[tuple[str, ...]]
     @classmethod
-    def using(cls, marker: Any | None = ..., **kwds): ...  # type: ignore[override]
+    def using(cls, marker: Incomplete | None = ..., **kwds): ...  # type: ignore[override]
     @classmethod
     def identify(cls, hash: str | bytes) -> bool: ...
     @classmethod
@@ -26,7 +27,7 @@ class unix_disabled(DisabledHash, uh.MinimalHandler):
     @classmethod
     def hash(cls, secret: str | bytes, **kwds) -> str: ...
     @classmethod
-    def genhash(cls, secret: str | bytes, config, marker: Any | None = ...): ...  # type: ignore[override]
+    def genhash(cls, secret: str | bytes, config, marker: Incomplete | None = ...): ...  # type: ignore[override]
     @classmethod
     def disable(cls, hash: str | bytes | None = ...) -> str: ...
     @classmethod
@@ -40,7 +41,7 @@ class plaintext(uh.MinimalHandler):
     @classmethod
     def identify(cls, hash: str | bytes): ...
     @classmethod
-    def hash(cls, secret: str | bytes, encoding: Any | None = ...): ...  # type: ignore[override]
+    def hash(cls, secret: str | bytes, encoding: Incomplete | None = ...): ...  # type: ignore[override]
     @classmethod
     def verify(cls, secret: str | bytes, hash: str | bytes, encoding: str | None = ...): ...  # type: ignore[override]
     @classmethod

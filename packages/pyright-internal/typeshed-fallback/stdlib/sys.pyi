@@ -304,7 +304,7 @@ if sys.version_info >= (3, 8):
         exc_value: BaseException | None
         exc_traceback: TracebackType | None
         err_msg: str | None
-        object: _object | None
+        object: _object
     unraisablehook: Callable[[UnraisableHookArgs], Any]
     def __unraisablehook__(__unraisable: UnraisableHookArgs) -> Any: ...
     def addaudithook(hook: Callable[[str, tuple[Any, ...]], Any]) -> None: ...

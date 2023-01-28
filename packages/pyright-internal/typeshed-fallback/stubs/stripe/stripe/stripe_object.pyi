@@ -1,5 +1,5 @@
 import json
-from _typeshed import Self
+from _typeshed import Incomplete, Self
 from typing import Any
 
 from stripe import api_requestor as api_requestor
@@ -10,11 +10,11 @@ class StripeObject(dict[Any, Any]):
 
     def __init__(
         self,
-        id: Any | None = ...,
-        api_key: Any | None = ...,
-        stripe_version: Any | None = ...,
-        stripe_account: Any | None = ...,
-        last_response: Any | None = ...,
+        id: Incomplete | None = ...,
+        api_key: Incomplete | None = ...,
+        stripe_version: Incomplete | None = ...,
+        stripe_account: Incomplete | None = ...,
+        last_response: Incomplete | None = ...,
         **params,
     ) -> None: ...
     @property
@@ -32,9 +32,9 @@ class StripeObject(dict[Any, Any]):
         cls: type[Self],
         values: Any,
         key: str | None,
-        stripe_version: Any | None = ...,
-        stripe_account: Any | None = ...,
-        last_response: Any | None = ...,
+        stripe_version: Incomplete | None = ...,
+        stripe_account: Incomplete | None = ...,
+        last_response: Incomplete | None = ...,
     ) -> Self: ...
     api_key: Any
     stripe_version: Any
@@ -42,16 +42,16 @@ class StripeObject(dict[Any, Any]):
     def refresh_from(
         self,
         values: Any,
-        api_key: Any | None = ...,
+        api_key: Incomplete | None = ...,
         partial: bool = ...,
-        stripe_version: Any | None = ...,
-        stripe_account: Any | None = ...,
-        last_response: Any | None = ...,
+        stripe_version: Incomplete | None = ...,
+        stripe_account: Incomplete | None = ...,
+        last_response: Incomplete | None = ...,
     ) -> None: ...
     @classmethod
     def api_base(cls) -> None: ...
-    def request(self, method, url, params: Any | None = ..., headers: Any | None = ...): ...
-    def request_stream(self, method, url, params: Any | None = ..., headers: Any | None = ...): ...
+    def request(self, method, url, params: Incomplete | None = ..., headers: Incomplete | None = ...): ...
+    def request_stream(self, method, url, params: Incomplete | None = ..., headers: Incomplete | None = ...): ...
     def to_dict(self): ...
     def to_dict_recursive(self): ...
     @property

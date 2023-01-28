@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 def track_cascade_events(descriptor, prop): ...
@@ -28,8 +29,8 @@ class UOWTransaction:
         isdelete: bool = ...,
         listonly: bool = ...,
         cancel_delete: bool = ...,
-        operation: Any | None = ...,
-        prop: Any | None = ...,
+        operation: Incomplete | None = ...,
+        prop: Incomplete | None = ...,
     ): ...
     def register_post_update(self, state, post_update_cols) -> None: ...
     def filter_states_for_dep(self, dep, states): ...

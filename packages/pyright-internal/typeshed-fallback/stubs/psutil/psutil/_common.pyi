@@ -1,5 +1,5 @@
 import enum
-from _typeshed import StrOrBytesPath, SupportsWrite
+from _typeshed import Incomplete, StrOrBytesPath, SupportsWrite
 from collections.abc import Callable
 from socket import AF_INET6 as AF_INET6, AddressFamily, SocketKind
 from typing import Any, NamedTuple, TypeVar, overload
@@ -222,7 +222,7 @@ class NoSuchProcess(Error):
     pid: Any
     name: Any
     msg: Any
-    def __init__(self, pid, name: Any | None = ..., msg: Any | None = ...) -> None: ...
+    def __init__(self, pid, name: Incomplete | None = ..., msg: Incomplete | None = ...) -> None: ...
 
 class ZombieProcess(NoSuchProcess):
     __module__: str
@@ -230,21 +230,23 @@ class ZombieProcess(NoSuchProcess):
     ppid: Any
     name: Any
     msg: Any
-    def __init__(self, pid, name: Any | None = ..., ppid: Any | None = ..., msg: Any | None = ...) -> None: ...
+    def __init__(
+        self, pid, name: Incomplete | None = ..., ppid: Incomplete | None = ..., msg: Incomplete | None = ...
+    ) -> None: ...
 
 class AccessDenied(Error):
     __module__: str
     pid: Any
     name: Any
     msg: Any
-    def __init__(self, pid: Any | None = ..., name: Any | None = ..., msg: Any | None = ...) -> None: ...
+    def __init__(self, pid: Incomplete | None = ..., name: Incomplete | None = ..., msg: Incomplete | None = ...) -> None: ...
 
 class TimeoutExpired(Error):
     __module__: str
     seconds: Any
     pid: Any
     name: Any
-    def __init__(self, seconds, pid: Any | None = ..., name: Any | None = ...) -> None: ...
+    def __init__(self, seconds, pid: Incomplete | None = ..., name: Incomplete | None = ...) -> None: ...
 
 _Func = TypeVar("_Func", bound=Callable[..., Any])
 
@@ -270,7 +272,7 @@ class _WrapNumbers:
     reminder_keys: Any
     def __init__(self) -> None: ...
     def run(self, input_dict, name): ...
-    def cache_clear(self, name: Any | None = ...) -> None: ...
+    def cache_clear(self, name: Incomplete | None = ...) -> None: ...
     def cache_info(self): ...
 
 def wrap_numbers(input_dict, name: str): ...

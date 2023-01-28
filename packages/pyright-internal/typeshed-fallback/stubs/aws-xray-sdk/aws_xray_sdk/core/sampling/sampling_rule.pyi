@@ -1,4 +1,4 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from ..utils.search_pattern import wildcard_match as wildcard_match
 from .reservoir import Reservoir as Reservoir
@@ -10,11 +10,11 @@ class SamplingRule:
         priority,
         rate,
         reservoir_size,
-        host: Any | None = ...,
-        method: Any | None = ...,
-        path: Any | None = ...,
-        service: Any | None = ...,
-        service_type: Any | None = ...,
+        host: Incomplete | None = ...,
+        method: Incomplete | None = ...,
+        path: Incomplete | None = ...,
+        service: Incomplete | None = ...,
+        service_type: Incomplete | None = ...,
     ) -> None: ...
     def match(self, sampling_req): ...
     def is_default(self): ...

@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any, NamedTuple, Union
 from typing_extensions import Literal, TypeAlias
 
@@ -11,7 +12,7 @@ class _TagInfo(NamedTuple):
 class TagInfo(_TagInfo):
     def __new__(
         cls,
-        value: Any | None = ...,
+        value: Incomplete | None = ...,
         name: str = ...,
         type: _TagType | None = ...,
         length: int | None = ...,

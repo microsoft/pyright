@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 def instances(cursor, context): ...
@@ -8,10 +9,10 @@ def load_on_ident(
     session,
     statement,
     key,
-    load_options: Any | None = ...,
-    refresh_state: Any | None = ...,
-    with_for_update: Any | None = ...,
-    only_load_props: Any | None = ...,
+    load_options: Incomplete | None = ...,
+    refresh_state: Incomplete | None = ...,
+    with_for_update: Incomplete | None = ...,
+    only_load_props: Incomplete | None = ...,
     no_autoflush: bool = ...,
     bind_arguments=...,
     execution_options=...,
@@ -20,11 +21,11 @@ def load_on_pk_identity(
     session,
     statement,
     primary_key_identity,
-    load_options: Any | None = ...,
-    refresh_state: Any | None = ...,
-    with_for_update: Any | None = ...,
-    only_load_props: Any | None = ...,
-    identity_token: Any | None = ...,
+    load_options: Incomplete | None = ...,
+    refresh_state: Incomplete | None = ...,
+    with_for_update: Incomplete | None = ...,
+    only_load_props: Incomplete | None = ...,
+    identity_token: Incomplete | None = ...,
     no_autoflush: bool = ...,
     bind_arguments=...,
     execution_options=...,

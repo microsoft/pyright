@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any, ClassVar, Generic, TypeVar
 
 from ..sql.operators import ColumnOperators
@@ -60,11 +61,11 @@ class SynonymProperty(DescriptorProperty):
     def __init__(
         self,
         name,
-        map_column: Any | None = ...,
-        descriptor: Any | None = ...,
-        comparator_factory: Any | None = ...,
-        doc: Any | None = ...,
-        info: Any | None = ...,
+        map_column: Incomplete | None = ...,
+        descriptor: Incomplete | None = ...,
+        comparator_factory: Incomplete | None = ...,
+        doc: Incomplete | None = ...,
+        info: Incomplete | None = ...,
     ) -> None: ...
     @property
     def uses_objects(self): ...

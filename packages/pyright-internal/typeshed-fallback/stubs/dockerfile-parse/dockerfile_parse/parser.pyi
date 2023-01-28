@@ -1,8 +1,11 @@
+import logging
 from collections.abc import Mapping, Sequence
 from typing import IO, ClassVar
 from typing_extensions import TypedDict
 
 from .util import Context
+
+logger: logging.Logger
 
 class KeyValues(dict[str, str]):
     parser_attr: ClassVar[str | None]

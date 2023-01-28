@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any, NamedTuple
 
 class Operation(NamedTuple):
@@ -19,9 +20,9 @@ class Cursor:
         connection,
         object_def,
         get_operational_attributes: bool = ...,
-        attributes: Any | None = ...,
-        controls: Any | None = ...,
-        auxiliary_class: Any | None = ...,
+        attributes: Incomplete | None = ...,
+        controls: Incomplete | None = ...,
+        auxiliary_class: Incomplete | None = ...,
     ) -> None: ...
     def __iter__(self): ...
     def __getitem__(self, item): ...
@@ -55,9 +56,9 @@ class Reader(Cursor):
         components_in_and: bool = ...,
         sub_tree: bool = ...,
         get_operational_attributes: bool = ...,
-        attributes: Any | None = ...,
-        controls: Any | None = ...,
-        auxiliary_class: Any | None = ...,
+        attributes: Incomplete | None = ...,
+        controls: Incomplete | None = ...,
+        auxiliary_class: Incomplete | None = ...,
     ) -> None: ...
     @property
     def query(self): ...
@@ -71,29 +72,36 @@ class Reader(Cursor):
     execution_time: Any
     entries: Any
     def reset(self) -> None: ...
-    def search(self, attributes: Any | None = ...): ...
-    def search_object(self, entry_dn: Any | None = ..., attributes: Any | None = ...): ...
-    def search_level(self, attributes: Any | None = ...): ...
-    def search_subtree(self, attributes: Any | None = ...): ...
-    def search_paged(self, paged_size, paged_criticality: bool = ..., generator: bool = ..., attributes: Any | None = ...): ...
+    def search(self, attributes: Incomplete | None = ...): ...
+    def search_object(self, entry_dn: Incomplete | None = ..., attributes: Incomplete | None = ...): ...
+    def search_level(self, attributes: Incomplete | None = ...): ...
+    def search_subtree(self, attributes: Incomplete | None = ...): ...
+    def search_paged(
+        self, paged_size, paged_criticality: bool = ..., generator: bool = ..., attributes: Incomplete | None = ...
+    ): ...
 
 class Writer(Cursor):
     entry_class: Any
     attribute_class: Any
     entry_initial_status: Any
     @staticmethod
-    def from_cursor(cursor, connection: Any | None = ..., object_def: Any | None = ..., custom_validator: Any | None = ...): ...
+    def from_cursor(
+        cursor,
+        connection: Incomplete | None = ...,
+        object_def: Incomplete | None = ...,
+        custom_validator: Incomplete | None = ...,
+    ): ...
     @staticmethod
-    def from_response(connection, object_def, response: Any | None = ...): ...
+    def from_response(connection, object_def, response: Incomplete | None = ...): ...
     dereference_aliases: Any
     def __init__(
         self,
         connection,
         object_def,
         get_operational_attributes: bool = ...,
-        attributes: Any | None = ...,
-        controls: Any | None = ...,
-        auxiliary_class: Any | None = ...,
+        attributes: Incomplete | None = ...,
+        controls: Incomplete | None = ...,
+        auxiliary_class: Incomplete | None = ...,
     ) -> None: ...
     execution_time: Any
     def commit(self, refresh: bool = ...): ...

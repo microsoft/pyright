@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from psycopg2._psycopg import (
@@ -106,7 +107,7 @@ class NoneAdapter:
     def __init__(self, obj) -> None: ...
     def getquoted(self, _null: bytes = ...): ...
 
-def make_dsn(dsn: Any | None = ..., **kwargs): ...
+def make_dsn(dsn: Incomplete | None = ..., **kwargs): ...
 
 JSON: Any
 JSONARRAY: Any

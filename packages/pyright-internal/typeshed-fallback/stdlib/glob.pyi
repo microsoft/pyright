@@ -12,18 +12,18 @@ if sys.version_info >= (3, 11):
     def glob(
         pathname: AnyStr,
         *,
-        root_dir: StrOrBytesPath | None = ...,
-        dir_fd: int | None = ...,
-        recursive: bool = ...,
-        include_hidden: bool = ...,
+        root_dir: StrOrBytesPath | None = None,
+        dir_fd: int | None = None,
+        recursive: bool = False,
+        include_hidden: bool = False,
     ) -> list[AnyStr]: ...
     def iglob(
         pathname: AnyStr,
         *,
-        root_dir: StrOrBytesPath | None = ...,
-        dir_fd: int | None = ...,
-        recursive: bool = ...,
-        include_hidden: bool = ...,
+        root_dir: StrOrBytesPath | None = None,
+        dir_fd: int | None = None,
+        recursive: bool = False,
+        include_hidden: bool = False,
     ) -> Iterator[AnyStr]: ...
 
 elif sys.version_info >= (3, 10):

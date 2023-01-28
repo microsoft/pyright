@@ -1,4 +1,4 @@
-from _typeshed import StrOrBytesPath
+from _typeshed import Incomplete, StrOrBytesPath
 from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime
 from typing import Any
@@ -18,7 +18,7 @@ TYPE_RSA: int
 TYPE_DSA: int
 
 class _EllipticCurve:
-    def __init__(self, lib: Any | None, nid: int, name: str) -> None: ...
+    def __init__(self, lib: Incomplete | None, nid: int, name: str) -> None: ...
 
 class Error(Exception): ...
 

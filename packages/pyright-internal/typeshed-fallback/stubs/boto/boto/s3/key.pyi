@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from collections.abc import Callable
 from typing import Any, overload
 
@@ -31,7 +32,7 @@ class Key:
     ongoing_restore: Any
     expiry_date: Any
     local_hashes: Any
-    def __init__(self, bucket: Any | None = ..., name: Any | None = ...) -> None: ...
+    def __init__(self, bucket: Incomplete | None = ..., name: Incomplete | None = ...) -> None: ...
     def __iter__(self): ...
     @property
     def provider(self): ...
@@ -48,28 +49,28 @@ class Key:
         self,
         headers: dict[str, str] | None = ...,
         query_args: str = ...,
-        override_num_retries: Any | None = ...,
+        override_num_retries: Incomplete | None = ...,
         response_headers: dict[str, str] | None = ...,
     ): ...
-    def open_write(self, headers: dict[str, str] | None = ..., override_num_retries: Any | None = ...): ...
+    def open_write(self, headers: dict[str, str] | None = ..., override_num_retries: Incomplete | None = ...): ...
     def open(
         self,
         mode: str = ...,
         headers: dict[str, str] | None = ...,
-        query_args: Any | None = ...,
-        override_num_retries: Any | None = ...,
+        query_args: Incomplete | None = ...,
+        override_num_retries: Incomplete | None = ...,
     ): ...
     closed: bool
     def close(self, fast: bool = ...): ...
     def next(self): ...
     __next__: Any
     def read(self, size: int = ...): ...
-    def change_storage_class(self, new_storage_class, dst_bucket: Any | None = ..., validate_dst_bucket: bool = ...): ...
+    def change_storage_class(self, new_storage_class, dst_bucket: Incomplete | None = ..., validate_dst_bucket: bool = ...): ...
     def copy(
         self,
         dst_bucket,
         dst_key,
-        metadata: Any | None = ...,
+        metadata: Incomplete | None = ...,
         reduced_redundancy: bool = ...,
         preserve_acl: bool = ...,
         encrypt_key: bool = ...,
@@ -99,8 +100,8 @@ class Key:
         force_http: bool = ...,
         response_headers: dict[str, str] | None = ...,
         expires_in_absolute: bool = ...,
-        version_id: Any | None = ...,
-        policy: Any | None = ...,
+        version_id: Incomplete | None = ...,
+        policy: Incomplete | None = ...,
         reduced_redundancy: bool = ...,
         encrypt_key: bool = ...,
     ): ...
@@ -110,12 +111,12 @@ class Key:
         headers: dict[str, str] | None = ...,
         cb: Callable[[int, int], object] | None = ...,
         num_cb: int = ...,
-        query_args: Any | None = ...,
+        query_args: Incomplete | None = ...,
         chunked_transfer: bool = ...,
-        size: Any | None = ...,
+        size: Incomplete | None = ...,
     ): ...
     def should_retry(self, response, chunked_transfer: bool = ...): ...
-    def compute_md5(self, fp, size: Any | None = ...): ...
+    def compute_md5(self, fp, size: Incomplete | None = ...): ...
     def set_contents_from_stream(
         self,
         fp,
@@ -123,10 +124,10 @@ class Key:
         replace: bool = ...,
         cb: Callable[[int, int], object] | None = ...,
         num_cb: int = ...,
-        policy: Any | None = ...,
+        policy: Incomplete | None = ...,
         reduced_redundancy: bool = ...,
-        query_args: Any | None = ...,
-        size: Any | None = ...,
+        query_args: Incomplete | None = ...,
+        size: Incomplete | None = ...,
     ): ...
     def set_contents_from_file(
         self,
@@ -135,12 +136,12 @@ class Key:
         replace: bool = ...,
         cb: Callable[[int, int], object] | None = ...,
         num_cb: int = ...,
-        policy: Any | None = ...,
-        md5: Any | None = ...,
+        policy: Incomplete | None = ...,
+        md5: Incomplete | None = ...,
         reduced_redundancy: bool = ...,
-        query_args: Any | None = ...,
+        query_args: Incomplete | None = ...,
         encrypt_key: bool = ...,
-        size: Any | None = ...,
+        size: Incomplete | None = ...,
         rewind: bool = ...,
     ): ...
     def set_contents_from_filename(
@@ -150,8 +151,8 @@ class Key:
         replace: bool = ...,
         cb: Callable[[int, int], object] | None = ...,
         num_cb: int = ...,
-        policy: Any | None = ...,
-        md5: Any | None = ...,
+        policy: Incomplete | None = ...,
+        md5: Incomplete | None = ...,
         reduced_redundancy: bool = ...,
         encrypt_key: bool = ...,
     ): ...
@@ -162,8 +163,8 @@ class Key:
         replace: bool = ...,
         cb: Callable[[int, int], object] | None = ...,
         num_cb: int = ...,
-        policy: Any | None = ...,
-        md5: Any | None = ...,
+        policy: Incomplete | None = ...,
+        md5: Incomplete | None = ...,
         reduced_redundancy: bool = ...,
         encrypt_key: bool = ...,
     ) -> None: ...
@@ -174,8 +175,8 @@ class Key:
         cb: Callable[[int, int], object] | None = ...,
         num_cb: int = ...,
         torrent: bool = ...,
-        version_id: Any | None = ...,
-        override_num_retries: Any | None = ...,
+        version_id: Incomplete | None = ...,
+        override_num_retries: Incomplete | None = ...,
         response_headers: dict[str, str] | None = ...,
     ): ...
     def get_torrent_file(
@@ -188,8 +189,8 @@ class Key:
         cb: Callable[[int, int], object] | None = ...,
         num_cb: int = ...,
         torrent: bool = ...,
-        version_id: Any | None = ...,
-        res_download_handler: Any | None = ...,
+        version_id: Incomplete | None = ...,
+        res_download_handler: Incomplete | None = ...,
         response_headers: dict[str, str] | None = ...,
     ): ...
     def get_contents_to_filename(
@@ -199,8 +200,8 @@ class Key:
         cb: Callable[[int, int], object] | None = ...,
         num_cb: int = ...,
         torrent: bool = ...,
-        version_id: Any | None = ...,
-        res_download_handler: Any | None = ...,
+        version_id: Incomplete | None = ...,
+        res_download_handler: Incomplete | None = ...,
         response_headers: dict[str, str] | None = ...,
     ): ...
     @overload
@@ -210,7 +211,7 @@ class Key:
         cb: Callable[[int, int], object] | None = ...,
         num_cb: int = ...,
         torrent: bool = ...,
-        version_id: Any | None = ...,
+        version_id: Incomplete | None = ...,
         response_headers: dict[str, str] | None = ...,
         encoding: None = ...,
     ) -> bytes: ...
@@ -221,12 +222,14 @@ class Key:
         cb: Callable[[int, int], object] | None = ...,
         num_cb: int = ...,
         torrent: bool = ...,
-        version_id: Any | None = ...,
+        version_id: Incomplete | None = ...,
         response_headers: dict[str, str] | None = ...,
         *,
         encoding: str,
     ) -> str: ...
     def add_email_grant(self, permission, email_address, headers: dict[str, str] | None = ...): ...
-    def add_user_grant(self, permission, user_id, headers: dict[str, str] | None = ..., display_name: Any | None = ...): ...
+    def add_user_grant(
+        self, permission, user_id, headers: dict[str, str] | None = ..., display_name: Incomplete | None = ...
+    ): ...
     def set_remote_metadata(self, metadata_plus, metadata_minus, preserve_acl, headers: dict[str, str] | None = ...): ...
     def restore(self, days, headers: dict[str, str] | None = ...): ...

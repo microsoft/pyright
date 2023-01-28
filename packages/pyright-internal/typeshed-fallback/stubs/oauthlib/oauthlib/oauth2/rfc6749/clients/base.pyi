@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 AUTH_HEADER: str
@@ -29,14 +30,14 @@ class Client:
         client_id,
         default_token_placement=...,
         token_type: str = ...,
-        access_token: Any | None = ...,
-        refresh_token: Any | None = ...,
-        mac_key: Any | None = ...,
-        mac_algorithm: Any | None = ...,
-        token: Any | None = ...,
-        scope: Any | None = ...,
-        state: Any | None = ...,
-        redirect_url: Any | None = ...,
+        access_token: Incomplete | None = ...,
+        refresh_token: Incomplete | None = ...,
+        mac_key: Incomplete | None = ...,
+        mac_algorithm: Incomplete | None = ...,
+        token: Incomplete | None = ...,
+        scope: Incomplete | None = ...,
+        state: Incomplete | None = ...,
+        redirect_url: Incomplete | None = ...,
         state_generator=...,
         code_verifier: str | None = ...,
         code_challenge: str | None = ...,
@@ -52,31 +53,38 @@ class Client:
         self,
         uri,
         http_method: str = ...,
-        body: Any | None = ...,
-        headers: Any | None = ...,
-        token_placement: Any | None = ...,
+        body: Incomplete | None = ...,
+        headers: Incomplete | None = ...,
+        token_placement: Incomplete | None = ...,
         **kwargs,
     ): ...
     def prepare_authorization_request(
-        self, authorization_url, state: Any | None = ..., redirect_url: Any | None = ..., scope: Any | None = ..., **kwargs
+        self,
+        authorization_url,
+        state: Incomplete | None = ...,
+        redirect_url: Incomplete | None = ...,
+        scope: Incomplete | None = ...,
+        **kwargs,
     ): ...
     def prepare_token_request(
         self,
         token_url,
-        authorization_response: Any | None = ...,
-        redirect_url: Any | None = ...,
-        state: Any | None = ...,
+        authorization_response: Incomplete | None = ...,
+        redirect_url: Incomplete | None = ...,
+        state: Incomplete | None = ...,
         body: str = ...,
         **kwargs,
     ): ...
     def prepare_refresh_token_request(
-        self, token_url, refresh_token: Any | None = ..., body: str = ..., scope: Any | None = ..., **kwargs
+        self, token_url, refresh_token: Incomplete | None = ..., body: str = ..., scope: Incomplete | None = ..., **kwargs
     ): ...
     def prepare_token_revocation_request(
-        self, revocation_url, token, token_type_hint: str = ..., body: str = ..., callback: Any | None = ..., **kwargs
+        self, revocation_url, token, token_type_hint: str = ..., body: str = ..., callback: Incomplete | None = ..., **kwargs
     ): ...
-    def parse_request_body_response(self, body, scope: Any | None = ..., **kwargs): ...
-    def prepare_refresh_body(self, body: str = ..., refresh_token: Any | None = ..., scope: Any | None = ..., **kwargs): ...
+    def parse_request_body_response(self, body, scope: Incomplete | None = ..., **kwargs): ...
+    def prepare_refresh_body(
+        self, body: str = ..., refresh_token: Incomplete | None = ..., scope: Incomplete | None = ..., **kwargs
+    ): ...
     def create_code_verifier(self, length: int) -> str: ...
     def create_code_challenge(self, code_verifier: str, code_challenge_method: str | None = ...) -> str: ...
     def populate_code_attributes(self, response) -> None: ...

@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from collections.abc import AsyncIterator, Iterable, Mapping, Sequence
 from typing import Any
 
@@ -38,7 +39,7 @@ class Sentinel(AsyncSentinelCommands):
     min_other_sentinels: Any
     connection_kwargs: Any
     def __init__(
-        self, sentinels, min_other_sentinels: int = ..., sentinel_kwargs: Any | None = ..., **connection_kwargs
+        self, sentinels, min_other_sentinels: int = ..., sentinel_kwargs: Incomplete | None = ..., **connection_kwargs
     ) -> None: ...
     async def execute_command(self, *args, **kwargs): ...
     def check_master_state(self, state: dict[Any, Any], service_name: str) -> bool: ...

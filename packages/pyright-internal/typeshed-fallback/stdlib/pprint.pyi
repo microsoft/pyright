@@ -9,13 +9,13 @@ else:
 if sys.version_info >= (3, 10):
     def pformat(
         object: object,
-        indent: int = ...,
-        width: int = ...,
-        depth: int | None = ...,
+        indent: int = 1,
+        width: int = 80,
+        depth: int | None = None,
         *,
-        compact: bool = ...,
-        sort_dicts: bool = ...,
-        underscore_numbers: bool = ...,
+        compact: bool = False,
+        sort_dicts: bool = True,
+        underscore_numbers: bool = False,
     ) -> str: ...
 
 elif sys.version_info >= (3, 8):
@@ -41,7 +41,7 @@ if sys.version_info >= (3, 10):
         depth: int | None = ...,
         *,
         compact: bool = ...,
-        sort_dicts: bool = ...,
+        sort_dicts: bool = False,
         underscore_numbers: bool = ...,
     ) -> None: ...
 
@@ -60,14 +60,14 @@ elif sys.version_info >= (3, 8):
 if sys.version_info >= (3, 10):
     def pprint(
         object: object,
-        stream: IO[str] | None = ...,
-        indent: int = ...,
-        width: int = ...,
-        depth: int | None = ...,
+        stream: IO[str] | None = None,
+        indent: int = 1,
+        width: int = 80,
+        depth: int | None = None,
         *,
-        compact: bool = ...,
-        sort_dicts: bool = ...,
-        underscore_numbers: bool = ...,
+        compact: bool = False,
+        sort_dicts: bool = True,
+        underscore_numbers: bool = False,
     ) -> None: ...
 
 elif sys.version_info >= (3, 8):
@@ -101,14 +101,14 @@ class PrettyPrinter:
     if sys.version_info >= (3, 10):
         def __init__(
             self,
-            indent: int = ...,
-            width: int = ...,
-            depth: int | None = ...,
-            stream: IO[str] | None = ...,
+            indent: int = 1,
+            width: int = 80,
+            depth: int | None = None,
+            stream: IO[str] | None = None,
             *,
-            compact: bool = ...,
-            sort_dicts: bool = ...,
-            underscore_numbers: bool = ...,
+            compact: bool = False,
+            sort_dicts: bool = True,
+            underscore_numbers: bool = False,
         ) -> None: ...
     elif sys.version_info >= (3, 8):
         def __init__(

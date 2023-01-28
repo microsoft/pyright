@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any, ClassVar
 from typing_extensions import Literal
 
@@ -32,7 +33,7 @@ class iTXt(str):
     lang: Any
     tkey: Any
     @staticmethod
-    def __new__(cls, text, lang: Any | None = ..., tkey: Any | None = ...): ...
+    def __new__(cls, text, lang: Incomplete | None = ..., tkey: Incomplete | None = ...): ...
 
 class PngInfo:
     chunks: Any

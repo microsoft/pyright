@@ -44,13 +44,13 @@ class SequenceMatcher(Generic[_T]):
     def set_seq1(self, a: Sequence[_T]) -> None: ...
     def set_seq2(self, b: Sequence[_T]) -> None: ...
     if sys.version_info >= (3, 9):
-        def find_longest_match(self, alo: int = ..., ahi: int | None = ..., blo: int = ..., bhi: int | None = ...) -> Match: ...
+        def find_longest_match(self, alo: int = 0, ahi: int | None = None, blo: int = 0, bhi: int | None = None) -> Match: ...
     else:
         def find_longest_match(self, alo: int, ahi: int, blo: int, bhi: int) -> Match: ...
 
     def get_matching_blocks(self) -> list[Match]: ...
     def get_opcodes(self) -> list[tuple[str, int, int, int, int]]: ...
-    def get_grouped_opcodes(self, n: int = ...) -> Iterable[list[tuple[str, int, int, int, int]]]: ...
+    def get_grouped_opcodes(self, n: int = 3) -> Iterable[list[tuple[str, int, int, int, int]]]: ...
     def ratio(self) -> float: ...
     def quick_ratio(self) -> float: ...
     def real_quick_ratio(self) -> float: ...
@@ -66,62 +66,65 @@ def get_close_matches(
 ) -> list[Sequence[_T]]: ...
 
 class Differ:
-    def __init__(self, linejunk: Callable[[str], bool] | None = ..., charjunk: Callable[[str], bool] | None = ...) -> None: ...
+    def __init__(self, linejunk: Callable[[str], bool] | None = None, charjunk: Callable[[str], bool] | None = None) -> None: ...
     def compare(self, a: Sequence[str], b: Sequence[str]) -> Iterator[str]: ...
 
 def IS_LINE_JUNK(line: str, pat: Any = ...) -> bool: ...  # pat is undocumented
-def IS_CHARACTER_JUNK(ch: str, ws: str = ...) -> bool: ...  # ws is undocumented
+def IS_CHARACTER_JUNK(ch: str, ws: str = " \t") -> bool: ...  # ws is undocumented
 def unified_diff(
     a: Sequence[str],
     b: Sequence[str],
-    fromfile: str = ...,
-    tofile: str = ...,
-    fromfiledate: str = ...,
-    tofiledate: str = ...,
-    n: int = ...,
-    lineterm: str = ...,
+    fromfile: str = "",
+    tofile: str = "",
+    fromfiledate: str = "",
+    tofiledate: str = "",
+    n: int = 3,
+    lineterm: str = "\n",
 ) -> Iterator[str]: ...
 def context_diff(
     a: Sequence[str],
     b: Sequence[str],
-    fromfile: str = ...,
-    tofile: str = ...,
-    fromfiledate: str = ...,
-    tofiledate: str = ...,
-    n: int = ...,
-    lineterm: str = ...,
+    fromfile: str = "",
+    tofile: str = "",
+    fromfiledate: str = "",
+    tofiledate: str = "",
+    n: int = 3,
+    lineterm: str = "\n",
 ) -> Iterator[str]: ...
 def ndiff(
-    a: Sequence[str], b: Sequence[str], linejunk: Callable[[str], bool] | None = ..., charjunk: Callable[[str], bool] | None = ...
+    a: Sequence[str],
+    b: Sequence[str],
+    linejunk: Callable[[str], bool] | None = None,
+    charjunk: Callable[[str], bool] | None = ...,
 ) -> Iterator[str]: ...
 
 class HtmlDiff:
     def __init__(
         self,
-        tabsize: int = ...,
-        wrapcolumn: int | None = ...,
-        linejunk: Callable[[str], bool] | None = ...,
+        tabsize: int = 8,
+        wrapcolumn: int | None = None,
+        linejunk: Callable[[str], bool] | None = None,
         charjunk: Callable[[str], bool] | None = ...,
     ) -> None: ...
     def make_file(
         self,
         fromlines: Sequence[str],
         tolines: Sequence[str],
-        fromdesc: str = ...,
-        todesc: str = ...,
-        context: bool = ...,
-        numlines: int = ...,
+        fromdesc: str = "",
+        todesc: str = "",
+        context: bool = False,
+        numlines: int = 5,
         *,
-        charset: str = ...,
+        charset: str = "utf-8",
     ) -> str: ...
     def make_table(
         self,
         fromlines: Sequence[str],
         tolines: Sequence[str],
-        fromdesc: str = ...,
-        todesc: str = ...,
-        context: bool = ...,
-        numlines: int = ...,
+        fromdesc: str = "",
+        todesc: str = "",
+        context: bool = False,
+        numlines: int = 5,
     ) -> str: ...
 
 def restore(delta: Iterable[str], which: int) -> Iterator[str]: ...
@@ -133,6 +136,6 @@ def diff_bytes(
     tofile: bytes | bytearray = ...,
     fromfiledate: bytes | bytearray = ...,
     tofiledate: bytes | bytearray = ...,
-    n: int = ...,
+    n: int = 3,
     lineterm: bytes | bytearray = ...,
 ) -> Iterator[bytes]: ...

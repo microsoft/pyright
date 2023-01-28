@@ -1,9 +1,11 @@
+# Partial typing of the vendored modulegraph package.
+# We reference the vendored package rather than depending on the original untyped module.
+# Anything not referenced in the PyInstaller stubs doesn't need to be added here.
+
 from typing import Any, Protocol
 
 class _SupportsGraphident(Protocol):
     graphident: str
-
-# TODO: For typing purposes, once #5768 is complete, it'll be easier to use the modulegraph package directly.
 
 # code, filename and packagepath are always initialized to None. But they can be given a value later.
 class Node:

@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from collections.abc import Container, Sequence
 from typing import Any, overload
 from typing_extensions import Literal, TypeAlias
@@ -82,7 +83,7 @@ class ImageDraw:
         spacing: float = ...,
         align: Literal["left", "center", "right"] = ...,
         direction: Literal["rtl", "ltr", "ttb"] | None = ...,
-        features: Any | None = ...,
+        features: Incomplete | None = ...,
         language: str | None = ...,
         stroke_width: int = ...,
         stroke_fill: _Ink | None = ...,
@@ -126,7 +127,7 @@ class ImageDraw:
         spacing: float = ...,
         align: Literal["left", "center", "right"] = ...,
         direction: Literal["rtl", "ltr", "ttb"] | None = ...,
-        features: Any | None = ...,
+        features: Incomplete | None = ...,
         language: str | None = ...,
         stroke_width: int = ...,
         embedded_color: bool = ...,
@@ -140,7 +141,7 @@ class ImageDraw:
         spacing: float = ...,
         align: Literal["left", "center", "right"] = ...,
         direction: Literal["rtl", "ltr", "ttb"] | None = ...,
-        features: Any | None = ...,
+        features: Incomplete | None = ...,
         language: str | None = ...,
         stroke_width: int = ...,
         embedded_color: bool = ...,

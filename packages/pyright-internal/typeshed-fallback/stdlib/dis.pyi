@@ -76,14 +76,14 @@ class Bytecode:
             self,
             x: _HaveCodeType | str,
             *,
-            first_line: int | None = ...,
-            current_offset: int | None = ...,
-            show_caches: bool = ...,
-            adaptive: bool = ...,
+            first_line: int | None = None,
+            current_offset: int | None = None,
+            show_caches: bool = False,
+            adaptive: bool = False,
         ) -> None: ...
         @classmethod
         def from_traceback(
-            cls: type[Self], tb: types.TracebackType, *, show_caches: bool = ..., adaptive: bool = ...
+            cls: type[Self], tb: types.TracebackType, *, show_caches: bool = False, adaptive: bool = False
         ) -> Self: ...
     else:
         def __init__(self, x: _HaveCodeType | str, *, first_line: int | None = ..., current_offset: int | None = ...) -> None: ...
@@ -103,12 +103,12 @@ def code_info(x: _HaveCodeType | str) -> str: ...
 
 if sys.version_info >= (3, 11):
     def dis(
-        x: _HaveCodeType | str | bytes | bytearray | None = ...,
+        x: _HaveCodeType | str | bytes | bytearray | None = None,
         *,
-        file: IO[str] | None = ...,
-        depth: int | None = ...,
-        show_caches: bool = ...,
-        adaptive: bool = ...,
+        file: IO[str] | None = None,
+        depth: int | None = None,
+        show_caches: bool = False,
+        adaptive: bool = False,
     ) -> None: ...
 
 else:
@@ -118,16 +118,16 @@ else:
 
 if sys.version_info >= (3, 11):
     def disassemble(
-        co: _HaveCodeType, lasti: int = ..., *, file: IO[str] | None = ..., show_caches: bool = ..., adaptive: bool = ...
+        co: _HaveCodeType, lasti: int = -1, *, file: IO[str] | None = None, show_caches: bool = False, adaptive: bool = False
     ) -> None: ...
     def disco(
-        co: _HaveCodeType, lasti: int = ..., *, file: IO[str] | None = ..., show_caches: bool = ..., adaptive: bool = ...
+        co: _HaveCodeType, lasti: int = -1, *, file: IO[str] | None = None, show_caches: bool = False, adaptive: bool = False
     ) -> None: ...
     def distb(
-        tb: types.TracebackType | None = ..., *, file: IO[str] | None = ..., show_caches: bool = ..., adaptive: bool = ...
+        tb: types.TracebackType | None = None, *, file: IO[str] | None = None, show_caches: bool = False, adaptive: bool = False
     ) -> None: ...
     def get_instructions(
-        x: _HaveCodeType, *, first_line: int | None = ..., show_caches: bool = ..., adaptive: bool = ...
+        x: _HaveCodeType, *, first_line: int | None = None, show_caches: bool = False, adaptive: bool = False
     ) -> Iterator[Instruction]: ...
 
 else:
@@ -136,4 +136,4 @@ else:
     def distb(tb: types.TracebackType | None = ..., *, file: IO[str] | None = ...) -> None: ...
     def get_instructions(x: _HaveCodeType, *, first_line: int | None = ...) -> Iterator[Instruction]: ...
 
-def show_code(co: _HaveCodeType, *, file: IO[str] | None = ...) -> None: ...
+def show_code(co: _HaveCodeType, *, file: IO[str] | None = None) -> None: ...

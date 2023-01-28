@@ -9,7 +9,7 @@ class PyCompileError(Exception):
     exc_value: BaseException
     file: str
     msg: str
-    def __init__(self, exc_type: type[BaseException], exc_value: BaseException, file: str, msg: str = ...) -> None: ...
+    def __init__(self, exc_type: type[BaseException], exc_value: BaseException, file: str, msg: str = "") -> None: ...
 
 class PycInvalidationMode(enum.Enum):
     TIMESTAMP: int
@@ -21,12 +21,12 @@ def _get_default_invalidation_mode() -> PycInvalidationMode: ...
 if sys.version_info >= (3, 8):
     def compile(
         file: AnyStr,
-        cfile: AnyStr | None = ...,
-        dfile: AnyStr | None = ...,
-        doraise: bool = ...,
-        optimize: int = ...,
-        invalidation_mode: PycInvalidationMode | None = ...,
-        quiet: int = ...,
+        cfile: AnyStr | None = None,
+        dfile: AnyStr | None = None,
+        doraise: bool = False,
+        optimize: int = -1,
+        invalidation_mode: PycInvalidationMode | None = None,
+        quiet: int = 0,
     ) -> AnyStr | None: ...
 
 else:

@@ -30,8 +30,8 @@ class BaseSubprocessTransport(transports.SubprocessTransport):
         stdout: _File,
         stderr: _File,
         bufsize: int,
-        waiter: futures.Future[Any] | None = ...,
-        extra: Any | None = ...,
+        waiter: futures.Future[Any] | None = None,
+        extra: Any | None = None,
         **kwargs: Any,
     ) -> None: ...
     def _start(

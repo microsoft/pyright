@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from typing import Any
 
 from google.cloud.ndb import tasklets as tasklets
@@ -23,7 +24,7 @@ class _GlobalCacheGetBatch(_GlobalCacheBatch):
     def make_call(self): ...
     def future_info(self, key): ...
 
-def global_set(key, value, expires: Any | None = ..., read: bool = ...): ...
+def global_set(key, value, expires: Incomplete | None = ..., read: bool = ...): ...
 
 class _GlobalCacheSetBatch(_GlobalCacheBatch):
     expires: Any
