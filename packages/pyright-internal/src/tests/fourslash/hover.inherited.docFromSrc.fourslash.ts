@@ -54,10 +54,10 @@
 //// d2.[|/*secondDerived_method_docs*/method|]()
 
 helper.verifyHover('markdown', {
-    child_a_method1_docs: '```python\n(method) method1() -> bool\n```\n---\nA.method1 docs',
-    child_a_docs: '```python\n(class) ChildA()\n```',
-    child_b_docs: '```python\n(class) ChildB()\n```\n---\nB init docs',
-    child_b_init_docs: '```python\n(method) __init__() -> None\n```\n---\nB init docs',
-    secondDerived_docs: '```python\n(class) Derived2()\n```',
-    secondDerived_method_docs: '```python\n(method) method() -> None\n```\n---\nBase.method docs',
+    child_a_method1_docs: '```python\n(method) def method1() -> bool\n```\n---\nA.method1 docs',
+    child_a_docs: '```python\nclass ChildA()\n```',
+    child_b_docs: '```python\nclass ChildB()\n```\n---\nB init docs',
+    child_b_init_docs: '```python\n(method) def __init__() -> None\n```\n---\nB init docs',
+    secondDerived_docs: '```python\nclass Derived2()\n```',
+    secondDerived_method_docs: '```python\n(method) def method() -> None\n```\n---\nBase.method docs',
 });

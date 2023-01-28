@@ -24,6 +24,6 @@
 //// print([|/*func1_docs*/func1|]())
 
 helper.verifyHover('markdown', {
-    func1_docs: '```python\n(function) func1() -> bool\n```\n---\nfunc1 docs',
+    func1_docs: '```python\n(function) def func1() -> bool\n```\n---\nfunc1 docs',
     package_docs: '```python\n(module) package1\n```\n---\npackage1 docs',
 });

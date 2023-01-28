@@ -38,12 +38,12 @@ await helper.verifyCompletion('exact', 'markdown', {
             {
                 label: 'some_func1',
                 kind: Consts.CompletionItemKind.Function,
-                documentation: '```python\nsome_func1(a: Unknown) -> None\n```\n---\nsome function docs',
+                documentation: '```python\ndef some_func1(a: Unknown) -> None\n```\n---\nsome function docs',
             },
             {
                 label: 'some_func2',
                 kind: Consts.CompletionItemKind.Function,
-                documentation: '```python\nsome_func2(a: Unknown) -> None\n```\n---\nanother function docs',
+                documentation: '```python\ndef some_func2(a: Unknown) -> None\n```\n---\nanother function docs',
             },
         ],
     },
