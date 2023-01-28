@@ -41,6 +41,7 @@
 
 helper.verifyHover('markdown', {
     child_a_func_doc:
-        '```python\n(method)\nfunc(self: ChildA, x: str) -> str\nfunc(self: ChildA, x: int) -> int\n```\n---\nfunc docs',
-    child_a_instance_func_doc: '```python\n(method)\nfunc(x: str) -> str\nfunc(x: int) -> int\n```\n---\nfunc docs',
+        '```python\n(method)\ndef func(self: ChildA, x: str) -> str: ...\ndef func(self: ChildA, x: int) -> int: ...\n```\n---\nfunc docs',
+    child_a_instance_func_doc:
+        '```python\n(method)\ndef func(x: str) -> str: ...\ndef func(x: int) -> int: ...\n```\n---\nfunc docs',
 });

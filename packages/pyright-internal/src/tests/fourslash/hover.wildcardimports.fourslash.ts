@@ -73,7 +73,7 @@
 helper.verifyHover('markdown', {
     marker1: '```python\n(variable) func: Any\n```\n---\nfunc docs',
     marker2: '```python\n(variable) MyType: Any\n```\n---\nMyType docs',
-    marker3: '```python\n(method) func2() -> None\n```\n---\nfunc2 docs',
+    marker3: '```python\n(method) def func2() -> None\n```\n---\nfunc2 docs',
     marker4: '```python\n(variable) func3: Any\n```\n---\nfunc3 docs',
     marker5: '```python\n(variable) func4: Any\n```\n---\nfunc4 docs',
     marker6: '```python\n(variable) func5: Any\n```\n---\nfunc5 docs',
