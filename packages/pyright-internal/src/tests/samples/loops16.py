@@ -283,38 +283,38 @@ def get_ipv4():
                 continue
             elif ip1 == 40 and ip2 == 104 and ip3 == 0 and ip4 == 0:
                 continue
-            elif ip1 == 52 and ip2 == 96 and ip3 == 0 and ip4 == 0:
-                continue
-            elif ip1 == 131 and ip2 == 253 and ip3 == 33 and ip4 == 215:
-                continue
-            elif ip1 == 132 and ip2 == 245 and ip3 == 0 and ip4 == 0:
-                continue
-            elif ip1 == 150 and ip2 == 171 and ip3 == 32 and ip4 == 0:
-                continue
-            elif ip1 == 204 and ip2 == 79 and ip3 == 197 and ip4 == 215:
-                continue
-            elif ip1 == 208 and ip2 == 71 and (ip3 > 120 and ip3 < 127):
-                continue
-            elif ip1 == 117 and ip2 == 102 and (ip3 > 128 and ip3 < 159):
-                continue
-            elif ip1 == 203 and ip2 == 171 and (ip3 > 192 and ip3 < 207):
-                continue
-            elif ip1 == 59 and (ip3 > 192 and ip3 < 255):
-                continue
-            elif ip1 == 163 and ip2 == 233:
-                continue
-            elif ip1 == 62 and ip2 <= 30:
-                continue  # honey pots
-            elif ip1 == 207 and ip2 >= 31 and ip3 <= 120:
-                continue  # fbi honey pots
-            elif ip1 == 65 and ip2 >= 224 and ip3 <= 226:
-                continue  # more honey pots
-            elif ip1 == 195 and ip2 == 10:
-                continue  # another honeypot
-            elif ip1 == 216 and (ip2 == 25 or ip2 == 94):
-                continue
-            elif ip1 == 212 and ip2 == 56:
-                continue
+            # elif ip1 == 52 and ip2 == 96 and ip3 == 0 and ip4 == 0:
+            #     continue
+            # elif ip1 == 131 and ip2 == 253 and ip3 == 33 and ip4 == 215:
+            #     continue
+            # elif ip1 == 132 and ip2 == 245 and ip3 == 0 and ip4 == 0:
+            #     continue
+            # elif ip1 == 150 and ip2 == 171 and ip3 == 32 and ip4 == 0:
+            #     continue
+            # elif ip1 == 204 and ip2 == 79 and ip3 == 197 and ip4 == 215:
+            #     continue
+            # elif ip1 == 208 and ip2 == 71 and (ip3 > 120 and ip3 < 127):
+            #     continue
+            # elif ip1 == 117 and ip2 == 102 and (ip3 > 128 and ip3 < 159):
+            #     continue
+            # elif ip1 == 203 and ip2 == 171 and (ip3 > 192 and ip3 < 207):
+            #     continue
+            # elif ip1 == 59 and (ip3 > 192 and ip3 < 255):
+            #     continue
+            # elif ip1 == 163 and ip2 == 233:
+            #     continue
+            # elif ip1 == 62 and ip2 <= 30:
+            #     continue  # honey pots
+            # elif ip1 == 207 and ip2 >= 31 and ip3 <= 120:
+            #     continue  # fbi honey pots
+            # elif ip1 == 65 and ip2 >= 224 and ip3 <= 226:
+            #     continue  # more honey pots
+            # elif ip1 == 195 and ip2 == 10:
+            #     continue  # another honeypot
+            # elif ip1 == 216 and (ip2 == 25 or ip2 == 94):
+            #     continue
+            # elif ip1 == 212 and ip2 == 56:
+            #     continue
 
             ip = f"{str(ip1)}.{str(ip2)}.{str(ip3)}.{str(ip4)}"
             return ip
