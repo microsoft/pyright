@@ -26,14 +26,14 @@ def func1(x: Union[int, List[int], A, B, C, D, None]) -> None:
     if x:
         reveal_type(x, expected_text="int | List[int] | A | B | D")
     else:
-        reveal_type(x, expected_text="int | List[int] | B | C | None")
+        reveal_type(x, expected_text="List[int] | B | C | Literal[0] | None")
 
 
 def func2(maybe_int: Optional[int]):
     if bool(maybe_int):
         reveal_type(maybe_int, expected_text="int")
     else:
-        reveal_type(maybe_int, expected_text="int | None")
+        reveal_type(maybe_int, expected_text="Literal[0] | None")
 
 
 def func3(maybe_a: Optional[A]):

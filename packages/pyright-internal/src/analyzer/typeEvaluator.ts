@@ -1853,6 +1853,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (ClassType.isBuiltIn(concreteSubtype, 'bool')) {
                     return ClassType.cloneWithLiteral(concreteSubtype, /* value */ false);
                 }
+
+                // If the object is an int, str or bytes, narrow to a literal type.
+                // This is slightly unsafe in that someone could subclass `int`, `str`
+                // or `bytes` and override the `__bool__` method to change its behavior,
+                // but this is extremely unlikely (and ill advised).
+                if (ClassType.isBuiltIn(concreteSubtype, 'int')) {
+                    return ClassType.cloneWithLiteral(concreteSubtype, /* value */ 0);
+                } else if (ClassType.isBuiltIn(concreteSubtype, ['str', 'bytes'])) {
+                    return ClassType.cloneWithLiteral(concreteSubtype, /* value */ '');
+                }
             }
 
             // If it's possible for the type to be falsy, include it.

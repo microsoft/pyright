@@ -15,8 +15,8 @@ def baz() -> str:
 
 reveal_type(foo() and bar(), expected_text="int | Literal[False]")
 reveal_type(foo() and baz(), expected_text="str | Literal[False]")
-reveal_type(bar() and foo(), expected_text="int | bool")
-reveal_type(baz() and foo(), expected_text="str | bool")
+reveal_type(bar() and foo(), expected_text="bool | Literal[0]")
+reveal_type(baz() and foo(), expected_text="bool | Literal['']")
 
 reveal_type(foo() or bar(), expected_text="int | Literal[True]")
 reveal_type(foo() or baz(), expected_text="str | Literal[True]")
