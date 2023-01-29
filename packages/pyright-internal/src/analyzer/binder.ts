@@ -152,7 +152,12 @@ interface ClassVarInfo {
 // amount to the complexity factor. Without this, the complexity
 // calculation fails to take into account large numbers of non-cyclical
 // flow nodes. This number is somewhat arbitrary and is tuned empirically.
-const flowNodeComplexityFactor = 0.05;
+const flowNodeComplexityContribution = 0.05;
+
+// For branch and loop nodes that enumerate expressions affected by
+// that branch/loop, we add in a small complexity contribution for each
+// expression. This number is somewhat arbitrary and is tuned empirically.
+const branchNodeExpressionComplexityContribution = 0.25;
 
 export class Binder extends ParseTreeWalker {
     private readonly _fileInfo: AnalyzerFileInfo;
@@ -3274,6 +3279,8 @@ export class Binder extends ParseTreeWalker {
 
         this._currentScopeCodeFlowExpressions = savedExpressions;
 
+        this._codeFlowComplexity += scopedExpressions.size * branchNodeExpressionComplexityContribution;
+
         return scopedExpressions;
     }
 
@@ -4194,7 +4201,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _getUniqueFlowNodeId() {
-        this._codeFlowComplexity += flowNodeComplexityFactor;
+        this._codeFlowComplexity += flowNodeComplexityContribution;
         return getUniqueFlowNodeId();
     }
 
