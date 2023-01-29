@@ -32,6 +32,7 @@ import { PackageTypeReport, TypeKnownStatus } from './analyzer/packageTypeReport
 import { createDeferred } from './common/deferred';
 import { FullAccessHost } from './common/fullAccessHost';
 import { ChokidarFileWatcherProvider } from './common/chokidarFileWatcherProvider';
+import { fail } from './common/debug';
 
 const toolName = 'pyright';
 
@@ -776,15 +777,26 @@ function isDiagnosticIncluded(diagSeverity: SeverityLevel, minSeverityLevel: Sev
     return minSeverityLevel === 'information';
 }
 
+function convertDiagnosticCategoryToSeverity(category: DiagnosticCategory): SeverityLevel {
+    switch (category) {
+        case DiagnosticCategory.Error:
+            return 'error';
+
+        case DiagnosticCategory.Warning:
+            return 'warning';
+
+        case DiagnosticCategory.Information:
+            return 'information';
+
+        default:
+            fail('Unexpected diagnostic category');
+    }
+}
+
 function convertDiagnosticToJson(filePath: string, diag: Diagnostic): PyrightJsonDiagnostic {
     return {
         file: filePath,
-        severity:
-            diag.category === DiagnosticCategory.Error
-                ? 'error'
-                : diag.category === DiagnosticCategory.Warning
-                ? 'warning'
-                : 'information',
+        severity: convertDiagnosticCategoryToSeverity(diag.category),
         message: diag.message,
         range: isEmptyRange(diag.range) ? undefined : diag.range,
         rule: diag.getRule(),
@@ -805,16 +817,15 @@ function reportDiagnosticsAsText(
             (diag) =>
                 diag.category !== DiagnosticCategory.UnusedCode &&
                 diag.category !== DiagnosticCategory.UnreachableCode &&
-                diag.category !== DiagnosticCategory.Deprecated
+                diag.category !== DiagnosticCategory.Deprecated &&
+                isDiagnosticIncluded(convertDiagnosticCategoryToSeverity(diag.category), minSeverityLevel)
         );
 
         if (fileErrorsAndWarnings.length > 0) {
             console.log(`${fileDiagnostics.filePath}`);
             fileErrorsAndWarnings.forEach((diag) => {
                 const jsonDiag = convertDiagnosticToJson(fileDiagnostics.filePath, diag);
-                if (isDiagnosticIncluded(jsonDiag.severity, minSeverityLevel)) {
-                    logDiagnosticToConsole(jsonDiag);
-                }
+                logDiagnosticToConsole(jsonDiag);
 
                 if (diag.category === DiagnosticCategory.Error) {
                     errorCount++;
