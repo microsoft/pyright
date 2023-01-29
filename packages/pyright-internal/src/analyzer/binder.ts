@@ -2911,6 +2911,20 @@ export class Binder extends ParseTreeWalker {
                                 expressionList.push(expression.leftExpression);
                             }
                         }
+
+                        // If the expression is an index expression with a supported
+                        // subscript, add its baseExpression to the expression list because
+                        // that expression can be narrowed.
+                        if (
+                            expression.nodeType === ParseNodeType.Index &&
+                            expression.items.length === 1 &&
+                            !expression.trailingComma &&
+                            expression.items[0].argumentCategory === ArgumentCategory.Simple
+                        ) {
+                            if (isCodeFlowSupportedForReference(expression.baseExpression)) {
+                                expressionList.push(expression.baseExpression);
+                            }
+                        }
                     }
                     return true;
                 }

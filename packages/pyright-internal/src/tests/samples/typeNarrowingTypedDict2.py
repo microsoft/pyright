@@ -34,6 +34,7 @@ def process_event1(event: Event) -> None:
         reveal_type(event, expected_text="OtherEvent")
         event["message"]
 
+
 def process_event2(event: Event) -> None:
     if event["tag"] is "new-job":
         reveal_type(event, expected_text="NewJobEvent")
@@ -44,3 +45,13 @@ def process_event2(event: Event) -> None:
     else:
         reveal_type(event, expected_text="OtherEvent")
         event["message"]
+
+
+class ClassA:
+    job_event: NewJobEvent | OtherEvent
+
+    def method1(self):
+        if self.job_event["tag"] == "new-job":
+            reveal_type(self.job_event, expected_text="NewJobEvent")
+        else:
+            reveal_type(self.job_event, expected_text="OtherEvent")
