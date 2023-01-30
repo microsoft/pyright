@@ -65,7 +65,7 @@ function getRawString(key: string): string {
     fail(`Missing localized string for key "${key}"`);
 }
 
-function getRawStringFromMap(map: StringLookupMap, keyParts: string[]): string | undefined {
+export function getRawStringFromMap(map: StringLookupMap, keyParts: string[]): string | undefined {
     let curObj: any = map;
 
     for (const keyPart of keyParts) {
@@ -82,7 +82,7 @@ function getRawStringFromMap(map: StringLookupMap, keyParts: string[]): string |
 function initialize(): StringLookupMap {
     defaultStrings = loadDefaultStrings();
     const currentLocale = getLocaleFromEnv();
-    return loadStringsForLocale(currentLocale);
+    return loadStringsForLocale(currentLocale, stringMapsByLocale);
 }
 
 declare let navigator: { language: string } | undefined;
@@ -93,7 +93,7 @@ export function setLocaleOverride(locale: string) {
     localeOverride = locale.toLowerCase();
 }
 
-function getLocaleFromEnv() {
+export function getLocaleFromEnv() {
     if (localeOverride) {
         return localeOverride;
     }
@@ -133,7 +133,7 @@ function getLocaleFromEnv() {
 }
 
 function loadDefaultStrings(): StringLookupMap {
-    const defaultStrings = loadStringsFromJsonFile(defaultLocale);
+    const defaultStrings = stringMapsByLocale.get(defaultLocale);
     if (defaultStrings) {
         return defaultStrings;
     }
@@ -141,13 +141,13 @@ function loadDefaultStrings(): StringLookupMap {
     return {};
 }
 
-function loadStringsForLocale(locale: string): StringLookupMap {
+export function loadStringsForLocale(locale: string, localeMap: Map<string, any>): StringLookupMap {
     if (locale === defaultLocale) {
         // No need to load override if we're using the default.
         return {};
     }
 
-    let override = loadStringsFromJsonFile(locale);
+    let override = localeMap.get(locale);
     if (override !== undefined) {
         return override;
     }
@@ -156,17 +156,13 @@ function loadStringsForLocale(locale: string): StringLookupMap {
     // general version.
     const localeSplit = locale.split('-');
     if (localeSplit.length > 0 && localeSplit[0]) {
-        override = loadStringsFromJsonFile(localeSplit[0]);
+        override = localeMap.get(localeSplit[0]);
         if (override !== undefined) {
             return override;
         }
     }
 
     return {};
-}
-
-function loadStringsFromJsonFile(locale: string): StringLookupMap | undefined {
-    return stringMapsByLocale.get(locale);
 }
 
 export namespace Localizer {
