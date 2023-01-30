@@ -460,6 +460,17 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                 }
 
                 if (strChar === Char.Backslash) {
+                    if (isFormat) {
+                        if (formatSegment.isExpression) {
+                            // The last format segment was an unterminated expression.
+                            output.unescapeErrors.push({
+                                offset: formatSegment.offset,
+                                length: strOffset - formatSegment.offset,
+                                errorType: UnescapeErrorType.UnterminatedFormatExpression,
+                            });
+                        }
+                    }
+
                     appendOutputChar(strChar);
                     strOffset++;
                     strChar = getEscapedCharacter();

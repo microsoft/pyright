@@ -361,7 +361,7 @@ test('CallSite2', () => {
 
 test('FString1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['fstring1.py']);
-    TestUtils.validateResults(analysisResults, 5, 1);
+    TestUtils.validateResults(analysisResults, 7, 1);
 });
 
 test('FString2', () => {

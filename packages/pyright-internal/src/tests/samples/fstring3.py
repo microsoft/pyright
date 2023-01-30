@@ -7,7 +7,7 @@ a1 = f"[{{name}}{'}' if True else ''}]"
 
 b1 = f"{'''hello'''}"
 
-c1 = f"""{"\""}"""
+c1 = f"""{'"'}"""
 
 hello1 = 3
 d1 = f"{ f'{hello1}' }"
@@ -15,14 +15,14 @@ d1 = f"{ f'{hello1}' }"
 print(f"{'a' if 'b' != d1 else 'd'}")
 
 
-a2 = fr"[{{name}}{'}' if True else ''}]"
+a2 = rf"[{{name}}{'}' if True else ''}]"
 
-b2 = fr"{'''hello'''}"
+b2 = rf"{'''hello'''}"
 
-c2 = rf"""{"\""}"""
+c2 = rf"""{'"'}"""
 
 hello2 = 3
-d2 = fr"{ rf'{hello2}' }"
+d2 = rf"{ rf'{hello2}' }"
 
 e1 = f''' {
     f""" {
@@ -32,4 +32,3 @@ e1 = f''' {
         ])
     }"""
 }'''
-

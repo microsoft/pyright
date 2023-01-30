@@ -8,6 +8,12 @@ a = f'hello { f"hi {1}" } bye { f"hello" }'
 # This should generate an error.
 b = f"hello { \t1 }"
 
+# This should generate an error.
+b1 = f"""{"\n"}"""
+
+# This should generate an error.
+b2 = f"{r'\n'}"
+
 
 # Test f-string with unterminated expression.
 # This should generate an error.
