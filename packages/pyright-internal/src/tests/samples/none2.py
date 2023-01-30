@@ -20,3 +20,5 @@ if val1 is not None:
 # This should generate an error because None isn't
 # assignable to Type[None].
 val2 = func1(None)
+
+val3: type[object] = type(None)

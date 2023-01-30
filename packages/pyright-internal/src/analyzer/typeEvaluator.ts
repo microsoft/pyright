@@ -22689,10 +22689,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        if (isClassInstance(destType) && ClassType.isBuiltIn(destType, 'object')) {
-            if ((flags & AssignTypeFlags.EnforceInvariance) === 0) {
-                // All types (including None, Module, OverloadedFunction) derive from object.
-                return true;
+        if (isClass(destType) && ClassType.isBuiltIn(destType, 'object')) {
+            if ((isInstantiableClass(destType) && TypeBase.isInstantiable(srcType)) || isClassInstance(destType)) {
+                if ((flags & AssignTypeFlags.EnforceInvariance) === 0) {
+                    // All types (including None, Module, OverloadedFunction) derive from object.
+                    return true;
+                }
             }
         }
 
