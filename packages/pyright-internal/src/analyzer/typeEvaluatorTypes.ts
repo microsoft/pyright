@@ -305,6 +305,14 @@ export interface InferenceContext {
     typeVarContext?: TypeVarContext;
 }
 
+export interface ArgResult {
+    isCompatible: boolean;
+    argType: Type;
+    isTypeIncomplete?: boolean | undefined;
+    condition?: TypeCondition[];
+    skippedOverloadArg?: boolean;
+}
+
 export interface CallResult {
     // Specialized return type of call
     returnType?: Type | undefined;
@@ -332,6 +340,9 @@ export interface CallResult {
     // be multiple overloads in the case where the call type is a union
     // or we have used union expansion for arguments.
     overloadsUsedForCall: FunctionType[];
+
+    // Types of individual arguments.
+    argResults?: ArgResult[];
 }
 
 export interface PrintTypeOptions {

@@ -157,6 +157,7 @@ import {
 import {
     AbstractMethod,
     AnnotationTypeOptions,
+    ArgResult,
     CallResult,
     CallSignature,
     CallSignatureInfo,
@@ -366,14 +367,6 @@ interface MatchArgsToParamsResult {
     relevance: number;
 }
 
-interface ArgResult {
-    isCompatible: boolean;
-    argType: Type;
-    isTypeIncomplete?: boolean | undefined;
-    condition?: TypeCondition[];
-    skippedOverloadArg?: boolean;
-}
-
 interface ClassMemberLookup {
     symbol: Symbol | undefined;
 
@@ -416,6 +409,14 @@ interface ParamAssignmentInfo {
     argsNeeded: number;
     argsReceived: number;
     isPositionalOnly: boolean;
+}
+
+interface MatchedOverloadInfo {
+    overload: FunctionType;
+    matchResults: MatchArgsToParamsResult;
+    typeVarContext: TypeVarContext;
+    argResults: ArgResult[];
+    returnType: Type;
 }
 
 // Maps binary operators to the magic methods that implement them.
@@ -7767,20 +7768,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         inferenceContext: InferenceContext | undefined
     ): CallResult {
         const returnTypes: Type[] = [];
-        const matchedOverloads: {
-            overload: FunctionType;
-            matchResults: MatchArgsToParamsResult;
-            typeVarContext: TypeVarContext;
-        }[] = [];
+        const matchedOverloads: MatchedOverloadInfo[] = [];
         let isTypeIncomplete = false;
-        const overloadsUsedForCall: FunctionType[] = [];
+        let overloadsUsedForCall: FunctionType[] = [];
         let isDefinitiveMatchFound = false;
 
         for (let expandedTypesIndex = 0; expandedTypesIndex < expandedArgTypes.length; expandedTypesIndex++) {
             let matchedOverload: FunctionType | undefined;
             const argTypeOverride = expandedArgTypes[expandedTypesIndex];
             const hasArgTypeOverride = argTypeOverride.some((a) => a !== undefined);
-            const possibleMatchResults: Type[] = [];
+            let possibleMatchResults: MatchedOverloadInfo[] = [];
             isDefinitiveMatchFound = false;
 
             for (let overloadIndex = 0; overloadIndex < argParamMatches.length; overloadIndex++) {
@@ -7831,14 +7828,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     overloadsUsedForCall.push(overload);
 
                     matchedOverload = overload;
-                    matchedOverloads.push({
+                    const matchedOverloadInfo: MatchedOverloadInfo = {
                         overload: matchedOverload,
                         matchResults,
                         typeVarContext: effectiveTypeVarContext,
-                    });
+                        returnType: callResult.returnType,
+                        argResults: callResult.argResults ?? [],
+                    };
+                    matchedOverloads.push(matchedOverloadInfo);
 
                     if (callResult.isArgumentAnyOrUnknown) {
-                        possibleMatchResults.push(callResult.returnType);
+                        possibleMatchResults.push(matchedOverloadInfo);
                     } else {
                         returnTypes.push(callResult.returnType);
                         isDefinitiveMatchFound = true;
@@ -7853,33 +7853,41 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Unknown, but include the "possible types" to allow for completion
             // suggestions.
             if (!isDefinitiveMatchFound) {
-                // Eliminate any return types that are subsumed by other return types.
-                let dedupedMatchResults: Type[] = [];
+                possibleMatchResults = filterOverloadMatchesForAnyArgs(possibleMatchResults);
 
-                possibleMatchResults.forEach((subtype) => {
-                    let isSubtypeSubsumed = false;
+                // Did the filtering produce a single result? If so, we're done.
+                if (possibleMatchResults.length === 1) {
+                    overloadsUsedForCall = [possibleMatchResults[0].overload];
+                    returnTypes.push(possibleMatchResults[0].returnType);
+                } else {
+                    // Eliminate any return types that are subsumed by other return types.
+                    let dedupedMatchResults: Type[] = [];
 
-                    for (let dedupedIndex = 0; dedupedIndex < dedupedMatchResults.length; dedupedIndex++) {
-                        if (assignType(dedupedMatchResults[dedupedIndex], subtype)) {
-                            isSubtypeSubsumed = true;
-                            break;
-                        } else if (assignType(subtype, dedupedMatchResults[dedupedIndex])) {
-                            dedupedMatchResults[dedupedIndex] = NeverType.createNever();
-                            break;
+                    possibleMatchResults.forEach((result) => {
+                        let isSubtypeSubsumed = false;
+
+                        for (let dedupedIndex = 0; dedupedIndex < dedupedMatchResults.length; dedupedIndex++) {
+                            if (assignType(dedupedMatchResults[dedupedIndex], result.returnType)) {
+                                isSubtypeSubsumed = true;
+                                break;
+                            } else if (assignType(result.returnType, dedupedMatchResults[dedupedIndex])) {
+                                dedupedMatchResults[dedupedIndex] = NeverType.createNever();
+                                break;
+                            }
                         }
-                    }
 
-                    if (!isSubtypeSubsumed) {
-                        dedupedMatchResults.push(subtype);
-                    }
-                });
+                        if (!isSubtypeSubsumed) {
+                            dedupedMatchResults.push(result.returnType);
+                        }
+                    });
 
-                dedupedMatchResults = dedupedMatchResults.filter((t) => !isNever(t));
-                const combinedTypes = combineTypes(dedupedMatchResults);
+                    dedupedMatchResults = dedupedMatchResults.filter((t) => !isNever(t));
+                    const combinedTypes = combineTypes(dedupedMatchResults);
 
-                returnTypes.push(
-                    dedupedMatchResults.length > 1 ? UnknownType.createPossibleType(combinedTypes) : combinedTypes
-                );
+                    returnTypes.push(
+                        dedupedMatchResults.length > 1 ? UnknownType.createPossibleType(combinedTypes) : combinedTypes
+                    );
+                }
             }
 
             if (!matchedOverload) {
@@ -7920,6 +7928,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             specializedInitSelfType: finalCallResult.specializedInitSelfType,
             overloadsUsedForCall,
         };
+    }
+
+    // This function determines whether multiple incompatible overloads match
+    // due to an Any or Unknown argument type.
+    function filterOverloadMatchesForAnyArgs(matches: MatchedOverloadInfo[]): MatchedOverloadInfo[] {
+        if (matches.length < 2) {
+            return matches;
+        }
+
+        // If all of the return types match, select the first one.
+        if (
+            areTypesSame(
+                matches.map((match) => match.returnType),
+                { treatAnySameAsUnknown: true }
+            )
+        ) {
+            return [matches[0]];
+        }
+
+        const firstArgResults = matches[0].argResults;
+        if (!firstArgResults) {
+            return matches;
+        }
+
+        for (let i = 0; i < firstArgResults.length; i++) {
+            // If the arg is Any or Unknown, see if the corresponding
+            // parameter types differ in any way.
+            if (isAnyOrUnknown(firstArgResults[i].argType)) {
+                const paramTypes = matches.map((match) => match.matchResults.argParams[i].paramType);
+                if (!areTypesSame(paramTypes, { treatAnySameAsUnknown: true })) {
+                    return matches;
+                }
+            }
+        }
+
+        return [matches[0]];
     }
 
     function getBestOverloadForArguments(
@@ -10442,6 +10486,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let sawParamSpecKwargs = false;
 
         let condition: TypeCondition[] = [];
+        const argResults: ArgResult[] = [];
+
         matchResults.argParams.forEach((argParam) => {
             const argResult = validateArgType(
                 argParam,
@@ -10452,6 +10498,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 /* useNarrowBoundOnly */ false,
                 typeCondition
             );
+
+            argResults.push(argResult);
 
             if (!argResult.isCompatible) {
                 argumentErrors = true;
@@ -10608,6 +10656,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         return {
             argumentErrors,
+            argResults,
             isArgumentAnyOrUnknown,
             returnType: specializedReturnType,
             isTypeIncomplete,
