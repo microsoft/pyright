@@ -600,6 +600,7 @@ interface ClassTypeHook {
 
 interface TypeCacheEntry {
     typeResult: TypeResult;
+    incompleteGenerationCount: number;
     flags: EvaluatorFlags | undefined;
 }
 
@@ -634,6 +635,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let dictClassType: Type | undefined;
     let typedDictClassType: Type | undefined;
     let printExpressionSpaceCount = 0;
+    let incompleteGenerationCount = 0;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: Map<number, TypeCacheEntry> | undefined;
@@ -731,7 +733,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ? returnTypeInferenceTypeCache
                 : typeCache;
 
-        typeCacheToUse.set(node.id, { typeResult, flags });
+        if (!typeResult.isIncomplete) {
+            incompleteGenerationCount++;
+        } else {
+            const oldValue = typeCacheToUse.get(node.id);
+            if (oldValue !== undefined && !isTypeSame(typeResult.type, oldValue.typeResult.type)) {
+                incompleteGenerationCount++;
+            }
+        }
+
+        typeCacheToUse.set(node.id, { typeResult, flags, incompleteGenerationCount: incompleteGenerationCount });
 
         // If the entry is located within a part of the parse tree that is currently being
         // "speculatively" evaluated, track it so we delete the cached entry when we leave
@@ -739,7 +750,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (speculativeTypeTracker.isSpeculative(node)) {
             speculativeTypeTracker.trackEntry(typeCacheToUse, node.id);
             if (allowSpeculativeCaching) {
-                speculativeTypeTracker.addSpeculativeType(node, typeResult, inferenceContext?.expectedType);
+                speculativeTypeTracker.addSpeculativeType(
+                    node,
+                    typeResult,
+                    incompleteGenerationCount,
+                    inferenceContext?.expectedType
+                );
             }
         }
     }
@@ -928,7 +944,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): TypeResult {
         // Is this type already cached?
         const cacheEntry = readTypeCacheEntry(node);
-        if (cacheEntry && !cacheEntry.typeResult.isIncomplete) {
+        if (
+            cacheEntry &&
+            (!cacheEntry.typeResult.isIncomplete || cacheEntry.incompleteGenerationCount === incompleteGenerationCount)
+        ) {
             if (printExpressionTypes) {
                 console.log(
                     `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
@@ -942,7 +961,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else {
             // Is it cached in the speculative type cache?
             const cacheEntry = speculativeTypeTracker.getSpeculativeType(node, inferenceContext?.expectedType);
-            if (cacheEntry && !cacheEntry.typeResult.isIncomplete) {
+            if (
+                cacheEntry &&
+                (!cacheEntry.typeResult.isIncomplete ||
+                    cacheEntry.incompleteGenerationCount === incompleteGenerationCount)
+            ) {
                 if (printExpressionTypes) {
                     console.log(
                         `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
