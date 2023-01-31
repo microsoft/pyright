@@ -738,7 +738,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // this speculative context.
         if (speculativeTypeTracker.isSpeculative(node)) {
             speculativeTypeTracker.trackEntry(typeCacheToUse, node.id);
-            if (allowSpeculativeCaching && !typeResult.isIncomplete) {
+            if (allowSpeculativeCaching) {
                 speculativeTypeTracker.addSpeculativeType(node, typeResult, inferenceContext?.expectedType);
             }
         }
@@ -941,16 +941,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return cacheEntry.typeResult;
         } else {
             // Is it cached in the speculative type cache?
-            const cachedTypeResult = speculativeTypeTracker.getSpeculativeType(node, inferenceContext?.expectedType);
-            if (cachedTypeResult) {
+            const cacheEntry = speculativeTypeTracker.getSpeculativeType(node, inferenceContext?.expectedType);
+            if (cacheEntry && !cacheEntry.typeResult.isIncomplete) {
                 if (printExpressionTypes) {
                     console.log(
                         `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
                             node
-                        )}): Speculative ${printType(cachedTypeResult.type)}`
+                        )}): Speculative ${printType(cacheEntry.typeResult.type)}`
                     );
                 }
-                return cachedTypeResult;
+                return cacheEntry.typeResult;
             }
         }
 
