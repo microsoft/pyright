@@ -44,10 +44,10 @@ def func4(x: Color):
     if x == Color.RED:
         return
 
-    if x == Color.GREEN or (Color.PERIWINKLE == x and True):
+    if x == Color.GREEN or (x == Color.PERIWINKLE and True):
         y = 2
     else:
-        if Color.BLUE == x:
+        if x == Color.BLUE:
             y = 3
 
     print(y)

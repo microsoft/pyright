@@ -17,14 +17,9 @@ def func_1(p1: Literal["a", "b", "c"]):
     else:
         reveal_type(p1, expected_text="Literal['a']")
 
-    if "a" != p1:
-        reveal_type(p1, expected_text="Literal['c', 'b']")
-    else:
-        reveal_type(p1, expected_text="Literal['a']")
-
 
 def func2(p1: Literal[1, 4, 7]):
-    if 4 == p1 or 1 == p1:
+    if p1 == 4 or p1 == 1:
         reveal_type(p1, expected_text="Literal[4, 1]")
     else:
         reveal_type(p1, expected_text="Literal[7]")

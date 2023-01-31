@@ -154,11 +154,6 @@ interface ClassVarInfo {
 // flow nodes. This number is somewhat arbitrary and is tuned empirically.
 const flowNodeComplexityContribution = 0.05;
 
-// For branch and loop nodes that enumerate expressions affected by
-// that branch/loop, we add in a small complexity contribution for each
-// expression. This number is somewhat arbitrary and is tuned empirically.
-const branchNodeExpressionComplexityContribution = 0.25;
-
 export class Binder extends ParseTreeWalker {
     private readonly _fileInfo: AnalyzerFileInfo;
 
@@ -2989,20 +2984,8 @@ export class Binder extends ParseTreeWalker {
                     );
 
                     // Look for "X is Y" or "X is not Y".
-                    if (isOrIsNotOperator) {
-                        return isLeftNarrowing;
-                    }
-
-                    // Look for X == <literal>, X != <literal> or <literal> == X, <literal> != X
-                    if (equalsOrNotEqualsOperator) {
-                        const isRightNarrowing = this._isNarrowingExpression(
-                            expression.rightExpression,
-                            expressionList,
-                            filterForNeverNarrowing,
-                            /* isComplexExpression */ true
-                        );
-                        return isLeftNarrowing || isRightNarrowing;
-                    }
+                    // Look for X == <literal> or X != <literal>
+                    return isLeftNarrowing;
                 }
 
                 // Look for "<string> in Y" or "<string> not in Y".
@@ -3292,8 +3275,6 @@ export class Binder extends ParseTreeWalker {
         }
 
         this._currentScopeCodeFlowExpressions = savedExpressions;
-
-        this._codeFlowComplexity += scopedExpressions.size * branchNodeExpressionComplexityContribution;
 
         return scopedExpressions;
     }
