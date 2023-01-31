@@ -36,6 +36,11 @@ export interface FileSpec {
     // Regular expression that can be used to match against this
     // file spec.
     regExp: RegExp;
+
+    // Indicates whether the file spec has a directory wildcard (**).
+    // When present, the search cannot terminate without exploring to
+    // an arbitrary depth.
+    hasDirectoryWildcard: boolean;
 }
 
 export namespace FileSpec {
@@ -649,7 +654,7 @@ export function getWildcardRegexPattern(rootPath: string, fileSpec: string): str
     const pathComponents = getPathComponents(absolutePath);
 
     const escapedSeparator = getRegexEscapedSeparator();
-    const doubleAsteriskRegexFragment = `(${escapedSeparator}[^${escapedSeparator}][^.][^${escapedSeparator}]*)*?`;
+    const doubleAsteriskRegexFragment = `(${escapedSeparator}[^${escapedSeparator}][^${escapedSeparator}]*)*?`;
     const reservedCharacterPattern = new RegExp(`[^\\w\\s${escapedSeparator}]`, 'g');
 
     // Strip the directory separator from the root component.
@@ -684,6 +689,20 @@ export function getWildcardRegexPattern(rootPath: string, fileSpec: string): str
     }
 
     return regExPattern;
+}
+
+// Determines whether the file spec contains a directory wildcard pattern ("**").
+export function isDirectoryWildcardPatternPresent(fileSpec: string): boolean {
+    const path = normalizePath(fileSpec);
+    const pathComponents = getPathComponents(path);
+
+    for (const component of pathComponents) {
+        if (component === '**') {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 // Returns the topmost path that contains no wildcard characters.
@@ -738,10 +757,12 @@ export function getFileSpec(fs: FileSystem, rootPath: string, fileSpec: string):
 
     const regExp = new RegExp(regExPattern, isFileSystemCaseSensitive(fs) ? undefined : 'i');
     const wildcardRoot = getWildcardRoot(rootPath, fileSpec);
+    const hasDirectoryWildcard = isDirectoryWildcardPatternPresent(fileSpec);
 
     return {
         wildcardRoot,
         regExp,
+        hasDirectoryWildcard,
     };
 }
 

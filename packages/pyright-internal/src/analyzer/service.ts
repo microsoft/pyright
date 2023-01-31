@@ -1229,7 +1229,11 @@ export class AnalyzerService {
         const longOperationLimitInSec = 10;
         let loggedLongOperationError = false;
 
-        const visitDirectoryUnchecked = (absolutePath: string, includeRegExp: RegExp) => {
+        const visitDirectoryUnchecked = (
+            absolutePath: string,
+            includeRegExp: RegExp,
+            hasDirectoryWildcard: boolean
+        ) => {
             if (!loggedLongOperationError) {
                 const secondsSinceStart = (Date.now() - startTime) * 0.001;
 
@@ -1271,16 +1275,16 @@ export class AnalyzerService {
 
             for (const directory of directories) {
                 const dirPath = combinePaths(absolutePath, directory);
-                if (includeRegExp.test(dirPath)) {
+                if (includeRegExp.test(dirPath) || hasDirectoryWildcard) {
                     if (!this._isInExcludePath(dirPath, exclude)) {
-                        visitDirectory(dirPath, includeRegExp);
+                        visitDirectory(dirPath, includeRegExp, hasDirectoryWildcard);
                     }
                 }
             }
         };
 
         const seenDirs = new Set<string>();
-        const visitDirectory = (absolutePath: string, includeRegExp: RegExp) => {
+        const visitDirectory = (absolutePath: string, includeRegExp: RegExp, hasDirectoryWildcard: boolean) => {
             const realDirPath = tryRealpath(this.fs, absolutePath);
             if (!realDirPath) {
                 this._console.warn(`Skipping broken link "${absolutePath}"`);
@@ -1294,7 +1298,7 @@ export class AnalyzerService {
             seenDirs.add(realDirPath);
 
             try {
-                visitDirectoryUnchecked(absolutePath, includeRegExp);
+                visitDirectoryUnchecked(absolutePath, includeRegExp, hasDirectoryWildcard);
             } finally {
                 seenDirs.delete(realDirPath);
             }
@@ -1314,7 +1318,7 @@ export class AnalyzerService {
                     }
                     foundFileSpec = true;
                 } else if (stat?.isDirectory()) {
-                    visitDirectory(includeSpec.wildcardRoot, includeSpec.regExp);
+                    visitDirectory(includeSpec.wildcardRoot, includeSpec.regExp, includeSpec.hasDirectoryWildcard);
                     foundFileSpec = true;
                 }
 

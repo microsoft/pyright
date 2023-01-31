@@ -62,7 +62,11 @@ export class BackgroundThreadBase {
 export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
     const configOptions = new ConfigOptions(jsonObject.projectRoot);
     const getFileSpec = (fileSpec: any): FileSpec => {
-        return { wildcardRoot: fileSpec.wildcardRoot, regExp: new RegExp(fileSpec.regExp.source) };
+        return {
+            wildcardRoot: fileSpec.wildcardRoot,
+            regExp: new RegExp(fileSpec.regExp.source),
+            hasDirectoryWildcard: fileSpec.hasDirectoryWildcard,
+        };
     };
 
     configOptions.pythonPath = jsonObject.pythonPath;

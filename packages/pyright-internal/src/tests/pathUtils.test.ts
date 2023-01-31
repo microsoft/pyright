@@ -34,6 +34,7 @@ import {
     getWildcardRegexPattern,
     getWildcardRoot,
     hasTrailingDirectorySeparator,
+    isDirectoryWildcardPatternPresent,
     isFileSystemCaseSensitiveInternal,
     isRootedDiskPath,
     normalizeSlashes,
@@ -152,7 +153,6 @@ test('getWildcardRegexPattern2', () => {
     const pattern = getWildcardRegexPattern('/users/me', './**/*.py?');
     const regex = new RegExp(pattern);
     assert.ok(regex.test(fixSeparators('/users/me/.blah/foo.pyd')));
-    assert.ok(!regex.test(fixSeparators('/users/me/./foo.py')));
     assert.ok(!regex.test(fixSeparators('/users/me/.blah/foo.py'))); // No char after
 });
 
@@ -161,6 +161,26 @@ test('getWildcardRegexPattern3', () => {
     const regex = new RegExp(pattern);
     assert.ok(regex.test(fixSeparators('/users/me/.blah/.foo.py')));
     assert.ok(!regex.test(fixSeparators('/users/me/.blah/foo.py')));
+});
+
+test('isDirectoryWildcardPatternPresent1', () => {
+    const isPresent = isDirectoryWildcardPatternPresent('./**/*.py');
+    assert.equal(isPresent, true);
+});
+
+test('isDirectoryWildcardPatternPresent2', () => {
+    const isPresent = isDirectoryWildcardPatternPresent('./**/a/*.py');
+    assert.equal(isPresent, true);
+});
+
+test('isDirectoryWildcardPatternPresent3', () => {
+    const isPresent = isDirectoryWildcardPatternPresent('./**/@tests');
+    assert.equal(isPresent, true);
+});
+
+test('isDirectoryWildcardPatternPresent4', () => {
+    const isPresent = isDirectoryWildcardPatternPresent('./**/test/test*');
+    assert.equal(isPresent, true);
 });
 
 test('getWildcardRoot1', () => {
