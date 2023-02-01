@@ -27,11 +27,13 @@ interface SpeculativeContext {
 
 export interface TypeResult {
     type: Type;
+    isIncomplete?: boolean;
 }
 
-interface SpeculativeTypeEntry {
+export interface SpeculativeTypeEntry {
     typeResult: TypeResult;
     expectedType: Type | undefined;
+    incompleteGenerationCount: number;
 }
 
 // This class maintains a stack of "speculative type contexts". When
@@ -105,7 +107,12 @@ export class SpeculativeTypeTracker {
         this._speculativeContextStack = stack;
     }
 
-    addSpeculativeType(node: ParseNode, typeResult: TypeResult, expectedType: Type | undefined) {
+    addSpeculativeType(
+        node: ParseNode,
+        typeResult: TypeResult,
+        incompleteGenerationCount: number,
+        expectedType: Type | undefined
+    ) {
         assert(this._speculativeContextStack.length > 0);
         if (this._speculativeContextStack.some((context) => !context.allowCacheRetention)) {
             return;
@@ -116,10 +123,10 @@ export class SpeculativeTypeTracker {
             cacheEntries = [];
             this._speculativeTypeCache.set(node.id, cacheEntries);
         }
-        cacheEntries.push({ typeResult, expectedType });
+        cacheEntries.push({ typeResult, expectedType, incompleteGenerationCount });
     }
 
-    getSpeculativeType(node: ParseNode, expectedType: Type | undefined): TypeResult | undefined {
+    getSpeculativeType(node: ParseNode, expectedType: Type | undefined): SpeculativeTypeEntry | undefined {
         if (
             this._speculativeContextStack.some((context) =>
                 ParseTreeUtils.isNodeContainedWithin(node, context.speculativeRootNode)
@@ -130,10 +137,10 @@ export class SpeculativeTypeTracker {
                 for (const entry of entries) {
                     if (!expectedType) {
                         if (!entry.expectedType) {
-                            return entry.typeResult;
+                            return entry;
                         }
                     } else if (entry.expectedType && isTypeSame(expectedType, entry.expectedType)) {
-                        return entry.typeResult;
+                        return entry;
                     }
                 }
             }

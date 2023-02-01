@@ -57,7 +57,7 @@ c = ""  # Error
 This example introduces the _Optional_ type, which is the same as a union with `None`.
 
 ```
-d: int | None = 4
+d: Optional[int] = 4
 d = b
 d = None
 d = ""  # Error
@@ -139,7 +139,7 @@ def func(val: float | str | complex, test: bool):
         print(val)
 ```
 
-At the start of this function, the type checker knows nothing about `val` other than that its declared type is `float | str | complex`. Then it is assigned a value that has a known type of `int`. This is a legal assignment because `int` is considered a subclass of `float`. At the point in the code immediately after the assignment, the type checker knows that the type of `val` is an `int`. This is a “narrower” (more specific) type than `float | str | complex`. Type narrowing is applied when ever a symbol is assigned a new value.
+At the start of this function, the type checker knows nothing about `val` other than that its declared type is `float | str | complex`. Then it is assigned a value that has a known type of `int`. This is a legal assignment because `int` is considered a subclass of `float`. At the point in the code immediately after the assignment, the type checker knows that the type of `val` is an `int`. This is a “narrower” (more specific) type than `float | str | complex`. Type narrowing is applied whenever a symbol is assigned a new value.
 
 Another assignment occurs several lines further down, this time within a conditional block. The symbol `val` is assigned a value known to be of type `str`, so the narrowed type of `val` is now `str`. Once the code flow of the conditional block merges with the main body of the function, the narrowed type of `val` becomes `int | str` because the type checker cannot statically predict whether the conditional block will be executed at runtime.
 
@@ -203,14 +203,14 @@ def func1(val: Foo | Bar):
     else:
         reveal_type(val) # Foo
 
-def func2(val: int | None):
+def func2(val: float | None):
     if val:
-        reveal_type(val) # int
+        reveal_type(val) # float
     else:
-        reveal_type(val) # int | None
+        reveal_type(val) # float | None
 ```
 
-In the example of `func1`, the type was narrowed in both the positive and negative cases. In the example of `func2`, the type was narrowed only the positive case because the type of `val` might be either `int` (specifically, a value of 0) or `None` in the negative case.
+In the example of `func1`, the type was narrowed in both the positive and negative cases. In the example of `func2`, the type was narrowed only the positive case because the type of `val` might be either `float` (specifically, a value of 0.0) or `None` in the negative case.
 
 ### Aliased Conditional Expression
 
