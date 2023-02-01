@@ -1113,7 +1113,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 assignTypeToExpression(
                     node.leftExpression,
                     typeResult.type,
-                    /* isTypeIncomplete */ false,
+                    !!typeResult.isIncomplete,
                     node.rightExpression,
                     /* ignoreEmptyContainers */ true,
                     /* allowAssignmentToFinalVar */ true
@@ -1126,7 +1126,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 assignTypeToExpression(
                     node.name,
                     typeResult.type,
-                    /* isTypeIncomplete */ false,
+                    !!typeResult.isIncomplete,
                     node.rightExpression,
                     /* ignoreEmptyContainers */ true
                 );

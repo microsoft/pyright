@@ -926,6 +926,12 @@ test('CodeFlow7', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('CodeFlow8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['codeFlow8.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('CapturedVariable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['capturedVariable1.py']);
 
