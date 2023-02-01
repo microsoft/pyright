@@ -52,7 +52,7 @@ import { performQuickAction } from '../languageService/quickActions';
 import { ReferenceCallback, ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { SignatureHelpProvider, SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { Localizer } from '../localization/localize';
-import { ModuleNode, NameNode } from '../parser/parseNodes';
+import { ModuleNode } from '../parser/parseNodes';
 import { ModuleImport, ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { IgnoreComment } from '../parser/tokenizer';
 import { Token } from '../parser/tokenizerTypes';
@@ -958,19 +958,6 @@ export class SourceFile {
         );
     }
 
-    getDefinitionsForNode(
-        sourceMapper: SourceMapper,
-        node: NameNode,
-        evaluator: TypeEvaluator
-    ): DocumentRange[] | undefined {
-        // If we have no completed analysis job, there's nothing to do.
-        if (!this._parseResults) {
-            return undefined;
-        }
-
-        return DefinitionProvider.getDefinitionsForNode(sourceMapper, node, DefinitionFilter.All, evaluator);
-    }
-
     getTypeDefinitionsForPosition(
         sourceMapper: SourceMapper,
         position: Position,
@@ -989,30 +976,6 @@ export class SourceFile {
             position,
             evaluator,
             filePath,
-            token
-        );
-    }
-
-    getDeclarationForNode(
-        sourceMapper: SourceMapper,
-        node: NameNode,
-        evaluator: TypeEvaluator,
-        reporter: ReferenceCallback | undefined,
-        useCase: DocumentSymbolCollectorUseCase,
-        token: CancellationToken
-    ): ReferencesResult | undefined {
-        // If we have no completed analysis job, there's nothing to do.
-        if (!this._parseResults) {
-            return undefined;
-        }
-
-        return ReferencesProvider.getDeclarationForNode(
-            sourceMapper,
-            this._filePath,
-            node,
-            evaluator,
-            reporter,
-            useCase,
             token
         );
     }

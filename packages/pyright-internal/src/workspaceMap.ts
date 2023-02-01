@@ -71,13 +71,56 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         return workspaces;
     }
 
+    // Returns the best workspace we have at the moment. Ideally the async method would be used
+    // as that makes sure the workspace is initialized. But there are some cases
+    // where async can't be used and this function can be used to determine the workspace for a file synchronously.
+    getWorkspaceForFileSync(ls: LanguageServerBase, filePath: string): WorkspaceServiceInstance {
+        // Make sure we always have a default workspace.
+        const defaultWorkspace = this._createDefaultWorkspace(ls);
+
+        // Find the best match for this file.
+        const bestInstance = this._getBestWorkspaceForFile(ls, filePath, defaultWorkspace);
+
+        // Make sure the best match is actually ready.
+        return bestInstance.isInitialized.resolved() ? bestInstance : defaultWorkspace;
+    }
+
+    // Returns the best workspace for a file. Waits for the workspace to be finished handling other events before
+    // returning the appropriate workspace.
     async getWorkspaceForFile(ls: LanguageServerBase, filePath: string): Promise<WorkspaceServiceInstance> {
-        let bestRootPath: string | undefined;
-        let bestInstance: WorkspaceServiceInstance | undefined;
+        // Make sure we always have a default workspace.
+        const defaultWorkspace = this._createDefaultWorkspace(ls);
 
         // Wait for all workspaces to be initialized before attempting to find the best workspace. Otherwise
         // the list of files won't be complete and the `contains` check might fail.
         await Promise.all([...this.values()].map((w) => w.isInitialized.promise));
+
+        // Find best match.
+        const workspace = this._getBestWorkspaceForFile(ls, filePath, defaultWorkspace);
+
+        // During the previous await we might have reset to being uninitialized again, wait before returning
+        await workspace.isInitialized.promise;
+
+        return workspace;
+    }
+
+    getContainingWorkspace(filePath: string) {
+        return this._getBestWorkspace(
+            this.getNonDefaultWorkspaces(WellKnownWorkspaceKinds.Regular).filter((w) => filePath.startsWith(w.path))
+        );
+    }
+
+    getDefaultWorkspace(): WorkspaceServiceInstance | undefined {
+        return this.get(this._defaultWorkspacePath);
+    }
+
+    private _getBestWorkspaceForFile(
+        ls: LanguageServerBase,
+        filePath: string,
+        defaultWorkspace: WorkspaceServiceInstance
+    ): WorkspaceServiceInstance {
+        let bestRootPath: string | undefined;
+        let bestInstance: WorkspaceServiceInstance | undefined;
 
         // The order of how we find the best matching workspace for the given file is
         // 1. The given file is the workspace itself (ex, a file being a virtual workspace itself).
@@ -104,62 +147,57 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         });
 
         // If there were multiple workspaces or we couldn't find any,
-        // create a default one to use for this file.
+        // use the default one.
         if (bestInstance === undefined) {
             const regularWorkspaces = this.getNonDefaultWorkspaces(WellKnownWorkspaceKinds.Regular);
 
             // If we have only 1 regular workspace, then use that.
             if (regularWorkspaces.length === 1) {
-                return regularWorkspaces[0];
+                bestInstance = regularWorkspaces[0];
+            } else {
+                // If we have multiple workspaces, see whether we can at least find one that contains the file.
+                // the file might not be tracked (user file), but still belongs to a workspace as a library file or as an orphan file to the workspace.
+                const containingWorkspace = this._getBestWorkspace(
+                    regularWorkspaces.filter((w) => w.serviceInstance.contains(filePath))
+                );
+                if (containingWorkspace) {
+                    bestInstance = containingWorkspace;
+                } else {
+                    // If no workspace contains it, then it belongs to the default workspace.
+                    bestInstance = defaultWorkspace;
+                }
             }
-
-            // If we have multiple workspaces, see whether we can at least find one that contains the file.
-            // the file might not be tracked (user file), but still belongs to a workspace as a library file or as an orphan file to the workspace.
-            const containingWorkspace = this._getBestWorkspace(
-                regularWorkspaces.filter((w) => w.serviceInstance.contains(filePath))
-            );
-            if (containingWorkspace) {
-                return containingWorkspace;
-            }
-
-            // If no workspace contains it, then it belongs to the default workspace.
-            let defaultWorkspace = this.get(this._defaultWorkspacePath);
-            if (!defaultWorkspace) {
-                // Create a default workspace for files that are outside
-                // of all workspaces.
-                defaultWorkspace = {
-                    workspaceName: '',
-                    rootPath: '',
-                    path: '',
-                    uri: '',
-                    serviceInstance: ls.createAnalyzerService(this._defaultWorkspacePath),
-                    kinds: [WellKnownWorkspaceKinds.Default],
-                    disableLanguageServices: false,
-                    disableOrganizeImports: false,
-                    disableWorkspaceSymbol: false,
-                    isInitialized: createInitStatus(),
-                    searchPathsToWatch: [],
-                };
-                this.set(this._defaultWorkspacePath, defaultWorkspace);
-
-                // Do not await this. let isInitialized.promise to await. Otherwise, ordering
-                // will get messed up. The very first call will run last.
-                ls.updateSettingsForWorkspace(defaultWorkspace, defaultWorkspace.isInitialized).ignoreErrors();
-            }
-
-            // Make sure the default workspace is initialized before using it.
-            await defaultWorkspace.isInitialized.promise;
-
-            return defaultWorkspace;
         }
 
         return bestInstance;
     }
 
-    getContainingWorkspace(filePath: string) {
-        return this._getBestWorkspace(
-            this.getNonDefaultWorkspaces(WellKnownWorkspaceKinds.Regular).filter((w) => filePath.startsWith(w.path))
-        );
+    private _createDefaultWorkspace(ls: LanguageServerBase) {
+        let defaultWorkspace = this.get(this._defaultWorkspacePath);
+        if (!defaultWorkspace) {
+            // Create a default workspace for files that are outside
+            // of all workspaces.
+            defaultWorkspace = {
+                workspaceName: '',
+                rootPath: '',
+                path: '',
+                uri: '',
+                serviceInstance: ls.createAnalyzerService(this._defaultWorkspacePath),
+                kinds: [WellKnownWorkspaceKinds.Default],
+                disableLanguageServices: false,
+                disableOrganizeImports: false,
+                disableWorkspaceSymbol: false,
+                isInitialized: createInitStatus(),
+                searchPathsToWatch: [],
+            };
+            this.set(this._defaultWorkspacePath, defaultWorkspace);
+
+            // Do not await this. let isInitialized.promise to await. Otherwise, ordering
+            // will get messed up. The very first call will run last.
+            ls.updateSettingsForWorkspace(defaultWorkspace, defaultWorkspace.isInitialized).ignoreErrors();
+        }
+
+        return defaultWorkspace;
     }
 
     private _getBestWorkspace(workspaces: WorkspaceServiceInstance[]) {

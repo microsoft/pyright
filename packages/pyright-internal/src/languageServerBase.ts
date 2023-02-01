@@ -98,7 +98,6 @@ import { createDeferred } from './common/deferred';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
 import { DiagnosticRule } from './common/diagnosticRules';
 import { FileDiagnostics } from './common/diagnosticSink';
-import { LanguageServiceExtension } from './common/extensibility';
 import { FileSystem, FileWatcherEventType, FileWatcherHandler } from './common/fileSystem';
 import { Host } from './common/host';
 import { fromLSPAny } from './common/lspUtils';
@@ -180,6 +179,9 @@ export function createInitStatus(): InitStatus {
 
             return createInitStatus();
         },
+        resolved: () => {
+            return deferred.resolved;
+        },
     };
 
     return self;
@@ -190,6 +192,7 @@ export interface InitStatus {
     reset(): InitStatus;
     markCalled(): void;
     promise: Promise<void>;
+    resolved(): boolean;
 }
 
 // path and uri will point to a workspace itself. It could be a folder
@@ -248,7 +251,6 @@ export interface ServerOptions {
     cancellationProvider: CancellationProvider;
     fileSystem: FileSystem;
     fileWatcherHandler: FileWatcherHandler;
-    extension?: LanguageServiceExtension;
     maxAnalysisTimeInForeground?: MaxAnalysisTime;
     disableChecker?: boolean;
     supportedCommands?: string[];
@@ -445,7 +447,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         console: ConsoleInterface,
         configOptions: ConfigOptions,
         importResolver: ImportResolver,
-        extension?: LanguageServiceExtension,
         backgroundAnalysis?: BackgroundAnalysisBase,
         maxAnalysisTime?: MaxAnalysisTime,
         cacheManager?: CacheManager
@@ -454,16 +455,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             console,
             configOptions,
             importResolver,
-            extension,
             backgroundAnalysis,
             maxAnalysisTime,
             /* disableChecker */ undefined,
             cacheManager
         );
-    }
-
-    protected setExtension(extension: any): void {
-        this._serverOptions.extension = extension;
     }
 
     // Provides access to the client's window.
@@ -489,7 +485,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             console: this.console,
             hostFactory: this.createHost.bind(this),
             importResolverFactory: this.createImportResolver.bind(this),
-            extension: this._serverOptions.extension,
             backgroundAnalysis: services ? services.backgroundAnalysis : this.createBackgroundAnalysis(serviceId),
             maxAnalysisTime: this._serverOptions.maxAnalysisTimeInForeground,
             backgroundAnalysisProgramFactory: this.createBackgroundAnalysisProgram.bind(this),

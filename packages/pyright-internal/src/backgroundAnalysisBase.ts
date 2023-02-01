@@ -27,7 +27,6 @@ import { ConsoleInterface, log, LogLevel } from './common/console';
 import * as debug from './common/debug';
 import { Diagnostic } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
-import { LanguageServiceExtension } from './common/extensibility';
 import {
     disposeCancellationToken,
     getCancellationTokenFromId,
@@ -291,7 +290,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         return this._program;
     }
 
-    protected constructor(private _extension?: LanguageServiceExtension) {
+    protected constructor() {
         super(workerData as InitializationData);
 
         // Stash the base directory into a global variable.
@@ -305,13 +304,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         const console = this.getConsole();
         this._logTracker = new LogTracker(console, `BG(${threadId})`);
 
-        this._program = new Program(
-            this._importResolver,
-            this._configOptions,
-            console,
-            this._extension,
-            this._logTracker
-        );
+        this._program = new Program(this._importResolver, this._configOptions, console, this._logTracker);
     }
 
     start() {

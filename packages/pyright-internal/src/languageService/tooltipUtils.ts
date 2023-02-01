@@ -24,6 +24,7 @@ import {
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import {
     ClassType,
+    combineTypes,
     FunctionType,
     isFunction,
     isInstantiableClass,
@@ -31,10 +32,12 @@ import {
     isOverloadedFunction,
     OverloadedFunctionType,
     Type,
+    TypeCategory,
+    UnknownType,
 } from '../analyzer/types';
 import { SignatureDisplayType } from '../common/configOptions';
 import { isDefined } from '../common/core';
-import { ParseNodeType } from '../parser/parseNodes';
+import { ExpressionNode, ParseNodeType } from '../parser/parseNodes';
 
 // The number of spaces to indent each parameter, after moving to a newline in tooltips.
 const functionParamIndentOffset = 4;
@@ -316,4 +319,27 @@ export function getAutoImportText(name: string, from?: string, alias?: string): 
     }
 
     return text;
+}
+
+export function combineExpressionTypes(typeNodes: ExpressionNode[], evaluator: TypeEvaluator): Type {
+    const typeList = typeNodes.map((n) => evaluator.getType(n) || UnknownType.create());
+    let result = combineTypes(typeList);
+
+    // We're expecting a set of types, if there is only one and the outermost type is a list, take its inner type. This
+    // is probably an expression that at runtime would turn into a list.
+    if (
+        typeList.length === 1 &&
+        result.category === TypeCategory.Class &&
+        ClassType.isBuiltIn(result, 'list') &&
+        result.typeArguments
+    ) {
+        result = result.typeArguments[0];
+    } else if (
+        typeList.length === 1 &&
+        result.category === TypeCategory.Class &&
+        ClassType.isBuiltIn(result, 'range')
+    ) {
+        result = evaluator.getBuiltInObject(typeNodes[0], 'int');
+    }
+    return result;
 }

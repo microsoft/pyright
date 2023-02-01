@@ -102,6 +102,13 @@ export interface FunctionDeclaration extends DeclarationBase {
 export interface ParameterDeclaration extends DeclarationBase {
     type: DeclarationType.Parameter;
     node: ParameterNode;
+
+    // Inferred parameters can be inferred from pieces of an actual NameNode, so this
+    // value represents the actual 'name' as the user thinks of it.
+    inferredName?: string;
+
+    // Nodes that potentially makeup the type of an inferred parameter.
+    inferredTypeNodes?: ExpressionNode[];
 }
 
 export interface TypeParameterDeclaration extends DeclarationBase {
