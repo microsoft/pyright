@@ -7985,7 +7985,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If the arg is Any or Unknown, see if the corresponding
             // parameter types differ in any way.
             if (isAnyOrUnknown(firstArgResults[i].argType)) {
-                const paramTypes = matches.map((match) => match.matchResults.argParams[i].paramType);
+                const paramTypes = matches.map((match) =>
+                    i < match.matchResults.argParams.length
+                        ? match.matchResults.argParams[i].paramType
+                        : UnknownType.create()
+                );
                 if (!areTypesSame(paramTypes, { treatAnySameAsUnknown: true })) {
                     return matches;
                 }
