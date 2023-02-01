@@ -4955,7 +4955,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const getTypeOfNoneBase = (subtype: NoneType) => {
             if (noneType && isInstantiableClass(noneType)) {
                 if (TypeBase.isInstance(subtype)) {
-                    return getTypeOfObjectMember(node.memberName, noneType, memberName, usage, diag);
+                    return getTypeOfObjectMember(
+                        node.memberName,
+                        ClassType.cloneAsInstance(noneType),
+                        memberName,
+                        usage,
+                        diag
+                    );
                 } else {
                     return getTypeOfClassMember(node.memberName, noneType, memberName, usage, diag);
                 }
