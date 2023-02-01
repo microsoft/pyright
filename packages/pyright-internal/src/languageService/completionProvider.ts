@@ -47,7 +47,6 @@ import { printLiteralValue } from '../analyzer/typePrinter';
 import {
     ClassType,
     FunctionType,
-    getTypeAliasInfo,
     isClass,
     isClassInstance,
     isFunction,
@@ -60,7 +59,6 @@ import {
     Type,
     TypeBase,
     TypeCategory,
-    UnknownType,
 } from '../analyzer/types';
 import {
     ClassMemberLookupFlags,
@@ -79,7 +77,6 @@ import { appendArray } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import * as debug from '../common/debug';
 import { fail } from '../common/debug';
-import { TextEditAction } from '../common/editAction';
 import { fromLSPAny, toLSPAny } from '../common/lspUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
@@ -113,9 +110,10 @@ import {
 import { ParseResults } from '../parser/parser';
 import { StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { AbbreviationInfo, AutoImporter, AutoImportResult, ImportFormat, ModuleSymbolMap } from './autoImporter';
+import { CompletionDetail, getCompletionItemDocumention, getTypeDetail, SymbolDetail } from './completionProviderUtils';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { IndexResults } from './documentSymbolProvider';
-import { getAutoImportText, getDocumentationPartsForTypeAndDecl, getToolTipForType } from './tooltipUtils';
+import { getAutoImportText, getDocumentationPartsForTypeAndDecl } from './tooltipUtils';
 
 namespace Keywords {
     const base: string[] = [
@@ -294,36 +292,6 @@ export interface AutoImportMaps {
 interface RecentCompletionInfo {
     label: string;
     autoImportText: string;
-}
-
-interface Edits {
-    format?: InsertTextFormat;
-    textEdit?: TextEdit;
-    additionalTextEdits?: TextEditAction[];
-}
-
-interface CommonDetail {
-    funcParensDisabled?: boolean;
-    edits?: Edits;
-    extraCommitChars?: boolean;
-}
-
-interface SymbolDetail extends CommonDetail {
-    autoImportSource?: string;
-    autoImportAlias?: string;
-    boundObjectOrClass?: ClassType;
-}
-
-interface CompletionDetail extends CommonDetail {
-    typeDetail?: string;
-    documentation?: string;
-    autoImportText?: {
-        source: string;
-        importText: string;
-    };
-    sortText?: string;
-    itemDetail?: string;
-    modulePath?: string;
 }
 
 export const autoImportDetail = 'Auto-import';
@@ -1503,6 +1471,7 @@ export class CompletionProvider {
                     symbolTable,
                     () => true,
                     priorWord,
+                    leftExprNode,
                     /* isInImport */ false,
                     isClass(subtype) ? subtype : undefined,
                     completionMap
@@ -2460,6 +2429,7 @@ export class CompletionProvider {
                     );
                 },
                 priorWord,
+                importFromNode,
                 /* isInImport */ true,
                 /* boundObject */ undefined,
                 completionMap
@@ -2551,6 +2521,7 @@ export class CompletionProvider {
                         scope.symbolTable,
                         () => true,
                         priorWord,
+                        node,
                         /* isInImport */ false,
                         /* boundObject */ undefined,
                         completionMap
@@ -2577,6 +2548,7 @@ export class CompletionProvider {
                                             .some((decl) => decl.type === DeclarationType.Variable);
                                     },
                                     priorWord,
+                                    node,
                                     /* isInImport */ false,
                                     /* boundObject */ undefined,
                                     completionMap
@@ -2596,10 +2568,14 @@ export class CompletionProvider {
         symbolTable: SymbolTable,
         includeSymbolCallback: (symbol: Symbol, name: string) => boolean,
         priorWord: string,
+        node: ParseNode,
         isInImport: boolean,
         boundObjectOrClass: ClassType | undefined,
         completionMap: CompletionMap
     ) {
+        const insideTypeAnnotation =
+            ParseTreeUtils.isWithinAnnotationComment(node) ||
+            ParseTreeUtils.isWithinTypeAnnotation(node, /*requireQuotedAnnotation*/ false);
         symbolTable.forEach((symbol, name) => {
             // If there are no declarations or the symbol is not
             // exported from this scope, don't include it in the
@@ -2611,9 +2587,14 @@ export class CompletionProvider {
                 // Don't add a symbol more than once. It may have already been
                 // added from an inner scope's symbol table.
                 if (!completionMap.has(name)) {
+                    // Skip func parens for non builtin classes. It's too hard to tell if the user
+                    // wants to type in the class constructor or is about to call a static method.
+                    const skipForClass: boolean = symbol
+                        .getDeclarations()
+                        .some((d) => d.type === DeclarationType.Class && d.moduleName !== 'builtins');
                     this._addSymbol(name, symbol, priorWord, completionMap, {
                         boundObjectOrClass,
-                        funcParensDisabled: isInImport,
+                        funcParensDisabled: isInImport || insideTypeAnnotation || skipForClass,
                         extraCommitChars: !isInImport && !!priorWord,
                     });
                 }
@@ -2674,7 +2655,14 @@ export class CompletionProvider {
                 return;
             }
 
-            const typeDetail = this._getTypeDetail(primaryDecl, type, name, detail);
+            const typeDetail = getTypeDetail(
+                this._evaluator,
+                primaryDecl,
+                type,
+                name,
+                detail,
+                this._configOptions.functionSignatureDisplay
+            );
             const documentation = getDocumentationPartsForTypeAndDecl(
                 this._sourceMapper,
                 type,
@@ -2687,34 +2675,12 @@ export class CompletionProvider {
                 }
             );
 
-            if (this._options.format === MarkupKind.Markdown) {
-                let markdownString = '```python\n' + typeDetail + '\n```\n';
-
-                if (documentation) {
-                    markdownString += '---\n';
-                    markdownString += convertDocStringToMarkdown(documentation);
-                }
-
-                markdownString = markdownString.trimEnd();
-
-                this._itemToResolve.documentation = {
-                    kind: MarkupKind.Markdown,
-                    value: markdownString,
-                };
-            } else if (this._options.format === MarkupKind.PlainText) {
-                let plainTextString = typeDetail + '\n';
-
-                if (documentation) {
-                    plainTextString += '\n';
-                    plainTextString += convertDocStringToPlainText(documentation);
-                }
-
-                plainTextString = plainTextString.trimEnd();
-
-                this._itemToResolve.documentation = {
-                    kind: MarkupKind.PlainText,
-                    value: plainTextString,
-                };
+            if (this._options.format === MarkupKind.Markdown || this._options.format === MarkupKind.PlainText) {
+                this._itemToResolve.documentation = getCompletionItemDocumention(
+                    typeDetail,
+                    documentation,
+                    this._options.format
+                );
             } else {
                 fail(`Unsupported markup type: ${this._options.format}`);
             }
@@ -2755,86 +2721,6 @@ export class CompletionProvider {
                     funcParensDisabled: detail.funcParensDisabled,
                     edits: detail.edits,
                 });
-            }
-        }
-    }
-
-    private _getTypeDetail(primaryDecl: Declaration | undefined, type: Type, name: string, detail: SymbolDetail) {
-        if (!primaryDecl) {
-            if (isModule(type)) {
-                // Special casing import modules.
-                // submodule imported through `import` statement doesn't have
-                // corresponding decls. so use given name as it is.
-                //
-                // ex) import X.Y
-                // X.[Y]
-                return name;
-            }
-
-            return;
-        }
-
-        switch (primaryDecl.type) {
-            case DeclarationType.Intrinsic:
-            case DeclarationType.Variable:
-            case DeclarationType.Parameter:
-            case DeclarationType.TypeParameter: {
-                let expandTypeAlias = false;
-                if (type && TypeBase.isInstantiable(type)) {
-                    const typeAliasInfo = getTypeAliasInfo(type);
-                    if (typeAliasInfo) {
-                        if (typeAliasInfo.name === name) {
-                            expandTypeAlias = true;
-                        }
-                    }
-                }
-
-                return name + ': ' + this._evaluator.printType(type, { expandTypeAlias });
-            }
-
-            case DeclarationType.Function: {
-                const functionType =
-                    detail.boundObjectOrClass && (isFunction(type) || isOverloadedFunction(type))
-                        ? this._evaluator.bindFunctionToClassOrObject(detail.boundObjectOrClass, type)
-                        : type;
-                if (!functionType) {
-                    return undefined;
-                }
-
-                if (
-                    isProperty(functionType) &&
-                    detail.boundObjectOrClass &&
-                    isClassInstance(detail.boundObjectOrClass)
-                ) {
-                    const propertyType =
-                        this._evaluator.getGetterTypeFromProperty(
-                            functionType as ClassType,
-                            /* inferTypeIfNeeded */ true
-                        ) || UnknownType.create();
-                    return name + ': ' + this._evaluator.printType(propertyType) + ' (property)';
-                }
-
-                return getToolTipForType(
-                    functionType,
-                    /*label*/ '',
-                    name,
-                    this._evaluator,
-                    /*isProperty*/ false,
-                    this._configOptions.functionSignatureDisplay
-                );
-            }
-
-            case DeclarationType.Class:
-            case DeclarationType.SpecialBuiltInClass: {
-                return 'class ' + name + '()';
-            }
-
-            case DeclarationType.Alias: {
-                return name;
-            }
-
-            default: {
-                return name;
             }
         }
     }

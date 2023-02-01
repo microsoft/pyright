@@ -35,6 +35,7 @@ import { ClassMemberLookupFlags, lookUpClassMember } from '../analyzer/typeUtils
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
+import { DeclarationUseCase, getExtensions } from '../common/extensibility';
 import { TextRange } from '../common/textRange';
 import {
     ClassNode,
@@ -43,6 +44,7 @@ import {
     NameNode,
     ParseNode,
     ParseNodeType,
+    StringListNode,
     StringNode,
 } from '../parser/parseNodes';
 
@@ -105,8 +107,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     ): Declaration[] {
         throwIfCancellationRequested(token);
 
-        const declarations = this._getDeclarationsForNode(node, useCase, evaluator);
-
+        const declarations = this._getDeclarationsForNode(node, useCase, evaluator, /*skipUnreachableCode*/ false);
         const resolvedDeclarations: Declaration[] = [];
         declarations.forEach((decl) => {
             const resolvedDecl = evaluator.resolveAliasDeclaration(decl, resolveLocalName);
@@ -205,6 +206,18 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         }
 
         return false;
+    }
+
+    override visitStringList(node: StringListNode): boolean {
+        // See if we have reference that matches this node.
+        if (this._declarations.some((d) => d.node?.id === node.id)) {
+            // Then the matching string should be included
+            const matching = node.strings.find((s) => this._symbolNames.has(s.value));
+            if (matching && matching.nodeType === ParseNodeType.String) {
+                this._addResult(matching);
+            }
+        }
+        return super.visitStringList(node);
     }
 
     override visitString(node: StringNode): boolean {
@@ -399,6 +412,18 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         } else {
             result = this._getDeclarationsForModuleNameNode(node, evaluator);
         }
+
+        // Let extensions also add declarations.
+        getExtensions().forEach((e) => {
+            const declUseCase =
+                useCase === DocumentSymbolCollectorUseCase.Rename
+                    ? DeclarationUseCase.Rename
+                    : DeclarationUseCase.References;
+            const extras = e.declarationProviderExtension?.tryGetDeclarations(node, declUseCase);
+            if (extras && extras.length > 0) {
+                result.push(...extras);
+            }
+        });
 
         return result;
     }

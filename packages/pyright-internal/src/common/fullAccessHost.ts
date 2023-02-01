@@ -12,7 +12,7 @@ import { PythonPathResult } from '../analyzer/pythonPathUtils';
 import { PythonPlatform } from './configOptions';
 import { assertNever } from './debug';
 import { FileSystem } from './fileSystem';
-import { HostKind, NoAccessHost } from './host';
+import { HostKind, NoAccessHost, ScriptOutput } from './host';
 import { isDirectory, normalizePath } from './pathUtils';
 import { PythonVersion, versionFromMajorMinor } from './pythonVersion';
 
@@ -123,6 +123,35 @@ export class FullAccessHost extends LimitedAccessHost {
             importFailureInfo.push('Unable to get Python version from interpreter');
             return undefined;
         }
+    }
+
+    override runScript(
+        pythonPath: string | undefined,
+        script: string,
+        args: string[],
+        cwd: string
+    ): Promise<ScriptOutput> {
+        // What to do about conda here?
+        return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+            let stdout = '';
+            let stderr = '';
+            const commandLineArgs = [script, ...args];
+            const child = this._executePythonInterpreter(pythonPath, (p) =>
+                child_process.spawn(p, commandLineArgs, { cwd })
+            );
+            if (child) {
+                child.stdout.on('data', (d) => (stdout = stdout.concat(d)));
+                child.stderr.on('data', (d) => (stderr = stderr.concat(d)));
+                child.on('error', (e) => {
+                    reject(e);
+                });
+                child.on('exit', () => {
+                    resolve({ stdout, stderr });
+                });
+            } else {
+                reject(new Error(`Cannot start python interpreter with script ${script}`));
+            }
+        });
     }
 
     private _executePythonInterpreter<T>(

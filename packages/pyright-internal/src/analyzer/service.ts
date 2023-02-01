@@ -32,7 +32,6 @@ import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, log, LogLevel, StandardConsole } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditActions, TextEditAction } from '../common/editAction';
-import { LanguageServiceExtension } from '../common/extensibility';
 import { FileSystem, FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileSystem';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
 import {
@@ -92,7 +91,6 @@ export interface AnalyzerServiceOptions {
     hostFactory?: HostFactory;
     importResolverFactory?: ImportResolverFactory;
     configOptions?: ConfigOptions;
-    extension?: LanguageServiceExtension;
     backgroundAnalysis?: BackgroundAnalysisBase;
     maxAnalysisTime?: MaxAnalysisTime;
     backgroundAnalysisProgramFactory?: BackgroundAnalysisProgramFactory;
@@ -161,7 +159,6 @@ export class AnalyzerService {
                       this._options.console,
                       this._options.configOptions,
                       importResolver,
-                      this._options.extension,
                       this._options.backgroundAnalysis,
                       this._options.maxAnalysisTime,
                       this._options.cacheManager
@@ -170,7 +167,6 @@ export class AnalyzerService {
                       this._options.console,
                       this._options.configOptions,
                       importResolver,
-                      this._options.extension,
                       this._options.backgroundAnalysis,
                       this._options.maxAnalysisTime,
                       /* disableChecker */ undefined,

@@ -22,9 +22,10 @@ import { doForEachSubtype } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
+import { DeclarationUseCase, getExtensions } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
-import { ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export enum DefinitionFilter {
@@ -65,12 +66,26 @@ export class DefinitionProvider {
     ) {
         const definitions: DocumentRange[] = [];
 
-        if (node.nodeType === ParseNodeType.Name) {
-            const declarations = evaluator.getDeclarationsForNameNode(node);
-            DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
-        } else if (node.nodeType === ParseNodeType.String) {
-            const declarations = evaluator.getDeclarationsForStringNode(node);
-            DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
+        // Let extensions have a try first.
+        getExtensions().forEach((e) => {
+            if (e.declarationProviderExtension) {
+                const declarations = e.declarationProviderExtension.tryGetDeclarations(
+                    node,
+                    DeclarationUseCase.Definition
+                );
+                DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
+            }
+        });
+
+        // There should be only one 'definition', so only if extensions failed should we try again.
+        if (definitions.length === 0) {
+            if (node.nodeType === ParseNodeType.Name) {
+                const declarations = evaluator.getDeclarationsForNameNode(node);
+                DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
+            } else if (node.nodeType === ParseNodeType.String) {
+                const declarations = evaluator.getDeclarationsForStringNode(node);
+                DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
+            }
         }
 
         if (definitions.length === 0) {
@@ -144,6 +159,11 @@ export class DefinitionProvider {
         }
 
         return definitions;
+    }
+
+    private static _getDeclarationsForNameNode(node: NameNode, evaluator: TypeEvaluator) {
+        // Fall back to the evaluator if no extension handled it.
+        return evaluator.getDeclarationsForNameNode(node) ?? [];
     }
 
     private static _resolveDeclarations(

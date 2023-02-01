@@ -108,7 +108,7 @@ export const supportedFileExtensions = [...supportedSourceFileExtensions, ...sup
 const allowPartialResolutionForThirdPartyPackages = false;
 
 export class ImportResolver {
-    private _cachedPythonSearchPaths: string[] | undefined;
+    private _cachedPythonSearchPaths: { paths: string[]; failureInfo: string[] } | undefined;
     private _cachedImportResults = new Map<string | undefined, CachedImportResults>();
     private _cachedModuleNameResults = new Map<string, Map<string, ModuleNameAndType>>();
     private _cachedTypeshedRoot: string | undefined;
@@ -1563,23 +1563,21 @@ export class ImportResolver {
         return true;
     }
 
-    protected getPythonSearchPaths(importFailureInfo: string[]) {
+    getPythonSearchPaths(importFailureInfo: string[]) {
         // Find the site packages for the configured virtual environment.
         if (!this._cachedPythonSearchPaths) {
+            const info: string[] = [];
             const paths = (
-                PythonPathUtils.findPythonSearchPaths(
-                    this.fileSystem,
-                    this._configOptions,
-                    this.host,
-                    importFailureInfo
-                ) || []
+                PythonPathUtils.findPythonSearchPaths(this.fileSystem, this._configOptions, this.host, info) || []
             ).map((p) => this.fileSystem.realCasePath(p));
 
             // Remove duplicates (yes, it happens).
-            this._cachedPythonSearchPaths = [...new Set(paths)];
+            this._cachedPythonSearchPaths = { paths: [...new Set(paths)], failureInfo: info };
         }
 
-        return this._cachedPythonSearchPaths;
+        // Make sure we cache the logs as well so we can find out why search path failed.
+        importFailureInfo.push(...this._cachedPythonSearchPaths.failureInfo);
+        return this._cachedPythonSearchPaths.paths;
     }
 
     private _findTypeshedPath(

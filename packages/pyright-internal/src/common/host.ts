@@ -16,11 +16,17 @@ export const enum HostKind {
     NoAccess,
 }
 
+export interface ScriptOutput {
+    stdout: string;
+    stderr: string;
+}
+
 export interface Host {
     readonly kind: HostKind;
     getPythonSearchPaths(pythonPath?: string, logInfo?: string[]): PythonPathResult;
     getPythonVersion(pythonPath?: string, logInfo?: string[]): PythonVersion | undefined;
     getPythonPlatform(logInfo?: string[]): PythonPlatform | undefined;
+    runScript(pythonPath: string | undefined, script: string, args: string[], cwd: string): Promise<ScriptOutput>;
 }
 
 export class NoAccessHost implements Host {
@@ -43,6 +49,15 @@ export class NoAccessHost implements Host {
 
     getPythonPlatform(logInfo?: string[]): PythonPlatform | undefined {
         return undefined;
+    }
+
+    async runScript(
+        pythonPath: string | undefined,
+        scriptPath: string,
+        args: string[],
+        cwd: string
+    ): Promise<ScriptOutput> {
+        return { stdout: '', stderr: '' };
     }
 }
 

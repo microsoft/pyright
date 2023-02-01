@@ -40,6 +40,7 @@ export class ReferencesResult {
         readonly nodeAtOffset: ParseNode,
         readonly symbolNames: string[],
         readonly declarations: Declaration[],
+        readonly useCase: DocumentSymbolCollectorUseCase,
         private readonly _reporter?: ReferenceCallback
     ) {
         // Filter out any import decls. but leave one with alias.
@@ -111,7 +112,7 @@ export class FindReferencesTreeWalker {
             rootNode,
             /* treatModuleInImportAndFromImportSame */ true,
             /* skipUnreachableCode */ false,
-            DocumentSymbolCollectorUseCase.Reference
+            this._referencesResult.useCase
         );
 
         const results: DocumentRange[] = [];
@@ -165,7 +166,14 @@ export class ReferencesProvider {
         const symbolNames = new Set(declarations.map((d) => getNameFromDeclaration(d)!).filter((n) => !!n));
         symbolNames.add(node.value);
 
-        return new ReferencesResult(requiresGlobalSearch, node, [...symbolNames.values()], declarations, reporter);
+        return new ReferencesResult(
+            requiresGlobalSearch,
+            node,
+            [...symbolNames.values()],
+            declarations,
+            useCase,
+            reporter
+        );
     }
 
     static getDeclarationForPosition(

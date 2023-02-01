@@ -27,7 +27,7 @@ import { assert, assertNever } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, FileEditActions, TextEditAction } from '../common/editAction';
-import { LanguageServiceExtension } from '../common/extensibility';
+import { getExtensions } from '../common/extensibility';
 import { LogTracker } from '../common/logTracker';
 import {
     combinePaths,
@@ -186,7 +186,6 @@ export class Program {
         initialImportResolver: ImportResolver,
         initialConfigOptions: ConfigOptions,
         console?: ConsoleInterface,
-        private _extension?: LanguageServiceExtension,
         logTracker?: LogTracker,
         private _disableChecker?: boolean,
         cacheManager?: CacheManager
@@ -210,12 +209,24 @@ export class Program {
         return this._evaluator;
     }
 
+    get console(): ConsoleInterface {
+        return this._console;
+    }
+
     setConfigOptions(configOptions: ConfigOptions) {
         this._configOptions = configOptions;
         this._importResolver.setConfigOptions(configOptions);
 
         // Create a new evaluator with the updated config options.
         this._createNewEvaluator();
+    }
+
+    get rootPath(): string {
+        return this._configOptions.projectRoot;
+    }
+
+    getConfigOptions(): ConfigOptions {
+        return this._configOptions;
     }
 
     setImportResolver(importResolver: ImportResolver) {
@@ -225,6 +236,10 @@ export class Program {
         // Otherwise, lookup import passed to type evaluator might use
         // older import resolver when resolving imports after parsing.
         this._createNewEvaluator();
+    }
+
+    getImportResolver() {
+        return this._importResolver;
     }
 
     // Sets the list of tracked files that make up the program.
@@ -359,6 +374,9 @@ export class Program {
         }
 
         sourceFileInfo.sourceFile.setClientVersion(version, contents);
+
+        // Tell any extensions that this source file changed.
+        getExtensions().forEach((e) => (e.sourceFileChanged ? e.sourceFileChanged(sourceFileInfo!) : undefined));
     }
 
     getChainedFilePath(filePath: string): string | undefined {
@@ -1602,7 +1620,8 @@ export class Program {
                             referencesResult.requiresGlobalSearch,
                             referencesResult.nodeAtOffset,
                             referencesResult.symbolNames,
-                            referencesResult.declarations
+                            referencesResult.declarations,
+                            referencesResult.useCase
                         );
 
                         declFileInfo.sourceFile.addReferences(tempResult, includeDeclaration, this._evaluator!, token);
@@ -1789,7 +1808,7 @@ export class Program {
         if (!sourceFileInfo) {
             return undefined;
         }
-
+        let sourceMapper: SourceMapper | undefined;
         const completionResult = this._logTracker.log(
             `completion at ${filePath}:${position.line}:${position.character}`,
             (ls) => {
@@ -1797,6 +1816,7 @@ export class Program {
                     this._bindFile(sourceFileInfo);
 
                     const execEnv = this._configOptions.findExecEnvironment(filePath);
+                    sourceMapper = this._createSourceMapper(execEnv, token, sourceFileInfo, /* mapCompiled */ true);
                     return sourceFileInfo.sourceFile.getCompletionsForPosition(
                         position,
                         workspacePath,
@@ -1805,7 +1825,7 @@ export class Program {
                         this._lookUpImport,
                         this._evaluator!,
                         options,
-                        this._createSourceMapper(execEnv, token, sourceFileInfo, /* mapCompiled */ true),
+                        sourceMapper,
                         nameMap,
                         libraryMap,
                         () =>
@@ -1831,19 +1851,27 @@ export class Program {
             extensionInfo: completionResult?.extensionInfo,
         };
 
-        if (!completionResult || !this._extension?.completionListExtension) {
+        if (!getExtensions().some((e) => e.completionListExtension)) {
             return completionResultsList;
         }
 
         const parseResults = sourceFileInfo.sourceFile.getParseResults();
         if (parseResults?.parseTree && parseResults?.text) {
             const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
-            if (offset !== undefined) {
-                await this._extension.completionListExtension.updateCompletionResults(
-                    completionResultsList,
-                    parseResults,
-                    offset,
-                    token
+            if (offset !== undefined && sourceMapper) {
+                await Promise.all(
+                    getExtensions().map((e) =>
+                        e.completionListExtension?.updateCompletionResults(
+                            this.evaluator!,
+                            sourceMapper!,
+                            options,
+                            completionResultsList,
+                            parseResults,
+                            offset,
+                            this._configOptions.functionSignatureDisplay,
+                            token
+                        )
+                    )
                 );
             }
         }
@@ -2386,7 +2414,8 @@ export class Program {
             referencesResult.requiresGlobalSearch,
             referencesResult.nodeAtOffset,
             referencesResult.symbolNames,
-            referencesResult.nonImportDeclarations
+            referencesResult.nonImportDeclarations,
+            referencesResult.useCase
         );
     }
 

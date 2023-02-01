@@ -19,6 +19,7 @@ import {
     AssignmentExpressionNode,
     CallNode,
     ClassNode,
+    DecoratorNode,
     EvaluationScopeNode,
     ExecutionScopeNode,
     ExpressionNode,
@@ -2200,6 +2201,31 @@ export function getDottedNameWithGivenNodeAsLastName(node: NameNode): MemberAcce
     }
 
     return node.parent;
+}
+
+//
+// Returns the dotted name that makes up the expression for the decorator.
+// Example:
+// @pytest.fixture()
+// def my_fixture():
+//    pass
+//
+// would return `pytest.fixture`
+export function getDecoratorName(decorator: DecoratorNode): string | undefined {
+    function getExpressionName(node: ExpressionNode): string | undefined {
+        if (node.nodeType === ParseNodeType.Name || node.nodeType === ParseNodeType.MemberAccess) {
+            return getDottedName(node)
+                ?.map((n) => n.value)
+                .join('.');
+        }
+        if (node.nodeType === ParseNodeType.Call) {
+            return getExpressionName(node.leftExpression);
+        }
+
+        return undefined;
+    }
+
+    return getExpressionName(decorator.expression);
 }
 
 export function getDottedName(node: MemberAccessNode | NameNode): NameNode[] | undefined {
