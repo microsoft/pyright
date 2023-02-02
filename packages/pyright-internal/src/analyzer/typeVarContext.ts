@@ -318,10 +318,11 @@ export class TypeVarContext {
                         const subtypeScore = this._getComplexityScoreForType(subtype, recursionCount);
                         maxScore = Math.max(maxScore, subtypeScore);
                     });
+                } else {
+                    maxScore = 0.5;
                 }
 
-                // Assume that a union is more complex than a non-union.
-                return 0.75 + maxScore / 4;
+                return maxScore;
             }
 
             case TypeCategory.Class: {
