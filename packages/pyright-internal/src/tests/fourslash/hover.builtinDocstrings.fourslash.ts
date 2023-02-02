@@ -48,17 +48,17 @@
 
 {
     helper.verifyHover('plaintext', {
-        object: 'class object\n\nThis is the class doc for object.',
+        object: '(class) object\n\nThis is the class doc for object.',
         objectInit: 'class object()\n\nThis is the __init__ doc for object.',
         objectDir: '(method) def __dir__() -> Iterable[str]\n\nThis is the __dir__ doc for object.',
-        a: 'class A',
+        a: '(class) A',
         aInit: 'class A()',
         aDir: '(method) def __dir__() -> Iterable[str]',
-        b: 'class B\n\nThis is the class doc for B.',
+        b: '(class) B\n\nThis is the class doc for B.',
         bInit: 'class B()\n\nThis is the __init__ doc for B.',
-        c: 'class C\n\nThis is the class doc for C.',
+        c: '(class) C\n\nThis is the class doc for C.',
         cInit: 'class C()\n\nThis is the class doc for C.',
-        d: 'class D',
+        d: '(class) D',
         dInit: 'class D()\n\nThis is the __init__ doc for D.',
     });
 }

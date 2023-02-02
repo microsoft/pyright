@@ -23,5 +23,5 @@
 ////     pass
 
 helper.verifyHover('markdown', {
-    marker: '```python\nclass TemplateView\n```',
+    marker: '```python\n(class) TemplateView\n```',
 });
