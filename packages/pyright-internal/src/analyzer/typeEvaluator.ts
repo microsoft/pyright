@@ -18565,6 +18565,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return;
             }
 
+            if (node.parent.nodeType === ParseNodeType.ImportFromAs) {
+                evaluateTypesForImportFromAs(node.parent);
+                return;
+            }
+
+            if (node.parent.nodeType === ParseNodeType.ImportAs) {
+                evaluateTypesForImportAs(node.parent);
+                return;
+            }
+
             if (node.parent.nodeType === ParseNodeType.TypeAlias && node.parent.name === node) {
                 getTypeOfTypeAlias(node.parent);
                 return;
