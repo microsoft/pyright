@@ -490,12 +490,8 @@ export class HoverProvider {
             }
         }
 
-        const limitedType = this._limitOverloadBasedOnCall(node, evaluator, methodType as Type);
-        if (isFunction(limitedType) || isOverloadedFunction(limitedType)) {
-            methodType = limitedType;
-        }
-
         if (methodType && (isFunction(methodType) || isOverloadedFunction(methodType))) {
+            methodType = this._limitOverloadBasedOnCall(node, evaluator, methodType);
             this._addResultsPart(
                 parts,
                 getConstructorTooltip(node.value, methodType, evaluator, functionSignatureDisplay),
