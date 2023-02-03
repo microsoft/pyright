@@ -117,7 +117,7 @@
         "enumClassOverride": "Enum class \"{name}\" is final and cannot be subclassed",
         "exceptionGroupIncompatible": "Exception group syntax (\"except*\") requires Python 3.11 or newer",
         "exceptionTypeIncorrect": "\"{type}\" does not derive from BaseException",
-        "exceptionTypeNotClass": "\"{type}\" is not valid exception class",
+        "exceptionTypeNotClass": "\"{type}\" is not a valid exception class",
         "exceptionTypeNotInstantiable": "Constructor for exception type \"{type}\" requires one or more arguments",
         "expectedAfterDecorator": "Expected function or class declaration after decorator",
         "expectedArrow": "Expected \"->\" followed by return type annotation",

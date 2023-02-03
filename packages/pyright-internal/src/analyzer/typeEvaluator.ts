@@ -15624,7 +15624,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         node.arguments.forEach((arg) => {
             // Ignore unpacked arguments.
-            if (arg.argumentCategory !== ArgumentCategory.Simple) {
+            if (arg.argumentCategory === ArgumentCategory.UnpackedDictionary) {
                 // Evaluate the expression's type so symbols are marked accessed
                 // and errors are reported.
                 getTypeOfExpression(arg.valueExpression);
@@ -15632,7 +15632,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (!arg.name) {
-                let argType = getTypeOfExpression(arg.valueExpression, exprFlags).type;
+                let argType: Type;
+
+                if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
+                    getTypeOfExpression(arg.valueExpression);
+                    argType = UnknownType.create();
+                } else {
+                    argType = getTypeOfExpression(arg.valueExpression, exprFlags).type;
+                }
 
                 // In some stub files, classes are conditionally defined (e.g. based
                 // on platform type). We'll assume that the conditional logic is correct

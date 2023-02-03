@@ -36,4 +36,17 @@ def func3():
     # except or finally clause.
     try:
         pass
-    
+
+class Exception1(BaseException): ...
+
+base_exceptions = (RuntimeError, NameError)
+
+class Exception2(*base_exceptions): ...
+
+def func4():
+    try:
+        pass
+    except Exception1:
+        pass
+    except Exception2:
+        pass
