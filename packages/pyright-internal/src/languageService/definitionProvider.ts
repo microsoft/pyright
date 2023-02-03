@@ -55,14 +55,15 @@ export class DefinitionProvider {
             return undefined;
         }
 
-        return DefinitionProvider.getDefinitionsForNode(sourceMapper, node, filter, evaluator);
+        return DefinitionProvider.getDefinitionsForNode(sourceMapper, node, filter, evaluator, token);
     }
 
     static getDefinitionsForNode(
         sourceMapper: SourceMapper,
         node: ParseNode,
         filter: DefinitionFilter,
-        evaluator: TypeEvaluator
+        evaluator: TypeEvaluator,
+        token: CancellationToken
     ) {
         const definitions: DocumentRange[] = [];
 
@@ -71,7 +72,8 @@ export class DefinitionProvider {
             if (e.declarationProviderExtension) {
                 const declarations = e.declarationProviderExtension.tryGetDeclarations(
                     node,
-                    DeclarationUseCase.Definition
+                    DeclarationUseCase.Definition,
+                    token
                 );
                 DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
             }

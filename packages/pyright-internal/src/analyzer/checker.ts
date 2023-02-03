@@ -11,6 +11,7 @@
  * and checked. It also performs some additional checks that
  * cannot (or should not be) performed lazily.
  */
+import { CancellationToken } from 'vscode-languageserver';
 
 import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from '../common/configOptions';
@@ -249,7 +250,8 @@ export class Checker extends ParseTreeWalker {
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
         private _parseResults: ParseResults,
-        private _sourceMapper: SourceMapper
+        private _sourceMapper: SourceMapper,
+        private _dependentFiles?: ParseResults[]
     ) {
         super();
 
@@ -2642,12 +2644,13 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _validateSymbolTables() {
+        const dependentFileInfo = this._dependentFiles?.map((p) => AnalyzerNodeInfo.getFileInfo(p.parseTree));
         for (const scopedNode of this._scopedNodes) {
             const scope = AnalyzerNodeInfo.getScope(scopedNode);
 
             if (scope) {
                 scope.symbolTable.forEach((symbol, name) => {
-                    this._conditionallyReportUnusedSymbol(name, symbol, scope.type);
+                    this._conditionallyReportUnusedSymbol(name, symbol, scope.type, dependentFileInfo);
 
                     this._reportIncompatibleDeclarations(name, symbol);
 
@@ -3088,14 +3091,20 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
-    private _conditionallyReportUnusedSymbol(name: string, symbol: Symbol, scopeType: ScopeType) {
+    private _conditionallyReportUnusedSymbol(
+        name: string,
+        symbol: Symbol,
+        scopeType: ScopeType,
+        dependentFileInfo?: AnalyzerFileInfo[]
+    ) {
         const accessedSymbolSet = this._fileInfo.accessedSymbolSet;
+        if (symbol.isIgnoredForProtocolMatch() || accessedSymbolSet.has(symbol.id)) {
+            return;
+        }
 
-        if (
-            symbol.isIgnoredForProtocolMatch() ||
-            accessedSymbolSet.has(symbol.id) ||
-            this._fileInfo.ipythonMode === IPythonMode.CellDocs
-        ) {
+        // If this file is implicitly imported by other files, we need to make sure the symbol defined in
+        // the current file is not accessed from those other files.
+        if (dependentFileInfo && dependentFileInfo.some((i) => i.accessedSymbolSet.has(symbol.id))) {
             return;
         }
 
@@ -3823,7 +3832,8 @@ export class Checker extends ParseTreeWalker {
                 this._sourceMapper,
                 namePartNodes[namePartNodes.length - 1],
                 DefinitionFilter.All,
-                this._evaluator
+                this._evaluator,
+                CancellationToken.None
             );
             const paths = definitions ? definitions.map((d) => d.path) : [];
             paths.forEach((p) => {

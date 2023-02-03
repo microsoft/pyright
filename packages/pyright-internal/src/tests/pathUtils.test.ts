@@ -247,6 +247,16 @@ test('resolvePath4 ~ escape in middle', () => {
     );
 });
 
+test('invalid ~ without root', () => {
+    const path = combinePaths('Library', 'Mobile Documents', 'com~apple~CloudDocs', 'Development', 'mysuperproject');
+    assert.equal(resolvePaths(expandPathVariables('/src', path)), path);
+});
+
+test('invalid ~ with root', () => {
+    const path = combinePaths('/', 'Library', 'com~apple~CloudDocs', 'Development', 'mysuperproject');
+    assert.equal(resolvePaths(expandPathVariables('/src', path)), path);
+});
+
 test('comparePaths1', () => {
     assert.equal(comparePaths('/A/B/C', '\\a\\b\\c'), Comparison.LessThan);
 });

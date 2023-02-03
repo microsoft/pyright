@@ -1147,13 +1147,33 @@ export class Program {
             }
 
             if (!this._disableChecker) {
+                // For ipython, make sure we check all its dependent files first since
+                // their results can affect this file's result.
+                let dependentFiles: ParseResults[] | undefined = undefined;
+                if (fileToCheck.sourceFile.getIPythonMode() === IPythonMode.CellDocs) {
+                    dependentFiles = [];
+                    const importedByFiles = new Set<SourceFileInfo>();
+                    this._collectImportedByFiles(fileToCheck, importedByFiles);
+                    for (const file of importedByFiles) {
+                        if (!isUserCode(file)) {
+                            continue;
+                        }
+
+                        // If the file is already analyzed, it will be no op.
+                        this._checkTypes(file, token);
+                        const parseResults = file.sourceFile.getParseResults();
+                        if (parseResults) {
+                            dependentFiles.push(parseResults);
+                        }
+                    }
+                }
+
                 const execEnv = this._configOptions.findExecEnvironment(fileToCheck.sourceFile.getFilePath());
                 fileToCheck.sourceFile.check(
                     this._importResolver,
                     this._evaluator!,
-                    execEnv,
                     this._createSourceMapper(execEnv, token, fileToCheck),
-                    (p) => isUserCode(this.getSourceFileInfo(p))
+                    dependentFiles
                 );
             }
 
@@ -1189,6 +1209,18 @@ export class Program {
             }
 
             return true;
+        });
+    }
+
+    private _collectImportedByFiles(file: SourceFileInfo, importedByFiles: Set<SourceFileInfo>) {
+        file.importedBy.forEach((dep) => {
+            if (importedByFiles.has(dep)) {
+                // Already visited.
+                return;
+            }
+
+            importedByFiles.add(dep);
+            this._collectImportedByFiles(dep, importedByFiles);
         });
     }
 
@@ -1315,16 +1347,31 @@ export class Program {
         const filePath = normalizePathCase(this._fs, sourceFileInfo.sourceFile.getFilePath());
 
         // Don't mark it again if it's already been visited.
-        if (!markSet.has(filePath)) {
-            sourceFileInfo.sourceFile.markReanalysisRequired(forceRebinding);
-            markSet.add(filePath);
+        if (markSet.has(filePath)) {
+            return;
+        }
 
-            sourceFileInfo.importedBy.forEach((dep) => {
-                // Changes on chained source file can change symbols in the symbol table and
-                // dependencies on the dependent file. Force rebinding.
-                const forceRebinding = dep.chainedSourceFile === sourceFileInfo;
-                this._markFileDirtyRecursive(dep, markSet, forceRebinding);
-            });
+        sourceFileInfo.sourceFile.markReanalysisRequired(forceRebinding);
+        markSet.add(filePath);
+
+        sourceFileInfo.importedBy.forEach((dep) => {
+            // Changes on chained source file can change symbols in the symbol table and
+            // dependencies on the dependent file. Force rebinding.
+            const forceRebinding = dep.chainedSourceFile === sourceFileInfo;
+            this._markFileDirtyRecursive(dep, markSet, forceRebinding);
+        });
+
+        // Change in the current file could impact checker result of chainedSourceFile such as unused symbols.
+        let chainedSourceFile = sourceFileInfo.chainedSourceFile;
+        while (chainedSourceFile) {
+            if (chainedSourceFile.sourceFile.isCheckingRequired()) {
+                // If the file is marked for checking, its chained one should be marked
+                // as well. Stop here.
+                return;
+            }
+
+            chainedSourceFile.sourceFile.markReanalysisRequired(/* forceRebinding */ false);
+            chainedSourceFile = chainedSourceFile.chainedSourceFile;
         }
     }
 

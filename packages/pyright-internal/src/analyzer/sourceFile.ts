@@ -90,8 +90,6 @@ export enum IPythonMode {
     // Not a notebook. This is the only falsy enum value, so you
     // can test if IPython is supported via "if (ipythonMode)"
     None = 0,
-    // All cells are concatenated into a single document.
-    ConcatDoc,
     // Each cell is its own document.
     CellDocs,
 }
@@ -1298,9 +1296,8 @@ export class SourceFile {
     check(
         importResolver: ImportResolver,
         evaluator: TypeEvaluator,
-        execEnv: ExecutionEnvironment,
         sourceMapper: SourceMapper,
-        isUserCode: (p: string) => boolean
+        dependentFiles?: ParseResults[]
     ) {
         assert(!this.isParseRequired(), 'Check called before parsing');
         assert(!this.isBindingRequired(), 'Check called before binding');
@@ -1312,7 +1309,13 @@ export class SourceFile {
             try {
                 timingStats.typeCheckerTime.timeOperation(() => {
                     const checkDuration = new Duration();
-                    const checker = new Checker(importResolver, evaluator, this._parseResults!, sourceMapper);
+                    const checker = new Checker(
+                        importResolver,
+                        evaluator,
+                        this._parseResults!,
+                        sourceMapper,
+                        dependentFiles
+                    );
                     checker.check();
                     this._isCheckingNeeded = false;
 
