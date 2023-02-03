@@ -82,7 +82,7 @@ await helper.verifyCompletion('includes', 'markdown', {
             {
                 label: 'func2',
                 kind: Consts.CompletionItemKind.Method,
-                documentation: '```python\nfunc2() -> None\n```\n---\nfunc2 docs',
+                documentation: '```python\ndef func2() -> None\n```\n---\nfunc2 docs',
             },
         ],
     },

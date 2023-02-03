@@ -434,6 +434,7 @@ export class HoverProvider {
 
         // Get the init method for this class.
         const classType = evaluator.getType(node);
+
         if (!classType || !isInstantiableClass(classType)) {
             return false;
         }
@@ -491,12 +492,12 @@ export class HoverProvider {
 
         if (methodType && (isFunction(methodType) || isOverloadedFunction(methodType))) {
             methodType = this._limitOverloadBasedOnCall(node, evaluator, methodType);
-
             this._addResultsPart(
                 parts,
-                getConstructorTooltip(/* label */ 'class', node.value, methodType, evaluator, functionSignatureDisplay),
+                getConstructorTooltip(node.value, methodType, evaluator, functionSignatureDisplay),
                 /* python */ true
             );
+
             const addedDoc = this._addDocumentationPartForType(
                 format,
                 sourceMapper,

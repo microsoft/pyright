@@ -46,7 +46,7 @@
 //// p.[|/*marker*/clean_fields|]()
 
 helper.verifyHover('markdown', {
-    marker: '```python\n(method) clean_fields() -> None\n```\n---\nclean\\_fields docs',
+    marker: '```python\n(method) def clean_fields() -> None\n```\n---\nclean\\_fields docs',
     djmarker: '```python\n(module) dj\n```\n---\ndj doc string',
     dbmarker: '```python\n(module) db\n```\n---\ndb doc string',
     modelsmarker: '```python\n(module) models\n```\n---\nmodels doc string',
