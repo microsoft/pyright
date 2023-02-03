@@ -68,7 +68,7 @@ import {
     getMembersForModule,
     isLiteralType,
     isLiteralTypeOrUnion,
-    isProperty,
+    isMaybeDescriptorInstance,
     lookUpClassMember,
     lookUpObjectMember,
 } from '../analyzer/typeUtils';
@@ -2979,7 +2979,10 @@ export class CompletionProvider {
             case DeclarationType.Function: {
                 if (this._isPossiblePropertyDeclaration(resolvedDeclaration)) {
                     const functionType = this._evaluator.getTypeOfFunction(resolvedDeclaration.node);
-                    if (functionType && isProperty(functionType.decoratedType)) {
+                    if (
+                        functionType &&
+                        isMaybeDescriptorInstance(functionType.decoratedType, /* requireSetter */ false)
+                    ) {
                         return CompletionItemKind.Property;
                     }
                 }
@@ -3003,7 +3006,7 @@ export class CompletionProvider {
                 return CompletionItemKind.Class;
             case TypeCategory.Function:
             case TypeCategory.OverloadedFunction:
-                if (isProperty(type)) {
+                if (isMaybeDescriptorInstance(type, /* requireSetter */ false)) {
                     return CompletionItemKind.Property;
                 }
 

@@ -98,7 +98,12 @@ export class HoverProvider {
             // First give extensions a crack at getting a declaration.
             let declarations: Declaration[] | undefined = getExtensions()
                 .map(
-                    (e) => e.declarationProviderExtension?.tryGetDeclarations(node, DeclarationUseCase.Definition) || []
+                    (e) =>
+                        e.declarationProviderExtension?.tryGetDeclarations(
+                            node,
+                            DeclarationUseCase.Definition,
+                            token
+                        ) || []
                 )
                 .flat();
             if (declarations.length === 0) {
@@ -125,7 +130,8 @@ export class HoverProvider {
                     primaryDeclaration,
                     node,
                     evaluator,
-                    functionSignatureDisplay
+                    functionSignatureDisplay,
+                    token
                 );
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
@@ -173,7 +179,8 @@ export class HoverProvider {
         declaration: Declaration,
         node: NameNode,
         evaluator: TypeEvaluator,
-        functionSignatureDisplay: SignatureDisplayType
+        functionSignatureDisplay: SignatureDisplayType,
+        token: CancellationToken
     ): void {
         const resolvedDecl = evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
         if (!resolvedDecl) {
@@ -314,7 +321,9 @@ export class HoverProvider {
                 let type = evaluator.getType(node);
                 const resolvedType =
                     getExtensions()
-                        .map((e) => e.typeProviderExtension?.tryGetFunctionNodeType(resolvedDecl.node, evaluator))
+                        .map((e) =>
+                            e.typeProviderExtension?.tryGetFunctionNodeType(resolvedDecl.node, evaluator, token)
+                        )
                         .find((t) => !!t) || evaluator.getType(resolvedDecl.node.name);
                 type = type === undefined || isAnyOrUnknown(type) ? resolvedType : type;
 

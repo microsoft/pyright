@@ -107,7 +107,13 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     ): Declaration[] {
         throwIfCancellationRequested(token);
 
-        const declarations = this._getDeclarationsForNode(node, useCase, evaluator, /*skipUnreachableCode*/ false);
+        const declarations = this._getDeclarationsForNode(
+            node,
+            useCase,
+            evaluator,
+            token,
+            /*skipUnreachableCode*/ false
+        );
         const resolvedDeclarations: Declaration[] = [];
         declarations.forEach((decl) => {
             const resolvedDecl = evaluator.resolveAliasDeclaration(decl, resolveLocalName);
@@ -191,6 +197,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 node,
                 this._useCase,
                 this._evaluator,
+                this._cancellationToken,
                 this._skipUnreachableCode
             );
 
@@ -396,6 +403,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         node: NameNode,
         useCase: DocumentSymbolCollectorUseCase,
         evaluator: TypeEvaluator,
+        token: CancellationToken,
         skipUnreachableCode = true
     ): Declaration[] {
         let result: Declaration[] = [];
@@ -419,7 +427,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 useCase === DocumentSymbolCollectorUseCase.Rename
                     ? DeclarationUseCase.Rename
                     : DeclarationUseCase.References;
-            const extras = e.declarationProviderExtension?.tryGetDeclarations(node, declUseCase);
+            const extras = e.declarationProviderExtension?.tryGetDeclarations(node, declUseCase, token);
             if (extras && extras.length > 0) {
                 result.push(...extras);
             }

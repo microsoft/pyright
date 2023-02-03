@@ -25,7 +25,7 @@ import { ClassType, isClassInstance, isFunction, isInstantiableClass } from '../
 import {
     ClassMemberLookupFlags,
     doForEachSubtype,
-    isProperty,
+    isMaybeDescriptorInstance,
     lookUpClassMember,
     lookUpObjectMember,
 } from '../analyzer/typeUtils';
@@ -457,7 +457,7 @@ function getSymbolKind(declaration: Declaration, evaluator: TypeEvaluator): Symb
         case DeclarationType.Function:
             if (declaration.isMethod) {
                 const declType = evaluator.getTypeForDeclaration(declaration);
-                if (declType && isProperty(declType)) {
+                if (declType && isMaybeDescriptorInstance(declType, /* requireSetter */ false)) {
                     symbolKind = SymbolKind.Property;
                 } else {
                     symbolKind = SymbolKind.Method;

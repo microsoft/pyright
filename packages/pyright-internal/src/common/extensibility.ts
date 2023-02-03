@@ -61,14 +61,19 @@ export enum DeclarationUseCase {
 }
 
 export interface DeclarationProviderExtension {
-    tryGetDeclarations(node: ParseNode, useCase: DeclarationUseCase): Declaration[];
+    tryGetDeclarations(node: ParseNode, useCase: DeclarationUseCase, token: CancellationToken): Declaration[];
 }
 
 export class NodeCheckerExtension extends ParseTreeVisitor<void> {}
 
 export interface TypeProviderExtension {
-    tryGetParameterNodeType(node: ParameterNode, evaluator: TypeEvaluator, context?: {}): Type | undefined;
-    tryGetFunctionNodeType(node: FunctionNode, evaluator: TypeEvaluator): Type | undefined;
+    tryGetParameterNodeType(
+        node: ParameterNode,
+        evaluator: TypeEvaluator,
+        token: CancellationToken,
+        context?: {}
+    ): Type | undefined;
+    tryGetFunctionNodeType(node: FunctionNode, evaluator: TypeEvaluator, token: CancellationToken): Type | undefined;
 }
 
 export interface CodeActionExtension {

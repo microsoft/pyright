@@ -25,7 +25,7 @@ import { AliasDeclaration, Declaration, DeclarationType } from '../analyzer/decl
 import { getNameFromDeclaration } from '../analyzer/declarationUtils';
 import { getLastTypedDeclaredForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { isProperty } from '../analyzer/typeUtils';
+import { isMaybeDescriptorInstance } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
@@ -180,7 +180,7 @@ function getSymbolKind(name: string, declaration: Declaration, evaluator?: TypeE
         case DeclarationType.Function:
             if (declaration.isMethod) {
                 const declType = evaluator?.getTypeForDeclaration(declaration);
-                if (declType && isProperty(declType)) {
+                if (declType && isMaybeDescriptorInstance(declType, /* requireSetter */ false)) {
                     symbolKind = SymbolKind.Property;
                 } else {
                     symbolKind = SymbolKind.Method;
