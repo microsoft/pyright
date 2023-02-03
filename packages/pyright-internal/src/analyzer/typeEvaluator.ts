@@ -4387,12 +4387,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         symbolWithScope: SymbolWithScope,
         effectiveType: Type
     ): FlowNodeTypeResult | undefined {
-        // This function applies only to variables and parameters, not to other
+        // This function applies only to variables, parameters, and imports, not to other
         // types of symbols.
         if (
             !symbolWithScope.symbol
                 .getDeclarations()
-                .every((decl) => decl.type === DeclarationType.Variable || decl.type === DeclarationType.Parameter)
+                .every(
+                    (decl) =>
+                        decl.type === DeclarationType.Variable ||
+                        decl.type === DeclarationType.Parameter ||
+                        decl.type === DeclarationType.Alias
+                )
         ) {
             return undefined;
         }
@@ -4425,6 +4430,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // Parameter declarations always start life at the beginning
                             // of the execution scope, so they are always safe to narrow.
                             if (decl.type === DeclarationType.Parameter) {
+                                return true;
+                            }
+
+                            // Assume alias declarations are also always safe to narrow.
+                            if (decl.type === DeclarationType.Alias) {
                                 return true;
                             }
 
