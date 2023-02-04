@@ -1378,7 +1378,8 @@ export function getCodeFlowEngine(
             let subtypeCount = 0;
 
             // Evaluate the call base type.
-            const callType = evaluator.getTypeOfExpression(node.leftExpression, EvaluatorFlags.DoNotSpecialize).type;
+            const callTypeResult = evaluator.getTypeOfExpression(node.leftExpression, EvaluatorFlags.DoNotSpecialize);
+            const callType = callTypeResult.type;
 
             doForEachSubtype(callType, (callSubtype) => {
                 // Track the number of subtypes we've examined.
@@ -1478,7 +1479,7 @@ export function getCodeFlowEngine(
                             const callResult = evaluator.validateOverloadedFunctionArguments(
                                 node,
                                 node.arguments,
-                                callSubtype,
+                                { type: callSubtype, isIncomplete: callTypeResult.isIncomplete },
                                 undefined /* typeVarContext */,
                                 false /* skipUnknownArgCheck */,
                                 undefined /* expectedType */

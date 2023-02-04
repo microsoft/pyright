@@ -186,10 +186,12 @@ export function synthesizeDataClassMethods(
                     // If the RHS of the assignment is assigning a field instance where the
                     // "init" parameter is set to false, do not include it in the init method.
                     if (statement.rightExpression.nodeType === ParseNodeType.Call) {
-                        const callType = evaluator.getTypeOfExpression(
+                        const callTypeResult = evaluator.getTypeOfExpression(
                             statement.rightExpression.leftExpression,
                             EvaluatorFlags.DoNotSpecialize
-                        ).type;
+                        );
+                        const callType = callTypeResult.type;
+
                         if (
                             isDataclassFieldConstructor(
                                 callType,
@@ -218,7 +220,7 @@ export function synthesizeDataClassMethods(
                                 } else if (isOverloadedFunction(callType)) {
                                     callTarget = evaluator.getBestOverloadForArguments(
                                         statement.rightExpression,
-                                        callType,
+                                        { type: callType, isIncomplete: callTypeResult.isIncomplete },
                                         statement.rightExpression.arguments
                                     );
                                 } else if (isInstantiableClass(callType)) {
@@ -229,7 +231,7 @@ export function synthesizeDataClassMethods(
                                         } else if (isOverloadedFunction(initCall)) {
                                             callTarget = evaluator.getBestOverloadForArguments(
                                                 statement.rightExpression,
-                                                initCall,
+                                                { type: initCall },
                                                 statement.rightExpression.arguments
                                             );
                                         }

@@ -234,6 +234,7 @@ export interface ApplyTypeVarOptions {
 
 export interface InferenceContext {
     expectedType: Type;
+    isTypeIncomplete?: boolean;
     typeVarContext?: TypeVarContext;
 }
 
@@ -466,22 +467,32 @@ export function isIncompleteUnknown(type: Type): boolean {
     return isUnknown(type) && type.isIncomplete;
 }
 
-export function makeInferenceContext(expectedType: undefined, typeVarContext?: TypeVarContext): undefined;
-export function makeInferenceContext(expectedType: Type, typeVarContext?: TypeVarContext): InferenceContext;
+export function makeInferenceContext(
+    expectedType: undefined,
+    typeVarContext?: TypeVarContext,
+    isTypeIncomplete?: boolean
+): undefined;
+export function makeInferenceContext(
+    expectedType: Type,
+    typeVarContext?: TypeVarContext,
+    isTypeIncomplete?: boolean
+): InferenceContext;
 export function makeInferenceContext(
     expectedType: Type | undefined,
-    typeVarContext?: TypeVarContext
+    typeVarContext?: TypeVarContext,
+    isTypeIncomplete?: boolean
 ): InferenceContext | undefined;
 
 export function makeInferenceContext(
     expectedType: Type | undefined,
-    typeVarContext?: TypeVarContext
+    typeVarContext?: TypeVarContext,
+    isTypeIncomplete?: boolean
 ): InferenceContext | undefined {
     if (!expectedType) {
         return undefined;
     }
 
-    return { expectedType, typeVarContext };
+    return { expectedType, isTypeIncomplete, typeVarContext };
 }
 
 // Calls a callback for each subtype and combines the results

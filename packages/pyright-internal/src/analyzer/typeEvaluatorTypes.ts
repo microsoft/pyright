@@ -46,7 +46,7 @@ import {
     TypeVarType,
     UnknownType,
 } from './types';
-import { AssignTypeFlags, ClassMember } from './typeUtils';
+import { AssignTypeFlags, ClassMember, InferenceContext } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
 // Maximum number of unioned subtypes for an inferred type (e.g.
@@ -145,8 +145,8 @@ export const enum EvaluatorFlags {
     AllowUnpackedTypedDict = 1 << 23,
 }
 
-export interface TypeResult {
-    type: Type;
+export interface TypeResult<T extends Type = Type> {
+    type: T;
 
     // Is the type incomplete (i.e. not fully evaluated) because
     // some of the paths involve cyclical dependencies?
@@ -300,11 +300,6 @@ export interface FunctionResult {
     isTypeIncomplete: boolean;
 }
 
-export interface InferenceContext {
-    expectedType: Type;
-    typeVarContext?: TypeVarContext;
-}
-
 export interface ArgResult {
     isCompatible: boolean;
     argType: Type;
@@ -380,7 +375,7 @@ export interface TypeEvaluator {
     validateOverloadedFunctionArguments: (
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
-        type: OverloadedFunctionType,
+        typeResult: TypeResult<OverloadedFunctionType>,
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean,
         inferenceContext: InferenceContext | undefined
@@ -438,7 +433,7 @@ export interface TypeEvaluator {
     getFunctionInferredReturnType: (type: FunctionType, args?: ValidateArgTypeParams[]) => Type;
     getBestOverloadForArguments: (
         errorNode: ExpressionNode,
-        type: OverloadedFunctionType,
+        typeResult: TypeResult<OverloadedFunctionType>,
         argList: FunctionArgument[]
     ) => FunctionType | undefined;
     getBuiltInType: (node: ParseNode, name: string) => Type;

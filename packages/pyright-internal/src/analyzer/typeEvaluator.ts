@@ -169,7 +169,6 @@ import {
     ExpectedTypeResult,
     FunctionArgument,
     FunctionTypeResult,
-    InferenceContext,
     maxSubtypesForInferredType,
     PrintTypeOptions,
     TypeEvaluator,
@@ -264,6 +263,7 @@ import {
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
     getUnionSubtypeCount,
+    InferenceContext,
     isEllipsisType,
     isIncompleteUnknown,
     isLiteralType,
@@ -2160,7 +2160,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 callResult = validateFunctionArguments(
                     exprNode,
                     argList,
-                    type,
+                    { type },
                     new TypeVarContext(getTypeVarScopeId(type)),
                     /* skipUnknownArgCheck */ true
                 );
@@ -4111,7 +4111,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (methodType) {
                 if (isOverloadedFunction(methodType)) {
                     if (errorNode) {
-                        const bestOverload = getBestOverloadForArguments(errorNode, methodType, argList);
+                        const bestOverload = getBestOverloadForArguments(
+                            errorNode,
+                            { type: methodType, isIncomplete: memberTypeResult.isIncomplete },
+                            argList
+                        );
+
                         if (bestOverload) {
                             return getFunctionEffectiveReturnType(bestOverload);
                         }
@@ -8011,16 +8016,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getBestOverloadForArguments(
         errorNode: ExpressionNode,
-        type: OverloadedFunctionType,
+        typeResult: TypeResult<OverloadedFunctionType>,
         argList: FunctionArgument[]
     ): FunctionType | undefined {
         let overloadIndex = 0;
         let matches: MatchArgsToParamsResult[] = [];
 
         // Create a list of potential overload matches based on arguments.
-        OverloadedFunctionType.getOverloads(type).forEach((overload) => {
+        OverloadedFunctionType.getOverloads(typeResult.type).forEach((overload) => {
             useSpeculativeMode(errorNode, () => {
-                const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, overload, overloadIndex);
+                const matchResults = matchFunctionArgumentsToParameters(
+                    errorNode,
+                    argList,
+                    { type: overload, isIncomplete: typeResult.isIncomplete },
+                    overloadIndex
+                );
 
                 if (!matchResults.argumentErrors) {
                     matches.push(matchResults);
@@ -8068,7 +8078,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function validateOverloadedFunctionArguments(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
-        type: OverloadedFunctionType,
+        typeResult: TypeResult<OverloadedFunctionType>,
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean,
         inferenceContext: InferenceContext | undefined
@@ -8083,11 +8093,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // cache or record any diagnostics at this stage.
         useSpeculativeMode(errorNode, () => {
             let overloadIndex = 0;
-            OverloadedFunctionType.getOverloads(type).forEach((overload) => {
+            OverloadedFunctionType.getOverloads(typeResult.type).forEach((overload) => {
                 // Consider only the functions that have the @overload decorator,
                 // not the final function that omits the overload. This is the
                 // intended behavior according to PEP 484.
-                const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, overload, overloadIndex);
+                const matchResults = matchFunctionArgumentsToParameters(
+                    errorNode,
+                    argList,
+                    { type: overload, isIncomplete: typeResult.isIncomplete },
+                    overloadIndex
+                );
                 if (!matchResults.argumentErrors) {
                     filteredMatchResults.push(matchResults);
                 }
@@ -8104,7 +8119,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Skip the error message if we're in speculative mode because it's very
             // expensive, and we're going to suppress the diagnostic anyway.
             if (!isDiagnosticSuppressedForNode(errorNode)) {
-                const functionName = type.overloads[0].details.name || '<anonymous function>';
+                const functionName = typeResult.type.overloads[0].details.name || '<anonymous function>';
                 const diagAddendum = new DiagnosticAddendum();
                 const argTypes = argList.map((t) => printType(getTypeOfArgument(t).type));
 
@@ -8152,7 +8167,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         let expandedArgTypes: (Type | undefined)[][] | undefined = [argList.map((arg) => undefined)];
-        let isTypeIncomplete = false;
+        let isTypeIncomplete = !!typeResult.isIncomplete;
 
         while (true) {
             const callResult = validateOverloadsWithExpandedTypes(
@@ -8846,7 +8861,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const functionResult = validateFunctionArguments(
                             errorNode,
                             argList,
-                            expandedSubtype,
+                            { type: expandedSubtype, isIncomplete: callTypeResult.isIncomplete },
                             effectiveTypeVarContext,
                             skipUnknownArgCheck,
                             inferenceContext
@@ -8924,7 +8939,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const functionResult = validateOverloadedFunctionArguments(
                             errorNode,
                             argList,
-                            expandedSubtype,
+                            { type: expandedSubtype, isIncomplete: callTypeResult.isIncomplete },
                             typeVarContext,
                             skipUnknownArgCheck,
                             inferenceContext
@@ -9361,14 +9376,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function matchFunctionArgumentsToParameters(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
-        type: FunctionType,
+        typeResult: TypeResult<FunctionType>,
         overloadIndex: number
     ): MatchArgsToParamsResult {
-        const paramDetails = getParameterListDetails(type);
+        const paramDetails = getParameterListDetails(typeResult.type);
         let argIndex = 0;
         let matchedUnpackedListOfUnknownLength = false;
         let reportedArgError = false;
-        let isTypeIncomplete = false;
+        let isTypeIncomplete = !!typeResult.isIncomplete;
         let isVariadicTypeVarFullyMatched = false;
 
         // Expand any unpacked tuples in the arg list.
@@ -9419,8 +9434,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // function nested within another function that defines the param
                 // spec? We need to handle these two cases differently.
                 if (
-                    varArgListParam.type.scopeId === type.details.typeVarScopeId ||
-                    varArgListParam.type.scopeId === type.details.constructorTypeVarScopeId
+                    varArgListParam.type.scopeId === typeResult.type.details.typeVarScopeId ||
+                    varArgListParam.type.scopeId === typeResult.type.details.constructorTypeVarScopeId
                 ) {
                     paramSpecArgList = [];
                     paramSpecTarget = TypeVarType.cloneForParamSpecAccess(varArgListParam.type, /* access */ undefined);
@@ -9500,7 +9515,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const remainingParamCount = positionParamLimitIndex - paramIndex - 1;
 
             if (paramIndex >= positionParamLimitIndex) {
-                if (!type.details.paramSpec) {
+                if (!typeResult.type.details.paramSpec) {
                     let tooManyPositionals = false;
 
                     if (foundUnpackedListArg && argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
@@ -9561,7 +9576,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // with a ParamSpec and a Concatenate operator. PEP 612 indicates that
                 // all positional parameters specified in the Concatenate must be
                 // filled explicitly.
-                if (type.details.paramSpec && paramIndex < positionParamLimitIndex) {
+                if (typeResult.type.details.paramSpec && paramIndex < positionParamLimitIndex) {
                     addDiagnostic(
                         AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -9913,10 +9928,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     } else if (isParamSpec(argType) && argType.paramSpecAccess === 'kwargs') {
                         unpackedDictionaryArgType = AnyType.create();
-                        if (type.details.paramSpec) {
+                        if (typeResult.type.details.paramSpec) {
                             validateArgTypeParams.push({
                                 paramCategory: ParameterCategory.VarArgDictionary,
-                                paramType: type.details.paramSpec,
+                                paramType: typeResult.type.details.paramSpec,
                                 requiresTypeVarMatching: false,
                                 argument: argList[argIndex],
                                 errorNode: argList[argIndex].valueExpression || errorNode,
@@ -10065,7 +10080,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     } else if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
                         // Handle the case where a *args: P.args is passed as an argument to
                         // a function that accepts a ParamSpec.
-                        if (type.details.paramSpec) {
+                        if (typeResult.type.details.paramSpec) {
                             const argTypeResult = getTypeOfArgument(argList[argIndex]);
                             const argType = argTypeResult.type;
 
@@ -10076,7 +10091,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (isParamSpec(argType) && argType.paramSpecAccess === 'args') {
                                 validateArgTypeParams.push({
                                     paramCategory: ParameterCategory.VarArgList,
-                                    paramType: type.details.paramSpec,
+                                    paramType: typeResult.type.details.paramSpec,
                                     requiresTypeVarMatching: false,
                                     argument: argList[argIndex],
                                     errorNode: argList[argIndex].valueExpression || errorNode,
@@ -10130,7 +10145,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // but have not yet received them. If we received a dictionary argument
             // (i.e. an arg starting with a "**"), we will assume that all parameters
             // are matched.
-            if (!unpackedDictionaryArgType && !FunctionType.isDefaultParameterCheckDisabled(type)) {
+            if (!unpackedDictionaryArgType && !FunctionType.isDefaultParameterCheckDisabled(typeResult.type)) {
                 const unassignedParams = [...paramMap.keys()].filter((name) => {
                     const entry = paramMap.get(name)!;
                     return !entry || entry.argsReceived < entry.argsNeeded;
@@ -10288,14 +10303,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Special-case the builtin isinstance and issubclass functions.
         if (
-            ['isinstance', 'issubclass'].some((name) => name === type.details.builtInName) &&
+            ['isinstance', 'issubclass'].some((name) => name === typeResult.type.details.builtInName) &&
             validateArgTypeParams.length === 2
         ) {
             validateArgTypeParams[1].expectingType = true;
         }
 
         return {
-            overload: type,
+            overload: typeResult.type,
             overloadIndex,
             argumentErrors: reportedArgError,
             isTypeIncomplete,
@@ -10498,7 +10513,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const argResult = validateArgType(
                                 argParam,
                                 typeVarContext,
-                                type,
+                                { type, isIncomplete: matchResults.isTypeIncomplete },
                                 skipUnknownArgCheck,
                                 /* skipOverloadArg */ i === 0,
                                 /* useNarrowBoundOnly */ passCount > 1 && i === 0,
@@ -10535,7 +10550,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const argResult = validateArgType(
                 argParam,
                 typeVarContext,
-                type,
+                { type, isIncomplete: matchResults.isTypeIncomplete },
                 skipUnknownArgCheck,
                 /* skipOverloadArg */ false,
                 /* useNarrowBoundOnly */ false,
@@ -10731,12 +10746,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function validateFunctionArguments(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
-        type: FunctionType,
+        typeResult: TypeResult<FunctionType>,
         typeVarContext: TypeVarContext,
         skipUnknownArgCheck = false,
         inferenceContext?: InferenceContext
     ): CallResult {
-        const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, type, 0);
+        const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, typeResult, 0);
 
         if (matchResults.argumentErrors) {
             // Evaluate types of all args. This will ensure that referenced symbols are
@@ -10915,7 +10930,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function validateArgType(
         argParam: ValidateArgTypeParams,
         typeVarContext: TypeVarContext,
-        functionType: FunctionType | undefined,
+        typeResult: TypeResult<FunctionType> | undefined,
         skipUnknownCheck: boolean,
         skipOverloadArg: boolean,
         useNarrowBoundOnly: boolean,
@@ -10923,9 +10938,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): ArgResult {
         let argType: Type | undefined;
         let expectedTypeDiag: DiagnosticAddendum | undefined;
-        let isTypeIncomplete = false;
+        let isTypeIncomplete = !!typeResult?.isIncomplete;
         let isCompatible = true;
-        const functionName = functionType?.details.name;
+        const functionName = typeResult?.type.details.name;
 
         if (argParam.argument.valueExpression) {
             // If the param type is a "bare" TypeVar, don't use it as an expected
@@ -10936,7 +10951,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // a wide bound on a TypeVar (if a narrow bound has not yet been established)
             // will unnecessarily constrain the expected type.
             let expectedType: Type | undefined;
-            if (!isTypeVar(argParam.paramType) || argParam.paramType.scopeId !== functionType?.details.typeVarScopeId) {
+            if (
+                !isTypeVar(argParam.paramType) ||
+                argParam.paramType.scopeId !== typeResult?.type.details.typeVarScopeId
+            ) {
                 expectedType = applySolvedTypeVars(argParam.paramType, typeVarContext, { useNarrowBoundOnly });
             }
 
@@ -10958,7 +10976,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const exprTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
                     flags,
-                    makeInferenceContext(expectedType, typeVarContext)
+                    makeInferenceContext(expectedType, typeVarContext, !!typeResult?.isIncomplete)
                 );
 
                 argType = exprTypeResult.type;
@@ -13627,7 +13645,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeOfLambda(node: LambdaNode, inferenceContext: InferenceContext | undefined): TypeResult {
-        let isIncomplete = false;
+        let isIncomplete = !!inferenceContext?.isTypeIncomplete;
         const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.PartiallyEvaluated);
         functionType.details.typeVarScopeId = getScopeIdForNode(node);
 
@@ -13739,6 +13757,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 hasDeclaredType: true,
                 type: paramType,
             };
+
             FunctionType.addParameter(functionType, functionParam);
         });
 
@@ -13770,7 +13789,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         };
 
-        if (speculativeTypeTracker.isSpeculative(node)) {
+        if (speculativeTypeTracker.isSpeculative(node) || inferenceContext?.isTypeIncomplete) {
             // We need to set allowCacheRetention to false because we don't want to
             // cache the type of the lambda return expression because it depends on
             // the parameter types that we set above, and the speculative type cache
@@ -16690,7 +16709,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     validateArgType(
                                         argParam,
                                         new TypeVarContext(),
-                                        newMethodType,
+                                        { type: newMethodType },
                                         /* skipUnknownCheck */ true,
                                         /* skipOverloadArg */ true,
                                         /* useNarrowBoundOnly */ false,
