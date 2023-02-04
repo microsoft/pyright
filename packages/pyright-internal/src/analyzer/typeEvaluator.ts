@@ -20509,10 +20509,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (resolvedDecl.type === DeclarationType.Variable && resolvedDecl.inferredTypeSource) {
+            const isTypeAlias =
+                isExplicitTypeAliasDeclaration(resolvedDecl) || isPossibleTypeAliasOrTypedDict(resolvedDecl);
+
             // If this is a type alias, evaluate types for the entire assignment
             // statement rather than just the RHS of the assignment.
             const typeSource =
-                resolvedDecl.typeAliasName && resolvedDecl.inferredTypeSource.parent
+                isTypeAlias && resolvedDecl.inferredTypeSource.parent
                     ? resolvedDecl.inferredTypeSource.parent
                     : resolvedDecl.inferredTypeSource;
             let inferredType = evaluateTypeForSubnode(resolvedDecl.node, () => {
@@ -20533,7 +20536,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            if (inferredType && resolvedDecl.typeAliasName) {
+            if (inferredType && isTypeAlias && resolvedDecl.typeAliasName) {
                 // If this was a speculative type alias, it becomes a real type alias only
                 // in the event that its inferred type is instantiable or explicitly Any
                 // (but not an ellipsis).
@@ -20791,6 +20794,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (considerDecl) {
+                const resolvedDecl =
+                    resolveAliasDeclaration(
+                        decl,
+                        /* resolveLocalNames */ true,
+                        /* allowExternallyHiddenAccess */ AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile
+                    ) ?? decl;
+
                 const isExplicitTypeAlias = isExplicitTypeAliasDeclaration(decl);
                 const isTypeAlias = isExplicitTypeAlias || isPossibleTypeAliasOrTypedDict(decl);
 
@@ -20802,17 +20812,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // resolution check so we can evaluate the full assignment statement.
                 if (
                     isTypeAlias &&
-                    decl.type === DeclarationType.Variable &&
-                    decl.inferredTypeSource?.parent?.nodeType === ParseNodeType.Assignment
+                    resolvedDecl.type === DeclarationType.Variable &&
+                    resolvedDecl.inferredTypeSource?.parent?.nodeType === ParseNodeType.Assignment
                 ) {
-                    evaluateTypesForAssignmentStatement(decl.inferredTypeSource.parent);
+                    evaluateTypesForAssignmentStatement(resolvedDecl.inferredTypeSource.parent);
 
-                    if (decl.typeAliasAnnotation) {
+                    if (resolvedDecl.typeAliasAnnotation) {
                         // Mark "TypeAlias" declaration as accessed.
-                        getTypeOfAnnotation(decl.typeAliasAnnotation, {
+                        getTypeOfAnnotation(resolvedDecl.typeAliasAnnotation, {
                             isVariableAnnotation: true,
-                            allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(decl.node),
-                            allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(decl.node),
+                            allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(resolvedDecl.node),
+                            allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(resolvedDecl.node),
                         });
                     }
                 }
@@ -20826,17 +20836,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         if (type) {
-                            if (decl.type === DeclarationType.Variable) {
-                                includesVariableDecl = true;
+                            if (resolvedDecl.type === DeclarationType.Variable) {
+                                // Exempt typing.pyi, which uses variables to define some
+                                // special forms like Any.
+                                const fileInfo = AnalyzerNodeInfo.getFileInfo(resolvedDecl.node);
+                                if (!fileInfo.isTypingStubFile) {
+                                    includesVariableDecl = true;
+                                }
 
-                                let isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
+                                let isConstant =
+                                    resolvedDecl.type === DeclarationType.Variable && !!resolvedDecl.isConstant;
 
                                 // Treat enum values declared within an enum class as though they are const even
                                 // though they may not be named as such.
                                 if (
                                     isClassInstance(type) &&
                                     ClassType.isEnumClass(type) &&
-                                    isDeclInEnumClass(evaluatorInterface, decl)
+                                    isDeclInEnumClass(evaluatorInterface, resolvedDecl)
                                 ) {
                                     isConstant = true;
                                 }
@@ -20861,15 +20877,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         throw e;
                     }
                 } else {
-                    // If this resolves to a class decl, we can use a partially-evaluated
-                    // version of the class type.
-                    const resolvedDecl = resolveAliasDeclaration(
-                        decl,
-                        /* resolveLocalNames */ true,
-                        /* allowExternallyHiddenAccess */ AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile
-                    );
-
-                    if (resolvedDecl?.type === DeclarationType.Class) {
+                    if (resolvedDecl.type === DeclarationType.Class) {
                         const classTypeInfo = getTypeOfClass(resolvedDecl.node);
                         if (classTypeInfo?.decoratedType) {
                             typesToCombine.push(classTypeInfo.decoratedType);
