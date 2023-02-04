@@ -35,17 +35,14 @@ export interface TypeVarMapEntry {
     narrowBound?: Type | undefined;
     narrowBoundNoLiterals?: Type | undefined;
     wideBound?: Type | undefined;
-}
 
-export interface TupleTypeVarMapEntry {
-    typeVar: TypeVarType;
-    types: TupleTypeArgument[];
+    // For tuples, the variadic types can be individually specified
+    tupleTypes?: TupleTypeArgument[];
 }
 
 export class TypeVarContext {
     private _solveForScopes: TypeVarScopeId[] | undefined;
     private _typeVarMap: Map<string, TypeVarMapEntry>;
-    private _tupleTypeVarMap: Map<string, TupleTypeVarMapEntry> | undefined;
     private _isLocked = false;
 
     constructor(solveForScopes?: TypeVarScopeId[] | TypeVarScopeId) {
@@ -73,13 +70,11 @@ export class TypeVarContext {
                 value.narrowBoundNoLiterals,
                 value.wideBound
             );
-        });
 
-        if (this._tupleTypeVarMap) {
-            this._tupleTypeVarMap.forEach((value) => {
-                newTypeVarMap.setTupleTypeVar(value.typeVar, value.types);
-            });
-        }
+            if (value.tupleTypes) {
+                newTypeVarMap.setTupleTypeVar(value.typeVar, value.tupleTypes);
+            }
+        });
 
         newTypeVarMap._isLocked = this._isLocked;
 
@@ -89,7 +84,6 @@ export class TypeVarContext {
     // Copies a cloned type var map back into this object.
     copyFromClone(clone: TypeVarContext) {
         this._typeVarMap = clone._typeVarMap;
-        this._tupleTypeVarMap = clone._tupleTypeVarMap;
         this._isLocked = clone._isLocked;
     }
 
@@ -188,18 +182,17 @@ export class TypeVarContext {
     }
 
     getTupleTypeVar(reference: TypeVarType): TupleTypeArgument[] | undefined {
-        return this._tupleTypeVarMap?.get(this._getKey(reference))?.types;
+        return this._typeVarMap?.get(this._getKey(reference))?.tupleTypes;
     }
 
     setTupleTypeVar(reference: TypeVarType, types: TupleTypeArgument[]) {
         assert(!this._isLocked);
-        const key = this._getKey(reference);
 
-        // Allocate tuple TypeVar map on demand since most classes don't use it.
-        if (!this._tupleTypeVarMap) {
-            this._tupleTypeVarMap = new Map<string, TupleTypeVarMapEntry>();
-        }
-        this._tupleTypeVarMap.set(key, { typeVar: reference, types });
+        // Caller should have already assigned a value to this type variable.
+        const entry = this.getTypeVar(reference);
+        assert(entry);
+
+        entry.tupleTypes = types;
     }
 
     getTypeVar(reference: TypeVarType): TypeVarMapEntry | undefined {
@@ -237,14 +230,15 @@ export class TypeVarContext {
             const newWideTypeBound = entry.wideBound ? applySolvedTypeVars(entry.wideBound, srcContext) : undefined;
 
             this.setTypeVarType(entry.typeVar, newNarrowTypeBound, newNarrowTypeBoundNoLiterals, newWideTypeBound);
-        });
 
-        this._tupleTypeVarMap?.forEach((entry) => {
-            const updatedTypes: TupleTypeArgument[] = entry.types.map((arg) => {
-                return { isUnbounded: arg.isUnbounded, type: applySolvedTypeVars(arg.type, srcContext) };
-            });
-
-            this.setTupleTypeVar(entry.typeVar, updatedTypes);
+            if (entry.tupleTypes) {
+                this.setTupleTypeVar(
+                    entry.typeVar,
+                    entry.tupleTypes.map((arg) => {
+                        return { isUnbounded: arg.isUnbounded, type: applySolvedTypeVars(arg.type, srcContext) };
+                    })
+                );
+            }
         });
 
         if (wasLocked) {
