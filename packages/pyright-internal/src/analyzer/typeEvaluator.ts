@@ -12727,6 +12727,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 });
 
+                // If there were errors with the expected type, try
+                // to evaluate without the expected type.
+                if (callResult!.argumentErrors && inferenceContext) {
+                    useSpeculativeMode(errorNode, () => {
+                        callResult = validateCallArguments(
+                            errorNode,
+                            functionArgs,
+                            { type: magicMethodType! },
+                            /* typeVarContext */ undefined,
+                            /* skipUnknownArgCheck */ true
+                        );
+                    });
+                }
+
                 if (callResult!.argumentErrors) {
                     magicMethodSupported = false;
                 }

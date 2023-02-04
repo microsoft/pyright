@@ -1084,6 +1084,12 @@ test('Operators9', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Operators10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators10.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions('.');
 
