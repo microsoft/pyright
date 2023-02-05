@@ -324,6 +324,11 @@ test('Overload14', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Overload15', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload15.py']);
+    TestUtils.validateResults(analysisResults, 7);
+});
+
 test('Final1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final1.py']);
     TestUtils.validateResults(analysisResults, 1);
@@ -786,7 +791,7 @@ test('ParamSpec3', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec3.py'], configOptions);
-    TestUtils.validateResults(results, 2);
+    TestUtils.validateResults(results, 1);
 });
 
 test('ParamSpec4', () => {

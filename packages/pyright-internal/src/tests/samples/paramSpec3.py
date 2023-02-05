@@ -57,9 +57,10 @@ def bar(x: Union[int, str]) -> Optional[str]:
         return x
 
 
-# This should generate an error because ParamSpec cannot
-# be used with an overloaded function.
 x = add_logging(bar)
+reveal_type(
+    x, expected_text="Overload[(x: int) -> Awaitable[None], (x: str) -> Awaitable[str]]"
+)
 
 
 class Foo(Generic[Ps, R]):

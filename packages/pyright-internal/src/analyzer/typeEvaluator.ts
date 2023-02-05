@@ -300,7 +300,7 @@ import {
     validateTypeVarDefault,
     VirtualParameterDetails,
 } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
+import { TypeVarContext, TypeVarSignatureContext } from './typeVarContext';
 
 const enum MemberAccessFlags {
     None = 0,
@@ -6460,15 +6460,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
+        const primarySignatureContext = typeVarContext.getPrimarySignature();
         const aliasTypeArgs: Type[] = [];
+
         baseType.typeAliasInfo.typeParameters?.forEach((typeParam) => {
             let typeVarType: Type | undefined;
+
             if (isParamSpec(typeParam)) {
-                const paramSpecType = typeVarContext.getParamSpecType(typeParam);
+                const paramSpecType = primarySignatureContext.getParamSpecType(typeParam);
                 typeVarType = paramSpecType ? convertParamSpecValueToType(paramSpecType) : UnknownType.create();
             } else {
-                typeVarType = typeVarContext.getTypeVarType(typeParam);
+                typeVarType = primarySignatureContext.getTypeVarType(typeParam);
             }
+
             aliasTypeArgs.push(typeVarType || UnknownType.create());
         });
 
@@ -10787,8 +10791,60 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destTypeVarContext: TypeVarContext,
         conditionFilter: TypeCondition[] | undefined
     ): boolean {
-        const paramSpecType = destTypeVarContext.getParamSpecType(paramSpec);
+        const signatureContexts = destTypeVarContext.getSignatureContexts();
 
+        // Handle the common case where there is only one signature context.
+        if (signatureContexts.length === 1) {
+            return validateFunctionArgumentsForParamSpecSignature(
+                errorNode,
+                argList,
+                paramSpec,
+                signatureContexts[0],
+                conditionFilter
+            );
+        }
+
+        const filteredSignatureContexts: TypeVarSignatureContext[] = [];
+        signatureContexts.forEach((context) => {
+            // Use speculative mode to avoid emitting errors or caching types.
+            useSpeculativeMode(errorNode, () => {
+                if (
+                    validateFunctionArgumentsForParamSpecSignature(
+                        errorNode,
+                        argList,
+                        paramSpec,
+                        context,
+                        conditionFilter
+                    )
+                ) {
+                    filteredSignatureContexts.push(context);
+                }
+            });
+        });
+
+        // Copy back any compatible signature contexts if any were compatible.
+        if (filteredSignatureContexts.length > 0) {
+            destTypeVarContext.copySignatureContexts(filteredSignatureContexts);
+        }
+
+        // Evaluate non-speculatively to produce a final result and cache types.
+        return validateFunctionArgumentsForParamSpecSignature(
+            errorNode,
+            argList,
+            paramSpec,
+            filteredSignatureContexts.length > 0 ? filteredSignatureContexts[0] : signatureContexts[0],
+            conditionFilter
+        );
+    }
+
+    function validateFunctionArgumentsForParamSpecSignature(
+        errorNode: ExpressionNode,
+        argList: FunctionArgument[],
+        paramSpec: TypeVarType,
+        typeVarContext: TypeVarSignatureContext,
+        conditionFilter: TypeCondition[] | undefined
+    ): boolean {
+        const paramSpecType = typeVarContext.getParamSpecType(paramSpec);
         if (!paramSpecType) {
             addDiagnostic(
                 AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -10921,7 +10977,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!reportedArgError) {
-            destTypeVarContext.applySourceContextTypeVars(srcTypeVarContext);
+            typeVarContext.applySourceContextTypeVars(srcTypeVarContext);
         }
 
         return !reportedArgError;
@@ -22706,7 +22762,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isFunction(destType)) {
-            let srcFunction: FunctionType | undefined;
             let concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
 
             if (isClassInstance(concreteSrcType)) {
@@ -22724,50 +22779,71 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            if (isOverloadedFunction(concreteSrcType)) {
-                // Overloads are not compatible with ParamSpec.
-                if (destType.details.paramSpec) {
-                    diag?.addMessage(Localizer.DiagnosticAddendum.paramSpecOverload());
-                    return false;
-                }
+            if (isAnyOrUnknown(concreteSrcType)) {
+                return (flags & AssignTypeFlags.OverloadOverlapCheck) === 0;
+            }
 
-                // Find first overloaded function that matches the parameters.
-                // We don't want to pollute the current typeVarContext, so we'll
-                // make a copy of the existing one if it's specified.
+            if (isOverloadedFunction(concreteSrcType)) {
+                // Find all of the overloaded functions that match the parameters.
                 const overloads = OverloadedFunctionType.getOverloads(concreteSrcType);
-                const overloadIndex = overloads.findIndex((overload) => {
-                    return assignType(
-                        destType,
-                        overload,
-                        diag?.createAddendum(),
-                        destTypeVarContext?.clone(),
-                        srcTypeVarContext?.clone(),
-                        flags,
-                        recursionCount
-                    );
+                const filteredOverloads: FunctionType[] = [];
+                const destTypeVarSignatures: TypeVarSignatureContext[] = [];
+                const srcTypeVarSignatures: TypeVarSignatureContext[] = [];
+
+                overloads.forEach((overload) => {
+                    const overloadScopeId = getTypeVarScopeId(overload) ?? '';
+                    const destTypeVarContextClone = destTypeVarContext?.cloneWithSignatureSource(overloadScopeId);
+                    const srcTypeVarContextClone = srcTypeVarContext?.cloneWithSignatureSource(overloadScopeId);
+
+                    if (
+                        assignType(
+                            destType,
+                            overload,
+                            /* diag */ undefined,
+                            destTypeVarContextClone,
+                            srcTypeVarContextClone,
+                            flags,
+                            recursionCount
+                        )
+                    ) {
+                        filteredOverloads.push(overload);
+
+                        if (destTypeVarContextClone) {
+                            destTypeVarSignatures.push(...destTypeVarContextClone.getSignatureContexts());
+                        }
+
+                        if (srcTypeVarContextClone) {
+                            srcTypeVarSignatures.push(...srcTypeVarContextClone.getSignatureContexts());
+                        }
+                    }
                 });
 
-                if (overloadIndex < 0) {
+                if (filteredOverloads.length === 0) {
                     diag?.addMessage(
                         Localizer.DiagnosticAddendum.noOverloadAssignable().format({ type: printType(destType) })
                     );
                     return false;
                 }
-                srcFunction = overloads[overloadIndex];
-            } else if (isFunction(concreteSrcType)) {
-                srcFunction = concreteSrcType;
-            } else if (isAnyOrUnknown(concreteSrcType)) {
-                return (flags & AssignTypeFlags.OverloadOverlapCheck) === 0;
+
+                if (destTypeVarContext) {
+                    destTypeVarContext.copySignatureContexts(destTypeVarSignatures);
+                }
+
+                if (srcTypeVarContext) {
+                    srcTypeVarContext.copySignatureContexts(srcTypeVarSignatures);
+                }
+
+                return true;
             }
 
-            if (srcFunction) {
+            if (isFunction(concreteSrcType)) {
                 if (
                     assignFunction(
                         destType,
-                        srcFunction,
+                        concreteSrcType,
                         diag?.createAddendum(),
                         destTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(destType)),
-                        srcTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(srcFunction)),
+                        srcTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(concreteSrcType)),
                         flags,
                         recursionCount
                     )
@@ -24314,10 +24390,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // If the target function was generic and we solved some of the type variables
         // in that generic type, assign them back to the destination typeVar.
-        effectiveSrcTypeVarContext.getTypeVars().forEach((typeVarEntry) => {
+        const typeVarSignatureContext = effectiveSrcTypeVarContext.getPrimarySignature();
+        typeVarSignatureContext.getTypeVars().forEach((typeVarEntry) => {
             assignType(
                 typeVarEntry.typeVar,
-                effectiveSrcTypeVarContext.getTypeVarType(typeVarEntry.typeVar)!,
+                typeVarSignatureContext.getTypeVarType(typeVarEntry.typeVar)!,
                 /* diag */ undefined,
                 destTypeVarContext,
                 srcTypeVarContext,
@@ -24554,7 +24631,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let replacedTypeArg = false;
             const newTypeArgs = assignedType.typeArguments.map((typeArg, index) => {
                 const typeParam = assignedType.details.typeParameters[index];
-                const expectedTypeArgType = typeVarContext.getTypeVarType(typeParam);
+                const expectedTypeArgType = typeVarContext.getPrimarySignature().getTypeVarType(typeParam);
 
                 if (expectedTypeArgType) {
                     if (isAny(expectedTypeArgType) || isAnyOrUnknown(typeArg)) {

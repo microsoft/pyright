@@ -1483,6 +1483,7 @@ export namespace FunctionType {
                     (FunctionTypeFlags.ClassMethod |
                         FunctionTypeFlags.StaticMethod |
                         FunctionTypeFlags.ConstructorMethod |
+                        FunctionTypeFlags.Overloaded |
                         FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck)) |
                 FunctionTypeFlags.SynthesizedMethod;
 

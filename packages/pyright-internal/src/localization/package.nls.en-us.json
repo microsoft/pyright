@@ -612,7 +612,6 @@
         "overrideReturnType": "Return type mismatch: base method returns type \"{baseType}\", override returns type \"{overrideType}\"",
         "overrideType": "Base class defines type as \"{type}\"",
         "paramAssignment": "Parameter {index}: type \"{sourceType}\" cannot be assigned to type \"{destType}\"",
-        "paramSpecOverload": "ParamSpec cannot be used with overloaded function",
         "paramType": "Parameter type is \"{paramType}\"",
         "privateImportFromPyTypedSource": "Import from \"{module}\" instead",
         "propertyAccessFromProtocolClass": "A property defined within a protocol class cannot be accessed as a class variable",

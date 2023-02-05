@@ -17,8 +17,12 @@ def a1(p0: int) -> int:
 def a2(p0: int, p2: str) -> int:
     ...
 
-func1(a1, a1)
-func1(a2, a2)
+
+v1 = func1(a1, a1)
+reveal_type(v1, expected_text="(p0: int) -> bool")
+
+v2 = func1(a2, a2)
+reveal_type(v2, expected_text="(p0: int, p2: str) -> bool")
 
 # This should generate an error because a1 and a2 are not compatible.
-func1(a1, a2)
+v3 = func1(a1, a2)

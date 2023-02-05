@@ -1,0 +1,91 @@
+# This sample tests the handling of overloads with a ParamSpec.
+
+from typing import Callable, Concatenate, overload, TypeVar, ParamSpec
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def callable1(
+    func: Callable[P, R], *args: P.args, **kwargs: P.kwargs
+) -> Callable[[], R]:
+    ...
+
+
+@overload
+def func1() -> None:
+    ...
+
+
+@overload
+def func1(a: int) -> None:
+    ...
+
+
+def func1(a: int = 1) -> None:
+    ...
+
+
+callable1(func1)
+callable1(func1, 1)
+callable1(func1, a=1)
+
+# This should generate an error because none of the overloads
+# captured by the ParamSpec match those arguments.
+callable1(func1, 1, 2)
+
+# This should generate an error because none of the overloads
+# captured by the ParamSpec match those arguments.
+callable1(func1, b=2)
+
+
+def callable2(
+    func: Callable[Concatenate[int, P], R], *args: P.args, **kwargs: P.kwargs
+) -> Callable[[], R]:
+    ...
+
+
+@overload
+def func2() -> None:
+    ...
+
+
+@overload
+def func2(a: int) -> int:
+    ...
+
+
+@overload
+def func2(a: int, b: str) -> str:
+    ...
+
+
+def func2(a: int = 1, b: str = "") -> None | int | str:
+    ...
+
+
+callable2(func2)
+callable2(func2, "")
+callable2(func2, b="")
+
+# This should generate an error because none of the overloads
+# captured by the ParamSpec match those arguments.
+callable2(func2, 1, "")
+
+
+def callable3(func: Callable[P, R]) -> Callable[Concatenate[int, P], R]:
+    ...
+
+
+c3_2 = callable3(func2)
+c3_2(1)
+c3_2(1, a=1)
+c3_2(1, 1, b="")
+
+# This should generate an error because none of the overloads
+# match these arguments.
+c3_2(1, "")
+
+# This should generate an error because none of the overloads
+# match these arguments.
+c3_2(1, 1, c="")
