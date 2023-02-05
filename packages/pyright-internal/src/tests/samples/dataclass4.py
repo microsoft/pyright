@@ -62,3 +62,10 @@ class Baz3:
     # the ordering requirement is not enforced when
     # init=False.
     ccc: str
+
+
+@dataclass
+class Baz4:
+    # Private names are not allowed, so this should
+    # generate an error.
+    __private: int

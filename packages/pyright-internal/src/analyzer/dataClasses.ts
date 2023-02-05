@@ -28,6 +28,7 @@ import { updateNamedTupleBaseClass } from './namedTuples';
 import { getEnclosingClassOrFunction } from './parseTreeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
+import { isPrivateName } from './symbolNameUtils';
 import { EvaluatorFlags, FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     AnyType,
@@ -349,6 +350,7 @@ export function synthesizeDataClassMethods(
                             hasDefault: hasDefaultValue,
                             defaultValueExpression,
                             includeInInit,
+                            nameNode: variableNameNode,
                             type: UnknownType.create(),
                             isClassVar: true,
                         };
@@ -365,6 +367,7 @@ export function synthesizeDataClassMethods(
                             hasDefault: hasDefaultValue,
                             defaultValueExpression,
                             includeInInit,
+                            nameNode: variableNameNode,
                             type: UnknownType.create(),
                             isClassVar: false,
                         };
@@ -484,9 +487,15 @@ export function synthesizeDataClassMethods(
                     // type of the __init__ method parameter from the __set__ method.
                     effectiveType = transformDescriptorType(evaluator, effectiveType);
 
+                    const effectiveName = entry.alias || entry.name;
+
+                    if (!entry.alias && entry.nameNode && isPrivateName(entry.nameNode.value)) {
+                        evaluator.addError(Localizer.Diagnostic.dataClassFieldWithPrivateName(), entry.nameNode);
+                    }
+
                     const functionParam: FunctionParameter = {
                         category: ParameterCategory.Simple,
-                        name: entry.alias || entry.name,
+                        name: effectiveName,
                         hasDefault: entry.hasDefault,
                         defaultValueExpression: entry.defaultValueExpression,
                         type: effectiveType,

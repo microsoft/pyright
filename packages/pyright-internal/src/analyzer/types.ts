@@ -8,7 +8,7 @@
  */
 
 import { assert } from '../common/debug';
-import { ExpressionNode, ParameterCategory } from '../parser/parseNodes';
+import { ExpressionNode, NameNode, ParameterCategory } from '../parser/parseNodes';
 import { FunctionDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
 
@@ -369,6 +369,7 @@ export interface DataClassEntry {
     isKeywordOnly: boolean;
     alias?: string | undefined;
     hasDefault?: boolean | undefined;
+    nameNode: NameNode | undefined;
     defaultValueExpression?: ExpressionNode | undefined;
     includeInInit: boolean;
     type: Type;
