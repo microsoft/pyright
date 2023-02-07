@@ -2205,19 +2205,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             methodType.details.fullName === 'builtins.object.__init__';
                         const isSkipConstructor =
                             !!methodType && isFunction(methodType) && FunctionType.isSkipConstructorCheck(methodType);
+                        const isDefaultParams =
+                            methodType && isFunction(methodType) && FunctionType.hasDefaultParameters(methodType);
 
-                        // If there was no `__init__` or the only `__init__` that was found
-                        // was form the `object` class, see if we can find a better `__new__`
-                        // method.
-                        if (
-                            !methodType ||
-                            isObjectInit ||
-                            isSkipConstructor ||
-                            (methodType &&
-                                isFunction(methodType) &&
-                                (FunctionType.hasDefaultParameters(methodType) ||
-                                    methodType.details.parameters.length === 0))
-                        ) {
+                        // If there was no `__init__` or the only `__init__` that was found was from
+                        // the `object` class or accepts only default parameters(* args, ** kwargs),
+                        // see if we can find a better signature from the `__new__` method.
+                        if (!methodType || isObjectInit || isSkipConstructor || isDefaultParams) {
                             const constructorType = getBoundMethod(
                                 subtype,
                                 '__new__',
