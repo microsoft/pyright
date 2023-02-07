@@ -89,3 +89,33 @@ c3_2(1, "")
 # This should generate an error because none of the overloads
 # match these arguments.
 c3_2(1, 1, c="")
+
+
+@overload
+def func3(x: int) -> None:
+    ...
+
+
+@overload
+def func3(x: str) -> None:
+    ...
+
+
+def func3(x) -> None:
+    pass
+
+
+def callable4(func: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+    ...
+
+
+callable4(func3, 1)
+callable4(func3, x=1)
+callable4(func3, "")
+callable4(func3, x="")
+
+# This should generate an error.
+callable4(func3, 1.0)
+
+# This should generate an error.
+callable4(func3, y=1)

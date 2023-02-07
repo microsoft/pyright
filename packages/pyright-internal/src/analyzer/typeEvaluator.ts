@@ -10926,23 +10926,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (paramType) {
-                    if (
-                        !validateArgType(
-                            {
-                                paramCategory: ParameterCategory.Simple,
-                                paramType,
-                                requiresTypeVarMatching: false,
-                                argument: arg,
-                                errorNode: arg.valueExpression || errorNode,
-                            },
-                            srcTypeVarContext,
-                            /* functionType */ undefined,
-                            /* skipUnknownArgCheck */ false,
-                            /* skipOverloadArg */ false,
-                            /* useNarrowBoundOnly */ false,
-                            conditionFilter
-                        )
-                    ) {
+                    const argResult = validateArgType(
+                        {
+                            paramCategory: ParameterCategory.Simple,
+                            paramType,
+                            requiresTypeVarMatching: false,
+                            argument: arg,
+                            errorNode: arg.valueExpression || errorNode,
+                        },
+                        srcTypeVarContext,
+                        /* functionType */ undefined,
+                        /* skipUnknownArgCheck */ false,
+                        /* skipOverloadArg */ false,
+                        /* useNarrowBoundOnly */ false,
+                        conditionFilter
+                    );
+
+                    if (!argResult.isCompatible) {
                         reportedArgError = true;
                     }
                 }
