@@ -47,9 +47,9 @@ class _ProactorReadPipeTransport(_ProactorBasePipeTransport, transports.ReadTran
             loop: events.AbstractEventLoop,
             sock: socket,
             protocol: streams.StreamReaderProtocol,
-            waiter: futures.Future[Any] | None = ...,
-            extra: Mapping[Any, Any] | None = ...,
-            server: events.AbstractServer | None = ...,
+            waiter: futures.Future[Any] | None = None,
+            extra: Mapping[Any, Any] | None = None,
+            server: events.AbstractServer | None = None,
         ) -> None: ...
 
 class _ProactorBaseWritePipeTransport(_ProactorBasePipeTransport, transports.WriteTransport): ...
@@ -57,7 +57,6 @@ class _ProactorWritePipeTransport(_ProactorBaseWritePipeTransport): ...
 class _ProactorDuplexPipeTransport(_ProactorReadPipeTransport, _ProactorBaseWritePipeTransport, transports.Transport): ...
 
 class _ProactorSocketTransport(_ProactorReadPipeTransport, _ProactorBaseWritePipeTransport, transports.Transport):
-
     _sendfile_compatible: ClassVar[constants._SendfileMode]
     def __init__(
         self,

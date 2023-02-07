@@ -7,7 +7,7 @@ from pyasn1.type.namedval import NamedValues
 from pyasn1.type.tag import TagSet
 from pyasn1.type.univ import Boolean, Choice, Enumerated, Integer, Null, OctetString, Sequence, SequenceOf, SetOf
 
-LDAP_MAX_INT: _Final = 2147483647
+LDAP_MAX_INT: _Final[int]
 MAXINT: _Final[Integer]
 rangeInt0ToMaxConstraint: ValueRangeConstraint
 rangeInt1To127Constraint: ValueRangeConstraint

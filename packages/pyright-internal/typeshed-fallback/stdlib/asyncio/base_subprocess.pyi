@@ -9,7 +9,6 @@ from . import events, futures, protocols, transports
 _File: TypeAlias = int | IO[Any] | None
 
 class BaseSubprocessTransport(transports.SubprocessTransport):
-
     _closed: bool  # undocumented
     _protocol: protocols.SubprocessProtocol  # undocumented
     _loop: events.AbstractEventLoop  # undocumented

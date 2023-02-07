@@ -1,4 +1,5 @@
 version = "4.64.*"
 
 [tool.stubtest]
+ignore_missing_stub = false
 extras = ["slack", "telegram"]

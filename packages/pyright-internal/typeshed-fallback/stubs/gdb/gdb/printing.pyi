@@ -4,7 +4,6 @@ import gdb
 from gdb import _PrettyPrinterLookupFunction
 
 class PrettyPrinter:
-
     name: str
     subprinters: list[SubPrettyPrinter] | None
     enabled: bool
@@ -13,7 +12,6 @@ class PrettyPrinter:
     def __call__(self, val: gdb.Value) -> gdb._PrettyPrinter | None: ...
 
 class SubPrettyPrinter:
-
     name: str
     enabled: bool
 

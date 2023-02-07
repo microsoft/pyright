@@ -1,5 +1,5 @@
 import datetime
-from _typeshed import SupportsItems
+from _typeshed import Incomplete, SupportsItems
 from collections.abc import Callable, Iterable, Mapping
 from types import BuiltinFunctionType, FunctionType, ModuleType
 from typing import Any, ClassVar, NoReturn, TypeVar
@@ -15,12 +15,12 @@ class RepresenterError(YAMLError): ...
 class BaseRepresenter:
     yaml_representers: ClassVar[dict[type[Any], Callable[[BaseRepresenter, Any], Node]]]
     yaml_multi_representers: ClassVar[dict[type[Any], Callable[[BaseRepresenter, Any], Node]]]
-    default_style: str | Any
+    default_style: str | Incomplete
     sort_keys: bool
     default_flow_style: bool
     represented_objects: dict[int, Node]
     object_keeper: list[Any]
-    alias_key: int | Any
+    alias_key: int | Incomplete
     def __init__(self, default_style: str | None = ..., default_flow_style: bool = ..., sort_keys: bool = ...) -> None: ...
     def represent(self, data) -> None: ...
     def represent_data(self, data) -> Node: ...

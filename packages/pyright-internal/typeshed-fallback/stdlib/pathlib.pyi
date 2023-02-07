@@ -99,61 +99,61 @@ class Path(PurePath):
     def iterdir(self: Self) -> Generator[Self, None, None]: ...
     def lchmod(self, mode: int) -> None: ...
     def lstat(self) -> stat_result: ...
-    def mkdir(self, mode: int = 511, parents: bool = False, exist_ok: bool = False) -> None: ...
+    def mkdir(self, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None: ...
     # Adapted from builtins.open
     # Text mode: always returns a TextIOWrapper
     # The Traversable .open in stdlib/importlib/abc.pyi should be kept in sync with this.
     @overload
     def open(
         self,
-        mode: OpenTextMode = ...,
-        buffering: int = ...,
-        encoding: str | None = ...,
-        errors: str | None = ...,
-        newline: str | None = ...,
+        mode: OpenTextMode = "r",
+        buffering: int = -1,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
     ) -> TextIOWrapper: ...
     # Unbuffered binary mode: returns a FileIO
     @overload
     def open(
-        self, mode: OpenBinaryMode, buffering: Literal[0], encoding: None = ..., errors: None = ..., newline: None = ...
+        self, mode: OpenBinaryMode, buffering: Literal[0], encoding: None = None, errors: None = None, newline: None = None
     ) -> FileIO: ...
     # Buffering is on: return BufferedRandom, BufferedReader, or BufferedWriter
     @overload
     def open(
         self,
         mode: OpenBinaryModeUpdating,
-        buffering: Literal[-1, 1] = ...,
-        encoding: None = ...,
-        errors: None = ...,
-        newline: None = ...,
+        buffering: Literal[-1, 1] = -1,
+        encoding: None = None,
+        errors: None = None,
+        newline: None = None,
     ) -> BufferedRandom: ...
     @overload
     def open(
         self,
         mode: OpenBinaryModeWriting,
-        buffering: Literal[-1, 1] = ...,
-        encoding: None = ...,
-        errors: None = ...,
-        newline: None = ...,
+        buffering: Literal[-1, 1] = -1,
+        encoding: None = None,
+        errors: None = None,
+        newline: None = None,
     ) -> BufferedWriter: ...
     @overload
     def open(
         self,
         mode: OpenBinaryModeReading,
-        buffering: Literal[-1, 1] = ...,
-        encoding: None = ...,
-        errors: None = ...,
-        newline: None = ...,
+        buffering: Literal[-1, 1] = -1,
+        encoding: None = None,
+        errors: None = None,
+        newline: None = None,
     ) -> BufferedReader: ...
     # Buffering cannot be determined: fall back to BinaryIO
     @overload
     def open(
-        self, mode: OpenBinaryMode, buffering: int = ..., encoding: None = ..., errors: None = ..., newline: None = ...
+        self, mode: OpenBinaryMode, buffering: int = -1, encoding: None = None, errors: None = None, newline: None = None
     ) -> BinaryIO: ...
     # Fallback if mode is not specified
     @overload
     def open(
-        self, mode: str, buffering: int = ..., encoding: str | None = ..., errors: str | None = ..., newline: str | None = ...
+        self, mode: str, buffering: int = -1, encoding: str | None = None, errors: str | None = None, newline: str | None = None
     ) -> IO[Any]: ...
     if sys.platform != "win32":
         # These methods do "exist" on Windows, but they always raise NotImplementedError,
@@ -178,7 +178,7 @@ class Path(PurePath):
     if sys.version_info >= (3, 10):
         def hardlink_to(self, target: str | Path) -> None: ...
 
-    def touch(self, mode: int = 438, exist_ok: bool = True) -> None: ...
+    def touch(self, mode: int = 0o666, exist_ok: bool = True) -> None: ...
     if sys.version_info >= (3, 8):
         def unlink(self, missing_ok: bool = False) -> None: ...
     else:
@@ -197,7 +197,7 @@ class Path(PurePath):
             self, data: str, encoding: str | None = None, errors: str | None = None, newline: str | None = None
         ) -> int: ...
     else:
-        def write_text(self, data: str, encoding: str | None = ..., errors: str | None = ...) -> int: ...
+        def write_text(self, data: str, encoding: str | None = None, errors: str | None = None) -> int: ...
     if sys.version_info >= (3, 8) and sys.version_info < (3, 12):
         def link_to(self, target: StrOrBytesPath) -> None: ...
     if sys.version_info >= (3, 12):

@@ -37,76 +37,76 @@ if sys.version_info >= (3, 8):
     @overload
     def NamedTemporaryFile(
         mode: _StrMode,
-        buffering: int = ...,
-        encoding: str | None = ...,
-        newline: str | None = ...,
-        suffix: AnyStr | None = ...,
-        prefix: AnyStr | None = ...,
-        dir: GenericPath[AnyStr] | None = ...,
-        delete: bool = ...,
+        buffering: int = -1,
+        encoding: str | None = None,
+        newline: str | None = None,
+        suffix: AnyStr | None = None,
+        prefix: AnyStr | None = None,
+        dir: GenericPath[AnyStr] | None = None,
+        delete: bool = True,
         *,
-        errors: str | None = ...,
+        errors: str | None = None,
     ) -> _TemporaryFileWrapper[str]: ...
     @overload
     def NamedTemporaryFile(
-        mode: _BytesMode = ...,
-        buffering: int = ...,
-        encoding: str | None = ...,
-        newline: str | None = ...,
-        suffix: AnyStr | None = ...,
-        prefix: AnyStr | None = ...,
-        dir: GenericPath[AnyStr] | None = ...,
-        delete: bool = ...,
+        mode: _BytesMode = "w+b",
+        buffering: int = -1,
+        encoding: str | None = None,
+        newline: str | None = None,
+        suffix: AnyStr | None = None,
+        prefix: AnyStr | None = None,
+        dir: GenericPath[AnyStr] | None = None,
+        delete: bool = True,
         *,
-        errors: str | None = ...,
+        errors: str | None = None,
     ) -> _TemporaryFileWrapper[bytes]: ...
     @overload
     def NamedTemporaryFile(
-        mode: str = ...,
-        buffering: int = ...,
-        encoding: str | None = ...,
-        newline: str | None = ...,
-        suffix: AnyStr | None = ...,
-        prefix: AnyStr | None = ...,
-        dir: GenericPath[AnyStr] | None = ...,
-        delete: bool = ...,
+        mode: str = "w+b",
+        buffering: int = -1,
+        encoding: str | None = None,
+        newline: str | None = None,
+        suffix: AnyStr | None = None,
+        prefix: AnyStr | None = None,
+        dir: GenericPath[AnyStr] | None = None,
+        delete: bool = True,
         *,
-        errors: str | None = ...,
+        errors: str | None = None,
     ) -> _TemporaryFileWrapper[Any]: ...
 
 else:
     @overload
     def NamedTemporaryFile(
         mode: _StrMode,
-        buffering: int = ...,
-        encoding: str | None = ...,
-        newline: str | None = ...,
-        suffix: AnyStr | None = ...,
-        prefix: AnyStr | None = ...,
-        dir: GenericPath[AnyStr] | None = ...,
-        delete: bool = ...,
+        buffering: int = -1,
+        encoding: str | None = None,
+        newline: str | None = None,
+        suffix: AnyStr | None = None,
+        prefix: AnyStr | None = None,
+        dir: GenericPath[AnyStr] | None = None,
+        delete: bool = True,
     ) -> _TemporaryFileWrapper[str]: ...
     @overload
     def NamedTemporaryFile(
-        mode: _BytesMode = ...,
-        buffering: int = ...,
-        encoding: str | None = ...,
-        newline: str | None = ...,
-        suffix: AnyStr | None = ...,
-        prefix: AnyStr | None = ...,
-        dir: GenericPath[AnyStr] | None = ...,
-        delete: bool = ...,
+        mode: _BytesMode = "w+b",
+        buffering: int = -1,
+        encoding: str | None = None,
+        newline: str | None = None,
+        suffix: AnyStr | None = None,
+        prefix: AnyStr | None = None,
+        dir: GenericPath[AnyStr] | None = None,
+        delete: bool = True,
     ) -> _TemporaryFileWrapper[bytes]: ...
     @overload
     def NamedTemporaryFile(
-        mode: str = ...,
-        buffering: int = ...,
-        encoding: str | None = ...,
-        newline: str | None = ...,
-        suffix: AnyStr | None = ...,
-        prefix: AnyStr | None = ...,
-        dir: GenericPath[AnyStr] | None = ...,
-        delete: bool = ...,
+        mode: str = "w+b",
+        buffering: int = -1,
+        encoding: str | None = None,
+        newline: str | None = None,
+        suffix: AnyStr | None = None,
+        prefix: AnyStr | None = None,
+        dir: GenericPath[AnyStr] | None = None,
+        delete: bool = True,
     ) -> _TemporaryFileWrapper[Any]: ...
 
 if sys.platform == "win32":
@@ -116,38 +116,38 @@ else:
         @overload
         def TemporaryFile(
             mode: _StrMode,
-            buffering: int = ...,
-            encoding: str | None = ...,
-            newline: str | None = ...,
-            suffix: AnyStr | None = ...,
-            prefix: AnyStr | None = ...,
-            dir: GenericPath[AnyStr] | None = ...,
+            buffering: int = -1,
+            encoding: str | None = None,
+            newline: str | None = None,
+            suffix: AnyStr | None = None,
+            prefix: AnyStr | None = None,
+            dir: GenericPath[AnyStr] | None = None,
             *,
-            errors: str | None = ...,
+            errors: str | None = None,
         ) -> IO[str]: ...
         @overload
         def TemporaryFile(
-            mode: _BytesMode = ...,
-            buffering: int = ...,
-            encoding: str | None = ...,
-            newline: str | None = ...,
-            suffix: AnyStr | None = ...,
-            prefix: AnyStr | None = ...,
-            dir: GenericPath[AnyStr] | None = ...,
+            mode: _BytesMode = "w+b",
+            buffering: int = -1,
+            encoding: str | None = None,
+            newline: str | None = None,
+            suffix: AnyStr | None = None,
+            prefix: AnyStr | None = None,
+            dir: GenericPath[AnyStr] | None = None,
             *,
-            errors: str | None = ...,
+            errors: str | None = None,
         ) -> IO[bytes]: ...
         @overload
         def TemporaryFile(
-            mode: str = ...,
-            buffering: int = ...,
-            encoding: str | None = ...,
-            newline: str | None = ...,
-            suffix: AnyStr | None = ...,
-            prefix: AnyStr | None = ...,
-            dir: GenericPath[AnyStr] | None = ...,
+            mode: str = "w+b",
+            buffering: int = -1,
+            encoding: str | None = None,
+            newline: str | None = None,
+            suffix: AnyStr | None = None,
+            prefix: AnyStr | None = None,
+            dir: GenericPath[AnyStr] | None = None,
             *,
-            errors: str | None = ...,
+            errors: str | None = None,
         ) -> IO[Any]: ...
     else:
         @overload
@@ -235,44 +235,72 @@ class SpooledTemporaryFile(IO[AnyStr], _SpooledTemporaryFileBase):
         @overload
         def __init__(
             self: SpooledTemporaryFile[bytes],
-            max_size: int = ...,
-            mode: _BytesMode = ...,
-            buffering: int = ...,
-            encoding: str | None = ...,
-            newline: str | None = ...,
-            suffix: str | None = ...,
-            prefix: str | None = ...,
-            dir: str | None = ...,
+            max_size: int = 0,
+            mode: _BytesMode = "w+b",
+            buffering: int = -1,
+            encoding: str | None = None,
+            newline: str | None = None,
+            suffix: str | None = None,
+            prefix: str | None = None,
+            dir: str | None = None,
             *,
-            errors: str | None = ...,
+            errors: str | None = None,
         ) -> None: ...
         @overload
         def __init__(
             self: SpooledTemporaryFile[str],
-            max_size: int = ...,
-            mode: _StrMode = ...,
-            buffering: int = ...,
-            encoding: str | None = ...,
-            newline: str | None = ...,
-            suffix: str | None = ...,
-            prefix: str | None = ...,
-            dir: str | None = ...,
+            max_size: int,
+            mode: _StrMode,
+            buffering: int = -1,
+            encoding: str | None = None,
+            newline: str | None = None,
+            suffix: str | None = None,
+            prefix: str | None = None,
+            dir: str | None = None,
             *,
-            errors: str | None = ...,
+            errors: str | None = None,
+        ) -> None: ...
+        @overload
+        def __init__(
+            self: SpooledTemporaryFile[str],
+            max_size: int = 0,
+            *,
+            mode: _StrMode,
+            buffering: int = -1,
+            encoding: str | None = None,
+            newline: str | None = None,
+            suffix: str | None = None,
+            prefix: str | None = None,
+            dir: str | None = None,
+            errors: str | None = None,
         ) -> None: ...
         @overload
         def __init__(
             self,
-            max_size: int = ...,
-            mode: str = ...,
-            buffering: int = ...,
-            encoding: str | None = ...,
-            newline: str | None = ...,
-            suffix: str | None = ...,
-            prefix: str | None = ...,
-            dir: str | None = ...,
+            max_size: int,
+            mode: str,
+            buffering: int = -1,
+            encoding: str | None = None,
+            newline: str | None = None,
+            suffix: str | None = None,
+            prefix: str | None = None,
+            dir: str | None = None,
             *,
-            errors: str | None = ...,
+            errors: str | None = None,
+        ) -> None: ...
+        @overload
+        def __init__(
+            self,
+            max_size: int = 0,
+            *,
+            mode: str,
+            buffering: int = -1,
+            encoding: str | None = None,
+            newline: str | None = None,
+            suffix: str | None = None,
+            prefix: str | None = None,
+            dir: str | None = None,
+            errors: str | None = None,
         ) -> None: ...
         @property
         def errors(self) -> str | None: ...
@@ -280,38 +308,64 @@ class SpooledTemporaryFile(IO[AnyStr], _SpooledTemporaryFileBase):
         @overload
         def __init__(
             self: SpooledTemporaryFile[bytes],
-            max_size: int = ...,
-            mode: _BytesMode = ...,
-            buffering: int = ...,
-            encoding: str | None = ...,
-            newline: str | None = ...,
-            suffix: str | None = ...,
-            prefix: str | None = ...,
-            dir: str | None = ...,
+            max_size: int = 0,
+            mode: _BytesMode = "w+b",
+            buffering: int = -1,
+            encoding: str | None = None,
+            newline: str | None = None,
+            suffix: str | None = None,
+            prefix: str | None = None,
+            dir: str | None = None,
         ) -> None: ...
         @overload
         def __init__(
             self: SpooledTemporaryFile[str],
-            max_size: int = ...,
-            mode: _StrMode = ...,
-            buffering: int = ...,
-            encoding: str | None = ...,
-            newline: str | None = ...,
-            suffix: str | None = ...,
-            prefix: str | None = ...,
-            dir: str | None = ...,
+            max_size: int,
+            mode: _StrMode,
+            buffering: int = -1,
+            encoding: str | None = None,
+            newline: str | None = None,
+            suffix: str | None = None,
+            prefix: str | None = None,
+            dir: str | None = None,
+        ) -> None: ...
+        @overload
+        def __init__(
+            self: SpooledTemporaryFile[str],
+            max_size: int = 0,
+            *,
+            mode: _StrMode,
+            buffering: int = -1,
+            encoding: str | None = None,
+            newline: str | None = None,
+            suffix: str | None = None,
+            prefix: str | None = None,
+            dir: str | None = None,
         ) -> None: ...
         @overload
         def __init__(
             self,
-            max_size: int = ...,
-            mode: str = ...,
-            buffering: int = ...,
-            encoding: str | None = ...,
-            newline: str | None = ...,
-            suffix: str | None = ...,
-            prefix: str | None = ...,
-            dir: str | None = ...,
+            max_size: int,
+            mode: str,
+            buffering: int = -1,
+            encoding: str | None = None,
+            newline: str | None = None,
+            suffix: str | None = None,
+            prefix: str | None = None,
+            dir: str | None = None,
+        ) -> None: ...
+        @overload
+        def __init__(
+            self,
+            max_size: int = 0,
+            *,
+            mode: str,
+            buffering: int = -1,
+            encoding: str | None = None,
+            newline: str | None = None,
+            suffix: str | None = None,
+            prefix: str | None = None,
+            dir: str | None = None,
         ) -> None: ...
 
     def rollover(self) -> None: ...
@@ -355,27 +409,30 @@ class TemporaryDirectory(Generic[AnyStr]):
         @overload
         def __init__(
             self: TemporaryDirectory[str],
-            suffix: str | None = ...,
-            prefix: str | None = ...,
-            dir: StrPath | None = ...,
-            ignore_cleanup_errors: bool = ...,
+            suffix: str | None = None,
+            prefix: str | None = None,
+            dir: StrPath | None = None,
+            ignore_cleanup_errors: bool = False,
         ) -> None: ...
         @overload
         def __init__(
             self: TemporaryDirectory[bytes],
-            suffix: bytes | None = ...,
-            prefix: bytes | None = ...,
-            dir: BytesPath | None = ...,
-            ignore_cleanup_errors: bool = ...,
+            suffix: bytes | None = None,
+            prefix: bytes | None = None,
+            dir: BytesPath | None = None,
+            ignore_cleanup_errors: bool = False,
         ) -> None: ...
     else:
         @overload
         def __init__(
-            self: TemporaryDirectory[str], suffix: str | None = ..., prefix: str | None = ..., dir: StrPath | None = ...
+            self: TemporaryDirectory[str], suffix: str | None = None, prefix: str | None = None, dir: StrPath | None = None
         ) -> None: ...
         @overload
         def __init__(
-            self: TemporaryDirectory[bytes], suffix: bytes | None = ..., prefix: bytes | None = ..., dir: BytesPath | None = ...
+            self: TemporaryDirectory[bytes],
+            suffix: bytes | None = None,
+            prefix: bytes | None = None,
+            dir: BytesPath | None = None,
         ) -> None: ...
 
     def cleanup(self) -> None: ...
@@ -387,18 +444,18 @@ class TemporaryDirectory(Generic[AnyStr]):
 # The overloads overlap, but they should still work fine.
 @overload
 def mkstemp(  # type: ignore[misc]
-    suffix: str | None = ..., prefix: str | None = ..., dir: StrPath | None = ..., text: bool = ...
+    suffix: str | None = None, prefix: str | None = None, dir: StrPath | None = None, text: bool = False
 ) -> tuple[int, str]: ...
 @overload
 def mkstemp(
-    suffix: bytes | None = ..., prefix: bytes | None = ..., dir: BytesPath | None = ..., text: bool = ...
+    suffix: bytes | None = None, prefix: bytes | None = None, dir: BytesPath | None = None, text: bool = False
 ) -> tuple[int, bytes]: ...
 
 # The overloads overlap, but they should still work fine.
 @overload
-def mkdtemp(suffix: str | None = ..., prefix: str | None = ..., dir: StrPath | None = ...) -> str: ...  # type: ignore[misc]
+def mkdtemp(suffix: str | None = None, prefix: str | None = None, dir: StrPath | None = None) -> str: ...  # type: ignore[misc]
 @overload
-def mkdtemp(suffix: bytes | None = ..., prefix: bytes | None = ..., dir: BytesPath | None = ...) -> bytes: ...
+def mkdtemp(suffix: bytes | None = None, prefix: bytes | None = None, dir: BytesPath | None = None) -> bytes: ...
 def mktemp(suffix: str = "", prefix: str = "tmp", dir: StrPath | None = None) -> str: ...
 def gettempdirb() -> bytes: ...
 def gettempprefixb() -> bytes: ...

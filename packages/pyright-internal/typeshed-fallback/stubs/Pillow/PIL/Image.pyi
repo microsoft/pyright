@@ -23,7 +23,7 @@ _Size: TypeAlias = tuple[int, int]
 _Box: TypeAlias = tuple[int, int, int, int]
 
 _ConversionMatrix: TypeAlias = Union[
-    tuple[float, float, float, float], tuple[float, float, float, float, float, float, float, float, float, float, float, float],
+    tuple[float, float, float, float], tuple[float, float, float, float, float, float, float, float, float, float, float, float]
 ]
 # `str` values are only accepted if mode="RGB" for an `Image` object
 # `float` values are only accepted for certain modes such as "F"

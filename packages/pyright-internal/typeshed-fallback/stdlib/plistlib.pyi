@@ -56,15 +56,15 @@ else:
     def load(
         fp: IO[bytes],
         *,
-        fmt: PlistFormat | None = ...,
-        use_builtin_types: bool = ...,
+        fmt: PlistFormat | None = None,
+        use_builtin_types: bool = True,
         dict_type: type[MutableMapping[str, Any]] = ...,
     ) -> Any: ...
     def loads(
         value: ReadableBuffer,
         *,
-        fmt: PlistFormat | None = ...,
-        use_builtin_types: bool = ...,
+        fmt: PlistFormat | None = None,
+        use_builtin_types: bool = True,
         dict_type: type[MutableMapping[str, Any]] = ...,
     ) -> Any: ...
 

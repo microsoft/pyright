@@ -65,45 +65,45 @@ class catch_warnings(Generic[_W]):
         def __init__(
             self: catch_warnings[None],
             *,
-            record: Literal[False] = ...,
-            module: ModuleType | None = ...,
-            action: _ActionKind | None = ...,
+            record: Literal[False] = False,
+            module: ModuleType | None = None,
+            action: _ActionKind | None = None,
             category: type[Warning] = ...,
-            lineno: int = ...,
-            append: bool = ...,
+            lineno: int = 0,
+            append: bool = False,
         ) -> None: ...
         @overload
         def __init__(
             self: catch_warnings[list[WarningMessage]],
             *,
             record: Literal[True],
-            module: ModuleType | None = ...,
-            action: _ActionKind | None = ...,
+            module: ModuleType | None = None,
+            action: _ActionKind | None = None,
             category: type[Warning] = ...,
-            lineno: int = ...,
-            append: bool = ...,
+            lineno: int = 0,
+            append: bool = False,
         ) -> None: ...
         @overload
         def __init__(
             self: catch_warnings[list[WarningMessage] | None],
             *,
             record: bool,
-            module: ModuleType | None = ...,
-            action: _ActionKind | None = ...,
+            module: ModuleType | None = None,
+            action: _ActionKind | None = None,
             category: type[Warning] = ...,
-            lineno: int = ...,
-            append: bool = ...,
+            lineno: int = 0,
+            append: bool = False,
         ) -> None: ...
     else:
         @overload
-        def __init__(self: catch_warnings[None], *, record: Literal[False] = ..., module: ModuleType | None = ...) -> None: ...
+        def __init__(self: catch_warnings[None], *, record: Literal[False] = False, module: ModuleType | None = None) -> None: ...
         @overload
         def __init__(
-            self: catch_warnings[list[WarningMessage]], *, record: Literal[True], module: ModuleType | None = ...
+            self: catch_warnings[list[WarningMessage]], *, record: Literal[True], module: ModuleType | None = None
         ) -> None: ...
         @overload
         def __init__(
-            self: catch_warnings[list[WarningMessage] | None], *, record: bool, module: ModuleType | None = ...
+            self: catch_warnings[list[WarningMessage] | None], *, record: bool, module: ModuleType | None = None
         ) -> None: ...
 
     def __enter__(self) -> _W: ...

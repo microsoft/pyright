@@ -36,7 +36,6 @@ def resolve_dotted_attribute(obj: Any, attr: str, allow_dotted_names: bool = Tru
 def list_public_methods(obj: Any) -> list[str]: ...  # undocumented
 
 class SimpleXMLRPCDispatcher:  # undocumented
-
     funcs: dict[str, _DispatchProtocol]
     instance: Any | None
     allow_none: bool
@@ -70,7 +69,6 @@ class SimpleXMLRPCRequestHandler(http.server.BaseHTTPRequestHandler):
     def report_404(self) -> None: ...
 
 class SimpleXMLRPCServer(socketserver.TCPServer, SimpleXMLRPCDispatcher):
-
     _send_traceback_handler: bool
     def __init__(
         self,
@@ -84,7 +82,6 @@ class SimpleXMLRPCServer(socketserver.TCPServer, SimpleXMLRPCDispatcher):
     ) -> None: ...
 
 class MultiPathXMLRPCServer(SimpleXMLRPCServer):  # undocumented
-
     dispatchers: dict[str, SimpleXMLRPCDispatcher]
     def __init__(
         self,
@@ -119,7 +116,6 @@ class ServerHTMLDoc(pydoc.HTMLDoc):  # undocumented
     def docserver(self, server_name: str, package_documentation: str, methods: dict[str, str]) -> str: ...
 
 class XMLRPCDocGenerator:  # undocumented
-
     server_name: str
     server_documentation: str
     server_title: str

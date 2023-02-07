@@ -123,7 +123,7 @@ if sys.version_info >= (3, 9):
         @abstractmethod
         def open(
             self,
-            mode: OpenTextMode = ...,
+            mode: OpenTextMode = "r",
             buffering: int = ...,
             encoding: str | None = ...,
             errors: str | None = ...,

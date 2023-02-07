@@ -97,7 +97,10 @@ class TLRUCache(_TimedCache[_KT, _VT]):
     def expire(self, time: float | None = ...) -> None: ...
 
 def cached(
-    cache: MutableMapping[_KT, Any] | None, key: Callable[..., _KT] = ..., lock: AbstractContextManager[Any] | None = ...
+    cache: MutableMapping[_KT, Any] | None,
+    key: Callable[..., _KT] = ...,
+    lock: AbstractContextManager[Any] | None = None,
+    info: bool = False,
 ) -> IdentityFunction: ...
 def cachedmethod(
     cache: Callable[[Any], MutableMapping[_KT, Any] | None],

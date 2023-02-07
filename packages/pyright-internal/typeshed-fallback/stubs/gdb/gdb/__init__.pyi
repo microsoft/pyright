@@ -58,7 +58,6 @@ _ValueOrNative: TypeAlias = bool | float | str | Value
 _ValueOrInt: TypeAlias = Value | int
 
 class Value:
-
     address: Value
     is_optimized_out: bool
     type: Type
@@ -120,7 +119,6 @@ class Value:
 def lookup_type(name: str, block: Block = ...) -> Type: ...
 
 class Type:
-
     alignof: int
     code: int
     dynamic: bool
@@ -144,7 +142,6 @@ class Type:
     def optimized_out(self) -> Value: ...
 
 class Field:
-
     bitpos: int
     enumval: int
     name: str | None
@@ -204,7 +201,6 @@ pretty_printers: list[_PrettyPrinterLookupFunction]
 # Filtering Frames
 
 class _FrameFilter(Protocol):
-
     name: str
     enabled: bool
     priority: int
@@ -507,7 +503,6 @@ def lookup_static_symbol(name: str, domain: int = ...) -> Symbol | None: ...
 def lookup_static_symbols(name: str, domain: int = ...) -> list[Symbol]: ...
 
 class Symbol:
-
     type: Type | None
     symtab: Symtab
     line: int
@@ -551,7 +546,6 @@ SYMBOL_LOC_COMMON_BLOCK: int
 # Symbol tables
 
 class Symtab_and_line:
-
     symtab: Symtab
     pc: int
     last: int
@@ -560,7 +554,6 @@ class Symtab_and_line:
     def is_valid(self) -> bool: ...
 
 class Symtab:
-
     filename: str
     objfile: Objfile
     producer: str

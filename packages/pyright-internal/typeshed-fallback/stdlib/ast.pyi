@@ -174,11 +174,11 @@ if sys.version_info >= (3, 8):
     @overload
     def parse(
         source: str | ReadableBuffer,
-        filename: str | ReadableBuffer | os.PathLike[Any] = ...,
-        mode: Literal["exec"] = ...,
+        filename: str | ReadableBuffer | os.PathLike[Any] = "<unknown>",
+        mode: Literal["exec"] = "exec",
         *,
-        type_comments: bool = ...,
-        feature_version: None | int | tuple[int, int] = ...,
+        type_comments: bool = False,
+        feature_version: None | int | tuple[int, int] = None,
     ) -> Module: ...
     @overload
     def parse(
@@ -186,8 +186,8 @@ if sys.version_info >= (3, 8):
         filename: str | ReadableBuffer | os.PathLike[Any],
         mode: Literal["eval"],
         *,
-        type_comments: bool = ...,
-        feature_version: None | int | tuple[int, int] = ...,
+        type_comments: bool = False,
+        feature_version: None | int | tuple[int, int] = None,
     ) -> Expression: ...
     @overload
     def parse(
@@ -195,8 +195,8 @@ if sys.version_info >= (3, 8):
         filename: str | ReadableBuffer | os.PathLike[Any],
         mode: Literal["func_type"],
         *,
-        type_comments: bool = ...,
-        feature_version: None | int | tuple[int, int] = ...,
+        type_comments: bool = False,
+        feature_version: None | int | tuple[int, int] = None,
     ) -> FunctionType: ...
     @overload
     def parse(
@@ -204,47 +204,49 @@ if sys.version_info >= (3, 8):
         filename: str | ReadableBuffer | os.PathLike[Any],
         mode: Literal["single"],
         *,
-        type_comments: bool = ...,
-        feature_version: None | int | tuple[int, int] = ...,
+        type_comments: bool = False,
+        feature_version: None | int | tuple[int, int] = None,
     ) -> Interactive: ...
     @overload
     def parse(
         source: str | ReadableBuffer,
         *,
         mode: Literal["eval"],
-        type_comments: bool = ...,
-        feature_version: None | int | tuple[int, int] = ...,
+        type_comments: bool = False,
+        feature_version: None | int | tuple[int, int] = None,
     ) -> Expression: ...
     @overload
     def parse(
         source: str | ReadableBuffer,
         *,
         mode: Literal["func_type"],
-        type_comments: bool = ...,
-        feature_version: None | int | tuple[int, int] = ...,
+        type_comments: bool = False,
+        feature_version: None | int | tuple[int, int] = None,
     ) -> FunctionType: ...
     @overload
     def parse(
         source: str | ReadableBuffer,
         *,
         mode: Literal["single"],
-        type_comments: bool = ...,
-        feature_version: None | int | tuple[int, int] = ...,
+        type_comments: bool = False,
+        feature_version: None | int | tuple[int, int] = None,
     ) -> Interactive: ...
     @overload
     def parse(
         source: str | ReadableBuffer,
-        filename: str | ReadableBuffer | os.PathLike[Any] = ...,
-        mode: str = ...,
+        filename: str | ReadableBuffer | os.PathLike[Any] = "<unknown>",
+        mode: str = "exec",
         *,
-        type_comments: bool = ...,
-        feature_version: None | int | tuple[int, int] = ...,
+        type_comments: bool = False,
+        feature_version: None | int | tuple[int, int] = None,
     ) -> AST: ...
 
 else:
     @overload
     def parse(
-        source: str | ReadableBuffer, filename: str | ReadableBuffer | os.PathLike[Any] = ..., mode: Literal["exec"] = ...
+        source: str | ReadableBuffer,
+        filename: str | ReadableBuffer | os.PathLike[Any] = "<unknown>",
+        mode: Literal["exec"] = "exec",
     ) -> Module: ...
     @overload
     def parse(
@@ -259,7 +261,9 @@ else:
     @overload
     def parse(source: str | ReadableBuffer, *, mode: Literal["single"]) -> Interactive: ...
     @overload
-    def parse(source: str | ReadableBuffer, filename: str | ReadableBuffer | os.PathLike[Any] = ..., mode: str = ...) -> AST: ...
+    def parse(
+        source: str | ReadableBuffer, filename: str | ReadableBuffer | os.PathLike[Any] = "<unknown>", mode: str = "exec"
+    ) -> AST: ...
 
 if sys.version_info >= (3, 9):
     def unparse(ast_obj: AST) -> str: ...
@@ -272,7 +276,7 @@ if sys.version_info >= (3, 9):
     ) -> str: ...
 
 else:
-    def dump(node: AST, annotate_fields: bool = ..., include_attributes: bool = ...) -> str: ...
+    def dump(node: AST, annotate_fields: bool = True, include_attributes: bool = False) -> str: ...
 
 def fix_missing_locations(node: _T) -> _T: ...
 def get_docstring(node: AsyncFunctionDef | FunctionDef | ClassDef | Module, clean: bool = True) -> str | None: ...

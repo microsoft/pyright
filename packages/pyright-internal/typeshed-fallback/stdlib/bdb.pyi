@@ -70,7 +70,6 @@ class Bdb:
     def runcall(self, __func: Callable[_P, _T], *args: _P.args, **kwds: _P.kwargs) -> _T | None: ...
 
 class Breakpoint:
-
     next: int
     bplist: dict[tuple[str, int], list[Breakpoint]]
     bpbynumber: list[Breakpoint | None]

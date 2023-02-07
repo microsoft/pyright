@@ -408,7 +408,12 @@ if sys.version_info >= (3, 10):
 
 else:
     def create_autospec(
-        spec: Any, spec_set: Any = ..., instance: Any = ..., _parent: Any | None = ..., _name: Any | None = ..., **kwargs: Any
+        spec: Any,
+        spec_set: Any = False,
+        instance: Any = False,
+        _parent: Any | None = None,
+        _name: Any | None = None,
+        **kwargs: Any,
     ) -> Any: ...
 
 class _SpecState:

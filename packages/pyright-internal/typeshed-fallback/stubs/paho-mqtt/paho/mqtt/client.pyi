@@ -3,6 +3,7 @@ import socket as _socket
 import ssl as _ssl
 import time
 import types
+from _typeshed import Incomplete
 from collections.abc import Callable
 from typing import Any, Optional, TypeVar
 from typing_extensions import TypeAlias
@@ -16,7 +17,7 @@ ssl: types.ModuleType | None
 socks: types.ModuleType | None
 time_func = time.monotonic
 HAVE_DNS: bool
-EAGAIN: int | Any
+EAGAIN: int | Incomplete
 MQTTv31: int
 MQTTv311: int
 MQTTv5: int
@@ -86,7 +87,7 @@ MQTT_BRIDGE: int
 MQTT_CLEAN_START_FIRST_ONLY: int
 sockpair_data: bytes
 _UserData: TypeAlias = Any
-_Socket: TypeAlias = _socket.socket | _ssl.SSLSocket | Any
+_Socket: TypeAlias = _socket.socket | _ssl.SSLSocket | Incomplete
 _Payload: TypeAlias = str | bytes | bytearray | float
 _ExtraHeader: TypeAlias = dict[str, str] | Callable[[dict[str, str]], dict[str, str]]
 _OnLog: TypeAlias = Callable[[Client, _UserData, int, str], object]

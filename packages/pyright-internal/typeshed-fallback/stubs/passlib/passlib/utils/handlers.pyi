@@ -110,7 +110,7 @@ class HasRounds(GenericHandler):
     min_desired_rounds: ClassVar[int | None]
     max_desired_rounds: ClassVar[int | None]
     default_rounds: ClassVar[int | None]
-    vary_rounds: ClassVar[Any | None]
+    vary_rounds: ClassVar[Incomplete | None]
     rounds: int
     @classmethod
     def using(  # type: ignore[override]

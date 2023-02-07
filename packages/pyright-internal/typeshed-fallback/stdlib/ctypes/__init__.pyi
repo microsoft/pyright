@@ -33,7 +33,12 @@ class CDLL:
         ) -> None: ...
     else:
         def __init__(
-            self, name: str | None, mode: int = ..., handle: int | None = ..., use_errno: bool = ..., use_last_error: bool = ...
+            self,
+            name: str | None,
+            mode: int = ...,
+            handle: int | None = None,
+            use_errno: bool = False,
+            use_last_error: bool = False,
         ) -> None: ...
 
     def __getattr__(self, name: str) -> _NamedFuncPointer: ...
@@ -68,7 +73,7 @@ class _CDataMeta(type):
     def __rmul__(cls: type[_CT], other: int) -> type[Array[_CT]]: ...  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]
 
 class _CData(metaclass=_CDataMeta):
-    _b_base: int
+    _b_base_: int
     _b_needsfree_: bool
     _objects: Mapping[Any, int] | None
     @classmethod
@@ -181,7 +186,7 @@ def sizeof(obj_or_type: _CData | type[_CData]) -> int: ...
 def string_at(address: _CVoidConstPLike, size: int = -1) -> bytes: ...
 
 if sys.platform == "win32":
-    def WinError(code: int | None = ..., descr: str | None = ...) -> OSError: ...
+    def WinError(code: int | None = None, descr: str | None = None) -> OSError: ...
 
 def wstring_at(address: _CVoidConstPLike, size: int = -1) -> str: ...
 

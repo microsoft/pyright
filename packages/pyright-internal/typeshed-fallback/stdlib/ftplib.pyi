@@ -56,12 +56,12 @@ class FTP:
     else:
         def __init__(
             self,
-            host: str = ...,
-            user: str = ...,
-            passwd: str = ...,
-            acct: str = ...,
+            host: str = "",
+            user: str = "",
+            passwd: str = "",
+            acct: str = "",
             timeout: float = ...,
-            source_address: tuple[str, int] | None = ...,
+            source_address: tuple[str, int] | None = None,
         ) -> None: ...
 
     def connect(
@@ -136,15 +136,15 @@ class FTP_TLS(FTP):
     else:
         def __init__(
             self,
-            host: str = ...,
-            user: str = ...,
-            passwd: str = ...,
-            acct: str = ...,
-            keyfile: str | None = ...,
-            certfile: str | None = ...,
-            context: SSLContext | None = ...,
+            host: str = "",
+            user: str = "",
+            passwd: str = "",
+            acct: str = "",
+            keyfile: str | None = None,
+            certfile: str | None = None,
+            context: SSLContext | None = None,
             timeout: float = ...,
-            source_address: tuple[str, int] | None = ...,
+            source_address: tuple[str, int] | None = None,
         ) -> None: ...
     ssl_version: int
     keyfile: str | None

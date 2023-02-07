@@ -79,7 +79,7 @@ if sys.platform == "win32" or sys.platform == "darwin":
     def proxy_bypass(host: str) -> Any: ...  # undocumented
 
 else:
-    def proxy_bypass(host: str, proxies: Mapping[str, str] | None = ...) -> Any: ...  # undocumented
+    def proxy_bypass(host: str, proxies: Mapping[str, str] | None = None) -> Any: ...  # undocumented
 
 class Request:
     @property

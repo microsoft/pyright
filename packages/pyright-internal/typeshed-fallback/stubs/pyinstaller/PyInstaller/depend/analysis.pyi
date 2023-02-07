@@ -19,9 +19,9 @@ class PyiModuleGraph:  # incomplete
         user_hook_dirs: Iterable[StrPath] = ...,
         excludes: Iterable[str] = ...,
         *,
-        path: Iterable[str] | None = ...,
+        path: Iterable[str] | None = None,
         replace_paths: Iterable[tuple[StrPath, StrPath]] = ...,
         implies: SupportsKeysAndGetItem[str, _LazyNode] | Iterable[tuple[str, _LazyNode]] = ...,
-        graph: _Graph | None = ...,
-        debug: int = ...,
+        graph: _Graph | None = None,
+        debug: bool = False,
     ) -> None: ...

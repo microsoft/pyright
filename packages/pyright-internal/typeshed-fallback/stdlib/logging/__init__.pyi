@@ -257,7 +257,7 @@ class Logger(Filterer):
             self,
             msg: object,
             *args: object,
-            exc_info: _ExcInfoType = ...,
+            exc_info: _ExcInfoType = True,
             stack_info: bool = ...,
             extra: Mapping[str, object] | None = ...,
         ) -> None: ...
@@ -266,9 +266,9 @@ class Logger(Filterer):
             level: int,
             msg: object,
             args: _ArgsType,
-            exc_info: _ExcInfoType | None = ...,
-            extra: Mapping[str, object] | None = ...,
-            stack_info: bool = ...,
+            exc_info: _ExcInfoType | None = None,
+            extra: Mapping[str, object] | None = None,
+            stack_info: bool = False,
         ) -> None: ...  # undocumented
     fatal = critical
     def addHandler(self, hdlr: Handler) -> None: ...
@@ -276,7 +276,7 @@ class Logger(Filterer):
     if sys.version_info >= (3, 8):
         def findCaller(self, stack_info: bool = False, stacklevel: int = 1) -> tuple[str, int, str, str | None]: ...
     else:
-        def findCaller(self, stack_info: bool = ...) -> tuple[str, int, str, str | None]: ...
+        def findCaller(self, stack_info: bool = False) -> tuple[str, int, str, str | None]: ...
 
     def handle(self, record: LogRecord) -> None: ...
     def makeRecord(
@@ -347,10 +347,10 @@ class Formatter:
         ) -> None: ...
     elif sys.version_info >= (3, 8):
         def __init__(
-            self, fmt: str | None = ..., datefmt: str | None = ..., style: _FormatStyle = ..., validate: bool = ...
+            self, fmt: str | None = None, datefmt: str | None = None, style: _FormatStyle = "%", validate: bool = True
         ) -> None: ...
     else:
-        def __init__(self, fmt: str | None = ..., datefmt: str | None = ..., style: _FormatStyle = ...) -> None: ...
+        def __init__(self, fmt: str | None = None, datefmt: str | None = None, style: _FormatStyle = "%") -> None: ...
 
     def format(self, record: LogRecord) -> str: ...
     def formatTime(self, record: LogRecord, datefmt: str | None = None) -> str: ...
@@ -559,7 +559,7 @@ class LoggerAdapter(Generic[_L]):
             self,
             msg: object,
             *args: object,
-            exc_info: _ExcInfoType = ...,
+            exc_info: _ExcInfoType = True,
             stack_info: bool = ...,
             extra: Mapping[str, object] | None = ...,
             **kwargs: object,
@@ -693,7 +693,11 @@ else:
         msg: object, *args: object, exc_info: _ExcInfoType = ..., stack_info: bool = ..., extra: Mapping[str, object] | None = ...
     ) -> None: ...
     def exception(
-        msg: object, *args: object, exc_info: _ExcInfoType = ..., stack_info: bool = ..., extra: Mapping[str, object] | None = ...
+        msg: object,
+        *args: object,
+        exc_info: _ExcInfoType = True,
+        stack_info: bool = ...,
+        extra: Mapping[str, object] | None = ...,
     ) -> None: ...
     def log(
         level: int,
@@ -771,7 +775,7 @@ class StreamHandler(Handler, Generic[_StreamT]):
     stream: _StreamT  # undocumented
     terminator: str
     @overload
-    def __init__(self: StreamHandler[TextIO], stream: None = ...) -> None: ...
+    def __init__(self: StreamHandler[TextIO], stream: None = None) -> None: ...
     @overload
     def __init__(self: StreamHandler[_StreamT], stream: _StreamT) -> None: ...
     def setStream(self, stream: _StreamT) -> _StreamT | None: ...
@@ -789,7 +793,7 @@ class FileHandler(StreamHandler[TextIOWrapper]):
             self, filename: StrPath, mode: str = "a", encoding: str | None = None, delay: bool = False, errors: str | None = None
         ) -> None: ...
     else:
-        def __init__(self, filename: StrPath, mode: str = ..., encoding: str | None = ..., delay: bool = ...) -> None: ...
+        def __init__(self, filename: StrPath, mode: str = "a", encoding: str | None = None, delay: bool = False) -> None: ...
 
     def _open(self) -> TextIOWrapper: ...  # undocumented
 

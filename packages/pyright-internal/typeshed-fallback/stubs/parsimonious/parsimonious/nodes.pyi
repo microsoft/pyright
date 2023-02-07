@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from collections.abc import Callable, Iterator, Sequence
 from re import Match
 from typing import Any, NoReturn, TypeVar
@@ -27,7 +28,7 @@ class RegexNode(Node):
 class RuleDecoratorMeta(type): ...
 
 class NodeVisitor(metaclass=RuleDecoratorMeta):
-    grammar: Grammar | Any
+    grammar: Grammar | Incomplete
     unwrapped_exceptions: tuple[type[BaseException], ...]
     def visit(self, node: Node) -> Any: ...
     def generic_visit(self, node: Node, visited_children: Sequence[Any]) -> NoReturn: ...

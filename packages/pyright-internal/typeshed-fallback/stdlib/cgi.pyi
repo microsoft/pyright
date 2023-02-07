@@ -52,7 +52,7 @@ def print_directory() -> None: ...
 def print_environ_usage() -> None: ...
 
 if sys.version_info < (3, 8):
-    def escape(s: str, quote: bool | None = ...) -> str: ...
+    def escape(s: str, quote: bool | None = None) -> str: ...
 
 class MiniFieldStorage:
     # The first five "Any" attributes here are always None, but mypy doesn't support that
@@ -95,7 +95,7 @@ class FieldStorage:
         self,
         fp: IO[Any] | None = None,
         headers: Mapping[str, str] | Message | None = None,
-        outerboundary: bytes = ...,
+        outerboundary: bytes = b"",
         environ: SupportsGetItem[str, str] = ...,
         keep_blank_values: int = 0,
         strict_parsing: int = 0,

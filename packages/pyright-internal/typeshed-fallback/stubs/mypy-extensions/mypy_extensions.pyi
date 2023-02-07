@@ -68,3 +68,11 @@ def trait(cls: _T) -> _T: ...
 def mypyc_attr(*attrs: str, **kwattrs: object) -> IdentityFunction: ...
 
 class FlexibleAlias(Generic[_T, _U]): ...
+
+# Mypy and mypyc treat these native int types as different from 'int', but this is
+# a non-standard extension. For other tools, aliasing these to 'int' allows them
+# to mostly do the right thing with these types.
+i64 = int
+i32 = int
+i16 = int
+u8 = int

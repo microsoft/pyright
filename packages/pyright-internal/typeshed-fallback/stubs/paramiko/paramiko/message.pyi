@@ -1,14 +1,19 @@
 from collections.abc import Iterable
 from io import BytesIO
-from typing import Any
+from typing import Any, Protocol
+from typing_extensions import TypeAlias
 
-from .common import _LikeBytes
+class _SupportsAsBytes(Protocol):
+    def asbytes(self) -> bytes: ...
+
+_LikeBytes: TypeAlias = bytes | str | _SupportsAsBytes
 
 class Message:
     big_int: int
     packet: BytesIO
     seqno: int  # only when packet.Packetizer.read_message() is used
     def __init__(self, content: bytes | None = ...) -> None: ...
+    def __bytes__(self) -> bytes: ...
     def asbytes(self) -> bytes: ...
     def rewind(self) -> None: ...
     def get_remainder(self) -> bytes: ...

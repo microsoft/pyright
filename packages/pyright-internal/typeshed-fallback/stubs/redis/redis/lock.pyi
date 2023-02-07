@@ -1,4 +1,4 @@
-from _typeshed import Self
+from _typeshed import Incomplete, Self
 from types import TracebackType
 from typing import Any, ClassVar, Protocol
 
@@ -11,9 +11,9 @@ class Lock:
     LUA_EXTEND_SCRIPT: ClassVar[str]
     LUA_REACQUIRE_SCRIPT: ClassVar[str]
     LUA_RELEASE_SCRIPT: ClassVar[str]
-    lua_extend: ClassVar[Any | None]
-    lua_reacquire: ClassVar[Any | None]
-    lua_release: ClassVar[Any | None]
+    lua_extend: ClassVar[Incomplete | None]
+    lua_reacquire: ClassVar[Incomplete | None]
+    lua_release: ClassVar[Incomplete | None]
     local: _Local
     def __init__(
         self,

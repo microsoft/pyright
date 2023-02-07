@@ -137,11 +137,15 @@ class BaseManager:
             serializer: str = "pickle",
             ctx: BaseContext | None = None,
             *,
-            shutdown_timeout: float = ...,
+            shutdown_timeout: float = 1.0,
         ) -> None: ...
     else:
         def __init__(
-            self, address: Any | None = ..., authkey: bytes | None = ..., serializer: str = ..., ctx: BaseContext | None = ...
+            self,
+            address: Any | None = None,
+            authkey: bytes | None = None,
+            serializer: str = "pickle",
+            ctx: BaseContext | None = None,
         ) -> None: ...
 
     def get_server(self) -> Server: ...

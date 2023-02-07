@@ -55,7 +55,6 @@ INTERNAL_ERROR: int  # undocumented
 class Error(Exception): ...
 
 class ProtocolError(Error):
-
     url: str
     errcode: int
     errmsg: str
@@ -65,7 +64,6 @@ class ProtocolError(Error):
 class ResponseError(Error): ...
 
 class Fault(Error):
-
     faultCode: int
     faultString: str
     def __init__(self, faultCode: int, faultString: str, **extra: Any) -> None: ...
@@ -77,7 +75,6 @@ def _iso8601_format(value: datetime) -> str: ...  # undocumented
 def _strftime(value: _XMLDate) -> str: ...  # undocumented
 
 class DateTime:
-
     value: str  # undocumented
     def __init__(self, value: int | str | datetime | time.struct_time | tuple[int, ...] = 0) -> None: ...
     def __lt__(self, other: _DateTimeComparable) -> bool: ...
@@ -94,7 +91,6 @@ def _datetime(data: Any) -> DateTime: ...  # undocumented
 def _datetime_type(data: str) -> datetime: ...  # undocumented
 
 class Binary:
-
     data: bytes
     def __init__(self, data: bytes | bytearray | None = None) -> None: ...
     def decode(self, data: ReadableBuffer) -> None: ...
@@ -137,7 +133,6 @@ class Marshaller:
     def dump_instance(self, value: object, write: _WriteCallback) -> None: ...
 
 class Unmarshaller:
-
     dispatch: dict[str, Callable[[Unmarshaller, str], None]]
 
     _type: str | None
@@ -174,7 +169,6 @@ class Unmarshaller:
     def end_methodName(self, data: str) -> None: ...
 
 class _MultiCallMethod:  # undocumented
-
     __call_list: list[tuple[str, tuple[_Marshallable, ...]]]
     __name: str
     def __init__(self, call_list: list[tuple[str, _Marshallable]], name: str) -> None: ...
@@ -182,13 +176,11 @@ class _MultiCallMethod:  # undocumented
     def __call__(self, *args: _Marshallable) -> None: ...
 
 class MultiCallIterator:  # undocumented
-
     results: list[list[_Marshallable]]
     def __init__(self, results: list[list[_Marshallable]]) -> None: ...
     def __getitem__(self, i: int) -> _Marshallable: ...
 
 class MultiCall:
-
     __server: ServerProxy
     __call_list: list[tuple[str, tuple[_Marshallable, ...]]]
     def __init__(self, server: ServerProxy) -> None: ...
@@ -215,12 +207,10 @@ def gzip_encode(data: ReadableBuffer) -> bytes: ...  # undocumented
 def gzip_decode(data: ReadableBuffer, max_decode: int = 20971520) -> bytes: ...  # undocumented
 
 class GzipDecodedResponse(gzip.GzipFile):  # undocumented
-
     io: BytesIO
     def __init__(self, response: SupportsRead[ReadableBuffer]) -> None: ...
 
 class _Method:  # undocumented
-
     __send: Callable[[str, tuple[_Marshallable, ...]], _Marshallable]
     __name: str
     def __init__(self, send: Callable[[str, tuple[_Marshallable, ...]], _Marshallable], name: str) -> None: ...
@@ -228,7 +218,6 @@ class _Method:  # undocumented
     def __call__(self, *args: _Marshallable) -> _Marshallable: ...
 
 class Transport:
-
     user_agent: str
     accept_gzip_encoding: bool
     encode_threshold: int | None
@@ -244,7 +233,7 @@ class Transport:
             self, use_datetime: bool = False, use_builtin_types: bool = False, *, headers: Iterable[tuple[str, str]] = ...
         ) -> None: ...
     else:
-        def __init__(self, use_datetime: bool = ..., use_builtin_types: bool = ...) -> None: ...
+        def __init__(self, use_datetime: bool = False, use_builtin_types: bool = False) -> None: ...
 
     def request(
         self, host: _HostType, handler: str, request_body: _BufferWithLen, verbose: bool = False
@@ -264,7 +253,6 @@ class Transport:
     def parse_response(self, response: http.client.HTTPResponse) -> tuple[_Marshallable, ...]: ...
 
 class SafeTransport(Transport):
-
     if sys.version_info >= (3, 8):
         def __init__(
             self,
@@ -275,12 +263,13 @@ class SafeTransport(Transport):
             context: Any | None = None,
         ) -> None: ...
     else:
-        def __init__(self, use_datetime: bool = ..., use_builtin_types: bool = ..., *, context: Any | None = ...) -> None: ...
+        def __init__(
+            self, use_datetime: bool = False, use_builtin_types: bool = False, *, context: Any | None = None
+        ) -> None: ...
 
     def make_connection(self, host: _HostType) -> http.client.HTTPSConnection: ...
 
 class ServerProxy:
-
     __host: str
     __handler: str
     __transport: Transport
@@ -306,14 +295,14 @@ class ServerProxy:
         def __init__(
             self,
             uri: str,
-            transport: Transport | None = ...,
-            encoding: str | None = ...,
-            verbose: bool = ...,
-            allow_none: bool = ...,
-            use_datetime: bool = ...,
-            use_builtin_types: bool = ...,
+            transport: Transport | None = None,
+            encoding: str | None = None,
+            verbose: bool = False,
+            allow_none: bool = False,
+            use_datetime: bool = False,
+            use_builtin_types: bool = False,
             *,
-            context: Any | None = ...,
+            context: Any | None = None,
         ) -> None: ...
 
     def __getattr__(self, name: str) -> _Method: ...

@@ -31,12 +31,12 @@ class EnvBuilder:
     else:
         def __init__(
             self,
-            system_site_packages: bool = ...,
-            clear: bool = ...,
-            symlinks: bool = ...,
-            upgrade: bool = ...,
-            with_pip: bool = ...,
-            prompt: str | None = ...,
+            system_site_packages: bool = False,
+            clear: bool = False,
+            symlinks: bool = False,
+            upgrade: bool = False,
+            with_pip: bool = False,
+            prompt: str | None = None,
         ) -> None: ...
 
     def create(self, env_dir: StrOrBytesPath) -> None: ...
@@ -69,11 +69,11 @@ if sys.version_info >= (3, 9):
 else:
     def create(
         env_dir: StrOrBytesPath,
-        system_site_packages: bool = ...,
-        clear: bool = ...,
-        symlinks: bool = ...,
-        with_pip: bool = ...,
-        prompt: str | None = ...,
+        system_site_packages: bool = False,
+        clear: bool = False,
+        symlinks: bool = False,
+        with_pip: bool = False,
+        prompt: str | None = None,
     ) -> None: ...
 
 def main(args: Sequence[str] | None = None) -> None: ...

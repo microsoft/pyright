@@ -11,8 +11,6 @@ _P = ParamSpec("_P")
 _R_co = TypeVar("_R_co", covariant=True)
 _TaskT = TypeVar("_TaskT", bound=Task[..., Any])
 
-NO_DEFAULT: object
-
 class Task(Generic[_P, _R_co]):
     body: Callable[_P, _R_co]
     __doc__: str | None

@@ -1,7 +1,7 @@
 from _typeshed import Self
 from collections.abc import Iterable
 from re import Pattern
-from typing import IO, Any
+from typing import IO
 
 from paramiko.ssh_exception import ConfigParseError as ConfigParseError, CouldNotCanonicalize as CouldNotCanonicalize
 
@@ -29,6 +29,5 @@ class LazyFqdn:
     def __init__(self, config: SSHConfigDict, host: str | None = ...) -> None: ...
 
 class SSHConfigDict(dict[str, str]):
-    def __init__(self, *args: Any, **kwargs: Any) -> None: ...
     def as_bool(self, key: str) -> bool: ...
     def as_int(self, key: str) -> int: ...

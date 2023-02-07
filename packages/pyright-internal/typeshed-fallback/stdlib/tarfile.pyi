@@ -186,9 +186,9 @@ class TarFile:
     def gzopen(
         cls: type[Self],
         name: StrOrBytesPath | None,
-        mode: Literal["r"] = ...,
-        fileobj: _GzipReadableFileobj | None = ...,
-        compresslevel: int = ...,
+        mode: Literal["r"] = "r",
+        fileobj: _GzipReadableFileobj | None = None,
+        compresslevel: int = 9,
         *,
         format: int | None = ...,
         tarinfo: type[TarInfo] | None = ...,
@@ -205,8 +205,8 @@ class TarFile:
         cls: type[Self],
         name: StrOrBytesPath | None,
         mode: Literal["w", "x"],
-        fileobj: _GzipWritableFileobj | None = ...,
-        compresslevel: int = ...,
+        fileobj: _GzipWritableFileobj | None = None,
+        compresslevel: int = 9,
         *,
         format: int | None = ...,
         tarinfo: type[TarInfo] | None = ...,
@@ -223,8 +223,8 @@ class TarFile:
         cls: type[Self],
         name: StrOrBytesPath | None,
         mode: Literal["w", "x"],
-        fileobj: _Bz2WritableFileobj | None = ...,
-        compresslevel: int = ...,
+        fileobj: _Bz2WritableFileobj | None = None,
+        compresslevel: int = 9,
         *,
         format: int | None = ...,
         tarinfo: type[TarInfo] | None = ...,
@@ -240,9 +240,9 @@ class TarFile:
     def bz2open(
         cls: type[Self],
         name: StrOrBytesPath | None,
-        mode: Literal["r"] = ...,
-        fileobj: _Bz2ReadableFileobj | None = ...,
-        compresslevel: int = ...,
+        mode: Literal["r"] = "r",
+        fileobj: _Bz2ReadableFileobj | None = None,
+        compresslevel: int = 9,
         *,
         format: int | None = ...,
         tarinfo: type[TarInfo] | None = ...,
@@ -354,7 +354,11 @@ class TarInfo:
     @linkpath.setter
     def linkpath(self, linkname: str) -> None: ...
     def get_info(self) -> Mapping[str, str | int | bytes | Mapping[str, str]]: ...
-    def tobuf(self, format: int | None = 2, encoding: str | None = "utf-8", errors: str = "surrogateescape") -> bytes: ...
+    if sys.version_info >= (3, 8):
+        def tobuf(self, format: int | None = 2, encoding: str | None = "utf-8", errors: str = "surrogateescape") -> bytes: ...
+    else:
+        def tobuf(self, format: int | None = 1, encoding: str | None = "utf-8", errors: str = "surrogateescape") -> bytes: ...
+
     def create_ustar_header(
         self, info: Mapping[str, str | int | bytes | Mapping[str, str]], encoding: str, errors: str
     ) -> bytes: ...

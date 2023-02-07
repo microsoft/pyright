@@ -58,7 +58,7 @@ class _ResultItem:
             self, work_id: int, exception: Exception | None = None, result: Any | None = None, exit_pid: int | None = None
         ) -> None: ...
     else:
-        def __init__(self, work_id: int, exception: Exception | None = ..., result: Any | None = ...) -> None: ...
+        def __init__(self, work_id: int, exception: Exception | None = None, result: Any | None = None) -> None: ...
 
 class _CallItem:
     work_id: int
@@ -83,7 +83,7 @@ class _SafeQueue(Queue[Future[Any]]):
         ) -> None: ...
     else:
         def __init__(
-            self, max_size: int | None = ..., *, ctx: BaseContext, pending_work_items: dict[int, _WorkItem[Any]]
+            self, max_size: int | None = 0, *, ctx: BaseContext, pending_work_items: dict[int, _WorkItem[Any]]
         ) -> None: ...
 
     def _on_queue_feeder_error(self, e: Exception, obj: _CallItem) -> None: ...
@@ -102,7 +102,7 @@ if sys.version_info >= (3, 11):
 
 else:
     def _sendback_result(
-        result_queue: SimpleQueue[_WorkItem[Any]], work_id: int, result: Any | None = ..., exception: Exception | None = ...
+        result_queue: SimpleQueue[_WorkItem[Any]], work_id: int, result: Any | None = None, exception: Exception | None = None
     ) -> None: ...
 
 if sys.version_info >= (3, 11):
@@ -181,9 +181,9 @@ class ProcessPoolExecutor(Executor):
     else:
         def __init__(
             self,
-            max_workers: int | None = ...,
-            mp_context: BaseContext | None = ...,
-            initializer: Callable[..., object] | None = ...,
+            max_workers: int | None = None,
+            mp_context: BaseContext | None = None,
+            initializer: Callable[..., object] | None = None,
             initargs: tuple[Any, ...] = ...,
         ) -> None: ...
     if sys.version_info >= (3, 9):

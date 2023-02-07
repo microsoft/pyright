@@ -54,10 +54,10 @@ def iselement(element: object) -> TypeGuard[Element]: ...
 if sys.version_info >= (3, 8):
     @overload
     def canonicalize(
-        xml_data: str | ReadableBuffer | None = ...,
+        xml_data: str | ReadableBuffer | None = None,
         *,
-        out: None = ...,
-        from_file: _FileRead | None = ...,
+        out: None = None,
+        from_file: _FileRead | None = None,
         with_comments: bool = ...,
         strip_text: bool = ...,
         rewrite_prefixes: bool = ...,
@@ -68,10 +68,10 @@ if sys.version_info >= (3, 8):
     ) -> str: ...
     @overload
     def canonicalize(
-        xml_data: str | ReadableBuffer | None = ...,
+        xml_data: str | ReadableBuffer | None = None,
         *,
         out: SupportsWrite[str],
-        from_file: _FileRead | None = ...,
+        from_file: _FileRead | None = None,
         with_comments: bool = ...,
         strip_text: bool = ...,
         rewrite_prefixes: bool = ...,
@@ -93,11 +93,11 @@ class Element:
     def find(self, path: str, namespaces: dict[str, str] | None = None) -> Element | None: ...
     def findall(self, path: str, namespaces: dict[str, str] | None = None) -> list[Element]: ...
     @overload
-    def findtext(self, path: str, default: None = ..., namespaces: dict[str, str] | None = ...) -> str | None: ...
+    def findtext(self, path: str, default: None = None, namespaces: dict[str, str] | None = None) -> str | None: ...
     @overload
-    def findtext(self, path: str, default: _T, namespaces: dict[str, str] | None = ...) -> _T | str: ...
+    def findtext(self, path: str, default: _T, namespaces: dict[str, str] | None = None) -> _T | str: ...
     @overload
-    def get(self, key: str, default: None = ...) -> str | None: ...
+    def get(self, key: str, default: None = None) -> str | None: ...
     @overload
     def get(self, key: str, default: _T) -> str | _T: ...
     def insert(self, __index: int, __subelement: Element) -> None: ...
@@ -126,7 +126,7 @@ class Element:
     def __setitem__(self, __s: slice, __o: Iterable[Element]) -> None: ...
     if sys.version_info < (3, 9):
         def getchildren(self) -> list[Element]: ...
-        def getiterator(self, tag: str | None = ...) -> list[Element]: ...
+        def getiterator(self, tag: str | None = None) -> list[Element]: ...
 
 def SubElement(parent: Element, tag: str, attrib: dict[str, str] = ..., **extra: str) -> Element: ...
 def Comment(text: str | None = None) -> Element: ...
@@ -149,13 +149,13 @@ class ElementTree:
     def parse(self, source: _FileRead, parser: XMLParser | None = None) -> Element: ...
     def iter(self, tag: str | None = None) -> Generator[Element, None, None]: ...
     if sys.version_info < (3, 9):
-        def getiterator(self, tag: str | None = ...) -> list[Element]: ...
+        def getiterator(self, tag: str | None = None) -> list[Element]: ...
 
     def find(self, path: str, namespaces: dict[str, str] | None = None) -> Element | None: ...
     @overload
-    def findtext(self, path: str, default: None = ..., namespaces: dict[str, str] | None = ...) -> str | None: ...
+    def findtext(self, path: str, default: None = None, namespaces: dict[str, str] | None = None) -> str | None: ...
     @overload
-    def findtext(self, path: str, default: _T, namespaces: dict[str, str] | None = ...) -> _T | str: ...
+    def findtext(self, path: str, default: _T, namespaces: dict[str, str] | None = None) -> _T | str: ...
     def findall(self, path: str, namespaces: dict[str, str] | None = None) -> list[Element]: ...
     def iterfind(self, path: str, namespaces: dict[str, str] | None = None) -> Generator[Element, None, None]: ...
     def write(
@@ -176,86 +176,86 @@ if sys.version_info >= (3, 8):
     @overload
     def tostring(
         element: Element,
-        encoding: None = ...,
-        method: str | None = ...,
+        encoding: None = None,
+        method: str | None = None,
         *,
-        xml_declaration: bool | None = ...,
-        default_namespace: str | None = ...,
-        short_empty_elements: bool = ...,
+        xml_declaration: bool | None = None,
+        default_namespace: str | None = None,
+        short_empty_elements: bool = True,
     ) -> bytes: ...
     @overload
     def tostring(
         element: Element,
         encoding: Literal["unicode"],
-        method: str | None = ...,
+        method: str | None = None,
         *,
-        xml_declaration: bool | None = ...,
-        default_namespace: str | None = ...,
-        short_empty_elements: bool = ...,
+        xml_declaration: bool | None = None,
+        default_namespace: str | None = None,
+        short_empty_elements: bool = True,
     ) -> str: ...
     @overload
     def tostring(
         element: Element,
         encoding: str,
-        method: str | None = ...,
+        method: str | None = None,
         *,
-        xml_declaration: bool | None = ...,
-        default_namespace: str | None = ...,
-        short_empty_elements: bool = ...,
+        xml_declaration: bool | None = None,
+        default_namespace: str | None = None,
+        short_empty_elements: bool = True,
     ) -> Any: ...
     @overload
     def tostringlist(
         element: Element,
-        encoding: None = ...,
-        method: str | None = ...,
+        encoding: None = None,
+        method: str | None = None,
         *,
-        xml_declaration: bool | None = ...,
-        default_namespace: str | None = ...,
-        short_empty_elements: bool = ...,
+        xml_declaration: bool | None = None,
+        default_namespace: str | None = None,
+        short_empty_elements: bool = True,
     ) -> list[bytes]: ...
     @overload
     def tostringlist(
         element: Element,
         encoding: Literal["unicode"],
-        method: str | None = ...,
+        method: str | None = None,
         *,
-        xml_declaration: bool | None = ...,
-        default_namespace: str | None = ...,
-        short_empty_elements: bool = ...,
+        xml_declaration: bool | None = None,
+        default_namespace: str | None = None,
+        short_empty_elements: bool = True,
     ) -> list[str]: ...
     @overload
     def tostringlist(
         element: Element,
         encoding: str,
-        method: str | None = ...,
+        method: str | None = None,
         *,
-        xml_declaration: bool | None = ...,
-        default_namespace: str | None = ...,
-        short_empty_elements: bool = ...,
+        xml_declaration: bool | None = None,
+        default_namespace: str | None = None,
+        short_empty_elements: bool = True,
     ) -> list[Any]: ...
 
 else:
     @overload
     def tostring(
-        element: Element, encoding: None = ..., method: str | None = ..., *, short_empty_elements: bool = ...
+        element: Element, encoding: None = None, method: str | None = None, *, short_empty_elements: bool = True
     ) -> bytes: ...
     @overload
     def tostring(
-        element: Element, encoding: Literal["unicode"], method: str | None = ..., *, short_empty_elements: bool = ...
+        element: Element, encoding: Literal["unicode"], method: str | None = None, *, short_empty_elements: bool = True
     ) -> str: ...
     @overload
-    def tostring(element: Element, encoding: str, method: str | None = ..., *, short_empty_elements: bool = ...) -> Any: ...
+    def tostring(element: Element, encoding: str, method: str | None = None, *, short_empty_elements: bool = True) -> Any: ...
     @overload
     def tostringlist(
-        element: Element, encoding: None = ..., method: str | None = ..., *, short_empty_elements: bool = ...
+        element: Element, encoding: None = None, method: str | None = None, *, short_empty_elements: bool = True
     ) -> list[bytes]: ...
     @overload
     def tostringlist(
-        element: Element, encoding: Literal["unicode"], method: str | None = ..., *, short_empty_elements: bool = ...
+        element: Element, encoding: Literal["unicode"], method: str | None = None, *, short_empty_elements: bool = True
     ) -> list[str]: ...
     @overload
     def tostringlist(
-        element: Element, encoding: str, method: str | None = ..., *, short_empty_elements: bool = ...
+        element: Element, encoding: str, method: str | None = None, *, short_empty_elements: bool = True
     ) -> list[Any]: ...
 
 def dump(elem: Element) -> None: ...
@@ -321,7 +321,7 @@ class TreeBuilder:
     if sys.version_info >= (3, 8):
         # These two methods have pos-only parameters in the C implementation
         def comment(self, __text: str | None) -> Element: ...
-        def pi(self, __target: str, __text: str | None = ...) -> Element: ...
+        def pi(self, __target: str, __text: str | None = None) -> Element: ...
 
 if sys.version_info >= (3, 8):
     class C14NWriterTarget:

@@ -65,32 +65,48 @@ class RawConfigParser(_Parser):
     @overload
     def __init__(
         self,
-        defaults: Mapping[str, str | None] | None = ...,
+        defaults: Mapping[str, str | None] | None = None,
         dict_type: type[Mapping[str, str]] = ...,
-        allow_no_value: Literal[True] = ...,
         *,
+        allow_no_value: Literal[True],
         delimiters: Sequence[str] = ...,
         comment_prefixes: Sequence[str] = ...,
-        inline_comment_prefixes: Sequence[str] | None = ...,
-        strict: bool = ...,
-        empty_lines_in_values: bool = ...,
-        default_section: str = ...,
+        inline_comment_prefixes: Sequence[str] | None = None,
+        strict: bool = True,
+        empty_lines_in_values: bool = True,
+        default_section: str = "DEFAULT",
         interpolation: Interpolation | None = ...,
         converters: _ConvertersMap = ...,
     ) -> None: ...
     @overload
     def __init__(
         self,
-        defaults: _Section | None = ...,
-        dict_type: type[Mapping[str, str]] = ...,
-        allow_no_value: bool = ...,
+        defaults: Mapping[str, str | None] | None,
+        dict_type: type[Mapping[str, str]],
+        allow_no_value: Literal[True],
         *,
         delimiters: Sequence[str] = ...,
         comment_prefixes: Sequence[str] = ...,
-        inline_comment_prefixes: Sequence[str] | None = ...,
-        strict: bool = ...,
-        empty_lines_in_values: bool = ...,
-        default_section: str = ...,
+        inline_comment_prefixes: Sequence[str] | None = None,
+        strict: bool = True,
+        empty_lines_in_values: bool = True,
+        default_section: str = "DEFAULT",
+        interpolation: Interpolation | None = ...,
+        converters: _ConvertersMap = ...,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        defaults: _Section | None = None,
+        dict_type: type[Mapping[str, str]] = ...,
+        allow_no_value: bool = False,
+        *,
+        delimiters: Sequence[str] = ...,
+        comment_prefixes: Sequence[str] = ...,
+        inline_comment_prefixes: Sequence[str] | None = None,
+        strict: bool = True,
+        empty_lines_in_values: bool = True,
+        default_section: str = "DEFAULT",
         interpolation: Interpolation | None = ...,
         converters: _ConvertersMap = ...,
     ) -> None: ...
@@ -114,22 +130,22 @@ class RawConfigParser(_Parser):
     # These get* methods are partially applied (with the same names) in
     # SectionProxy; the stubs should be kept updated together
     @overload
-    def getint(self, section: str, option: str, *, raw: bool = ..., vars: _Section | None = ...) -> int: ...
+    def getint(self, section: str, option: str, *, raw: bool = False, vars: _Section | None = None) -> int: ...
     @overload
     def getint(
-        self, section: str, option: str, *, raw: bool = ..., vars: _Section | None = ..., fallback: _T = ...
+        self, section: str, option: str, *, raw: bool = False, vars: _Section | None = None, fallback: _T = ...
     ) -> int | _T: ...
     @overload
-    def getfloat(self, section: str, option: str, *, raw: bool = ..., vars: _Section | None = ...) -> float: ...
+    def getfloat(self, section: str, option: str, *, raw: bool = False, vars: _Section | None = None) -> float: ...
     @overload
     def getfloat(
-        self, section: str, option: str, *, raw: bool = ..., vars: _Section | None = ..., fallback: _T = ...
+        self, section: str, option: str, *, raw: bool = False, vars: _Section | None = None, fallback: _T = ...
     ) -> float | _T: ...
     @overload
-    def getboolean(self, section: str, option: str, *, raw: bool = ..., vars: _Section | None = ...) -> bool: ...
+    def getboolean(self, section: str, option: str, *, raw: bool = False, vars: _Section | None = None) -> bool: ...
     @overload
     def getboolean(
-        self, section: str, option: str, *, raw: bool = ..., vars: _Section | None = ..., fallback: _T = ...
+        self, section: str, option: str, *, raw: bool = False, vars: _Section | None = None, fallback: _T = ...
     ) -> bool | _T: ...
     def _get_conv(
         self,
@@ -143,13 +159,15 @@ class RawConfigParser(_Parser):
     ) -> _T: ...
     # This is incompatible with MutableMapping so we ignore the type
     @overload  # type: ignore[override]
-    def get(self, section: str, option: str, *, raw: bool = ..., vars: _Section | None = ...) -> str | Any: ...
+    def get(self, section: str, option: str, *, raw: bool = False, vars: _Section | None = None) -> str | Any: ...
     @overload
-    def get(self, section: str, option: str, *, raw: bool = ..., vars: _Section | None = ..., fallback: _T) -> str | _T | Any: ...
+    def get(
+        self, section: str, option: str, *, raw: bool = False, vars: _Section | None = None, fallback: _T
+    ) -> str | _T | Any: ...
     @overload
-    def items(self, *, raw: bool = ..., vars: _Section | None = ...) -> ItemsView[str, SectionProxy]: ...
+    def items(self, *, raw: bool = False, vars: _Section | None = None) -> ItemsView[str, SectionProxy]: ...
     @overload
-    def items(self, section: str, raw: bool = ..., vars: _Section | None = ...) -> list[tuple[str, str]]: ...
+    def items(self, section: str, raw: bool = False, vars: _Section | None = None) -> list[tuple[str, str]]: ...
     def set(self, section: str, option: str, value: str | None = None) -> None: ...
     def write(self, fp: SupportsWrite[str], space_around_delimiters: bool = True) -> None: ...
     def remove_option(self, section: str, option: str) -> bool: ...
@@ -159,9 +177,9 @@ class RawConfigParser(_Parser):
 class ConfigParser(RawConfigParser):
     # This is incompatible with MutableMapping so we ignore the type
     @overload  # type: ignore[override]
-    def get(self, section: str, option: str, *, raw: bool = ..., vars: _Section | None = ...) -> str: ...
+    def get(self, section: str, option: str, *, raw: bool = False, vars: _Section | None = None) -> str: ...
     @overload
-    def get(self, section: str, option: str, *, raw: bool = ..., vars: _Section | None = ..., fallback: _T) -> str | _T: ...
+    def get(self, section: str, option: str, *, raw: bool = False, vars: _Section | None = None, fallback: _T) -> str | _T: ...
 
 if sys.version_info < (3, 12):
     class SafeConfigParser(ConfigParser): ...  # deprecated alias

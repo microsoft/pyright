@@ -2,6 +2,9 @@ from typing import Any, ClassVar
 
 from yaml.error import Mark
 
+# Any Unions: Avoid forcing the user to check for None when they know what Node was instantiated with
+# Using generics may be overkill without support for default Generics
+# Permissive Unions could also be useful here.
 class Node:
     tag: str
     value: Any

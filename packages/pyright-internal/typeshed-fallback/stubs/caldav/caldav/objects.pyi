@@ -148,8 +148,6 @@ class Calendar(DAVObject):
         ignore_completed2: bool | None = ...,
         ignore_completed3: bool | None = ...,
         event: bool | None = ...,
-        category: Incomplete | None = ...,
-        class_: Incomplete | None = ...,
         filters: list[Incomplete] | None = ...,
         expand: bool | None = ...,
         start: datetime.datetime | None = ...,
@@ -195,6 +193,7 @@ class ScheduleOutbox(ScheduleMailbox):
 class SynchronizableCalendarObjectCollection:
     def __init__(self, calendar, objects, sync_token) -> None: ...
     def __iter__(self) -> Iterator[Any]: ...
+    def __len__(self) -> int: ...
     def objects_by_url(self): ...
     def sync(self) -> tuple[Any, Any]: ...
 
@@ -227,6 +226,7 @@ class CalendarObjectResource(DAVObject):
         increase_seqno: bool = ...,
         if_schedule_tag_match: bool = ...,
     ) -> Self: ...
+    def get_duration(self) -> datetime.timedelta: ...
     data: Any
     vobject_instance: VBase
     icalendar_instance: Any

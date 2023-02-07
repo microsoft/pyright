@@ -37,40 +37,40 @@ if sys.version_info >= (3, 10):
         __exc: type[BaseException] | None,
         value: BaseException | None = ...,
         tb: TracebackType | None = ...,
-        limit: int | None = ...,
-        file: SupportsWrite[str] | None = ...,
-        chain: bool = ...,
+        limit: int | None = None,
+        file: SupportsWrite[str] | None = None,
+        chain: bool = True,
     ) -> None: ...
     @overload
     def print_exception(
-        __exc: BaseException, *, limit: int | None = ..., file: SupportsWrite[str] | None = ..., chain: bool = ...
+        __exc: BaseException, *, limit: int | None = None, file: SupportsWrite[str] | None = None, chain: bool = True
     ) -> None: ...
     @overload
     def format_exception(
         __exc: type[BaseException] | None,
         value: BaseException | None = ...,
         tb: TracebackType | None = ...,
-        limit: int | None = ...,
-        chain: bool = ...,
+        limit: int | None = None,
+        chain: bool = True,
     ) -> list[str]: ...
     @overload
-    def format_exception(__exc: BaseException, *, limit: int | None = ..., chain: bool = ...) -> list[str]: ...
+    def format_exception(__exc: BaseException, *, limit: int | None = None, chain: bool = True) -> list[str]: ...
 
 else:
     def print_exception(
         etype: type[BaseException] | None,
         value: BaseException | None,
         tb: TracebackType | None,
-        limit: int | None = ...,
-        file: SupportsWrite[str] | None = ...,
-        chain: bool = ...,
+        limit: int | None = None,
+        file: SupportsWrite[str] | None = None,
+        chain: bool = True,
     ) -> None: ...
     def format_exception(
         etype: type[BaseException] | None,
         value: BaseException | None,
         tb: TracebackType | None,
-        limit: int | None = ...,
-        chain: bool = ...,
+        limit: int | None = None,
+        chain: bool = True,
     ) -> list[str]: ...
 
 def print_exc(limit: int | None = None, file: SupportsWrite[str] | None = None, chain: bool = True) -> None: ...
@@ -146,11 +146,11 @@ class TracebackException:
             exc_value: BaseException,
             exc_traceback: TracebackType | None,
             *,
-            limit: int | None = ...,
-            lookup_lines: bool = ...,
-            capture_locals: bool = ...,
-            compact: bool = ...,
-            _seen: set[int] | None = ...,
+            limit: int | None = None,
+            lookup_lines: bool = True,
+            capture_locals: bool = False,
+            compact: bool = False,
+            _seen: set[int] | None = None,
         ) -> None: ...
         @classmethod
         def from_exception(
@@ -169,10 +169,10 @@ class TracebackException:
             exc_value: BaseException,
             exc_traceback: TracebackType | None,
             *,
-            limit: int | None = ...,
-            lookup_lines: bool = ...,
-            capture_locals: bool = ...,
-            _seen: set[int] | None = ...,
+            limit: int | None = None,
+            lookup_lines: bool = True,
+            capture_locals: bool = False,
+            _seen: set[int] | None = None,
         ) -> None: ...
         @classmethod
         def from_exception(
@@ -183,7 +183,7 @@ class TracebackException:
     if sys.version_info >= (3, 11):
         def format(self, *, chain: bool = True, _ctx: _ExceptionPrintContext | None = None) -> Generator[str, None, None]: ...
     else:
-        def format(self, *, chain: bool = ...) -> Generator[str, None, None]: ...
+        def format(self, *, chain: bool = True) -> Generator[str, None, None]: ...
 
     def format_exception_only(self) -> Generator[str, None, None]: ...
 
@@ -215,9 +215,9 @@ class FrameSummary(Iterable[Any]):
             lineno: int | None,
             name: str,
             *,
-            lookup_line: bool = ...,
-            locals: Mapping[str, str] | None = ...,
-            line: str | None = ...,
+            lookup_line: bool = True,
+            locals: Mapping[str, str] | None = None,
+            line: str | None = None,
         ) -> None: ...
     filename: str
     lineno: int | None

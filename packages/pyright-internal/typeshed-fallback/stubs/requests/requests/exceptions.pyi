@@ -2,7 +2,7 @@ from typing import Any
 
 from urllib3.exceptions import HTTPError as BaseHTTPError
 
-class RequestException(IOError):
+class RequestException(OSError):
     response: Any
     request: Any
     def __init__(self, *args, **kwargs) -> None: ...

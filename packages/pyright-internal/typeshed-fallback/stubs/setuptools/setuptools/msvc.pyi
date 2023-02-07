@@ -1,14 +1,12 @@
 from _typeshed import Incomplete
-from typing import Any
 
-PLAT_SPEC_TO_RUNTIME: Any
+PLAT_SPEC_TO_RUNTIME: dict[str, str]
 
-def msvc14_get_vc_env(plat_spec): ...
-def msvc14_gen_lib_options(*args, **kwargs): ...
+def msvc14_get_vc_env(plat_spec: str) -> dict[str, Incomplete]: ...
 
 class PlatformInfo:
-    current_cpu: Any
-    arch: Any
+    current_cpu: Incomplete
+    arch: Incomplete
     def __init__(self, arch) -> None: ...
     @property
     def target_cpu(self): ...
@@ -19,8 +17,8 @@ class PlatformInfo:
     def cross_dir(self, forcex86: bool = ...): ...
 
 class RegistryInfo:
-    HKEYS: Any
-    pi: Any
+    HKEYS: Incomplete
+    pi: Incomplete
     def __init__(self, platform_info) -> None: ...
     @property
     def visualstudio(self): ...
@@ -44,13 +42,13 @@ class RegistryInfo:
     def lookup(self, key, name): ...
 
 class SystemInfo:
-    WinDir: Any
-    ProgramFiles: Any
-    ProgramFilesx86: Any
-    ri: Any
-    pi: Any
-    known_vs_paths: Any
-    vs_ver: Any
+    WinDir: Incomplete
+    ProgramFiles: Incomplete
+    ProgramFilesx86: Incomplete
+    ri: Incomplete
+    pi: Incomplete
+    known_vs_paths: Incomplete
+    vs_ver: Incomplete
     def __init__(self, registry_info, vc_ver: Incomplete | None = ...) -> None: ...
     def find_reg_vs_vers(self): ...
     def find_programdata_vs_vers(self): ...
@@ -86,9 +84,9 @@ class SystemInfo:
     def FrameworkVersion64(self): ...
 
 class EnvironmentInfo:
-    pi: Any
-    ri: Any
-    si: Any
+    pi: Incomplete
+    ri: Incomplete
+    si: Incomplete
     def __init__(self, arch, vc_ver: Incomplete | None = ..., vc_min_ver: int = ...) -> None: ...
     @property
     def vs_ver(self): ...

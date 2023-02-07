@@ -112,7 +112,7 @@ class EnumMeta(ABCMeta):
     def __dir__(self) -> list[str]: ...
     # Simple value lookup
     @overload  # type: ignore[override]
-    def __call__(cls: type[_EnumMemberT], value: Any, names: None = ...) -> _EnumMemberT: ...
+    def __call__(cls: type[_EnumMemberT], value: Any, names: None = None) -> _EnumMemberT: ...
     # Functional Enum API
     if sys.version_info >= (3, 11):
         @overload
@@ -121,11 +121,11 @@ class EnumMeta(ABCMeta):
             value: str,
             names: _EnumNames,
             *,
-            module: str | None = ...,
-            qualname: str | None = ...,
-            type: type | None = ...,
-            start: int = ...,
-            boundary: FlagBoundary | None = ...,
+            module: str | None = None,
+            qualname: str | None = None,
+            type: type | None = None,
+            start: int = 1,
+            boundary: FlagBoundary | None = None,
         ) -> type[Enum]: ...
     else:
         @overload
@@ -134,10 +134,10 @@ class EnumMeta(ABCMeta):
             value: str,
             names: _EnumNames,
             *,
-            module: str | None = ...,
-            qualname: str | None = ...,
-            type: type | None = ...,
-            start: int = ...,
+            module: str | None = None,
+            qualname: str | None = None,
+            type: type | None = None,
+            start: int = 1,
         ) -> type[Enum]: ...
     _member_names_: list[str]  # undocumented
     _member_map_: dict[str, Enum]  # undocumented

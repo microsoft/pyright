@@ -25,15 +25,18 @@ def byte_compile(
 ) -> None: ...
 def rfc822_escape(header: str) -> str: ...
 def run_2to3(
-    files: Iterable[str], fixer_names: Iterable[str] | None = ..., options: Mapping[str, Any] | None = ..., explicit: Unused = ...
+    files: Iterable[str],
+    fixer_names: Iterable[str] | None = None,
+    options: Mapping[str, Any] | None = None,
+    explicit: Unused = None,
 ) -> None: ...
 def copydir_run_2to3(
     src: StrPath,
     dest: StrPath,
-    template: str | None = ...,
-    fixer_names: Iterable[str] | None = ...,
-    options: Mapping[str, Any] | None = ...,
-    explicit: Container[str] | None = ...,
+    template: str | None = None,
+    fixer_names: Iterable[str] | None = None,
+    options: Mapping[str, Any] | None = None,
+    explicit: Container[str] | None = None,
 ) -> list[str]: ...
 
 class Mixin2to3:
