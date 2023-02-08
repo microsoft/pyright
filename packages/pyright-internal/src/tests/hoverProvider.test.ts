@@ -267,3 +267,33 @@ test('import tooltip - from import submodules statement', async () => {
 
     state.verifyHover('markdown', { marker: '```python\n(module) C\n```\n---\nC' });
 });
+
+test('import tooltip - check duplicate property', async () => {
+    const code = `
+
+// @filename: test.py
+//// class Test:
+////     def __init__(self) -> None:
+////         self.__test = False
+//// 
+////     @property
+////     def [|/*marker*/test|](self):
+////         """Test DocString.
+//// 
+////         Returns
+////         -------
+////         bool
+////             Lorem Ipsum
+////         """
+////         return self.__test
+
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    state.verifyHover('markdown', {
+        marker: '```python\n(property) def test: (self: Self@Test) -> bool\n```\n---\nTest DocString.\n\nReturns\n-------\nbool  \n&nbsp;&nbsp;&nbsp;&nbsp;Lorem Ipsum',
+    });
+});
