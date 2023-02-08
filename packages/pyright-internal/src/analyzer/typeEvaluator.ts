@@ -16210,24 +16210,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!skipSynthesizedInit) {
                 const initSymbol = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipBaseClasses);
                 if (initSymbol) {
-                    const initSymbolType = getTypeOfMember(initSymbol);
-                    if (isFunction(initSymbolType)) {
-                        if (!FunctionType.isSynthesizedMethod(initSymbolType)) {
-                            hasExistingInitMethod = true;
-                        }
-                    } else {
-                        hasExistingInitMethod = true;
-                    }
+                    hasExistingInitMethod = true;
                 }
             }
 
             let skipSynthesizeHash = false;
             const hashSymbol = lookUpClassMember(classType, '__hash__', ClassMemberLookupFlags.SkipBaseClasses);
             if (hashSymbol) {
-                const hashSymbolType = getTypeOfMember(hashSymbol);
-                if (isFunction(hashSymbolType) && !FunctionType.isSynthesizedMethod(hashSymbolType)) {
-                    skipSynthesizeHash = true;
-                }
+                skipSynthesizeHash = true;
             }
 
             synthesizeDataClassMethods(
