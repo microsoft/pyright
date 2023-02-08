@@ -72,7 +72,7 @@ export const enum PrintTypeFlags {
     // Requires Python 3.11 or newer.
     UseTypingUnpack = 1 << 9,
 
-    // Expand TypedDict kwargs to instead show the keys from the TypedDict
+    // Expand TypedDict kwargs to show the keys from the TypedDict instead of **kwargs.
     ExpandTypedDictArgs = 1 << 10,
 }
 
