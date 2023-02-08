@@ -870,7 +870,7 @@ export function printFunctionParts(
             }
         }
 
-        // Handle expanding TypedDict kwargs specially
+        // Handle expanding TypedDict kwargs specially.
         if (
             param.category === ParameterCategory.VarArgDictionary &&
             param.type.category === TypeCategory.Class &&
