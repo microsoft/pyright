@@ -303,7 +303,7 @@ export function getDocumentationPartsForTypeAndDecl(
             : undefined);
 
     // Combine with a new line if they both exist
-    return aliasDoc && typeDoc ? `${aliasDoc}\n\n${typeDoc}` : aliasDoc || typeDoc;
+    return aliasDoc && typeDoc && aliasDoc !== typeDoc ? `${aliasDoc}\n\n${typeDoc}` : aliasDoc || typeDoc;
 }
 
 export function getAutoImportText(name: string, from?: string, alias?: string): string {
