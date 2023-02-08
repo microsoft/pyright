@@ -25489,8 +25489,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
     }
 
-    function printFunctionParts(type: FunctionType): [string[], string] {
-        return TypePrinter.printFunctionParts(type, evaluatorOptions.printTypeFlags, getFunctionEffectiveReturnType);
+    function printFunctionParts(type: FunctionType, extraFlags?: TypePrinter.PrintTypeFlags): [string[], string] {
+        const flags = extraFlags ? evaluatorOptions.printTypeFlags | extraFlags : evaluatorOptions.printTypeFlags;
+        return TypePrinter.printFunctionParts(type, flags, getFunctionEffectiveReturnType);
     }
 
     function printType(type: Type, options?: PrintTypeOptions): string {

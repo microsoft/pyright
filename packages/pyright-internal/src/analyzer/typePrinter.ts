@@ -71,6 +71,9 @@ export const enum PrintTypeFlags {
     // Use Unpack instead of "*" for unpacked tuples and TypeVarTuples.
     // Requires Python 3.11 or newer.
     UseTypingUnpack = 1 << 9,
+
+    // Expand TypedDict kwargs to instead show the keys from the TypedDict
+    ExpandTypedDictArgs = 1 << 10,
 }
 
 export type FunctionReturnTypeCallback = (type: FunctionType) => Type;
@@ -865,6 +868,28 @@ export function printFunctionParts(
                 });
                 return;
             }
+        }
+
+        // Handle expanding TypedDict kwargs specially
+        if (
+            param.category === ParameterCategory.VarArgDictionary &&
+            param.type.category === TypeCategory.Class &&
+            param.type.isUnpacked &&
+            ClassType.isTypedDictClass(param.type) &&
+            param.type.details.typedDictEntries &&
+            printTypeFlags & PrintTypeFlags.ExpandTypedDictArgs
+        ) {
+            param.type.details.typedDictEntries.forEach((v, k) => {
+                const valueTypeString = printType(
+                    v.valueType,
+                    printTypeFlags,
+                    returnTypeCallback,
+                    recursionTypes,
+                    recursionCount
+                );
+                paramTypeStrings.push(`${k}: ${valueTypeString}`);
+            });
+            return;
         }
 
         let paramString = '';

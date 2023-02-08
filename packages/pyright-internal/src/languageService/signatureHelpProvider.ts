@@ -17,6 +17,7 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
+import { PrintTypeFlags } from '../analyzer/typePrinter';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
@@ -124,13 +125,14 @@ export class SignatureHelpProvider {
         format: MarkupKind
     ): SignatureInfo {
         const functionType = signature.type;
-        const stringParts = evaluator.printFunctionParts(functionType);
+        const stringParts = evaluator.printFunctionParts(functionType, PrintTypeFlags.ExpandTypedDictArgs);
         const parameters: ParamInfo[] = [];
         const functionDocString =
             getFunctionDocStringFromType(functionType, sourceMapper, evaluator) ??
             this._getDocStringFromCallNode(callNode, sourceMapper, evaluator);
 
         let label = '(';
+        let activeParameter: number | undefined;
         const params = functionType.details.parameters;
 
         stringParts[0].forEach((paramString: string, paramIndex) => {
@@ -141,12 +143,27 @@ export class SignatureHelpProvider {
                 paramName = params[params.length - 1].name || '';
             }
 
+            if (paramName && !paramString.includes(paramName) && paramName === 'kwargs') {
+                // Param string may have been expanded from kwargs.
+                // Pull out the param name from the string.
+                const match = /^(\w+):/.exec(paramString);
+                if (match && match.length > 1) {
+                    paramName = match[1];
+                }
+            }
+
             parameters.push({
                 startOffset: label.length,
                 endOffset: label.length + paramString.length,
                 text: paramString,
                 documentation: extractParameterDocumentation(functionDocString || '', paramName),
             });
+
+            // Name match for active parameter as the set of parameters from the function
+            // may not match the actual string output from the typeEvaluator (kwargs for TypedDict is an example).
+            if (paramName && signature.activeParam && signature.activeParam.name === paramName) {
+                activeParameter = paramIndex;
+            }
 
             label += paramString;
             if (paramIndex < stringParts[0].length - 1) {
@@ -156,8 +173,7 @@ export class SignatureHelpProvider {
 
         label += ') -> ' + stringParts[1];
 
-        let activeParameter: number | undefined;
-        if (signature.activeParam) {
+        if (signature.activeParam && activeParameter === undefined) {
             activeParameter = params.indexOf(signature.activeParam);
             if (activeParameter === -1) {
                 activeParameter = undefined;
