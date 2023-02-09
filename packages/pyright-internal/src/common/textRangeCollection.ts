@@ -96,27 +96,72 @@ export class TextRangeCollection<T extends TextRange> {
             return -1;
         }
 
-        let min = 0;
-        let max = this.count - 1;
+        return getIndexContaining(this._items, position);
+    }
+}
 
-        while (min <= max) {
-            const mid = Math.floor(min + (max - min) / 2);
-            const item = this._items[mid];
-
-            if (TextRange.contains(item, position)) {
-                return mid;
-            }
-
-            if (mid < this.count - 1 && TextRange.getEnd(item) <= position && position < this._items[mid + 1].start) {
-                return -1;
-            }
-
-            if (position < item.start) {
-                max = mid - 1;
-            } else {
-                min = mid + 1;
-            }
-        }
+export function getIndexContaining<T extends TextRange>(arr: (T | undefined)[], position: number) {
+    if (arr.length === 0) {
         return -1;
     }
+
+    let min = 0;
+    let max = arr.length - 1;
+    while (min <= max) {
+        const mid = Math.floor(min + (max - min) / 2);
+        const item = findNonNullElement(arr, mid, min, max);
+        if (item === undefined) {
+            return -1;
+        }
+
+        if (TextRange.contains(item, position)) {
+            return mid;
+        }
+
+        const nextItem = findNonNullElement(arr, mid + 1, mid + 1, max);
+        if (nextItem === undefined) {
+            return -1;
+        }
+
+        if (mid < arr.length - 1 && TextRange.getEnd(item) <= position && position < nextItem.start) {
+            return -1;
+        }
+
+        if (position < item.start) {
+            max = mid - 1;
+        } else {
+            min = mid + 1;
+        }
+    }
+
+    return -1;
+}
+
+function findNonNullElement<T extends TextRange>(
+    arr: (T | undefined)[],
+    position: number,
+    min: number,
+    max: number
+): T | undefined {
+    const item = arr[position];
+    if (item) {
+        return item;
+    }
+
+    // Search forward and backward until it finds non null value
+    for (let i = position + 1; i <= max; i++) {
+        const item = arr[position];
+        if (item) {
+            return item;
+        }
+    }
+
+    for (let i = position - 1; i >= min; i--) {
+        const item = arr[position];
+        if (item) {
+            return item;
+        }
+    }
+
+    return undefined;
 }

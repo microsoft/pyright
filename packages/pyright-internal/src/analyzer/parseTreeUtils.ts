@@ -12,7 +12,7 @@ import { assert, assertNever, fail } from '../common/debug';
 import { convertPositionToOffset, convertTextRangeToRange } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
-import { TextRangeCollection } from '../common/textRangeCollection';
+import { getIndexContaining, TextRangeCollection } from '../common/textRangeCollection';
 import {
     ArgumentCategory,
     ArgumentNode,
@@ -96,23 +96,44 @@ export function findNodeByOffset(node: ParseNode, offset: number): ParseNode | u
 
     // The range is found within this node. See if we can localize it
     // further by checking its children.
-    const children = getChildNodes(node);
-    for (const child of children) {
-        if (child) {
-            const containingChild = findNodeByOffset(child, offset);
-            if (containingChild) {
-                // For augmented assignments, prefer the dest expression, which is a clone
-                // of the left expression but is used to hold the type of the operation result.
-                if (node.nodeType === ParseNodeType.AugmentedAssignment && containingChild === node.leftExpression) {
-                    return node.destExpression;
-                }
+    let children = getChildNodes(node);
+    if (isCompliantWithNodeRangeRules(node) && children.length > 20) {
+        // use Binary search to find child to visit. This should help
+        // when there are many sibilings such as statements in module/suites
+        // or expresions in list and etc. otherwise, we will walk every silbings
+        // before find right one.
+        const index = getIndexContaining(children, offset);
+        if (index >= 0) {
+            children = [children[index]];
+        }
+    }
 
-                return containingChild;
+    for (const child of children) {
+        if (!child) {
+            continue;
+        }
+
+        const containingChild = findNodeByOffset(child, offset);
+        if (containingChild) {
+            // For augmented assignments, prefer the dest expression, which is a clone
+            // of the left expression but is used to hold the type of the operation result.
+            if (node.nodeType === ParseNodeType.AugmentedAssignment && containingChild === node.leftExpression) {
+                return node.destExpression;
             }
+
+            return containingChild;
         }
     }
 
     return node;
+}
+
+export function isCompliantWithNodeRangeRules(node: ParseNode) {
+    // ParseNode range rules are
+    // 1. Children are all contained within the parent.
+    // 2. Children have non-overlapping ranges.
+    // 3. Children are listed in increasing order.
+    return node.nodeType !== ParseNodeType.Assignment && node.nodeType !== ParseNodeType.StringList;
 }
 
 export function getClassFullName(classNode: ParseNode, moduleName: string, className: string): string {
