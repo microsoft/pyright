@@ -13,11 +13,13 @@ import { CancellationToken, MarkupContent, MarkupKind } from 'vscode-languageser
 
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
+import { isTypedKwargs } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { PrintTypeFlags } from '../analyzer/typePrinter';
+import { isClassInstance } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
@@ -143,13 +145,17 @@ export class SignatureHelpProvider {
                 paramName = params[params.length - 1].name || '';
             }
 
-            if (paramName && !paramString.includes(paramName) && paramName === 'kwargs') {
-                // Param string may have been expanded from kwargs.
-                // Pull out the param name from the string.
-                const match = /^(\w+):/.exec(paramString);
-                if (match && match.length > 1) {
-                    paramName = match[1];
-                }
+            // If we have a typedKwargs, the param name will be wrong.
+            const kwargsIndex = paramIndex >= params.length ? params.length - 1 : paramIndex;
+            const kwargsParam = params[kwargsIndex];
+            if (
+                isTypedKwargs(kwargsParam) &&
+                isClassInstance(kwargsParam.type) &&
+                kwargsParam.type.details.typedDictEntries
+            ) {
+                // Use the relative position in typed dict entries
+                const dictIndex = paramIndex - kwargsIndex;
+                paramName = [...kwargsParam.type.details.typedDictEntries.keys()][dictIndex];
             }
 
             parameters.push({

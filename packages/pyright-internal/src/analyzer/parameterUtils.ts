@@ -7,13 +7,13 @@
  */
 
 import { ParameterCategory } from '../parser/parseNodes';
-import { ClassType, FunctionParameter, TypeCategory } from './types';
+import { ClassType, FunctionParameter, isClassInstance, isUnpackedClass } from './types';
 
 export function isTypedKwargs(param: FunctionParameter): boolean {
     return (
         param.category === ParameterCategory.VarArgDictionary &&
-        param.type.category === TypeCategory.Class &&
-        !!param.type.isUnpacked &&
+        isClassInstance(param.type) &&
+        isUnpackedClass(param.type) &&
         ClassType.isTypedDictClass(param.type) &&
         !!param.type.details.typedDictEntries
     );
