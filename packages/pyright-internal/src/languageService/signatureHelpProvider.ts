@@ -153,7 +153,7 @@ export class SignatureHelpProvider {
                 isClassInstance(kwargsParam.type) &&
                 kwargsParam.type.details.typedDictEntries
             ) {
-                // Use the relative position in typed dict entries
+                // Use the relative position in typed dict entries.
                 const dictIndex = paramIndex - kwargsIndex;
                 paramName = [...kwargsParam.type.details.typedDictEntries.keys()][dictIndex];
             }
