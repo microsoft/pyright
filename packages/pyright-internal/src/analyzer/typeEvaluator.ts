@@ -15272,6 +15272,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (isDeclaredTypeAlias(node.leftExpression)) {
             flags |=
                 EvaluatorFlags.ExpectingType |
+                EvaluatorFlags.ExpectingTypeAnnotation |
                 EvaluatorFlags.EvaluateStringLiteralAsType |
                 EvaluatorFlags.DisallowParamSpec |
                 EvaluatorFlags.DisallowTypeVarTuple |

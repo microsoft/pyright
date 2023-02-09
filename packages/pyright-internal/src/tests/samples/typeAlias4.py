@@ -1,7 +1,7 @@
 # This sample tests the handling of the Python 3.9
 # TypeAlias feature as documented in PEP 613.
 
-from typing import Type, TypeAlias as TA, Union
+from typing import Type, TypeAlias as TA, Union, cast
 
 type1: TA = Union[int, str]
 
@@ -66,3 +66,9 @@ def func1():
     # This should generate an error because type aliases are allowed
     # only in classes or modules.
     my_type1: TA = int
+
+
+_Obj = cast(type[object], object)
+# This should generate an error because _Obj is a variable,
+# which isn't allowed in a TypeAlias statement.
+Obj: TA = _Obj
