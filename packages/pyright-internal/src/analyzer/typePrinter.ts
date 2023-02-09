@@ -8,6 +8,7 @@
  */
 
 import { ParameterCategory } from '../parser/parseNodes';
+import { isTypedKwargs } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import {
     ClassType,
@@ -872,14 +873,11 @@ export function printFunctionParts(
 
         // Handle expanding TypedDict kwargs specially.
         if (
-            param.category === ParameterCategory.VarArgDictionary &&
-            param.type.category === TypeCategory.Class &&
-            param.type.isUnpacked &&
-            ClassType.isTypedDictClass(param.type) &&
-            param.type.details.typedDictEntries &&
-            printTypeFlags & PrintTypeFlags.ExpandTypedDictArgs
+            isTypedKwargs(param) &&
+            printTypeFlags & PrintTypeFlags.ExpandTypedDictArgs &&
+            param.type.category === TypeCategory.Class
         ) {
-            param.type.details.typedDictEntries.forEach((v, k) => {
+            param.type.details.typedDictEntries!.forEach((v, k) => {
                 const valueTypeString = printType(
                     v.valueType,
                     printTypeFlags,

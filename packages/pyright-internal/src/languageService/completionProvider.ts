@@ -33,6 +33,7 @@ import {
 import { isDefinedInFile } from '../analyzer/declarationUtils';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
+import { isTypedKwargs } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { getScopeForNode } from '../analyzer/scopeUtils';
@@ -2499,15 +2500,9 @@ export class CompletionProvider {
 
     private _addNamedParametersToMap(type: FunctionType, names: Set<string>) {
         type.details.parameters.forEach((param) => {
-            if (
-                param.category === ParameterCategory.VarArgDictionary &&
-                param.type.category === TypeCategory.Class &&
-                param.type.isUnpacked &&
-                ClassType.isTypedDictClass(param.type) &&
-                param.type.details.typedDictEntries
-            ) {
+            if (isTypedKwargs(param) && param.type.category === TypeCategory.Class) {
                 // Add param names for unpacked dictionary keys
-                param.type.details.typedDictEntries.forEach((_v, k) => names.add(k));
+                param.type.details.typedDictEntries?.forEach((_v, k) => names.add(k));
             } else if (param.name && !param.isNameSynthesized) {
                 // Don't add private or protected names. These are assumed
                 // not to be named parameters.
