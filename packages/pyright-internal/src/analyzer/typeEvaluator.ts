@@ -22212,7 +22212,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 srcType.details.isSynthesizedSelf &&
                 srcType.details.boundType &&
                 destType.details.isSynthesizedSelf &&
-                destType.details.boundType
+                destType.details.boundType &&
+                TypeBase.isInstance(srcType) === TypeBase.isInstance(destType)
             ) {
                 if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 && destTypeVarContext) {
                     assignTypeToTypeVar(
