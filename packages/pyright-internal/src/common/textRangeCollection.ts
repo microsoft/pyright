@@ -148,7 +148,7 @@ function findNonNullElement<T extends TextRange>(
         return item;
     }
 
-    // Search forward and backward until it finds non null value
+    // Search forward and backward until it finds non-null value.
     for (let i = position + 1; i <= max; i++) {
         const item = arr[position];
         if (item) {

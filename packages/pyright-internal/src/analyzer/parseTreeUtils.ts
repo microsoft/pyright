@@ -98,10 +98,10 @@ export function findNodeByOffset(node: ParseNode, offset: number): ParseNode | u
     // further by checking its children.
     let children = getChildNodes(node);
     if (isCompliantWithNodeRangeRules(node) && children.length > 20) {
-        // use Binary search to find child to visit. This should help
-        // when there are many sibilings such as statements in module/suites
-        // or expresions in list and etc. otherwise, we will walk every silbings
-        // before find right one.
+        // Use binary search to find the child to visit. This should be helpful
+        // when there are many siblings, such as statements in a module/suite
+        // or expressions in a list, etc. Otherwise, we will have to traverse
+        // every sibling before finding the correct one.
         const index = getIndexContaining(children, offset);
         if (index >= 0) {
             children = [children[index]];
