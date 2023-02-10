@@ -419,6 +419,18 @@ export function assignTypeToTypeVar(
             );
             return false;
         }
+    } else if (
+        isTypeVar(srcType) &&
+        TypeBase.isInstantiable(srcType) &&
+        isTypeSame(convertToInstance(srcType), destType)
+    ) {
+        diag?.addMessage(
+            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                sourceType: evaluator.printType(adjSrcType),
+                destType: evaluator.printType(destType),
+            })
+        );
+        return false;
     }
 
     if ((flags & AssignTypeFlags.PopulatingExpectedType) !== 0) {
