@@ -8,6 +8,7 @@ import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { fail } from '../common/debug';
 import { TextRange } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeArray, ParseNodeType } from '../parser/parseNodes';
+import { isCompliantWithNodeRangeRules } from './parseTreeUtils';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 
 export class TestWalker extends ParseTreeWalker {
@@ -43,27 +44,35 @@ export class TestWalker extends ParseTreeWalker {
     private _verifyChildRanges(node: ParseNode, children: ParseNodeArray) {
         let prevNode: ParseNode | undefined;
 
+        const compliant = isCompliantWithNodeRangeRules(node);
         children.forEach((child) => {
             if (child) {
                 let skipCheck = false;
 
-                // There are a few exceptions we need to deal with here. Comment
-                // annotations can occur outside of an assignment node's range.
-                if (node.nodeType === ParseNodeType.Assignment) {
-                    if (child === node.typeAnnotationComment) {
-                        skipCheck = true;
-                    }
+                if (!compliant) {
+                    switch (node.nodeType) {
+                        case ParseNodeType.Assignment:
+                            // There are a few exceptions we need to deal with here. Comment
+                            // annotations can occur outside of an assignment node's range.
+                            if (child === node.typeAnnotationComment) {
+                                skipCheck = true;
+                            }
 
-                    // Portions of chained assignments can occur outside of an
-                    // assignment node's range.
-                    if (child.nodeType === ParseNodeType.Assignment) {
-                        skipCheck = true;
-                    }
-                }
+                            // Portions of chained assignments can occur outside of an
+                            // assignment node's range.
+                            if (child.nodeType === ParseNodeType.Assignment) {
+                                skipCheck = true;
+                            }
+                            break;
 
-                if (node.nodeType === ParseNodeType.StringList) {
-                    if (child === node.typeAnnotation) {
-                        skipCheck = true;
+                        case ParseNodeType.StringList:
+                            if (child === node.typeAnnotation) {
+                                skipCheck = true;
+                            }
+                            break;
+
+                        default:
+                            fail(`node ${node.nodeType} is not marked as not following range rules.`);
                     }
                 }
 
