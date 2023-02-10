@@ -1,7 +1,7 @@
 /// <reference path="fourslash.ts" />
 
 // @filename: test.py
-//// from typing import TypedDict, Unpack
+//// from typing import TypedDict, Unpack, Any
 ////
 //// class Movie(TypedDict):
 ////     key1: str
@@ -54,5 +54,8 @@ await helper.verifyCompletion('included', 'markdown', {
             { label: 'key2=', kind: Consts.CompletionItemKind.Variable },
             { label: 'key1=', kind: Consts.CompletionItemKind.Variable },
         ],
+    },
+    marker6: {
+        completions: [{ label: 'param1=', kind: Consts.CompletionItemKind.Variable }],
     },
 });

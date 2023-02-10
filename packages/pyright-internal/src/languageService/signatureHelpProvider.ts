@@ -165,7 +165,7 @@ export class SignatureHelpProvider {
                 documentation: extractParameterDocumentation(functionDocString || '', paramName),
             });
 
-            // Name match for active parameter as the set of parameters from the function
+            // Name match for active parameter. The set of parameters from the function
             // may not match the actual string output from the typeEvaluator (kwargs for TypedDict is an example).
             if (paramName && signature.activeParam && signature.activeParam.name === paramName) {
                 activeParameter = paramIndex;
