@@ -407,7 +407,12 @@ export function synthesizeDataClassMethods(
                                 (p) => p.hasDefault && p.includeInInit && !p.isKeywordOnly
                             );
                             if (firstDefaultValueIndex >= 0 && firstDefaultValueIndex < insertIndex) {
-                                evaluator.addError(Localizer.Diagnostic.dataClassFieldWithDefault(), variableNameNode);
+                                evaluator.addDiagnostic(
+                                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    Localizer.Diagnostic.dataClassFieldWithDefault(),
+                                    variableNameNode
+                                );
                             }
                         }
                     }
