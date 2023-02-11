@@ -36,6 +36,7 @@ import { CodeFlowReferenceExpressionNode, FlowNode } from './codeFlowTypes';
 import { Declaration } from './declaration';
 import { SymbolWithScope } from './scope';
 import { Symbol } from './symbol';
+import { PrintTypeFlags } from './typePrinter';
 import {
     ClassType,
     FunctionParameter,
@@ -526,7 +527,7 @@ export interface TypeEvaluator {
     ) => Diagnostic | undefined;
 
     printType: (type: Type, options?: PrintTypeOptions) => string;
-    printFunctionParts: (type: FunctionType) => [string[], string];
+    printFunctionParts: (type: FunctionType, extraFlags?: PrintTypeFlags) => [string[], string];
 
     getTypeCacheEntryCount: () => number;
     disposeEvaluator: () => void;

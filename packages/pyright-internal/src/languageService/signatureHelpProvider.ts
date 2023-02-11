@@ -13,10 +13,13 @@ import { CancellationToken, MarkupContent, MarkupKind } from 'vscode-languageser
 
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
+import { isTypedKwargs } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
+import { PrintTypeFlags } from '../analyzer/typePrinter';
+import { isClassInstance } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
@@ -124,13 +127,14 @@ export class SignatureHelpProvider {
         format: MarkupKind
     ): SignatureInfo {
         const functionType = signature.type;
-        const stringParts = evaluator.printFunctionParts(functionType);
+        const stringParts = evaluator.printFunctionParts(functionType, PrintTypeFlags.ExpandTypedDictArgs);
         const parameters: ParamInfo[] = [];
         const functionDocString =
             getFunctionDocStringFromType(functionType, sourceMapper, evaluator) ??
             this._getDocStringFromCallNode(callNode, sourceMapper, evaluator);
 
         let label = '(';
+        let activeParameter: number | undefined;
         const params = functionType.details.parameters;
 
         stringParts[0].forEach((paramString: string, paramIndex) => {
@@ -141,12 +145,31 @@ export class SignatureHelpProvider {
                 paramName = params[params.length - 1].name || '';
             }
 
+            // If we have a typedKwargs, the param name will be wrong.
+            const kwargsIndex = paramIndex >= params.length ? params.length - 1 : paramIndex;
+            const kwargsParam = params[kwargsIndex];
+            if (
+                isTypedKwargs(kwargsParam) &&
+                isClassInstance(kwargsParam.type) &&
+                kwargsParam.type.details.typedDictEntries
+            ) {
+                // Use the relative position in typed dict entries.
+                const dictIndex = paramIndex - kwargsIndex;
+                paramName = [...kwargsParam.type.details.typedDictEntries.keys()][dictIndex];
+            }
+
             parameters.push({
                 startOffset: label.length,
                 endOffset: label.length + paramString.length,
                 text: paramString,
                 documentation: extractParameterDocumentation(functionDocString || '', paramName),
             });
+
+            // Name match for active parameter. The set of parameters from the function
+            // may not match the actual string output from the typeEvaluator (kwargs for TypedDict is an example).
+            if (paramName && signature.activeParam && signature.activeParam.name === paramName) {
+                activeParameter = paramIndex;
+            }
 
             label += paramString;
             if (paramIndex < stringParts[0].length - 1) {
@@ -156,8 +179,7 @@ export class SignatureHelpProvider {
 
         label += ') -> ' + stringParts[1];
 
-        let activeParameter: number | undefined;
-        if (signature.activeParam) {
+        if (signature.activeParam && activeParameter === undefined) {
             activeParameter = params.indexOf(signature.activeParam);
             if (activeParameter === -1) {
                 activeParameter = undefined;
