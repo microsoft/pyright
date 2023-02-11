@@ -1,7 +1,11 @@
 /// <reference path="fourslash.ts" />
 
 // @filename: complicated.py
-//// from typing import Any, Optional, Type, Union
+//// from typing import Any, Optional, Type, Union, TypedDict, Unpack
+////
+//// class Movie(TypedDict):
+////     key1: str
+////     key2: int
 ////
 //// class A:
 ////     def __init__(self, x: bool): ...
@@ -9,6 +13,8 @@
 ////     def __call__(self, z: float) -> complex: ...
 ////
 ////     def complicated(self, a: int, b: int, c: int = 1234, d: Optional[str] = None, **kwargs: Any) -> Union[int, str]: ...
+////
+////     def typeddict(self, a: int, b: int, **kwargs: Unpack[Movie]) -> None: ...
 ////
 //// x = A(True[|/*init1*/|])
 ////
@@ -19,6 +25,8 @@
 //// x.complicated(1, [|/*c3/|], 3)
 ////
 //// x.complicated(1[|/*cA*/|],[|/*cB*/|] 2, 3, x=[|/*cX*/|]123, d="wo[|/*cD*/|]w", z[|/*cZ*/|]=1234)
+////
+//// x.typeddict(1[|/*tdA*/|], [|/*tdB*/|]2, key1=[|/*tdkey1*/|]'r', key2=[|/*tdkey2*/|]4)
 ////
 //// x([|/*call*/|])
 ////
@@ -41,6 +49,13 @@
         {
             label: '(a: int, b: int, c: int = 1234, d: str | None = None, **kwargs: Any) -> (int | str)',
             parameters: ['a: int', 'b: int', 'c: int = 1234', 'd: str | None = None', '**kwargs: Any'],
+        },
+    ];
+
+    const xTypedDictSignatures = [
+        {
+            label: '(a: int, b: int, key1: str, key2: int) -> None',
+            parameters: ['a: int', 'b: int', 'key1: str', 'key2: int'],
         },
     ];
 
@@ -95,6 +110,22 @@
         call: {
             signatures: xCallSignatures,
             activeParameters: [0],
+        },
+        tdA: {
+            signatures: xTypedDictSignatures,
+            activeParameters: [0],
+        },
+        tdB: {
+            signatures: xTypedDictSignatures,
+            activeParameters: [1],
+        },
+        tdkey1: {
+            signatures: xTypedDictSignatures,
+            activeParameters: [2],
+        },
+        tdkey2: {
+            signatures: xTypedDictSignatures,
+            activeParameters: [3],
         },
     });
 }
