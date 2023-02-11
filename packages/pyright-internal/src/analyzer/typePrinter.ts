@@ -8,6 +8,7 @@
  */
 
 import { ParameterCategory } from '../parser/parseNodes';
+import { isTypedKwargs } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import {
     ClassType,
@@ -71,6 +72,9 @@ export const enum PrintTypeFlags {
     // Use Unpack instead of "*" for unpacked tuples and TypeVarTuples.
     // Requires Python 3.11 or newer.
     UseTypingUnpack = 1 << 9,
+
+    // Expand TypedDict kwargs to show the keys from the TypedDict instead of **kwargs.
+    ExpandTypedDictArgs = 1 << 10,
 }
 
 export type FunctionReturnTypeCallback = (type: FunctionType) => Type;
@@ -865,6 +869,25 @@ export function printFunctionParts(
                 });
                 return;
             }
+        }
+
+        // Handle expanding TypedDict kwargs specially.
+        if (
+            isTypedKwargs(param) &&
+            printTypeFlags & PrintTypeFlags.ExpandTypedDictArgs &&
+            param.type.category === TypeCategory.Class
+        ) {
+            param.type.details.typedDictEntries!.forEach((v, k) => {
+                const valueTypeString = printType(
+                    v.valueType,
+                    printTypeFlags,
+                    returnTypeCallback,
+                    recursionTypes,
+                    recursionCount
+                );
+                paramTypeStrings.push(`${k}: ${valueTypeString}`);
+            });
+            return;
         }
 
         let paramString = '';

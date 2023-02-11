@@ -33,6 +33,7 @@ import {
 import { isDefinedInFile } from '../analyzer/declarationUtils';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
+import { isTypedKwargs } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { getScopeForNode } from '../analyzer/scopeUtils';
@@ -2459,21 +2460,21 @@ export class CompletionProvider {
     }
 
     private _addNamedParameters(signatureInfo: CallSignatureInfo, priorWord: string, completionMap: CompletionMap) {
-        const argNameMap = new Map<string, string>();
+        const argNameSet = new Set<string>();
 
         signatureInfo.signatures.forEach((signature) => {
-            this._addNamedParametersToMap(signature.type, argNameMap);
+            this._addNamedParametersToMap(signature.type, argNameSet);
         });
 
         // Remove any named parameters that are already provided.
         signatureInfo.callNode.arguments!.forEach((arg) => {
             if (arg.name) {
-                argNameMap.delete(arg.name.value);
+                argNameSet.delete(arg.name.value);
             }
         });
 
         // Add the remaining unique parameter names to the completion list.
-        argNameMap.forEach((argName) => {
+        argNameSet.forEach((argName) => {
             if (StringUtils.isPatternInSymbol(priorWord, argName)) {
                 const label = argName + '=';
                 if (completionMap.has(label)) {
@@ -2497,13 +2498,16 @@ export class CompletionProvider {
         });
     }
 
-    private _addNamedParametersToMap(type: FunctionType, paramMap: Map<string, string>) {
+    private _addNamedParametersToMap(type: FunctionType, names: Set<string>) {
         type.details.parameters.forEach((param) => {
-            if (param.name && !param.isNameSynthesized) {
+            if (isTypedKwargs(param) && param.type.category === TypeCategory.Class) {
+                // Add param names for unpacked dictionary keys
+                param.type.details.typedDictEntries?.forEach((_v, k) => names.add(k));
+            } else if (param.name && !param.isNameSynthesized) {
                 // Don't add private or protected names. These are assumed
                 // not to be named parameters.
                 if (!SymbolNameUtils.isPrivateOrProtectedName(param.name)) {
-                    paramMap.set(param.name, param.name);
+                    names.add(param.name);
                 }
             }
         });
