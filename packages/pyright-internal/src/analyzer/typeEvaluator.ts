@@ -9260,6 +9260,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     case TypeCategory.None: {
                         if (TypeBase.isInstantiable(expandedSubtype)) {
+                            if (noneType && isInstantiableClass(noneType)) {
+                                const functionResult = validateCallArguments(
+                                    errorNode,
+                                    argList,
+                                    { type: noneType },
+                                    typeVarContext,
+                                    skipUnknownArgCheck,
+                                    inferenceContext,
+                                    recursionCount
+                                );
+
+                                if (functionResult.isTypeIncomplete) {
+                                    isTypeIncomplete = true;
+                                }
+
+                                if (functionResult.argumentErrors) {
+                                    argumentErrors = true;
+                                }
+                            }
+
                             return NoneType.createInstance();
                         }
 
