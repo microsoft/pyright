@@ -22,3 +22,6 @@ if val1 is not None:
 val2 = func1(None)
 
 val3: type[object] = type(None)
+
+val4 = type(None)()
+reveal_type(val4, expected_text="None")

@@ -9259,6 +9259,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     case TypeCategory.None: {
+                        if (TypeBase.isInstantiable(expandedSubtype)) {
+                            return NoneType.createInstance();
+                        }
+
                         addDiagnostic(
                             AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
                             DiagnosticRule.reportOptionalCall,
