@@ -116,6 +116,11 @@ class TD1(TypedDict):
 def generator12() -> Generator[TD1, None, None]:
     yield {"x": "x"}
 
+
 def generator13() -> Generator[TD1, None, None]:
     # This should generate an error.
     yield {"y": "x"}
+
+
+def generator14() -> Iterator[TD1]:
+    yield {"x": "x"}

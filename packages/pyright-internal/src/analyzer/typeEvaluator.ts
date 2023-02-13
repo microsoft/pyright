@@ -256,6 +256,7 @@ import {
     getContainerDepth,
     getDeclaredGeneratorReturnType,
     getGeneratorTypeArgs,
+    getGeneratorYieldType,
     getLiteralTypeClassName,
     getParameterListDetails,
     getSpecializedTupleType,
@@ -13676,16 +13677,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (functionTypeInfo) {
                 const returnType = FunctionType.getSpecializedReturnType(functionTypeInfo.functionType);
                 if (returnType) {
+                    expectedYieldType = getGeneratorYieldType(returnType, !!enclosingFunction.isAsync);
+
                     const generatorTypeArgs = getGeneratorTypeArgs(returnType);
-
-                    if (generatorTypeArgs) {
-                        if (generatorTypeArgs.length >= 1) {
-                            expectedYieldType = generatorTypeArgs[0];
-                        }
-
-                        if (generatorTypeArgs.length >= 2) {
-                            sentType = generatorTypeArgs[1];
-                        }
+                    if (generatorTypeArgs && generatorTypeArgs.length >= 2) {
+                        sentType = generatorTypeArgs[1];
                     }
                 }
             }
