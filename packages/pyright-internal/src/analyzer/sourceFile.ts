@@ -35,7 +35,7 @@ import { FileSystem } from '../common/fileSystem';
 import { LogTracker } from '../common/logTracker';
 import { fromLSPAny } from '../common/lspUtils';
 import { getFileName, normalizeSlashes, stripFileExtension } from '../common/pathUtils';
-import { convertOffsetsToRange } from '../common/positionUtils';
+import { convertOffsetsToRange, convertTextRangeToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { DocumentRange, getEmptyRange, Position, Range, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -167,6 +167,7 @@ export class SourceFile {
 
     // Diagnostics generated during different phases of analysis.
     private _parseDiagnostics: Diagnostic[] = [];
+    private _commentDiagnostics: Diagnostic[] = [];
     private _bindDiagnostics: Diagnostic[] = [];
     private _checkerDiagnostics: Diagnostic[] = [];
     private _typeIgnoreLines = new Map<number, IgnoreComment>();
@@ -304,7 +305,12 @@ export class SourceFile {
             includeWarningsAndErrors = false;
         }
 
-        let diagList = [...this._parseDiagnostics, ...this._bindDiagnostics, ...this._checkerDiagnostics];
+        let diagList = [
+            ...this._parseDiagnostics,
+            ...this._commentDiagnostics,
+            ...this._bindDiagnostics,
+            ...this._checkerDiagnostics,
+        ];
         const prefilteredDiagList = diagList;
         const typeIgnoreLinesClone = new Map(this._typeIgnoreLines);
         const pyrightIgnoreLinesClone = new Map(this._pyrightIgnoreLines);
@@ -850,11 +856,25 @@ export class SourceFile {
                     configOptions.strict.find((strictFileSpec) => strictFileSpec.regExp.test(this._realFilePath)) !==
                     undefined;
 
+                const commentDiags: CommentUtils.CommentDiagnostic[] = [];
                 this._diagnosticRuleSet = CommentUtils.getFileLevelDirectives(
                     this._parseResults.tokenizerOutput.tokens,
                     configOptions.diagnosticRuleSet,
-                    useStrict
+                    useStrict,
+                    commentDiags
                 );
+
+                this._commentDiagnostics = [];
+
+                commentDiags.forEach((commentDiag) => {
+                    this._commentDiagnostics.push(
+                        new Diagnostic(
+                            DiagnosticCategory.Error,
+                            commentDiag.message,
+                            convertTextRangeToRange(commentDiag.range, this._parseResults!.tokenizerOutput.lines)
+                        )
+                    );
+                });
             } catch (e: any) {
                 const message: string =
                     (e.stack ? e.stack.toString() : undefined) ||

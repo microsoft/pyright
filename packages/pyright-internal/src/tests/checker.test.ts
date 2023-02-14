@@ -346,6 +346,13 @@ test('PyrightIgnore2', () => {
     TestUtils.validateResults(analysisResults, 2, 3);
 });
 
+test('PyrightComment1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['pyrightComment1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 7);
+});
+
 test('DuplicateImports1', () => {
     const configOptions = new ConfigOptions('.');
 

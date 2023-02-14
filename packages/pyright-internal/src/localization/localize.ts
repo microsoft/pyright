@@ -710,6 +710,15 @@ export namespace Localizer {
             new ParameterizedString<{ variable: string; class: string }>(
                 getRawString('Diagnostic.protocolVarianceInvariant')
             );
+        export const pyrightCommentInvalidDiagnosticBoolValue = () =>
+            getRawString('Diagnostic.pyrightCommentInvalidDiagnosticBoolValue');
+        export const pyrightCommentInvalidDiagnosticSeverityValue = () =>
+            getRawString('Diagnostic.pyrightCommentInvalidDiagnosticSeverityValue');
+        export const pyrightCommentMissingDirective = () => getRawString('Diagnostic.pyrightCommentMissingDirective');
+        export const pyrightCommentUnknownDirective = () =>
+            new ParameterizedString<{ directive: string }>(getRawString('Diagnostic.pyrightCommentUnknownDirective'));
+        export const pyrightCommentUnknownDiagnosticRule = () =>
+            new ParameterizedString<{ rule: string }>(getRawString('Diagnostic.pyrightCommentUnknownDiagnosticRule'));
         export const recursiveDefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.recursiveDefinition'));
         export const relativeImportNotAllowed = () => getRawString('Diagnostic.relativeImportNotAllowed');
