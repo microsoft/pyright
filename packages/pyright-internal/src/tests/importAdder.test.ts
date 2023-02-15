@@ -9,10 +9,13 @@
 import assert from 'assert';
 import { CancellationToken } from 'vscode-languageserver';
 
+import { TextEditAction } from '../common/editAction';
+import { TextEditTracker } from '../common/textEditUtils';
 import { rangesAreEqual, TextRange } from '../common/textRange';
 import { ImportFormat } from '../languageService/autoImporter';
 import { ImportAdder } from '../languageService/importAdder';
-import { parseAndGetTestState } from './harness/fourslash/testState';
+import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
+import { convertFileEditActionToString, convertRangeToFileEditAction } from './testStateUtils';
 
 test('builtin types', () => {
     const code = `
@@ -1336,6 +1339,47 @@ test('use relative import format', () => {
     testImportMove(code, ImportFormat.Relative);
 });
 
+test('use relative import format - textEditTracker', () => {
+    const code = `
+// @filename: test1.py
+//// from nested import module
+////
+//// [|/*src*/module.foo()|]
+
+// @filename: nested/__init__.py
+//// [|{|"r":"from . import module!n!!n!!n!"|}|][|/*dest*/|]
+
+// @filename: nested/module.py
+//// def foo(): pass
+        `;
+    testImportMoveWithTracker(code, ImportFormat.Relative);
+});
+
+function testImportMoveWithTracker(code: string, importFormat = ImportFormat.Absolute) {
+    const state = parseAndGetTestState(code).state;
+
+    const src = state.getRangeByMarkerName('src')!;
+    const dest = state.getMarkerByName('dest');
+
+    const importMover = new ImportAdder(state.configOptions, state.importResolver, state.program.evaluator!);
+    const importData = importMover.collectImportsForSymbolsUsed(
+        state.program.getBoundSourceFile(src.fileName)!.getParseResults()!,
+        TextRange.fromBounds(src.pos, src.end),
+        CancellationToken.None
+    );
+
+    const tracker = new TextEditTracker();
+    importMover.applyImportsTo(
+        importData,
+        state.program.getBoundSourceFile(dest.fileName)!.getParseResults()!,
+        importFormat,
+        tracker,
+        CancellationToken.None
+    );
+
+    verifyEdits(tracker.getEdits(CancellationToken.None), state);
+}
+
 function testImportMove(code: string, importFormat = ImportFormat.Absolute) {
     const state = parseAndGetTestState(code).state;
 
@@ -1357,10 +1401,22 @@ function testImportMove(code: string, importFormat = ImportFormat.Absolute) {
         CancellationToken.None
     );
 
+    verifyEdits(edits, state);
+}
+
+function verifyEdits(edits: TextEditAction[], state: TestState) {
     assert(edits);
 
+    const filePath = state.getMarkerByName('dest').fileName;
     const ranges = state.getRanges().filter((r) => !!r.marker?.data);
-    assert.strictEqual(edits.length, ranges.length);
+    assert.strictEqual(
+        edits.length,
+        ranges.length,
+        `${edits.map((e) => convertFileEditActionToString({ filePath, ...e })).join('|')} vs ${ranges
+            .map((r) => convertRangeToFileEditAction(state, r))
+            .map((e) => convertFileEditActionToString(e))
+            .join('|')}`
+    );
 
     for (const edit of edits) {
         assert(
@@ -1373,7 +1429,10 @@ function testImportMove(code: string, importFormat = ImportFormat.Absolute) {
                     expectedText.replace(/!n!/g, '\n') === edit.replacementText
                 );
             }),
-            `can't find '${edit.replacementText}'@'(${edit.range.start.line},${edit.range.start.character})'`
+            `can't find ${convertFileEditActionToString({ filePath, ...edit })} in ${ranges
+                .map((r) => convertRangeToFileEditAction(state, r))
+                .map((e) => convertFileEditActionToString(e))
+                .join('|')}`
         );
     }
 }

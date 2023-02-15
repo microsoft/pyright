@@ -27,6 +27,7 @@ import { ConsoleInterface, log, LogLevel } from './common/console';
 import * as debug from './common/debug';
 import { Diagnostic } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
+import { Extensions } from './common/extensibility';
 import {
     disposeCancellationToken,
     getCancellationTokenFromId,
@@ -124,6 +125,10 @@ export class BackgroundAnalysisBase {
 
     setFileClosed(filePath: string, isTracked?: boolean) {
         this.enqueueRequest({ requestType: 'setFileClosed', data: { filePath, isTracked } });
+    }
+
+    addTrackedFile(filePath: string, isThirdPartyImport: boolean) {
+        this.enqueueRequest({ requestType: 'addTrackedFile', data: { filePath, isThirdPartyImport } });
     }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean, indexingNeeded: boolean) {
@@ -305,6 +310,12 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         this._logTracker = new LogTracker(console, `BG(${threadId})`);
 
         this._program = new Program(this._importResolver, this._configOptions, console, this._logTracker);
+
+        // Create the extensions bound to the program for this background thread
+        Extensions.createProgramExtensions(this._program, {
+            addTrackedFile: (filePath: string, isThirdPartyImport: boolean) =>
+                this._program.addTrackedFile(filePath, isThirdPartyImport),
+        });
     }
 
     start() {
@@ -437,6 +448,12 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
                 break;
             }
 
+            case 'addTrackedFile': {
+                const { filePath, isThirdPartyImport } = msg.data;
+                this.program.addTrackedFile(filePath, isThirdPartyImport);
+                break;
+            }
+
             case 'markAllFilesDirty': {
                 const { evenIfContentsAreSame, indexingNeeded } = msg.data;
                 this.program.markAllFilesDirty(evenIfContentsAreSame, indexingNeeded);
@@ -533,6 +550,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
     protected override shutdown() {
         this._program.dispose();
+        Extensions.destroyProgramExtensions(this._program.id);
         super.shutdown();
     }
 
@@ -579,7 +597,7 @@ function convertDiagnostics(diagnostics: Diagnostic[]) {
     // Elements are typed as "any" since data crossing the process
     // boundary loses type info.
     return diagnostics.map<Diagnostic>((d: any) => {
-        const diag = new Diagnostic(d.category, d.message, d.range);
+        const diag = new Diagnostic(d.category, d.message, d.range, d.priority);
         if (d._actions) {
             for (const action of d._actions) {
                 diag.addAction(action);
@@ -621,7 +639,8 @@ export interface AnalysisRequest {
         | 'setExperimentOptions'
         | 'setImportResolver'
         | 'getInlayHints'
-        | 'shutdown';
+        | 'shutdown'
+        | 'addTrackedFile';
 
     data: any;
     port?: MessagePort | undefined;

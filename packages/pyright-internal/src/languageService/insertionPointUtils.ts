@@ -9,9 +9,11 @@
 import { getFileInfo, getScope } from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { getNameNodeForDeclaration } from '../analyzer/declarationUtils';
-import { getFirstAncestorOrSelf } from '../analyzer/parseTreeUtils';
+import { getFirstAncestorOrSelf, isBlankLine } from '../analyzer/parseTreeUtils';
 import { isPrivateName } from '../analyzer/symbolNameUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
+import { containsOnlyWhitespace } from '../common/core';
+import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { MatchNode, ParseNode, ParseNodeType, StatementNode, SuiteNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
@@ -29,10 +31,10 @@ export function getInsertionPointForSymbolUnderModule(
 ): number | undefined {
     const module = parseResults.parseTree;
 
-    const defaultInsertionPoint = TextRange.getEnd(module);
+    // If it is an empty file with all whitespaces, return 0
+    const defaultInsertionPoint = _getDefaultInsertionPoint(parseResults);
     if (module.statements.length === 0) {
-        // Empty file.
-        return defaultInsertionPoint;
+        return containsOnlyWhitespace(parseResults.text) ? 0 : defaultInsertionPoint;
     }
 
     // See whether same name is already taken.
@@ -54,11 +56,19 @@ export function getInsertionPointForSymbolUnderModule(
         return undefined;
     }
 
+    const insertBefore = options?.insertBefore ?? defaultInsertionPoint;
     if (isPrivateName(symbolName)) {
-        return Math.max(0, options?.insertBefore ?? defaultInsertionPoint);
+        return Math.max(0, insertBefore);
     }
 
-    const lastStatement = _getLastStatementWithPublicName(module.statements);
+    if (insertBefore < TextRange.getEnd(module.statements[0])) {
+        return Math.max(0, Math.min(insertBefore, module.statements[0].start));
+    }
+
+    const lastStatement = _getLastStatementWithPublicName(
+        module.statements,
+        options?.insertBefore ?? defaultInsertionPoint
+    );
     return TextRange.getEnd(lastStatement);
 }
 
@@ -70,6 +80,23 @@ export function getContainer(node: ParseNode, includeSelf = true): SuiteNode | M
 
         return n.nodeType === ParseNodeType.Suite || n.nodeType === ParseNodeType.Match;
     }) as SuiteNode | undefined;
+}
+
+function _getDefaultInsertionPoint(parseResults: ParseResults) {
+    const endOffset = TextRange.getEnd(parseResults.parseTree);
+    const position = convertOffsetToPosition(endOffset, parseResults.tokenizerOutput.lines);
+    if (position.character === 0) {
+        return endOffset;
+    }
+
+    if (isBlankLine(parseResults, position.line)) {
+        return (
+            convertPositionToOffset({ line: position.line, character: 0 }, parseResults.tokenizerOutput.lines) ??
+            endOffset
+        );
+    }
+
+    return endOffset;
 }
 
 function _getDeclarationsDefinedInCurrentModule(
@@ -111,10 +138,14 @@ function _getDeclarationsDefinedInCurrentModule(
     });
 }
 
-function _getLastStatementWithPublicName(statements: StatementNode[]) {
+function _getLastStatementWithPublicName(statements: StatementNode[], insertBefore: number) {
     let lastStatement = statements[0];
     for (let i = 1; i < statements.length; i++) {
         const statement = statements[i];
+        if (insertBefore < TextRange.getEnd(statement)) {
+            return lastStatement;
+        }
+
         switch (statement.nodeType) {
             case ParseNodeType.Class:
             case ParseNodeType.Function: {

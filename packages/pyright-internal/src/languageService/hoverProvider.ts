@@ -41,7 +41,7 @@ import {
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { SignatureDisplayType } from '../common/configOptions';
 import { assertNever, fail } from '../common/debug';
-import { DeclarationUseCase, getExtensions } from '../common/extensibility';
+import { DeclarationUseCase, Extensions } from '../common/extensibility';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
@@ -96,7 +96,7 @@ export class HoverProvider {
 
         if (node.nodeType === ParseNodeType.Name) {
             // First give extensions a crack at getting a declaration.
-            let declarations: Declaration[] | undefined = getExtensions()
+            let declarations: Declaration[] | undefined = Extensions.getProgramExtensions(node)
                 .map(
                     (e) =>
                         e.declarationProviderExtension?.tryGetDeclarations(
@@ -227,13 +227,18 @@ export class HoverProvider {
                 // Determine if this identifier is a type alias. If so, expand
                 // the type alias when printing the type information.
                 let type = evaluator.getType(typeNode);
+
+                // We may have more type information in the alternativeTypeNode. Use that if it's better.
                 if (
                     (!type || type.category === TypeCategory.Unknown) &&
-                    resolvedDecl.inferredTypeSource &&
-                    isExpressionNode(resolvedDecl.inferredTypeSource)
+                    resolvedDecl.alternativeTypeNode &&
+                    isExpressionNode(resolvedDecl.alternativeTypeNode)
                 ) {
-                    typeNode = resolvedDecl.inferredTypeSource;
-                    type = evaluator.getType(typeNode);
+                    const inferredType = evaluator.getType(resolvedDecl.alternativeTypeNode);
+                    if (inferredType && inferredType.category !== TypeCategory.Unknown) {
+                        type = inferredType;
+                        typeNode = resolvedDecl.alternativeTypeNode;
+                    }
                 }
                 let expandTypeAlias = false;
                 let typeVarName: string | undefined;
@@ -320,7 +325,7 @@ export class HoverProvider {
 
                 let type = evaluator.getType(node);
                 const resolvedType =
-                    getExtensions()
+                    Extensions.getProgramExtensions(resolvedDecl.node)
                         .map((e) =>
                             e.typeProviderExtension?.tryGetFunctionNodeType(resolvedDecl.node, evaluator, token)
                         )

@@ -71,20 +71,6 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         return workspaces;
     }
 
-    // Returns the best workspace we have at the moment. Ideally the async method would be used
-    // as that makes sure the workspace is initialized. But there are some cases
-    // where async can't be used and this function can be used to determine the workspace for a file synchronously.
-    getWorkspaceForFileSync(ls: LanguageServerBase, filePath: string): WorkspaceServiceInstance {
-        // Make sure we always have a default workspace.
-        const defaultWorkspace = this._createDefaultWorkspace(ls);
-
-        // Find the best match for this file.
-        const bestInstance = this._getBestWorkspaceForFile(ls, filePath, defaultWorkspace);
-
-        // Make sure the best match is actually ready.
-        return bestInstance.isInitialized.resolved() ? bestInstance : defaultWorkspace;
-    }
-
     // Returns the best workspace for a file. Waits for the workspace to be finished handling other events before
     // returning the appropriate workspace.
     async getWorkspaceForFile(ls: LanguageServerBase, filePath: string): Promise<WorkspaceServiceInstance> {

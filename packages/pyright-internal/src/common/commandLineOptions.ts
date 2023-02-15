@@ -9,6 +9,7 @@
  * of the analyzer).
  */
 
+import { TaskListToken } from './diagnostic';
 import { PythonVersion } from './pythonVersion';
 
 export const enum DiagnosticSeverityOverrides {
@@ -126,6 +127,9 @@ export class CommandLineOptions {
 
     // Use indexing.
     indexing?: boolean | undefined;
+
+    // Task list tokens, used for VS task list population
+    taskListTokens?: TaskListToken[] | undefined;
 
     // Use type evaluator call tracking.
     logTypeEvaluationTime = false;

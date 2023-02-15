@@ -6,6 +6,8 @@
  * Various helpers that don't have a dependency on other code files.
  */
 
+import { TextRange } from './textRange';
+
 export const enum Comparison {
     LessThan = -1,
     EqualTo = 0,
@@ -172,4 +174,12 @@ export function getEnumNames<T>(enumType: T) {
     }
 
     return result;
+}
+
+export function containsOnlyWhitespace(text: string, span?: TextRange) {
+    if (span) {
+        text = text.substring(span.start, TextRange.getEnd(span));
+    }
+
+    return /^\s*$/.test(text);
 }

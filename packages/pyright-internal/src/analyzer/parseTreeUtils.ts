@@ -8,6 +8,7 @@
  */
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
+import { containsOnlyWhitespace } from '../common/core';
 import { assert, assertNever, fail } from '../common/debug';
 import { convertPositionToOffset, convertTextRangeToRange } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
@@ -43,6 +44,7 @@ import {
     TypeAnnotationNode,
     TypeParameterScopeNode,
 } from '../parser/parseNodes';
+import { ParseResults } from '../parser/parser';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { TokenizerOutput } from '../parser/tokenizer';
 import { KeywordType, OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
@@ -2342,7 +2344,12 @@ export function getStringValueRange(token: StringToken) {
     return TextRange.create(token.start + length, token.length - length - (hasEnding ? length : 0));
 }
 
-export function getFullStatementRange(statementNode: ParseNode, tokenizerOutput: TokenizerOutput): Range {
+export function getFullStatementRange(
+    statementNode: ParseNode,
+    parseResults: ParseResults,
+    options?: { includeTrailingBlankLines: boolean }
+): Range {
+    const tokenizerOutput = parseResults.tokenizerOutput;
     const range = convertTextRangeToRange(statementNode, tokenizerOutput.lines);
 
     const start = _getStartPositionIfMultipleStatementsAreOnSameLine(range, statementNode.start, tokenizerOutput) ?? {
@@ -2366,7 +2373,24 @@ export function getFullStatementRange(statementNode: ParseNode, tokenizerOutput:
         return { start, end: range.end };
     }
 
-    return { start, end: { line: range.end.line + 1, character: 0 } };
+    let lineDeltaToAdd = 1;
+    if (options) {
+        if (options.includeTrailingBlankLines) {
+            for (let i = lineDeltaToAdd; range.end.line + i < tokenizerOutput.lines.count; i++) {
+                if (!isBlankLine(parseResults, range.end.line + i)) {
+                    lineDeltaToAdd = i;
+                    break;
+                }
+            }
+        }
+    }
+
+    return { start, end: { line: range.end.line + lineDeltaToAdd, character: 0 } };
+}
+
+export function isBlankLine(parseResults: ParseResults, line: number) {
+    const span = parseResults.tokenizerOutput.lines.getItemAt(line);
+    return containsOnlyWhitespace(parseResults.text, span);
 }
 
 export function isUnannotatedFunction(node: FunctionNode) {

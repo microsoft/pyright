@@ -14,10 +14,25 @@ import { assertNever } from '../common/debug';
 import { FileEditAction, FileEditActions } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
 import { convertUriToPath, getDirectoryPath, isFile } from '../common/pathUtils';
-import { convertRangeToTextRange } from '../common/positionUtils';
-import { rangesAreEqual, TextRange } from '../common/textRange';
+import { applyTextEditActions } from '../common/textEditUtils';
+import { rangesAreEqual } from '../common/textRange';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { TestState } from './harness/fourslash/testState';
+
+export function convertFileEditActionToString(edit: FileEditAction): string {
+    return `'${edit.replacementText.replace(/\n/g, '!n!')}'@'${edit.filePath}:(${edit.range.start.line},${
+        edit.range.start.character
+    })-(${edit.range.end.line},${edit.range.end.character})'`;
+}
+
+export function convertRangeToFileEditAction(state: TestState, range: Range, replacementText?: string): FileEditAction {
+    const data = range.marker?.data as { r: string } | undefined;
+    return {
+        filePath: range.fileName,
+        replacementText: (replacementText ?? data?.r ?? 'N/A').replace(/!n!/g, '\n'),
+        range: state.convertPositionRange(range),
+    };
+}
 
 export function verifyEdits(
     state: TestState,
@@ -26,20 +41,18 @@ export function verifyEdits(
     replacementText: string | undefined
 ) {
     for (const edit of fileEditActions.edits) {
+        const expected: FileEditAction[] = ranges.map((r) => convertRangeToFileEditAction(state, r, replacementText));
         assert(
-            ranges.some((r) => {
-                const data = r.marker?.data as { r: string } | undefined;
-                const expectedText = replacementText ?? data?.r ?? 'N/A';
-                const expectedRange = state.convertPositionRange(r);
+            expected.some((a) => {
                 return (
-                    r.fileName === edit.filePath &&
-                    rangesAreEqual(expectedRange, edit.range) &&
-                    expectedText.replace(/!n!/g, '\n') === edit.replacementText
+                    a.filePath === edit.filePath &&
+                    rangesAreEqual(a.range, edit.range) &&
+                    a.replacementText === edit.replacementText
                 );
             }),
-            `can't find '${replacementText ?? edit.replacementText}'@'${edit.filePath}:(${edit.range.start.line},${
-                edit.range.start.character
-            })'`
+            `can't find ${convertFileEditActionToString(edit)} in ${expected
+                .map((a) => convertFileEditActionToString(a))
+                .join('|')}`
         );
     }
 }
@@ -106,18 +119,11 @@ function _applyEdits(state: TestState, filePath: string, edits: FileEditAction[]
     const sourceFile = state.program.getBoundSourceFile(filePath)!;
     const parseResults = sourceFile.getParseResults()!;
 
-    const editsWithOffset = edits
-        .map((e) => ({
-            range: convertRangeToTextRange(e.range, parseResults.tokenizerOutput.lines)!,
-            text: e.replacementText,
-        }))
-        .sort((e1, e2) => e2.range.start - e1.range.start);
-
-    // Apply change in reverse order.
-    let current = parseResults.text;
-    for (const change of editsWithOffset) {
-        current = current.substr(0, change.range.start) + change.text + current.substr(TextRange.getEnd(change.range));
-    }
+    const current = applyTextEditActions(
+        parseResults.text,
+        edits.filter((e) => e.filePath === filePath),
+        parseResults.tokenizerOutput.lines
+    );
 
     return { version: sourceFile.getClientVersion(), text: current };
 }

@@ -103,6 +103,7 @@ function getEffectiveCommandLineOptions(
     commandLineOptions.typeCheckingMode = serverSettings.typeCheckingMode;
     commandLineOptions.autoImportCompletions = serverSettings.autoImportCompletions;
     commandLineOptions.indexing = serverSettings.indexing;
+    commandLineOptions.taskListTokens = serverSettings.taskListTokens;
     commandLineOptions.logTypeEvaluationTime = serverSettings.logTypeEvaluationTime ?? false;
     commandLineOptions.typeEvaluationTimeThreshold = serverSettings.typeEvaluationTimeThreshold ?? 50;
     commandLineOptions.enableAmbientAnalysis = trackFiles;
