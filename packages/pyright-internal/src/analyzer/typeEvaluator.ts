@@ -5841,6 +5841,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // If this function is an instance member (e.g. a lambda that was
                 // assigned to an instance variable), don't perform any binding.
                 if (!isAccessedThroughObject || (memberInfo && !memberInfo.isInstanceMember)) {
+                    // Skip binding if the class appears to be a metaclass (i.e. a subclass of
+                    // `type`) because the first parameter of instance methods in a metaclass
+                    // are not `self` instances.
+                    const isMetaclass =
+                        !isAccessedThroughObject &&
+                        isClass(baseTypeClass) &&
+                        (flags & MemberAccessFlags.TreatConstructorAsClassMethod) === 0 &&
+                        baseTypeClass.details.mro.some(
+                            (mroType) => isClass(mroType) && ClassType.isBuiltIn(mroType, 'type')
+                        );
+
+                    if (isMetaclass) {
+                        return concreteSubtype;
+                    }
+
                     return bindFunctionToClassOrObject(
                         isAccessedThroughObject ? ClassType.cloneAsInstance(baseTypeClass) : baseTypeClass,
                         concreteSubtype,
