@@ -7,7 +7,7 @@
  * Represents a single edit within a file.
  */
 
-import { Range } from './textRange';
+import { Range, rangesAreEqual } from './textRange';
 
 export interface TextEditAction {
     range: Range;
@@ -54,5 +54,14 @@ export namespace TextEditAction {
 export namespace FileEditAction {
     export function is(value: any): value is FileEditAction {
         return value.filePath !== undefined && TextEditAction.is(value);
+    }
+
+    export function areEqual(e1: FileEditAction, e2: FileEditAction) {
+        return (
+            e1 === e2 ||
+            (e1.filePath === e2.filePath &&
+                rangesAreEqual(e1.range, e2.range) &&
+                e1.replacementText === e2.replacementText)
+        );
     }
 }

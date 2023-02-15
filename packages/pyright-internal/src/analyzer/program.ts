@@ -21,17 +21,18 @@ import {
 
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
-import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { ConfigOptions, ExecutionEnvironment, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert, assertNever } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
-import { FileDiagnostics } from '../common/diagnosticSink';
-import { FileEditAction, FileEditActions, TextEditAction } from '../common/editAction';
-import { getExtensions } from '../common/extensibility';
+import { DiagnosticSink, FileDiagnostics } from '../common/diagnosticSink';
+import { FileEditAction, FileEditActions, FileOperations, TextEditAction } from '../common/editAction';
+import { Extensions } from '../common/extensibility';
 import { LogTracker } from '../common/logTracker';
 import {
     combinePaths,
     getDirectoryPath,
+    getFileExtension,
     getFileName,
     getRelativePath,
     isFile,
@@ -42,13 +43,22 @@ import {
 } from '../common/pathUtils';
 import { convertPositionToOffset, convertRangeToTextRange, convertTextRangeToRange } from '../common/positionUtils';
 import { computeCompletionSimilarity } from '../common/stringUtils';
-import { DocumentRange, doesRangeContain, doRangesIntersect, Position, Range } from '../common/textRange';
+import { applyTextEditActions } from '../common/textEditUtils';
+import {
+    DocumentRange,
+    doesRangeContain,
+    doRangesIntersect,
+    getEmptyRange,
+    Position,
+    Range,
+} from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
 import {
     AutoImporter,
     AutoImportOptions,
     AutoImportResult,
     buildModuleSymbolsMap,
+    ImportFormat,
     ModuleSymbolMap,
 } from '../languageService/autoImporter';
 import { CallHierarchyProvider } from '../languageService/callHierarchyProvider';
@@ -62,6 +72,9 @@ import { DefinitionFilter } from '../languageService/definitionProvider';
 import { DocumentSymbolCollector, DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
 import { IndexOptions, IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
+import { ImportAdder } from '../languageService/importAdder';
+import { getNewlineIndentation, reindentSpan } from '../languageService/indentationUtils';
+import { getInsertionPointForSymbolUnderModule } from '../languageService/insertionPointUtils';
 import { ReferenceCallback, ReferencesResult } from '../languageService/referencesProvider';
 import { RenameModuleProvider } from '../languageService/renameModuleProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
@@ -75,10 +88,10 @@ import { Declaration } from './declaration';
 import { getNameFromDeclaration } from './declarationUtils';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
-import { findNodeByOffset, getDocString } from './parseTreeUtils';
+import { findNodeByOffset, getDocString, getFullStatementRange, isBlankLine } from './parseTreeUtils';
 import { Scope } from './scope';
 import { getScopeForNode } from './scopeUtils';
-import { IPythonMode, SourceFile } from './sourceFile';
+import { IPythonMode, parseFile, SourceFile } from './sourceFile';
 import { isUserCode } from './sourceFileInfoUtils';
 import { isStubFile, SourceMapper } from './sourceMapper';
 import { Symbol } from './symbol';
@@ -181,6 +194,8 @@ export class Program {
     private _parsedFileCount = 0;
     private _preCheckCallback: PreCheckCallback | undefined;
     private _cacheManager: CacheManager;
+    private _id: number;
+    private static _nextId = 0;
 
     constructor(
         initialImportResolver: ImportResolver,
@@ -197,8 +212,9 @@ export class Program {
 
         this._cacheManager = cacheManager ?? new CacheManager();
         this._cacheManager.registerCacheOwner(this);
-
         this._createNewEvaluator();
+        this._id = Program._nextId;
+        Program._nextId += 1;
     }
 
     dispose() {
@@ -211,6 +227,10 @@ export class Program {
 
     get console(): ConsoleInterface {
         return this._console;
+    }
+
+    get id() {
+        return this._id;
     }
 
     setConfigOptions(configOptions: ConfigOptions) {
@@ -376,7 +396,9 @@ export class Program {
         sourceFileInfo.sourceFile.setClientVersion(version, contents);
 
         // Tell any extensions that this source file changed.
-        getExtensions().forEach((e) => (e.sourceFileChanged ? e.sourceFileChanged(sourceFileInfo!) : undefined));
+        Extensions.getProgramExtensions(filePath).forEach((e) =>
+            e.sourceFileChanged ? e.sourceFileChanged(sourceFileInfo!) : undefined
+        );
     }
 
     getChainedFilePath(filePath: string): string | undefined {
@@ -520,6 +542,17 @@ export class Program {
     containsSourceFileIn(folder: string): boolean {
         const normalized = normalizePathCase(this._fs, folder);
         return this._sourceFileList.some((i) => i.sourceFile.getFilePath().startsWith(normalized));
+    }
+
+    owns(filePath: string) {
+        const fileInfo = this.getSourceFileInfo(filePath);
+        if (fileInfo) {
+            // If we already determined whether the file is tracked or not, don't do it again.
+            // This will make sure we have consistent look at the state once it is loaded to the memory.
+            return fileInfo.isTracked;
+        }
+
+        return matchFileSpecs(this._configOptions, filePath);
     }
 
     getSourceFile(filePath: string): SourceFile | undefined {
@@ -1898,16 +1931,12 @@ export class Program {
             extensionInfo: completionResult?.extensionInfo,
         };
 
-        if (!getExtensions().some((e) => e.completionListExtension)) {
-            return completionResultsList;
-        }
-
         const parseResults = sourceFileInfo.sourceFile.getParseResults();
         if (parseResults?.parseTree && parseResults?.text) {
             const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
             if (offset !== undefined && sourceMapper) {
                 await Promise.all(
-                    getExtensions().map((e) =>
+                    Extensions.getProgramExtensions(parseResults.parseTree).map((e) =>
                         e.completionListExtension?.updateCompletionResults(
                             this.evaluator!,
                             sourceMapper!,
@@ -1995,11 +2024,45 @@ export class Program {
         filePath: string,
         newFilePath: string,
         position: Position,
+        options: { importFormat: ImportFormat },
+        token?: CancellationToken
+    ): FileEditActions | undefined {
+        if (CancellationToken.is(options)) {
+            return this._moveSymbolAtPosition(
+                filePath,
+                newFilePath,
+                position,
+                { importFormat: ImportFormat.Absolute },
+                options
+            );
+        }
+
+        return this._moveSymbolAtPosition(filePath, newFilePath, position, options, token!);
+    }
+
+    private _moveSymbolAtPosition(
+        filePath: string,
+        newFilePath: string,
+        position: Position,
+        options: { importFormat: ImportFormat },
         token: CancellationToken
     ): FileEditActions | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
+            const sourceFileExt = getFileExtension(filePath);
+            const destFileExt = getFileExtension(newFilePath);
+            if (sourceFileExt.toLowerCase() !== destFileExt.toLowerCase()) {
+                // Don't allow moving a symbol from py to pyi or vice versa.
+                return undefined;
+            }
+
             const fileInfo = this.getSourceFileInfo(filePath);
             if (!fileInfo) {
+                return undefined;
+            }
+
+            const newFileInfo = this.getBoundSourceFileInfo(newFilePath);
+            if (fileInfo === newFileInfo) {
+                // Can't move symbol to the same file.
                 return undefined;
             }
 
@@ -2048,8 +2111,125 @@ export class Program {
             }
 
             this._processModuleReferences(renameModuleProvider, node.value, filePath);
-            return { edits: renameModuleProvider.getEdits(), fileOperations: [] };
+
+            const sourceDecl = renameModuleProvider.declarations.find(
+                (d) => d.node && getFileExtension(d.path) === sourceFileExt
+            );
+            if (!sourceDecl) {
+                // Can't find symbol we can move.
+                return undefined;
+            }
+
+            const importAdder = new ImportAdder(this._configOptions, this._importResolver, this._evaluator!);
+            const collectedimports = importAdder.collectImportsForSymbolsUsed(parseResults, sourceDecl.node, token);
+
+            let insertionPoint: number | undefined = 0;
+            let insertionIndentation = 0;
+
+            const newFileParseResults = newFileInfo?.sourceFile.getParseResults();
+            if (newFileParseResults) {
+                // TODO: Add "insertAfter" option to make sure we insert symbol after that point.
+                //       For example, if collectedImports has symbols from the destination file, we should
+                //       insert after those symbols are defined.
+                const insertBefore = renameModuleProvider.tryGetFirstSymbolUsage(newFileParseResults);
+                insertionPoint = getInsertionPointForSymbolUnderModule(
+                    this._evaluator!,
+                    newFileParseResults,
+                    node.value,
+                    {
+                        symbolDeclToIgnore: sourceDecl.path,
+                        insertBefore,
+                    }
+                );
+                if (insertionPoint === undefined) {
+                    // No place to insert the symbol.
+                    return undefined;
+                }
+
+                insertionIndentation = getNewlineIndentation(newFileParseResults, insertionPoint);
+            }
+
+            const fileOperations: FileOperations[] = [];
+            renameModuleProvider.textEditTracker.addEdit(
+                filePath,
+                getFullStatementRange(sourceDecl.node, parseResults, { includeTrailingBlankLines: true }),
+                ''
+            );
+
+            let codeSnippetToInsert = reindentSpan(parseResults, sourceDecl.node, insertionIndentation);
+            if (newFileParseResults) {
+                // TODO: We need to "add import" statement for symbols defined in the destination file
+                //       if we couldn't find insertion point where all constraints are met.
+                //       For example, if the symbol we are moving is used before other symbols it references are declared.
+                importAdder.applyImportsTo(
+                    collectedimports,
+                    newFileParseResults,
+                    options.importFormat,
+                    renameModuleProvider.textEditTracker,
+                    token
+                );
+
+                const range = convertTextRangeToRange(
+                    { start: insertionPoint, length: 0 },
+                    newFileParseResults.tokenizerOutput.lines
+                );
+
+                // If we are adding at the end of line (ex, end of a file),
+                // add new lines.
+                const newLinesToAdd = _getNumberOfBlankLinesToInsert(newFileParseResults, range.end);
+                codeSnippetToInsert = '\n'.repeat(newLinesToAdd) + codeSnippetToInsert;
+
+                renameModuleProvider.textEditTracker.addEdit(newFilePath, range, codeSnippetToInsert);
+            } else {
+                fileOperations.push({ kind: 'create', filePath: newFilePath });
+
+                const tempParseResults = parseFile(
+                    this._configOptions,
+                    newFilePath,
+                    codeSnippetToInsert,
+                    IPythonMode.None,
+                    new DiagnosticSink()
+                );
+
+                const insertAddEdits = importAdder.applyImports(
+                    collectedimports,
+                    tempParseResults,
+                    insertionPoint,
+                    options.importFormat,
+                    token
+                );
+
+                const updateContent = applyTextEditActions(
+                    codeSnippetToInsert,
+                    insertAddEdits,
+                    tempParseResults.tokenizerOutput.lines
+                );
+
+                renameModuleProvider.textEditTracker.addEdit(newFilePath, getEmptyRange(), updateContent);
+            }
+
+            return {
+                edits: renameModuleProvider.getEdits(),
+                fileOperations,
+            };
         });
+
+        function _getNumberOfBlankLinesToInsert(parseResults: ParseResults, position: Position) {
+            // This basically try to add 2 blanks lines before previous line with text.
+            if (position.line === 0 && position.character === 0) {
+                return 0;
+            }
+
+            const linesToAdd =
+                position.line > 0 && isBlankLine(parseResults, position.line - 1)
+                    ? position.line > 1 && isBlankLine(parseResults, position.line - 2)
+                        ? 0
+                        : 1
+                    : 2;
+
+            // Add one more line for the line that position is on if it is not blank.
+            return position.character !== 0 ? linesToAdd + 1 : linesToAdd;
+        }
     }
 
     canRenameSymbolAtPosition(
@@ -2495,7 +2675,7 @@ export class Program {
                 continue;
             }
 
-            renameModuleProvider.renameReferences(filePath, parseResult);
+            renameModuleProvider.renameReferences(parseResult);
 
             // This operation can consume significant memory, so check
             // for situations where we need to discard the type cache.

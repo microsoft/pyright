@@ -1,5 +1,5 @@
 /*
- * moveSymbolAtPosition.test.ts
+ * moveSymbol.updateReference.test.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
@@ -12,10 +12,10 @@ import { testMoveSymbolAtPosition } from './renameModuleTestUtils';
 test('move symbol to another file - simple from import', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from [|{|"r":"moved"|}test|] import foo
@@ -27,10 +27,10 @@ test('move symbol to another file - simple from import', () => {
 test('move symbol to another file - nested file', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: nested/moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from [|{|"r":"nested.moved"|}test|] import foo
@@ -42,10 +42,10 @@ test('move symbol to another file - nested file', () => {
 test('move symbol to another file - parent file', () => {
     const code = `
 // @filename: nested/test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from [|{|"r":"moved"|}nested.test|] import foo
@@ -57,12 +57,12 @@ test('move symbol to another file - parent file', () => {
 test('move symbol to another file - multiple import', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
 ////
-//// def stay(): pass
+//// |]def stay(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":"from moved import foo!n!"|}|]from test import [|{|"r":""|}foo, |]stay
@@ -74,13 +74,13 @@ test('move symbol to another file - multiple import', () => {
 test('move symbol to another file - multiple import with submodules', () => {
     const code = `
 // @filename: nested/__init__.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: nested/test.py
 //// # empty
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":"from moved import foo!n!"|}|]from nested import [|{|"r":""|}foo, |]test
@@ -92,11 +92,10 @@ test('move symbol to another file - multiple import with submodules', () => {
 test('move symbol to another file - no merge with existing imports', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
-//// def stay(): pass
+//// def stay(): pass[|{|"r":"!n!!n!!n!def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from [|{|"r":"moved"|}test|] import foo
@@ -109,12 +108,11 @@ test('move symbol to another file - no merge with existing imports', () => {
 test('move symbol to another file - merge with existing imports', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
-//// def stay(): pass
+//// def stay(): pass[|{|"r":"!n!!n!!n!def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from test import bar[|{|"r":""|}, foo|]
@@ -127,12 +125,12 @@ test('move symbol to another file - merge with existing imports', () => {
 test('move symbol to another file - multiple import - nested folder', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
 ////
-//// def stay(): pass
+//// |]def stay(): pass
 
 // @filename: nested/moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":"from nested.moved import foo!n!"|}|]from test import [|{|"r":""|}foo, |]stay
@@ -144,13 +142,13 @@ test('move symbol to another file - multiple import - nested folder', () => {
 test('move symbol to another file - multiple import with submodules - parent folder', () => {
     const code = `
 // @filename: nested/__init__.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: nested/test.py
 //// # empty
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":"from moved import foo!n!"|}|]from nested import [|{|"r":""|}foo, |]test
@@ -162,11 +160,10 @@ test('move symbol to another file - multiple import with submodules - parent fol
 test('move symbol to another file - no merge with existing imports - nested folder', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: nested/moved.py
-//// [|/*dest*/|]
-//// def stay(): pass
+//// def stay(): pass[|{|"r":"!n!!n!!n!def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from [|{|"r":"nested.moved"|}test|] import foo
@@ -179,12 +176,11 @@ test('move symbol to another file - no merge with existing imports - nested fold
 test('move symbol to another file - merge with existing imports - nested folder', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: nested/moved.py
-//// [|/*dest*/|]
-//// def stay(): pass
+//// def stay(): pass[|{|"r":"!n!!n!!n!def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from test import bar[|{|"r":""|}, foo|]
@@ -197,12 +193,12 @@ test('move symbol to another file - merge with existing imports - nested folder'
 test('move symbol to another file - multiple import - parent folder', () => {
     const code = `
 // @filename: nested/test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
 ////
-//// def stay(): pass
+//// |]def stay(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":"from moved import foo!n!"|}|]from nested.test import [|{|"r":""|}foo, |]stay
@@ -214,13 +210,13 @@ test('move symbol to another file - multiple import - parent folder', () => {
 test('move symbol to another file - multiple import with submodules - sibling folder', () => {
     const code = `
 // @filename: nested/__init__.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: nested/test.py
 //// # empty
 
 // @filename: nested/moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from nested import [|{|"r":""|}foo, |]test[|{|"r":"!n!from nested.moved import foo"|}|]
@@ -232,11 +228,10 @@ test('move symbol to another file - multiple import with submodules - sibling fo
 test('move symbol to another file - no merge with existing imports - parent folder', () => {
     const code = `
 // @filename: nested/test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
-//// def stay(): pass
+//// def stay(): pass[|{|"r":"!n!!n!!n!def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from [|{|"r":"moved"|}nested.test|] import foo
@@ -249,12 +244,11 @@ test('move symbol to another file - no merge with existing imports - parent fold
 test('move symbol to another file - merge with existing imports - parent folder', () => {
     const code = `
 // @filename: nested/test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
-//// def stay(): pass
+//// def stay(): pass[|{|"r":"!n!!n!!n!def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from nested.test import bar[|{|"r":""|}, foo|]
@@ -267,10 +261,10 @@ test('move symbol to another file - merge with existing imports - parent folder'
 test('move symbol to another file - simple from import - relative path', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from [|{|"r":".moved"|}.test|] import foo
@@ -282,10 +276,10 @@ test('move symbol to another file - simple from import - relative path', () => {
 test('move symbol to another file - nested file - relative path', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: nested/moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: nested/used.py
 //// from [|{|"r":".moved"|}..test|] import foo
@@ -297,10 +291,10 @@ test('move symbol to another file - nested file - relative path', () => {
 test('move symbol to another file - parent file - relative path', () => {
     const code = `
 // @filename: nested/test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from [|{|"r":".moved"|}.nested.test|] import foo
@@ -312,12 +306,12 @@ test('move symbol to another file - parent file - relative path', () => {
 test('move symbol to another file - multiple import - relative path', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
 ////
-//// def stay(): pass
+//// |]def stay(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: nested/used.py
 //// [|{|"r":"from ..moved import foo!n!"|}|]from ..test import [|{|"r":""|}foo, |]stay
@@ -329,13 +323,13 @@ test('move symbol to another file - multiple import - relative path', () => {
 test('move symbol to another file - multiple import with submodules - relative path', () => {
     const code = `
 // @filename: nested/__init__.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: nested/test.py
 //// # empty
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":"from .moved import foo!n!"|}|]from .nested import [|{|"r":""|}foo, |]test
@@ -347,11 +341,10 @@ test('move symbol to another file - multiple import with submodules - relative p
 test('move symbol to another file - no merge with existing imports - relative path', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
-//// def stay(): pass
+//// def stay(): pass[|{|"r":"!n!!n!!n!def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from [|{|"r":".moved"|}.test|] import foo
@@ -364,12 +357,11 @@ test('move symbol to another file - no merge with existing imports - relative pa
 test('move symbol to another file - merge with existing imports - relative path', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
-//// def stay(): pass
+//// def stay(): pass[|{|"r":"!n!!n!!n!def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from .test import bar[|{|"r":""|}, foo|]
@@ -382,10 +374,10 @@ test('move symbol to another file - merge with existing imports - relative path'
 test('member off import', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// import [|{|"r":"moved"|}test|]
@@ -398,10 +390,10 @@ test('member off import', () => {
 test('member off import with existing import', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":""|}import test
@@ -415,10 +407,10 @@ test('member off import with existing import', () => {
 test('member off import with existing import with alias', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":""|}import test
@@ -432,10 +424,10 @@ test('member off import with existing import with alias', () => {
 test('member off import with existing import - multiple imports', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// import moved[|{|"r":""|}, test|]
@@ -448,10 +440,10 @@ test('member off import with existing import - multiple imports', () => {
 test('member off import with existing import - multiple imports with alias', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// import moved as m[|{|"r":""|}, test|]
@@ -464,10 +456,10 @@ test('member off import with existing import - multiple imports with alias', () 
 test('member off from import with existing import', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":""|}from . import test
@@ -481,10 +473,10 @@ test('member off from import with existing import', () => {
 test('member off from import with existing import with alias', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":""|}from . import test
@@ -498,10 +490,10 @@ test('member off from import with existing import with alias', () => {
 test('member off from import with existing from import', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":""|}from . import test
@@ -515,10 +507,10 @@ test('member off from import with existing from import', () => {
 test('member off from import with existing from import with alias', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":""|}from . import test
@@ -532,10 +524,10 @@ test('member off from import with existing from import with alias', () => {
 test('member off from import with existing import - multiple imports', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from . import moved[|{|"r":""|}, test|]
@@ -548,10 +540,10 @@ test('member off from import with existing import - multiple imports', () => {
 test('member off from import with existing import - multiple imports with alias', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from . import moved as m[|{|"r":""|}, test|]
@@ -564,10 +556,10 @@ test('member off from import with existing import - multiple imports with alias'
 test('member off submodule', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from . import [|{|"r":"moved"|}test|]
@@ -580,10 +572,10 @@ test('member off submodule', () => {
 test('member off import - dotted name', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: nested/moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// import [|{|"r":"nested.moved"|}test|]
@@ -596,10 +588,10 @@ test('member off import - dotted name', () => {
 test('member off submodule - dotted name', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: nested/moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from [|{|"r":".nested"|}.|] import [|{|"r":"moved"|}test|]
@@ -612,10 +604,10 @@ test('member off submodule - dotted name', () => {
 test('member off import with alias', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// import [|{|"r":"moved"|}test|] as t
@@ -628,10 +620,10 @@ test('member off import with alias', () => {
 test('member off submodule with alias', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from . import [|{|"r":"moved"|}test|] as test
@@ -644,10 +636,10 @@ test('member off submodule with alias', () => {
 test('member off import with alias - dotted name', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: nested/moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// import [|{|"r":"nested.moved"|}test|] as t
@@ -660,10 +652,10 @@ test('member off import with alias - dotted name', () => {
 test('member off submodule with alias - dotted name', () => {
     const code = `
 // @filename: nested/test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: sub/moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from [|{|"r":"sub"|}nested|] import [|{|"r":"moved"|}test|] as test
@@ -676,11 +668,11 @@ test('member off submodule with alias - dotted name', () => {
 test('member off import - multiple symbols', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":"import moved!n!"|}|]import test
@@ -694,11 +686,11 @@ test('member off import - multiple symbols', () => {
 test('member off import - multiple symbols - existing import', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// import moved
@@ -714,11 +706,11 @@ test('member off import - multiple symbols - existing import', () => {
 test('member off import - multiple symbols - existing import with alias', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// import moved as m
@@ -734,11 +726,11 @@ test('member off import - multiple symbols - existing import with alias', () => 
 test('member off import - multiple symbols with alias - existing import', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// import moved
@@ -754,11 +746,11 @@ test('member off import - multiple symbols with alias - existing import', () => 
 test('member off import - multiple symbols with alias - new import', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":"import moved!n!"|}|]import test as t
@@ -773,11 +765,11 @@ test('member off import - multiple symbols with alias - new import', () => {
 test('member off import - multiple symbols with alias - existing import with alias', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// import moved as m
@@ -793,11 +785,11 @@ test('member off import - multiple symbols with alias - existing import with ali
 test('member off import - multiple symbols - existing from import', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from . import moved
@@ -813,11 +805,11 @@ test('member off import - multiple symbols - existing from import', () => {
 test('member off import - multiple symbols - existing from import with alias', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from . import moved as m
@@ -833,11 +825,11 @@ test('member off import - multiple symbols - existing from import with alias', (
 test('member off import - multiple symbols - existing from import', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from . import moved
@@ -853,11 +845,11 @@ test('member off import - multiple symbols - existing from import', () => {
 test('member off import - multiple symbols - existing from import with alias', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from . import moved as m
@@ -873,11 +865,11 @@ test('member off import - multiple symbols - existing from import with alias', (
 test('member off from import - multiple symbols', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":"import moved!n!"|}|]from . import test
@@ -891,11 +883,11 @@ test('member off from import - multiple symbols', () => {
 test('member off from import - multiple symbols - existing import', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// import moved
@@ -911,11 +903,11 @@ test('member off from import - multiple symbols - existing import', () => {
 test('member off from import - multiple symbols - existing import with alias', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// import moved as m
@@ -931,11 +923,11 @@ test('member off from import - multiple symbols - existing import with alias', (
 test('member off from import - multiple symbols with alias - existing import', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// import moved
@@ -951,11 +943,11 @@ test('member off from import - multiple symbols with alias - existing import', (
 test('member off from import - multiple symbols with alias - new import', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// [|{|"r":"import moved!n!"|}|]from . import test as t
@@ -970,11 +962,11 @@ test('member off from import - multiple symbols with alias - new import', () => 
 test('member off from import - multiple symbols with alias - existing import with alias', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// import moved as m
@@ -990,11 +982,11 @@ test('member off from import - multiple symbols with alias - existing import wit
 test('member off from import - multiple symbols - existing from import', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from . import moved
@@ -1010,11 +1002,11 @@ test('member off from import - multiple symbols - existing from import', () => {
 test('member off from import - multiple symbols - existing from import with alias', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
-//// def bar(): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass
+//// |]def bar(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from . import moved as m
@@ -1032,13 +1024,13 @@ test('member off import - error case that we dont touch - function return module
     // for now, we won't handle such corner case.
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: test2.py
 //// def foo(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from test
@@ -1057,13 +1049,13 @@ test('member off import - error case that we dont touch - field return module', 
     // for now, we won't handle such corner case.
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|](): pass
+//// [|{|"r":""|}def [|/*marker*/foo|](): pass|]
 
 // @filename: test2.py
 //// def foo(): pass
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo(): pass", "name": "dest"|}|]
 
 // @filename: used.py
 //// from test
@@ -1079,17 +1071,112 @@ test('member off import - error case that we dont touch - field return module', 
 test('simple symbol reference', () => {
     const code = `
 // @filename: test.py
-//// def [|/*marker*/foo|]():
-////     return 1
+//// [|{|"r":""|}def [|/*marker*/foo|]():
+////     return 1|]
 
 // @filename: moved.py
-//// [|/*dest*/|]
+//// [|{|"r":"def foo():!n!    return 1", "name": "dest"|}|]
 
 // @filename: used.py
 //// from [|{|"r":"moved"|}test|] import foo
 ////
 //// foo()
 //// b = foo().real
+            `;
+
+    testFromCode(code);
+});
+
+test('handle __all__ - at the original file', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":""|}def [|/*marker*/foo|]():
+////     return 1
+//// |]__all__ = [[|{|"r":""|}"foo"|]]
+
+// @filename: moved.py
+//// [|{|"r":"def foo():!n!    return 1", "name": "dest"|}|]
+
+// @filename: used.py
+//// from [|{|"r":"moved"|}test|] import foo
+//// foo()
+//// b = foo().real
+////
+//// __all__ = ["foo"]
+            `;
+
+    testFromCode(code);
+});
+
+test('handle wildcard import - new import', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":""|}def [|/*marker*/foo|]():
+////     return 1|]
+
+// @filename: moved.py
+//// [|{|"r":"def foo():!n!    return 1", "name": "dest"|}|]
+
+// @filename: used.py
+//// [|{|"r":"from moved import foo!n!"|}|]from test import *
+//// foo()
+//// b = foo().real
+            `;
+
+    testFromCode(code);
+});
+
+test('handle wildcard import with existing import', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":""|}def [|/*marker*/foo|]():
+////     return 1|]
+
+// @filename: moved.py
+//// def bar():
+////     pass[|{|"r":"!n!!n!!n!def foo():!n!    return 1", "name": "dest"|}|]
+
+// @filename: used.py
+//// from moved import bar[|{|"r":", foo"|}|]
+//// from test import *
+//// foo()
+//// b = foo().real
+            `;
+
+    testFromCode(code);
+});
+
+test('handle wildcard import with existing wildcard import', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":""|}def [|/*marker*/foo|]():
+////     return 1|]
+
+// @filename: moved.py
+//// def bar():
+////     pass[|{|"r":"!n!!n!!n!def foo():!n!    return 1", "name": "dest"|}|]
+
+// @filename: used.py
+//// from moved import *[|{|"r":"!n!from moved import foo"|}|]
+//// from test import *
+//// foo()
+//// b = foo().real
+            `;
+
+    testFromCode(code);
+});
+
+test('handle wildcard import in destination file', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":""|}def [|/*marker*/foo|]():
+////     return 1|]
+
+// @filename: moved.py
+//// from test import *
+////
+//// def bar():
+////     pass[|{|"r":"!n!!n!!n!def foo():!n!    return 1", "name": "dest"|}|]
             `;
 
     testFromCode(code);

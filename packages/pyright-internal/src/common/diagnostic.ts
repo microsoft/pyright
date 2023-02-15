@@ -16,6 +16,18 @@ const defaultMaxDepth = 5;
 const defaultMaxLineCount = 8;
 const maxRecursionCount = 64;
 
+// Corresponds to the CommentTaskPriority enum at https://devdiv.visualstudio.com/DefaultCollection/DevDiv/_git/VS?path=src/env/shell/PackageFramework/Framework/CommentTaskPriority.cs
+export enum TaskListPriority {
+    High = 'High',
+    Normal = 'Normal',
+    Low = 'Low',
+}
+
+export interface TaskListToken {
+    text: string;
+    priority: TaskListPriority;
+}
+
 export const enum ActionKind {
     RenameShadowedFileAction = 'renameShadowedFile',
 }
@@ -27,6 +39,7 @@ export const enum DiagnosticCategory {
     UnusedCode,
     UnreachableCode,
     Deprecated,
+    TaskItem,
 }
 
 export function convertLevelToCategory(level: DiagnosticLevel) {
@@ -74,6 +87,7 @@ export interface DiagnosticRelatedInfo {
     message: string;
     filePath: string;
     range: Range;
+    priority: TaskListPriority;
 }
 
 // Represents a single error or warning.
@@ -82,7 +96,12 @@ export class Diagnostic {
     private _rule: string | undefined;
     private _relatedInfo: DiagnosticRelatedInfo[] = [];
 
-    constructor(readonly category: DiagnosticCategory, readonly message: string, readonly range: Range) {}
+    constructor(
+        readonly category: DiagnosticCategory,
+        readonly message: string,
+        readonly range: Range,
+        readonly priority: TaskListPriority = TaskListPriority.Normal
+    ) {}
 
     addAction(action: DiagnosticAction) {
         if (this._actions === undefined) {
@@ -104,8 +123,13 @@ export class Diagnostic {
         return this._rule;
     }
 
-    addRelatedInfo(message: string, filePath: string, range: Range) {
-        this._relatedInfo.push({ filePath, message, range });
+    addRelatedInfo(
+        message: string,
+        filePath: string,
+        range: Range,
+        priority: TaskListPriority = TaskListPriority.Normal
+    ) {
+        this._relatedInfo.push({ filePath, message, range, priority });
     }
 
     getRelatedInfo() {

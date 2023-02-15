@@ -8,27 +8,52 @@
 
 import { CancellationToken, CodeAction, ExecuteCommandParams } from 'vscode-languageserver';
 
+import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { Declaration } from '../analyzer/declaration';
-import { ParseTreeVisitor } from '../analyzer/parseTreeWalker';
+import { ImportResolver } from '../analyzer/importResolver';
 import { SourceFileInfo } from '../analyzer/program';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { Type } from '../analyzer/types';
-import { WorkspaceServiceInstance } from '../languageServerBase';
+import { LanguageServerBase } from '../languageServerBase';
 import { CompletionOptions, CompletionResultsList } from '../languageService/completionProvider';
 import { FunctionNode, ParameterNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { SignatureDisplayType } from './configOptions';
+import { ConfigOptions, SignatureDisplayType } from './configOptions';
+import { ConsoleInterface } from './console';
 import { Range } from './textRange';
 
 export interface LanguageServiceExtension {
-    readonly completionListExtension?: CompletionListExtension;
     readonly commandExtension?: CommandExtension;
+}
+
+export interface ProgramExtension {
+    readonly completionListExtension?: CompletionListExtension;
     readonly declarationProviderExtension?: DeclarationProviderExtension;
-    readonly nodeCheckerExtension?: NodeCheckerExtension;
     readonly typeProviderExtension?: TypeProviderExtension;
     readonly codeActionExtension?: CodeActionExtension;
     sourceFileChanged?: (sourceFileInfo: SourceFileInfo) => void;
+}
+
+// Readonly wrapper around a Program. Makes sure it doesn't mutate the program.
+export interface ProgramView {
+    readonly id: number;
+    rootPath: string;
+    getImportResolver(): ImportResolver;
+    console: ConsoleInterface;
+    getConfigOptions(): ConfigOptions;
+    owns(file: string): boolean;
+    getBoundSourceFileInfo(file: string): SourceFileInfo | undefined;
+}
+
+// Mutable wrapper around a program. Allows the FG thread to forward this request to the BG thread
+export interface ProgramMutator {
+    addTrackedFile(file: string, isThirdPartyImport: boolean): void;
+}
+
+export interface ExtensionFactory {
+    createProgramExtension: (view: ProgramView, mutator: ProgramMutator) => ProgramExtension;
+    createLanguageServiceExtension: (languageserver: LanguageServerBase) => LanguageServiceExtension;
 }
 
 export interface CommandExtension {
@@ -64,8 +89,6 @@ export interface DeclarationProviderExtension {
     tryGetDeclarations(node: ParseNode, useCase: DeclarationUseCase, token: CancellationToken): Declaration[];
 }
 
-export class NodeCheckerExtension extends ParseTreeVisitor<void> {}
-
 export interface TypeProviderExtension {
     tryGetParameterNodeType(
         node: ParameterNode,
@@ -78,7 +101,6 @@ export interface TypeProviderExtension {
 
 export interface CodeActionExtension {
     addCodeActions(
-        workspace: WorkspaceServiceInstance,
         filePath: string,
         range: Range,
         parseResults: ParseResults,
@@ -87,16 +109,75 @@ export interface CodeActionExtension {
     ): void;
 }
 
-const extensionList: LanguageServiceExtension[] = [];
-
-export function registerExtensions(extensions: LanguageServiceExtension[]) {
-    extensionList.push(...extensions);
+interface OwnedProgramExtension extends ProgramExtension {
+    readonly view: ProgramView;
 }
 
-export function unregisterExtensions() {
-    extensionList.splice(0, extensionList.length);
+interface OwnedLanguageServiceExtension extends LanguageServiceExtension {
+    readonly owner: LanguageServerBase;
 }
 
-export function getExtensions(): LanguageServiceExtension[] {
-    return extensionList;
+export namespace Extensions {
+    const factories: ExtensionFactory[] = [];
+    let programExtensions: OwnedProgramExtension[] = [];
+    let languageServiceExtensions: OwnedLanguageServiceExtension[] = [];
+
+    export function register(entries: ExtensionFactory[]) {
+        factories.push(...entries);
+    }
+    export function createProgramExtensions(view: ProgramView, mutator: ProgramMutator) {
+        programExtensions.push(
+            ...(factories
+                .map((s) => {
+                    let result = s.createProgramExtension ? s.createProgramExtension(view, mutator) : undefined;
+                    if (result) {
+                        // Add the extra parameter that we use for finding later.
+                        result = Object.defineProperty(result, 'view', { value: view });
+                    }
+                    return result;
+                })
+                .filter((s) => !!s) as OwnedProgramExtension[])
+        );
+    }
+
+    export function destroyProgramExtensions(viewId: number) {
+        programExtensions = programExtensions.filter((s) => s.view.id !== viewId);
+    }
+
+    export function createLanguageServiceExtensions(languageServer: LanguageServerBase) {
+        languageServiceExtensions.push(
+            ...(factories
+                .map((s) => {
+                    let result = s.createLanguageServiceExtension
+                        ? s.createLanguageServiceExtension(languageServer)
+                        : undefined;
+                    if (result) {
+                        // Add the extra parameter that we use for finding later.
+                        result = Object.defineProperty(result, 'owner', { value: languageServer });
+                    }
+                    return result;
+                })
+                .filter((s) => !!s) as OwnedLanguageServiceExtension[])
+        );
+    }
+
+    export function destroyLanguageServiceExtensions(languageServer: LanguageServerBase) {
+        languageServiceExtensions = languageServiceExtensions.filter((s) => s.owner !== languageServer);
+    }
+
+    export function getProgramExtensions(nodeOrFilePath: ParseNode | string) {
+        const filePath =
+            typeof nodeOrFilePath === 'string' ? nodeOrFilePath.toString() : getFileInfo(nodeOrFilePath).filePath;
+        return programExtensions.filter((s) => s.view?.owns(filePath)) as ProgramExtension[];
+    }
+
+    export function getLanguageServiceExtensions() {
+        return languageServiceExtensions as LanguageServiceExtension[];
+    }
+
+    export function unregister() {
+        programExtensions.splice(0, programExtensions.length);
+        languageServiceExtensions.splice(0, languageServiceExtensions.length);
+        factories.splice(0, factories.length);
+    }
 }

@@ -43,10 +43,29 @@ export interface FileSpec {
     hasDirectoryWildcard: boolean;
 }
 
+const _includeFileRegex = /\.pyi?$/;
+
 export namespace FileSpec {
     export function is(value: any): value is FileSpec {
         const candidate: FileSpec = value as FileSpec;
         return candidate && !!candidate.wildcardRoot && !!candidate.regExp;
+    }
+    export function isInPath(path: string, paths: FileSpec[]) {
+        return !!paths.find((p) => p.regExp.test(path));
+    }
+
+    export function matchesIncludeFileRegex(filePath: string, isFile = true) {
+        return isFile ? _includeFileRegex.test(filePath) : true;
+    }
+
+    export function matchIncludeFileSpec(includeRegExp: RegExp, exclude: FileSpec[], filePath: string, isFile = true) {
+        if (includeRegExp.test(filePath)) {
+            if (!FileSpec.isInPath(filePath, exclude) && FileSpec.matchesIncludeFileRegex(filePath, isFile)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

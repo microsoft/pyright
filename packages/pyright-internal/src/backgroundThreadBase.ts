@@ -88,6 +88,7 @@ export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
     configOptions.executionEnvironments = jsonObject.executionEnvironments;
     configOptions.autoImportCompletions = jsonObject.autoImportCompletions;
     configOptions.indexing = jsonObject.indexing;
+    configOptions.taskListTokens = jsonObject.taskListTokens;
     configOptions.logTypeEvaluationTime = jsonObject.logTypeEvaluationTime;
     configOptions.typeEvaluationTimeThreshold = jsonObject.typeEvaluationTimeThreshold;
     configOptions.include = jsonObject.include.map((f: any) => getFileSpec(f));
