@@ -435,12 +435,12 @@ const binaryOperatorMap: { [operator: number]: [string, string] } = {
     [OperatorType.BitwiseXor]: ['__xor__', '__rxor__'],
     [OperatorType.LeftShift]: ['__lshift__', '__rlshift__'],
     [OperatorType.RightShift]: ['__rshift__', '__rrshift__'],
-    [OperatorType.Equals]: ['__eq__', '__ne__'],
-    [OperatorType.NotEquals]: ['__ne__', '__eq__'],
-    [OperatorType.LessThan]: ['__lt__', '__ge__'],
-    [OperatorType.LessThanOrEqual]: ['__le__', '__gt__'],
-    [OperatorType.GreaterThan]: ['__gt__', '__le__'],
-    [OperatorType.GreaterThanOrEqual]: ['__ge__', '__lt__'],
+    [OperatorType.Equals]: ['__eq__', '__eq__'],
+    [OperatorType.NotEquals]: ['__ne__', '__ne__'],
+    [OperatorType.LessThan]: ['__lt__', '__gt__'],
+    [OperatorType.LessThanOrEqual]: ['__le__', '__ge__'],
+    [OperatorType.GreaterThan]: ['__gt__', '__lt__'],
+    [OperatorType.GreaterThanOrEqual]: ['__ge__', '__le__'],
 };
 
 // Map of operators that always return a bool result.
