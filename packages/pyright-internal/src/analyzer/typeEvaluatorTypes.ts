@@ -12,7 +12,7 @@ import { CancellationToken } from 'vscode-languageserver-protocol';
 
 import { DiagnosticLevel } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
-import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
+import { Diagnostic, DiagnosticAddendum, DiagnosticIdentifier } from '../common/diagnostic';
 import { TextRange } from '../common/textRange';
 import {
     ArgumentCategory,
@@ -516,6 +516,7 @@ export interface TypeEvaluator {
         rule: string,
         message: string,
         node: ParseNode,
+        identifier: DiagnosticIdentifier,
         range?: TextRange
     ) => Diagnostic | undefined;
     addDiagnosticForTextRange: (
@@ -523,7 +524,8 @@ export interface TypeEvaluator {
         diagLevel: DiagnosticLevel,
         rule: string,
         message: string,
-        range: TextRange
+        range: TextRange,
+        identifier: DiagnosticIdentifier
     ) => Diagnostic | undefined;
 
     printType: (type: Type, options?: PrintTypeOptions) => string;

@@ -22,7 +22,7 @@ import { appendArray } from '../common/collectionUtils';
 import { DiagnosticLevel } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
 import { assert, assertNever, fail } from '../common/debug';
-import { AddMissingOptionalToParamAction, DiagnosticAddendum } from '../common/diagnostic';
+import { AddMissingOptionalToParamAction, DiagnosticAddendum, DiagnosticIdentifier } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange, convertOffsetToPosition } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
@@ -2936,24 +2936,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return addDiagnosticWithSuppressionCheck('error', message, node, range);
     }
 
-    function addUnusedCode(node: ParseNode, textRange: TextRange) {
+    function addUnusedCode(node: ParseNode, textRange: TextRange, id: DiagnosticIdentifier) {
         if (!isDiagnosticSuppressedForNode(node)) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-            fileInfo.diagnosticSink.addUnusedCodeWithTextRange(Localizer.Diagnostic.unreachableCode(), textRange);
+            fileInfo.diagnosticSink.addUnusedCodeWithTextRange(Localizer.Diagnostic.unreachableCode(), textRange, id);
         }
     }
 
-    function addUnreachableCode(node: ParseNode, textRange: TextRange) {
+    function addUnreachableCode(node: ParseNode, textRange: TextRange, id: DiagnosticIdentifier) {
         if (!isDiagnosticSuppressedForNode(node)) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-            fileInfo.diagnosticSink.addUnreachableCodeWithTextRange(Localizer.Diagnostic.unreachableCode(), textRange);
+            fileInfo.diagnosticSink.addUnreachableCodeWithTextRange(
+                Localizer.Diagnostic.unreachableCode(),
+                textRange,
+                id
+            );
         }
     }
 
-    function addDeprecated(message: string, node: ParseNode) {
+    function addDeprecated(message: string, node: ParseNode, id: DiagnosticIdentifier) {
         if (!isDiagnosticSuppressedForNode(node)) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-            fileInfo.diagnosticSink.addDeprecatedWithTextRange(message, node);
+            fileInfo.diagnosticSink.addDeprecatedWithTextRange(message, node, id);
         }
     }
 
@@ -3017,13 +3021,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         diagLevel: DiagnosticLevel,
         rule: string,
         message: string,
+        id: DiagnosticIdentifier,
         range: TextRange
     ) {
         if (diagLevel === 'none') {
             return undefined;
         }
 
-        const diagnostic = fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range);
+        const diagnostic = fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range, id);
         if (rule) {
             diagnostic.setRule(rule);
         }

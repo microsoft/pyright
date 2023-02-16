@@ -9,7 +9,7 @@
 
 import { appendArray } from './collectionUtils';
 import { DiagnosticLevel } from './configOptions';
-import { Diagnostic, DiagnosticAction, DiagnosticCategory } from './diagnostic';
+import { Diagnostic, DiagnosticAction, DiagnosticCategory, DiagnosticIdentifier } from './diagnostic';
 import { convertOffsetsToRange } from './positionUtils';
 import { hashString } from './stringUtils';
 import { Range, TextRange } from './textRange';
@@ -39,36 +39,36 @@ export class DiagnosticSink {
         return prevDiagnostics;
     }
 
-    addError(message: string, range: Range) {
-        return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Error, message, range));
+    addError(message: string, range: Range, id: DiagnosticIdentifier) {
+        return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Error, message, range, id));
     }
 
-    addWarning(message: string, range: Range) {
-        return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Warning, message, range));
+    addWarning(message: string, range: Range, id: DiagnosticIdentifier) {
+        return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Warning, message, range, id));
     }
 
-    addInformation(message: string, range: Range) {
-        return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Information, message, range));
+    addInformation(message: string, range: Range, id: DiagnosticIdentifier) {
+        return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Information, message, range, id));
     }
 
-    addUnusedCode(message: string, range: Range, action?: DiagnosticAction) {
-        const diag = new Diagnostic(DiagnosticCategory.UnusedCode, message, range);
+    addUnusedCode(message: string, range: Range, id: DiagnosticIdentifier, action?: DiagnosticAction) {
+        const diag = new Diagnostic(DiagnosticCategory.UnusedCode, message, range, id);
         if (action) {
             diag.addAction(action);
         }
         return this.addDiagnostic(diag);
     }
 
-    addUnreachableCode(message: string, range: Range, action?: DiagnosticAction) {
-        const diag = new Diagnostic(DiagnosticCategory.UnreachableCode, message, range);
+    addUnreachableCode(message: string, range: Range, id: DiagnosticIdentifier, action?: DiagnosticAction) {
+        const diag = new Diagnostic(DiagnosticCategory.UnreachableCode, message, range, id);
         if (action) {
             diag.addAction(action);
         }
         return this.addDiagnostic(diag);
     }
 
-    addDeprecated(message: string, range: Range, action?: DiagnosticAction) {
-        const diag = new Diagnostic(DiagnosticCategory.Deprecated, message, range);
+    addDeprecated(message: string, range: Range, id: DiagnosticIdentifier, action?: DiagnosticAction) {
+        const diag = new Diagnostic(DiagnosticCategory.Deprecated, message, range, id);
         if (action) {
             diag.addAction(action);
         }
@@ -127,43 +127,51 @@ export class TextRangeDiagnosticSink extends DiagnosticSink {
         this._lines = lines;
     }
 
-    addDiagnosticWithTextRange(level: DiagnosticLevel, message: string, range: TextRange) {
+    addDiagnosticWithTextRange(level: DiagnosticLevel, message: string, range: TextRange, id: DiagnosticIdentifier) {
         const positionRange = convertOffsetsToRange(range.start, range.start + range.length, this._lines);
         switch (level) {
             case 'error':
-                return this.addError(message, positionRange);
+                return this.addError(message, positionRange, id);
 
             case 'warning':
-                return this.addWarning(message, positionRange);
+                return this.addWarning(message, positionRange, id);
 
             case 'information':
-                return this.addInformation(message, positionRange);
+                return this.addInformation(message, positionRange, id);
 
             default:
                 throw new Error(`${level} is not expected value`);
         }
     }
 
-    addUnusedCodeWithTextRange(message: string, range: TextRange, action?: DiagnosticAction) {
+    addUnusedCodeWithTextRange(message: string, range: TextRange, id: DiagnosticIdentifier, action?: DiagnosticAction) {
         return this.addUnusedCode(
             message,
             convertOffsetsToRange(range.start, range.start + range.length, this._lines),
+            id,
             action
         );
     }
 
-    addUnreachableCodeWithTextRange(message: string, range: TextRange, action?: DiagnosticAction) {
+    addUnreachableCodeWithTextRange(
+        message: string,
+        range: TextRange,
+        id: DiagnosticIdentifier,
+        action?: DiagnosticAction
+    ) {
         return this.addUnreachableCode(
             message,
             convertOffsetsToRange(range.start, range.start + range.length, this._lines),
+            id,
             action
         );
     }
 
-    addDeprecatedWithTextRange(message: string, range: TextRange, action?: DiagnosticAction) {
+    addDeprecatedWithTextRange(message: string, range: TextRange, id: DiagnosticIdentifier, action?: DiagnosticAction) {
         return this.addDeprecated(
             message,
             convertOffsetsToRange(range.start, range.start + range.length, this._lines),
+            id,
             action
         );
     }
