@@ -1375,7 +1375,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     Localizer.Diagnostic.expectedTypeNotString(),
-                    node
+                    node,
+                    DiagnosticIdentifier.ExpectedTypeNotString
                 );
                 typeResult = { type: UnknownType.create() };
             }
@@ -1605,7 +1606,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.moduleAsType(),
-                node
+                node,
+                DiagnosticIdentifier.ModuleAsType
             );
         }
 
@@ -1986,7 +1988,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.classDefinitionCycle().format({ name: classType.details.name }),
-                errorNode
+                errorNode,
+                DiagnosticIdentifier.ClassDefinitionCycle
             );
             return { type: UnknownType.create() };
         }
@@ -2022,7 +2025,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         memberName,
                         className: memberInfo.classType.details.name,
                     }),
-                    errorNode
+                    errorNode,
+                    DiagnosticIdentifier.ProtocolMemberNotClassVar
                 );
             }
         }
@@ -2476,7 +2480,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     Localizer.Diagnostic.typeNotAwaitable().format({ type: printType(subtype) }),
-                    errorNode
+                    errorNode,
+                    DiagnosticIdentifier.TypeNotAwaitable
                 );
             }
 
@@ -2965,11 +2970,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         diagLevel: DiagnosticLevel,
         message: string,
         node: ParseNode,
+        id: DiagnosticIdentifier,
         range?: TextRange
     ) {
         if (!isDiagnosticSuppressedForNode(node) && isNodeReachable(node)) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-            return fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range || node);
+            return fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range || node, id);
         }
 
         return undefined;
@@ -2987,6 +2993,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         rule: string,
         message: string,
         node: ParseNode,
+        id: DiagnosticIdentifier,
         range?: TextRange
     ) {
         if (diagLevel === 'none') {
@@ -3008,7 +3015,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const diagnostic = addDiagnosticWithSuppressionCheck(diagLevel, message, node, range);
+        const diagnostic = addDiagnosticWithSuppressionCheck(diagLevel, message, node, id, range);
         if (diagnostic) {
             diagnostic.setRule(rule);
         }

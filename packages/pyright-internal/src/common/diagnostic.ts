@@ -90,12 +90,13 @@ export interface DiagnosticRelatedInfo {
     priority: TaskListPriority;
 }
 
-// Unique identifiers for every type of diagnostic produced. 
-// 
+// Unique identifiers for every type of diagnostic produced.
+//
 // This is used to generate links for describing these errors and allows for a non localized
 // method for lookup by users.
 //
 // Note this is why it's a const enum. The links use the number, not the text.
+
 export const enum DiagnosticIdentifier {
     CodeTooComplex = 1000,
     NamedParamAfterParamSpecArgs,
@@ -253,6 +254,15 @@ export const enum DiagnosticIdentifier {
     UnnecessaryIsInstanceAlways,
     UnnecessaryIsSubclassAlways,
     DeprecatedClass,
+    DeprecatedFunction,
+    DeprecatedType,
+    SymbolIsUnbound,
+    SymbolIsPossiblyUnbound,
+    ExpectedTypeNotString,
+    ModuleAsType,
+    ClassDefinitionCycle,
+    ProtocolMemberNotClassVar,
+    TypeNotAwaitable,
 }
 // Represents a single error or warning.
 export class Diagnostic {
