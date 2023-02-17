@@ -5909,15 +5909,18 @@ export class Checker extends ParseTreeWalker {
 
         const typeVarContext = new TypeVarContext(getTypeVarScopeId(functionType));
         if (!this._evaluator.assignType(paramType, expectedType, /* diag */ undefined, typeVarContext)) {
-            this._evaluator.addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.clsSelfParamTypeMismatch().format({
-                    name: paramInfo.name,
-                    classType: this._evaluator.printType(expectedType),
-                }),
-                paramInfo.typeAnnotation
-            );
+            // We exempt Never from this check because it has a legitimate use in this case.
+            if (!isNever(paramType)) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.clsSelfParamTypeMismatch().format({
+                        name: paramInfo.name,
+                        classType: this._evaluator.printType(expectedType),
+                    }),
+                    paramInfo.typeAnnotation
+                );
+            }
         }
     }
 
