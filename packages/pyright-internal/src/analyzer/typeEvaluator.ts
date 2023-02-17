@@ -18005,7 +18005,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                             isIncomplete = true;
                                         }
 
-                                        inferredReturnTypes.push(returnTypeResult.type ?? UnknownType.create());
+                                        let returnType = returnTypeResult.type;
+
+                                        // If the return type includes an instance of a class with isEmptyContainer
+                                        // set, clear that because we don't want this flag to "leak" into the
+                                        // inferred return type.
+                                        returnType = mapSubtypes(returnType, (subtype) => {
+                                            if (isClassInstance(subtype) && subtype.isEmptyContainer) {
+                                                return ClassType.cloneForSpecialization(
+                                                    subtype,
+                                                    subtype.typeArguments,
+                                                    !!subtype.isTypeArgumentExplicit,
+                                                    subtype.includeSubclasses,
+                                                    subtype.tupleTypeArguments,
+                                                    /* isEmptyContainer */ false
+                                                );
+                                            }
+                                            return subtype;
+                                        });
+
+                                        inferredReturnTypes.push(returnType);
                                     } else {
                                         inferredReturnTypes.push(NoneType.createInstance());
                                     }
