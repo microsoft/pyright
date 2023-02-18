@@ -217,10 +217,9 @@ function getDocumentationPartForTypeAlias(
         const enclosingFunctionType = enclosingFunctionNode ? evaluator.getTypeOfFunction(enclosingFunctionNode)?.functionType : undefined;
         const functionDoc = enclosingFunctionType ? getFunctionDocStringFromType(enclosingFunctionType, sourceMapper, evaluator) : undefined;
         const paramName = resolvedDecl.node.name?.value;
-        const doc = functionDoc && paramName ? extractParameterDocumentation(functionDoc, paramName) : undefined;
-        console.log("DOC", doc);
-        if (doc) {
-            return doc;
+        const paramDoc = functionDoc && paramName ? extractParameterDocumentation(functionDoc, paramName) : undefined;
+        if (paramDoc) {
+            return paramDoc;
         }
     } 
     return undefined;
