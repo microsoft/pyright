@@ -9,6 +9,7 @@
  */
 
 import { Declaration, DeclarationType, VariableDeclaration } from '../analyzer/declaration';
+import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol } from '../analyzer/symbol';
@@ -211,7 +212,17 @@ function getDocumentationPartForTypeAlias(
         if (doc) {
             return doc;
         }
-    }
+    } else if (resolvedDecl?.type === DeclarationType.Parameter) {
+        const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(resolvedDecl.node);
+        const enclosingFunctionType = enclosingFunctionNode ? evaluator.getTypeOfFunction(enclosingFunctionNode)?.functionType : undefined;
+        const functionDoc = enclosingFunctionType ? getFunctionDocStringFromType(enclosingFunctionType, sourceMapper, evaluator) : undefined;
+        const paramName = resolvedDecl.node.name?.value;
+        const doc = functionDoc && paramName ? extractParameterDocumentation(functionDoc, paramName) : undefined;
+        console.log("DOC", doc);
+        if (doc) {
+            return doc;
+        }
+    } 
     return undefined;
 }
 

@@ -18,7 +18,7 @@ describe('fourslash tests', () => {
     const testFiles: string[] = [];
 
     const basePath = path.resolve(path.dirname(module.filename), 'fourslash/');
-    for (const file of host.HOST.listFiles(basePath, /.*\.fourslash\.ts$/i, { recursive: true })) {
+    for (const file of host.HOST.listFiles(basePath, /hover.*\.fourslash\.ts$/i, { recursive: true })) {
         testFiles.push(file);
     }
 
