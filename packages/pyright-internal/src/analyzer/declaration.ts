@@ -174,6 +174,9 @@ export interface VariableDeclaration extends DeclarationBase {
 
     // If an "attribute docstring" (as defined in PEP 258) is present...
     docString?: string | undefined;
+
+    // If set, indicates an alternative node to use to determine the type of the variable.
+    alternativeTypeNode?: ExpressionNode;
 }
 
 // Alias declarations are used for imports. They are resolved

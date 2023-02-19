@@ -679,6 +679,12 @@ function narrowTypeBasedOnClassPattern(
     );
 }
 
+// Some built-in classes are treated as special cases for the class pattern
+// if a positional argument is used.
+function isClassSpecialCaseForClassPattern(classType: ClassType) {
+    return classPatternSpecialCases.some((className) => classType.details.fullName === className);
+}
+
 // Narrows the pattern provided for a class pattern argument.
 function narrowTypeOfClassPatternArgument(
     evaluator: TypeEvaluator,
@@ -704,15 +710,30 @@ function narrowTypeOfClassPatternArgument(
         return UnknownType.create();
     }
 
-    const useSelfForPattern =
-        isClass(matchType) &&
-        classPatternSpecialCases.some((className) => matchType.details.fullName === className) &&
-        argIndex === 0 &&
-        !arg.name;
+    // According to PEP 634, some built-in types use themselves as the subject
+    // for the first positional argument to a class pattern. Although the PEP does
+    // state so explicitly, this is true of subclasses of these built-in classes
+    // if the subclass doesn't define its own __match_args__.
+    let useSelfForPattern = false;
+    let selfForPatternType = matchType;
+
+    if (!arg.name && isClass(matchType) && argIndex === 0) {
+        if (isClassSpecialCaseForClassPattern(matchType)) {
+            useSelfForPattern = true;
+        } else if (positionalArgNames.length === 0) {
+            matchType.details.mro.forEach((mroClass) => {
+                if (isClass(mroClass) && isClassSpecialCaseForClassPattern(mroClass)) {
+                    selfForPatternType = mroClass;
+                    useSelfForPattern = true;
+                }
+            });
+        }
+    }
 
     let argType: Type | undefined;
+
     if (useSelfForPattern) {
-        argType = ClassType.cloneAsInstance(matchType);
+        argType = ClassType.cloneAsInstance(selfForPatternType);
     } else {
         if (argName) {
             argType = evaluator.useSpeculativeMode(arg, () =>

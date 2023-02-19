@@ -22,7 +22,7 @@ import { doForEachSubtype } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
-import { DeclarationUseCase, getExtensions } from '../common/extensibility';
+import { DeclarationUseCase, Extensions } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
@@ -68,7 +68,7 @@ export class DefinitionProvider {
         const definitions: DocumentRange[] = [];
 
         // Let extensions have a try first.
-        getExtensions().forEach((e) => {
+        Extensions.getProgramExtensions(node).forEach((e) => {
             if (e.declarationProviderExtension) {
                 const declarations = e.declarationProviderExtension.tryGetDeclarations(
                     node,

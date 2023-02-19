@@ -12,6 +12,34 @@ import { normalizeSlashes } from '../common/pathUtils';
 import { getInsertionPointForSymbolUnderModule, InsertionOptions } from '../languageService/insertionPointUtils';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 
+test('empty file', () => {
+    const code = `
+//// [|/*marker*/|]
+    `;
+
+    testInsertionPoint(code, 'bar');
+});
+
+test('empty file with blank lines', () => {
+    const code = `
+//// [|/*marker*/|]
+////
+////
+    `;
+
+    testInsertionPoint(code, 'bar');
+});
+
+test('empty file with comments', () => {
+    const code = `
+//// # comment
+//// [|/*marker*/|]
+//// 
+    `;
+
+    testInsertionPoint(code, 'bar');
+});
+
 test('insert symbol to module', () => {
     const code = `
 //// def foo(): pass[|/*marker*/|]
@@ -67,20 +95,78 @@ test('insert symbol with imported symbol with same name', () => {
     });
 });
 
-function testInsertionPoint(code: string, symbolName: string, options?: InsertionOptions) {
+test('insert symbol with before marker at the top', () => {
+    const code = `
+//// [|/*marker*/|]
+//// [|/*before*/|]
+    `;
+
+    testInsertionPoint(code, 'path', {
+        insertBeforeMarker: 'before',
+    });
+});
+
+test('insert symbol with before marker at the top before symbols', () => {
+    const code = `
+//// [|/*marker*/|]def [|/*before*/|]foo():
+////     pass
+    `;
+
+    testInsertionPoint(code, 'path', {
+        insertBeforeMarker: 'before',
+    });
+});
+
+test('insert symbol with before marker at the top before symbols 2', () => {
+    const code = `
+//// [|/*marker*/|]def foo(a: [|/*before*/|]MyType):
+////     pass
+    `;
+
+    testInsertionPoint(code, 'path', {
+        insertBeforeMarker: 'before',
+    });
+});
+
+test('insert symbol before insert marker with other statements', () => {
+    const code = `
+//// import os[|/*marker*/|]
+////
+//// def [|/*before*/|]foo():
+////     pass
+    `;
+
+    testInsertionPoint(code, 'path', {
+        insertBeforeMarker: 'before',
+    });
+});
+
+function testInsertionPoint(
+    code: string,
+    symbolName: string,
+    testOptions?: { symbolDeclToIgnore?: string; insertBeforeMarker?: string }
+) {
     const state = parseAndGetTestState(code).state;
     const marker = state.getMarkerByName('marker');
 
+    const insertBefore = testOptions?.insertBeforeMarker
+        ? state.getMarkerByName(testOptions.insertBeforeMarker).position
+        : undefined;
+
+    const options: InsertionOptions = {
+        symbolDeclToIgnore: testOptions?.symbolDeclToIgnore,
+        insertBefore,
+    };
     const parseResults = state.program.getBoundSourceFile(marker.fileName)!.getParseResults()!;
     const actual = getInsertionPointForSymbolUnderModule(state.program.evaluator!, parseResults, symbolName, options);
     assert.strictEqual(actual, marker.position);
 }
 
-function testNoInsertionPoint(code: string, symbolName: string, options?: InsertionOptions) {
+function testNoInsertionPoint(code: string, symbolName: string) {
     const state = parseAndGetTestState(code).state;
     const marker = state.getMarkerByName('marker');
 
     const parseResults = state.program.getBoundSourceFile(marker.fileName)!.getParseResults()!;
-    const actual = getInsertionPointForSymbolUnderModule(state.program.evaluator!, parseResults, symbolName, options);
+    const actual = getInsertionPointForSymbolUnderModule(state.program.evaluator!, parseResults, symbolName);
     assert(!actual);
 }

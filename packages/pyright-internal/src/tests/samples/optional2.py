@@ -16,8 +16,8 @@ class Cmp:
 
 
 def valid(value: Optional[Cmp], needed: Cmp):
-    x = value >= needed
+    x = value > needed
     y = value == needed
 
     # This should generate an error if reportOptionalOperand is enabled.
-    z = value <= needed
+    z = value < needed

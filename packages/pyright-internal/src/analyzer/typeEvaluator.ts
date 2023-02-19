@@ -435,12 +435,12 @@ const binaryOperatorMap: { [operator: number]: [string, string] } = {
     [OperatorType.BitwiseXor]: ['__xor__', '__rxor__'],
     [OperatorType.LeftShift]: ['__lshift__', '__rlshift__'],
     [OperatorType.RightShift]: ['__rshift__', '__rrshift__'],
-    [OperatorType.Equals]: ['__eq__', '__ne__'],
-    [OperatorType.NotEquals]: ['__ne__', '__eq__'],
-    [OperatorType.LessThan]: ['__lt__', '__ge__'],
-    [OperatorType.LessThanOrEqual]: ['__le__', '__gt__'],
-    [OperatorType.GreaterThan]: ['__gt__', '__le__'],
-    [OperatorType.GreaterThanOrEqual]: ['__ge__', '__lt__'],
+    [OperatorType.Equals]: ['__eq__', '__eq__'],
+    [OperatorType.NotEquals]: ['__ne__', '__ne__'],
+    [OperatorType.LessThan]: ['__lt__', '__gt__'],
+    [OperatorType.LessThanOrEqual]: ['__le__', '__ge__'],
+    [OperatorType.GreaterThan]: ['__gt__', '__lt__'],
+    [OperatorType.GreaterThanOrEqual]: ['__ge__', '__le__'],
 };
 
 // Map of operators that always return a bool result.
@@ -5841,6 +5841,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // If this function is an instance member (e.g. a lambda that was
                 // assigned to an instance variable), don't perform any binding.
                 if (!isAccessedThroughObject || (memberInfo && !memberInfo.isInstanceMember)) {
+                    // Skip binding if the class appears to be a metaclass (i.e. a subclass of
+                    // `type`) because the first parameter of instance methods in a metaclass
+                    // are not `self` instances.
+                    const isMetaclass =
+                        !isAccessedThroughObject &&
+                        isClass(baseTypeClass) &&
+                        (flags & MemberAccessFlags.TreatConstructorAsClassMethod) === 0 &&
+                        baseTypeClass.details.mro.some(
+                            (mroType) => isClass(mroType) && ClassType.isBuiltIn(mroType, 'type')
+                        );
+
+                    if (isMetaclass) {
+                        return concreteSubtype;
+                    }
+
                     return bindFunctionToClassOrObject(
                         isAccessedThroughObject ? ClassType.cloneAsInstance(baseTypeClass) : baseTypeClass,
                         concreteSubtype,
@@ -17990,7 +18005,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                             isIncomplete = true;
                                         }
 
-                                        inferredReturnTypes.push(returnTypeResult.type ?? UnknownType.create());
+                                        let returnType = returnTypeResult.type;
+
+                                        // If the return type includes an instance of a class with isEmptyContainer
+                                        // set, clear that because we don't want this flag to "leak" into the
+                                        // inferred return type.
+                                        returnType = mapSubtypes(returnType, (subtype) => {
+                                            if (isClassInstance(subtype) && subtype.isEmptyContainer) {
+                                                return ClassType.cloneForSpecialization(
+                                                    subtype,
+                                                    subtype.typeArguments,
+                                                    !!subtype.isTypeArgumentExplicit,
+                                                    subtype.includeSubclasses,
+                                                    subtype.tupleTypeArguments,
+                                                    /* isEmptyContainer */ false
+                                                );
+                                            }
+                                            return subtype;
+                                        });
+
+                                        inferredReturnTypes.push(returnType);
                                     } else {
                                         inferredReturnTypes.push(NoneType.createInstance());
                                     }

@@ -27,6 +27,7 @@ import {
 } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
+import { TaskListToken } from '../common/diagnostic';
 import { convertLevelToCategory, Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
@@ -509,6 +510,9 @@ export class SourceFile {
             );
         }
 
+        // add diagnostics for comments that match the task list tokens
+        this._addTaskListDiagnostics(options.taskListTokens, diagList);
+
         // If the file is in the ignore list, clear the diagnostic list.
         if (options.ignore.find((ignoreFileSpec) => ignoreFileSpec.regExp.test(this._realFilePath))) {
             diagList = [];
@@ -543,6 +547,64 @@ export class SourceFile {
         }
 
         return diagList;
+    }
+
+    // Get all task list diagnostics for the current file and add them
+    // to the specified diagnostic list
+    private _addTaskListDiagnostics(taskListTokens: TaskListToken[] | undefined, diagList: Diagnostic[]) {
+        // input validation
+        if (!taskListTokens || taskListTokens.length === 0 || !diagList) {
+            return;
+        }
+
+        // if we have no tokens, we're done
+        if (!this._parseResults?.tokenizerOutput?.tokens) {
+            return;
+        }
+
+        const tokenizerOutput = this._parseResults.tokenizerOutput;
+        for (let i = 0; i < tokenizerOutput.tokens.count; i++) {
+            const token = tokenizerOutput.tokens.getItemAt(i);
+
+            // if there are no comments, skip this token
+            if (!token.comments || token.comments.length === 0) {
+                continue;
+            }
+
+            for (const comment of token.comments) {
+                for (const token of taskListTokens) {
+                    // Check if the comment matches the task list token.
+                    // The comment must start with zero or more whitespace characters,
+                    // followed by the taskListToken (case insensitive),
+                    // followed by (0+ whitespace + EOL) OR (1+ NON-alphanumeric characters)
+                    const regexStr = '^[\\s]*' + token.text + '([\\s]*$|[\\W]+)';
+                    const regex = RegExp(regexStr, 'i'); // case insensitive
+
+                    // if the comment doesn't match, skip it
+                    if (!regex.test(comment.value)) {
+                        continue;
+                    }
+
+                    // Calculate the range for the diagnostic
+                    // This allows navigation to the comment via double clicking the item in the task list pane
+                    let rangeStart = comment.start;
+
+                    // The comment technically starts right after the comment identifier (#), but we want the caret right
+                    // before the task list token (since there might be whitespace before it)
+                    const indexOfToken = comment.value.toLowerCase().indexOf(token.text.toLowerCase());
+                    rangeStart += indexOfToken;
+
+                    const rangeEnd = TextRange.getEnd(comment);
+                    const range = convertOffsetsToRange(rangeStart, rangeEnd, tokenizerOutput.lines!);
+
+                    // Add the diagnostic to the list to send to VS,
+                    // and trim whitespace from the comment so it's easier to read in the task list
+                    diagList.push(
+                        new Diagnostic(DiagnosticCategory.TaskItem, comment.value.trim(), range, token.priority)
+                    );
+                }
+            }
+        }
     }
 
     getImports(): ImportResult[] {
@@ -814,22 +876,16 @@ export class SourceFile {
                 }
             }
 
-            // Use the configuration options to determine the environment in which
-            // this source file will be executed.
-            const execEnvironment = configOptions.findExecEnvironment(this._filePath);
-
-            const parseOptions = new ParseOptions();
-            parseOptions.ipythonMode = this._ipythonMode;
-            if (this._filePath.endsWith('pyi')) {
-                parseOptions.isStubFile = true;
-            }
-            parseOptions.pythonVersion = execEnvironment.pythonVersion;
-            parseOptions.skipFunctionAndClassBody = configOptions.indexGenerationMode ?? false;
-
             try {
                 // Parse the token stream, building the abstract syntax tree.
-                const parser = new Parser();
-                const parseResults = parser.parseSourceFile(fileContents!, parseOptions, diagSink);
+                const parseResults = parseFile(
+                    configOptions,
+                    this._filePath,
+                    fileContents!,
+                    this._ipythonMode,
+                    diagSink
+                );
+
                 assert(parseResults !== undefined && parseResults.tokenizerOutput !== undefined);
                 this._parseResults = parseResults;
                 this._typeIgnoreLines = this._parseResults.tokenizerOutput.typeIgnoreLines;
@@ -837,6 +893,7 @@ export class SourceFile {
                 this._pyrightIgnoreLines = this._parseResults.tokenizerOutput.pyrightIgnoreLines;
 
                 // Resolve imports.
+                const execEnvironment = configOptions.findExecEnvironment(this._filePath);
                 timingStats.resolveImportsTime.timeOperation(() => {
                     const importResult = this._resolveImports(
                         importResolver,
@@ -1497,4 +1554,28 @@ export class SourceFile {
 
         return filepath;
     }
+}
+
+export function parseFile(
+    configOptions: ConfigOptions,
+    filePath: string,
+    fileContents: string,
+    ipythonMode: IPythonMode,
+    diagSink: DiagnosticSink
+) {
+    // Use the configuration options to determine the environment in which
+    // this source file will be executed.
+    const execEnvironment = configOptions.findExecEnvironment(filePath);
+
+    const parseOptions = new ParseOptions();
+    parseOptions.ipythonMode = ipythonMode;
+    if (filePath.endsWith('pyi')) {
+        parseOptions.isStubFile = true;
+    }
+    parseOptions.pythonVersion = execEnvironment.pythonVersion;
+    parseOptions.skipFunctionAndClassBody = configOptions.indexGenerationMode ?? false;
+
+    // Parse the token stream, building the abstract syntax tree.
+    const parser = new Parser();
+    return parser.parseSourceFile(fileContents, parseOptions, diagSink);
 }

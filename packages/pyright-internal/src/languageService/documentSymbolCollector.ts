@@ -35,7 +35,7 @@ import { ClassMemberLookupFlags, lookUpClassMember } from '../analyzer/typeUtils
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
-import { DeclarationUseCase, getExtensions } from '../common/extensibility';
+import { DeclarationUseCase, Extensions } from '../common/extensibility';
 import { TextRange } from '../common/textRange';
 import {
     ClassNode,
@@ -422,7 +422,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         }
 
         // Let extensions also add declarations.
-        getExtensions().forEach((e) => {
+        Extensions.getProgramExtensions(node).forEach((e) => {
             const declUseCase =
                 useCase === DocumentSymbolCollectorUseCase.Rename
                     ? DeclarationUseCase.Rename

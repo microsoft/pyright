@@ -14,6 +14,7 @@ import * as pathConsts from '../common/pathConsts';
 import { appendArray } from './collectionUtils';
 import { DiagnosticSeverityOverridesMap } from './commandLineOptions';
 import { ConsoleInterface } from './console';
+import { TaskListToken } from './diagnostic';
 import { DiagnosticRule } from './diagnosticRules';
 import { FileSystem } from './fileSystem';
 import { Host } from './host';
@@ -656,6 +657,16 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
     return diagSettings;
 }
 
+export function matchFileSpecs(configOptions: ConfigOptions, filePath: string, isFile = true) {
+    for (const includeSpec of configOptions.include) {
+        if (FileSpec.matchIncludeFileSpec(includeSpec.regExp, configOptions.exclude, filePath, isFile)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // Internal configuration options. These are derived from a combination
 // of the command line and from a JSON-based config file.
 export class ConfigOptions {
@@ -740,6 +751,11 @@ export class ConfigOptions {
     // Diagnostics Rule Set
 
     diagnosticRuleSet: DiagnosticRuleSet;
+
+    //---------------------------------------------------------------
+    // TaskList tokens used by diagnostics
+
+    taskListTokens?: TaskListToken[] | undefined;
 
     //---------------------------------------------------------------
     // Parsing and Import Resolution Settings

@@ -267,21 +267,50 @@ test('getFullStatementRange', () => {
 
     const state = parseAndGetTestState(code).state;
 
-    testRange(state, 'marker1', ParseNodeType.Import);
-    testRange(state, 'marker2', ParseNodeType.Assignment);
-    testRange(state, 'marker3', ParseNodeType.Assignment);
-    testRange(state, 'marker4', ParseNodeType.Assignment);
-    testRange(state, 'marker5', ParseNodeType.If);
-
-    function testRange(state: TestState, markerName: string, type: ParseNodeType) {
-        const range = state.getRangeByMarkerName(markerName)!;
-        const sourceFile = state.program.getBoundSourceFile(range.marker!.fileName)!;
-
-        const statementNode = getFirstAncestorOrSelfOfKind(getNodeAtMarker(state, markerName), type)!;
-        const statementRange = getFullStatementRange(statementNode, sourceFile.getParseResults()!.tokenizerOutput);
-
-        const expectedRange = state.convertPositionRange(range);
-
-        assert(rangesAreEqual(expectedRange, statementRange));
-    }
+    testNodeRange(state, 'marker1', ParseNodeType.Import);
+    testNodeRange(state, 'marker2', ParseNodeType.Assignment);
+    testNodeRange(state, 'marker3', ParseNodeType.Assignment);
+    testNodeRange(state, 'marker4', ParseNodeType.Assignment);
+    testNodeRange(state, 'marker5', ParseNodeType.If);
 });
+
+test('getFullStatementRange with trailing blank lines', () => {
+    const code = `
+//// [|/*marker*/def foo():
+////     return 1
+////
+//// |]def bar():
+////     pass
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    testNodeRange(state, 'marker', ParseNodeType.Function, true);
+});
+
+test('getFullStatementRange with only trailing blank lines', () => {
+    const code = `
+//// [|/*marker*/def foo():
+////     return 1
+//// |]
+//// 
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    testNodeRange(state, 'marker', ParseNodeType.Function, true);
+});
+
+function testNodeRange(state: TestState, markerName: string, type: ParseNodeType, includeTrailingBlankLines = false) {
+    const range = state.getRangeByMarkerName(markerName)!;
+    const sourceFile = state.program.getBoundSourceFile(range.marker!.fileName)!;
+
+    const statementNode = getFirstAncestorOrSelfOfKind(getNodeAtMarker(state, markerName), type)!;
+    const statementRange = getFullStatementRange(statementNode, sourceFile.getParseResults()!, {
+        includeTrailingBlankLines,
+    });
+
+    const expectedRange = state.convertPositionRange(range);
+
+    assert(rangesAreEqual(expectedRange, statementRange));
+}

@@ -8,7 +8,7 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
-import { getImportInfo } from '../analyzer/analyzerNodeInfo';
+import { getFileInfo, getImportInfo } from '../analyzer/analyzerNodeInfo';
 import {
     AliasDeclaration,
     Declaration,
@@ -23,18 +23,14 @@ import {
     getDirectoryLeadingDotsPointsTo,
     getImportGroupFromModuleNameAndType,
     getRelativeModuleName,
-    getTextEditsForAutoImportInsertion,
-    getTextEditsForAutoImportSymbolAddition,
-    getTextRangeForImportNameDeletion,
     getTopLevelImports,
-    ImportNameInfo,
+    haveSameParentModule,
     ImportStatement,
     ImportStatements,
 } from '../analyzer/importStatementUtils';
 import {
     getDottedNameWithGivenNodeAsLastName,
     getFirstAncestorOrSelfOfKind,
-    getFullStatementRange,
     isFromImportAlias,
     isFromImportModuleName,
     isFromImportName,
@@ -61,14 +57,12 @@ import {
     resolvePaths,
     stripFileExtension,
 } from '../common/pathUtils';
-import { convertOffsetToPosition, convertTextRangeToRange } from '../common/positionUtils';
 import { TextEditTracker } from '../common/textEditUtils';
 import { TextRange } from '../common/textRange';
 import {
     ImportAsNode,
     ImportFromAsNode,
     ImportFromNode,
-    ImportNode,
     isExpressionNode,
     MemberAccessNode,
     ModuleNameNode,
@@ -275,7 +269,7 @@ export class RenameModuleProvider {
         private _moduleNameAndType: ModuleNameAndType,
         private _newModuleNameAndType: ModuleNameAndType,
         private _type: UpdateType,
-        private _declarations: Declaration[],
+        public declarations: Declaration[],
         private _token: CancellationToken
     ) {
         // moduleName and newModuleName are always in the absolute path form.
@@ -284,39 +278,71 @@ export class RenameModuleProvider {
         this._moduleNames = this._moduleName.split('.');
         this._newModuleNames = this._newModuleName.split('.');
 
-        if (this._moduleNames.length !== this._newModuleNames.length) {
-            this._onlyNameChanged = false;
-            return;
-        }
-
-        let i = 0;
-        for (i = 0; i < this._moduleNames.length - 1; i++) {
-            if (this._moduleNames[i] !== this._newModuleNames[i]) {
-                break;
-            }
-        }
-
-        this._onlyNameChanged = i === this._moduleNames.length - 1;
+        this._onlyNameChanged = haveSameParentModule(this._moduleNames, this._newModuleNames);
         assert(this._type !== UpdateType.Folder || this._onlyNameChanged, 'We only support simple rename for folder');
     }
 
-    renameReferences(filePath: string, parseResults: ParseResults) {
+    get lastModuleName() {
+        return this._moduleNames[this._moduleNames.length - 1];
+    }
+
+    get textEditTracker(): TextEditTracker {
+        return this._textEditTracker;
+    }
+
+    getEdits(): FileEditAction[] {
+        return this._textEditTracker.getEdits(this._token);
+    }
+
+    renameReferences(parseResults: ParseResults) {
         switch (this._type) {
             case UpdateType.Folder:
-                return this._renameFolderReferences(filePath, parseResults);
+                return this._renameFolderReferences(parseResults);
             case UpdateType.File:
-                return this._renameModuleReferences(filePath, parseResults);
+                return this._renameModuleReferences(parseResults);
             case UpdateType.Symbol:
-                return this._updateSymbolReferences(filePath, parseResults);
+                return this._updateSymbolReferences(parseResults);
             default:
                 return assertNever(this._type, `${this._type} is unknown`);
         }
     }
 
-    private _updateSymbolReferences(filePath: string, parseResults: ParseResults) {
+    tryGetFirstSymbolUsage(parseResults: ParseResults) {
         const collector = new DocumentSymbolCollector(
-            [getNameFromDeclaration(this._declarations[0]) || ''],
-            this._declarations,
+            [getNameFromDeclaration(this.declarations[0]) || ''],
+            this.declarations,
+            this._evaluator!,
+            this._token,
+            parseResults.parseTree,
+            /* treatModuleImportAndFromImportSame */ true,
+            /* skipUnreachableCode */ false
+        );
+
+        for (const result of collector.collect().sort((r1, r2) => r1.range.start - r2.range.start)) {
+            // We only care about symbol usages, not alias decl of the symbol.
+            if (
+                isImportModuleName(result.node) ||
+                isImportAlias(result.node) ||
+                isFromImportModuleName(result.node) ||
+                isFromImportName(result.node) ||
+                isFromImportAlias(result.node)
+            ) {
+                continue;
+            }
+
+            return result.range.start;
+        }
+
+        return undefined;
+    }
+
+    private _updateSymbolReferences(parseResults: ParseResults) {
+        const filePath = getFileInfo(parseResults.parseTree).filePath;
+        const isSource = filePath === this._moduleFilePath;
+
+        const collector = new DocumentSymbolCollector(
+            [getNameFromDeclaration(this.declarations[0]) || ''],
+            this.declarations,
             this._evaluator!,
             this._token,
             parseResults.parseTree,
@@ -331,111 +357,109 @@ export class RenameModuleProvider {
         // ex) import [moduleName] or from ... import [moduleName]
         const imported = importStatements.orderedImports.find((i) => i.moduleName === this._newModuleName);
 
-        const nameRemoved = new Set<number>();
+        // Indicate whether current file has any usage of the symbol
+        let hasSymbolUsage = false;
+
+        const wildcardImports = new Map<ImportFromNode, Set<string>>();
         const importUsed = new Map<ImportAsNode | ImportFromAsNode, MemberAccessNode[]>();
         for (const result of collector.collect()) {
             const nodeFound = result.node;
 
             if (nodeFound.nodeType === ParseNodeType.String) {
-                // Ignore symbol appearing in the __all__. it should be handled
-                // when decl is moved.
+                if (isSource) {
+                    // Delete the symbol reference in __all__ if the file is the source file.
+                    this._textEditTracker.addEditWithTextRange(parseResults, nodeFound, '');
+                }
                 continue;
             }
 
             if (isFromImportName(nodeFound)) {
-                // ex) from ... import [symbol] ...
-                const fromNode = nodeFound.parent?.parent as ImportFromNode;
-                const newModuleName = this._getNewModuleName(
-                    filePath,
-                    fromNode.module.leadingDots > 0,
-                    /* isLastPartImportName */ false
-                );
-
-                if (fromNode.imports.length === 1) {
-                    // ex) "from [module] import symbol" to "from [module.changed] import symbol"
-                    this._addResultWithTextRange(filePath, fromNode.module, parseResults, newModuleName);
-                } else {
-                    // ex) "from module import symbol, another_symbol" to
-                    //     "from module import another_symbol" and "from module.changed import symbol"
-
-                    // Delete the existing import name including alias.
-                    const importFromAs = nodeFound.parent as ImportFromAsNode;
-                    this._addFromImportNameDeletion(
-                        filePath,
-                        parseResults,
-                        nameRemoved,
-                        fromNode.imports,
-                        importFromAs
-                    );
-
-                    // For now, this won't merge absolute and relative path "from import" statement.
-                    const importNameInfo = {
-                        name: importFromAs.name.value,
-                        alias: importFromAs.alias?.value,
-                    };
-
-                    this._addResultEdits(
-                        this._getTextEditsForNewOrExistingFromImport(
-                            filePath,
-                            fromNode,
-                            parseResults,
-                            nameRemoved,
-                            importStatements,
-                            newModuleName,
-                            [importNameInfo]
-                        )
-                    );
-                }
-
+                this._updateNameInFromImportForSymbolReferences(parseResults, importStatements, nodeFound);
                 continue;
             }
+
+            // Exclude symbol decl itself.
+            hasSymbolUsage = isSource
+                ? !this.declarations.some((d) => TextRange.containsRange(d.node, nodeFound))
+                : true;
 
             const dottedName = getDottedNameWithGivenNodeAsLastName(nodeFound);
             if (dottedName === nodeFound || dottedName.nodeType !== ParseNodeType.MemberAccess) {
+                this._collectWildcardImports(nodeFound, wildcardImports);
+
                 // ex) from module import foo
                 //     foo
                 //     foo.method()
-                //
-                //     from module import *
-                //     foo()
-                //     bar()
-                //
-                //     we don't need to do anything for wild card case since
-                //     we will preserve __all__ entries.
                 continue;
             }
 
-            const moduleName =
-                dottedName.leftExpression.nodeType === ParseNodeType.MemberAccess
-                    ? dottedName.leftExpression.memberName
-                    : dottedName.leftExpression.nodeType === ParseNodeType.Name
-                    ? dottedName.leftExpression
-                    : undefined;
-            if (!moduleName) {
-                // ex) from module import foo
-                //     getModule().foo
-                continue;
-            }
-
-            const moduleDecl = this._evaluator
-                .getDeclarationsForNameNode(moduleName)
-                ?.filter(
-                    (d) =>
-                        isAliasDeclaration(d) &&
-                        (d.node.nodeType === ParseNodeType.ImportAs || d.node.nodeType === ParseNodeType.ImportFromAs)
-                );
-            if (!moduleDecl || moduleDecl.length === 0) {
-                // ex) from xxx import yyy
-                //     yyy.property.foo
-                continue;
-            }
-
-            const importAs = moduleDecl[0].node as ImportAsNode | ImportFromAsNode;
-            getOrAdd(importUsed, importAs, () => []).push(dottedName);
-            continue;
+            this._collectSymbolReferencesPerImports(dottedName, importUsed);
         }
 
+        if (isSource && hasSymbolUsage) {
+            // If the original file has references to the symbol moved, we need to either
+            // insert import statement or update existing one.
+            const newModuleName =
+                imported?.node.nodeType === ParseNodeType.ImportFrom
+                    ? this._getNewModuleName(
+                          filePath,
+                          imported.node.module.leadingDots > 0,
+                          /* isLastPartImportName */ false
+                      )
+                    : undefined;
+
+            const options =
+                imported?.node.nodeType === ParseNodeType.ImportFrom
+                    ? {
+                          currentFromImport: imported.node,
+                          originalModuleName: this._moduleName,
+                      }
+                    : undefined;
+
+            this._textEditTracker.addOrUpdateImport(
+                parseResults,
+                importStatements,
+                { name: this._newModuleName, nameForImportFrom: newModuleName },
+                getImportGroupFromModuleNameAndType(this._newModuleNameAndType),
+                [{ name: getNameFromDeclaration(this.declarations[0])! }],
+                options
+            );
+        }
+
+        // Handle symbol references that are used off wildcard imports.
+        this._processSymbolReferenceOffWildcardImports(parseResults, importStatements, wildcardImports);
+
         // Handle symbol references that are used off imported modules.
+        this._processSymbolReferenceOffImports(parseResults, importStatements, imported, importUsed);
+    }
+
+    private _processSymbolReferenceOffImports(
+        parseResults: ParseResults,
+        importStatements: ImportStatements,
+        imported: ImportStatement | undefined,
+        importUsed: Map<ImportAsNode | ImportFromAsNode, MemberAccessNode[]>
+    ) {
+        const filePath = getFileInfo(parseResults.parseTree).filePath;
+        const isDestination = filePath === this._newModuleFilePath;
+        if (isDestination) {
+            for (const [key, value] of importUsed) {
+                if (this._canReplaceImportName(parseResults, key, value)) {
+                    // We can remove existing import statement.
+                    this._textEditTracker.deleteImportName(parseResults, key);
+                }
+
+                for (const node of value) {
+                    this._textEditTracker.addEditWithTextRange(
+                        parseResults,
+                        TextRange.fromBounds(node.start, node.memberName.start),
+                        ''
+                    );
+                }
+            }
+            return;
+        }
+
+        // Other files.
         for (const [key, value] of importUsed) {
             let referenceModuleName: string;
             if (this._canReplaceImportName(parseResults, key, value)) {
@@ -443,27 +467,15 @@ export class RenameModuleProvider {
                 if (key.nodeType === ParseNodeType.ImportAs) {
                     if (moduleName) {
                         referenceModuleName = moduleName;
-                        this._addImportNameDeletion(
-                            filePath,
-                            parseResults,
-                            nameRemoved,
-                            (key.parent as ImportNode).list,
-                            key
-                        );
+                        this._textEditTracker.deleteImportName(parseResults, key);
                     } else {
                         referenceModuleName = key.alias ? key.alias.value : this._newModuleName;
-                        this._addResultWithTextRange(filePath, key.module, parseResults, this._newModuleName);
+                        this._textEditTracker.addEditWithTextRange(parseResults, key.module, this._newModuleName);
                     }
                 } else {
                     if (moduleName) {
                         referenceModuleName = moduleName;
-                        this._addFromImportNameDeletion(
-                            filePath,
-                            parseResults,
-                            nameRemoved,
-                            (key.parent as ImportFromNode).imports,
-                            key
-                        );
+                        this._textEditTracker.deleteImportName(parseResults, key);
                     } else {
                         const fromNode = key.parent as ImportFromNode;
                         const newModuleName = this._getNewModuleName(
@@ -473,8 +485,8 @@ export class RenameModuleProvider {
                         );
 
                         referenceModuleName = key.alias ? key.alias.value : this._newLastModuleName;
-                        this._addResultWithTextRange(filePath, fromNode.module, parseResults, newModuleName);
-                        this._addResultWithTextRange(filePath, key.name, parseResults, this._newLastModuleName);
+                        this._textEditTracker.addEditWithTextRange(parseResults, fromNode.module, newModuleName);
+                        this._textEditTracker.addEditWithTextRange(parseResults, key.name, this._newLastModuleName);
                     }
                 }
             } else {
@@ -483,23 +495,169 @@ export class RenameModuleProvider {
                     referenceModuleName = moduleName;
                 } else {
                     referenceModuleName = this._newModuleName;
-                    this._addResultEdits(
-                        getTextEditsForAutoImportInsertion(
-                            [],
-                            { name: this._newModuleName },
-                            importStatements,
-                            getImportGroupFromModuleNameAndType(this._newModuleNameAndType),
-                            parseResults,
-                            convertOffsetToPosition(parseResults.parseTree.length, parseResults.tokenizerOutput.lines)
-                        ).map((e) => ({ filePath, range: e.range, replacementText: e.replacementText }))
+                    this._textEditTracker.addOrUpdateImport(
+                        parseResults,
+                        importStatements,
+                        { name: this._newModuleName },
+                        getImportGroupFromModuleNameAndType(this._newModuleNameAndType)
                     );
                 }
             }
 
             for (const node of value) {
-                this._addResultWithTextRange(filePath, node.leftExpression, parseResults, referenceModuleName);
+                this._textEditTracker.addEditWithTextRange(parseResults, node.leftExpression, referenceModuleName);
             }
         }
+    }
+
+    private _processSymbolReferenceOffWildcardImports(
+        parseResults: ParseResults,
+        importStatements: ImportStatements,
+        wildcardImports: Map<ImportFromNode, Set<string>>
+    ) {
+        const filePath = getFileInfo(parseResults.parseTree).filePath;
+        const isDestination = filePath === this._newModuleFilePath;
+        if (isDestination) {
+            // Destination file contains the moved symbol decl. no need to insert
+            // import statement for the symbol moved.
+            return;
+        }
+
+        for (const [key, value] of wildcardImports) {
+            const fromNode = key;
+            const newModuleName = this._getNewModuleName(
+                filePath,
+                fromNode.module.leadingDots > 0,
+                /* isLastPartImportName */ false
+            );
+
+            this._textEditTracker.addOrUpdateImport(
+                parseResults,
+                importStatements,
+                { name: this._newModuleName, nameForImportFrom: newModuleName },
+                getImportGroupFromModuleNameAndType(this._newModuleNameAndType),
+                [...value].map((v) => ({ name: v })),
+                {
+                    currentFromImport: fromNode,
+                    originalModuleName: this._moduleName,
+                }
+            );
+        }
+    }
+
+    private _collectSymbolReferencesPerImports(
+        dottedName: MemberAccessNode,
+        importUsed: Map<ImportAsNode | ImportFromAsNode, MemberAccessNode[]>
+    ) {
+        const moduleName =
+            dottedName.leftExpression.nodeType === ParseNodeType.MemberAccess
+                ? dottedName.leftExpression.memberName
+                : dottedName.leftExpression.nodeType === ParseNodeType.Name
+                ? dottedName.leftExpression
+                : undefined;
+        if (!moduleName) {
+            // ex) from module import foo
+            //     getModule().foo
+            return;
+        }
+
+        const moduleDecl = this._evaluator
+            .getDeclarationsForNameNode(moduleName)
+            ?.filter(
+                (d) =>
+                    isAliasDeclaration(d) &&
+                    (d.node.nodeType === ParseNodeType.ImportAs || d.node.nodeType === ParseNodeType.ImportFromAs)
+            );
+        if (!moduleDecl || moduleDecl.length === 0) {
+            // ex) from xxx import yyy
+            //     yyy.property.foo
+            return;
+        }
+
+        const importAs = moduleDecl[0].node as ImportAsNode | ImportFromAsNode;
+        getOrAdd(importUsed, importAs, () => []).push(dottedName);
+    }
+
+    private _collectWildcardImports(nodeFound: NameNode, wildcardImports: Map<ImportFromNode, Set<string>>) {
+        const nameDecls = this._evaluator.getDeclarationsForNameNode(nodeFound);
+        const aliasDeclFromWildCardImport = nameDecls?.find(
+            (d) => d.node.nodeType === ParseNodeType.ImportFrom && d.node.isWildcardImport
+        );
+
+        if (!aliasDeclFromWildCardImport || !isAliasDeclaration(aliasDeclFromWildCardImport)) {
+            return;
+        }
+
+        // ex) from module import *
+        //     foo()
+        //     bar()
+        getOrAdd(wildcardImports, aliasDeclFromWildCardImport.node, () => new Set<string>()).add(nodeFound.value);
+    }
+
+    private _updateNameInFromImportForSymbolReferences(
+        parseResults: ParseResults,
+        importStatements: ImportStatements,
+        nodeFound: NameNode
+    ) {
+        const filePath = getFileInfo(parseResults.parseTree).filePath;
+        const isDestination = filePath === this._newModuleFilePath;
+
+        // ex) from ... import [symbol] ...
+        const importFromAs = nodeFound.parent as ImportFromAsNode;
+        const fromNode = importFromAs?.parent as ImportFromNode;
+
+        const newModuleName = this._getNewModuleName(
+            filePath,
+            fromNode.module.leadingDots > 0,
+            /* isLastPartImportName */ false
+        );
+
+        const hasAlias = !!importFromAs.alias;
+        if (isDestination && !hasAlias) {
+            if (fromNode.imports.length === 1) {
+                // If we have import statement for the symbol in the destination file,
+                // we need to remove it.
+                this._textEditTracker.deleteImportName(parseResults, importFromAs);
+                return;
+            }
+
+            // ex) "from module import symbol, another_symbol" to
+            //     "from module import another_symbol" and "from module.changed import symbol"
+
+            // Delete the existing import name including alias.
+            this._textEditTracker.deleteImportName(parseResults, importFromAs);
+            return;
+        }
+
+        if (fromNode.imports.length === 1) {
+            // ex) "from [module] import symbol" to "from [module.changed] import symbol"
+            this._textEditTracker.addEditWithTextRange(parseResults, fromNode.module, newModuleName);
+            return;
+        }
+
+        // ex) "from module import symbol, another_symbol" to
+        //     "from module import another_symbol" and "from module.changed import symbol"
+
+        // Delete the existing import name including alias.
+        this._textEditTracker.deleteImportName(parseResults, importFromAs);
+
+        // For now, this won't merge absolute and relative path "from import" statement.
+        const importNameInfo = {
+            name: importFromAs.name.value,
+            alias: importFromAs.alias?.value,
+        };
+
+        this._textEditTracker.addOrUpdateImport(
+            parseResults,
+            importStatements,
+            { name: this._newModuleName, nameForImportFrom: newModuleName },
+            getImportGroupFromModuleNameAndType(this._newModuleNameAndType),
+            [importNameInfo],
+            {
+                currentFromImport: fromNode,
+                originalModuleName: this._moduleName,
+            }
+        );
     }
 
     private _getReferenceModuleName(
@@ -560,6 +718,7 @@ export class RenameModuleProvider {
                 continue;
             }
 
+            // other symbols from the module are used in the file.
             if (!symbolReferences.some((s) => TextRange.containsRange(s, result.node))) {
                 return false;
             }
@@ -568,10 +727,10 @@ export class RenameModuleProvider {
         return true;
     }
 
-    private _renameFolderReferences(filePath: string, parseResults: ParseResults) {
+    private _renameFolderReferences(parseResults: ParseResults) {
         const collector = new DocumentSymbolCollector(
             [this.lastModuleName],
-            this._declarations,
+            this.declarations,
             this._evaluator!,
             this._token,
             parseResults.parseTree,
@@ -582,14 +741,14 @@ export class RenameModuleProvider {
         // We only support simple rename of folder. Change all occurrence of the old folder name
         // to new name.
         for (const result of collector.collect()) {
-            this._addResultWithTextRange(filePath, result.range, parseResults, this._newLastModuleName);
+            this._textEditTracker.addEditWithTextRange(parseResults, result.range, this._newLastModuleName);
         }
     }
 
-    private _renameModuleReferences(filePath: string, parseResults: ParseResults) {
+    private _renameModuleReferences(parseResults: ParseResults) {
         const collector = new DocumentSymbolCollector(
             [this.lastModuleName],
-            this._declarations,
+            this.declarations,
             this._evaluator!,
             this._token,
             parseResults.parseTree,
@@ -597,22 +756,17 @@ export class RenameModuleProvider {
             /* skipUnreachableCode */ false
         );
 
-        const nameRemoved = new Set<number>();
         const results = collector.collect();
 
         // Update module references first.
-        this._updateModuleReferences(filePath, parseResults, nameRemoved, results);
+        this._updateModuleReferences(parseResults, results);
 
         // If the module file has moved, we need to update all relative paths used in the file to reflect the move.
-        this._updateRelativeModuleNamePath(filePath, parseResults, nameRemoved, results);
+        this._updateRelativeModuleNamePath(parseResults, results);
     }
 
-    private _updateRelativeModuleNamePath(
-        filePath: string,
-        parseResults: ParseResults,
-        nameRemoved: Set<number>,
-        results: CollectionResult[]
-    ) {
+    private _updateRelativeModuleNamePath(parseResults: ParseResults, results: CollectionResult[]) {
+        const filePath = getFileInfo(parseResults.parseTree).filePath;
         if (filePath !== this._moduleFilePath) {
             // We only update relative import paths for the file that has moved.
             return;
@@ -627,7 +781,7 @@ export class RenameModuleProvider {
                 (m) => !results.some((r) => TextRange.containsRange(m.parent!, r.node))
             )
         )) {
-            this._addResultWithTextRange(filePath, edit.moduleName, parseResults, edit.newModuleName);
+            this._textEditTracker.addEditWithTextRange(parseResults, edit.moduleName, edit.newModuleName);
 
             if (!edit.itemsToMove) {
                 continue;
@@ -642,7 +796,7 @@ export class RenameModuleProvider {
 
             // First, delete existing exported symbols from "from import" statement.
             for (const importFromAs of edit.itemsToMove) {
-                this._addFromImportNameDeletion(filePath, parseResults, nameRemoved, fromNode.imports, importFromAs);
+                this._textEditTracker.deleteImportName(parseResults, importFromAs);
             }
 
             importStatements =
@@ -650,41 +804,41 @@ export class RenameModuleProvider {
 
             // For now, this won't merge absolute and relative path "from import"
             // statement.
-            this._addResultEdits(
-                this._getTextEditsForNewOrExistingFromImport(
-                    filePath,
-                    fromNode,
-                    parseResults,
-                    nameRemoved,
-                    importStatements,
-                    getRelativeModuleName(
+            this._textEditTracker.addOrUpdateImport(
+                parseResults,
+                importStatements,
+                {
+                    name: this._newModuleName,
+                    nameForImportFrom: getRelativeModuleName(
                         this._fs,
                         this._newModuleFilePath,
                         this._newModuleFilePath,
                         /* ignoreFolderStructure */ false,
                         /* sourceIsFile */ true
                     ),
-                    edit.itemsToMove.map((i) => {
-                        return { name: i.name.value, alias: i.alias?.value };
-                    })
-                )
+                },
+                getImportGroupFromModuleNameAndType(this._newModuleNameAndType),
+                edit.itemsToMove.map((i) => {
+                    return { name: i.name.value, alias: i.alias?.value };
+                }),
+                {
+                    currentFromImport: fromNode,
+                    originalModuleName: this._moduleName,
+                }
             );
         }
     }
 
-    private _updateModuleReferences(
-        filePath: string,
-        parseResults: ParseResults,
-        nameRemoved: Set<number>,
-        results: CollectionResult[]
-    ) {
+    private _updateModuleReferences(parseResults: ParseResults, results: CollectionResult[]) {
+        const filePath = getFileInfo(parseResults.parseTree).filePath;
+
         let importStatements: ImportStatements | undefined;
         for (const result of results) {
             const nodeFound = result.node;
 
             if (nodeFound.nodeType === ParseNodeType.String) {
                 // ex) __all__ = ["[a]"]
-                this._addResultWithTextRange(filePath, result.range, parseResults, this._newLastModuleName);
+                this._textEditTracker.addEditWithTextRange(parseResults, result.range, this._newLastModuleName);
                 continue;
             }
 
@@ -718,11 +872,9 @@ export class RenameModuleProvider {
                     this._newModuleNames.length > 1
                 ) {
                     this._aliasIntroduced.add(moduleNameNode.parent);
-
-                    this._addResultWithTextRange(
-                        filePath,
-                        moduleNameNode,
+                    this._textEditTracker.addEditWithTextRange(
                         parseResults,
+                        moduleNameNode,
                         `${this._newModuleName} as ${this._newLastModuleName}`
                     );
                     continue;
@@ -730,13 +882,13 @@ export class RenameModuleProvider {
 
                 // Otherwise, update whole module name to new name
                 // ex) import [xxx.yyy] to import [aaa.bbb]
-                this._addResultWithTextRange(filePath, moduleNameNode, parseResults, this._newModuleName);
+                this._textEditTracker.addEditWithTextRange(parseResults, moduleNameNode, this._newModuleName);
                 continue;
             }
 
             if (isImportAlias(nodeFound)) {
                 // ex) import xxx as [yyy] to import xxx as [zzz]
-                this._addResultWithTextRange(filePath, result.range, parseResults, this._newLastModuleName);
+                this._textEditTracker.addEditWithTextRange(parseResults, result.range, this._newLastModuleName);
                 continue;
             }
 
@@ -766,10 +918,9 @@ export class RenameModuleProvider {
                     // We don't have any sub modules, we can change module name to new one.
                     // Update whole module name to new name.
                     // ex) from [xxx.yyy] import zzz to from [aaa.bbb] import zzz
-                    this._addResultWithTextRange(
-                        filePath,
-                        moduleNameNode,
+                    this._textEditTracker.addEditWithTextRange(
                         parseResults,
+                        moduleNameNode,
                         this._getNewModuleName(
                             filePath,
                             moduleNameNode.leadingDots > 0,
@@ -791,19 +942,13 @@ export class RenameModuleProvider {
                 // Update module name if needed.
                 if (fromNode.module.leadingDots > 0) {
                     for (const edit of this._getNewRelativeModuleNamesForFileMoved(filePath, [fromNode.module])) {
-                        this._addResultWithTextRange(filePath, edit.moduleName, parseResults, edit.newModuleName);
+                        this._textEditTracker.addEditWithTextRange(parseResults, edit.moduleName, edit.newModuleName);
                     }
                 }
 
                 // First, delete existing exported symbols from "from import" statement.
                 for (const importFromAs of exportedSymbols) {
-                    this._addFromImportNameDeletion(
-                        filePath,
-                        parseResults,
-                        nameRemoved,
-                        fromNode.imports,
-                        importFromAs
-                    );
+                    this._textEditTracker.deleteImportName(parseResults, importFromAs);
                 }
 
                 importStatements =
@@ -811,33 +956,31 @@ export class RenameModuleProvider {
 
                 // For now, this won't merge absolute and relative path "from import"
                 // statement.
-                this._addResultEdits(
-                    this._getTextEditsForNewOrExistingFromImport(
-                        filePath,
-                        fromNode,
-                        parseResults,
-                        nameRemoved,
-                        importStatements,
-                        this._newModuleName,
-                        exportedSymbols.map((i) => {
-                            const name =
-                                results.findIndex((r) => r.node === i.name) >= 0
-                                    ? this._newLastModuleName
-                                    : i.name.value;
-                            const alias =
-                                results.findIndex((r) => r.node === i.alias) >= 0
-                                    ? this._newLastModuleName
-                                    : i.alias?.value;
+                this._textEditTracker.addOrUpdateImport(
+                    parseResults,
+                    importStatements,
+                    { name: this._newModuleName },
+                    getImportGroupFromModuleNameAndType(this._newModuleNameAndType),
+                    exportedSymbols.map((i) => {
+                        const name =
+                            results.findIndex((r) => r.node === i.name) >= 0 ? this._newLastModuleName : i.name.value;
+                        const alias =
+                            results.findIndex((r) => r.node === i.alias) >= 0
+                                ? this._newLastModuleName
+                                : i.alias?.value;
 
-                            return { name, alias };
-                        })
-                    )
+                        return { name, alias };
+                    }),
+                    {
+                        currentFromImport: fromNode,
+                        originalModuleName: this._moduleName,
+                    }
                 );
                 continue;
             }
 
             if (isFromImportName(nodeFound)) {
-                if (nameRemoved.has(nodeFound.id)) {
+                if (this._textEditTracker.isNodeRemoved(nodeFound)) {
                     // Import name is already removed.
                     continue;
                 }
@@ -853,14 +996,14 @@ export class RenameModuleProvider {
                 // Existing logic should make sure re-exported symbol name work as before after
                 // symbol rename.
                 if (this._isExportedSymbol(nodeFound)) {
-                    this._addResultWithTextRange(filePath, result.range, parseResults, this._newLastModuleName);
+                    this._textEditTracker.addEditWithTextRange(parseResults, result.range, this._newLastModuleName);
                     continue;
                 }
 
                 if (fromNode.imports.length === 1) {
                     // ex) from xxx import [yyy] to from [aaa.bbb] import [zzz]
-                    this._addResultWithTextRange(filePath, fromNode.module, parseResults, newModuleName);
-                    this._addResultWithTextRange(filePath, result.range, parseResults, this._newLastModuleName);
+                    this._textEditTracker.addEditWithTextRange(parseResults, fromNode.module, newModuleName);
+                    this._textEditTracker.addEditWithTextRange(parseResults, result.range, this._newLastModuleName);
                 } else {
                     // Delete the existing import name including alias.
                     const importFromAs = nodeFound.parent as ImportFromAsNode;
@@ -868,17 +1011,15 @@ export class RenameModuleProvider {
                     // Update module name if needed.
                     if (fromNode.module.leadingDots > 0) {
                         for (const edit of this._getNewRelativeModuleNamesForFileMoved(filePath, [fromNode.module])) {
-                            this._addResultWithTextRange(filePath, edit.moduleName, parseResults, edit.newModuleName);
+                            this._textEditTracker.addEditWithTextRange(
+                                parseResults,
+                                edit.moduleName,
+                                edit.newModuleName
+                            );
                         }
                     }
 
-                    this._addFromImportNameDeletion(
-                        filePath,
-                        parseResults,
-                        nameRemoved,
-                        fromNode.imports,
-                        importFromAs
-                    );
+                    this._textEditTracker.deleteImportName(parseResults, importFromAs);
 
                     importStatements =
                         importStatements ??
@@ -902,29 +1043,29 @@ export class RenameModuleProvider {
                                 : importFromAs.alias?.value,
                     };
 
-                    this._addResultEdits(
-                        this._getTextEditsForNewOrExistingFromImport(
-                            filePath,
-                            fromNode,
-                            parseResults,
-                            nameRemoved,
-                            importStatements,
-                            newModuleName,
-                            [importNameInfo]
-                        )
+                    this._textEditTracker.addOrUpdateImport(
+                        parseResults,
+                        importStatements,
+                        { name: this._newModuleName, nameForImportFrom: newModuleName },
+                        getImportGroupFromModuleNameAndType(this._newModuleNameAndType),
+                        [importNameInfo],
+                        {
+                            currentFromImport: fromNode,
+                            originalModuleName: this._moduleName,
+                        }
                     );
                 }
                 continue;
             }
 
             if (isFromImportAlias(nodeFound)) {
-                if (nameRemoved.has(nodeFound.id)) {
+                if (this._textEditTracker.isNodeRemoved(nodeFound)) {
                     // alias is already removed.
                     continue;
                 }
 
                 // ex) from ccc import xxx as [yyy] to from ccc import xxx as [zzz]
-                this._addResultWithTextRange(filePath, result.range, parseResults, this._newLastModuleName);
+                this._textEditTracker.addEditWithTextRange(parseResults, result.range, this._newLastModuleName);
                 continue;
             }
 
@@ -941,7 +1082,7 @@ export class RenameModuleProvider {
                 // Simple case. only name has changed. but not path.
                 // Just replace name to new symbol name.
                 // ex) a.[b].foo() to a.[z].foo()
-                this._addResultWithTextRange(filePath, result.range, parseResults, this._newLastModuleName);
+                this._textEditTracker.addEditWithTextRange(parseResults, result.range, this._newLastModuleName);
                 continue;
             }
 
@@ -956,7 +1097,7 @@ export class RenameModuleProvider {
                 const dottedName = getDottedNameWithGivenNodeAsLastName(nodeFound);
                 if (dottedName.parent?.nodeType !== ParseNodeType.MemberAccess) {
                     // Replace whole dotted name with new module name.
-                    this._addResultWithTextRange(filePath, dottedName, parseResults, this._newModuleName);
+                    this._textEditTracker.addEditWithTextRange(parseResults, dottedName, this._newModuleName);
                     continue;
                 }
 
@@ -974,12 +1115,12 @@ export class RenameModuleProvider {
                 // Next name is actual symbol. Replace whole name to new module name.
                 // ex) import a.b.c
                 //     [a.b.c].[foo]()
-                this._addResultWithTextRange(filePath, dottedName, parseResults, this._newModuleName);
+                this._textEditTracker.addEditWithTextRange(parseResults, dottedName, this._newModuleName);
                 continue;
             }
 
             if (result.node.value !== this._newLastModuleName) {
-                this._addResultWithTextRange(filePath, result.range, parseResults, this._newLastModuleName);
+                this._textEditTracker.addEditWithTextRange(parseResults, result.range, this._newLastModuleName);
                 continue;
             }
         }
@@ -1131,14 +1272,6 @@ export class RenameModuleProvider {
         return moduleName;
     }
 
-    getEdits(): FileEditAction[] {
-        return this._textEditTracker.getEdits(this._token);
-    }
-
-    get lastModuleName() {
-        return this._moduleNames[this._moduleNames.length - 1];
-    }
-
     private get _moduleName() {
         return this._moduleNameAndType.moduleName;
     }
@@ -1149,189 +1282,6 @@ export class RenameModuleProvider {
 
     private get _newModuleName() {
         return this._newModuleNameAndType.moduleName;
-    }
-
-    private _addImportNameDeletion(
-        filePath: string,
-        parseResults: ParseResults,
-        nameRemoved: Set<number>,
-        imports: ImportAsNode[],
-        importToDelete: ImportAsNode
-    ) {
-        this._addImportNameDeletionInternal(
-            filePath,
-            parseResults,
-            nameRemoved,
-            imports,
-            importToDelete,
-            ParseNodeType.Import
-        );
-
-        // Mark that we don't need to process these node again later.
-        nameRemoved.add(importToDelete.module.id);
-        importToDelete.module.nameParts.forEach((n) => nameRemoved.add(n.id));
-        if (importToDelete.alias) {
-            nameRemoved.add(importToDelete.alias.id);
-        }
-    }
-
-    private _addFromImportNameDeletion(
-        filePath: string,
-        parseResults: ParseResults,
-        nameRemoved: Set<number>,
-        imports: ImportFromAsNode[],
-        importToDelete: ImportFromAsNode
-    ) {
-        this._addImportNameDeletionInternal(
-            filePath,
-            parseResults,
-            nameRemoved,
-            imports,
-            importToDelete,
-            ParseNodeType.ImportFrom
-        );
-
-        // Mark that we don't need to process these node again later.
-        nameRemoved.add(importToDelete.name.id);
-        if (importToDelete.alias) {
-            nameRemoved.add(importToDelete.alias.id);
-        }
-    }
-
-    private _addImportNameDeletionInternal(
-        filePath: string,
-        parseResults: ParseResults,
-        nameRemoved: Set<number>,
-        imports: ImportFromAsNode[] | ImportAsNode[],
-        importToDelete: ImportFromAsNode | ImportAsNode,
-        importKind: ParseNodeType.ImportFrom | ParseNodeType.Import
-    ) {
-        const ranges = getTextRangeForImportNameDeletion(
-            imports,
-            imports.findIndex((v) => v === importToDelete)
-        );
-
-        ranges.forEach((r) => this._addResultWithTextRange(filePath, r, parseResults, ''));
-
-        // Mark that we don't need to process these node again later.
-        nameRemoved.add(importToDelete.id);
-
-        // Check whether we have deleted all trailing import names.
-        // If either no trailing import is deleted or handled properly
-        // then, there is nothing to do. otherwise, either delete the whole statement
-        // or remove trailing comma.
-        // ex) from x import [y], z or from x import y[, z]
-        let lastImportIndexNotDeleted = 0;
-        for (
-            lastImportIndexNotDeleted = imports.length - 1;
-            lastImportIndexNotDeleted >= 0;
-            lastImportIndexNotDeleted--
-        ) {
-            if (!nameRemoved.has(imports[lastImportIndexNotDeleted].id)) {
-                break;
-            }
-        }
-
-        if (lastImportIndexNotDeleted === -1) {
-            // Whole statement is deleted. Remove the statement itself.
-            // ex) [from x import a, b, c] or [import a]
-            const importStatement = getFirstAncestorOrSelfOfKind(importToDelete, importKind);
-            if (importStatement) {
-                this._textEditTracker.addEdit(
-                    filePath,
-                    getFullStatementRange(importStatement, parseResults.tokenizerOutput),
-                    ''
-                );
-            }
-        } else if (lastImportIndexNotDeleted >= 0 && lastImportIndexNotDeleted < imports.length - 2) {
-            // We need to delete trailing comma
-            // ex) from x import a, [b, c]
-            const start = TextRange.getEnd(imports[lastImportIndexNotDeleted]);
-            const length = TextRange.getEnd(imports[lastImportIndexNotDeleted + 1]) - start;
-            this._addResultWithTextRange(filePath, { start, length }, parseResults, '');
-        }
-    }
-
-    private _addResultWithTextRange(filePath: string, range: TextRange, parseResults: ParseResults, newName: string) {
-        const existing = parseResults.text.substr(range.start, range.length);
-        if (existing === newName) {
-            // No change. Return as it is.
-            return;
-        }
-
-        this._textEditTracker.addEdit(
-            filePath,
-            convertTextRangeToRange(range, parseResults.tokenizerOutput.lines),
-            newName
-        );
-    }
-
-    private _addResultEdits(edits: FileEditAction[]) {
-        this._textEditTracker.addEdits(...edits);
-    }
-
-    private _getTextEditsForNewOrExistingFromImport(
-        filePath: string,
-        currentFromImport: ImportFromNode,
-        parseResults: ParseResults,
-        nameRemoved: Set<number>,
-        importStatements: ImportStatements,
-        moduleName: string,
-        importNameInfo: ImportNameInfo[]
-    ): FileEditAction[] {
-        // See whether we have existing from import statement for the same module
-        // ex) from [|moduleName|] import subModule
-        const imported = importStatements.orderedImports.find((i) => i.moduleName === moduleName);
-        if (imported && imported.node.nodeType === ParseNodeType.ImportFrom && !imported.node.isWildcardImport) {
-            const edits = getTextEditsForAutoImportSymbolAddition(importNameInfo, imported, parseResults);
-            if (imported.node !== currentFromImport) {
-                // Add what we want to the existing "import from" statement as long as it is not the same import
-                // node we are working on.
-                return edits.map((e) => ({ filePath, range: e.range, replacementText: e.replacementText }));
-            }
-
-            // Check whether we can avoid creating a new statement. We can't just merge with existing one since
-            // we could create invalid text edits (2 edits that change the same span, or invalid replacement text since
-            // texts on the node has changed)
-            if (this._onlyNameChanged && importNameInfo.length === 1 && edits.length === 1) {
-                const deletions = this._textEditTracker.getDeletionsForSpan(filePath, edits[0].range);
-                if (deletions.length === 0) {
-                    return [{ filePath, range: edits[0].range, replacementText: edits[0].replacementText }];
-                } else {
-                    const alias =
-                        importNameInfo[0].alias === this._newLastModuleName
-                            ? this.lastModuleName
-                            : importNameInfo[0].alias;
-
-                    const importName = currentFromImport.imports.find(
-                        (i) => i.name.value === this.lastModuleName && i.alias?.value === alias
-                    );
-                    if (importName) {
-                        this._textEditTracker.removeEdits(filePath, deletions);
-                        if (importName.alias) {
-                            nameRemoved.delete(importName.alias.id);
-                        }
-
-                        return [
-                            {
-                                filePath,
-                                range: convertTextRangeToRange(importName.name, parseResults.tokenizerOutput.lines),
-                                replacementText: this._newLastModuleName,
-                            },
-                        ];
-                    }
-                }
-            }
-        }
-
-        return getTextEditsForAutoImportInsertion(
-            importNameInfo,
-            { name: moduleName },
-            importStatements,
-            getImportGroupFromModuleNameAndType(this._newModuleNameAndType),
-            parseResults,
-            convertOffsetToPosition(parseResults.parseTree.length, parseResults.tokenizerOutput.lines)
-        ).map((e) => ({ filePath, range: e.range, replacementText: e.replacementText }));
     }
 }
 
