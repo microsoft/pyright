@@ -522,7 +522,13 @@ export class Binder extends ParseTreeWalker {
                 node.parameters.forEach((paramNode) => {
                     if (paramNode.name) {
                         const symbol = this._bindNameToScope(this._currentScope, paramNode.name);
-                        const docString = extractParameterDocumentation(ParseTreeUtils.getDocString(node?.suite?.statements ?? []) ?? "", paramNode.name.value) ?? undefined;
+
+                        // Extract the parameter docString from the function docString
+                        let docString = ParseTreeUtils.getDocString(node?.suite?.statements ?? []);
+                        if (docString !== undefined) {
+                            docString = extractParameterDocumentation(docString, paramNode.name.value);
+                        }
+                        
                         if (symbol) {
                             const paramDeclaration: ParameterDeclaration = {
                                 type: DeclarationType.Parameter,
