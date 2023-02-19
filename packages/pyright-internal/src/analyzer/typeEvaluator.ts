@@ -20835,7 +20835,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Infer the type.
         const typesToCombine: Type[] = [];
         const decls = symbol.getDeclarations();
-        const isFinalVar = isFinalVariable(symbol);
         let isIncomplete = false;
         let sawPendingEvaluation = false;
         let includesVariableDecl = false;
@@ -20953,8 +20952,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     includesVariableDecl = true;
                                 }
 
-                                let isConstant =
-                                    resolvedDecl.type === DeclarationType.Variable && !!resolvedDecl.isConstant;
+                                let isConstant = false;
+                                if (resolvedDecl.type === DeclarationType.Variable) {
+                                    if (resolvedDecl.isConstant || resolvedDecl.isFinal) {
+                                        isConstant = true;
+                                    }
+                                }
 
                                 // Treat enum values declared within an enum class as though they are const even
                                 // though they may not be named as such.
@@ -20968,7 +20971,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                 // If the symbol is constant, we can retain the literal
                                 // value. Otherwise, strip literal values to widen the type.
-                                if (TypeBase.isInstance(type) && !isExplicitTypeAlias && !isConstant && !isFinalVar) {
+                                if (TypeBase.isInstance(type) && !isExplicitTypeAlias && !isConstant) {
                                     type = stripLiteralValue(type);
                                 }
                             }
