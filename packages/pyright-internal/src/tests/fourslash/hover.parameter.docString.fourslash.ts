@@ -50,7 +50,10 @@
 ////        """
 ////        print([|/*marker11*/var|])
 ////
-
+////     def anotherMethod(self, [|/*marker12*/y|]: bool):
+////        """ Something about anotherMethod in Derived2 """
+////        print([|/*marker13*/y|])
+////
 helper.verifyHover('markdown', {
     marker1: '```python\n(parameter) bar: str\n```\n---\nbar (str): The bar is in town',
     marker2: '```python\n(parameter) baz: int\n```\n---\nbaz (int): The baz is away',
@@ -63,4 +66,6 @@ helper.verifyHover('markdown', {
     marker9: '```python\n(parameter) var: str\n```\n---\nvar (str): Info about var in Base',
     marker10: '```python\n(parameter) var: str\n```\n---\nvar (str): Info about var in Derived2',
     marker11: '```python\n(parameter) var: str\n```\n---\nvar (str): Info about var in Derived2',
+    marker12: '```python\n(parameter) y: bool\n```',
+    marker13: '```python\n(parameter) y: bool\n```',
 });
