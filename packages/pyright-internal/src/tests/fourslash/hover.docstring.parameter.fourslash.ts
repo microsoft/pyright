@@ -28,9 +28,10 @@
 ////         bar2 The bar is 2 far
 ////     """
 ////     baz = [|/*marker7*/bar|]
+////     [|/*marker8*/bar|] = "reassign"
 ////     ...
 ////
-//// def foo4([|/*marker8*/bar|]: str, [|/*marker9*/bar2|]: str) -> None:
+//// def foo4([|/*marker9*/bar|]: str, [|/*marker10*/bar2|]: str) -> None:
 ////     """
 ////     Foo4 does something
 ////
@@ -38,7 +39,7 @@
 ////         bar (str): The bar is in town
 ////         bar2 str: The bar is 2 far
 ////     """
-////     baz = [|/*marker10*/bar|]
+////     baz = [|/*marker11*/bar|]
 ////     ...
 
 helper.verifyHover('markdown', {
@@ -49,7 +50,8 @@ helper.verifyHover('markdown', {
   marker5: '```python\n(parameter) bar: str\n```\nbar: The bar is in town',
   marker6: '```python\n(parameter) bar2: str\n```',
   marker7: '```python\n(parameter) bar: str\n```\nbar: The bar is in town',
-  marker8: '```python\n(parameter) bar: str\n```\nbar (str): The bar is in town',
-  marker9: '```python\n(parameter) bar2: str\n```',
-  marker10: '```python\n(parameter) bar: str\n```\nbar (str): The bar is in town',
+  marker8: "```python\n(parameter) bar: Literal['reassign']\n```\nbar: The bar is in town",
+  marker9: '```python\n(parameter) bar: str\n```\nbar (str): The bar is in town',
+  marker10: '```python\n(parameter) bar2: str\n```',
+  marker11: '```python\n(parameter) bar: str\n```\nbar (str): The bar is in town',
 });
