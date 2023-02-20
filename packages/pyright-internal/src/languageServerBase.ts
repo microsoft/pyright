@@ -760,8 +760,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                     workspaceFolders: {
                         supported: true,
                         changeNotifications: true,
-                    }
-                }
+                    },
+                },
             },
         };
 
