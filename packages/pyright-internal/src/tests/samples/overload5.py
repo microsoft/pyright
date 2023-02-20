@@ -7,6 +7,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Protocol,
     Sequence,
     Tuple,
     Type,
@@ -320,14 +321,43 @@ class ClassD:
 
 
 @overload
-def func18(s: Sequence[_T1], extra: Literal[False]) -> list[_T1]: ...
+def func18(s: Sequence[_T1], extra: Literal[False]) -> list[_T1]:
+    ...
+
 
 @overload
-def func18(s: Sequence[_T1], extra: Literal[True]) -> list[_T1] | tuple[_T1]: ...
+def func18(s: Sequence[_T1], extra: Literal[True]) -> list[_T1] | tuple[_T1]:
+    ...
+
 
 @overload
-def func18(s: Sequence[_T1], extra: bool) -> list[_T1] | tuple[_T1]: ...
+def func18(s: Sequence[_T1], extra: bool) -> list[_T1] | tuple[_T1]:
+    ...
+
 
 def func18(s: Sequence[_T1], extra: bool) -> list[_T1] | tuple[_T1]:
     ...
 
+
+class DProto1(Protocol):
+    def __radd__(self, other: Any, /) -> Any:
+        ...
+
+
+class DProto2(Protocol):
+    def __radd__(self: _T1, other: Any, /) -> _T1:
+        ...
+
+
+@overload
+def func19(a: Any, b: DProto2) -> DProto2:
+    ...
+
+
+@overload
+def func19(a: Any, b: DProto1) -> Any:
+    ...
+
+
+def func19(a: Any, b: Any) -> Any:
+    return a + b
