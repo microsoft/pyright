@@ -43,15 +43,15 @@
 ////     ...
 
 helper.verifyHover('markdown', {
-  marker1: '```python\n(parameter) bar: str\n```\nbar: The bar is in town',
-  marker2: '```python\n(parameter) bar: str\n```\nbar: The bar is in town',
-  marker3: '```python\n(parameter) bar: str\n```\nbar: The bar is in town',
-  marker4: '```python\n(parameter) bar: str\n```\nbar: The bar is in town',
-  marker5: '```python\n(parameter) bar: str\n```\nbar: The bar is in town',
-  marker6: '```python\n(parameter) bar2: str\n```',
-  marker7: '```python\n(parameter) bar: str\n```\nbar: The bar is in town',
-  marker8: "```python\n(parameter) bar: Literal['reassign']\n```\nbar: The bar is in town",
-  marker9: '```python\n(parameter) bar: str\n```\nbar (str): The bar is in town',
-  marker10: '```python\n(parameter) bar2: str\n```',
-  marker11: '```python\n(parameter) bar: str\n```\nbar (str): The bar is in town',
+    marker1: '```python\n(parameter) bar: str\n```\nbar: The bar is in town',
+    marker2: '```python\n(parameter) bar: str\n```\nbar: The bar is in town',
+    marker3: '```python\n(parameter) bar: str\n```\nbar: The bar is in town',
+    marker4: '```python\n(parameter) bar: str\n```\nbar: The bar is in town',
+    marker5: '```python\n(parameter) bar: str\n```\nbar: The bar is in town',
+    marker6: '```python\n(parameter) bar2: str\n```',
+    marker7: '```python\n(parameter) bar: str\n```\nbar: The bar is in town',
+    marker8: "```python\n(parameter) bar: Literal['reassign']\n```\nbar: The bar is in town",
+    marker9: '```python\n(parameter) bar: str\n```\nbar (str): The bar is in town',
+    marker10: '```python\n(parameter) bar2: str\n```',
+    marker11: '```python\n(parameter) bar: str\n```\nbar (str): The bar is in town',
 });

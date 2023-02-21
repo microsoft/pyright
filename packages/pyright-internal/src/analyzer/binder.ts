@@ -528,7 +528,7 @@ export class Binder extends ParseTreeWalker {
                         if (docString !== undefined) {
                             docString = extractParameterDocumentation(docString, paramNode.name.value);
                         }
-                        
+
                         if (symbol) {
                             const paramDeclaration: ParameterDeclaration = {
                                 type: DeclarationType.Parameter,
