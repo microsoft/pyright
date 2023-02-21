@@ -22505,8 +22505,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        if (isNoneInstance(destType) && isNoneInstance(srcType)) {
-            return true;
+        if (isNoneInstance(destType)) {
+            if (isNoneInstance(srcType)) {
+                return true;
+            }
+
+            if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'NoneType')) {
+                return true;
+            }
         }
 
         if (isNoneTypeClass(destType)) {

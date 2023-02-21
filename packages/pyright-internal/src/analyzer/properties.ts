@@ -334,7 +334,11 @@ function addGetMethodToPropertySymbolTable(propertyObject: ClassType, fget: Func
     // decorated function.
     getFunction2.details.typeVarScopeId = getTypeVarScopeId(fget);
 
-    const getFunctionOverload = OverloadedFunctionType.create([getFunction1, getFunction2]);
+    // We previously placed getFunction1 before getFunction2, but this creates
+    // problems specifically for the `NoneType` class because None.__class__
+    // is a property, and both overloads match in this case because None
+    // is passed for the "obj" parameter.
+    const getFunctionOverload = OverloadedFunctionType.create([getFunction2, getFunction1]);
     const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunctionOverload);
     fields.set('__get__', getSymbol);
 }
