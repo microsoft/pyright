@@ -1,28 +1,84 @@
 import sys
-from ctypes import Structure, Union, _NamedFuncPointer, _Pointer, c_int64, c_ulong, c_void_p
+from ctypes import Structure, Union, _CField, _NamedFuncPointer, _Pointer, c_int64, c_ulong, c_void_p
 from ctypes.wintypes import DWORD
 from typing_extensions import TypeAlias
 
 if sys.platform == "win32":
     def is_64bit() -> bool: ...
 
-    ULONG_PTR: TypeAlias = c_int64 | c_ulong
+    ULONG_PTR: type[c_int64 | c_ulong]
 
-    class _SECURITY_ATTRIBUTES(Structure): ...
+    class _SECURITY_ATTRIBUTES(Structure):
+        nLength: _CField
+        lpSecurityDescriptor: _CField
+        bInheritHandle: _CField
     LPSECURITY_ATTRIBUTES: type[_Pointer[_SECURITY_ATTRIBUTES]]
     CreateEvent: _NamedFuncPointer
     CreateFile: _NamedFuncPointer
+    # The following are included in __all__ but their existence is not guaranteed as
+    # they are defined in a try/except block. Their aliases above are always defined.
+    CreateEventW: _NamedFuncPointer
+    CreateFileW: _NamedFuncPointer
 
-    class _OVERLAPPED(Structure): ...
+    class _OVERLAPPED(Structure):
+        Internal: _CField
+        InternalHigh: _CField
+        Offset: _CField
+        OffsetHigh: _CField
+        Pointer: _CField
+        hEvent: _CField
     OVERLAPPED: TypeAlias = _OVERLAPPED
 
-    class _COMSTAT(Structure): ...
+    class _COMSTAT(Structure):
+        fCtsHold: _CField
+        fDsrHold: _CField
+        fRlsdHold: _CField
+        fXoffHold: _CField
+        fXoffSent: _CField
+        fEof: _CField
+        fTxim: _CField
+        fReserved: _CField
+        cbInQue: _CField
+        cbOutQue: _CField
     COMSTAT: TypeAlias = _COMSTAT
 
-    class _DCB(Structure): ...
+    class _DCB(Structure):
+        DCBlength: _CField
+        BaudRate: _CField
+        fBinary: _CField
+        fParity: _CField
+        fOutxCtsFlow: _CField
+        fOutxDsrFlow: _CField
+        fDtrControl: _CField
+        fDsrSensitivity: _CField
+        fTXContinueOnXoff: _CField
+        fOutX: _CField
+        fInX: _CField
+        fErrorChar: _CField
+        fNull: _CField
+        fRtsControl: _CField
+        fAbortOnError: _CField
+        fDummy2: _CField
+        wReserved: _CField
+        XonLim: _CField
+        XoffLim: _CField
+        ByteSize: _CField
+        Parity: _CField
+        StopBits: _CField
+        XonChar: _CField
+        XoffChar: _CField
+        ErrorChar: _CField
+        EofChar: _CField
+        EvtChar: _CField
+        wReserved1: _CField
     DCB: TypeAlias = _DCB
 
-    class _COMMTIMEOUTS(Structure): ...
+    class _COMMTIMEOUTS(Structure):
+        ReadIntervalTimeout: _CField
+        ReadTotalTimeoutMultiplier: _CField
+        ReadTotalTimeoutConstant: _CField
+        WriteTotalTimeoutMultiplier: _CField
+        WriteTotalTimeoutConstant: _CField
     COMMTIMEOUTS: TypeAlias = _COMMTIMEOUTS
 
     GetLastError: _NamedFuncPointer
@@ -94,6 +150,12 @@ if sys.platform == "win32":
     EV_BREAK: int
     PURGE_RXCLEAR: int
 
-    class N11_OVERLAPPED4DOLLAR_48E(Union): ...
-    class N11_OVERLAPPED4DOLLAR_484DOLLAR_49E(Structure): ...
+    class N11_OVERLAPPED4DOLLAR_48E(Union):
+        Offset: _CField
+        OffsetHigh: _CField
+        Pointer: _CField
+
+    class N11_OVERLAPPED4DOLLAR_484DOLLAR_49E(Structure):
+        Offset: _CField
+        OffsetHigh: _CField
     PVOID: TypeAlias = c_void_p

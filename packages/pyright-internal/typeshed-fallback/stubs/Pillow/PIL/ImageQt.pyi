@@ -3,7 +3,10 @@ from typing_extensions import Literal, TypeAlias
 
 from .Image import Image
 
-_QImage: TypeAlias = Any  # imported from either of {PyQt6,PySide6,PyQt5,PySide2}.QtGui
+# imported from either of {PyQt6,PySide6,PyQt5,PySide2}.QtGui
+# These are way too complex, with 4 different possible sources (2 deprecated)
+# And we don't want to force the user to install PyQt or Pyside when they may not even use it.
+_QImage: TypeAlias = Any
 _QPixmap: TypeAlias = Any
 
 qt_versions: Any

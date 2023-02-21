@@ -1,9 +1,10 @@
 from _typeshed import Incomplete
 from collections.abc import Callable
 from re import Pattern
-from typing_extensions import TypeAlias
 
-_BasePen: TypeAlias = Incomplete  # actually fontTools.pens.basePen.BasePen
+from fpdf.drawing import PaintedPath
+
+from ._fonttools_shims import BasePen, _TTGlyphSet
 
 __pdoc__: dict[str, bool]
 
@@ -56,14 +57,14 @@ class ShapeBuilder:
 
 def convert_transforms(tfstr): ...
 
-class PathPen(_BasePen):
-    pdf_path: Incomplete
+class PathPen(BasePen):
+    pdf_path: PaintedPath
     last_was_line_to: bool
     first_is_move: bool | None
-    def __init__(self, pdf_path, *args, **kwargs): ...
+    def __init__(self, pdf_path: PaintedPath, glyphSet: _TTGlyphSet | None = ...): ...
     def arcTo(self, rx, ry, rotation, arc, sweep, end) -> None: ...
 
-def svg_path_converter(pdf_path, svg_path) -> None: ...
+def svg_path_converter(pdf_path: PaintedPath, svg_path: str) -> None: ...
 
 class SVGObject:
     @classmethod

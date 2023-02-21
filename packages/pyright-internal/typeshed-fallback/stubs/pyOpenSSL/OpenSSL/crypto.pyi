@@ -159,6 +159,7 @@ class X509StoreFlags:
     NOTIFY_POLICY: int
     CHECK_SS_SIGNATURE: int
     CB_ISSUER_CHECK: int
+    PARTIAL_CHAIN: int
 
 class PKCS7:
     def get_type_name(self) -> str: ...

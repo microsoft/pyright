@@ -5,7 +5,7 @@ import time
 import types
 from _typeshed import Incomplete
 from collections.abc import Callable
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 from typing_extensions import TypeAlias
 
 from .matcher import MQTTMatcher as MQTTMatcher
@@ -92,7 +92,7 @@ _Payload: TypeAlias = str | bytes | bytearray | float
 _ExtraHeader: TypeAlias = dict[str, str] | Callable[[dict[str, str]], dict[str, str]]
 _OnLog: TypeAlias = Callable[[Client, _UserData, int, str], object]
 _OnConnect: TypeAlias = Callable[[Client, _UserData, dict[str, int], int], object]
-_OnConnectV5: TypeAlias = Callable[[Client, _UserData, dict[str, int], ReasonCodes, Optional[Properties]], object]
+_OnConnectV5: TypeAlias = Callable[[Client, _UserData, dict[str, int], ReasonCodes, Properties | None], object]
 _TOnConnect = TypeVar("_TOnConnect", _OnConnect, _OnConnectV5)
 _OnConnectFail: TypeAlias = Callable[[Client, _UserData], object]
 _OnSubscribe: TypeAlias = Callable[[Client, _UserData, int, tuple[int]], object]
@@ -104,7 +104,7 @@ _OnUnsubscribe: TypeAlias = Callable[[Client, _UserData, int], object]
 _OnUnsubscribeV5: TypeAlias = Callable[[Client, _UserData, int, Properties, list[ReasonCodes] | ReasonCodes], object]
 _TOnUnsubscribe = TypeVar("_TOnUnsubscribe", _OnUnsubscribe, _OnUnsubscribeV5)
 _OnDisconnect: TypeAlias = Callable[[Client, _UserData, int], object]
-_OnDisconnectV5: TypeAlias = Callable[[Client, _UserData, Optional[ReasonCodes], Optional[Properties]], object]
+_OnDisconnectV5: TypeAlias = Callable[[Client, _UserData, ReasonCodes | None, Properties | None], object]
 _TOnDisconnect = TypeVar("_TOnDisconnect", _OnDisconnect, _OnDisconnectV5)
 _OnSocket: TypeAlias = Callable[[Client, _UserData, _Socket | WebsocketWrapper | None], object]
 

@@ -1,9 +1,9 @@
-from _typeshed import Incomplete, Self
+from _typeshed import Incomplete
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from contextlib import AbstractContextManager
 from types import TracebackType
 from typing import Any, Generic, TypeVar, overload
-from typing_extensions import Literal
+from typing_extensions import Literal, Self
 
 _F = TypeVar("_F", bound=Callable[..., Any])
 _AF = TypeVar("_AF", bound=Callable[..., Coroutine[Any, Any, Any]])
@@ -45,7 +45,7 @@ DEFAULT: _SentinelObject
 
 class _Call(tuple[Any, ...]):
     def __new__(
-        cls: type[Self],
+        cls,
         value: Any = ...,
         name: Incomplete | None = ...,
         parent: Incomplete | None = ...,
@@ -81,9 +81,11 @@ class _CallList(list[_Call]):
 class Base:
     def __init__(self, *args: Any, **kwargs: Any) -> None: ...
 
+# We subclass with "Any" because mocks are explicitly designed to stand in for other types,
+# something that can't be expressed with our static type system.
 class NonCallableMock(Base, Any):
     def __new__(
-        cls: type[Self],
+        cls,
         spec: list[str] | object | type[object] | None = ...,
         wraps: Incomplete | None = ...,
         name: str | None = ...,
@@ -371,7 +373,7 @@ class _SpecState:
 def mock_open(mock: Incomplete | None = ..., read_data: Any = ...) -> Any: ...
 
 class PropertyMock(Mock):
-    def __get__(self: Self, obj: _T, obj_type: type[_T] | None = ...) -> Self: ...
+    def __get__(self, obj: _T, obj_type: type[_T] | None = ...) -> Self: ...
     def __set__(self, obj: Any, value: Any) -> None: ...
 
 def seal(mock: Any) -> None: ...

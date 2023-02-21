@@ -1,5 +1,6 @@
-from _typeshed import Incomplete, Self
+from _typeshed import Incomplete
 from typing import Any
+from typing_extensions import Self
 
 from ...util import memoized_property
 from .base import ReversibleProxy, StartableContext
@@ -53,7 +54,7 @@ class AsyncSession(ReversibleProxy):
     async def close(self): ...
     @classmethod
     async def close_all(cls): ...
-    async def __aenter__(self: Self) -> Self: ...
+    async def __aenter__(self) -> Self: ...
     async def __aexit__(self, type_, value, traceback) -> None: ...
     # proxied from Session
     identity_map: Any

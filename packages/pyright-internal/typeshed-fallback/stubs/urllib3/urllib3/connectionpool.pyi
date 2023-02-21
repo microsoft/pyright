@@ -1,10 +1,9 @@
 import queue
-from _typeshed import Self
 from collections.abc import Mapping
 from logging import Logger
 from types import TracebackType
 from typing import Any, ClassVar
-from typing_extensions import Literal, TypeAlias
+from typing_extensions import Literal, Self, TypeAlias
 
 from . import connection, exceptions, request, response
 from .connection import BaseSSLError as BaseSSLError, ConnectionError as ConnectionError, HTTPException as HTTPException
@@ -47,7 +46,7 @@ class ConnectionPool:
     host: str
     port: int | None
     def __init__(self, host: str, port: int | None = ...) -> None: ...
-    def __enter__(self: Self) -> Self: ...
+    def __enter__(self) -> Self: ...
     def __exit__(
         self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
     ) -> Literal[False]: ...

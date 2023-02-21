@@ -1,2 +1,5 @@
-version = "67.1.*"
+version = "67.3.*"
 requires = ["types-docutils"]
+
+[tool.stubtest]
+ignore_missing_stub = true

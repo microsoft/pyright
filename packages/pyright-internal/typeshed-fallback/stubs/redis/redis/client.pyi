@@ -1,11 +1,11 @@
 import threading
-from _typeshed import Incomplete, Self, SupportsItems
+from _typeshed import Incomplete, SupportsItems
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from datetime import datetime, timedelta
 from re import Pattern
 from types import TracebackType
 from typing import Any, ClassVar, Generic, TypeVar, overload
-from typing_extensions import Literal, TypeAlias
+from typing_extensions import Literal, Self, TypeAlias
 
 from redis import RedisError
 
@@ -340,7 +340,7 @@ class PubSub:
         ignore_subscribe_messages: bool = ...,
         encoder: Incomplete | None = ...,
     ) -> None: ...
-    def __enter__(self: Self) -> Self: ...
+    def __enter__(self) -> Self: ...
     def __exit__(
         self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None
     ) -> None: ...
@@ -428,9 +428,11 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
         keys: Sequence[str] | None = ...,
         channels: Iterable[ChannelT] | None = ...,
         selectors: Iterable[tuple[str, KeyT]] | None = ...,
-        reset: bool = ...,
-        reset_keys: bool = ...,
-        reset_passwords: bool = ...,
+        reset: bool = False,
+        reset_keys: bool = False,
+        reset_channels: bool = False,
+        reset_passwords: bool = False,
+        **kwargs: _CommandOptions,
     ) -> Pipeline[_StrType]: ...
     def acl_users(self) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def acl_whoami(self) -> Pipeline[_StrType]: ...  # type: ignore[override]
@@ -724,7 +726,7 @@ class Monitor:
     command_re: Pattern[str]
     monitor_re: Pattern[str]
     def __init__(self, connection_pool) -> None: ...
-    def __enter__(self: Self) -> Self: ...
+    def __enter__(self) -> Self: ...
     def __exit__(self, *args: object) -> None: ...
     def next_command(self) -> dict[str, Any]: ...
     def listen(self) -> Iterable[dict[str, Any]]: ...

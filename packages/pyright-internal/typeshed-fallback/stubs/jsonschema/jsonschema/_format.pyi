@@ -1,10 +1,10 @@
 from collections.abc import Callable, Iterable
-from typing import TypeVar, Union
+from typing import TypeVar
 from typing_extensions import TypeAlias
 
 _FormatCheckCallable: TypeAlias = Callable[[object], bool]
 _F = TypeVar("_F", bound=_FormatCheckCallable)
-_RaisesType: TypeAlias = Union[type[Exception], tuple[type[Exception], ...]]
+_RaisesType: TypeAlias = type[Exception] | tuple[type[Exception], ...]
 
 class FormatChecker:
     checkers: dict[str, tuple[_FormatCheckCallable, _RaisesType]]

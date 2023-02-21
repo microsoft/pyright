@@ -84,7 +84,20 @@ class pmem(NamedTuple):
     peak_pagefile: Any
     private: Any
 
-pfullmem: Any
+class pfullmem(NamedTuple):
+    rss: Incomplete
+    vms: Incomplete
+    num_page_faults: Incomplete
+    peak_wset: Incomplete
+    wset: Incomplete
+    peak_paged_pool: Incomplete
+    paged_pool: Incomplete
+    peak_nonpaged_pool: Incomplete
+    nonpaged_pool: Incomplete
+    pagefile: Incomplete
+    peak_pagefile: Incomplete
+    private: Incomplete
+    uss: Incomplete
 
 class pmmap_grouped(NamedTuple):
     path: Any

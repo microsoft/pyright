@@ -1,4 +1,1 @@
 version = "0.7.*"
-
-[tool.stubtest]
-ignore_missing_stub = false

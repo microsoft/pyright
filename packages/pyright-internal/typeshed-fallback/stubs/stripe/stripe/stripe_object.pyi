@@ -1,6 +1,7 @@
 import json
-from _typeshed import Incomplete, Self
+from _typeshed import Incomplete
 from typing import Any
+from typing_extensions import Self
 
 from stripe import api_requestor as api_requestor
 
@@ -29,7 +30,7 @@ class StripeObject(dict[Any, Any]):
     def __reduce__(self): ...
     @classmethod
     def construct_from(
-        cls: type[Self],
+        cls,
         values: Any,
         key: str | None,
         stripe_version: Incomplete | None = ...,

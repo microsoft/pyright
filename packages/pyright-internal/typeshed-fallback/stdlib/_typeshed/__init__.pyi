@@ -11,7 +11,7 @@ from collections.abc import Awaitable, Callable, Iterable, Set as AbstractSet
 from dataclasses import Field
 from os import PathLike
 from types import FrameType, TracebackType
-from typing import Any, AnyStr, ClassVar, Generic, Protocol, TypeVar, Union
+from typing import Any, AnyStr, ClassVar, Generic, Protocol, TypeVar
 from typing_extensions import Final, Literal, LiteralString, TypeAlias, final
 
 _KT = TypeVar("_KT")
@@ -265,7 +265,7 @@ IndexableBuffer: TypeAlias = bytes | bytearray | memoryview | array.array[Any] |
 #     def __buffer__(self, __flags: int) -> memoryview: ...
 
 ExcInfo: TypeAlias = tuple[type[BaseException], BaseException, TracebackType]
-OptExcInfo: TypeAlias = Union[ExcInfo, tuple[None, None, None]]
+OptExcInfo: TypeAlias = ExcInfo | tuple[None, None, None]
 
 # stable
 if sys.version_info >= (3, 10):

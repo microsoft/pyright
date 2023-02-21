@@ -1,9 +1,9 @@
-from _typeshed import Incomplete, Self
+from _typeshed import Incomplete
 from collections.abc import Callable, Iterable, Sequence
 from threading import Lock
 from types import TracebackType
 from typing import Any, ClassVar, Generic, NoReturn, Protocol
-from typing_extensions import Literal
+from typing_extensions import Literal, Self
 
 from redis.client import CaseInsensitiveDict, PubSub, Redis, _ParseResponseOptions
 from redis.commands import CommandsParser, RedisClusterCommands
@@ -71,14 +71,14 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands[_StrType], Generic
         url: str | None = ...,
         **kwargs,
     ) -> None: ...
-    def __enter__(self: Self) -> Self: ...
+    def __enter__(self) -> Self: ...
     def __exit__(
         self, type: type[BaseException] | None, value: BaseException | None, traceback: TracebackType | None
     ) -> None: ...
     def __del__(self) -> None: ...
     def disconnect_connection_pools(self) -> None: ...
     @classmethod
-    def from_url(cls: type[Self], url: str, **kwargs) -> Self: ...
+    def from_url(cls, url: str, **kwargs) -> Self: ...
     def on_connect(self, connection: Connection) -> None: ...
     def get_redis_connection(self, node: ClusterNode) -> Redis[Any]: ...
     def get_node(
@@ -136,16 +136,18 @@ class NodesManager:
     startup_nodes: dict[str, ClusterNode]
     default_node: ClusterNode | None
     from_url: bool
-    connection_kwargs: dict[str, Any]
+    connection_pool_class: type[ConnectionPool]
+    connection_kwargs: dict[str, Incomplete]  # TODO: could be a TypedDict
     read_load_balancer: LoadBalancer
     def __init__(
         self,
         startup_nodes: Iterable[ClusterNode],
-        from_url: bool = ...,
-        require_full_coverage: bool = ...,
-        lock: Lock | None = ...,
-        dynamic_startup_nodes: bool = ...,
-        **kwargs: Any,
+        from_url: bool = False,
+        require_full_coverage: bool = False,
+        lock: Lock | None = None,
+        dynamic_startup_nodes: bool = True,
+        connection_pool_class: type[ConnectionPool] = ...,
+        **kwargs,  # TODO: same type as connection_kwargs
     ) -> None: ...
     def get_node(
         self, host: str | None = ..., port: int | str | None = ..., node_name: str | None = ...

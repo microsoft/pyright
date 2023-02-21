@@ -1,4 +1,5 @@
 from _typeshed import Incomplete
+from enum import IntEnum
 from typing import Any, ClassVar
 from typing_extensions import Literal
 
@@ -9,11 +10,22 @@ logger: Any
 is_cid: Any
 MAX_TEXT_CHUNK: Any
 MAX_TEXT_MEMORY: Any
-APNG_DISPOSE_OP_NONE: int
-APNG_DISPOSE_OP_BACKGROUND: int
-APNG_DISPOSE_OP_PREVIOUS: int
-APNG_BLEND_OP_SOURCE: int
-APNG_BLEND_OP_OVER: int
+
+class Disposal(IntEnum):
+    OP_NONE: int
+    OP_BACKGROUND: int
+    OP_PREVIOUS: int
+
+APNG_DISPOSE_OP_NONE: Literal[Disposal.OP_NONE]
+APNG_DISPOSE_OP_BACKGROUND: Literal[Disposal.OP_BACKGROUND]
+APNG_DISPOSE_OP_PREVIOUS: Literal[Disposal.OP_PREVIOUS]
+
+class Blend(IntEnum):
+    OP_SOURCE: int
+    OP_OVER: int
+
+APNG_BLEND_OP_SOURCE: Literal[Blend.OP_SOURCE]
+APNG_BLEND_OP_OVER: Literal[Blend.OP_OVER]
 
 class ChunkStream:
     fp: Any

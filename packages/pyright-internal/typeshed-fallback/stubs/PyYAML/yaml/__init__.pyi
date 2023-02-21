@@ -1,4 +1,4 @@
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from re import Pattern
 from typing import Any, TypeVar, overload
 from typing_extensions import TypeAlias
@@ -6,12 +6,14 @@ from typing_extensions import TypeAlias
 from . import resolver as resolver  # Help mypy a bit; this is implied by loader and dumper
 from .constructor import BaseConstructor
 from .cyaml import *
+from .cyaml import _CLoader
 from .dumper import *
 from .dumper import _Inf
 from .emitter import _WriteStream
 from .error import *
 from .events import *
 from .loader import *
+from .loader import _Loader
 from .nodes import *
 from .reader import _ReadStream
 from .representer import BaseRepresenter
@@ -21,20 +23,20 @@ from .tokens import *
 # FIXME: the functions really return str if encoding is None, otherwise bytes. Waiting for python/mypy#5621
 _Yaml: TypeAlias = Any
 
-__with_libyaml__: Any
-__version__: str
-
 _T = TypeVar("_T")
 _Constructor = TypeVar("_Constructor", bound=BaseConstructor)
 _Representer = TypeVar("_Representer", bound=BaseRepresenter)
 
+__with_libyaml__: bool
+__version__: str
+
 def warnings(settings=...): ...
-def scan(stream, Loader=...): ...
-def parse(stream, Loader=...): ...
-def compose(stream, Loader=...): ...
-def compose_all(stream, Loader=...): ...
-def load(stream: _ReadStream, Loader) -> Any: ...
-def load_all(stream: _ReadStream, Loader) -> Iterator[Any]: ...
+def scan(stream, Loader: type[_Loader | _CLoader] = ...): ...
+def parse(stream, Loader: type[_Loader | _CLoader] = ...): ...
+def compose(stream, Loader: type[_Loader | _CLoader] = ...): ...
+def compose_all(stream, Loader: type[_Loader | _CLoader] = ...): ...
+def load(stream: _ReadStream, Loader: type[_Loader | _CLoader]) -> Any: ...
+def load_all(stream: _ReadStream, Loader: type[_Loader | _CLoader]) -> Iterator[Any]: ...
 def full_load(stream: _ReadStream) -> Any: ...
 def full_load_all(stream: _ReadStream) -> Iterator[Any]: ...
 def safe_load(stream: _ReadStream) -> Any: ...
@@ -119,7 +121,7 @@ def serialize(
 ) -> _Yaml: ...
 @overload
 def dump_all(
-    documents: Sequence[Any],
+    documents: Iterable[Any],
     stream: _WriteStream[Any],
     Dumper=...,
     default_style: str | None = ...,
@@ -138,7 +140,7 @@ def dump_all(
 ) -> None: ...
 @overload
 def dump_all(
-    documents: Sequence[Any],
+    documents: Iterable[Any],
     stream: None = ...,
     Dumper=...,
     default_style: str | None = ...,
@@ -197,7 +199,7 @@ def dump(
 ) -> _Yaml: ...
 @overload
 def safe_dump_all(
-    documents: Sequence[Any],
+    documents: Iterable[Any],
     stream: _WriteStream[Any],
     *,
     default_style: str | None = ...,
@@ -216,7 +218,7 @@ def safe_dump_all(
 ) -> None: ...
 @overload
 def safe_dump_all(
-    documents: Sequence[Any],
+    documents: Iterable[Any],
     stream: None = ...,
     *,
     default_style: str | None = ...,

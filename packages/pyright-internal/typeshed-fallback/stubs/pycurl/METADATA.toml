@@ -1,7 +1,6 @@
 version = "7.45.2"
 
 [tool.stubtest]
-ignore_missing_stub = false
 # Install on Windows requires building PycURL from source
 #
 # Install on MacOS is too complicated for the CI and does not work with stubtest:

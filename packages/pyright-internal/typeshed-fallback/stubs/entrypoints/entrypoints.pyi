@@ -1,8 +1,8 @@
 import sys
-from _typeshed import Self
 from collections.abc import Iterator, Sequence
 from configparser import ConfigParser
 from typing import Any
+from typing_extensions import Self
 
 if sys.version_info >= (3, 8):
     from re import Pattern
@@ -36,14 +36,14 @@ class EntryPoint:
     ) -> None: ...
     def load(self) -> Any: ...
     @classmethod
-    def from_string(cls: type[Self], epstr: str, name: str, distro: Distribution | None = ...) -> Self: ...
+    def from_string(cls, epstr: str, name: str, distro: Distribution | None = ...) -> Self: ...
 
 class Distribution:
     name: str
     version: str
     def __init__(self, name: str, version: str) -> None: ...
     @classmethod
-    def from_name_version(cls: type[Self], name: str) -> Self: ...
+    def from_name_version(cls, name: str) -> Self: ...
 
 def iter_files_distros(
     path: Sequence[str] | None = ..., repeated_distro: str = ...

@@ -1,11 +1,11 @@
 import importlib.abc
 import types
 import zipimport
-from _typeshed import Incomplete, Self
+from _typeshed import Incomplete
 from abc import ABCMeta
 from collections.abc import Callable, Generator, Iterable, Sequence
 from typing import IO, Any, TypeVar, overload
-from typing_extensions import TypeAlias
+from typing_extensions import Self, TypeAlias
 
 _Version: TypeAlias = Incomplete  # from packaging.version
 
@@ -55,7 +55,7 @@ class Environment:
     def remove(self, dist: Distribution) -> None: ...
     def can_add(self, dist: Distribution) -> bool: ...
     def __add__(self, other: Distribution | Environment) -> Environment: ...
-    def __iadd__(self: Self, other: Distribution | Environment) -> Self: ...
+    def __iadd__(self, other: Distribution | Environment) -> Self: ...
     @overload
     def best_match(self, req: Requirement, working_set: WorkingSet, *, replace_conflicting: bool = ...) -> Distribution: ...
     @overload
