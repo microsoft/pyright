@@ -116,6 +116,7 @@ import {
     TypeParameterDeclaration,
     VariableDeclaration,
 } from './declaration';
+import { extractParameterDocumentation } from './docStringUtils';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -521,6 +522,13 @@ export class Binder extends ParseTreeWalker {
                 node.parameters.forEach((paramNode) => {
                     if (paramNode.name) {
                         const symbol = this._bindNameToScope(this._currentScope, paramNode.name);
+
+                        // Extract the parameter docString from the function docString
+                        let docString = ParseTreeUtils.getDocString(node?.suite?.statements ?? []);
+                        if (docString !== undefined) {
+                            docString = extractParameterDocumentation(docString, paramNode.name.value);
+                        }
+
                         if (symbol) {
                             const paramDeclaration: ParameterDeclaration = {
                                 type: DeclarationType.Parameter,
@@ -529,6 +537,7 @@ export class Binder extends ParseTreeWalker {
                                 range: convertTextRangeToRange(paramNode, this._fileInfo.lines),
                                 moduleName: this._fileInfo.moduleName,
                                 isInExceptSuite: this._isInExceptSuite,
+                                docString: docString,
                             };
 
                             symbol.addDeclaration(paramDeclaration);
