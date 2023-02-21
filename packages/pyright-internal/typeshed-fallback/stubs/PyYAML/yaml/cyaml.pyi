@@ -11,6 +11,7 @@ from .resolver import BaseResolver, Resolver
 __all__ = ["CBaseLoader", "CSafeLoader", "CFullLoader", "CUnsafeLoader", "CLoader", "CBaseDumper", "CSafeDumper", "CDumper"]
 
 _Readable: TypeAlias = SupportsRead[str | bytes]
+_CLoader: TypeAlias = CLoader | CBaseLoader | CFullLoader | CSafeLoader | CUnsafeLoader  # noqa: Y047  # Used in other modules
 
 class CBaseLoader(CParser, BaseConstructor, BaseResolver):
     def __init__(self, stream: str | bytes | _Readable) -> None: ...

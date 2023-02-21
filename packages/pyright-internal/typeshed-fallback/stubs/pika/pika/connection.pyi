@@ -1,8 +1,8 @@
 import abc
-from _typeshed import Incomplete, Self
+from _typeshed import Incomplete
 from collections.abc import Callable
 from logging import Logger
-from typing_extensions import Final
+from typing_extensions import Final, Self
 
 from .callback import CallbackManager
 from .channel import Channel
@@ -150,23 +150,21 @@ class Connection(AbstractBase, metaclass=abc.ABCMeta):
     server_properties: Incomplete
     known_hosts: Incomplete
     def __init__(
-        self: Self,
+        self,
         parameters: Parameters | None = ...,
         on_open_callback: Callable[[Self], object] | None = ...,
         on_open_error_callback: Callable[[Self, BaseException], object] | None = ...,
         on_close_callback: Callable[[Self, BaseException], object] | None = ...,
         internal_connection_workflow: bool = ...,
     ) -> None: ...
-    def add_on_close_callback(self: Self, callback: Callable[[Self, BaseException], object]) -> None: ...
-    def add_on_connection_blocked_callback(
-        self: Self, callback: Callable[[Self, Method[SpecConnection.Blocked]], object]
-    ) -> None: ...
+    def add_on_close_callback(self, callback: Callable[[Self, BaseException], object]) -> None: ...
+    def add_on_connection_blocked_callback(self, callback: Callable[[Self, Method[SpecConnection.Blocked]], object]) -> None: ...
     def add_on_connection_unblocked_callback(
-        self: Self, callback: Callable[[Self, Method[SpecConnection.Unblocked]], object]
+        self, callback: Callable[[Self, Method[SpecConnection.Unblocked]], object]
     ) -> None: ...
-    def add_on_open_callback(self: Self, callback: Callable[[Self], object]) -> None: ...
+    def add_on_open_callback(self, callback: Callable[[Self], object]) -> None: ...
     def add_on_open_error_callback(
-        self: Self, callback: Callable[[Self, BaseException], object], remove_default: bool = ...
+        self, callback: Callable[[Self, BaseException], object], remove_default: bool = ...
     ) -> None: ...
     def channel(
         self, channel_number: int | None = ..., on_open_callback: Callable[[Channel], object] | None = ...

@@ -1,6 +1,7 @@
-from _typeshed import Incomplete, Self, SupportsRead
+from _typeshed import Incomplete, SupportsRead
 from collections.abc import Sequence
 from typing import Any
+from typing_extensions import Self
 
 from .builder import ParserRejectedMarkup as ParserRejectedMarkup, TreeBuilder, XMLParsedAsHTMLWarning as XMLParsedAsHTMLWarning
 from .element import (
@@ -45,7 +46,7 @@ class BeautifulSoup(Tag):
         element_classes: dict[type[PageElement], type[Any]] | None = ...,
         **kwargs,
     ) -> None: ...
-    def __copy__(self: Self) -> Self: ...
+    def __copy__(self) -> Self: ...
     hidden: bool
     current_data: Any
     currentTag: Any

@@ -1,6 +1,5 @@
 version = "22.1.*"
 
 [tool.stubtest]
-ignore_missing_stub = false
 # linux and darwin are equivalent
 platforms = ["linux", "win32"]

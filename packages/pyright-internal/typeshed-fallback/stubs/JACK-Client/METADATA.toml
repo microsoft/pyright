@@ -1,11 +1,10 @@
 version = "0.5.*"
 # Requires a version of numpy with a `py.typed` file
-requires = ["types-cffi", "numpy>=1.20"]
+requires = ["numpy>=1.20", "types-cffi"]
 
 [tool.stubtest]
-ignore_missing_stub = false
 # darwin and win32 are equivalent
-platforms = ["linux", "darwin"]
+platforms = ["darwin", "linux"]
 apt_dependencies = ["libjack-dev"]
 brew_dependencies = ["jack"]
 # No need to install on the CI. Leaving here as information for Windows contributors.

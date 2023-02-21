@@ -1,9 +1,10 @@
 import itertools
 import logging
 import threading
-from _typeshed import Incomplete, Self, SupportsKeysAndGetItem
+from _typeshed import Incomplete, SupportsKeysAndGetItem
 from collections.abc import Generator, Iterable
 from typing import ClassVar, NamedTuple, TypeVar
+from typing_extensions import Self
 
 class NullHandler(logging.Handler):
     def emit(self, record) -> None: ...
@@ -21,7 +22,7 @@ class attrdict(dict[str, _VT]):
     def __getattr__(self, attr: str) -> _VT: ...
     def __setattr__(self, attr: str, value: _VT) -> None: ...
     # calls dict.update()
-    def __iadd__(self: Self, rhs: SupportsKeysAndGetItem[str, _VT] | Iterable[tuple[str, _VT]]) -> Self: ...
+    def __iadd__(self, rhs: SupportsKeysAndGetItem[str, _VT] | Iterable[tuple[str, _VT]]) -> Self: ...
     def __add__(self, rhs: SupportsKeysAndGetItem[str, _VT] | Iterable[tuple[str, _VT]]) -> attrdict[_VT]: ...
 
 OP: Incomplete

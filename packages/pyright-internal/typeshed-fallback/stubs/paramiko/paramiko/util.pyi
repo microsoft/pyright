@@ -1,8 +1,8 @@
-from _typeshed import Self
 from hashlib import _Hash
 from logging import Logger, LogRecord
 from types import TracebackType
 from typing import IO, AnyStr, Protocol
+from typing_extensions import Self
 
 from paramiko.config import SSHConfig, SSHConfigDict
 from paramiko.hostkeys import HostKeys
@@ -32,7 +32,7 @@ def get_logger(name: str) -> Logger: ...
 def constant_time_bytes_eq(a: AnyStr, b: AnyStr) -> bool: ...
 
 class ClosingContextManager:
-    def __enter__(self: Self) -> Self: ...
+    def __enter__(self) -> Self: ...
     def __exit__(
         self, type: type[BaseException] | None, value: BaseException | None, traceback: TracebackType | None
     ) -> None: ...

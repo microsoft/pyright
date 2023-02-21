@@ -1,7 +1,8 @@
 import http.client
-from _typeshed import Incomplete, Self
+from _typeshed import Incomplete
 from collections.abc import Generator
 from typing import Any, ClassVar
+from typing_extensions import Self
 
 from .error import *
 
@@ -184,4 +185,4 @@ class Response(dict[str, Any]):
     previous: Any
     def __init__(self, info) -> None: ...
     @property
-    def dict(self: Self) -> Self: ...
+    def dict(self) -> Self: ...

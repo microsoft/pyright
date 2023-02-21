@@ -84,7 +84,17 @@ class pmem(NamedTuple):
     data: Any
     dirty: Any
 
-pfullmem: Any
+class pfullmem(NamedTuple):
+    rss: Incomplete
+    vms: Incomplete
+    shared: Incomplete
+    text: Incomplete
+    lib: Incomplete
+    data: Incomplete
+    dirty: Incomplete
+    uss: Incomplete
+    pss: Incomplete
+    swap: Incomplete
 
 class pmmap_grouped(NamedTuple):
     path: Any

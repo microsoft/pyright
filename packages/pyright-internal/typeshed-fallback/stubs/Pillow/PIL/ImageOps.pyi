@@ -1,12 +1,12 @@
 from _typeshed import Incomplete
 from collections.abc import Iterable
-from typing import Protocol, Union
+from typing import Protocol
 from typing_extensions import TypeAlias
 
 from .Image import Image, Resampling, _Resample, _Size
 from .ImageColor import _Ink
 
-_Border: TypeAlias = Union[int, tuple[int, int], tuple[int, int, int, int]]
+_Border: TypeAlias = int | tuple[int, int] | tuple[int, int, int, int]
 
 class _Deformer(Protocol):
     def getmesh(self, image: Image): ...

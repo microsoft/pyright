@@ -1,16 +1,15 @@
 import collections.abc
-from _typeshed import Self
 from collections.abc import Callable, Mapping
 from re import Pattern
-from typing import Any, Union
-from typing_extensions import TypeAlias
+from typing import Any
+from typing_extensions import Self, TypeAlias
 
 from parsimonious.exceptions import ParseError
 from parsimonious.grammar import Grammar
 from parsimonious.nodes import Node
 from parsimonious.utils import StrAndRepr
 
-_CALLABLE_RETURN_TYPE: TypeAlias = Union[int, tuple[int, list[Node]], Node, None]
+_CALLABLE_RETURN_TYPE: TypeAlias = int | tuple[int, list[Node]] | Node | None
 _CALLABLE_TYPE: TypeAlias = (
     Callable[[str, int], _CALLABLE_RETURN_TYPE]
     | Callable[[str, int, Mapping[tuple[int, int], Node], ParseError, Grammar], _CALLABLE_RETURN_TYPE]
@@ -25,7 +24,7 @@ class Expression(StrAndRepr):
     name: str
     identity_tuple: tuple[str]
     def __init__(self, name: str = ...) -> None: ...
-    def resolve_refs(self: Self, rule_map: Mapping[str, Expression]) -> Self: ...
+    def resolve_refs(self, rule_map: Mapping[str, Expression]) -> Self: ...
     def parse(self, text: str, pos: int = ...) -> Node: ...
     def match(self, text: str, pos: int = ...) -> Node: ...
     def match_core(self, text: str, pos: int, cache: Mapping[tuple[int, int], Node], error: ParseError) -> Node: ...

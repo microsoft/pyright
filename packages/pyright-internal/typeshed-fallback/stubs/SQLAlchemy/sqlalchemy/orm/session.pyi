@@ -1,6 +1,7 @@
-from _typeshed import Incomplete, Self
+from _typeshed import Incomplete
 from collections.abc import Mapping
 from typing import Any, TypeVar, overload
+from typing_extensions import Self
 
 from ..engine.base import Connection
 from ..engine.result import Result
@@ -105,7 +106,7 @@ class Session(_SessionClassMethods):
         query_cls: Incomplete | None = ...,
     ) -> None: ...
     connection_callable: Any
-    def __enter__(self: Self) -> Self: ...
+    def __enter__(self) -> Self: ...
     def __exit__(self, type_, value, traceback) -> None: ...
     @property
     def transaction(self): ...

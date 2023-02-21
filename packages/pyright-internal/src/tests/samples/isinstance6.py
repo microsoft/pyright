@@ -12,8 +12,8 @@ class Foo:
             reveal_type(other, expected_text="Type[Self@Foo] | Type[int]")
 
     def baz(self, other: object):
-        if isinstance(other, self.__class__):
+        if isinstance(other, type(self)):
             reveal_type(other, expected_text="Self@Foo")
 
-        if isinstance(other, (int, self.__class__)):
+        if isinstance(other, (int, type(self))):
             reveal_type(other, expected_text="Self@Foo | int")
