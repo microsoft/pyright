@@ -21857,7 +21857,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         recursionCount: number
     ): boolean {
         let curSrcType = srcType;
-        let curTypeVarContext = destTypeVarContext;
+        let curDestTypeVarContext = destTypeVarContext;
         let effectiveFlags = flags;
 
         inferTypeParameterVarianceForClass(destType);
@@ -21865,7 +21865,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         effectiveFlags |= AssignTypeFlags.SkipSolveTypeVars;
 
         if (!destTypeVarContext) {
-            curTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
+            curDestTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
             effectiveFlags &= ~AssignTypeFlags.SkipSolveTypeVars;
         } else {
             // If we're using the caller's type var context, don't solve the
@@ -21876,6 +21876,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         for (let ancestorIndex = inheritanceChain.length - 1; ancestorIndex >= 0; ancestorIndex--) {
             const ancestorType = inheritanceChain[ancestorIndex];
+
+            const curSrcTypeVarContext = new TypeVarContext(getTypeVarScopeId(curSrcType));
 
             // If we've hit an "unknown", all bets are off, and we need to assume
             // that the type is assignable.
@@ -21897,7 +21899,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Handle built-in types that support arbitrary numbers
             // of type parameters like Tuple.
             if (ancestorIndex === 0 && destType.tupleTypeArguments && curSrcType.tupleTypeArguments) {
-                return assignTupleTypeArgs(destType, curSrcType, diag, curTypeVarContext, flags, recursionCount);
+                return assignTupleTypeArgs(destType, curSrcType, diag, curDestTypeVarContext, flags, recursionCount);
             }
 
             // If there are no type parameters on this class, we're done.
@@ -21917,8 +21919,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ancestorType,
                     curSrcType,
                     diag,
-                    curTypeVarContext,
-                    /* srcTypeVarContext */ undefined,
+                    curDestTypeVarContext,
+                    curSrcTypeVarContext,
                     effectiveFlags,
                     recursionCount
                 )
@@ -21927,7 +21929,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             // Allocate a new type var map for the next time through the loop.
-            curTypeVarContext = new TypeVarContext(getTypeVarScopeId(ancestorType));
+            curDestTypeVarContext = new TypeVarContext(getTypeVarScopeId(ancestorType));
             effectiveFlags &= ~AssignTypeFlags.SkipSolveTypeVars;
         }
 
