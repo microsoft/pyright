@@ -7781,10 +7781,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     type: resultIsInstance
                         ? ClassType.cloneAsInstance(lookupResults.classType)
                         : lookupResults.classType,
-                    bindToType:
-                        resultIsInstance && bindToType && isInstantiableClass(bindToType)
-                            ? ClassType.cloneAsInstance(bindToType)
-                            : bindToType,
+                    bindToType: bindToType
+                        ? TypeBase.cloneForCondition(
+                              synthesizeTypeVarForSelfCls(bindToType, !resultIsInstance),
+                              bindToType.condition
+                          )
+                        : undefined,
                 };
             }
         }
