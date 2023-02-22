@@ -315,8 +315,8 @@ test('insert to a file with same symbol imported with alias', () => {
 ////     pass|]
 
 // @filename: moved.py
-//// from [|{|"r":"moved"|}test|] import foo as aliasFoo
-////
+//// [|{|"r":""|}from test import foo as aliasFoo
+//// |]
 //// aliasFoo()[|{|"r":"!n!!n!def foo():!n!    pass", "name": "dest"|}|]
         `;
 
@@ -401,6 +401,49 @@ test('original file has import for the symbol with alias', () => {
 
 // @filename: moved.py
 //// [|{|"r":"def foo():!n!    pass", "name": "dest"|}|]
+        `;
+
+    testFromCode(code);
+});
+
+test('move after class', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":""|}def [|/*marker*/foo|]():
+////     pass
+//// |]
+
+// @filename: moved.py
+//// class A:
+////     def foo(self):
+////         pass[|{|"r":"!n!!n!!n!def foo():!n!    pass", "name": "dest"|}|]
+        `;
+
+    testFromCode(code);
+});
+
+test('move variable', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":""|}[|/*marker*/A|] = 1|]
+
+// @filename: moved.py
+//// [|{|"r":"A = 1", "name": "dest"|}|]
+        `;
+
+    testFromCode(code);
+});
+
+test('move variable with doc string', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":""|}[|/*marker*/A|] = 1
+//// '''
+////     doc string
+//// '''|]
+
+// @filename: moved.py
+//// [|{|"r":"A = 1!n!'''!n!    doc string!n!'''", "name": "dest"|}|]
         `;
 
     testFromCode(code);

@@ -56,6 +56,28 @@ export function convertWorkspaceDocumentEdits(
         changeAnnotations: changeAnnotations,
     };
 
+    // Ordering of documentChanges are important.
+    // Make sure create operaiton happens before edits
+    for (const operation of editActions.fileOperations) {
+        switch (operation.kind) {
+            case 'create':
+                workspaceEdit.documentChanges!.push(
+                    CreateFile.create(
+                        convertPathToUri(fs, operation.filePath),
+                        /* options */ undefined,
+                        defaultAnnotationId
+                    )
+                );
+                break;
+            case 'rename':
+            case 'delete':
+                break;
+            default:
+                assertNever(operation);
+        }
+    }
+
+    // Text edit's file path must refer to original file paths unless it is a new file just created.
     const mapPerFile = createMapFromItems(editActions.edits, (e) => e.filePath);
     for (const [key, value] of mapPerFile) {
         workspaceEdit.documentChanges!.push(
@@ -72,13 +94,6 @@ export function convertWorkspaceDocumentEdits(
     for (const operation of editActions.fileOperations) {
         switch (operation.kind) {
             case 'create':
-                workspaceEdit.documentChanges!.push(
-                    CreateFile.create(
-                        convertPathToUri(fs, operation.filePath),
-                        /* options */ undefined,
-                        defaultAnnotationId
-                    )
-                );
                 break;
             case 'rename':
                 workspaceEdit.documentChanges!.push(

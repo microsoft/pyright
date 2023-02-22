@@ -32,6 +32,7 @@ import { convertLevelToCategory, Diagnostic, DiagnosticCategory } from '../commo
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextEditAction } from '../common/editAction';
+import { Extensions } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { LogTracker } from '../common/logTracker';
 import { fromLSPAny } from '../common/lspUtils';
@@ -679,6 +680,8 @@ export class SourceFile {
         this._indexingNeeded = indexingNeeded;
         this._moduleSymbolTable = undefined;
         this._cachedIndexResults = undefined;
+        const filePath = this.getFilePath();
+        Extensions.getProgramExtensions(filePath).forEach((e) => (e.fileDirty ? e.fileDirty(filePath) : null));
     }
 
     markReanalysisRequired(forceRebinding: boolean): void {
