@@ -145,6 +145,66 @@ test('symbol from destination file used', () => {
 
     testFromCode(code);
 });
+
+test('insert after all symbols references', () => {
+    const code = `
+// @filename: test.py
+//// from moved import MyType
+//// 
+//// [|{|"r":""|}def [|/*marker*/foo|](a: MyType) -> None:
+////     c: Mapping[str, MyType] = { 'hello', a }|]
+
+// @filename: moved.py
+//// [|{|"r":""|}from test import foo
+//// |]
+//// class MyType:
+////     pass[|{|"r":"!n!!n!!n!def foo(a: MyType) -> None:!n!    c: Mapping[str, MyType] = { 'hello', a }", "name": "dest"|}|]
+////
+//// foo()
+        `;
+
+    testFromCode(code);
+});
+
+test('insert after all symbols references 2', () => {
+    const code = `
+// @filename: test.py
+//// from moved import MyType
+//// 
+//// [|{|"r":""|}def [|/*marker*/foo|](a: MyType) -> None:
+////     c: Mapping[str, MyType] = { 'hello', a }|]
+
+// @filename: moved.py
+//// def __privateFoo():
+////     pass
+////
+//// class MyType:
+////     pass[|{|"r":"!n!!n!!n!def foo(a: MyType) -> None:!n!    c: Mapping[str, MyType] = { 'hello', a }", "name": "dest"|}|]
+        `;
+
+    testFromCode(code);
+});
+
+test('symbol used before all symbol references', () => {
+    const code = `
+// @filename: test.py
+//// from moved import MyType
+//// 
+//// [|{|"r":""|}def [|/*marker*/foo|](a: MyType) -> None:
+////     c: Mapping[str, MyType] = { 'hello', a }|]
+
+// @filename: moved.py
+//// [|{|"r":""|}from test import foo[|{|"r":"!n!!n!!n!def foo(a: MyType) -> None:!n!    c: Mapping[str, MyType] = { 'hello', a }", "name": "dest"|}|]
+//// |]
+//// foo()
+////
+//// class MyType:
+////     pass
+        `;
+
+    testFromCode(code);
+});
+
 function testFromCode(code: string) {
     const state = parseAndGetTestState(code).state;
 

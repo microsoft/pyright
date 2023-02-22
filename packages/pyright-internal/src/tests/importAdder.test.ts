@@ -1395,6 +1395,7 @@ function testImportMove(code: string, importFormat = ImportFormat.Absolute) {
 
     const edits = importMover.applyImports(
         importData,
+        dest.fileName,
         state.program.getBoundSourceFile(dest.fileName)!.getParseResults()!,
         dest.position,
         importFormat,
