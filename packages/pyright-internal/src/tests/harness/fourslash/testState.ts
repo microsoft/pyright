@@ -1242,13 +1242,25 @@ export class TestState {
 
             const expected = map[name].definitions;
 
+            // If we're going to def from a file, act like it's open.
+            if (!this.program.getSourceFileInfo(fileName)) {
+                const file = this.testData.files.find((v) => v.fileName === fileName);
+                if (file) {
+                    this.program.setFileOpened(fileName, file.version, [{ text: file.content }]);
+                }
+            }
+
             const position = this.convertOffsetToPosition(fileName, marker.position);
             const actual = this.program.getDefinitionsForPosition(fileName, position, filter, CancellationToken.None);
 
-            assert.equal(actual?.length ?? 0, expected.length);
+            assert.equal(actual?.length ?? 0, expected.length, `No definitions found for marker "${name}"`);
 
             for (const r of expected) {
-                assert.equal(actual?.filter((d) => this._deepEqual(d, r)).length, 1);
+                assert.equal(
+                    actual?.filter((d) => this._deepEqual(d, r)).length,
+                    1,
+                    `No match found for ${JSON.stringify(r)} from marker ${name}`
+                );
             }
         }
     }
@@ -1667,7 +1679,7 @@ export class TestState {
             }
         });
 
-        return new Map<string, typeof results[0][1]>(results);
+        return new Map<string, (typeof results)[0][1]>(results);
     }
 
     private _createAnalysisService(

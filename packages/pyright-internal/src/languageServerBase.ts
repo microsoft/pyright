@@ -12,13 +12,13 @@
 import './common/extensions';
 
 import {
+    AbstractCancellationTokenSource,
     CallHierarchyIncomingCallsParams,
     CallHierarchyItem,
     CallHierarchyOutgoingCall,
     CallHierarchyOutgoingCallsParams,
     CallHierarchyPrepareParams,
     CancellationToken,
-    CancellationTokenSource,
     CodeAction,
     CodeActionParams,
     Command,
@@ -367,10 +367,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected _cacheManager: CacheManager;
 
     // We support running only one "find all reference" at a time.
-    private _pendingFindAllRefsCancellationSource: CancellationTokenSource | undefined;
+    private _pendingFindAllRefsCancellationSource: AbstractCancellationTokenSource | undefined;
 
     // We support running only one command at a time.
-    private _pendingCommandCancellationSource: CancellationTokenSource | undefined;
+    private _pendingCommandCancellationSource: AbstractCancellationTokenSource | undefined;
 
     private _progressReporter: ProgressReporter;
 
@@ -1646,7 +1646,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         // created by the LSP library. If it's the latter, we'll create a server-initiated
         // progress reporter.
         if (reporter.constructor !== nullProgressReporter.constructor) {
-            return { reporter: reporter, source: CancelAfter(token) };
+            return { reporter: reporter, source: CancelAfter(this._serverOptions.cancellationProvider, token) };
         }
 
         const serverInitiatedReporter = await this._connection.window.createWorkDoneProgress();
@@ -1659,7 +1659,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         return {
             reporter: serverInitiatedReporter,
-            source: CancelAfter(token, serverInitiatedReporter.token),
+            source: CancelAfter(this._serverOptions.cancellationProvider, token, serverInitiatedReporter.token),
         };
     }
 

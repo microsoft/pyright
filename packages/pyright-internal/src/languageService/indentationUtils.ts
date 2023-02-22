@@ -139,7 +139,18 @@ export function reindentSpan(
         previousInfo = info;
     }
 
-    return texts.join('');
+    return {
+        originalSpan: TextRange.combine(tokenInfo)!,
+        text: texts.join(''),
+    };
+}
+
+export function getModuleStatementIndentation(parseResults: ParseResults) {
+    if (parseResults.parseTree.statements.length === 0) {
+        return getNewlineIndentation(parseResults, parseResults.parseTree.length, /* preferDedent */ true);
+    }
+
+    return getNewlineIndentation(parseResults, parseResults.parseTree.statements[0].start, /* preferDedent */ true);
 }
 
 function _getIndentation(
