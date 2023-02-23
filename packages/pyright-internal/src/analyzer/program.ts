@@ -43,7 +43,6 @@ import {
 } from '../common/pathUtils';
 import { convertPositionToOffset, convertRangeToTextRange, convertTextRangeToRange } from '../common/positionUtils';
 import { computeCompletionSimilarity } from '../common/stringUtils';
-import { applyTextEditActions } from '../common/textEditUtils';
 import {
     DocumentRange,
     doesRangeContain,
@@ -54,6 +53,7 @@ import {
     TextRange,
 } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
+import { applyTextEditsToString } from '../common/workspaceEditUtils';
 import {
     AutoImporter,
     AutoImportOptions,
@@ -2188,10 +2188,10 @@ export class Program {
                     token
                 );
 
-                const updateContent = applyTextEditActions(
-                    codeSnippetToInsert,
+                const updateContent = applyTextEditsToString(
                     insertAddEdits,
-                    tempParseResults.tokenizerOutput.lines
+                    tempParseResults.tokenizerOutput.lines,
+                    codeSnippetToInsert
                 );
 
                 renameModuleProvider.textEditTracker.addEdit(newFilePath, getEmptyRange(), updateContent);

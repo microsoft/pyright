@@ -10,7 +10,7 @@ import * as assert from 'assert';
 import { TextDocumentEdit } from 'vscode-languageserver-types';
 
 import { convertPathToUri } from '../common/pathUtils';
-import { applyWorkspaceEdits, generateWorkspaceEdits } from '../common/workspaceEditUtils';
+import { applyWorkspaceEdit, generateWorkspaceEdit } from '../common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from '../languageService/analyzerServiceExecutor';
 import { TestLanguageService } from './harness/fourslash/testLanguageService';
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
@@ -27,7 +27,7 @@ test('test applyWorkspaceEdits changes', async () => {
     const range = state.getRangeByMarkerName('marker')!;
 
     const fileChanged = new Set<string>();
-    applyWorkspaceEdits(
+    applyWorkspaceEdit(
         cloned,
         {
             changes: {
@@ -57,7 +57,7 @@ test('test applyWorkspaceEdits documentChanges', async () => {
     const range = state.getRangeByMarkerName('marker')!;
 
     const fileChanged = new Set<string>();
-    applyWorkspaceEdits(
+    applyWorkspaceEdit(
         cloned,
         {
             documentChanges: [
@@ -96,7 +96,7 @@ test('test generateWorkspaceEdits', async () => {
     const range1 = state.getRangeByMarkerName('marker1')!;
 
     const fileChanged = new Set<string>();
-    applyWorkspaceEdits(
+    applyWorkspaceEdit(
         cloned,
         {
             changes: {
@@ -111,7 +111,7 @@ test('test generateWorkspaceEdits', async () => {
         fileChanged
     );
 
-    applyWorkspaceEdits(
+    applyWorkspaceEdit(
         cloned,
         {
             documentChanges: [
@@ -133,7 +133,7 @@ test('test generateWorkspaceEdits', async () => {
     );
 
     const range2 = state.getRangeByMarkerName('marker2')!;
-    applyWorkspaceEdits(
+    applyWorkspaceEdit(
         cloned,
         {
             documentChanges: [
@@ -154,7 +154,7 @@ test('test generateWorkspaceEdits', async () => {
         fileChanged
     );
 
-    applyWorkspaceEdits(
+    applyWorkspaceEdit(
         cloned,
         {
             changes: {
@@ -171,7 +171,7 @@ test('test generateWorkspaceEdits', async () => {
 
     assert.strictEqual(fileChanged.size, 2);
 
-    const actualEdits = generateWorkspaceEdits(state.workspace.serviceInstance, cloned, fileChanged);
+    const actualEdits = generateWorkspaceEdit(state.workspace.serviceInstance, cloned, fileChanged);
     verifyWorkspaceEdit(
         {
             changes: {
