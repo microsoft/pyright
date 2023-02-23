@@ -685,8 +685,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function isTypeCached(node: ParseNode) {
-        const cachedEntry = readTypeCacheEntry(node);
-        return cachedEntry !== undefined && !cachedEntry.typeResult.isIncomplete;
+        const cacheEntry = readTypeCacheEntry(node);
+        if (!cacheEntry) {
+            return false;
+        }
+
+        return (
+            !cacheEntry.typeResult.isIncomplete || cacheEntry.incompleteGenerationCount === incompleteGenerationCount
+        );
     }
 
     function readTypeCache(node: ParseNode, flags: EvaluatorFlags | undefined): Type | undefined {
@@ -12152,9 +12158,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const diag = new DiagnosticAddendum();
 
-        // Don't use literal math if either of the operand types are
-        // incomplete because we may be evaluating types within a loop,
-        // so the literal values may change each time.
+        // Don't use literal math if either of the operation is within a loop
+        // because the literal values may change each time.
         const isLiteralMathAllowed = !ParseTreeUtils.isWithinLoop(node);
 
         // Don't special-case tuple __add__ if the left type is a union. This
@@ -12330,12 +12335,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 // assignment, fall back on the normal binary expression evaluator.
                                 const binaryOperator = operatorMap[node.operator][1];
 
-                                // Don't use literal math if either of the operand types are
-                                // incomplete because we may be evaluating types within a loop,
-                                // so the literal values may change each time.
+                                // Don't use literal math if either of the operation is within a loop
+                                // because the literal values may change each time.
                                 const isLiteralMathAllowed =
-                                    !leftTypeResult.isIncomplete &&
-                                    !rightTypeResult.isIncomplete &&
+                                    !ParseTreeUtils.isWithinLoop(node) &&
                                     getUnionSubtypeCount(leftType) * getUnionSubtypeCount(rightType) <
                                         maxLiteralMathSubtypeCount;
 
@@ -15291,7 +15294,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // If the entire statement has already been evaluated, don't
         // re-evaluate it.
-        if (readTypeCache(node, EvaluatorFlags.None)) {
+        if (isTypeCached(node)) {
             return;
         }
 
@@ -15632,7 +15635,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForAugmentedAssignment(node: AugmentedAssignmentNode): void {
-        if (readTypeCache(node, EvaluatorFlags.None)) {
+        if (isTypeCached(node)) {
             return;
         }
 
@@ -18167,7 +18170,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForForStatement(node: ForNode): void {
-        if (readTypeCache(node, EvaluatorFlags.None)) {
+        if (isTypeCached(node)) {
             return;
         }
 
@@ -18194,7 +18197,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // This should be called only if the except node has a target exception.
         assert(node.typeExpression !== undefined);
 
-        if (readTypeCache(node, EvaluatorFlags.None)) {
+        if (isTypeCached(node)) {
             return;
         }
 
@@ -18259,7 +18262,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForWithStatement(node: WithItemNode): void {
-        if (readTypeCache(node, EvaluatorFlags.None)) {
+        if (isTypeCached(node)) {
             return;
         }
 
@@ -18374,7 +18377,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForImportAs(node: ImportAsNode): void {
-        if (readTypeCache(node, EvaluatorFlags.None)) {
+        if (isTypeCached(node)) {
             return;
         }
 
@@ -18411,7 +18414,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForImportFromAs(node: ImportFromAsNode): void {
-        if (readTypeCache(node, EvaluatorFlags.None)) {
+        if (isTypeCached(node)) {
             return;
         }
 
@@ -18482,7 +18485,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForMatchStatement(node: MatchNode): void {
-        if (readTypeCache(node, EvaluatorFlags.None)) {
+        if (isTypeCached(node)) {
             return;
         }
 
@@ -18509,7 +18512,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForCaseStatement(node: CaseNode): void {
-        if (readTypeCache(node, EvaluatorFlags.None)) {
+        if (isTypeCached(node)) {
             return;
         }
 
@@ -18569,7 +18572,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForImportFrom(node: ImportFromNode): void {
-        if (readTypeCache(node, EvaluatorFlags.None)) {
+        if (isTypeCached(node)) {
             return;
         }
 
