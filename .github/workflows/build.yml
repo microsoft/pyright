@@ -1,0 +1,85 @@
+name: 'Build'
+
+env:
+  NODE_VERSION: '16' # Shipped with VS Code.
+  ARTIFACT_NAME_VSIX: vsix
+  VSIX_NAME: vscode-pyright.vsix
+
+on:
+  push:
+    tags:
+      - '1.1.[0-9][0-9][0-9]'
+
+jobs:
+  build:
+    if: github.repository == 'microsoft/pyright'
+    runs-on: ubuntu-latest
+    name: Build
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v2-beta
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Get npm cache directory
+        id: npm-cache
+        run: |
+          echo "::set-output name=dir::$(npm config get cache)"
+      - uses: actions/cache@v2
+        with:
+          path: ${{ steps.npm-cache.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - run: npm run install:all
+
+      - name: Build VSIX
+        working-directory: packages/vscode-pyright
+        run: |
+          npm run package
+          mv pyright-${{ github.event.release.tag_name }}.vsix ${{ env.VSIX_NAME }}
+
+      - uses: actions/upload-artifact@v2
+        working-directory: packages/vscode-pyright
+        with:
+          name: ${{ env.ARTIFACT_NAME_VSIX }}
+          path: ${{ env.VSIX_NAME }}
+
+  create_release:
+    if: github.repository == 'microsoft/pyright' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    name: Create release
+    needs: [build]
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+
+      # TODO: If the release already exists (tag created via the GUI), reuse it.
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: true
+          prerelease: ${{ contains(github.ref, '-') || !endswith(github.ref, '0')  }}
+
+      - name: Upload VSIX
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./artifacts/${{ env.ARTIFACT_NAME_VSIX }}/${{ env.VSIX_NAME }}
+          asset_name: ${{ env.VSIX_NAME }}
+          asset_content_type: application/zip
