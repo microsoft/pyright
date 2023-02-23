@@ -10,7 +10,7 @@ env:
 
 jobs:
   publish_extension:
-    # if: ${{ github.repository == 'microsoft/pyright' }}
+    if: ${{ github.repository == 'microsoft/pyright' }}
     runs-on: ubuntu-latest
     name: Publish extension to marketplace
 
@@ -26,7 +26,7 @@ jobs:
       - name: Download VSIX
         uses: i3h/download-release-asset@v1
         with:
-          owner: debonte
+          owner: microsoft
           repo: pyright
           tag: ${{ github.event.release.tag_name }}
           file: ${{ env.VSIX_NAME }}
@@ -39,6 +39,6 @@ jobs:
           npx vsce --version
 
       # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
-      # - name: Publish VSIX
-      #   if: ${{ !github.event.release.prerelease }}
-      #   run: npx vsce publish --packagePath ${{ env.VSIX_NAME }} --pat ${{ secrets.VSCE_TOKEN }} --noVerify
+      - name: Publish VSIX
+        if: ${{ !github.event.release.prerelease }}
+        run: npx vsce publish --packagePath ${{ env.VSIX_NAME }} --pat ${{ secrets.VSCE_TOKEN }} --noVerify
