@@ -1556,7 +1556,7 @@ export class ImportResolver {
                 return bestImportSoFar;
             }
 
-            // Prefer higher priority
+            // Prefer higher priority.
             if (
                 newImport.importType === ImportType.Local &&
                 !newImport.isNamespacePackage &&
