@@ -43,7 +43,7 @@ import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import * as StringUtils from '../common/stringUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
 import { SupportPartialStubs } from '../pyrightFileSystem';
-import { ImplicitImport, ImportResult, ImportType } from './importResult';
+import { DefaultPriority, ImplicitImport, ImportResult, ImportType } from './importResult';
 import { getDirectoryLeadingDotsPointsTo } from './importStatementUtils';
 import { ImportPath, ParentDirectoryCache } from './parentDirectoryCache';
 import * as PythonPathUtils from './pythonPathUtils';
@@ -256,6 +256,7 @@ export class ImportResolver {
             importFailureInfo,
             resolvedPaths: [],
             importType: ImportType.Local,
+            priority: DefaultPriority,
             isStubFile: false,
             isNativeLib: false,
             implicitImports: [],
@@ -1161,6 +1162,18 @@ export class ImportResolver {
             importFound = resolvedPaths.length >= moduleDescriptor.nameParts.length;
         }
 
+        // Set priority based on if import is in the excluded list or not
+        let priority = DefaultPriority;
+        if (importFound && sourceFilePath && !isNamespacePackage && resolvedPaths.length > 0) {
+            // Check the resolved path. If it's for an included file or the importing
+            // file is also excluded, treat as lower priority.
+            priority =
+                !matchFileSpecs(this._configOptions, sourceFilePath, true) ||
+                matchFileSpecs(this._configOptions, resolvedPaths[resolvedPaths.length - 1], true)
+                    ? DefaultPriority
+                    : DefaultPriority - 10;
+        }
+
         return {
             importName,
             isRelative: false,
@@ -1171,6 +1184,7 @@ export class ImportResolver {
             isPartlyResolved,
             importFailureInfo,
             importType: ImportType.Local,
+            priority,
             resolvedPaths,
             searchPath: rootPath,
             isStubFile,
@@ -1534,10 +1548,20 @@ export class ImportResolver {
             }
 
             // Prefer local packages.
-            if (bestImportSoFar.importType === ImportType.Local && !bestImportSoFar.isNamespacePackage) {
+            if (
+                bestImportSoFar.importType === ImportType.Local &&
+                !bestImportSoFar.isNamespacePackage &&
+                newImport.importType !== ImportType.Local
+            ) {
                 return bestImportSoFar;
             }
-            if (newImport.importType === ImportType.Local && !newImport.isNamespacePackage) {
+
+            // Prefer higher priority
+            if (
+                newImport.importType === ImportType.Local &&
+                !newImport.isNamespacePackage &&
+                newImport.priority > bestImportSoFar.priority
+            ) {
                 return newImport;
             }
 

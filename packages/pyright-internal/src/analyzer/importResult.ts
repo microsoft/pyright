@@ -23,6 +23,8 @@ export interface ImplicitImport {
     pyTypedInfo?: PyTypedInfo | undefined;
 }
 
+export const DefaultPriority = 100;
+
 export interface ImportResult {
     // The formatted import name. Useful for error messages.
     importName: string;
@@ -101,4 +103,8 @@ export interface ImportResult {
 
     // The directory of the package, if found.
     packageDirectory?: string | undefined;
+
+    // Priority of the result compared to other imports for the same module.
+    // Default priority is 100.
+    priority: number;
 }
