@@ -26,8 +26,8 @@ jobs:
       - name: Download VSIX
         uses: i3h/download-release-asset@v1
         with:
-          owner: microsoft
-          repo: pyrx
+          owner: debonte
+          repo: pyright
           tag: ${{ github.event.release.tag_name }}
           file: ${{ env.VSIX_NAME }}
           token: ${{ secrets.GITHUB_TOKEN }}
