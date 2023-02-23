@@ -40,5 +40,4 @@ jobs:
 
       # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
       - name: Publish VSIX
-        if: ${{ !github.event.release.prerelease }}
         run: npx vsce publish --packagePath ${{ env.VSIX_NAME }} --pat ${{ secrets.VSCE_TOKEN }} --noVerify
