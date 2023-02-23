@@ -111,7 +111,7 @@ import { convertPathToUri, deduplicateFolders, getDirectoryPath, getFileName, is
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
 import { DocumentRange, Position, Range } from './common/textRange';
 import { UriParser } from './common/uriParser';
-import { convertWorkspaceDocumentEdits } from './common/workspaceEditUtils';
+import { convertToWorkspaceEdit } from './common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { ImportFormat } from './languageService/autoImporter';
 import { CompletionItemData, CompletionOptions, CompletionResultsList } from './languageService/completionProvider';
@@ -1233,7 +1233,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return undefined;
         }
 
-        return convertWorkspaceDocumentEdits(workspace.serviceInstance.fs, editActions);
+        return convertToWorkspaceEdit(workspace.serviceInstance.fs, editActions);
     }
 
     protected async onPrepare(

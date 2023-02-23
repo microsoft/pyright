@@ -52,7 +52,7 @@ import { isArray } from '../common/core';
 import { TextEditAction } from '../common/editAction';
 import { getDirectoryPath } from '../common/pathUtils';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { TextEditTracker } from '../common/textEditUtils';
+import { TextEditTracker } from '../common/textEditTracker';
 import { TextRange } from '../common/textRange';
 import { ModuleNameNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';

@@ -8,7 +8,7 @@ import assert from 'assert';
 import { CancellationToken } from 'vscode-jsonrpc';
 
 import { FileEditAction } from '../common/editAction';
-import { TextEditTracker } from '../common/textEditUtils';
+import { TextEditTracker } from '../common/textEditTracker';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
 import { convertRangeToFileEditAction } from './testStateUtils';
