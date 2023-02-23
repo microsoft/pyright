@@ -14,8 +14,8 @@ import { assertNever } from '../common/debug';
 import { FileEditAction, FileEditActions } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
 import { convertUriToPath, getDirectoryPath, isFile } from '../common/pathUtils';
-import { applyTextEditActions } from '../common/textEditUtils';
 import { rangesAreEqual } from '../common/textRange';
+import { applyTextEditsToString } from '../common/workspaceEditUtils';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { TestState } from './harness/fourslash/testState';
 
@@ -119,10 +119,10 @@ function _applyEdits(state: TestState, filePath: string, edits: FileEditAction[]
     const sourceFile = state.program.getBoundSourceFile(filePath)!;
     const parseResults = sourceFile.getParseResults()!;
 
-    const current = applyTextEditActions(
-        parseResults.text,
+    const current = applyTextEditsToString(
         edits.filter((e) => e.filePath === filePath),
-        parseResults.tokenizerOutput.lines
+        parseResults.tokenizerOutput.lines,
+        parseResults.text
     );
 
     return { version: sourceFile.getClientVersion(), text: current };

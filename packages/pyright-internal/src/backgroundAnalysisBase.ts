@@ -288,7 +288,6 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     protected _importResolver: ImportResolver;
     private _program: Program;
 
-    protected _host: Host;
     protected _logTracker: LogTracker;
 
     get program(): Program {
@@ -303,8 +302,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         this.log(LogLevel.Info, `Background analysis(${threadId}) root directory: ${data.rootDirectory}`);
 
         this._configOptions = new ConfigOptions(data.rootDirectory);
-        this._host = this.createHost();
-        this._importResolver = this.createImportResolver(this.fs, this._configOptions, this._host);
+        this._importResolver = this.createImportResolver(this.fs, this._configOptions, this.createHost());
 
         const console = this.getConsole();
         this._logTracker = new LogTracker(console, `BG(${threadId})`);
@@ -402,7 +400,11 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             case 'setConfigOptions': {
                 this._configOptions = createConfigOptionsFrom(msg.data);
 
-                this._importResolver = this.createImportResolver(this.fs, this._configOptions, this._host);
+                this._importResolver = this.createImportResolver(
+                    this.fs,
+                    this._configOptions,
+                    this._importResolver.host
+                );
                 this.program.setConfigOptions(this._configOptions);
                 this.program.setImportResolver(this._importResolver);
                 break;
@@ -477,7 +479,11 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
             case 'restart': {
                 // recycle import resolver
-                this._importResolver = this.createImportResolver(this.fs, this._configOptions, this._host);
+                this._importResolver = this.createImportResolver(
+                    this.fs,
+                    this._configOptions,
+                    this._importResolver.host
+                );
                 this.program.setImportResolver(this._importResolver);
                 break;
             }
