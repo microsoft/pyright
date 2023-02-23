@@ -1162,7 +1162,7 @@ export class ImportResolver {
             importFound = resolvedPaths.length >= moduleDescriptor.nameParts.length;
         }
 
-        // Set priority based on if import is in the excluded list or not
+        // Set priority based on if import is in the excluded list or not.
         let priority = DefaultPriority;
         if (importFound && sourceFilePath && !isNamespacePackage && resolvedPaths.length > 0) {
             // Check the resolved path. If it's for an included file or the importing
