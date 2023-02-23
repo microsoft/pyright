@@ -42,7 +42,7 @@ jobs:
         working-directory: packages/vscode-pyright
         run: |
           npm run package
-          mv pyright-${{ github.event.release.tag_name }}.vsix ${{ env.VSIX_NAME }}
+          mv pyright-*.vsix ${{ env.VSIX_NAME }}
 
       - uses: actions/upload-artifact@v2
         with:
