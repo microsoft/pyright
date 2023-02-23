@@ -12152,9 +12152,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const diag = new DiagnosticAddendum();
 
-        // Don't use literal math if either of the operand types are
-        // incomplete because we may be evaluating types within a loop,
-        // so the literal values may change each time.
+        // Don't use literal math if either of the operation is within a loop
+        // because the literal values may change each time.
         const isLiteralMathAllowed = !ParseTreeUtils.isWithinLoop(node);
 
         // Don't special-case tuple __add__ if the left type is a union. This
@@ -12330,12 +12329,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 // assignment, fall back on the normal binary expression evaluator.
                                 const binaryOperator = operatorMap[node.operator][1];
 
-                                // Don't use literal math if either of the operand types are
-                                // incomplete because we may be evaluating types within a loop,
-                                // so the literal values may change each time.
+                                // Don't use literal math if either of the operation is within a loop
+                                // because the literal values may change each time.
                                 const isLiteralMathAllowed =
-                                    !leftTypeResult.isIncomplete &&
-                                    !rightTypeResult.isIncomplete &&
+                                    !ParseTreeUtils.isWithinLoop(node) &&
                                     getUnionSubtypeCount(leftType) * getUnionSubtypeCount(rightType) <
                                         maxLiteralMathSubtypeCount;
 
