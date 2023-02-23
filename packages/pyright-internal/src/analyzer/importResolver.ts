@@ -1166,7 +1166,7 @@ export class ImportResolver {
         let priority = DefaultPriority;
         if (importFound && sourceFilePath && !isNamespacePackage && resolvedPaths.length > 0) {
             // Check the resolved path. If it's for an included file or the importing
-            // file is also excluded, treat as lower priority.
+            // file is also excluded, treat as higher priority.
             priority =
                 !matchFileSpecs(this._configOptions, sourceFilePath, true) ||
                 matchFileSpecs(this._configOptions, resolvedPaths[resolvedPaths.length - 1], true)
