@@ -71,7 +71,6 @@ jobs:
           tag_name: ${{ github.ref }}
           release_name: ${{ github.ref }}
           draft: true
-          prerelease: ${{ contains(github.ref, '-') || !endswith(github.ref, '0')  }}
 
       - name: Upload VSIX
         uses: actions/upload-release-asset@v1
