@@ -685,14 +685,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function isTypeCached(node: ParseNode) {
-        const cacheEntry = readTypeCacheEntry(node);
-        if (!cacheEntry) {
-            return false;
-        }
-
-        return (
-            !cacheEntry.typeResult.isIncomplete || cacheEntry.incompleteGenerationCount === incompleteGenerationCount
-        );
+        const cachedEntry = readTypeCacheEntry(node);
+        return cachedEntry !== undefined && !cachedEntry.typeResult.isIncomplete;
     }
 
     function readTypeCache(node: ParseNode, flags: EvaluatorFlags | undefined): Type | undefined {
@@ -7787,12 +7781,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     type: resultIsInstance
                         ? ClassType.cloneAsInstance(lookupResults.classType)
                         : lookupResults.classType,
-                    bindToType: bindToType
-                        ? TypeBase.cloneForCondition(
-                              synthesizeTypeVarForSelfCls(bindToType, !resultIsInstance),
-                              bindToType.condition
-                          )
-                        : undefined,
+                    bindToType:
+                        resultIsInstance && bindToType && isInstantiableClass(bindToType)
+                            ? ClassType.cloneAsInstance(bindToType)
+                            : bindToType,
                 };
             }
         }
@@ -12158,8 +12150,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const diag = new DiagnosticAddendum();
 
-        // Don't use literal math if either of the operation is within a loop
-        // because the literal values may change each time.
+        // Don't use literal math if either of the operand types are
+        // incomplete because we may be evaluating types within a loop,
+        // so the literal values may change each time.
         const isLiteralMathAllowed = !ParseTreeUtils.isWithinLoop(node);
 
         // Don't special-case tuple __add__ if the left type is a union. This
@@ -12335,10 +12328,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 // assignment, fall back on the normal binary expression evaluator.
                                 const binaryOperator = operatorMap[node.operator][1];
 
-                                // Don't use literal math if either of the operation is within a loop
-                                // because the literal values may change each time.
+                                // Don't use literal math if either of the operand types are
+                                // incomplete because we may be evaluating types within a loop,
+                                // so the literal values may change each time.
                                 const isLiteralMathAllowed =
-                                    !ParseTreeUtils.isWithinLoop(node) &&
+                                    !leftTypeResult.isIncomplete &&
+                                    !rightTypeResult.isIncomplete &&
                                     getUnionSubtypeCount(leftType) * getUnionSubtypeCount(rightType) <
                                         maxLiteralMathSubtypeCount;
 
@@ -15294,7 +15289,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // If the entire statement has already been evaluated, don't
         // re-evaluate it.
-        if (isTypeCached(node)) {
+        if (readTypeCache(node, EvaluatorFlags.None)) {
             return;
         }
 
@@ -15635,7 +15630,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForAugmentedAssignment(node: AugmentedAssignmentNode): void {
-        if (isTypeCached(node)) {
+        if (readTypeCache(node, EvaluatorFlags.None)) {
             return;
         }
 
@@ -18170,7 +18165,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForForStatement(node: ForNode): void {
-        if (isTypeCached(node)) {
+        if (readTypeCache(node, EvaluatorFlags.None)) {
             return;
         }
 
@@ -18197,7 +18192,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // This should be called only if the except node has a target exception.
         assert(node.typeExpression !== undefined);
 
-        if (isTypeCached(node)) {
+        if (readTypeCache(node, EvaluatorFlags.None)) {
             return;
         }
 
@@ -18262,7 +18257,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForWithStatement(node: WithItemNode): void {
-        if (isTypeCached(node)) {
+        if (readTypeCache(node, EvaluatorFlags.None)) {
             return;
         }
 
@@ -18377,7 +18372,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForImportAs(node: ImportAsNode): void {
-        if (isTypeCached(node)) {
+        if (readTypeCache(node, EvaluatorFlags.None)) {
             return;
         }
 
@@ -18414,7 +18409,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForImportFromAs(node: ImportFromAsNode): void {
-        if (isTypeCached(node)) {
+        if (readTypeCache(node, EvaluatorFlags.None)) {
             return;
         }
 
@@ -18485,7 +18480,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForMatchStatement(node: MatchNode): void {
-        if (isTypeCached(node)) {
+        if (readTypeCache(node, EvaluatorFlags.None)) {
             return;
         }
 
@@ -18512,7 +18507,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForCaseStatement(node: CaseNode): void {
-        if (isTypeCached(node)) {
+        if (readTypeCache(node, EvaluatorFlags.None)) {
             return;
         }
 
@@ -18572,7 +18567,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypesForImportFrom(node: ImportFromNode): void {
-        if (isTypeCached(node)) {
+        if (readTypeCache(node, EvaluatorFlags.None)) {
             return;
         }
 
@@ -21862,7 +21857,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         recursionCount: number
     ): boolean {
         let curSrcType = srcType;
-        let curDestTypeVarContext = destTypeVarContext;
+        let curTypeVarContext = destTypeVarContext;
         let effectiveFlags = flags;
 
         inferTypeParameterVarianceForClass(destType);
@@ -21870,7 +21865,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         effectiveFlags |= AssignTypeFlags.SkipSolveTypeVars;
 
         if (!destTypeVarContext) {
-            curDestTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
+            curTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
             effectiveFlags &= ~AssignTypeFlags.SkipSolveTypeVars;
         } else {
             // If we're using the caller's type var context, don't solve the
@@ -21881,8 +21876,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         for (let ancestorIndex = inheritanceChain.length - 1; ancestorIndex >= 0; ancestorIndex--) {
             const ancestorType = inheritanceChain[ancestorIndex];
-
-            const curSrcTypeVarContext = new TypeVarContext(getTypeVarScopeId(curSrcType));
 
             // If we've hit an "unknown", all bets are off, and we need to assume
             // that the type is assignable.
@@ -21904,7 +21897,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Handle built-in types that support arbitrary numbers
             // of type parameters like Tuple.
             if (ancestorIndex === 0 && destType.tupleTypeArguments && curSrcType.tupleTypeArguments) {
-                return assignTupleTypeArgs(destType, curSrcType, diag, curDestTypeVarContext, flags, recursionCount);
+                return assignTupleTypeArgs(destType, curSrcType, diag, curTypeVarContext, flags, recursionCount);
             }
 
             // If there are no type parameters on this class, we're done.
@@ -21924,8 +21917,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ancestorType,
                     curSrcType,
                     diag,
-                    curDestTypeVarContext,
-                    curSrcTypeVarContext,
+                    curTypeVarContext,
+                    /* srcTypeVarContext */ undefined,
                     effectiveFlags,
                     recursionCount
                 )
@@ -21934,7 +21927,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             // Allocate a new type var map for the next time through the loop.
-            curDestTypeVarContext = new TypeVarContext(getTypeVarScopeId(ancestorType));
+            curTypeVarContext = new TypeVarContext(getTypeVarScopeId(ancestorType));
             effectiveFlags &= ~AssignTypeFlags.SkipSolveTypeVars;
         }
 

@@ -7,7 +7,7 @@ from typing import Callable, Protocol, TypeVar, Any
 _T1 = TypeVar("_T1", contravariant=True)
 _T2 = TypeVar("_T2", covariant=True)
 _T3 = TypeVar("_T3", covariant=True)
-Tv_my_callable = TypeVar("Tv_my_callable", bound="MyCallable[Any]")
+Tv_my_callable = TypeVar("Tv_my_callable", bound="MyCallable[object]")
 
 
 class MyCallable(Protocol[_T1]):

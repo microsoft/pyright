@@ -204,12 +204,6 @@ test('Super9', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Super10', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super10.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
 test('MissingSuper1', () => {
     const configOptions = new ConfigOptions('.');
 
@@ -1018,12 +1012,6 @@ test('GenericTypes103', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes103.py']);
 
     TestUtils.validateResults(analysisResults, 0);
-});
-
-test('GenericTypes104', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes104.py']);
-
-    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Protocol1', () => {

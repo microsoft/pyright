@@ -1161,6 +1161,18 @@ export class ImportResolver {
             importFound = resolvedPaths.length >= moduleDescriptor.nameParts.length;
         }
 
+        // Set import type based on if import is in the excluded list or not
+        let importType = ImportType.Local;
+        if (importFound && sourceFilePath && !isNamespacePackage && resolvedPaths.length > 0) {
+            // Check the resolved path. If it's for an included file or the importing
+            // file is also excluded, treat as a local import.
+            importType =
+                !matchFileSpecs(this._configOptions, sourceFilePath, true) ||
+                matchFileSpecs(this._configOptions, resolvedPaths[resolvedPaths.length - 1], true)
+                    ? ImportType.Local
+                    : ImportType.ThirdParty;
+        }
+
         return {
             importName,
             isRelative: false,
@@ -1170,7 +1182,7 @@ export class ImportResolver {
             isImportFound: importFound,
             isPartlyResolved,
             importFailureInfo,
-            importType: ImportType.Local,
+            importType: importType,
             resolvedPaths,
             searchPath: rootPath,
             isStubFile,
