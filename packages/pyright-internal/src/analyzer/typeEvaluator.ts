@@ -13666,7 +13666,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isIncomplete = false;
         let typeErrors = false;
 
-        if (isNodeReachable(node.ifExpression)) {
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const constExprValue = evaluateStaticBoolExpression(
+            node.testExpression,
+            fileInfo.executionEnvironment,
+            fileInfo.definedConstants
+        );
+
+        if (constExprValue !== false && isNodeReachable(node.ifExpression)) {
             const ifType = getTypeOfExpression(node.ifExpression, flags, inferenceContext);
             typesToCombine.push(ifType.type);
             if (ifType.isIncomplete) {
@@ -13677,7 +13684,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (isNodeReachable(node.elseExpression)) {
+        if (constExprValue !== true && isNodeReachable(node.elseExpression)) {
             const elseType = getTypeOfExpression(node.elseExpression, flags, inferenceContext);
             typesToCombine.push(elseType.type);
             if (elseType.isIncomplete) {
