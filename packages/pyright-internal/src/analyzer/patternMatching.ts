@@ -143,6 +143,36 @@ export function narrowTypeBasedOnPattern(
     }
 }
 
+// Determines whether this pattern (or part of the pattern) in
+// this case statement will never be matched.
+export function checkForUnusedPattern(evaluator: TypeEvaluator, pattern: PatternAtomNode, subjectType: Type): void {
+    if (isNever(subjectType)) {
+        reportUnnecessaryPattern(evaluator, pattern, subjectType);
+    } else if (pattern.nodeType === ParseNodeType.PatternAs && pattern.orPatterns.length > 1) {
+        // Check each of the or patterns separately.
+        pattern.orPatterns.forEach((orPattern) => {
+            const subjectTypeMatch = narrowTypeBasedOnPattern(
+                evaluator,
+                subjectType,
+                orPattern,
+                /* isPositiveTest */ true
+            );
+
+            if (isNever(subjectTypeMatch)) {
+                reportUnnecessaryPattern(evaluator, orPattern, subjectType);
+            }
+
+            subjectType = narrowTypeBasedOnPattern(evaluator, subjectType, orPattern, /* isPositiveTest */ false);
+        });
+    } else {
+        const subjectTypeMatch = narrowTypeBasedOnPattern(evaluator, subjectType, pattern, /* isPositiveTest */ true);
+
+        if (isNever(subjectTypeMatch)) {
+            reportUnnecessaryPattern(evaluator, pattern, subjectType);
+        }
+    }
+}
+
 function narrowTypeBasedOnSequencePattern(
     evaluator: TypeEvaluator,
     type: Type,
@@ -1385,4 +1415,13 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
             }
         }
     }
+}
+
+function reportUnnecessaryPattern(evaluator: TypeEvaluator, pattern: PatternAtomNode, subjectType: Type): void {
+    evaluator.addDiagnostic(
+        getFileInfo(pattern).diagnosticRuleSet.reportUnnecessaryComparison,
+        DiagnosticRule.reportUnnecessaryComparison,
+        Localizer.Diagnostic.patternNeverMatches().format({ type: evaluator.printType(subjectType) }),
+        pattern
+    );
 }

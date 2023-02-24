@@ -130,7 +130,7 @@ import {
 import { applyFunctionTransform } from './functionTransform';
 import { createNamedTupleType } from './namedTuples';
 import * as ParseTreeUtils from './parseTreeUtils';
-import { assignTypeToPatternTargets, narrowTypeBasedOnPattern } from './patternMatching';
+import { assignTypeToPatternTargets, checkForUnusedPattern, narrowTypeBasedOnPattern } from './patternMatching';
 import {
     assignProperty,
     clonePropertyWithDeleter,
@@ -18528,6 +18528,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return;
         }
 
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         const subjectTypeResult = getTypeOfExpression(node.parent.subjectExpression);
         let subjectType = subjectTypeResult.type;
 
@@ -18535,8 +18536,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // except for those that have a guard expression.
         for (const caseStatement of node.parent.cases) {
             if (caseStatement === node) {
+                if (fileInfo.diagnosticRuleSet.reportUnnecessaryComparison !== 'none') {
+                    checkForUnusedPattern(evaluatorInterface, node.pattern, subjectType);
+                }
                 break;
             }
+
             if (!caseStatement.guardExpression) {
                 subjectType = narrowTypeBasedOnPattern(
                     evaluatorInterface,
