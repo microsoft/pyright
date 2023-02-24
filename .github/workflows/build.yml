@@ -17,19 +17,20 @@ jobs:
     name: Build
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v2-beta
+      - uses: actions/setup-node@v3
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Get npm cache directory
         id: npm-cache
         run: |
-          echo "::set-output name=dir::$(npm config get cache)"
-      - uses: actions/cache@v2
+          echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
         with:
           path: ${{ steps.npm-cache.outputs.dir }}
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -44,7 +45,7 @@ jobs:
           npm run package
           mv pyright-*.vsix ${{ env.VSIX_NAME }}
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: ${{ env.ARTIFACT_NAME_VSIX }}
           path: packages/vscode-pyright/${{ env.VSIX_NAME }}
@@ -57,27 +58,18 @@ jobs:
 
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           path: artifacts
 
       # TODO: If the release already exists (tag created via the GUI), reuse it.
       - name: Create release
         id: create_release
-        uses: actions/create-release@v1
+        uses: ncipollo/release-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Published ${{ github.ref }}
+          name: Published ${{ github.ref_name }}
           draft: true
-
-      - name: Upload VSIX
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/${{ env.ARTIFACT_NAME_VSIX }}/${{ env.VSIX_NAME }}
-          asset_name: ${{ env.VSIX_NAME }}
-          asset_content_type: application/zip
+          artifacts: ./artifacts/${{ env.ARTIFACT_NAME_VSIX }}/${{ env.VSIX_NAME }}
+          artifactContentType: application/zip
