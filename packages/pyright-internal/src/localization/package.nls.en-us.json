@@ -326,6 +326,7 @@
         "paramTypeUnknown": "Type of parameter \"{paramName}\" is unknown",
         "paramTypePartiallyUnknown": "Type of parameter \"{paramName}\" is partially unknown",
         "parenthesizedContextManagerIllegal": "Parentheses within \"with\" statement requires Python 3.9 or newer",
+        "patternNeverMatches": "Pattern will never be matched for subject type \"{type}\"",
         "positionArgAfterNamedArg": "Positional argument cannot appear after keyword arguments",
         "privateImportFromPyTypedModule": "\"{name}\" is not exported from module \"{module}\"",
         "positionOnlyAfterArgs": "Position-only argument separator not allowed after \"*\" parameter",

@@ -952,7 +952,7 @@ export function getCodeFlowEngine(
                         }
 
                         // If we saw a pending or incomplete entry, do not save over the top
-                        // of the cache entry because we'll overwrite the partial
+                        // of the cache entry because we'll overwrite the partial result.
                         if (sawPending || sawIncomplete) {
                             return { type: effectiveType, isIncomplete: reportIncomplete };
                         }

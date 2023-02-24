@@ -19,7 +19,7 @@ import {
 import { FileEditActions } from '../common/editAction';
 import { convertPathToUri, getShortenedFileName } from '../common/pathUtils';
 import { Range } from '../common/textRange';
-import { convertWorkspaceDocumentEdits } from '../common/workspaceEditUtils';
+import { convertToWorkspaceEdit } from '../common/workspaceEditUtils';
 import { WorkspaceServiceInstance } from '../languageServerBase';
 import { Localizer } from '../localization/localize';
 
@@ -110,7 +110,7 @@ export class CodeActionProvider {
                             },
                         ],
                     };
-                    const workspaceEdit = convertWorkspaceDocumentEdits(fs, editActions);
+                    const workspaceEdit = convertToWorkspaceEdit(fs, editActions);
                     const renameAction = CodeAction.create(title, workspaceEdit, CodeActionKind.QuickFix);
                     codeActions.push(renameAction);
                 }

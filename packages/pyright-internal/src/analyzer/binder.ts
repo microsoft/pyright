@@ -370,7 +370,7 @@ export class Binder extends ParseTreeWalker {
             return true;
         }
 
-        // Source found, but type stub is missing
+        // A source file was found, but the type stub was missing.
         if (
             !importResult.isStubFile &&
             importResult.importType === ImportType.ThirdParty &&

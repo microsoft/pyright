@@ -666,6 +666,8 @@ export namespace Localizer {
             new ParameterizedString<{ paramName: string }>(getRawString('Diagnostic.paramTypePartiallyUnknown'));
         export const parenthesizedContextManagerIllegal = () =>
             getRawString('Diagnostic.parenthesizedContextManagerIllegal');
+        export const patternNeverMatches = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.patternNeverMatches'));
         export const positionArgAfterNamedArg = () => getRawString('Diagnostic.positionArgAfterNamedArg');
         export const privateImportFromPyTypedModule = () =>
             new ParameterizedString<{ name: string; module: string }>(

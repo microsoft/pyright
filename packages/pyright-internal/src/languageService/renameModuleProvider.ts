@@ -62,7 +62,7 @@ import {
     stripFileExtension,
 } from '../common/pathUtils';
 import { convertRangeToTextRange } from '../common/positionUtils';
-import { TextEditTracker } from '../common/textEditUtils';
+import { TextEditTracker } from '../common/textEditTracker';
 import { TextRange } from '../common/textRange';
 import {
     ImportAsNode,
