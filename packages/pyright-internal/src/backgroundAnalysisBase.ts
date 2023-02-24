@@ -21,18 +21,18 @@ import {
     LogData,
     run,
 } from './backgroundThreadBase';
-import { OperationCanceledException, throwIfCancellationRequested } from './common/cancellationUtils';
+import {
+    getCancellationTokenId,
+    OperationCanceledException,
+    throwIfCancellationRequested,
+} from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface, log, LogLevel } from './common/console';
 import * as debug from './common/debug';
 import { Diagnostic } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { Extensions } from './common/extensibility';
-import {
-    disposeCancellationToken,
-    getCancellationTokenFromId,
-    getCancellationTokenId,
-} from './common/fileBasedCancellationUtils';
+import { disposeCancellationToken, getCancellationTokenFromId } from './common/fileBasedCancellationUtils';
 import { FileSystem } from './common/fileSystem';
 import { Host, HostKind } from './common/host';
 import { LogTracker } from './common/logTracker';
@@ -127,8 +127,8 @@ export class BackgroundAnalysisBase {
         this.enqueueRequest({ requestType: 'setFileClosed', data: { filePath, isTracked } });
     }
 
-    addTrackedFile(filePath: string, isThirdPartyImport: boolean) {
-        this.enqueueRequest({ requestType: 'addTrackedFile', data: { filePath, isThirdPartyImport } });
+    addInterimFile(filePath: string) {
+        this.enqueueRequest({ requestType: 'addInterimFile', data: { filePath } });
     }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean, indexingNeeded: boolean) {
@@ -288,7 +288,6 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     protected _importResolver: ImportResolver;
     private _program: Program;
 
-    protected _host: Host;
     protected _logTracker: LogTracker;
 
     get program(): Program {
@@ -303,8 +302,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         this.log(LogLevel.Info, `Background analysis(${threadId}) root directory: ${data.rootDirectory}`);
 
         this._configOptions = new ConfigOptions(data.rootDirectory);
-        this._host = this.createHost();
-        this._importResolver = this.createImportResolver(this.fs, this._configOptions, this._host);
+        this._importResolver = this.createImportResolver(this.fs, this._configOptions, this.createHost());
 
         const console = this.getConsole();
         this._logTracker = new LogTracker(console, `BG(${threadId})`);
@@ -313,8 +311,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
         // Create the extensions bound to the program for this background thread
         Extensions.createProgramExtensions(this._program, {
-            addTrackedFile: (filePath: string, isThirdPartyImport: boolean) =>
-                this._program.addTrackedFile(filePath, isThirdPartyImport),
+            addInterimFile: (filePath: string) => this._program.addInterimFile(filePath),
         });
     }
 
@@ -403,7 +400,11 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             case 'setConfigOptions': {
                 this._configOptions = createConfigOptionsFrom(msg.data);
 
-                this._importResolver = this.createImportResolver(this.fs, this._configOptions, this._host);
+                this._importResolver = this.createImportResolver(
+                    this.fs,
+                    this._configOptions,
+                    this._importResolver.host
+                );
                 this.program.setConfigOptions(this._configOptions);
                 this.program.setImportResolver(this._importResolver);
                 break;
@@ -448,9 +449,9 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
                 break;
             }
 
-            case 'addTrackedFile': {
-                const { filePath, isThirdPartyImport } = msg.data;
-                this.program.addTrackedFile(filePath, isThirdPartyImport);
+            case 'addInterimFile': {
+                const { filePath } = msg.data;
+                this.program.addInterimFile(filePath);
                 break;
             }
 
@@ -478,7 +479,11 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
             case 'restart': {
                 // recycle import resolver
-                this._importResolver = this.createImportResolver(this.fs, this._configOptions, this._host);
+                this._importResolver = this.createImportResolver(
+                    this.fs,
+                    this._configOptions,
+                    this._importResolver.host
+                );
                 this.program.setImportResolver(this._importResolver);
                 break;
             }
@@ -640,7 +645,7 @@ export interface AnalysisRequest {
         | 'setImportResolver'
         | 'getInlayHints'
         | 'shutdown'
-        | 'addTrackedFile';
+        | 'addInterimFile';
 
     data: any;
     port?: MessagePort | undefined;

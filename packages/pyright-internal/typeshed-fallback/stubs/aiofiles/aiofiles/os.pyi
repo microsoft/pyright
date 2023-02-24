@@ -1,19 +1,16 @@
 import sys
-from _typeshed import GenericPath, StrOrBytesPath
+from _typeshed import FileDescriptorOrPath, GenericPath, StrOrBytesPath
 from asyncio.events import AbstractEventLoop
 from collections.abc import Sequence
 from os import _ScandirIterator, stat_result
 from typing import Any, AnyStr, overload
-from typing_extensions import TypeAlias
 
 from aiofiles import ospath
 
 path = ospath
 
-_FdOrAnyPath: TypeAlias = int | StrOrBytesPath
-
 async def stat(
-    path: _FdOrAnyPath,
+    path: FileDescriptorOrPath,
     *,
     dir_fd: int | None = ...,
     follow_symlinks: bool = ...,

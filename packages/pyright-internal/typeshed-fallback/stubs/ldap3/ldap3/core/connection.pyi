@@ -1,7 +1,7 @@
 from _collections_abc import Generator, dict_keys
-from _typeshed import Incomplete, ReadableBuffer, Self
+from _typeshed import Incomplete, ReadableBuffer
 from types import TracebackType
-from typing_extensions import Literal, TypeAlias
+from typing_extensions import Literal, Self, TypeAlias
 
 from pyasn1.type.base import Asn1Item
 
@@ -115,7 +115,7 @@ class Connection:
     def stream(self, value) -> None: ...
     @property
     def usage(self): ...
-    def __enter__(self: Self) -> Self: ...
+    def __enter__(self) -> Self: ...
     def __exit__(
         self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
     ) -> Literal[False] | None: ...

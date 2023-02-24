@@ -397,7 +397,7 @@ function testIndentation(code: string, indentation: number, expected: string, in
         TextRange.fromBounds(range.pos, range.end),
         indentation,
         indentFirstToken
-    );
+    ).text;
 
     assert.strictEqual(actual, expected);
 }

@@ -1,5 +1,5 @@
-from _typeshed import Self
 from typing import ClassVar
+from typing_extensions import Self
 
 import passlib.utils.handlers as uh
 
@@ -13,7 +13,7 @@ class _SHA2_Common(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
     implicit_rounds: bool
     def __init__(self, implicit_rounds: bool | None = ..., **kwds) -> None: ...
     @classmethod
-    def from_string(cls: type[Self], hash: str | bytes) -> Self: ...  # type: ignore[override]
+    def from_string(cls, hash: str | bytes) -> Self: ...  # type: ignore[override]
     backends: ClassVar[tuple[str, ...]]
 
 class sha256_crypt(_SHA2_Common):

@@ -1,7 +1,7 @@
-from _typeshed import Incomplete, Self, SupportsItems, SupportsRead
+from _typeshed import Incomplete, SupportsItems, SupportsRead
 from collections.abc import Callable, Iterable, Mapping, MutableMapping
-from typing import Any, Union
-from typing_extensions import TypeAlias, TypedDict
+from typing import Any
+from typing_extensions import Self, TypeAlias, TypedDict
 
 from urllib3._collections import RecentlyUsedContainer
 
@@ -77,8 +77,8 @@ _Data: TypeAlias = (
     | tuple[tuple[Any, Any], ...]
     | Mapping[Any, Any]
 )
-_Auth: TypeAlias = Union[tuple[str, str], _auth.AuthBase, Callable[[PreparedRequest], PreparedRequest]]
-_Cert: TypeAlias = Union[str, tuple[str, str]]
+_Auth: TypeAlias = tuple[str, str] | _auth.AuthBase | Callable[[PreparedRequest], PreparedRequest]
+_Cert: TypeAlias = str | tuple[str, str]
 # Files is passed to requests.utils.to_key_val_list()
 _FileName: TypeAlias = str | None
 _FileContent: TypeAlias = SupportsRead[str | bytes] | str | bytes
@@ -94,15 +94,16 @@ _HooksInput: TypeAlias = Mapping[str, Iterable[_Hook] | _Hook]
 
 _ParamsMappingKeyType: TypeAlias = str | bytes | int | float
 _ParamsMappingValueType: TypeAlias = str | bytes | int | float | Iterable[str | bytes | int | float] | None
-_Params: TypeAlias = Union[
-    SupportsItems[_ParamsMappingKeyType, _ParamsMappingValueType],
-    tuple[_ParamsMappingKeyType, _ParamsMappingValueType],
-    Iterable[tuple[_ParamsMappingKeyType, _ParamsMappingValueType]],
-    str | bytes,
-]
+_Params: TypeAlias = (
+    SupportsItems[_ParamsMappingKeyType, _ParamsMappingValueType]
+    | tuple[_ParamsMappingKeyType, _ParamsMappingValueType]
+    | Iterable[tuple[_ParamsMappingKeyType, _ParamsMappingValueType]]
+    | str
+    | bytes
+)
 _TextMapping: TypeAlias = MutableMapping[str, str]
 _HeadersUpdateMapping: TypeAlias = Mapping[str, str | bytes | None]
-_Timeout: TypeAlias = Union[float, tuple[float, float], tuple[float, None]]
+_Timeout: TypeAlias = float | tuple[float, float] | tuple[float, None]
 _Verify: TypeAlias = bool | str
 
 class _Settings(TypedDict):
@@ -132,7 +133,7 @@ class Session(SessionRedirectMixin):
     adapters: MutableMapping[Any, Any]
     redirect_cache: RecentlyUsedContainer[Any, Any]
     def __init__(self) -> None: ...
-    def __enter__(self: Self) -> Self: ...
+    def __enter__(self) -> Self: ...
     def __exit__(self, *args) -> None: ...
     def prepare_request(self, request: Request) -> PreparedRequest: ...
     def request(

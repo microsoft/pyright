@@ -1,9 +1,9 @@
-from _typeshed import Incomplete, Self, SupportsRead, SupportsWrite
+from _typeshed import Incomplete, SupportsRead, SupportsWrite
 from collections.abc import Callable, Iterable, Iterator, MutableMapping, Sequence
 from enum import IntEnum
 from pathlib import Path
-from typing import Any, ClassVar, Protocol, SupportsBytes, Union
-from typing_extensions import Literal, TypeAlias
+from typing import Any, ClassVar, Protocol, SupportsBytes
+from typing_extensions import Literal, Self, TypeAlias
 
 from PIL.PyAccess import PyAccess
 
@@ -22,13 +22,13 @@ _Resample: TypeAlias = Literal[0, 1, 2, 3, 4, 5]
 _Size: TypeAlias = tuple[int, int]
 _Box: TypeAlias = tuple[int, int, int, int]
 
-_ConversionMatrix: TypeAlias = Union[
-    tuple[float, float, float, float], tuple[float, float, float, float, float, float, float, float, float, float, float, float]
-]
+_ConversionMatrix: TypeAlias = (
+    tuple[float, float, float, float] | tuple[float, float, float, float, float, float, float, float, float, float, float, float]
+)
 # `str` values are only accepted if mode="RGB" for an `Image` object
 # `float` values are only accepted for certain modes such as "F"
 # See https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.new
-_Color: TypeAlias = Union[int, tuple[int], tuple[int, int, int], tuple[int, int, int, int], str, float, tuple[float]]
+_Color: TypeAlias = int | tuple[int] | tuple[int, int, int] | tuple[int, int, int, int] | str | float | tuple[float]
 
 class _Writeable(SupportsWrite[bytes], Protocol):
     def seek(self, __offset: int) -> Any: ...
@@ -42,9 +42,9 @@ class DecompressionBombError(Exception): ...
 
 MAX_IMAGE_PIXELS: int | None
 
-LINEAR: Literal[2]  # deprecated
-CUBIC: Literal[3]  # deprecated
-ANTIALIAS: Literal[1]  # deprecated
+LINEAR: Literal[Resampling.BILINEAR]  # deprecated
+CUBIC: Literal[Resampling.BICUBIC]  # deprecated
+ANTIALIAS: Literal[Resampling.LANCZOS]  # deprecated
 
 class Transpose(IntEnum):
     FLIP_LEFT_RIGHT: Literal[0]
@@ -171,7 +171,7 @@ class Image:
     def height(self) -> int: ...
     @property
     def size(self) -> tuple[int, int]: ...
-    def __enter__(self: Self) -> Self: ...
+    def __enter__(self) -> Self: ...
     def __exit__(self, *args: object) -> None: ...
     def close(self) -> None: ...
     def __eq__(self, other: object) -> bool: ...
@@ -193,7 +193,7 @@ class Image:
     def quantize(
         self,
         colors: int = ...,
-        method: Literal[0, 1, 2, 3] | None = ...,
+        method: Quantize | Literal[0, 1, 2, 3] | None = ...,
         kmeans: int = ...,
         palette: Image | None = ...,
         dither: int = ...,

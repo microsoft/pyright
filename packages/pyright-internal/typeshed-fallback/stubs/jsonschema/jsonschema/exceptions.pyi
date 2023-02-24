@@ -1,8 +1,8 @@
-from _typeshed import Incomplete, Self, SupportsRichComparison
+from _typeshed import Incomplete, SupportsRichComparison
 from collections import deque
 from collections.abc import Callable, Container, Iterable, Sequence
 from typing import Any
-from typing_extensions import TypeAlias
+from typing_extensions import Self, TypeAlias
 
 from jsonschema import _utils, protocols
 from jsonschema._types import TypeChecker
@@ -40,7 +40,7 @@ class _Error(Exception):
         type_checker: _utils.Unset | TypeChecker = ...,
     ) -> None: ...
     @classmethod
-    def create_from(cls: type[Self], other: _Error) -> Self: ...
+    def create_from(cls, other: _Error) -> Self: ...
     @property
     def absolute_path(self) -> Sequence[str | int]: ...
     @property

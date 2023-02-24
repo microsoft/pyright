@@ -42,7 +42,12 @@ class pmem(NamedTuple):
     pfaults: Any
     pageins: Any
 
-pfullmem: Any
+class pfullmem(NamedTuple):
+    rss: Incomplete
+    vms: Incomplete
+    pfaults: Incomplete
+    pageins: Incomplete
+    uss: Incomplete
 
 def virtual_memory() -> svmem: ...
 def swap_memory(): ...

@@ -1,6 +1,6 @@
-from _typeshed import Incomplete, Self
+from _typeshed import Incomplete
 from typing import Any, Generic, TypeVar
-from typing_extensions import Literal
+from typing_extensions import Literal, Self
 
 from .. import util
 from ..util import HasMemoized, memoized_property
@@ -138,7 +138,7 @@ class TextClause(
     key: Any
     text: Any
     def __init__(self, text: str, bind: Incomplete | None = None) -> None: ...
-    def bindparams(self: Self, *binds, **names_to_values) -> Self: ...
+    def bindparams(self, *binds, **names_to_values) -> Self: ...
     def columns(self, *cols, **types): ...
     @property
     def type(self): ...

@@ -2091,6 +2091,7 @@ export class Checker extends ParseTreeWalker {
                     // instances in these particular cases.
                     let isExempt =
                         nameType.details.constraints.length > 0 ||
+                        !!nameType.details.defaultType ||
                         (exemptBoundTypeVar &&
                             nameType.details.boundType !== undefined &&
                             subscriptIndex !== undefined) ||
@@ -2145,6 +2146,7 @@ export class Checker extends ParseTreeWalker {
                     const existingEntry = classTypeVarUsage.get(nameType.details.name);
                     const isParamTypeWithEllipsisUsage =
                         curParamNode?.defaultValue?.nodeType === ParseNodeType.Ellipsis;
+                    const isExempt = !!nameType.details.defaultType;
 
                     if (!existingEntry) {
                         classTypeVarUsage.set(nameType.details.name, {
@@ -2153,7 +2155,7 @@ export class Checker extends ParseTreeWalker {
                             paramTypeWithEllipsisUsageCount: isParamTypeWithEllipsisUsage ? 1 : 0,
                             returnTypeUsageCount: 0,
                             paramWithEllipsis: isParamTypeWithEllipsisUsage ? curParamNode?.name?.value : undefined,
-                            isExempt: false,
+                            isExempt,
                         });
                     } else {
                         existingEntry.nodes.push(nameNode);
@@ -2254,7 +2256,8 @@ export class Checker extends ParseTreeWalker {
         classTypeVarUsage.forEach((usage) => {
             if (
                 usage.paramTypeWithEllipsisUsageCount > 0 &&
-                usage.paramTypeUsageCount === usage.paramTypeWithEllipsisUsageCount
+                usage.paramTypeUsageCount === usage.paramTypeWithEllipsisUsageCount &&
+                !usage.isExempt
             ) {
                 const diag = new DiagnosticAddendum();
                 diag.addMessage(Localizer.DiagnosticAddendum.typeVarUnsolvableRemedy());

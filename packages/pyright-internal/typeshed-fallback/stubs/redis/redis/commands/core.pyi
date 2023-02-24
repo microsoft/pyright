@@ -35,9 +35,10 @@ class ACLCommands(Generic[_StrType]):
         keys: Sequence[str] | None = ...,
         channels: Iterable[ChannelT] | None = ...,
         selectors: Iterable[tuple[str, KeyT]] | None = ...,
-        reset: bool = ...,
-        reset_keys: bool = ...,
-        reset_passwords: bool = ...,
+        reset: bool = False,
+        reset_keys: bool = False,
+        reset_channels: bool = False,
+        reset_passwords: bool = False,
         **kwargs: _CommandOptions,
     ) -> bool: ...
     def acl_users(self, **kwargs: _CommandOptions) -> list[str]: ...
@@ -66,9 +67,10 @@ class AsyncACLCommands(Generic[_StrType]):
         keys: Sequence[str] | None = ...,
         channels: Iterable[ChannelT] | None = ...,
         selectors: Iterable[tuple[str, KeyT]] | None = ...,
-        reset: bool = ...,
-        reset_keys: bool = ...,
-        reset_passwords: bool = ...,
+        reset: bool = False,
+        reset_keys: bool = False,
+        reset_channels: bool = False,
+        reset_passwords: bool = False,
         **kwargs: _CommandOptions,
     ) -> bool: ...
     async def acl_users(self, **kwargs: _CommandOptions) -> list[str]: ...

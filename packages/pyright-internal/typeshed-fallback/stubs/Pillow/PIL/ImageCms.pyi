@@ -1,18 +1,34 @@
 from _typeshed import Incomplete
+from enum import IntEnum
 from typing import Any
+from typing_extensions import Literal
 
 from .Image import ImagePointHandler
 
 DESCRIPTION: str
 VERSION: str
 core: Any
-INTENT_PERCEPTUAL: int
-INTENT_RELATIVE_COLORIMETRIC: int
-INTENT_SATURATION: int
-INTENT_ABSOLUTE_COLORIMETRIC: int
-DIRECTION_INPUT: int
-DIRECTION_OUTPUT: int
-DIRECTION_PROOF: int
+
+class Intent(IntEnum):
+    PERCEPTUAL: int
+    RELATIVE_COLORIMETRIC: int
+    SATURATION: int
+    ABSOLUTE_COLORIMETRIC: int
+
+INTENT_PERCEPTUAL: Literal[Intent.PERCEPTUAL]
+INTENT_RELATIVE_COLORIMETRIC: Literal[Intent.RELATIVE_COLORIMETRIC]
+INTENT_SATURATION: Literal[Intent.SATURATION]
+INTENT_ABSOLUTE_COLORIMETRIC: Literal[Intent.ABSOLUTE_COLORIMETRIC]
+
+class Direction(IntEnum):
+    INPUT: int
+    OUTPUT: int
+    PROOF: int
+
+DIRECTION_INPUT: Literal[Direction.INPUT]
+DIRECTION_OUTPUT: Literal[Direction.OUTPUT]
+DIRECTION_PROOF: Literal[Direction.PROOF]
+
 FLAGS: Any
 
 class ImageCmsProfile:

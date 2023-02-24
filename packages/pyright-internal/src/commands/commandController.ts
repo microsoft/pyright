@@ -60,6 +60,7 @@ export class CommandController implements ServerCommand {
     isLongRunningCommand(command: string): boolean {
         switch (command) {
             case Commands.createTypeStub:
+            case Commands.restartServer:
                 return true;
 
             default:

@@ -1,9 +1,9 @@
 from collections.abc import Callable, Mapping
-from typing import Any, Union
+from typing import Any
 from typing_extensions import TypeAlias
 
 _FieldValue: TypeAlias = str | bytes
-_FieldValueTuple: TypeAlias = Union[_FieldValue, tuple[str, _FieldValue], tuple[str, _FieldValue, str]]
+_FieldValueTuple: TypeAlias = _FieldValue | tuple[str, _FieldValue] | tuple[str, _FieldValue, str]
 
 def guess_content_type(filename: str | None, default: str = ...) -> str: ...
 def format_header_param_rfc2231(name: str, value: _FieldValue) -> str: ...

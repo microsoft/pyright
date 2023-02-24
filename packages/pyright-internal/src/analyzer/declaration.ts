@@ -103,6 +103,10 @@ export interface ParameterDeclaration extends DeclarationBase {
     type: DeclarationType.Parameter;
     node: ParameterNode;
 
+    // Documentation specified in the function's docstring (if any) can be
+    // associated with the parameter
+    docString?: string;
+
     // Inferred parameters can be inferred from pieces of an actual NameNode, so this
     // value represents the actual 'name' as the user thinks of it.
     inferredName?: string;

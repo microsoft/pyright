@@ -2,4 +2,3 @@ version = "305.*"
 
 [tool.stubtest]
 platforms = ["win32"]
-ignore_missing_stub = false

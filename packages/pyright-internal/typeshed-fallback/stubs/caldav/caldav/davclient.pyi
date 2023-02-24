@@ -1,7 +1,6 @@
-from _typeshed import Self
 from collections.abc import Iterable, Mapping
 from typing import Any
-from typing_extensions import TypeAlias
+from typing_extensions import Self, TypeAlias
 from urllib.parse import ParseResult, SplitResult
 
 from requests.auth import AuthBase
@@ -50,7 +49,7 @@ class DAVClient:
         ssl_verify_cert: bool | str = ...,
         ssl_cert: str | tuple[str, str] | None = ...,
     ) -> None: ...
-    def __enter__(self: Self) -> Self: ...
+    def __enter__(self) -> Self: ...
     def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None: ...
     def principal(self, *, url: str | ParseResult | SplitResult | URL | None = ...) -> Principal: ...
     def calendar(

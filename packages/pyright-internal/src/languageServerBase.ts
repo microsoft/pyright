@@ -12,13 +12,13 @@
 import './common/extensions';
 
 import {
+    AbstractCancellationTokenSource,
     CallHierarchyIncomingCallsParams,
     CallHierarchyItem,
     CallHierarchyOutgoingCall,
     CallHierarchyOutgoingCallsParams,
     CallHierarchyPrepareParams,
     CancellationToken,
-    CancellationTokenSource,
     CodeAction,
     CodeActionParams,
     Command,
@@ -111,7 +111,7 @@ import { convertPathToUri, deduplicateFolders, getDirectoryPath, getFileName, is
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
 import { DocumentRange, Position, Range } from './common/textRange';
 import { UriParser } from './common/uriParser';
-import { convertWorkspaceDocumentEdits } from './common/workspaceEditUtils';
+import { convertToWorkspaceEdit } from './common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { ImportFormat } from './languageService/autoImporter';
 import { CompletionItemData, CompletionOptions, CompletionResultsList } from './languageService/completionProvider';
@@ -367,10 +367,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected _cacheManager: CacheManager;
 
     // We support running only one "find all reference" at a time.
-    private _pendingFindAllRefsCancellationSource: CancellationTokenSource | undefined;
+    private _pendingFindAllRefsCancellationSource: AbstractCancellationTokenSource | undefined;
 
     // We support running only one command at a time.
-    private _pendingCommandCancellationSource: CancellationTokenSource | undefined;
+    private _pendingCommandCancellationSource: AbstractCancellationTokenSource | undefined;
 
     private _progressReporter: ProgressReporter;
 
@@ -1239,7 +1239,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return undefined;
         }
 
-        return convertWorkspaceDocumentEdits(workspace.serviceInstance.fs, editActions);
+        return convertToWorkspaceEdit(workspace.serviceInstance.fs, editActions);
     }
 
     protected async onPrepare(
@@ -1652,7 +1652,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         // created by the LSP library. If it's the latter, we'll create a server-initiated
         // progress reporter.
         if (reporter.constructor !== nullProgressReporter.constructor) {
-            return { reporter: reporter, source: CancelAfter(token) };
+            return { reporter: reporter, source: CancelAfter(this._serverOptions.cancellationProvider, token) };
         }
 
         const serverInitiatedReporter = await this._connection.window.createWorkDoneProgress();
@@ -1665,7 +1665,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         return {
             reporter: serverInitiatedReporter,
-            source: CancelAfter(token, serverInitiatedReporter.token),
+            source: CancelAfter(this._serverOptions.cancellationProvider, token, serverInitiatedReporter.token),
         };
     }
 

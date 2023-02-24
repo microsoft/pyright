@@ -3,6 +3,7 @@ from _typeshed import Incomplete, StrPath
 from collections.abc import Callable, Iterable, Sequence
 from contextlib import _GeneratorContextManager
 from io import BytesIO
+from pathlib import PurePath
 from re import Pattern
 from typing import Any, ClassVar, NamedTuple, overload
 from typing_extensions import Literal, TypeAlias
@@ -295,7 +296,11 @@ class FPDF:
         style: RenderStyle | str | None = ...,
     ) -> None: ...
     def add_font(
-        self, family: str | None = ..., style: _FontStyle = ..., fname: str | None = ..., uni: bool | Literal["DEPRECATED"] = ...
+        self,
+        family: str | None = None,
+        style: _FontStyle = "",
+        fname: str | PurePath | None = None,
+        uni: bool | Literal["DEPRECATED"] = "DEPRECATED",
     ) -> None: ...
     def set_font(self, family: str | None = ..., style: _FontStyles = ..., size: int = ...) -> None: ...
     def set_font_size(self, size: float) -> None: ...

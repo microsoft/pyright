@@ -1,7 +1,6 @@
-from _typeshed import Self
 from abc import ABCMeta, abstractmethod
 from typing import Any, ClassVar
-from typing_extensions import Literal
+from typing_extensions import Literal, Self
 
 class PasswordHash(metaclass=ABCMeta):
     is_disabled: ClassVar[bool]
@@ -18,7 +17,7 @@ class PasswordHash(metaclass=ABCMeta):
     def verify(cls, secret: str | bytes, hash: str | bytes, **context_kwds): ...
     @classmethod
     @abstractmethod
-    def using(cls: type[Self], relaxed: bool = ..., **kwds: Any) -> type[Self]: ...
+    def using(cls, relaxed: bool = ..., **kwds: Any) -> type[Self]: ...
     @classmethod
     def needs_update(cls, hash: str, secret: str | bytes | None = ...) -> bool: ...
     @classmethod

@@ -1,7 +1,6 @@
 from collections.abc import Callable, Generator, Iterable, Sequence
 from queue import Queue
 from threading import Event as _UninterruptibleEvent
-from typing import Optional
 from typing_extensions import TypeAlias
 
 from ._canonical_names import all_modifiers as all_modifiers, sided_modifiers as sided_modifiers
@@ -10,7 +9,7 @@ from ._keyboard_event import KEY_DOWN as KEY_DOWN, KEY_UP as KEY_UP, KeyboardEve
 _Key: TypeAlias = int | str
 _ScanCodeList: TypeAlias = list[int] | tuple[int, ...]
 _ParseableHotkey: TypeAlias = _Key | list[int | _ScanCodeList] | tuple[int | _ScanCodeList, ...]
-_Callback: TypeAlias = Callable[[KeyboardEvent], Optional[bool]] | Callable[[], Optional[bool]]
+_Callback: TypeAlias = Callable[[KeyboardEvent], bool | None] | Callable[[], bool | None]
 # mypy doesn't support PEP 646's TypeVarTuple yet: https://github.com/python/mypy/issues/12280
 # _Ts = TypeVarTuple("_Ts")
 _Ts: TypeAlias = tuple[object, ...]

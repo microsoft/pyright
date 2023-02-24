@@ -18,24 +18,53 @@ import {
 
 import { SourceFileInfo } from '../analyzer/program';
 import { AnalyzerService } from '../analyzer/service';
-import { FileEditAction, FileEditActions } from '../common/editAction';
+import { FileEditAction, FileEditActions, TextEditAction } from '../common/editAction';
 import { convertPathToUri, convertUriToPath } from '../common/pathUtils';
 import { createMapFromItems } from './collectionUtils';
+import { isArray } from './core';
 import { assertNever } from './debug';
 import { FileSystem } from './fileSystem';
-import { convertTextRangeToRange } from './positionUtils';
+import { convertRangeToTextRange, convertTextRangeToRange } from './positionUtils';
+import { TextRange } from './textRange';
+import { TextRangeCollection } from './textRangeCollection';
 
-export function convertWorkspaceEdits(fs: FileSystem, edits: FileEditAction[]) {
-    const workspaceEdit: WorkspaceEdit = {
-        changes: {},
-    };
-
-    AddToWorkspaceEdit(fs, workspaceEdit, edits);
-
-    return workspaceEdit;
+export function convertToTextEdits(editActions: TextEditAction[]): TextEdit[] {
+    return editActions.map((editAction) => ({
+        range: editAction.range,
+        newText: editAction.replacementText,
+    }));
 }
 
-export function AddToWorkspaceEdit(fs: FileSystem, workspaceEdit: WorkspaceEdit, edits: FileEditAction[]) {
+export function convertToFileTextEdits(filePath: string, editActions: TextEditAction[]): FileEditAction[] {
+    return editActions.map((a) => ({ filePath, ...a }));
+}
+
+export function convertToWorkspaceEdit(fs: FileSystem, edits: FileEditAction[]): WorkspaceEdit;
+export function convertToWorkspaceEdit(fs: FileSystem, edits: FileEditActions): WorkspaceEdit;
+export function convertToWorkspaceEdit(
+    fs: FileSystem,
+    edits: FileEditActions,
+    changeAnnotations: {
+        [id: string]: ChangeAnnotation;
+    },
+    defaultAnnotationId: string
+): WorkspaceEdit;
+export function convertToWorkspaceEdit(
+    fs: FileSystem,
+    edits: FileEditActions | FileEditAction[],
+    changeAnnotations?: {
+        [id: string]: ChangeAnnotation;
+    },
+    defaultAnnotationId = 'default'
+): WorkspaceEdit {
+    if (isArray(edits)) {
+        return _convertToWorkspaceEditWithChanges(fs, edits);
+    }
+
+    return _convertToWorkspaceEditWithDocumentChanges(fs, edits, changeAnnotations, defaultAnnotationId);
+}
+
+export function appendToWorkspaceEdit(fs: FileSystem, edits: FileEditAction[], workspaceEdit: WorkspaceEdit) {
     edits.forEach((edit) => {
         const uri = convertPathToUri(fs, edit.filePath);
         workspaceEdit.changes![uri] = workspaceEdit.changes![uri] || [];
@@ -43,7 +72,137 @@ export function AddToWorkspaceEdit(fs: FileSystem, workspaceEdit: WorkspaceEdit,
     });
 }
 
-export function convertWorkspaceDocumentEdits(
+export function applyTextEditsToString(
+    edits: TextEditAction[],
+    lines: TextRangeCollection<TextRange>,
+    originalText: string
+) {
+    const editsWithOffset = edits
+        .map((e) => ({
+            range: convertRangeToTextRange(e.range, lines) ?? { start: originalText.length, length: 0 },
+            text: e.replacementText,
+        }))
+        .sort((e1, e2) => {
+            const result = e2.range.start - e1.range.start;
+            if (result !== 0) {
+                return result;
+            }
+
+            return TextRange.getEnd(e2.range) - TextRange.getEnd(e1.range);
+        });
+
+    // Apply change in reverse order.
+    let current = originalText;
+    for (const change of editsWithOffset) {
+        current = current.substr(0, change.range.start) + change.text + current.substr(TextRange.getEnd(change.range));
+    }
+
+    return current;
+}
+
+export function applyWorkspaceEdit(clonedService: AnalyzerService, edits: WorkspaceEdit, filesChanged: Set<string>) {
+    if (edits.changes) {
+        for (const kv of Object.entries(edits.changes)) {
+            const filePath = convertUriToPath(clonedService.fs, kv[0]);
+            const fileInfo = clonedService.backgroundAnalysisProgram.program.getSourceFileInfo(filePath);
+            if (!fileInfo || !fileInfo.isTracked) {
+                // We don't allow non user file being modified.
+                continue;
+            }
+
+            applyDocumentChanges(clonedService, fileInfo, kv[1]);
+            filesChanged.add(filePath);
+        }
+    }
+
+    // For now, we don't support annotations.
+    if (edits.documentChanges) {
+        for (const change of edits.documentChanges) {
+            if (TextDocumentEdit.is(change)) {
+                const filePath = convertUriToPath(clonedService.fs, change.textDocument.uri);
+                const fileInfo = clonedService.backgroundAnalysisProgram.program.getSourceFileInfo(filePath);
+                if (!fileInfo || !fileInfo.isTracked) {
+                    // We don't allow non user file being modified.
+                    continue;
+                }
+
+                applyDocumentChanges(clonedService, fileInfo, change.edits);
+                filesChanged.add(filePath);
+            }
+
+            // For now, we don't support other kinds of text changes.
+            // But if we want to add support for those in future, we should add them here.
+        }
+    }
+}
+
+export function applyDocumentChanges(clonedService: AnalyzerService, fileInfo: SourceFileInfo, edits: TextEdit[]) {
+    if (!fileInfo.isOpenByClient) {
+        const fileContent = fileInfo.sourceFile.getFileContent();
+        clonedService.setFileOpened(
+            fileInfo.sourceFile.getFilePath(),
+            0,
+            fileContent ?? '',
+            fileInfo.sourceFile.getIPythonMode(),
+            fileInfo.sourceFile.getRealFilePath()
+        );
+    }
+
+    const version = (fileInfo.sourceFile.getClientVersion() ?? 0) + 1;
+    clonedService.updateOpenFileContents(
+        fileInfo.sourceFile.getFilePath(),
+        version,
+        edits.map((t) => ({ range: t.range, text: t.newText })),
+        fileInfo.sourceFile.getIPythonMode(),
+        fileInfo.sourceFile.getRealFilePath()
+    );
+}
+
+export function generateWorkspaceEdit(
+    originalService: AnalyzerService,
+    clonedService: AnalyzerService,
+    filesChanged: Set<string>
+) {
+    // For now, we won't do text diff to find out minimal text changes. instead, we will
+    // consider whole text of the files are changed. In future, we could consider
+    // doing minimal changes using vscode's differ (https://github.com/microsoft/vscode/blob/main/src/vs/base/common/diff/diff.ts)
+    // to support annotation.
+    const edits: WorkspaceEdit = { changes: {} };
+
+    for (const filePath of filesChanged) {
+        const original = originalService.backgroundAnalysisProgram.program.getBoundSourceFile(filePath);
+        const final = clonedService.backgroundAnalysisProgram.program.getBoundSourceFile(filePath);
+        if (!original || !final) {
+            // Both must exist.
+            continue;
+        }
+
+        const parseResults = original.getParseResults();
+        if (!parseResults) {
+            continue;
+        }
+
+        edits.changes![convertPathToUri(originalService.fs, filePath)] = [
+            {
+                range: convertTextRangeToRange(parseResults.parseTree, parseResults.tokenizerOutput.lines),
+                newText: final.getFileContent() ?? '',
+            },
+        ];
+    }
+
+    return edits;
+}
+
+function _convertToWorkspaceEditWithChanges(fs: FileSystem, edits: FileEditAction[]) {
+    const workspaceEdit: WorkspaceEdit = {
+        changes: {},
+    };
+
+    appendToWorkspaceEdit(fs, edits, workspaceEdit);
+    return workspaceEdit;
+}
+
+function _convertToWorkspaceEditWithDocumentChanges(
     fs: FileSystem,
     editActions: FileEditActions,
     changeAnnotations?: {
@@ -56,6 +215,28 @@ export function convertWorkspaceDocumentEdits(
         changeAnnotations: changeAnnotations,
     };
 
+    // Ordering of documentChanges are important.
+    // Make sure create operaiton happens before edits
+    for (const operation of editActions.fileOperations) {
+        switch (operation.kind) {
+            case 'create':
+                workspaceEdit.documentChanges!.push(
+                    CreateFile.create(
+                        convertPathToUri(fs, operation.filePath),
+                        /* options */ undefined,
+                        defaultAnnotationId
+                    )
+                );
+                break;
+            case 'rename':
+            case 'delete':
+                break;
+            default:
+                assertNever(operation);
+        }
+    }
+
+    // Text edit's file path must refer to original file paths unless it is a new file just created.
     const mapPerFile = createMapFromItems(editActions.edits, (e) => e.filePath);
     for (const [key, value] of mapPerFile) {
         workspaceEdit.documentChanges!.push(
@@ -72,13 +253,6 @@ export function convertWorkspaceDocumentEdits(
     for (const operation of editActions.fileOperations) {
         switch (operation.kind) {
             case 'create':
-                workspaceEdit.documentChanges!.push(
-                    CreateFile.create(
-                        convertPathToUri(fs, operation.filePath),
-                        /* options */ undefined,
-                        defaultAnnotationId
-                    )
-                );
                 break;
             case 'rename':
                 workspaceEdit.documentChanges!.push(
@@ -105,93 +279,4 @@ export function convertWorkspaceDocumentEdits(
     }
 
     return workspaceEdit;
-}
-
-export function applyWorkspaceEdits(service: AnalyzerService, edits: WorkspaceEdit, filesChanged: Set<string>) {
-    if (edits.changes) {
-        for (const kv of Object.entries(edits.changes)) {
-            const filePath = convertUriToPath(service.fs, kv[0]);
-            const fileInfo = service.backgroundAnalysisProgram.program.getSourceFileInfo(filePath);
-            if (!fileInfo || !fileInfo.isTracked) {
-                // We don't allow non user file being modified.
-                continue;
-            }
-
-            applyDocumentChanges(service, fileInfo, kv[1]);
-            filesChanged.add(filePath);
-        }
-    }
-
-    // For now, we don't support annotations.
-    if (edits.documentChanges) {
-        for (const change of edits.documentChanges) {
-            if (TextDocumentEdit.is(change)) {
-                const filePath = convertUriToPath(service.fs, change.textDocument.uri);
-                const fileInfo = service.backgroundAnalysisProgram.program.getSourceFileInfo(filePath);
-                if (!fileInfo || !fileInfo.isTracked) {
-                    // We don't allow non user file being modified.
-                    continue;
-                }
-
-                applyDocumentChanges(service, fileInfo, change.edits);
-                filesChanged.add(filePath);
-            }
-
-            // For now, we don't support other kinds of text changes.
-            // But if we want to add support for those in future, we should add them here.
-        }
-    }
-}
-
-export function applyDocumentChanges(service: AnalyzerService, fileInfo: SourceFileInfo, edits: TextEdit[]) {
-    if (!fileInfo.isOpenByClient) {
-        const fileContent = fileInfo.sourceFile.getFileContent();
-        service.setFileOpened(
-            fileInfo.sourceFile.getFilePath(),
-            0,
-            fileContent ?? '',
-            fileInfo.sourceFile.getIPythonMode(),
-            fileInfo.sourceFile.getRealFilePath()
-        );
-    }
-
-    const version = (fileInfo.sourceFile.getClientVersion() ?? 0) + 1;
-    service.updateOpenFileContents(
-        fileInfo.sourceFile.getFilePath(),
-        version,
-        edits.map((t) => ({ range: t.range, text: t.newText })),
-        fileInfo.sourceFile.getIPythonMode(),
-        fileInfo.sourceFile.getRealFilePath()
-    );
-}
-
-export function generateWorkspaceEdits(base: AnalyzerService, target: AnalyzerService, filesChanged: Set<string>) {
-    // For now, we won't do text diff to find out minimal text changes. instead, we will
-    // consider whole text of the files are changed. In future, we could consider
-    // doing minimal changes using vscode's differ (https://github.com/microsoft/vscode/blob/main/src/vs/base/common/diff/diff.ts)
-    // to support annotation.
-    const edits: WorkspaceEdit = { changes: {} };
-
-    for (const filePath of filesChanged) {
-        const original = base.backgroundAnalysisProgram.program.getBoundSourceFile(filePath);
-        const final = target.backgroundAnalysisProgram.program.getBoundSourceFile(filePath);
-        if (!original || !final) {
-            // Both must exist.
-            continue;
-        }
-
-        const parseResults = original.getParseResults();
-        if (!parseResults) {
-            continue;
-        }
-
-        edits.changes![convertPathToUri(base.fs, filePath)] = [
-            {
-                range: convertTextRangeToRange(parseResults.parseTree, parseResults.tokenizerOutput.lines),
-                newText: final.getFileContent() ?? '',
-            },
-        ];
-    }
-
-    return edits;
 }

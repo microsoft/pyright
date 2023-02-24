@@ -64,7 +64,7 @@ def wrap(
     break_long_words: bool = ...,
     break_on_hyphens: bool = ...,
     drop_whitespace: bool = ...,
-    max_lines: int = ...,
+    max_lines: int | None = None,
     placeholder: str = ...,
 ) -> list[str]: ...
 def fill(
@@ -80,7 +80,7 @@ def fill(
     break_long_words: bool = ...,
     break_on_hyphens: bool = ...,
     drop_whitespace: bool = ...,
-    max_lines: int = ...,
+    max_lines: int | None = None,
     placeholder: str = ...,
 ) -> str: ...
 def shorten(

@@ -1,7 +1,8 @@
-from _typeshed import Incomplete, Self
+from _typeshed import Incomplete
 from asyncio import AbstractEventLoop
 from collections.abc import Callable
 from logging import Logger
+from typing_extensions import Self
 
 from ..connection import Parameters
 from .base_connection import BaseConnection
@@ -11,7 +12,7 @@ LOGGER: Logger
 
 class AsyncioConnection(BaseConnection):
     def __init__(
-        self: Self,
+        self,
         parameters: Parameters | None = ...,
         on_open_callback: Callable[[Self], object] | None = ...,
         on_open_error_callback: Callable[[Self, BaseException], object] | None = ...,

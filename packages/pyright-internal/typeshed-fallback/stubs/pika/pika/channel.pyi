@@ -1,8 +1,8 @@
-from _typeshed import Incomplete, Self
+from _typeshed import Incomplete
 from collections.abc import Callable
 from logging import Logger
 from typing import Any
-from typing_extensions import Final
+from typing_extensions import Final, Self
 
 from .callback import CallbackManager
 from .connection import Connection
@@ -25,7 +25,7 @@ class Channel:
     connection: Connection
     flow_active: bool
 
-    def __init__(self: Self, connection: Connection, channel_number: int, on_open_callback: Callable[[Self], object]) -> None: ...
+    def __init__(self, connection: Connection, channel_number: int, on_open_callback: Callable[[Self], object]) -> None: ...
     def __int__(self) -> int: ...
     def add_callback(self, callback, replies, one_shot: bool = ...) -> None: ...
     def add_on_cancel_callback(self, callback) -> None: ...

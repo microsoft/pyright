@@ -31,6 +31,7 @@ import {
 import {
     getDottedNameWithGivenNodeAsLastName,
     getFirstAncestorOrSelfOfKind,
+    getFullStatementRange,
     isFromImportAlias,
     isFromImportModuleName,
     isFromImportName,
@@ -39,8 +40,11 @@ import {
     isLastNameOfModuleName,
 } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
+import { ScopeType } from '../analyzer/scope';
 import { isStubFile } from '../analyzer/sourceMapper';
+import { isPrivateName } from '../analyzer/symbolNameUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
+import { TypeCategory } from '../analyzer/types';
 import { getOrAdd } from '../common/collectionUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { assert, assertNever } from '../common/debug';
@@ -57,7 +61,8 @@ import {
     resolvePaths,
     stripFileExtension,
 } from '../common/pathUtils';
-import { TextEditTracker } from '../common/textEditUtils';
+import { convertRangeToTextRange } from '../common/positionUtils';
+import { TextEditTracker } from '../common/textEditTracker';
 import { TextRange } from '../common/textRange';
 import {
     ImportAsNode,
@@ -156,6 +161,81 @@ export class RenameModuleProvider {
             filteredDecls,
             token!
         );
+    }
+
+    static canMoveSymbol(evaluator: TypeEvaluator, node: NameNode): boolean {
+        if (isPrivateName(node.value)) {
+            return false;
+        }
+
+        const lookUpResult = evaluator.lookUpSymbolRecursive(node, node.value, /* honorCodeFlow */ false);
+        if (lookUpResult === undefined || lookUpResult.scope.type !== ScopeType.Module) {
+            // We only allow moving a symbol at the module level.
+            return false;
+        }
+
+        // For now, we only supports module level variable, function and class.
+        const declarations = lookUpResult.symbol.getDeclarations();
+        if (declarations.length === 0) {
+            return false;
+        }
+
+        return declarations.every((d) => {
+            if (!TextRange.containsRange(d.node, node)) {
+                return false;
+            }
+
+            if (isFunctionDeclaration(d) || isClassDeclaration(d)) {
+                return true;
+            }
+
+            if (isVariableDeclaration(d)) {
+                // We only support simple variable assignment.
+                // ex) a = 1
+                if (d.typeAliasAnnotation) {
+                    return false;
+                }
+
+                if (d.inferredTypeSource && isExpressionNode(d.inferredTypeSource)) {
+                    const type = evaluator.getType(d.inferredTypeSource);
+                    if (type?.category === TypeCategory.TypeVar) {
+                        return false;
+                    }
+                }
+
+                // This make sure we are not one of these
+                // ex) a = b = 1
+                //     a, b = 1, 2
+                if (
+                    d.node.parent?.nodeType !== ParseNodeType.Assignment ||
+                    d.node.parent?.parent?.nodeType !== ParseNodeType.StatementList
+                ) {
+                    return false;
+                }
+
+                if (d.node.start !== d.node.parent.start) {
+                    return false;
+                }
+
+                return true;
+            }
+
+            return false;
+        });
+    }
+
+    static getSymbolTextRange(parseResults: ParseResults, decl: Declaration): TextRange {
+        if (isVariableDeclaration(decl)) {
+            const range = getFullStatementRange(decl.node, parseResults);
+            return convertRangeToTextRange(range, parseResults.tokenizerOutput.lines) ?? decl.node;
+        }
+
+        return decl.node;
+    }
+
+    static getSymbolFullStatementTextRange(parseResults: ParseResults, decl: Declaration): TextRange {
+        const range = getFullStatementRange(decl.node, parseResults, { includeTrailingBlankLines: true });
+        return convertRangeToTextRange(range, parseResults.tokenizerOutput.lines) ?? decl.node;
     }
 
     static getRenameModulePath(declarations: Declaration[]) {
@@ -307,10 +387,11 @@ export class RenameModuleProvider {
         }
     }
 
-    tryGetFirstSymbolUsage(parseResults: ParseResults) {
+    tryGetFirstSymbolUsage(parseResults: ParseResults, symbol?: { name: string; decls: Declaration[] }) {
+        const name = symbol?.name ?? getNameFromDeclaration(this.declarations[0]) ?? '';
         const collector = new DocumentSymbolCollector(
-            [getNameFromDeclaration(this.declarations[0]) || ''],
-            this.declarations,
+            [name],
+            symbol?.decls ?? this.declarations,
             this._evaluator!,
             this._token,
             parseResults.parseTree,
@@ -612,19 +693,11 @@ export class RenameModuleProvider {
             /* isLastPartImportName */ false
         );
 
-        const hasAlias = !!importFromAs.alias;
-        if (isDestination && !hasAlias) {
-            if (fromNode.imports.length === 1) {
-                // If we have import statement for the symbol in the destination file,
-                // we need to remove it.
-                this._textEditTracker.deleteImportName(parseResults, importFromAs);
-                return;
-            }
-
+        if (isDestination) {
+            // If we have import statement for the symbol in the destination file,
+            // we need to remove it.
             // ex) "from module import symbol, another_symbol" to
-            //     "from module import another_symbol" and "from module.changed import symbol"
-
-            // Delete the existing import name including alias.
+            //     "from module import another_symbol"
             this._textEditTracker.deleteImportName(parseResults, importFromAs);
             return;
         }

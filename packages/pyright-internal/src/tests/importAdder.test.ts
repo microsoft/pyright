@@ -10,7 +10,7 @@ import assert from 'assert';
 import { CancellationToken } from 'vscode-languageserver';
 
 import { TextEditAction } from '../common/editAction';
-import { TextEditTracker } from '../common/textEditUtils';
+import { TextEditTracker } from '../common/textEditTracker';
 import { rangesAreEqual, TextRange } from '../common/textRange';
 import { ImportFormat } from '../languageService/autoImporter';
 import { ImportAdder } from '../languageService/importAdder';
@@ -1395,6 +1395,7 @@ function testImportMove(code: string, importFormat = ImportFormat.Absolute) {
 
     const edits = importMover.applyImports(
         importData,
+        dest.fileName,
         state.program.getBoundSourceFile(dest.fileName)!.getParseResults()!,
         dest.position,
         importFormat,

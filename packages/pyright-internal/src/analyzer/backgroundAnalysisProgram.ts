@@ -125,9 +125,9 @@ export class BackgroundAnalysisProgram {
         this._reportDiagnosticsForRemovedFiles(diagnostics);
     }
 
-    addTrackedFile(filePath: string, isThirdPartyImport: boolean) {
-        this._backgroundAnalysis?.addTrackedFile(filePath, isThirdPartyImport);
-        this._program.addTrackedFile(filePath, isThirdPartyImport);
+    addInterimFile(filePath: string) {
+        this._backgroundAnalysis?.addInterimFile(filePath);
+        this._program.addInterimFile(filePath);
     }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean, indexingNeeded = true) {

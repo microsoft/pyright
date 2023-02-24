@@ -1,12 +1,12 @@
 /*
- * textEditUtils.ts
+ * textEditTracker.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Language server command execution functionality.
+ * Track text edits per files.
  */
 
-import { CancellationToken, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
+import { CancellationToken } from 'vscode-languageserver';
 
 import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import {
@@ -22,8 +22,6 @@ import {
     ModuleNameInfo,
 } from '../analyzer/importStatementUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import * as debug from '../common/debug';
-import { FileEditAction, TextEditAction } from '../common/editAction';
 import {
     ImportAsNode,
     ImportFromAsNode,
@@ -35,57 +33,10 @@ import {
 import { ParseResults } from '../parser/parser';
 import { appendArray, getOrAdd, removeArrayElements } from './collectionUtils';
 import { isString } from './core';
-import { convertOffsetToPosition, convertRangeToTextRange, convertTextRangeToRange } from './positionUtils';
+import * as debug from './debug';
+import { FileEditAction } from './editAction';
+import { convertOffsetToPosition, convertTextRangeToRange } from './positionUtils';
 import { doesRangeContain, doRangesIntersect, extendRange, Range, TextRange } from './textRange';
-import { TextRangeCollection } from './textRangeCollection';
-
-export function convertEditActionsToTextEdits(editActions: TextEditAction[]): TextEdit[] {
-    return editActions.map((editAction) => ({
-        range: editAction.range,
-        newText: editAction.replacementText,
-    }));
-}
-
-export function convertEditActionsToWorkspaceEdit(
-    uri: string,
-    editActions: TextEditAction[] | undefined
-): WorkspaceEdit {
-    if (!editActions) {
-        return {};
-    }
-
-    const edits = convertEditActionsToTextEdits(editActions);
-
-    return {
-        changes: {
-            [uri]: edits,
-        },
-    };
-}
-
-export function applyTextEditActions(text: string, edits: TextEditAction[], lines: TextRangeCollection<TextRange>) {
-    const editsWithOffset = edits
-        .map((e) => ({
-            range: convertRangeToTextRange(e.range, lines) ?? { start: text.length, length: 0 },
-            text: e.replacementText,
-        }))
-        .sort((e1, e2) => {
-            const result = e2.range.start - e1.range.start;
-            if (result !== 0) {
-                return result;
-            }
-
-            return TextRange.getEnd(e2.range) - TextRange.getEnd(e1.range);
-        });
-
-    // Apply change in reverse order.
-    let current = text;
-    for (const change of editsWithOffset) {
-        current = current.substr(0, change.range.start) + change.text + current.substr(TextRange.getEnd(change.range));
-    }
-
-    return current;
-}
 
 export class TextEditTracker {
     private readonly _nodesRemoved: Map<ParseNode, ParseResults> = new Map<ParseNode, ParseResults>();

@@ -32,7 +32,8 @@ export interface ProgramExtension {
     readonly declarationProviderExtension?: DeclarationProviderExtension;
     readonly typeProviderExtension?: TypeProviderExtension;
     readonly codeActionExtension?: CodeActionExtension;
-    sourceFileChanged?: (sourceFileInfo: SourceFileInfo) => void;
+    fileDirty?: (filePath: string) => void;
+    clearCache?: () => void;
 }
 
 // Readonly wrapper around a Program. Makes sure it doesn't mutate the program.
@@ -43,12 +44,12 @@ export interface ProgramView {
     console: ConsoleInterface;
     getConfigOptions(): ConfigOptions;
     owns(file: string): boolean;
-    getBoundSourceFileInfo(file: string): SourceFileInfo | undefined;
+    getBoundSourceFileInfo(file: string, content?: string, force?: boolean): SourceFileInfo | undefined;
 }
 
 // Mutable wrapper around a program. Allows the FG thread to forward this request to the BG thread
 export interface ProgramMutator {
-    addTrackedFile(file: string, isThirdPartyImport: boolean): void;
+    addInterimFile(file: string): void;
 }
 
 export interface ExtensionFactory {

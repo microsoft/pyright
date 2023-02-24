@@ -1,6 +1,5 @@
-from _typeshed import Self
 from enum import Enum, Flag, IntEnum, IntFlag
-from typing_extensions import Literal
+from typing_extensions import Literal, Self
 
 from .syntax import Name
 
@@ -10,11 +9,11 @@ class SignatureFlag(IntEnum):
 
 class CoerciveEnum(Enum):
     @classmethod
-    def coerce(cls: type[Self], value: Self | str) -> Self: ...
+    def coerce(cls, value: Self | str) -> Self: ...
 
 class CoerciveIntEnum(IntEnum):
     @classmethod
-    def coerce(cls: type[Self], value: Self | str | int) -> Self: ...
+    def coerce(cls, value: Self | str | int) -> Self: ...
 
 class CharVPos(CoerciveEnum):
     SUP: str

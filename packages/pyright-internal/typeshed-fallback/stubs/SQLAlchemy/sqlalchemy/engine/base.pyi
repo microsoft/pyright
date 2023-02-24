@@ -1,10 +1,10 @@
-from _typeshed import Incomplete, Self
+from _typeshed import Incomplete
 from _typeshed.dbapi import DBAPIConnection
 from abc import abstractmethod
 from collections.abc import Callable, Mapping
 from types import TracebackType
 from typing import Any, TypeVar, overload
-from typing_extensions import Concatenate, ParamSpec, TypeAlias
+from typing_extensions import Concatenate, ParamSpec, Self, TypeAlias
 
 from ..log import Identified, _EchoFlag, echo_property
 from ..pool import Pool
@@ -40,7 +40,7 @@ class Connection(Connectable):
         _allow_revalidate: bool = ...,
     ) -> None: ...
     def schema_for_object(self, obj) -> str | None: ...
-    def __enter__(self: Self) -> Self: ...
+    def __enter__(self) -> Self: ...
     def __exit__(
         self, type_: type[BaseException] | None, value: BaseException | None, traceback: TracebackType | None
     ) -> None: ...

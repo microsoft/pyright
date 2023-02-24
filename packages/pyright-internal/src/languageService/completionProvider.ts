@@ -82,11 +82,11 @@ import { fromLSPAny, toLSPAny } from '../common/lspUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import * as StringUtils from '../common/stringUtils';
-import { convertEditActionsToTextEdits } from '../common/textEditUtils';
 import { comparePositions, Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration } from '../common/timing';
+import { convertToTextEdits } from '../common/workspaceEditUtils';
 import {
     ArgumentCategory,
     DecoratorNode,
@@ -2644,9 +2644,7 @@ export class CompletionProvider {
                     completionItemData.autoImportText === autoImportText?.importText &&
                     detail.edits?.additionalTextEdits
                 ) {
-                    this._itemToResolve.additionalTextEdits = convertEditActionsToTextEdits(
-                        detail.edits.additionalTextEdits
-                    );
+                    this._itemToResolve.additionalTextEdits = convertToTextEdits(detail.edits.additionalTextEdits);
                 }
                 return;
             }
@@ -2890,7 +2888,7 @@ export class CompletionProvider {
         }
 
         if (detail?.edits?.additionalTextEdits) {
-            completionItem.additionalTextEdits = convertEditActionsToTextEdits(detail.edits.additionalTextEdits);
+            completionItem.additionalTextEdits = convertToTextEdits(detail.edits.additionalTextEdits);
 
             // This is for auto import entries from indices which skip symbols.
             if (this._itemToResolve) {

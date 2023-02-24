@@ -1,5 +1,4 @@
 version = "1.7.*"
 
 [tool.stubtest]
-ignore_missing_stub = false
-platforms = ["linux", "darwin", "win32"]
+platforms = ["darwin", "linux", "win32"]

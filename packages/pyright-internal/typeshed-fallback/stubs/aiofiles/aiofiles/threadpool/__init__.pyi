@@ -1,11 +1,11 @@
 from _typeshed import (
+    FileDescriptorOrPath,
     Incomplete,
     OpenBinaryMode,
     OpenBinaryModeReading,
     OpenBinaryModeUpdating,
     OpenBinaryModeWriting,
     OpenTextMode,
-    StrOrBytesPath,
 )
 from asyncio import AbstractEventLoop
 from collections.abc import Callable
@@ -16,13 +16,12 @@ from ..base import AiofilesContextManager
 from .binary import AsyncBufferedIOBase, AsyncBufferedReader, AsyncFileIO, _UnknownAsyncBinaryIO
 from .text import AsyncTextIOWrapper
 
-_OpenFile: TypeAlias = StrOrBytesPath | int
 _Opener: TypeAlias = Callable[[str, int], int]
 
 # Text mode: always returns AsyncTextIOWrapper
 @overload
 def open(
-    file: _OpenFile,
+    file: FileDescriptorOrPath,
     mode: OpenTextMode = ...,
     buffering: int = ...,
     encoding: str | None = ...,
@@ -38,7 +37,7 @@ def open(
 # Unbuffered binary: returns a FileIO
 @overload
 def open(
-    file: _OpenFile,
+    file: FileDescriptorOrPath,
     mode: OpenBinaryMode,
     buffering: Literal[0],
     encoding: None = ...,
@@ -54,7 +53,7 @@ def open(
 # Buffered binary reading/updating: AsyncBufferedReader
 @overload
 def open(
-    file: _OpenFile,
+    file: FileDescriptorOrPath,
     mode: OpenBinaryModeReading | OpenBinaryModeUpdating,
     buffering: Literal[-1, 1] = ...,
     encoding: None = ...,
@@ -70,7 +69,7 @@ def open(
 # Buffered binary writing: AsyncBufferedIOBase
 @overload
 def open(
-    file: _OpenFile,
+    file: FileDescriptorOrPath,
     mode: OpenBinaryModeWriting,
     buffering: Literal[-1, 1] = ...,
     encoding: None = ...,
@@ -86,7 +85,7 @@ def open(
 # Buffering cannot be determined: fall back to _UnknownAsyncBinaryIO
 @overload
 def open(
-    file: _OpenFile,
+    file: FileDescriptorOrPath,
     mode: OpenBinaryMode,
     buffering: int = ...,
     encoding: None = ...,

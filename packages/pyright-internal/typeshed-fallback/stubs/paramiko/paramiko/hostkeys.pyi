@@ -1,5 +1,5 @@
-from _typeshed import Self
 from collections.abc import Iterator, Mapping, MutableMapping
+from typing_extensions import Self
 
 from paramiko.pkey import PKey
 
@@ -42,5 +42,5 @@ class HostKeyEntry:
     key: PKey
     def __init__(self, hostnames: list[str] | None = ..., key: PKey | None = ...) -> None: ...
     @classmethod
-    def from_line(cls: type[Self], line: str, lineno: int | None = ...) -> Self | None: ...
+    def from_line(cls, line: str, lineno: int | None = ...) -> Self | None: ...
     def to_line(self) -> str | None: ...

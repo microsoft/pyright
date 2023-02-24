@@ -1,26 +1,13 @@
 import logging
 import sys
 import unittest.result
-from _typeshed import Self, SupportsDunderGE, SupportsDunderGT, SupportsDunderLE, SupportsDunderLT, SupportsRSub, SupportsSub
+from _typeshed import SupportsDunderGE, SupportsDunderGT, SupportsDunderLE, SupportsDunderLT, SupportsRSub, SupportsSub
 from collections.abc import Callable, Container, Iterable, Mapping, Sequence, Set as AbstractSet
 from contextlib import AbstractContextManager
 from re import Pattern
 from types import TracebackType
-from typing import (
-    Any,
-    AnyStr,
-    ClassVar,
-    Generic,
-    NamedTuple,
-    NoReturn,
-    Protocol,
-    SupportsAbs,
-    SupportsRound,
-    TypeVar,
-    Union,
-    overload,
-)
-from typing_extensions import ParamSpec, TypeAlias
+from typing import Any, AnyStr, ClassVar, Generic, NamedTuple, NoReturn, Protocol, SupportsAbs, SupportsRound, TypeVar, overload
+from typing_extensions import ParamSpec, Self, TypeAlias
 from warnings import WarningMessage
 
 if sys.version_info >= (3, 9):
@@ -81,10 +68,13 @@ class SkipTest(Exception):
 
 class _SupportsAbsAndDunderGE(SupportsDunderGE[Any], SupportsAbs[Any], Protocol): ...
 
+# Keep this alias in sync with builtins._ClassInfo
+# We can't import it from builtins or pytype crashes,
+# due to the fact that pytype uses a custom builtins stub rather than typeshed's builtins stub
 if sys.version_info >= (3, 10):
-    _IsInstanceClassInfo: TypeAlias = Union[type, UnionType, tuple[type | UnionType | tuple[Any, ...], ...]]
+    _ClassInfo: TypeAlias = type | UnionType | tuple[_ClassInfo, ...]
 else:
-    _IsInstanceClassInfo: TypeAlias = Union[type, tuple[type | tuple[Any, ...], ...]]
+    _ClassInfo: TypeAlias = type | tuple[_ClassInfo, ...]
 
 class TestCase:
     failureException: type[BaseException]
@@ -120,8 +110,8 @@ class TestCase:
     def assertIsNotNone(self, obj: object, msg: Any = None) -> None: ...
     def assertIn(self, member: Any, container: Iterable[Any] | Container[Any], msg: Any = None) -> None: ...
     def assertNotIn(self, member: Any, container: Iterable[Any] | Container[Any], msg: Any = None) -> None: ...
-    def assertIsInstance(self, obj: object, cls: _IsInstanceClassInfo, msg: Any = None) -> None: ...
-    def assertNotIsInstance(self, obj: object, cls: _IsInstanceClassInfo, msg: Any = None) -> None: ...
+    def assertIsInstance(self, obj: object, cls: _ClassInfo, msg: Any = None) -> None: ...
+    def assertNotIsInstance(self, obj: object, cls: _ClassInfo, msg: Any = None) -> None: ...
     @overload
     def assertGreater(self, a: SupportsDunderGT[_T], b: _T, msg: Any = None) -> None: ...
     @overload
@@ -317,7 +307,7 @@ class FunctionTestCase(TestCase):
 
 class _AssertRaisesContext(Generic[_E]):
     exception: _E
-    def __enter__(self: Self) -> Self: ...
+    def __enter__(self) -> Self: ...
     def __exit__(
         self, exc_type: type[BaseException] | None, exc_value: BaseException | None, tb: TracebackType | None
     ) -> bool: ...
@@ -329,7 +319,7 @@ class _AssertWarnsContext:
     filename: str
     lineno: int
     warnings: list[WarningMessage]
-    def __enter__(self: Self) -> Self: ...
+    def __enter__(self) -> Self: ...
     def __exit__(
         self, exc_type: type[BaseException] | None, exc_value: BaseException | None, tb: TracebackType | None
     ) -> None: ...

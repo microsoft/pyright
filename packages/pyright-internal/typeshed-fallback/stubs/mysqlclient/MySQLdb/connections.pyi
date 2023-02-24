@@ -1,6 +1,6 @@
-from _typeshed import Self
 from types import TracebackType
 from typing import Any
+from typing_extensions import Self
 
 from . import _mysql, cursors
 from ._exceptions import (
@@ -27,7 +27,7 @@ class Connection(_mysql.connection):
     encoding: str
     messages: Any
     def __init__(self, *args, **kwargs) -> None: ...
-    def __enter__(self: Self) -> Self: ...
+    def __enter__(self) -> Self: ...
     def __exit__(
         self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None
     ) -> None: ...

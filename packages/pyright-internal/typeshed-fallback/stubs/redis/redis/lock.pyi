@@ -1,6 +1,7 @@
-from _typeshed import Incomplete, Self
+from _typeshed import Incomplete
 from types import TracebackType
 from typing import Any, ClassVar, Protocol
+from typing_extensions import Self
 
 from redis.client import Redis
 
@@ -26,7 +27,7 @@ class Lock:
         thread_local: bool = ...,
     ) -> None: ...
     def register_scripts(self) -> None: ...
-    def __enter__(self: Self) -> Self: ...
+    def __enter__(self) -> Self: ...
     def __exit__(
         self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None
     ) -> bool | None: ...

@@ -114,24 +114,6 @@ export function assignTypeToTypeVar(
             return true;
         }
 
-        // If we're in "reverse type var" mode, simply make sure that
-        // the concrete type is assignable.
-        if (isContravariant) {
-            if (
-                evaluator.assignType(
-                    evaluator.makeTopLevelTypeVarsConcrete(destType),
-                    evaluator.makeTopLevelTypeVarsConcrete(srcType),
-                    /* diag */ undefined,
-                    /* destTypeVarContext */ undefined,
-                    /* srcTypeVarContext */ undefined,
-                    flags & ~AssignTypeFlags.EnforceInvariance,
-                    recursionCount
-                )
-            ) {
-                return true;
-            }
-        }
-
         isTypeVarInScope = false;
         if (!destType.details.isSynthesized) {
             diag?.addMessage(

@@ -278,6 +278,9 @@ export class HoverProvider {
                         /* python */ true
                     );
                 }
+                if (resolvedDecl.docString) {
+                    this._addResultsPart(parts, resolvedDecl.docString);
+                }
                 this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
