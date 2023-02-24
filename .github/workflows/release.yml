@@ -1,0 +1,43 @@
+name: Publish Release
+
+on:
+  release:
+    types: [published]
+
+env:
+  VSIX_NAME: vscode-pyright.vsix
+  NODE_VERSION: '16' # Shipped with VS Code.
+
+jobs:
+  publish_extension:
+    if: ${{ github.repository == 'microsoft/pyright' }}
+    runs-on: ubuntu-latest
+    name: Publish extension to marketplace
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - run: npm install
+
+      - name: Download VSIX
+        uses: i3h/download-release-asset@v1
+        with:
+          owner: microsoft
+          repo: pyright
+          tag: ${{ github.event.release.tag_name }}
+          file: ${{ env.VSIX_NAME }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # https://code.visualstudio.com/api/working-with-extensions/publishing-extension
+      - name: Install VSCE
+        run: |
+          npm install -g "vsce@$(jq -r '.dependencies.vsce.version' < packages/vscode-pyright/package-lock.json)"
+          npx vsce --version
+
+      # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
+      - name: Publish VSIX
+        run: npx vsce publish --packagePath ${{ env.VSIX_NAME }} --pat ${{ secrets.VSCE_TOKEN }} --noVerify
