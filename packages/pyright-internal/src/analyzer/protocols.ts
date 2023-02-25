@@ -256,7 +256,7 @@ function assignClassToProtocolInternal(
                         if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
                             if (isMemberFromMetaclass) {
                                 const boundSrcFunction = evaluator.bindFunctionToClassOrObject(
-                                    srcType,
+                                    ClassType.cloneAsInstance(srcType),
                                     srcMemberType,
                                     /* memberClass */ undefined,
                                     /* errorNode */ undefined,
@@ -270,7 +270,7 @@ function assignClassToProtocolInternal(
 
                                 if (isFunction(destMemberType) || isOverloadedFunction(destMemberType)) {
                                     const boundDeclaredType = evaluator.bindFunctionToClassOrObject(
-                                        srcType,
+                                        ClassType.cloneAsInstance(srcType),
                                         destMemberType,
                                         /* memberClass */ undefined,
                                         /* errorNode */ undefined,
