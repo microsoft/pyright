@@ -16911,11 +16911,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             functionFlags |= FunctionTypeFlags.Generator;
         }
 
-        // Special-case magic method __class_getitem__, which is implicitly a class method.
-        if (containingClassNode && node.name.value === '__class_getitem__') {
-            functionFlags |= FunctionTypeFlags.ClassMethod;
-        }
-
         if (fileInfo.isStubFile) {
             functionFlags |= FunctionTypeFlags.StubDefinition;
         } else if (fileInfo.isInPyTypedPackage) {
@@ -17588,16 +17583,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         let flags = FunctionTypeFlags.None;
 
-        // The "__new__" magic method is not an instance method.
-        // It acts as a static method instead.
-        if (node.name.value === '__new__' && isInClass) {
-            flags |= FunctionTypeFlags.ConstructorMethod;
-        }
+        if (isInClass) {
+            // The "__new__" magic method is not an instance method.
+            // It acts as a static method instead.
+            if (node.name.value === '__new__') {
+                flags |= FunctionTypeFlags.ConstructorMethod;
+            }
 
-        // The "__init_subclass__" magic method is not an instance method.
-        // It acts an an implicit class method instead.
-        if (node.name.value === '__init_subclass__' && isInClass) {
-            flags |= FunctionTypeFlags.ClassMethod;
+            // Several magic methods are treated as class methods implicitly
+            // by the runtime. Check for these here.
+            const implicitClassMethods = ['__init_subclass__', '__class_getitem__'];
+            if (implicitClassMethods.some((name) => node.name.value === name)) {
+                flags |= FunctionTypeFlags.ClassMethod;
+            }
         }
 
         for (const decoratorNode of node.decorators) {
