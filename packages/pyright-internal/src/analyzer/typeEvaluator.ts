@@ -5193,7 +5193,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             addDiagnostic(
                                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.moduleUnknownMember().format({ name: memberName }),
+                                Localizer.Diagnostic.moduleUnknownMember().format({
+                                    memberName,
+                                    moduleName: baseType.moduleName,
+                                }),
                                 node.memberName
                             );
                         }
