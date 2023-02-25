@@ -265,6 +265,7 @@ import {
     getTypeVarScopeId,
     getUnionSubtypeCount,
     InferenceContext,
+    isEffectivelyInstantiable,
     isEllipsisType,
     isIncompleteUnknown,
     isLiteralType,
@@ -1203,7 +1204,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            if (!TypeBase.isInstantiable(typeResult.type)) {
+            if (!isEffectivelyInstantiable(typeResult.type)) {
                 const isEmptyVariadic =
                     isClassInstance(typeResult.type) &&
                     ClassType.isTupleClass(typeResult.type) &&
@@ -3042,7 +3043,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const diag = new DiagnosticAddendum();
         if (isUnion(type)) {
             doForEachSubtype(type, (subtype) => {
-                if (!TypeBase.isInstantiable(subtype)) {
+                if (!isEffectivelyInstantiable(subtype)) {
                     diag.addMessage(Localizer.DiagnosticAddendum.typeNotClass().format({ type: printType(subtype) }));
                 }
             });
@@ -11808,11 +11809,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         arg1Type.tupleTypeArguments.forEach((typeArg) => {
             const specializedType = makeTopLevelTypeVarsConcrete(typeArg.type);
 
-            if (
-                isInstantiableClass(specializedType) ||
-                isAnyOrUnknown(specializedType) ||
-                (isClassInstance(specializedType) && ClassType.isBuiltIn(specializedType, 'type'))
-            ) {
+            if (isEffectivelyInstantiable(specializedType)) {
                 classType.details.baseClasses.push(specializedType);
             } else {
                 addExpectedClassDiagnostic(typeArg.type, argList[1].valueExpression || errorNode);
@@ -14376,7 +14373,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let typeArg0Type = typeArgs[0].type;
         if (!validateTypeArg(typeArgs[0])) {
             typeArg0Type = UnknownType.create();
-        } else if (!TypeBase.isInstantiable(typeArg0Type)) {
+        } else if (!isEffectivelyInstantiable(typeArg0Type)) {
             addExpectedClassDiagnostic(typeArg0Type, typeArgs[0].node);
             typeArg0Type = UnknownType.create();
         }
@@ -14969,7 +14966,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (!validateTypeArg(typeArg, { allowVariadicTypeVar: true, allowUnpackedTuples: true })) {
                 typeArgType = UnknownType.create();
-            } else if (!TypeBase.isInstantiable(typeArgType)) {
+            } else if (!isEffectivelyInstantiable(typeArgType)) {
                 addExpectedClassDiagnostic(typeArgType, typeArg.node);
                 typeArgType = UnknownType.create();
             }
@@ -15785,7 +15782,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (!isAnyOrUnknown(argType) && !isUnbound(argType)) {
-                    if (!isInstantiableClass(argType)) {
+                    if (isClass(argType) && TypeBase.isInstance(argType) && ClassType.isBuiltIn(argType, 'type')) {
+                        argType =
+                            argType.typeArguments && argType.typeArguments.length > 0
+                                ? argType.typeArguments[0]
+                                : UnknownType.create();
+                    } else if (!isInstantiableClass(argType)) {
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
