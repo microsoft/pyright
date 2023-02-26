@@ -5,8 +5,8 @@ from .base import Client as Client
 
 class MobileApplicationClient(Client):
     response_type: str
-    def prepare_request_uri(  # type: ignore[override]
+    def prepare_request_uri(
         self, uri, redirect_uri: Incomplete | None = ..., scope: Incomplete | None = ..., state: Incomplete | None = ..., **kwargs
     ): ...
     token: Any
-    def parse_request_uri_response(self, uri, state: Incomplete | None = ..., scope: Incomplete | None = ...): ...  # type: ignore[override]
+    def parse_request_uri_response(self, uri, state: Incomplete | None = ..., scope: Incomplete | None = ...): ...

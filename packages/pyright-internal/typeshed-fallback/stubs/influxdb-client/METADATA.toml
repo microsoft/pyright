@@ -3,3 +3,4 @@ requires = ["types-urllib3"]
 
 [tool.stubtest]
 extras = ["extra"]
+stubtest_requirements = ["aiohttp"]

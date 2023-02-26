@@ -1,38 +1,34 @@
-from typing import Any
+from _typeshed import Incomplete
 
 from ..cmd import Command
 
-extension_name_re: Any
-
-def show_compilers() -> None: ...
-
 class build_ext(Command):
     description: str
-    sep_by: Any
-    user_options: Any
-    boolean_options: Any
-    help_options: Any
-    extensions: Any
-    build_lib: Any
-    plat_name: Any
-    build_temp: Any
+    sep_by: Incomplete
+    user_options: Incomplete
+    boolean_options: Incomplete
+    help_options: Incomplete
+    extensions: Incomplete
+    build_lib: Incomplete
+    plat_name: Incomplete
+    build_temp: Incomplete
     inplace: int
-    package: Any
-    include_dirs: Any
-    define: Any
-    undef: Any
-    libraries: Any
-    library_dirs: Any
-    rpath: Any
-    link_objects: Any
-    debug: Any
-    force: Any
-    compiler: Any
-    swig: Any
-    swig_cpp: Any
-    swig_opts: Any
-    user: Any
-    parallel: Any
+    package: Incomplete
+    include_dirs: Incomplete
+    define: Incomplete
+    undef: Incomplete
+    libraries: Incomplete
+    library_dirs: Incomplete
+    rpath: Incomplete
+    link_objects: Incomplete
+    debug: Incomplete
+    force: Incomplete
+    compiler: Incomplete
+    swig: Incomplete
+    swig_cpp: Incomplete
+    swig_opts: Incomplete
+    user: Incomplete
+    parallel: Incomplete
     def initialize_options(self) -> None: ...
     def finalize_options(self) -> None: ...
     def run(self) -> None: ...

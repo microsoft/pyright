@@ -1,14 +1,11 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
 from collections.abc import Callable
-from typing_extensions import TypeAlias
-
-_Unused: TypeAlias = object
 
 class AbstractScalarDecoder:
-    def __call__(self, pyObject, asn1Spec, decodeFun: _Unused = ..., **options): ...
+    def __call__(self, pyObject, asn1Spec, decodeFun: Unused = ..., **options): ...
 
 class BitStringDecoder(AbstractScalarDecoder):
-    def __call__(self, pyObject, asn1Spec, decodeFun: _Unused = ..., **options): ...
+    def __call__(self, pyObject, asn1Spec, decodeFun: Unused = ..., **options): ...
 
 class SequenceOrSetDecoder:
     def __call__(self, pyObject, asn1Spec, decodeFun: Callable[..., Incomplete] | None = ..., **options): ...

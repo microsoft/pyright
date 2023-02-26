@@ -1,3 +1,4 @@
+from types import TracebackType
 from typing import Any
 
 from ..exceptions.exceptions import SegmentNameMissingException as SegmentNameMissingException
@@ -16,7 +17,9 @@ class SegmentContextManager:
     segment: Segment
     def __init__(self, recorder: AWSXRayRecorder, name: str | None = ..., **segment_kwargs) -> None: ...
     def __enter__(self): ...
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None: ...
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
+    ) -> None: ...
 
 class Segment(Entity):
     trace_id: str | None

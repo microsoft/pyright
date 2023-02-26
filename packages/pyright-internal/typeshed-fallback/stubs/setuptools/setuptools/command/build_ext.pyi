@@ -1,6 +1,7 @@
 from _typeshed import Incomplete
-from distutils.command.build_ext import build_ext as _build_ext
 from typing import Any
+
+from .._distutils.command.build_ext import build_ext as _build_ext
 
 have_rtld: bool
 use_stubs: bool

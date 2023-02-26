@@ -1,4 +1,4 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
 from collections.abc import Callable
 from html.parser import HTMLParser
 from logging import Logger
@@ -68,7 +68,7 @@ class HTML2FPDF(HTMLParser):
         ul_bullet_char: str = ...,
         heading_sizes: Incomplete | None = None,
         warn_on_tags_not_matching: bool = True,
-        **_: object,
+        **_: Unused,
     ): ...
     def width2unit(self, length): ...
     def handle_data(self, data) -> None: ...

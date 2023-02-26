@@ -3207,7 +3207,7 @@ class OptionMenu(Menubutton):
     # destroy and __getitem__ are overridden, signature does not change
 
 # Marker to indicate that it is a valid bitmap/photo image. PIL implements compatible versions
-# which don't share a class hierachy. The actual API is a __str__() which returns a valid name,
+# which don't share a class hierarchy. The actual API is a __str__() which returns a valid name,
 # not something that type checkers can detect.
 @type_check_only
 class _Image: ...

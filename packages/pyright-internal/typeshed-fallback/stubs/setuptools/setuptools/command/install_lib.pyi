@@ -1,4 +1,4 @@
-import distutils.command.install_lib as orig
+from .._distutils.command import install_lib as orig
 
 class install_lib(orig.install_lib):
     def run(self) -> None: ...

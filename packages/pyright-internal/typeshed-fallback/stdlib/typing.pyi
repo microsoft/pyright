@@ -20,6 +20,11 @@ from types import (
 )
 from typing_extensions import Never as _Never, ParamSpec as _ParamSpec, final as _final
 
+if sys.version_info >= (3, 10):
+    from types import UnionType
+if sys.version_info >= (3, 9):
+    from types import GenericAlias
+
 __all__ = [
     "AbstractSet",
     "Any",
@@ -254,7 +259,7 @@ _T_contra = TypeVar("_T_contra", contravariant=True)  # Ditto contravariant.
 _TC = TypeVar("_TC", bound=Type[object])
 
 def no_type_check(arg: _F) -> _F: ...
-def no_type_check_decorator(decorator: Callable[_P, _T]) -> Callable[_P, _T]: ...  # type: ignore[misc]
+def no_type_check_decorator(decorator: Callable[_P, _T]) -> Callable[_P, _T]: ...
 
 # Type aliases and type constructors
 
@@ -745,8 +750,20 @@ else:
     ) -> dict[str, Any]: ...
 
 if sys.version_info >= (3, 8):
-    def get_origin(tp: Any) -> Any | None: ...
     def get_args(tp: Any) -> tuple[Any, ...]: ...
+
+    if sys.version_info >= (3, 10):
+        @overload
+        def get_origin(tp: ParamSpecArgs | ParamSpecKwargs) -> ParamSpec: ...
+        @overload
+        def get_origin(tp: UnionType) -> type[UnionType]: ...
+    if sys.version_info >= (3, 9):
+        @overload
+        def get_origin(tp: GenericAlias) -> type: ...
+        @overload
+        def get_origin(tp: Any) -> Any | None: ...
+    else:
+        def get_origin(tp: Any) -> Any | None: ...
 
 @overload
 def cast(typ: Type[_T], val: Any) -> _T: ...
