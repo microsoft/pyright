@@ -7508,7 +7508,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const assertedType = convertToInstance(getTypeOfArgumentExpectingType(node.arguments[1]).type);
 
-        if (!isTypeSame(assertedType, arg0TypeResult.type, { treatAnySameAsUnknown: true })) {
+        if (
+            !isTypeSame(assertedType, arg0TypeResult.type, { treatAnySameAsUnknown: true, ignorePseudoGeneric: true })
+        ) {
             addDiagnostic(
                 AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -7581,7 +7583,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (expectedRevealType) {
-            if (!isTypeSame(expectedRevealType, type)) {
+            if (!isTypeSame(expectedRevealType, type, { ignorePseudoGeneric: true })) {
                 const expectedRevealTypeText = printType(expectedRevealType);
                 addError(
                     Localizer.Diagnostic.revealTypeExpectedTypeMismatch().format({
