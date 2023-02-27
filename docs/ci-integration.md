@@ -12,6 +12,27 @@ You can configure pyright to run as a github action.
 
 Refer to the [pyright-action project](https://github.com/jakebailey/pyright-action) for more options.
 
+### Running Pyright in gitlab (with code-quality review)
+
+You can configure pyright to run in gitlab, and generate a compatible codequality report.
+
+```yml
+job_name:
+  before_script:
+    - npm i -g pyright
+    - npm i -g pyright-to-gitlab-ci
+  script:
+   - pyright <python source> --outputjson > report_raw.json
+   - pyright-to-gitlab-ci --src report_raw.json --output report.json --base_path .
+  artifacts:
+    paths:
+      - report.json
+    reports:
+      codequality: report.json
+```
+
+Refer to the [pyright-to-gitlab-ci](https://www.npmjs.com/package/pyright-to-gitlab-ci) package for more details.
+
 ### Running Pyright as a pre-commit hook
 
 You can run pyright as a pre-commit hook using the community-maintained [Python wrapper for pyright](https://github.com/RobertCraigie/pyright-python). For pre-commit configuration instructions, refer to [this documentation](https://github.com/RobertCraigie/pyright-python#pre-commit).
