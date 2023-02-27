@@ -549,7 +549,9 @@ export namespace Localizer {
         export const moduleAsType = () => getRawString('Diagnostic.moduleAsType');
         export const moduleNotCallable = () => getRawString('Diagnostic.moduleNotCallable');
         export const moduleUnknownMember = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.moduleUnknownMember'));
+            new ParameterizedString<{ memberName: string; moduleName: string }>(
+                getRawString('Diagnostic.moduleUnknownMember')
+            );
         export const namedExceptAfterCatchAll = () => getRawString('Diagnostic.namedExceptAfterCatchAll');
         export const namedParamAfterParamSpecArgs = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.namedParamAfterParamSpecArgs'));

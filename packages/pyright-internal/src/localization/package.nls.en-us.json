@@ -252,7 +252,7 @@
         "missingSuperCall": "Method \"{methodName}\" does not call the method of the same name in parent class",
         "moduleAsType": "Module cannot be used as a type",
         "moduleNotCallable": "Module is not callable",
-        "moduleUnknownMember": "\"{name}\" is not a known member of module",
+        "moduleUnknownMember": "\"{memberName}\" is not a known member of module \"{moduleName}\"",
         "namedExceptAfterCatchAll": "A named except clause cannot appear after catch-all except clause",
         "namedParamAfterParamSpecArgs": "Keyword parameter \"{name}\" cannot appear in signature after ParamSpec args parameter",
         "namedTupleEmptyName": "Names within a named tuple cannot be empty",
