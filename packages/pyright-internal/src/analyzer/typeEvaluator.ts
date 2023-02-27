@@ -265,6 +265,7 @@ import {
     getTypeVarScopeId,
     getUnionSubtypeCount,
     InferenceContext,
+    isEffectivelyInstantiable,
     isEllipsisType,
     isIncompleteUnknown,
     isLiteralType,
@@ -1203,7 +1204,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            if (!TypeBase.isInstantiable(typeResult.type)) {
+            if (!isEffectivelyInstantiable(typeResult.type)) {
                 const isEmptyVariadic =
                     isClassInstance(typeResult.type) &&
                     ClassType.isTupleClass(typeResult.type) &&
@@ -3042,7 +3043,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const diag = new DiagnosticAddendum();
         if (isUnion(type)) {
             doForEachSubtype(type, (subtype) => {
-                if (!TypeBase.isInstantiable(subtype)) {
+                if (!isEffectivelyInstantiable(subtype)) {
                     diag.addMessage(Localizer.DiagnosticAddendum.typeNotClass().format({ type: printType(subtype) }));
                 }
             });
@@ -7510,7 +7511,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const assertedType = convertToInstance(getTypeOfArgumentExpectingType(node.arguments[1]).type);
 
-        if (!isTypeSame(assertedType, arg0TypeResult.type, { treatAnySameAsUnknown: true })) {
+        if (
+            !isTypeSame(assertedType, arg0TypeResult.type, { treatAnySameAsUnknown: true, ignorePseudoGeneric: true })
+        ) {
             addDiagnostic(
                 AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -7583,7 +7586,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (expectedRevealType) {
-            if (!isTypeSame(expectedRevealType, type)) {
+            if (!isTypeSame(expectedRevealType, type, { ignorePseudoGeneric: true })) {
                 const expectedRevealTypeText = printType(expectedRevealType);
                 addError(
                     Localizer.Diagnostic.revealTypeExpectedTypeMismatch().format({
@@ -11811,11 +11814,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         arg1Type.tupleTypeArguments.forEach((typeArg) => {
             const specializedType = makeTopLevelTypeVarsConcrete(typeArg.type);
 
-            if (
-                isInstantiableClass(specializedType) ||
-                isAnyOrUnknown(specializedType) ||
-                (isClassInstance(specializedType) && ClassType.isBuiltIn(specializedType, 'type'))
-            ) {
+            if (isEffectivelyInstantiable(specializedType)) {
                 classType.details.baseClasses.push(specializedType);
             } else {
                 addExpectedClassDiagnostic(typeArg.type, argList[1].valueExpression || errorNode);
@@ -14379,7 +14378,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let typeArg0Type = typeArgs[0].type;
         if (!validateTypeArg(typeArgs[0])) {
             typeArg0Type = UnknownType.create();
-        } else if (!TypeBase.isInstantiable(typeArg0Type)) {
+        } else if (!isEffectivelyInstantiable(typeArg0Type)) {
             addExpectedClassDiagnostic(typeArg0Type, typeArgs[0].node);
             typeArg0Type = UnknownType.create();
         }
@@ -14972,7 +14971,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (!validateTypeArg(typeArg, { allowVariadicTypeVar: true, allowUnpackedTuples: true })) {
                 typeArgType = UnknownType.create();
-            } else if (!TypeBase.isInstantiable(typeArgType)) {
+            } else if (!isEffectivelyInstantiable(typeArgType)) {
                 addExpectedClassDiagnostic(typeArgType, typeArg.node);
                 typeArgType = UnknownType.create();
             }
@@ -15788,7 +15787,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (!isAnyOrUnknown(argType) && !isUnbound(argType)) {
-                    if (!isInstantiableClass(argType)) {
+                    if (isClass(argType) && TypeBase.isInstance(argType) && ClassType.isBuiltIn(argType, 'type')) {
+                        argType =
+                            argType.typeArguments && argType.typeArguments.length > 0
+                                ? argType.typeArguments[0]
+                                : UnknownType.create();
+                    } else if (!isInstantiableClass(argType)) {
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -16912,11 +16916,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             functionFlags |= FunctionTypeFlags.Generator;
         }
 
-        // Special-case magic method __class_getitem__, which is implicitly a class method.
-        if (containingClassNode && node.name.value === '__class_getitem__') {
-            functionFlags |= FunctionTypeFlags.ClassMethod;
-        }
-
         if (fileInfo.isStubFile) {
             functionFlags |= FunctionTypeFlags.StubDefinition;
         } else if (fileInfo.isInPyTypedPackage) {
@@ -17589,16 +17588,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         let flags = FunctionTypeFlags.None;
 
-        // The "__new__" magic method is not an instance method.
-        // It acts as a static method instead.
-        if (node.name.value === '__new__' && isInClass) {
-            flags |= FunctionTypeFlags.ConstructorMethod;
-        }
+        if (isInClass) {
+            // The "__new__" magic method is not an instance method.
+            // It acts as a static method instead.
+            if (node.name.value === '__new__') {
+                flags |= FunctionTypeFlags.ConstructorMethod;
+            }
 
-        // The "__init_subclass__" magic method is not an instance method.
-        // It acts an an implicit class method instead.
-        if (node.name.value === '__init_subclass__' && isInClass) {
-            flags |= FunctionTypeFlags.ClassMethod;
+            // Several magic methods are treated as class methods implicitly
+            // by the runtime. Check for these here.
+            const implicitClassMethods = ['__init_subclass__', '__class_getitem__'];
+            if (implicitClassMethods.some((name) => node.name.value === name)) {
+                flags |= FunctionTypeFlags.ClassMethod;
+            }
         }
 
         for (const decoratorNode of node.decorators) {

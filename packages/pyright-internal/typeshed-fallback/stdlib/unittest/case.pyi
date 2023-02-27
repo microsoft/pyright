@@ -132,7 +132,7 @@ class TestCase:
     # are not using `ParamSpec` intentionally,
     # because they might be used with explicitly wrong arg types to raise some error in tests.
     @overload
-    def assertRaises(  # type: ignore[misc]
+    def assertRaises(
         self,
         expected_exception: type[BaseException] | tuple[type[BaseException], ...],
         callable: Callable[..., Any],
@@ -144,7 +144,7 @@ class TestCase:
         self, expected_exception: type[_E] | tuple[type[_E], ...], *, msg: Any = ...
     ) -> _AssertRaisesContext[_E]: ...
     @overload
-    def assertRaisesRegex(  # type: ignore[misc]
+    def assertRaisesRegex(
         self,
         expected_exception: type[BaseException] | tuple[type[BaseException], ...],
         expected_regex: str | Pattern[str],
@@ -157,7 +157,7 @@ class TestCase:
         self, expected_exception: type[_E] | tuple[type[_E], ...], expected_regex: str | Pattern[str], *, msg: Any = ...
     ) -> _AssertRaisesContext[_E]: ...
     @overload
-    def assertWarns(  # type: ignore[misc]
+    def assertWarns(
         self,
         expected_warning: type[Warning] | tuple[type[Warning], ...],
         callable: Callable[_P, Any],
@@ -169,7 +169,7 @@ class TestCase:
         self, expected_warning: type[Warning] | tuple[type[Warning], ...], *, msg: Any = ...
     ) -> _AssertWarnsContext: ...
     @overload
-    def assertWarnsRegex(  # type: ignore[misc]
+    def assertWarnsRegex(
         self,
         expected_warning: type[Warning] | tuple[type[Warning], ...],
         expected_regex: str | Pattern[str],

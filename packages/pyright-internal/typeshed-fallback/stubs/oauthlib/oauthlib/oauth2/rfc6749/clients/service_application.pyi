@@ -18,7 +18,7 @@ class ServiceApplicationClient(Client):
         audience: Incomplete | None = ...,
         **kwargs,
     ) -> None: ...
-    def prepare_request_body(  # type: ignore[override]
+    def prepare_request_body(
         self,
         private_key: Incomplete | None = ...,
         subject: Incomplete | None = ...,

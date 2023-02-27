@@ -1,8 +1,10 @@
+import logging
 from _typeshed import Incomplete
 from collections.abc import Iterable
 from enum import Enum
+from types import TracebackType
 from typing import Any
-from typing_extensions import TypeAlias
+from typing_extensions import Self, TypeAlias
 
 from influxdb_client.client._base import _BaseWriteApi
 from influxdb_client.client.write.point import Point
@@ -12,7 +14,7 @@ _DataClass: TypeAlias = Any  # any dataclass
 _NamedTuple: TypeAlias = tuple[Any, ...]  # any NamedTuple
 _Observable: TypeAlias = Any  # reactivex.Observable
 
-logger: Incomplete
+logger: logging.Logger
 
 class WriteType(Enum):
     batching: int
@@ -20,27 +22,29 @@ class WriteType(Enum):
     synchronous: int
 
 class WriteOptions:
-    write_type: Incomplete
-    batch_size: Incomplete
-    flush_interval: Incomplete
-    jitter_interval: Incomplete
-    retry_interval: Incomplete
-    max_retries: Incomplete
-    max_retry_delay: Incomplete
-    max_retry_time: Incomplete
-    exponential_base: Incomplete
+    write_type: WriteType
+    batch_size: int
+    flush_interval: int
+    jitter_interval: int
+    retry_interval: int
+    max_retries: int
+    max_retry_delay: int
+    max_retry_time: int
+    exponential_base: int
     write_scheduler: Incomplete
+    max_close_wait: int
     def __init__(
         self,
         write_type: WriteType = ...,
-        batch_size: int = ...,
-        flush_interval: int = ...,
-        jitter_interval: int = ...,
-        retry_interval: int = ...,
-        max_retries: int = ...,
-        max_retry_delay: int = ...,
-        max_retry_time: int = ...,
-        exponential_base: int = ...,
+        batch_size: int = 1_000,
+        flush_interval: int = 1_000,
+        jitter_interval: int = 0,
+        retry_interval: int = 5_000,
+        max_retries: int = 5,
+        max_retry_delay: int = 125_000,
+        max_retry_time: int = 180_000,
+        exponential_base: int = 2,
+        max_close_wait: int = 300_000,
         write_scheduler=...,
     ) -> None: ...
     def to_retry_strategy(self, **kwargs): ...
@@ -99,6 +103,8 @@ class WriteApi(_BaseWriteApi):
     ) -> Any: ...
     def flush(self) -> None: ...
     def close(self) -> None: ...
-    def __enter__(self): ...
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None: ...
+    def __enter__(self) -> Self: ...
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
+    ) -> None: ...
     def __del__(self) -> None: ...

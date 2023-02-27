@@ -1,4 +1,4 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
 from collections import defaultdict
 from logging import Logger
 from typing_extensions import Final
@@ -165,7 +165,7 @@ class PDFPagesRoot(PDFObject):
 
 class PDFExtGState(PDFObject):
     def __init__(self, dict_as_str) -> None: ...
-    def serialize(self, obj_dict: object = None, _security_handler: StandardSecurityHandler | None = None) -> str: ...
+    def serialize(self, obj_dict: Unused = None, _security_handler: StandardSecurityHandler | None = None) -> str: ...
 
 class PDFXrefAndTrailer(ContentWithoutID):
     output_builder: Incomplete

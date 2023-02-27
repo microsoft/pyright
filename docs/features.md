@@ -1,15 +1,12 @@
-# Static type checker for Python
+# Pyright Features
 
 ### Speed
-
-Pyright is a full-featured, standards-based static type checker for Python. It is designed for high performance and can be used with large Python source bases.
+Pyright is a fast type checker meant for large Python source bases. It can run in a “watch” mode and performs fast incremental updates when files are modified.
 
 ### Configurability
-
-Pyright supports [configuration files](/docs/configuration.md) that provide granular control over settings. Different "execution environments" can be associated with subdirectories within a source base. Each environment can specify different module search paths, python language versions, and platform targets.
+Pyright supports [configuration files](/docs/configuration.md) that provide granular control over settings. Different “execution environments” can be associated with subdirectories within a source base. Each environment can specify different module search paths, python language versions, and platform targets.
 
 ### Type Checking Features
-
 * [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints including generics
 * [PEP 487](https://www.python.org/dev/peps/pep-0487/) simpler customization of class creation
 * [PEP 526](https://www.python.org/dev/peps/pep-0526/) syntax for variable annotations
@@ -40,8 +37,10 @@ Pyright supports [configuration files](/docs/configuration.md) that provide gran
 * Type inference for function return values, instance variables, class variables, and globals
 * Type guards that understand conditional code flow constructs like if/else statements
 
-### VS Code Language Features
+### VS Code Integration
+Pyright ships as both a command-line tool and a VS Code extension that provides many powerful features that help improve programming efficiency.
 
+### VS Code Language Features
 The VS Code extension supports many time-saving language features including:
 
 * Intelligent type completion of keywords, symbols, and import names appears when editing
@@ -57,7 +56,9 @@ The VS Code extension supports many time-saving language features including:
 * Type stub generation for third-party libraries
 
 ### Built-in Type Stubs
-
 Pyright includes a recent copy of the stdlib type stubs from [Typeshed](https://github.com/python/typeshed). It can be configured to use another (perhaps more recent or modified) copy of the Typeshed type stubs. Of course, it also works with custom type stub files that are part of your project.
 
-For more details, refer to the [README](https://github.com/microsoft/pyright/blob/main/README.md) on the Pyright GitHub site.
+## Limitations
+Pyright provides support for Python 3.0 and newer. There are no plans to support older versions.
+
+

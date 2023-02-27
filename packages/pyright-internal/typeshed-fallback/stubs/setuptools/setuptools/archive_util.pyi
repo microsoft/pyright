@@ -1,6 +1,7 @@
 from _typeshed import Incomplete
-from distutils.errors import DistutilsError
 from typing import Any
+
+from ._distutils.errors import DistutilsError
 
 class UnrecognizedFormat(DistutilsError): ...
 

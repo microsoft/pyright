@@ -1,5 +1,6 @@
-import distutils.command.install_scripts as orig
 from typing import Any
+
+from .._distutils.command import install_scripts as orig
 
 class install_scripts(orig.install_scripts):
     no_ep: bool

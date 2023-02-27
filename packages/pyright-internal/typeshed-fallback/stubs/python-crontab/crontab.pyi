@@ -1,6 +1,6 @@
 import re
 import subprocess
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
 from builtins import range as _range
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterable, Iterator
@@ -70,7 +70,7 @@ class CronTab:
     # work for `CronItem` subclasses, which might define other kwargs.
     def run_pending(self, **kwargs: Any) -> Iterator[str]: ...
     # There are two known kwargs and others are unused:
-    def run_scheduler(self, timeout: int = ..., *, warp: object = ..., cadence: int = ..., **kwargs: object) -> Iterator[str]: ...
+    def run_scheduler(self, timeout: int = ..., *, warp: object = ..., cadence: int = ..., **kwargs: Unused) -> Iterator[str]: ...
     def render(self, errors: bool = ..., specials: bool | None = ...) -> str: ...
     def new(
         self,

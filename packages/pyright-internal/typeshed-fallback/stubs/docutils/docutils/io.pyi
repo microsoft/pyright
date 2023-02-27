@@ -5,6 +5,7 @@ from _typeshed import (
     OpenTextModeReading,
     OpenTextModeWriting,
     SupportsWrite,
+    Unused,
 )
 from re import Pattern
 from typing import Any, ClassVar
@@ -88,7 +89,7 @@ class NullInput(Input):
 
 class NullOutput(Output):
     default_destination_path: ClassVar[str]
-    def write(self, data: object) -> None: ...
+    def write(self, data: Unused) -> None: ...
 
 class DocTreeInput(Input):
     default_source_path: ClassVar[str]

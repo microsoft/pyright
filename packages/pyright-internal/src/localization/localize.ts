@@ -1020,6 +1020,9 @@ export namespace Localizer {
         export const walrusIllegal = () => getRawString('Diagnostic.walrusIllegal');
         export const walrusNotAllowed = () => getRawString('Diagnostic.walrusNotAllowed');
         export const wildcardInFunction = () => getRawString('Diagnostic.wildcardInFunction');
+        export const wildcardPatternTypeUnknown = () => getRawString('Diagnostic.wildcardPatternTypeUnknown');
+        export const wildcardPatternTypePartiallyUnknown = () =>
+            getRawString('Diagnostic.wildcardPatternTypePartiallyUnknown');
         export const wildcardLibraryImport = () => getRawString('Diagnostic.wildcardLibraryImport');
         export const yieldFromIllegal = () => getRawString('Diagnostic.yieldFromIllegal');
         export const yieldFromOutsideAsync = () => getRawString('Diagnostic.yieldFromOutsideAsync');

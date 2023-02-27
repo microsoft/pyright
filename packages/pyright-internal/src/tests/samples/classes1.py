@@ -48,3 +48,10 @@ kwargs = {"foo": 5}
 
 class J(*args, **kwargs):
     pass
+
+
+def func1(x: type) -> object:
+    class Y(x):
+        pass
+
+    return Y()

@@ -7,3 +7,4 @@ apt_dependencies = ["libkrb5-dev"]
 # No need to install on the CI. Leaving here as information for MacOs/Windows contributors.
 # brew_dependencies = ["krb5"]
 # choco_dependencies = ["mitkerberos"]
+stubtest_requirements = ["gssapi"]
