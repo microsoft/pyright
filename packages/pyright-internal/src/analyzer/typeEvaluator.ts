@@ -25443,7 +25443,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         } else if (isOverloadedFunction(memberType)) {
             const newOverloadType = OverloadedFunctionType.create([]);
-            memberType.overloads.forEach((overload) => {
+
+            // Don't bother binding the implementation.
+            OverloadedFunctionType.getOverloads(memberType).forEach((overload) => {
                 const boundMethod = bindFunctionToClassOrObject(
                     baseType,
                     overload,
@@ -25453,6 +25455,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     treatConstructorAsClassMember,
                     firstParamType
                 );
+
                 if (boundMethod) {
                     OverloadedFunctionType.addOverload(newOverloadType, boundMethod as FunctionType);
                 }
