@@ -80,6 +80,8 @@ const PlusRegExp = /\+/g;
 const UnescapedMarkdownCharsRegExp = /(?<!\\)([_*~[\]])/g;
 const linkRegExp = /(\[.*\]\(.*\))/g;
 
+const CodeBlockRegExp = /^\s*```/
+
 const HtmlEscapes: RegExpReplacement[] = [
     { exp: /</g, replacement: '&lt;' },
     { exp: />/g, replacement: '&gt;' },
@@ -421,7 +423,7 @@ class DocStringConverter {
     }
 
     private _beginBacktickBlock(): boolean {
-        if (this._currentLine().startsWith('```')) {
+        if (CodeBlockRegExp.test(this._currentLine())) {
             this._appendLine(this._currentLine());
             this._pushAndSetState(this._parseBacktickBlock);
             this._eatLine();
