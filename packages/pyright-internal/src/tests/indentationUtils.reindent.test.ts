@@ -387,6 +387,33 @@ test('re-indentation tab on multiline text', () => {
     testIndentation(code, 2, expected);
 });
 
+test('dont include token not contained in the span', () => {
+    const code = `
+//// import random
+////
+//// [|/*marker*/answer_word = random.choice(["a","b","c","d"])
+//// |]guess_word = "c"
+    `;
+
+    const expected = `answer_word = random.choice(["a","b","c","d"])`;
+
+    testIndentation(code, 0, expected);
+});
+
+test('handle comment before first token', () => {
+    const code = `
+//// [|/*marker*/# this function doesn't do much
+//// def myfunc(a, b):
+////     return a + b|]
+    `;
+
+    const expected = `# this function doesn't do much
+def myfunc(a, b):
+    return a + b`;
+
+    testIndentation(code, 0, expected);
+});
+
 function testIndentation(code: string, indentation: number, expected: string, indentFirstToken = true) {
     const state = parseAndGetTestState(code).state;
     const range = state.getRangeByMarkerName('marker')!;

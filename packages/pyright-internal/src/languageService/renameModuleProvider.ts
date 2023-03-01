@@ -32,6 +32,7 @@ import {
     getDottedNameWithGivenNodeAsLastName,
     getFirstAncestorOrSelfOfKind,
     getFullStatementRange,
+    getVariableDocStringNode,
     isFromImportAlias,
     isFromImportModuleName,
     isFromImportName,
@@ -226,16 +227,31 @@ export class RenameModuleProvider {
 
     static getSymbolTextRange(parseResults: ParseResults, decl: Declaration): TextRange {
         if (isVariableDeclaration(decl)) {
-            const range = getFullStatementRange(decl.node, parseResults);
-            return convertRangeToTextRange(range, parseResults.tokenizerOutput.lines) ?? decl.node;
+            const assignment = getFirstAncestorOrSelfOfKind(decl.node, ParseNodeType.Assignment) ?? decl.node;
+            const range = getFullStatementRange(assignment, parseResults);
+            const textRange = convertRangeToTextRange(range, parseResults.tokenizerOutput.lines) ?? assignment;
+
+            if (decl.docString !== undefined) {
+                const docNode = getVariableDocStringNode(decl.node);
+                if (docNode) {
+                    TextRange.extend(textRange, docNode);
+                }
+            }
+
+            return textRange;
         }
 
         return decl.node;
     }
 
     static getSymbolFullStatementTextRange(parseResults: ParseResults, decl: Declaration): TextRange {
-        const range = getFullStatementRange(decl.node, parseResults, { includeTrailingBlankLines: true });
-        return convertRangeToTextRange(range, parseResults.tokenizerOutput.lines) ?? decl.node;
+        const statementNode = isVariableDeclaration(decl)
+            ? getFirstAncestorOrSelfOfKind(decl.node, ParseNodeType.Assignment) ?? decl.node
+            : decl.node;
+        const range = getFullStatementRange(statementNode, parseResults, {
+            includeTrailingBlankLines: true,
+        });
+        return convertRangeToTextRange(range, parseResults.tokenizerOutput.lines) ?? statementNode;
     }
 
     static getRenameModulePath(declarations: Declaration[]) {
