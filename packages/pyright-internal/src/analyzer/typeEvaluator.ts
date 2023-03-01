@@ -13227,7 +13227,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 addUnknown = false;
             } else if (entryNode.nodeType === ParseNodeType.DictionaryExpandEntry) {
-                const unexpandedTypeResult = getTypeOfExpression(entryNode.expandExpression);
+                // Verify that the type supports the `keys` and `__getitem__` methods.
+                // This protocol is defined in the _typeshed stub. If we can't find
+                // it there, fall back on typing.Mapping.
+                let mappingType = getTypeshedType(node, 'SupportsKeysAndGetItem');
+                if (!mappingType) {
+                    mappingType = getTypingType(node, 'Mapping');
+                }
+
+                let expectedType: Type | undefined;
+                if (expectedKeyType && expectedValueType) {
+                    if (mappingType && isInstantiableClass(mappingType)) {
+                        expectedType = ClassType.cloneAsInstance(
+                            ClassType.cloneForSpecialization(
+                                mappingType,
+                                [expectedKeyType, expectedValueType],
+                                /* isTypeArgumentExplicit */ true
+                            )
+                        );
+                    }
+                }
+
+                const unexpandedTypeResult = getTypeOfExpression(
+                    entryNode.expandExpression,
+                    /* flags */ undefined,
+                    makeInferenceContext(expectedType)
+                );
+
                 if (unexpandedTypeResult.isIncomplete) {
                     isIncomplete = true;
                 }
@@ -13255,13 +13281,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         addUnknown = false;
                     }
                 } else {
-                    // Verify that the type supports the `keys` and `__getitem__` methods.
-                    // This protocol is defined in the _typeshed stub. If we can't find
-                    // it there, fall back on typing.Mapping.
-                    let mappingType = getTypeshedType(node, 'SupportsKeysAndGetItem');
-                    if (!mappingType) {
-                        mappingType = getTypingType(node, 'Mapping');
-                    }
                     if (mappingType && isInstantiableClass(mappingType)) {
                         const mappingTypeVarContext = new TypeVarContext(getTypeVarScopeId(mappingType));
 
@@ -13277,7 +13296,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 ClassType.cloneAsInstance(mappingType),
                                 unexpandedType,
                                 /* diag */ undefined,
-                                mappingTypeVarContext
+                                mappingTypeVarContext,
+                                /* srcTypeVarContext */ undefined,
+                                AssignTypeFlags.RetainLiteralsForTypeVar
                             )
                         ) {
                             const specializedMapping = applySolvedTypeVars(
