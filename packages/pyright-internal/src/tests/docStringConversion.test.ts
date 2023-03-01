@@ -749,24 +749,24 @@ test('EscapeHtmlTagsOutsideCodeBlocks', () => {
 test('IndentedCodeBlock', () => {
     const docstring = `
 Expected:
-    \`\`\`python
+    ${tripleTick}python
     def some_fn():
         """
         Backticks on a different indentation level don't close the code block.
-        \`\`\`
+        ${tripleTick}
         """
-    \`\`\`
+    ${tripleTick}
 `;
 
     const markdown = `
 Expected:
-\`\`\`python
+${tripleTick}python
     def some_fn():
         """
         Backticks on a different indentation level don't close the code block.
-        \`\`\`
+        ${tripleTick}
         """
-\`\`\`
+${tripleTick}
 `;
     _testConvertToMarkdown(docstring, markdown)
 })
