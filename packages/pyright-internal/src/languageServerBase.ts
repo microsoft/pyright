@@ -756,6 +756,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                     workDoneProgress: true,
                 },
                 callHierarchyProvider: true,
+                workspace: {
+                    workspaceFolders: {
+                        supported: true,
+                        changeNotifications: true,
+                    },
+                },
             },
         };
 
