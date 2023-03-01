@@ -96,6 +96,14 @@ test('AutoVariance3', () => {
     TestUtils.validateResults(analysisResults, 13);
 });
 
+test('AutoVariance4', () => {
+    const configOptions = new ConfigOptions('.');
+    configOptions.defaultPythonVersion = PythonVersion.V3_12;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['autoVariance4.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('TypeAliasStatement1', () => {
     const configOptions = new ConfigOptions('.');
     configOptions.defaultPythonVersion = PythonVersion.V3_12;

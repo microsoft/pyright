@@ -16569,7 +16569,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // prevents potential recursion.
         classType.details.requiresVarianceInference = false;
 
-        // Presumptively mark the computed variance to "in progress". We'll
+        // Presumptively mark the computed variance to "unknown". We'll
         // replace this below once the variance has been inferred.
         classType.details.typeParameters.forEach((param) => {
             if (param.details.declaredVariance === Variance.Auto) {
@@ -16622,13 +16622,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 /* isTypeArgumentExplicit */ true
             );
 
-            const isDestSubtypeOfSrc = assignClassToSelf(srcType, destType);
+            const isDestSubtypeOfSrc = assignClassToSelf(srcType, destType, /* ignoreBaseClassVariance */ false);
 
             let inferredVariance: Variance;
             if (isDestSubtypeOfSrc) {
                 inferredVariance = Variance.Covariant;
             } else {
-                const isSrcSubtypeOfDest = assignClassToSelf(destType, srcType);
+                const isSrcSubtypeOfDest = assignClassToSelf(destType, srcType, /* ignoreBaseClassVariance */ false);
                 if (isSrcSubtypeOfDest) {
                     inferredVariance = Variance.Contravariant;
                 } else {
@@ -21825,8 +21825,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // This function is used to validate or infer the variance of type
-    // parameters within a class.
-    function assignClassToSelf(destType: ClassType, srcType: ClassType, recursionCount = 0): boolean {
+    // parameters within a class. If ignoreBaseClassVariance is set to false,
+    // the type parameters for the base class are honored. This is useful for
+    // variance inference (PEP 695). For validation of protocol variance, we
+    // want to ignore the variance for all base classes in the class hierarchy.
+    function assignClassToSelf(
+        destType: ClassType,
+        srcType: ClassType,
+        ignoreBaseClassVariance = true,
+        recursionCount = 0
+    ): boolean {
         assert(ClassType.isSameGenericClass(destType, srcType));
         assert(destType.details.typeParameters.length > 0);
 
@@ -21903,7 +21911,41 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 const specializedDestBaseClass = specializeForBaseClass(destType, baseClass);
                 const specializedSrcBaseClass = specializeForBaseClass(srcType, baseClass);
-                if (!assignClassToSelf(specializedDestBaseClass, specializedSrcBaseClass, recursionCount)) {
+
+                if (!ignoreBaseClassVariance) {
+                    specializedDestBaseClass.details.typeParameters.forEach((param, index) => {
+                        if (
+                            !param.details.isParamSpec &&
+                            !param.details.isVariadic &&
+                            !param.details.isSynthesized &&
+                            specializedSrcBaseClass.typeArguments &&
+                            index < specializedSrcBaseClass.typeArguments.length &&
+                            specializedDestBaseClass.typeArguments &&
+                            index < specializedDestBaseClass.typeArguments.length
+                        ) {
+                            const paramVariance = param.details.declaredVariance;
+                            if (isTypeVar(specializedSrcBaseClass.typeArguments[index])) {
+                                if (paramVariance === Variance.Invariant || paramVariance === Variance.Contravariant) {
+                                    isAssignable = false;
+                                }
+                            } else if (isTypeVar(specializedDestBaseClass.typeArguments[index])) {
+                                if (paramVariance === Variance.Invariant || paramVariance === Variance.Covariant) {
+                                    isAssignable = false;
+                                }
+                            }
+                        }
+                    });
+                }
+
+                if (
+                    isAssignable &&
+                    !assignClassToSelf(
+                        specializedDestBaseClass,
+                        specializedSrcBaseClass,
+                        ignoreBaseClassVariance,
+                        recursionCount
+                    )
+                ) {
                     isAssignable = false;
                 }
             }
