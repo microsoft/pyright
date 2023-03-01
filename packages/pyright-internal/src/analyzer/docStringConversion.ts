@@ -80,7 +80,8 @@ const PlusRegExp = /\+/g;
 const UnescapedMarkdownCharsRegExp = /(?<!\\)([_*~[\]])/g;
 const linkRegExp = /(\[.*\]\(.*\))/g;
 
-const CodeBlockRegExp = /^\s*```/
+const CodeBlockStartRegExp = /^\s*```(\w*)/;
+const CodeBlockEndRegExp = /^\s*```/;
 
 const HtmlEscapes: RegExpReplacement[] = [
     { exp: /</g, replacement: '&lt;' },
@@ -423,8 +424,10 @@ class DocStringConverter {
     }
 
     private _beginBacktickBlock(): boolean {
-        if (CodeBlockRegExp.test(this._currentLine())) {
-            this._appendLine(this._currentLine());
+        const match = this._currentLine().match(CodeBlockStartRegExp);
+        if (match !== null) {
+            this._blockIndent = this._currentIndent()
+            this._appendLine('```' + match[1]) // remove indentation, preserve language tag
             this._pushAndSetState(this._parseBacktickBlock);
             this._eatLine();
             return true;
@@ -433,7 +436,8 @@ class DocStringConverter {
     }
 
     private _parseBacktickBlock(): void {
-        if (this._currentLine().startsWith('```')) {
+        // only match closing ``` at same indent level of opening
+        if (CodeBlockEndRegExp.test(this._currentLine()) && this._currentIndent() === this._blockIndent) {
             this._appendLine('```');
             this._appendLine();
             this._popState();
