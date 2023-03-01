@@ -23184,6 +23184,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     });
                 } else if (remainingSrcSubtypes.length === 0) {
+                    if ((flags & AssignTypeFlags.PopulatingExpectedType) !== 0) {
+                        // If we're populating an expected type, try not to leave
+                        // any TypeVars unsolved. Assign the full type to the remaining
+                        // dest TypeVars.
+                        remainingDestSubtypes.forEach((destSubtype) => {
+                            assignType(
+                                destSubtype,
+                                srcType,
+                                /* diag */ undefined,
+                                destTypeVarContext,
+                                srcTypeVarContext,
+                                flags,
+                                recursionCount
+                            );
+                        });
+                    }
+
                     // If we've assigned all of the source subtypes but one or more dest
                     // TypeVars have gone unmatched, treat this as success.
                     return true;

@@ -46,3 +46,4 @@ LiteralDict = dict[LitChoices, str]
 d6: LiteralDict = {"ab": "x"}
 d7: LiteralDict = {"bcd": "y"}
 d6 = {**d6, **d7}
+d6 = d6 | d7
