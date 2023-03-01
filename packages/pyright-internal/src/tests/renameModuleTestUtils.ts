@@ -30,7 +30,8 @@ export function testMoveSymbolAtPosition(
     newFilePath: string,
     position: Position,
     text?: string,
-    replacementText?: string
+    replacementText?: string,
+    expectsMissingImport = false
 ) {
     const actions = state.program.moveSymbolAtPosition(
         filePath,
@@ -60,7 +61,7 @@ export function testMoveSymbolAtPosition(
             .join('|')}`
     );
 
-    _verifyFileOperations(state, actions, ranges, replacementText);
+    _verifyFileOperations(state, actions, ranges, replacementText, expectsMissingImport);
 }
 
 export function testRenameModule(
@@ -102,18 +103,23 @@ function _verifyFileOperations(
     state: TestState,
     fileEditActions: FileEditActions,
     ranges: Range[],
-    replacementText: string | undefined
+    replacementText: string | undefined,
+    expectsMissingImport = false
 ) {
     const editsPerFileMap = createMapFromItems(fileEditActions.edits, (e) => e.filePath);
 
-    _verifyMissingImports();
+    if (!expectsMissingImport) {
+        _verifyMissingImports();
+    }
 
     verifyEdits(state, fileEditActions, ranges, replacementText);
 
     applyFileOperations(state, fileEditActions);
 
     // Make sure we don't have missing imports after the change.
-    _verifyMissingImports();
+    if (!expectsMissingImport) {
+        _verifyMissingImports();
+    }
 
     function _verifyMissingImports() {
         for (const editFileName of editsPerFileMap.keys()) {

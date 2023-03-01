@@ -114,6 +114,7 @@ import {
     ParameterDeclaration,
     TypeAliasDeclaration,
     TypeParameterDeclaration,
+    UnresolvedModuleMarker,
     VariableDeclaration,
 } from './declaration';
 import { extractParameterDocumentation } from './docStringUtils';
@@ -2472,7 +2473,7 @@ export class Binder extends ParseTreeWalker {
         if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib && importInfo.resolvedPaths.length > 0) {
             pathOfLastSubmodule = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
         } else {
-            pathOfLastSubmodule = '*** unresolved ***';
+            pathOfLastSubmodule = UnresolvedModuleMarker;
         }
 
         const isResolved =
@@ -2535,7 +2536,7 @@ export class Binder extends ParseTreeWalker {
                     const loaderActionPath =
                         importInfo && i < importInfo.resolvedPaths.length
                             ? importInfo.resolvedPaths[i]
-                            : '*** unresolved ***';
+                            : UnresolvedModuleMarker;
 
                     // Allocate a new loader action.
                     loaderActions = {
@@ -3789,87 +3790,13 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _getVariableDocString(node: ExpressionNode): string | undefined {
-        // Walk up the parse tree to find an assignment expression.
-        let curNode: ParseNode | undefined = node;
-        let annotationNode: TypeAnnotationNode | undefined;
-
-        while (curNode) {
-            if (curNode.nodeType === ParseNodeType.Assignment) {
-                break;
-            }
-
-            if (curNode.nodeType === ParseNodeType.TypeAnnotation && !annotationNode) {
-                annotationNode = curNode;
-            }
-
-            curNode = curNode.parent;
-        }
-
-        if (curNode?.nodeType !== ParseNodeType.Assignment) {
-            // Allow a simple annotation statement to have a docstring even
-            // though PEP 258 doesn't mention this case. This PEP pre-dated
-            // PEP 526, so it didn't contemplate this situation.
-            if (annotationNode) {
-                curNode = annotationNode;
-            } else {
-                return undefined;
-            }
-        }
-
-        const parentNode = curNode.parent;
-        if (parentNode?.nodeType !== ParseNodeType.StatementList) {
-            return undefined;
-        }
-
-        const suiteOrModule = parentNode.parent;
-        if (
-            !suiteOrModule ||
-            (suiteOrModule.nodeType !== ParseNodeType.Module && suiteOrModule.nodeType !== ParseNodeType.Suite)
-        ) {
-            return undefined;
-        }
-
-        const assignmentIndex = suiteOrModule.statements.findIndex((node) => node === parentNode);
-        if (assignmentIndex < 0 || assignmentIndex === suiteOrModule.statements.length - 1) {
-            return undefined;
-        }
-
-        const nextStatement = suiteOrModule.statements[assignmentIndex + 1];
-
-        if (nextStatement.nodeType !== ParseNodeType.StatementList || !ParseTreeUtils.isDocString(nextStatement)) {
-            return undefined;
-        }
-
-        // See if the assignment is within one of the contexts specified in PEP 258.
-        let isValidContext = false;
-        if (parentNode?.parent?.nodeType === ParseNodeType.Module) {
-            // If we're at the top level of a module, the attribute docstring is valid.
-            isValidContext = true;
-        } else if (
-            parentNode?.parent?.nodeType === ParseNodeType.Suite &&
-            parentNode?.parent?.parent?.nodeType === ParseNodeType.Class
-        ) {
-            // If we're at the top level of a class, the attribute docstring is valid.
-            isValidContext = true;
-        } else {
-            const func = ParseTreeUtils.getEnclosingFunction(parentNode);
-
-            // If we're within an __init__ method, the attribute docstring is valid.
-            if (
-                func &&
-                func.name.value === '__init__' &&
-                ParseTreeUtils.getEnclosingClass(func, /* stopAtFunction */ true)
-            ) {
-                isValidContext = true;
-            }
-        }
-
-        if (!isValidContext) {
+        const docNode = ParseTreeUtils.getVariableDocStringNode(node);
+        if (!docNode) {
             return undefined;
         }
 
         // A docstring can consist of multiple joined strings in a single expression.
-        const strings = (nextStatement.statements[0] as StringListNode).strings;
+        const strings = docNode.strings;
         if (strings.length === 1) {
             // Common case.
             return strings[0].value;

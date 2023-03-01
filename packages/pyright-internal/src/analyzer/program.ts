@@ -19,13 +19,14 @@ import {
     MarkupKind,
 } from 'vscode-languageserver-types';
 
+import { Commands } from '../commands/commands';
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
-import { appendArray } from '../common/collectionUtils';
+import { appendArray, arrayEquals } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert, assertNever } from '../common/debug';
-import { Diagnostic } from '../common/diagnostic';
-import { DiagnosticSink, FileDiagnostics } from '../common/diagnosticSink';
+import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
+import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, FileEditActions, FileOperations, TextEditAction } from '../common/editAction';
 import { Extensions } from '../common/extensibility';
 import { LogTracker } from '../common/logTracker';
@@ -43,6 +44,7 @@ import {
 } from '../common/pathUtils';
 import { convertPositionToOffset, convertRangeToTextRange, convertTextRangeToRange } from '../common/positionUtils';
 import { computeCompletionSimilarity } from '../common/stringUtils';
+import { TextEditTracker } from '../common/textEditTracker';
 import {
     DocumentRange,
     doesRangeContain,
@@ -52,6 +54,7 @@ import {
     Range,
     TextRange,
 } from '../common/textRange';
+import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
 import { applyTextEditsToString } from '../common/workspaceEditUtils';
 import {
@@ -73,7 +76,7 @@ import { DefinitionFilter } from '../languageService/definitionProvider';
 import { DocumentSymbolCollector, DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
 import { IndexOptions, IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
-import { ImportAdder } from '../languageService/importAdder';
+import { ImportAdder, ImportData } from '../languageService/importAdder';
 import { getModuleStatementIndentation, reindentSpan } from '../languageService/indentationUtils';
 import { getInsertionPointForSymbolUnderModule } from '../languageService/insertionPointUtils';
 import { ReferenceCallback, ReferencesResult } from '../languageService/referencesProvider';
@@ -89,10 +92,17 @@ import { Declaration } from './declaration';
 import { getNameFromDeclaration } from './declarationUtils';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
-import { findNodeByOffset, getDocString, isBlankLine } from './parseTreeUtils';
+import {
+    findNodeByOffset,
+    findNodeByPosition,
+    getDocString,
+    getDottedName,
+    getDottedNameWithGivenNodeAsLastName,
+    isBlankLine,
+} from './parseTreeUtils';
 import { Scope } from './scope';
 import { getScopeForNode } from './scopeUtils';
-import { IPythonMode, parseFile, SourceFile } from './sourceFile';
+import { IPythonMode, SourceFile } from './sourceFile';
 import { isUserCode } from './sourceFileInfoUtils';
 import { isStubFile, SourceMapper } from './sourceMapper';
 import { Symbol } from './symbol';
@@ -2072,6 +2082,19 @@ export class Program {
                 return undefined;
             }
 
+            // We will try to
+            // 1. Find symbol to move.
+            // 2. Update all references to the symbol to new location.
+            // 3. Remove the existing symbol.
+            // 4. Insert the symbol to the destination module.
+            // 5. Insert imports required for the symbol moved to the destination module.
+            // 6. Remove import no longer needed from the original module.
+            //
+            // Here all changes are done to edits, no features in LS will apply changes to
+            // program directly. All modification is done through LSP by a edit request so
+            // things like undo or edit stacks UI works.
+
+            // 1. Find symbol to move.
             const execEnv = this._configOptions.findExecEnvironment(filePath);
             const declarations = DocumentSymbolCollector.getDeclarationsForNode(
                 node,
@@ -2095,8 +2118,10 @@ export class Program {
                 return undefined;
             }
 
+            // 2. Update affected references.
             this._processModuleReferences(renameModuleProvider, node.value, filePath);
 
+            // 3. Remove existing symbols.
             const sourceDecl = renameModuleProvider.declarations.find(
                 (d) => d.node && getFileExtension(d.path) === sourceFileExt
             );
@@ -2134,6 +2159,7 @@ export class Program {
 
             const reindentResult = reindentSpan(parseResults, symbolRange, insertionIndentation);
             const fullRange = RenameModuleProvider.getSymbolFullStatementTextRange(parseResults, sourceDecl);
+
             renameModuleProvider.textEditTracker.addEdit(
                 filePath,
                 convertTextRangeToRange(
@@ -2143,20 +2169,10 @@ export class Program {
                 ''
             );
 
+            // 4. Add the symbol to the destination file.
             const fileOperations: FileOperations[] = [];
             let codeSnippetToInsert = reindentResult.text;
             if (newFileParseResults) {
-                // TODO: We need to "add import" statement for symbols defined in the destination file
-                //       if we couldn't find insertion point where all constraints are met.
-                //       For example, if the symbol we are moving is used before other symbols it references are declared.
-                importAdder.applyImportsTo(
-                    collectedimports,
-                    newFileParseResults,
-                    options.importFormat,
-                    renameModuleProvider.textEditTracker,
-                    token
-                );
-
                 const range = convertTextRangeToRange(
                     { start: insertionPoint, length: 0 },
                     newFileParseResults.tokenizerOutput.lines
@@ -2170,38 +2186,223 @@ export class Program {
                 renameModuleProvider.textEditTracker.addEdit(newFilePath, range, codeSnippetToInsert);
             } else {
                 fileOperations.push({ kind: 'create', filePath: newFilePath });
+                renameModuleProvider.textEditTracker.addEdit(newFilePath, getEmptyRange(), codeSnippetToInsert);
+            }
 
-                const tempParseResults = parseFile(
-                    this._configOptions,
-                    newFilePath,
-                    codeSnippetToInsert,
-                    IPythonMode.None,
-                    new DiagnosticSink()
-                );
+            // 5. Insert imports required for the symbol moved to the destination module.
+            //
+            // Since step 5 and 6 can create nested edits, we clone the program and apply all changes to re-calculate
+            // edits we need to apply to the destination file. The same workflow as `fix all` but done in program level
+            // not service level.
+            const cloned = this.clone();
+
+            let edits = renameModuleProvider.getEdits();
+
+            const textAfterSymbolAdded = applyTextEditsToString(
+                edits.filter((v) => v.filePath === newFilePath),
+                newFileParseResults?.tokenizerOutput.lines ?? new TextRangeCollection<TextRange>([]),
+                newFileInfo?.sourceFile.getFileContent() ?? ''
+            );
+
+            _updateFileContent(cloned, newFilePath, textAfterSymbolAdded);
+
+            const textAfterImportsAdded = _tryGetTextAfterImportsAdded(
+                cloned,
+                newFilePath,
+                collectedimports,
+                insertionPoint,
+                token
+            );
+
+            edits = _updateFileEditActions(
+                edits,
+                newFilePath,
+                newFileParseResults,
+                textAfterSymbolAdded,
+                textAfterImportsAdded
+            );
+
+            // 6. Remove imports no longer required from original module.
+            const textAfterSymbolRemoved = applyTextEditsToString(
+                edits.filter((v) => v.filePath === filePath),
+                parseResults.tokenizerOutput.lines,
+                fileInfo.sourceFile.getFileContent()!
+            );
+
+            _updateFileContent(cloned, filePath, textAfterSymbolRemoved);
+
+            const textAfterUnusedImportsRemoved = _tryGetTextAfterUnusedImportsRemoved(
+                cloned,
+                filePath,
+                collectedimports,
+                0,
+                token
+            );
+
+            edits = _updateFileEditActions(
+                edits,
+                filePath,
+                parseResults,
+                textAfterSymbolRemoved,
+                textAfterUnusedImportsRemoved
+            );
+
+            cloned.dispose();
+
+            return {
+                edits,
+                fileOperations,
+            };
+
+            function _updateFileEditActions(
+                edits: FileEditAction[],
+                filePath: string,
+                parseResults: ParseResults | undefined,
+                oldText: string,
+                newText: string | undefined
+            ) {
+                if (newText === undefined || oldText === newText) {
+                    return edits;
+                }
+
+                // There were nested edits. Replace whole file.
+                edits = edits.filter((v) => v.filePath !== filePath);
+                edits.push({
+                    filePath,
+                    range: parseResults
+                        ? convertTextRangeToRange(parseResults.parseTree, parseResults.tokenizerOutput.lines)
+                        : getEmptyRange(),
+                    replacementText: newText,
+                });
+
+                return edits;
+            }
+
+            function _tryGetTextAfterImportsAdded(
+                cloned: Program,
+                filePath: string,
+                importData: ImportData,
+                insertionPoint: number,
+                token: CancellationToken
+            ) {
+                const sourceFile = cloned.getBoundSourceFile(filePath);
+                const parseResults = sourceFile?.getParseResults();
+                if (!parseResults) {
+                    return undefined;
+                }
 
                 const insertAddEdits = importAdder.applyImports(
-                    collectedimports,
-                    newFilePath,
-                    tempParseResults,
+                    importData,
+                    filePath,
+                    parseResults,
                     insertionPoint,
                     options.importFormat,
                     token
                 );
 
-                const updateContent = applyTextEditsToString(
+                return applyTextEditsToString(
                     insertAddEdits,
-                    tempParseResults.tokenizerOutput.lines,
-                    codeSnippetToInsert
+                    parseResults.tokenizerOutput.lines,
+                    sourceFile!.getFileContent()!
                 );
-
-                renameModuleProvider.textEditTracker.addEdit(newFilePath, getEmptyRange(), updateContent);
             }
 
-            return {
-                edits: renameModuleProvider.getEdits(),
-                fileOperations,
-            };
+            function _tryGetTextAfterUnusedImportsRemoved(
+                cloned: Program,
+                filePath: string,
+                importData: ImportData,
+                attempt: number,
+                token: CancellationToken
+            ): string | undefined {
+                throwIfCancellationRequested(token);
+
+                cloned.analyzeFile(filePath, token);
+
+                const sourceFile = cloned.getBoundSourceFile(filePath);
+                const parseResults = sourceFile?.getParseResults();
+                if (!parseResults) {
+                    return undefined;
+                }
+
+                const tracker = new TextEditTracker();
+                for (const diagnostic of cloned
+                    .getDiagnosticsForRange(
+                        filePath,
+                        convertTextRangeToRange(parseResults.parseTree, parseResults.tokenizerOutput.lines)
+                    )
+                    .filter(
+                        (d) =>
+                            d.category === DiagnosticCategory.UnusedCode &&
+                            d.getActions()?.some((a) => a.action === Commands.unusedImport)
+                    )) {
+                    const nameNode = findNodeByPosition(
+                        parseResults.parseTree,
+                        diagnostic.range.start,
+                        parseResults.tokenizerOutput.lines
+                    );
+
+                    if (nameNode?.nodeType !== ParseNodeType.Name) {
+                        continue;
+                    }
+
+                    // decl is synthesized. there is no node associated with the decl.
+                    // ex) import a or import a.b
+                    const dottedName1 =
+                        nameNode.parent?.nodeType === ParseNodeType.ModuleName ? nameNode.parent.nameParts : [nameNode];
+
+                    for (const [decl, names] of importData.declarations) {
+                        if (decl.node) {
+                            if (TextRange.containsRange(decl.node, nameNode)) {
+                                tracker.removeNodes({ node: nameNode, parseResults: parseResults });
+                                break;
+                            }
+                        }
+
+                        const dottedName2 = getDottedName(getDottedNameWithGivenNodeAsLastName(names[0]));
+                        if (dottedName2 && arrayEquals(dottedName1, dottedName2, (e1, e2) => e1.value === e2.value)) {
+                            tracker.removeNodes({ node: nameNode, parseResults: parseResults });
+                            break;
+                        }
+                    }
+                }
+
+                const oldText = sourceFile!.getFileContent()!;
+                const newText = applyTextEditsToString(
+                    tracker.getEdits(token).filter((v) => v.filePath === filePath),
+                    parseResults.tokenizerOutput.lines,
+                    oldText
+                );
+
+                // We will attempt to remove unused imports multiple times since removing 1 unused import
+                // could make another import unused. This is due to how we calculate which import is not used.
+                // ex) import os, os.path, os.path.xxx
+                // `os.path` and `os.path.xxx` will be marked as used due to `import os`.
+                // once `os` is removed `os.path` will be marked as unused and so on.
+                // We will attempt to remove those chained unused imports up to 10 chain.
+                if (attempt > 10 || oldText === newText) {
+                    return newText;
+                }
+
+                _updateFileContent(cloned, filePath, newText);
+                return _tryGetTextAfterUnusedImportsRemoved(cloned, filePath, importData, attempt + 1, token);
+            }
         });
+
+        function _updateFileContent(cloned: Program, filePath: string, text: string) {
+            const info = cloned.getSourceFileInfo(filePath);
+            const version = info ? (info.sourceFile.getClientVersion() ?? 0) + 1 : 0;
+            const chainedFilePath = info ? info.chainedSourceFile?.sourceFile.getFilePath() : undefined;
+            const ipythonMode = info ? info.sourceFile.getIPythonMode() : IPythonMode.None;
+            const isTracked = info ? info.isTracked : true;
+            const realFilePath = info ? info.sourceFile.getRealFilePath() : filePath;
+
+            cloned.setFileOpened(filePath, version, [{ text }], {
+                chainedFilePath,
+                ipythonMode,
+                isTracked,
+                realFilePath,
+            });
+        }
 
         function _getNumberOfBlankLinesToInsert(parseResults: ParseResults, position: Position) {
             // This basically try to add 2 blanks lines before previous line with text.
@@ -2219,6 +2420,42 @@ export class Program {
             // Add one more line for the line that position is on if it is not blank.
             return position.character !== 0 ? linesToAdd + 1 : linesToAdd;
         }
+    }
+
+    clone() {
+        const program = new Program(
+            this._importResolver,
+            this._configOptions,
+            this._console,
+            new LogTracker(this._console, 'Cloned')
+        );
+
+        // Cloned program will use whatever user files the program currently has.
+        const userFiles = this.getUserFiles();
+        program.setTrackedFiles(userFiles.map((i) => i.sourceFile.getFilePath()));
+        program.markAllFilesDirty(true);
+
+        // Make sure we keep editor content (open file) which could be different than one in the file system.
+        for (const fileInfo of this.getOpened()) {
+            const version = fileInfo.sourceFile.getClientVersion();
+            if (version === undefined) {
+                continue;
+            }
+
+            program.setFileOpened(
+                fileInfo.sourceFile.getFilePath(),
+                version,
+                [{ text: fileInfo.sourceFile.getOpenFileContents()! }],
+                {
+                    chainedFilePath: fileInfo.chainedSourceFile?.sourceFile.getFilePath(),
+                    ipythonMode: fileInfo.sourceFile.getIPythonMode(),
+                    isTracked: fileInfo.isTracked,
+                    realFilePath: fileInfo.sourceFile.getRealFilePath(),
+                }
+            );
+        }
+
+        return program;
     }
 
     canRenameSymbolAtPosition(
