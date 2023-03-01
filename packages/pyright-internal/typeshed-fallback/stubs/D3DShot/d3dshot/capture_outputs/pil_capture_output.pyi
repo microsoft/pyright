@@ -1,12 +1,11 @@
+from _typeshed import Unused
 from collections.abc import Sequence
 from ctypes import _CVoidConstPLike
 from typing import TypeVar
-from typing_extensions import TypeAlias
 
 from d3dshot.capture_output import CaptureOutput
 from PIL import Image
 
-_Unused: TypeAlias = object
 _ImageT = TypeVar("_ImageT", bound=Image.Image)
 
 class PILCaptureOutput(CaptureOutput):
@@ -22,4 +21,4 @@ class PILCaptureOutput(CaptureOutput):
         rotation: int,
     ) -> Image.Image: ...
     def to_pil(self, frame: _ImageT) -> _ImageT: ...
-    def stack(self, frames: Sequence[_ImageT], stack_dimension: _Unused) -> Sequence[_ImageT]: ...
+    def stack(self, frames: Sequence[_ImageT], stack_dimension: Unused) -> Sequence[_ImageT]: ...

@@ -1,8 +1,9 @@
-from distutils.filelist import FileList as _FileList
 from typing import Any
 
 from setuptools import Command, SetuptoolsDeprecationWarning
 from setuptools.command.sdist import sdist
+
+from .._distutils.filelist import FileList as _FileList
 
 def translate_pattern(glob): ...
 

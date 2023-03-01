@@ -10,36 +10,61 @@ T_contra = TypeVar("T_contra", contravariant=True)
 
 # This should generate an error because the type parameter for list
 # is invariant, so T_co here cannot be covariant.
-class Class1(list[T_co]): pass
+class Class1(list[T_co]):
+    pass
+
 
 # This should generate an error because the type parameter for list
 # is invariant, so T_co here cannot be contravariant.
-class Class2(list[T_contra]): pass
+class Class2(list[T_contra]):
+    pass
 
-class Class3(Generic[T_co]): ...
 
-class Class3_Child1(Class3[T_co]): ...
-class Class3_Child2(Class3[T]): ...
+class Class3(Generic[T_co]):
+    ...
 
-# This should generate an error because T_contra isn't 
+
+class Class3_Child1(Class3[T_co]):
+    ...
+
+
+class Class3_Child2(Class3[T]):
+    ...
+
+
+# This should generate an error because T_contra isn't
 # compatible with T_co.
-class Class3_Child3(Class3[T_contra]): ...
+class Class3_Child3(Class3[T_contra]):
+    ...
 
-class Class4(Generic[T_contra]): ...
 
-class Class4_Child1(Class4[T_contra]): ...
-class Class4_Child2(Class4[T]): ...
+class Class4(Generic[T_contra]):
+    ...
 
-# This should generate an error because T_co isn't 
+
+class Class4_Child1(Class4[T_contra]):
+    ...
+
+
+class Class4_Child2(Class4[T]):
+    ...
+
+
+# This should generate an error because T_co isn't
 # compatible with T_contra.
-class Class4_Child3(Class4[T_co]): ...
+class Class4_Child3(Class4[T_co]):
+    ...
 
 
 class Class5(Generic[T_contra]):
     ...
 
+
+# This should generate an error because frozenset
+# takes a covariant type parameter.
 class Class5_Child1(Class5[frozenset[T_contra]]):
     ...
+
 
 # This should generate an error because Sequence[T_co]
 # is covariant and is therefore not compatible with
@@ -47,30 +72,36 @@ class Class5_Child1(Class5[frozenset[T_contra]]):
 class Class5_Child2(Class5[Sequence[T_co]]):
     ...
 
+
 class Class5_Child3(Class5[Sequence[T]]):
     ...
+
 
 class Class6(Generic[T_co, T_contra]):
     ...
 
+
 class Class6_Child1(Class6[T_co, T_contra]):
     ...
 
-# This should generate an error because T_co isn't 
+
+# This should generate an error because T_co isn't
 # compatible with T_contra.
 class Class6_Child2(Class6[T_co, T_co]):
     ...
 
-# This should generate an error because T_contra isn't 
+
+# This should generate an error because T_contra isn't
 # compatible with T_co.
 class Class6_Child3(Class6[T_contra, T_contra]):
     ...
 
+
 class Class6_Child4(Class6[T, T]):
     ...
 
-# This should generate an error because Sequence[T_co] isn't 
+
+# This should generate an error because Sequence[T_co] isn't
 # compatible with T_contra.
 class Class6_Child5(Class6[Sequence[T_co], Sequence[T_co]]):
     ...
-

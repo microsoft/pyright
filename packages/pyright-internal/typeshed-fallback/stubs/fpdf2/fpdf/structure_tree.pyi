@@ -1,4 +1,4 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
 from collections import defaultdict
 from collections.abc import Generator, Iterable
 
@@ -8,7 +8,7 @@ from .syntax import PDFArray, PDFObject, PDFString
 class NumberTree(PDFObject):
     nums: defaultdict[Incomplete, list[Incomplete]]
     def __init__(self) -> None: ...
-    def serialize(self, obj_dict: object = ..., _security_handler: StandardSecurityHandler | None = None) -> str: ...
+    def serialize(self, obj_dict: Unused = None, _security_handler: StandardSecurityHandler | None = None) -> str: ...
 
 class StructTreeRoot(PDFObject):
     type: str

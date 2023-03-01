@@ -2,7 +2,7 @@ import builtins
 import operator
 import types
 import unittest
-from _typeshed import IdentityFunction, _KT_contra, _VT_co
+from _typeshed import IdentityFunction, Unused, _KT_contra, _VT_co
 from builtins import next as next
 from collections.abc import Callable, ItemsView, Iterable, Iterator as _Iterator, KeysView, Mapping, ValuesView
 from functools import wraps as wraps
@@ -99,7 +99,7 @@ def python_2_unicode_compatible(klass: _T) -> _T: ...
 class _LazyDescr:
     name: str
     def __init__(self, name: str) -> None: ...
-    def __get__(self, obj: object | None, tp: object) -> Any: ...
+    def __get__(self, obj: object, tp: Unused) -> Any: ...
 
 class MovedModule(_LazyDescr):
     mod: str

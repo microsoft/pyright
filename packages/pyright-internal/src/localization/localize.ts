@@ -549,7 +549,9 @@ export namespace Localizer {
         export const moduleAsType = () => getRawString('Diagnostic.moduleAsType');
         export const moduleNotCallable = () => getRawString('Diagnostic.moduleNotCallable');
         export const moduleUnknownMember = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.moduleUnknownMember'));
+            new ParameterizedString<{ memberName: string; moduleName: string }>(
+                getRawString('Diagnostic.moduleUnknownMember')
+            );
         export const namedExceptAfterCatchAll = () => getRawString('Diagnostic.namedExceptAfterCatchAll');
         export const namedParamAfterParamSpecArgs = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.namedParamAfterParamSpecArgs'));
@@ -666,6 +668,8 @@ export namespace Localizer {
             new ParameterizedString<{ paramName: string }>(getRawString('Diagnostic.paramTypePartiallyUnknown'));
         export const parenthesizedContextManagerIllegal = () =>
             getRawString('Diagnostic.parenthesizedContextManagerIllegal');
+        export const patternNeverMatches = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.patternNeverMatches'));
         export const positionArgAfterNamedArg = () => getRawString('Diagnostic.positionArgAfterNamedArg');
         export const privateImportFromPyTypedModule = () =>
             new ParameterizedString<{ name: string; module: string }>(
@@ -1016,6 +1020,9 @@ export namespace Localizer {
         export const walrusIllegal = () => getRawString('Diagnostic.walrusIllegal');
         export const walrusNotAllowed = () => getRawString('Diagnostic.walrusNotAllowed');
         export const wildcardInFunction = () => getRawString('Diagnostic.wildcardInFunction');
+        export const wildcardPatternTypeUnknown = () => getRawString('Diagnostic.wildcardPatternTypeUnknown');
+        export const wildcardPatternTypePartiallyUnknown = () =>
+            getRawString('Diagnostic.wildcardPatternTypePartiallyUnknown');
         export const wildcardLibraryImport = () => getRawString('Diagnostic.wildcardLibraryImport');
         export const yieldFromIllegal = () => getRawString('Diagnostic.yieldFromIllegal');
         export const yieldFromOutsideAsync = () => getRawString('Diagnostic.yieldFromOutsideAsync');
@@ -1326,9 +1333,13 @@ export namespace Localizer {
         export const useListInstead = () => getRawString('DiagnosticAddendum.useListInstead');
         export const useTupleInstead = () => getRawString('DiagnosticAddendum.useTupleInstead');
         export const useTypeInstead = () => getRawString('DiagnosticAddendum.useTypeInstead');
-        export const varianceMismatch = () =>
+        export const varianceMismatchForClass = () =>
             new ParameterizedString<{ typeVarName: string; className: string }>(
-                getRawString('DiagnosticAddendum.varianceMismatch')
+                getRawString('DiagnosticAddendum.varianceMismatchForClass')
+            );
+        export const varianceMismatchForTypeAlias = () =>
+            new ParameterizedString<{ typeVarName: string; typeAliasParam: string }>(
+                getRawString('DiagnosticAddendum.varianceMismatchForTypeAlias')
             );
     }
 

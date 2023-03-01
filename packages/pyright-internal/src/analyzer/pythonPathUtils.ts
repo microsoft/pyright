@@ -22,6 +22,8 @@ import {
     normalizePath,
     tryStat,
 } from '../common/pathUtils';
+import { versionToString } from '../common/pythonVersion';
+import { PythonVersion } from '../common/pythonVersion';
 
 export interface PythonPathResult {
     paths: string[];
@@ -76,7 +78,12 @@ export function findPythonSearchPaths(
         const sitePackagesPaths: string[] = [];
 
         [pathConsts.lib, pathConsts.lib64, pathConsts.libAlternate].forEach((libPath) => {
-            const sitePackagesPath = findSitePackagesPath(fs, combinePaths(venvPath, libPath), importFailureInfo);
+            const sitePackagesPath = findSitePackagesPath(
+                fs,
+                combinePaths(venvPath, libPath),
+                configOptions.defaultPythonVersion,
+                importFailureInfo
+            );
             if (sitePackagesPath) {
                 addPathIfUnique(foundPaths, sitePackagesPath);
                 sitePackagesPaths.push(sitePackagesPath);
@@ -124,7 +131,12 @@ export function isPythonBinary(p: string): boolean {
     return p === 'python' || p === 'python3';
 }
 
-function findSitePackagesPath(fs: FileSystem, libPath: string, importFailureInfo: string[]): string | undefined {
+function findSitePackagesPath(
+    fs: FileSystem,
+    libPath: string,
+    pythonVersion: PythonVersion | undefined,
+    importFailureInfo: string[]
+): string | undefined {
     if (fs.existsSync(libPath)) {
         importFailureInfo.push(`Found path '${libPath}'; looking for ${pathConsts.sitePackages}`);
     } else {
@@ -141,19 +153,36 @@ function findSitePackagesPath(fs: FileSystem, libPath: string, importFailureInfo
     }
 
     // We didn't find a site-packages directory directly in the lib
-    // directory. Scan for a "python*" directory instead.
+    // directory. Scan for a "python3.X" directory instead.
     const entries = getFileSystemEntries(fs, libPath);
-    for (let i = 0; i < entries.directories.length; i++) {
-        const dirName = entries.directories[i];
-        if (dirName.startsWith('python')) {
+
+    // Candidate directories start with "python3.".
+    const candidateDirs = entries.directories.filter((dirName) => {
+        if (dirName.startsWith('python3.')) {
             const dirPath = combinePaths(libPath, dirName, pathConsts.sitePackages);
-            if (fs.existsSync(dirPath)) {
-                importFailureInfo.push(`Found path '${dirPath}'`);
-                return dirPath;
-            } else {
-                importFailureInfo.push(`Path '${dirPath}' is not a valid directory`);
-            }
+            return fs.existsSync(dirPath);
         }
+        return false;
+    });
+
+    // If there is a python3.X directory (where 3.X matches the configured python
+    // version), prefer that over other python directories.
+    if (pythonVersion) {
+        const preferredDir = candidateDirs.find((dirName) => dirName === `python${versionToString(pythonVersion)}`);
+        if (preferredDir) {
+            const dirPath = combinePaths(libPath, preferredDir, pathConsts.sitePackages);
+            importFailureInfo.push(`Found path '${dirPath}'`);
+            return dirPath;
+        }
+    }
+
+    // If there was no python version or we didn't find an exact match, use the
+    // first directory that starts with "python". Most of the time, there will be
+    // only one.
+    if (candidateDirs.length > 0) {
+        const dirPath = combinePaths(libPath, candidateDirs[0], pathConsts.sitePackages);
+        importFailureInfo.push(`Found path '${dirPath}'`);
+        return dirPath;
     }
 
     return undefined;

@@ -252,7 +252,7 @@
         "missingSuperCall": "Method \"{methodName}\" does not call the method of the same name in parent class",
         "moduleAsType": "Module cannot be used as a type",
         "moduleNotCallable": "Module is not callable",
-        "moduleUnknownMember": "\"{name}\" is not a known member of module",
+        "moduleUnknownMember": "\"{memberName}\" is not a known member of module \"{moduleName}\"",
         "namedExceptAfterCatchAll": "A named except clause cannot appear after catch-all except clause",
         "namedParamAfterParamSpecArgs": "Keyword parameter \"{name}\" cannot appear in signature after ParamSpec args parameter",
         "namedTupleEmptyName": "Names within a named tuple cannot be empty",
@@ -326,6 +326,7 @@
         "paramTypeUnknown": "Type of parameter \"{paramName}\" is unknown",
         "paramTypePartiallyUnknown": "Type of parameter \"{paramName}\" is partially unknown",
         "parenthesizedContextManagerIllegal": "Parentheses within \"with\" statement requires Python 3.9 or newer",
+        "patternNeverMatches": "Pattern will never be matched for subject type \"{type}\"",
         "positionArgAfterNamedArg": "Positional argument cannot appear after keyword arguments",
         "privateImportFromPyTypedModule": "\"{name}\" is not exported from module \"{module}\"",
         "positionOnlyAfterArgs": "Position-only argument separator not allowed after \"*\" parameter",
@@ -535,6 +536,8 @@
         "walrusIllegal": "Operator \":=\" requires Python 3.8 or newer",
         "walrusNotAllowed": "Operator \":=\" not allowed in this context without surrounding parentheses",
         "wildcardInFunction": "Wildcard import not allowed within a class or function",
+        "wildcardPatternTypeUnknown": "Type captured by wildcard pattern is unknown",
+        "wildcardPatternTypePartiallyUnknown": "Type captured by wildcard pattern is partially unknown",
         "wildcardLibraryImport": "Wildcard import from a library not allowed",
         "yieldFromIllegal": "Use of \"yield from\" requires Python 3.3 or newer",
         "yieldFromOutsideAsync": "\"yield from\" not allowed in an async function",
@@ -672,7 +675,8 @@
         "useListInstead": "Use List[T] to indicate a list type or Union[T1, T2] to indicate a union type",
         "useTupleInstead": "Use Tuple[T1, ..., Tn] to indicate a tuple type or Union[T1, T2] to indicate a union type",
         "useTypeInstead": "Use Type[T] instead",
-        "varianceMismatch": "Variance of TypeVar \"{typeVarName}\" is incompatible with base class \"{className}\""
+        "varianceMismatchForClass": "Variance of TypeVar \"{typeVarName}\" is incompatible with base class \"{className}\"",
+        "varianceMismatchForTypeAlias": "Variance of TypeVar \"{typeVarName}\" is incompatible with \"{typeAliasParam}\""
     },
     "CodeAction": {
         "addOptionalToAnnotation": "Add \"Optional\" to Type Annotation",

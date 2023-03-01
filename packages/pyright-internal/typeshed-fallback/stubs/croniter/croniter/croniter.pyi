@@ -1,5 +1,5 @@
 import datetime
-from _typeshed import ReadableBuffer
+from _typeshed import ReadableBuffer, Unused
 from collections import OrderedDict
 from collections.abc import Iterator
 from re import Match, Pattern
@@ -121,7 +121,7 @@ class HashExpander:
         range_end: int | None = None,
         range_begin: int | None = None,
     ) -> int: ...
-    def match(self, efl: object, idx: object, expr: str, hash_id: object = None, **kw: object) -> Match[str] | None: ...
+    def match(self, efl: Unused, idx: Unused, expr: str, hash_id: Unused = None, **kw: Unused) -> Match[str] | None: ...
     def expand(
         self,
         efl: object,

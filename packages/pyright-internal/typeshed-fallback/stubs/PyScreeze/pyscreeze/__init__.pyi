@@ -1,11 +1,10 @@
-from _typeshed import Incomplete, StrOrBytesPath
+from _typeshed import Incomplete, StrOrBytesPath, Unused
 from collections.abc import Callable, Generator
 from typing import NamedTuple, SupportsFloat, TypeVar, overload
 from typing_extensions import Final, ParamSpec, SupportsIndex, TypeAlias
 
 from PIL import Image
 
-_Unused: TypeAlias = object
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
 # TODO: cv2.Mat is not available as a type yet:
@@ -49,7 +48,7 @@ def locate(
     haystackImage: str | Image.Image | _Mat,
     *,
     grayscale: bool | None = None,
-    limit: _Unused = 1,
+    limit: Unused = 1,
     region: tuple[int, int, int, int] | None = None,
     step: int = 1,
     confidence: SupportsFloat | SupportsIndex | str = 0.999,
@@ -62,7 +61,7 @@ def locate(
     haystackImage: str | Image.Image,
     *,
     grayscale: bool | None = None,
-    limit: _Unused = 1,
+    limit: Unused = 1,
     region: tuple[int, int, int, int] | None = None,
     step: int = 1,
     confidence: None = None,
@@ -75,7 +74,7 @@ def locateOnScreen(
     minSearchTime: float = 0,
     *,
     grayscale: bool | None = None,
-    limit: _Unused = 1,
+    limit: Unused = 1,
     region: tuple[int, int, int, int] | None = None,
     step: int = 1,
     confidence: SupportsFloat | SupportsIndex | str = 0.999,
@@ -88,7 +87,7 @@ def locateOnScreen(
     minSearchTime: float = 0,
     *,
     grayscale: bool | None = None,
-    limit: _Unused = 1,
+    limit: Unused = 1,
     region: tuple[int, int, int, int] | None = None,
     step: int = 1,
     confidence: None = None,
@@ -125,7 +124,7 @@ def locateCenterOnScreen(
     *,
     minSearchTime: float,
     grayscale: bool | None = None,
-    limit: _Unused = 1,
+    limit: Unused = 1,
     region: tuple[int, int, int, int] | None = None,
     step: int = 1,
     confidence: SupportsFloat | SupportsIndex | str = 0.999,
@@ -138,7 +137,7 @@ def locateCenterOnScreen(
     *,
     minSearchTime: float,
     grayscale: bool | None = None,
-    limit: _Unused = 1,
+    limit: Unused = 1,
     region: tuple[int, int, int, int] | None = None,
     step: int = 1,
     confidence: None = None,
@@ -151,7 +150,7 @@ def locateOnWindow(
     title: str,
     *,
     grayscale: bool | None = None,
-    limit: _Unused = 1,
+    limit: Unused = 1,
     step: int = 1,
     confidence: SupportsFloat | SupportsIndex | str = 0.999,
 ) -> Box | None: ...
@@ -163,7 +162,7 @@ def locateOnWindow(
     title: str,
     *,
     grayscale: bool | None = None,
-    limit: _Unused = 1,
+    limit: Unused = 1,
     step: int = 1,
     confidence: None = None,
 ) -> Box | None: ...

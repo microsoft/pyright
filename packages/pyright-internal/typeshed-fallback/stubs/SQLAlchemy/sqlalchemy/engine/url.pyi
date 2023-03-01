@@ -1,4 +1,4 @@
-from _typeshed import SupportsItems
+from _typeshed import SupportsItems, Unused
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, NamedTuple
 from typing_extensions import Self, TypeAlias
@@ -6,11 +6,14 @@ from typing_extensions import Self, TypeAlias
 from ..util import immutabledict
 from .interfaces import Dialect
 
+# object that produces a password when called with str()
+_PasswordObject: TypeAlias = object
+
 # stub-only helper class
 class _URLTuple(NamedTuple):
     drivername: str
     username: str | None
-    password: str | object | None  # object that produces a password when called with str()
+    password: str | _PasswordObject | None
     host: str | None
     port: int | None
     database: str | None
@@ -24,7 +27,7 @@ class URL(_URLTuple):
         cls,
         drivername: str,
         username: str | None = ...,
-        password: str | object | None = ...,  # object that produces a password when called with str()
+        password: str | _PasswordObject | None = None,
         host: str | None = ...,
         port: int | None = ...,
         database: str | None = ...,
@@ -34,7 +37,7 @@ class URL(_URLTuple):
         self,
         drivername: str | None = ...,
         username: str | None = ...,
-        password: str | object | None = ...,
+        password: str | _PasswordObject | None = None,
         host: str | None = ...,
         port: int | None = ...,
         database: str | None = ...,
@@ -49,7 +52,7 @@ class URL(_URLTuple):
     def __to_string__(self, hide_password: bool = ...) -> str: ...
     def render_as_string(self, hide_password: bool = ...) -> str: ...
     def __copy__(self) -> Self: ...
-    def __deepcopy__(self, memo: object) -> Self: ...
+    def __deepcopy__(self, memo: Unused) -> Self: ...
     def __hash__(self) -> int: ...
     def __eq__(self, other: object) -> bool: ...
     def __ne__(self, other: object) -> bool: ...

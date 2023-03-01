@@ -1,13 +1,10 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
-from typing_extensions import TypeAlias
 
 from pyasn1.type import base, char, univ, useful
 from pyasn1.type.base import Asn1Type
 from pyasn1.type.tag import TagSet
-
-_Unused: TypeAlias = object
 
 class AbstractDecoder:
     protoComponent: Asn1Type | None
@@ -48,7 +45,7 @@ class ExplicitTagDecoder(AbstractSimpleDecoder):
         asn1Spec,
         tagSet: TagSet | None = ...,
         length: int | None = ...,
-        state: _Unused = ...,
+        state: Unused = ...,
         decodeFun: Callable[..., Incomplete] | None = ...,
         substrateFun: Callable[..., Incomplete] | None = ...,
         **options,
@@ -59,7 +56,7 @@ class ExplicitTagDecoder(AbstractSimpleDecoder):
         asn1Spec,
         tagSet: TagSet | None = ...,
         length: int | None = ...,
-        state: _Unused = ...,
+        state: Unused = ...,
         decodeFun: Callable[..., Incomplete] | None = ...,
         substrateFun: Callable[..., Incomplete] | None = ...,
         **options,
@@ -73,9 +70,9 @@ class IntegerDecoder(AbstractSimpleDecoder):
         asn1Spec,
         tagSet: TagSet | None = ...,
         length: int | None = ...,
-        state: _Unused = ...,
-        decodeFun: _Unused = ...,
-        substrateFun: _Unused = ...,
+        state: Unused = ...,
+        decodeFun: Unused = ...,
+        substrateFun: Unused = ...,
         **options,
     ): ...
 
@@ -91,7 +88,7 @@ class BitStringDecoder(AbstractSimpleDecoder):
         asn1Spec,
         tagSet: TagSet | None = ...,
         length: int | None = ...,
-        state: _Unused = ...,
+        state: Unused = ...,
         decodeFun: Callable[..., Incomplete] | None = ...,
         substrateFun: Callable[..., Incomplete] | None = ...,
         **options,
@@ -102,7 +99,7 @@ class BitStringDecoder(AbstractSimpleDecoder):
         asn1Spec,
         tagSet: TagSet | None = ...,
         length: int | None = ...,
-        state: _Unused = ...,
+        state: Unused = ...,
         decodeFun: Callable[..., Incomplete] | None = ...,
         substrateFun: Callable[..., Incomplete] | None = ...,
         **options,
@@ -117,7 +114,7 @@ class OctetStringDecoder(AbstractSimpleDecoder):
         asn1Spec,
         tagSet: TagSet | None = ...,
         length: int | None = ...,
-        state: _Unused = ...,
+        state: Unused = ...,
         decodeFun: Callable[..., Incomplete] | None = ...,
         substrateFun: Callable[..., Incomplete] | None = ...,
         **options,
@@ -128,7 +125,7 @@ class OctetStringDecoder(AbstractSimpleDecoder):
         asn1Spec,
         tagSet: TagSet | None = ...,
         length: int | None = ...,
-        state: _Unused = ...,
+        state: Unused = ...,
         decodeFun: Callable[..., Incomplete] | None = ...,
         substrateFun: Callable[..., Incomplete] | None = ...,
         **options,
@@ -142,9 +139,9 @@ class NullDecoder(AbstractSimpleDecoder):
         asn1Spec,
         tagSet: TagSet | None = ...,
         length: int | None = ...,
-        state: _Unused = ...,
-        decodeFun: _Unused = ...,
-        substrateFun: _Unused = ...,
+        state: Unused = ...,
+        decodeFun: Unused = ...,
+        substrateFun: Unused = ...,
         **options,
     ): ...
 
@@ -156,9 +153,9 @@ class ObjectIdentifierDecoder(AbstractSimpleDecoder):
         asn1Spec,
         tagSet: TagSet | None = ...,
         length: int | None = ...,
-        state: _Unused = ...,
-        decodeFun: _Unused = ...,
-        substrateFun: _Unused = ...,
+        state: Unused = ...,
+        decodeFun: Unused = ...,
+        substrateFun: Unused = ...,
         **options,
     ): ...
 
@@ -170,9 +167,9 @@ class RealDecoder(AbstractSimpleDecoder):
         asn1Spec,
         tagSet: TagSet | None = ...,
         length: int | None = ...,
-        state: _Unused = ...,
-        decodeFun: _Unused = ...,
-        substrateFun: _Unused = ...,
+        state: Unused = ...,
+        decodeFun: Unused = ...,
+        substrateFun: Unused = ...,
         **options,
     ): ...
 
@@ -188,7 +185,7 @@ class UniversalConstructedTypeDecoder(AbstractConstructedDecoder):
         asn1Spec,
         tagSet: TagSet | None = ...,
         length: int | None = ...,
-        state: _Unused = ...,
+        state: Unused = ...,
         decodeFun: Callable[..., Incomplete] | None = ...,
         substrateFun: Callable[..., Incomplete] | None = ...,
         **options,
@@ -199,7 +196,7 @@ class UniversalConstructedTypeDecoder(AbstractConstructedDecoder):
         asn1Spec,
         tagSet: TagSet | None = ...,
         length: int | None = ...,
-        state: _Unused = ...,
+        state: Unused = ...,
         decodeFun: Callable[..., Incomplete] | None = ...,
         substrateFun: Callable[..., Incomplete] | None = ...,
         **options,
@@ -258,8 +255,8 @@ class AnyDecoder(AbstractSimpleDecoder):
         asn1Spec,
         tagSet: TagSet | None = ...,
         length: int | None = ...,
-        state: _Unused = ...,
-        decodeFun: _Unused = ...,
+        state: Unused = ...,
+        decodeFun: Unused = ...,
         substrateFun: Callable[..., Incomplete] | None = ...,
         **options,
     ): ...
@@ -269,7 +266,7 @@ class AnyDecoder(AbstractSimpleDecoder):
         asn1Spec,
         tagSet: TagSet | None = ...,
         length: int | None = ...,
-        state: _Unused = ...,
+        state: Unused = ...,
         decodeFun: Callable[..., Incomplete] | None = ...,
         substrateFun: Callable[..., Incomplete] | None = ...,
         **options,
@@ -329,7 +326,7 @@ class Decoder:
         tagSet: TagSet | None = ...,
         length: int | None = ...,
         state=...,
-        decodeFun: _Unused = ...,
+        decodeFun: Unused = ...,
         substrateFun: Callable[..., Incomplete] | None = ...,
         **options,
     ): ...

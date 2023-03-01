@@ -2585,6 +2585,23 @@ export function requiresSpecialization(
     return false;
 }
 
+// Combines two variances to produce a resulting variance.
+export function combineVariances(variance1: Variance, variance2: Variance) {
+    if (variance1 === Variance.Unknown) {
+        return variance2;
+    }
+
+    if (
+        variance2 === Variance.Invariant ||
+        (variance2 === Variance.Covariant && variance1 === Variance.Contravariant) ||
+        (variance2 === Variance.Contravariant && variance1 === Variance.Covariant)
+    ) {
+        return Variance.Invariant;
+    }
+
+    return variance1;
+}
+
 // Determines if the variance of the type argument for a generic class is compatible
 // With the declared variance of the corresponding type parameter.
 export function isVarianceOfTypeArgumentCompatible(type: Type, typeParamVariance: Variance): boolean {

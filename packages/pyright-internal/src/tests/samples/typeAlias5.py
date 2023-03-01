@@ -11,6 +11,8 @@ MyUnion1 = Union[int, _T1, str, _T2, List[_T1]]
 
 MyUnion2 = Union[float, datetime]
 
+# This should generate an error because two type arguements are
+# expected, but only one was provided.
 MyUnion3 = MyUnion1[MyUnion2]
 
 MyUnion4 = MyUnion1[MyUnion2, IO]

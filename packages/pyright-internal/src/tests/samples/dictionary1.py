@@ -40,3 +40,10 @@ d5: Dict[str, Callable[[Sequence[Any]], float]] = {
     "max": max,
     "sum": sum,
 }
+
+LiteralDict = dict[LitChoices, str]
+
+d6: LiteralDict = {"ab": "x"}
+d7: LiteralDict = {"bcd": "y"}
+d6 = {**d6, **d7}
+d6 = d6 | d7

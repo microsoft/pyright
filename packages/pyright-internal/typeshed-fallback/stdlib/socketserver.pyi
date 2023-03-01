@@ -30,7 +30,7 @@ if sys.platform != "win32":
     ]
 
 _RequestType: TypeAlias = _socket | tuple[bytes, _socket]
-_AfUnixAddress: TypeAlias = str | ReadableBuffer  # adddress acceptable for an AF_UNIX socket
+_AfUnixAddress: TypeAlias = str | ReadableBuffer  # address acceptable for an AF_UNIX socket
 _AfInetAddress: TypeAlias = tuple[str | bytes | bytearray, int]  # address acceptable for an AF_INET socket
 
 # This can possibly be generic at some point:
@@ -70,7 +70,7 @@ class BaseServer:
 class TCPServer(BaseServer):
     if sys.version_info >= (3, 11):
         allow_reuse_port: bool
-    server_address: _AfInetAddress  # type: ignore[assignment]
+    server_address: _AfInetAddress
     def __init__(
         self,
         server_address: _AfInetAddress,

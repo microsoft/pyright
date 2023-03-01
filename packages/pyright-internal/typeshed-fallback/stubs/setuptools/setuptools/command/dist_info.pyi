@@ -1,5 +1,6 @@
-from distutils.core import Command
 from typing import Any
+
+from .._distutils.cmd import Command
 
 class dist_info(Command):
     description: str

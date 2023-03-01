@@ -7,7 +7,7 @@ class WebApplicationClient(Client):
     grant_type: str
     code: Any
     def __init__(self, client_id, code: Incomplete | None = ..., **kwargs) -> None: ...
-    def prepare_request_uri(  # type: ignore[override]
+    def prepare_request_uri(
         self,
         uri,
         redirect_uri: Incomplete | None = ...,
@@ -17,7 +17,7 @@ class WebApplicationClient(Client):
         code_challenge_method: str | None = ...,
         **kwargs,
     ): ...
-    def prepare_request_body(  # type: ignore[override]
+    def prepare_request_body(
         self,
         code: Incomplete | None = ...,
         redirect_uri: Incomplete | None = ...,
@@ -26,4 +26,4 @@ class WebApplicationClient(Client):
         code_verifier: str | None = ...,
         **kwargs,
     ): ...
-    def parse_request_uri_response(self, uri, state: Incomplete | None = ...): ...  # type: ignore[override]
+    def parse_request_uri_response(self, uri, state: Incomplete | None = ...): ...

@@ -11,6 +11,7 @@
 
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
+import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
 import {
@@ -56,6 +57,7 @@ import {
     getTypeCondition,
     getTypeVarScopeId,
     isLiteralType,
+    isPartlyUnknown,
     isTupleClass,
     isUnboundedTupleClass,
     lookUpClassMember,
@@ -139,6 +141,36 @@ export function narrowTypeBasedOnPattern(
 
         case ParseNodeType.Error: {
             return type;
+        }
+    }
+}
+
+// Determines whether this pattern (or part of the pattern) in
+// this case statement will never be matched.
+export function checkForUnusedPattern(evaluator: TypeEvaluator, pattern: PatternAtomNode, subjectType: Type): void {
+    if (isNever(subjectType)) {
+        reportUnnecessaryPattern(evaluator, pattern, subjectType);
+    } else if (pattern.nodeType === ParseNodeType.PatternAs && pattern.orPatterns.length > 1) {
+        // Check each of the or patterns separately.
+        pattern.orPatterns.forEach((orPattern) => {
+            const subjectTypeMatch = narrowTypeBasedOnPattern(
+                evaluator,
+                subjectType,
+                orPattern,
+                /* isPositiveTest */ true
+            );
+
+            if (isNever(subjectTypeMatch)) {
+                reportUnnecessaryPattern(evaluator, orPattern, subjectType);
+            }
+
+            subjectType = narrowTypeBasedOnPattern(evaluator, subjectType, orPattern, /* isPositiveTest */ false);
+        });
+    } else {
+        const subjectTypeMatch = narrowTypeBasedOnPattern(evaluator, subjectType, pattern, /* isPositiveTest */ true);
+
+        if (isNever(subjectTypeMatch)) {
+            reportUnnecessaryPattern(evaluator, pattern, subjectType);
         }
     }
 }
@@ -1142,12 +1174,33 @@ export function assignTypeToPatternTargets(
         }
 
         case ParseNodeType.PatternCapture: {
-            evaluator.assignTypeToExpression(
-                pattern.target,
-                pattern.isWildcard ? AnyType.create() : type,
-                isTypeIncomplete,
-                pattern.target
-            );
+            if (pattern.isWildcard) {
+                const fileInfo = getFileInfo(pattern);
+                if (isUnknown(type)) {
+                    evaluator.addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportUnknownVariableType,
+                        DiagnosticRule.reportUnknownVariableType,
+                        Localizer.Diagnostic.wildcardPatternTypeUnknown(),
+                        pattern.target
+                    );
+                } else if (isPartlyUnknown(type)) {
+                    const diagAddendum = new DiagnosticAddendum();
+                    diagAddendum.addMessage(
+                        Localizer.DiagnosticAddendum.typeOfSymbol().format({
+                            name: '_',
+                            type: evaluator.printType(type, { expandTypeAlias: true }),
+                        })
+                    );
+                    evaluator.addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportUnknownVariableType,
+                        DiagnosticRule.reportUnknownVariableType,
+                        Localizer.Diagnostic.wildcardPatternTypePartiallyUnknown() + diagAddendum.getString(),
+                        pattern.target
+                    );
+                }
+            } else {
+                evaluator.assignTypeToExpression(pattern.target, type, isTypeIncomplete, pattern.target);
+            }
             break;
         }
 
@@ -1385,4 +1438,13 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
             }
         }
     }
+}
+
+function reportUnnecessaryPattern(evaluator: TypeEvaluator, pattern: PatternAtomNode, subjectType: Type): void {
+    evaluator.addDiagnostic(
+        getFileInfo(pattern).diagnosticRuleSet.reportUnnecessaryComparison,
+        DiagnosticRule.reportUnnecessaryComparison,
+        Localizer.Diagnostic.patternNeverMatches().format({ type: evaluator.printType(subjectType) }),
+        pattern
+    );
 }

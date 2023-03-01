@@ -30,6 +30,6 @@ V = TypeVar("V")
 Baz = Dict[K, V]
 
 
-# This should generate an error because Baz is only partially specialized.
+# This should generate two errors because Baz is only partially specialized.
 def foo3(f: Baz[int]) -> None:
     pass
