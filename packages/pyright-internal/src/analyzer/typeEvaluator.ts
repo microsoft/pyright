@@ -7880,6 +7880,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const effectiveTypeVarContext =
                     typeVarContextToClone?.clone() ?? new TypeVarContext(getTypeVarScopeId(overload));
                 effectiveTypeVarContext.addSolveForScope(getTypeVarScopeId(overload));
+                if (overload.details.constructorTypeVarScopeId) {
+                    effectiveTypeVarContext.addSolveForScope(overload.details.constructorTypeVarScopeId);
+                }
                 effectiveTypeVarContext.unlock();
 
                 // Use speculative mode so we don't output any diagnostics or

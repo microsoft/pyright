@@ -13,3 +13,11 @@ class Enum1(enum.IntEnum):
         member._value_ = value
         member.__doc__ = doc
         return member
+
+
+class MyStr(str):
+    pass
+
+
+v1 = str.__new__(MyStr)
+reveal_type(v1, expected_text="MyStr")
