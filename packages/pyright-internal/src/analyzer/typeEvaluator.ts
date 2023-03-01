@@ -6344,18 +6344,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (
-            typeArgs.length > typeParameters.length &&
-            !typeParameters.some((typeVar) => typeVar.details.isVariadic && !typeVar.isVariadicInUnion)
-        ) {
-            addError(
-                Localizer.Diagnostic.typeArgsTooMany().format({
-                    name: printType(baseType),
-                    expected: typeParameters.length,
-                    received: typeArgs.length,
-                }),
-                typeArgs[typeParameters.length].node
-            );
+        if (!typeParameters.some((typeVar) => typeVar.details.isVariadic && !typeVar.isVariadicInUnion)) {
+            let minTypeArgCount = typeParameters.length;
+            const firstNonDefaultParam = typeParameters.findIndex((param) => !!param.details.defaultType);
+            if (firstNonDefaultParam >= 0) {
+                minTypeArgCount = firstNonDefaultParam;
+            }
+
+            if (typeArgs.length > typeParameters.length) {
+                addError(
+                    Localizer.Diagnostic.typeArgsTooMany().format({
+                        name: printType(baseType),
+                        expected: typeParameters.length,
+                        received: typeArgs.length,
+                    }),
+                    typeArgs[typeParameters.length].node
+                );
+            } else if (typeArgs.length < minTypeArgCount) {
+                addError(
+                    Localizer.Diagnostic.typeArgsTooFew().format({
+                        name: printType(baseType),
+                        expected: typeParameters.length,
+                        received: typeArgs.length,
+                    }),
+                    node.items[node.items.length - 1]
+                );
+            }
         }
 
         // Handle the mypy_extensions.FlexibleAlias type specially.
