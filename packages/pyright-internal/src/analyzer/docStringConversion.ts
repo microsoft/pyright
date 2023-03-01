@@ -427,7 +427,10 @@ class DocStringConverter {
         const match = this._currentLine().match(CodeBlockStartRegExp);
         if (match !== null) {
             this._blockIndent = this._currentIndent()
-            this._appendLine('```' + match[1]) // remove indentation, preserve language tag
+
+            // Remove indentation and preserve language tag.
+            this._appendLine('```' + match[1])
+
             this._pushAndSetState(this._parseBacktickBlock);
             this._eatLine();
             return true;
@@ -436,7 +439,7 @@ class DocStringConverter {
     }
 
     private _parseBacktickBlock(): void {
-        // only match closing ``` at same indent level of opening
+        // Only match closing ``` at same indent level of opening.
         if (CodeBlockEndRegExp.test(this._currentLine()) && this._currentIndent() === this._blockIndent) {
             this._appendLine('```');
             this._appendLine();
