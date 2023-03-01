@@ -8,6 +8,7 @@
  * line/column positions.
  */
 
+import { TokenizerOutput } from '../parser/tokenizer';
 import { assert } from './debug';
 import { Position, Range, TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
@@ -68,4 +69,19 @@ export function convertRangeToTextRange(range: Range, lines: TextRangeCollection
 
 export function convertTextRangeToRange(range: TextRange, lines: TextRangeCollection<TextRange>): Range {
     return convertOffsetsToRange(range.start, TextRange.getEnd(range), lines);
+}
+
+// Returns the position of the last character in a line (before the newline).
+export function getLineEndPosition(tokenizerOutput: TokenizerOutput, line: number): Position {
+    const lines = tokenizerOutput.lines;
+    const lineRange = lines.getItemAt(line);
+    // Character should be at the end of the line but before the newline.
+    const char =
+        line < lines.count - 1
+            ? lineRange.length - tokenizerOutput.predominantEndOfLineSequence.length
+            : lineRange.length;
+    return {
+        line,
+        character: char,
+    };
 }

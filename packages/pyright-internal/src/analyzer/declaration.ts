@@ -31,6 +31,8 @@ import {
     YieldNode,
 } from '../parser/parseNodes';
 
+export const UnresolvedModuleMarker = '*** unresolved ***';
+
 export const enum DeclarationType {
     Intrinsic,
     Variable,
@@ -289,4 +291,8 @@ export function isSpecialBuiltInClassDeclaration(decl: Declaration): decl is Spe
 
 export function isIntrinsicDeclaration(decl: Declaration): decl is IntrinsicDeclaration {
     return decl.type === DeclarationType.Intrinsic;
+}
+
+export function isUnresolvedAliasDeclaration(decl: Declaration): boolean {
+    return isAliasDeclaration(decl) && decl.path === UnresolvedModuleMarker;
 }

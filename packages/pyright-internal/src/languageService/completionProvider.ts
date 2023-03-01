@@ -833,44 +833,60 @@ export class CompletionProvider {
                 return this._createSingleKeywordCompletion('else');
             }
 
+            case ErrorExpressionCategory.MissingMemberAccessName:
             case ErrorExpressionCategory.MissingExpression: {
                 // Don't show completion after random dots.
                 const tokenizerOutput = this._parseResults.tokenizerOutput;
                 const offset = convertPositionToOffset(this._position, tokenizerOutput.lines);
                 const index = ParseTreeUtils.getTokenIndexAtLeft(tokenizerOutput.tokens, offset!);
                 const token = ParseTreeUtils.getTokenAtIndex(tokenizerOutput.tokens, index);
-                if (token?.type === TokenType.Dot || token?.type === TokenType.Ellipsis) {
-                    break;
+                const prevToken = ParseTreeUtils.getTokenAtIndex(tokenizerOutput.tokens, index - 1);
+
+                if (node.category === ErrorExpressionCategory.MissingExpression) {
+                    // Skip dots on expressions.
+                    if (token?.type === TokenType.Dot || token?.type === TokenType.Ellipsis) {
+                        break;
+                    }
+
+                    // ex) class MyType:
+                    //         def is_str(self): ...
+                    //     myType = MyType()
+                    //
+                    // In incomplete code such as "myType.is" <= "is" will be tokenized as keyword not identifier,
+                    // so even if user's intention is writing "is_str", completion after "is" won't include "is_str"
+                    // since parser won't see "is" as partially written member name instead it will see it as
+                    // expression statement with missing expression after "is" keyword.
+                    // In such case, use "MyType." to get completion.
+                    if (token?.type !== TokenType.Keyword || TextRange.getEnd(token) !== offset) {
+                        return this._getExpressionCompletions(node, priorWord, priorText, postText);
+                    }
+
+                    if (prevToken?.type !== TokenType.Dot) {
+                        return this._getExpressionCompletions(node, priorWord, priorText, postText);
+                    }
+
+                    const previousOffset = TextRange.getEnd(prevToken);
+                    const previousNode = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, previousOffset);
+                    if (
+                        previousNode?.nodeType !== ParseNodeType.Error ||
+                        previousNode.category !== ErrorExpressionCategory.MissingMemberAccessName
+                    ) {
+                        return this._getExpressionCompletions(node, priorWord, priorText, postText);
+                    } else {
+                        // Update node to previous node so we get the member access completions.
+                        node = previousNode;
+                    }
+                } else if (node.category === ErrorExpressionCategory.MissingMemberAccessName) {
+                    // Skip double dots on member access.
+                    if (
+                        (token?.type === TokenType.Dot || token?.type === TokenType.Ellipsis) &&
+                        (prevToken?.type === TokenType.Dot || prevToken?.type === TokenType.Ellipsis)
+                    ) {
+                        return undefined;
+                    }
                 }
 
-                // ex) class MyType:
-                //         def is_str(self): ...
-                //     myType = MyType()
-                //
-                // In incomplete code such as "myType.is" <= "is" will be tokenized as keyword not identifier,
-                // so even if user's intention is writing "is_str", completion after "is" won't include "is_str"
-                // since parser won't see "is" as partially written member name instead it will see it as
-                // expression statement with missing expression after "is" keyword.
-                // In such case, use "MyType." to get completion.
-                if (token?.type !== TokenType.Keyword || TextRange.getEnd(token) !== offset) {
-                    return this._getExpressionCompletions(node, priorWord, priorText, postText);
-                }
-
-                const previousToken = ParseTreeUtils.getTokenAtIndex(tokenizerOutput.tokens, index - 1);
-                if (previousToken?.type !== TokenType.Dot) {
-                    return this._getExpressionCompletions(node, priorWord, priorText, postText);
-                }
-
-                const previousOffset = TextRange.getEnd(previousToken);
-                const previousNode = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, previousOffset);
-                if (
-                    previousNode?.nodeType !== ParseNodeType.Error ||
-                    previousNode.category !== ErrorExpressionCategory.MissingMemberAccessName
-                ) {
-                    return this._getExpressionCompletions(node, priorWord, priorText, postText);
-                }
-
-                return this._getMissingMemberAccessNameCompletions(previousNode, previousOffset, priorWord);
+                return this._getMissingMemberAccessNameCompletions(node, priorWord);
             }
 
             case ErrorExpressionCategory.MissingDecoratorCallName: {
@@ -885,11 +901,6 @@ export class CompletionProvider {
                 }
 
                 return completionResults;
-            }
-
-            case ErrorExpressionCategory.MissingMemberAccessName: {
-                const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines);
-                return this._getMissingMemberAccessNameCompletions(node, offset!, priorWord);
             }
 
             case ErrorExpressionCategory.MissingFunctionParameterList: {
@@ -909,14 +920,7 @@ export class CompletionProvider {
         return undefined;
     }
 
-    private _getMissingMemberAccessNameCompletions(node: ErrorNode, offset: number, priorWord: string) {
-        const index = ParseTreeUtils.getTokenIndexAtLeft(this._parseResults.tokenizerOutput.tokens, offset) - 1;
-        const previousToken = ParseTreeUtils.getTokenAtIndex(this._parseResults.tokenizerOutput.tokens, index);
-        if (previousToken?.type === TokenType.Dot || previousToken?.type === TokenType.Ellipsis) {
-            // Don't allow multiple dot bring up completions.
-            return undefined;
-        }
-
+    private _getMissingMemberAccessNameCompletions(node: ErrorNode, priorWord: string) {
         if (!node.child || !isExpressionNode(node.child)) {
             return undefined;
         }
@@ -2777,7 +2781,7 @@ export class CompletionProvider {
             position: this._position,
         };
 
-        if (detail?.funcParensDisabled) {
+        if (detail?.funcParensDisabled || !this._options.snippet) {
             completionItemData.funcParensDisabled = true;
         }
 

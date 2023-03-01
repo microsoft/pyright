@@ -1355,6 +1355,20 @@ test('use relative import format - textEditTracker', () => {
     testImportMoveWithTracker(code, ImportFormat.Relative);
 });
 
+test('dont include token not contained in the span', () => {
+    const code = `
+// @filename: test1.py
+//// import random
+//// 
+//// [|/*src*/answer_word = random.choice(["a","b","c","d"])
+//// |]guess_word = "c"
+
+// @filename: nested/__init__.py
+//// [|{|"r":"import random!n!!n!!n!"|}|][|/*dest*/|]
+        `;
+    testImportMove(code, ImportFormat.Absolute);
+});
+
 function testImportMoveWithTracker(code: string, importFormat = ImportFormat.Absolute) {
     const state = parseAndGetTestState(code).state;
 

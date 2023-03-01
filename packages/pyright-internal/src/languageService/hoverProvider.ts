@@ -121,6 +121,13 @@ export class HoverProvider {
                 let primaryDeclaration = declarations[0];
                 if (primaryDeclaration.type === DeclarationType.Alias && declarations.length > 1) {
                     primaryDeclaration = declarations[1];
+                } else if (
+                    primaryDeclaration.type === DeclarationType.Variable &&
+                    declarations.length > 1 &&
+                    primaryDeclaration.isDefinedBySlots
+                ) {
+                    // Slots cannot have docstrings, so pick the secondary.
+                    primaryDeclaration = declarations[1];
                 }
 
                 this._addResultsForDeclaration(
