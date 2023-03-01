@@ -1333,9 +1333,13 @@ export namespace Localizer {
         export const useListInstead = () => getRawString('DiagnosticAddendum.useListInstead');
         export const useTupleInstead = () => getRawString('DiagnosticAddendum.useTupleInstead');
         export const useTypeInstead = () => getRawString('DiagnosticAddendum.useTypeInstead');
-        export const varianceMismatch = () =>
+        export const varianceMismatchForClass = () =>
             new ParameterizedString<{ typeVarName: string; className: string }>(
-                getRawString('DiagnosticAddendum.varianceMismatch')
+                getRawString('DiagnosticAddendum.varianceMismatchForClass')
+            );
+        export const varianceMismatchForTypeAlias = () =>
+            new ParameterizedString<{ typeVarName: string; typeAliasParam: string }>(
+                getRawString('DiagnosticAddendum.varianceMismatchForTypeAlias')
             );
     }
 

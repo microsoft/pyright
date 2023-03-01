@@ -243,6 +243,7 @@ import {
     ClassMember,
     ClassMemberLookupFlags,
     combineSameSizedTuples,
+    combineVariances,
     computeMroLinearization,
     containsLiteralType,
     containsUnknown,
@@ -6195,7 +6196,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function adjustTypeArgumentsForVariadicTypeVar(
         typeArgs: TypeResultWithNode[],
         typeParameters: TypeVarType[],
-        typeVarScopeId: TypeVarScopeId,
         errorNode: ExpressionNode
     ): TypeResultWithNode[] {
         const variadicIndex = typeParameters.findIndex((param) => isVariadicTypeVar(param));
@@ -6317,12 +6317,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const typeParameters = baseType.typeAliasInfo.typeParameters;
-        let typeArgs = adjustTypeArgumentsForVariadicTypeVar(
-            getTypeArgs(node, flags),
-            typeParameters,
-            baseType.typeAliasInfo.typeVarScopeId,
-            node
-        );
+        let typeArgs = adjustTypeArgumentsForVariadicTypeVar(getTypeArgs(node, flags), typeParameters, node);
 
         // PEP 612 says that if the class has only one type parameter consisting
         // of a ParamSpec, the list of arguments does not need to be enclosed in
@@ -6478,6 +6473,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeArgType = UnknownType.create();
                 }
 
+                if ((flags & EvaluatorFlags.EnforceTypeVarVarianceConsistency) !== 0) {
+                    if (isTypeVar(typeArgType)) {
+                        const usageVariances = inferTypeParameterVarianceForTypeAlias(baseType);
+                        if (usageVariances && index < usageVariances.length) {
+                            const usageVariance = usageVariances[index];
+
+                            if (!isVarianceOfTypeArgumentCompatible(typeArgType, usageVariance)) {
+                                const messageDiag = diag.createAddendum();
+                                messageDiag.addMessage(
+                                    Localizer.DiagnosticAddendum.varianceMismatchForTypeAlias().format({
+                                        typeVarName: printType(typeArgType),
+                                        typeAliasParam: printType(typeParameters[index]),
+                                    })
+                                );
+                                messageDiag.addTextRange(typeArgs[index].node);
+                            }
+                        }
+                    }
+                }
+
                 assignTypeToTypeVar(
                     evaluatorInterface,
                     param,
@@ -6492,7 +6507,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!diag.isEmpty()) {
             addError(
                 Localizer.Diagnostic.typeNotSpecializable().format({ type: printType(baseType) }) + diag.getString(),
-                node
+                node,
+                diag.getEffectiveTextRange() ?? node
             );
         }
 
@@ -6670,7 +6686,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         typeArgs = adjustTypeArgumentsForVariadicTypeVar(
                             typeArgs,
                             concreteSubtype.details.typeParameters,
-                            getTypeVarScopeId(concreteSubtype) ?? '',
                             node
                         );
                     }
@@ -6744,6 +6759,98 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return { type, isIncomplete };
+    }
+
+    // Determines the effective variance of the type parameters for a generic
+    // type alias. Normally, variance is not important for type aliases, but
+    // it can be important in cases where the type alias is used to specify
+    // a base class in a class definition.
+    function inferTypeParameterVarianceForTypeAlias(type: Type): Variance[] | undefined {
+        // If this isn't a generic type alias, there's nothing to do.
+        if (!type.typeAliasInfo || !type.typeAliasInfo.typeParameters) {
+            return undefined;
+        }
+
+        // Is the usage variance info already cached?
+        if (type.typeAliasInfo.usageVariance) {
+            return type.typeAliasInfo.usageVariance;
+        }
+
+        const typeParams = type.typeAliasInfo.typeParameters;
+
+        // Start with all of the usage variances unknown.
+        const usageVariances: Variance[] = typeParams.map(() => Variance.Unknown);
+
+        // Prepopulate the cached value for the type alias to handle
+        // recursive type aliases.
+        type.typeAliasInfo.usageVariance = usageVariances;
+
+        // Traverse the type alias type definition and adjust the usage
+        // variances accordingly.
+        updateUsageVariancesRecursive(type, typeParams, usageVariances);
+
+        return usageVariances;
+    }
+
+    // Looks at uses of the type parameters within the type and adjusts the
+    // variances accordingly. For example, if the type is `Mapping[T1, T2]`,
+    // then T1 will be set to invariant and T2 will be set to covariant.
+    function updateUsageVariancesRecursive(
+        type: Type,
+        typeAliasTypeParams: TypeVarType[],
+        usageVariances: Variance[],
+        recursionCount = 0
+    ) {
+        if (recursionCount > maxTypeRecursionCount) {
+            return;
+        }
+
+        recursionCount++;
+
+        // Define a helper function that performs the actual usage variant update.
+        function updateUsageVarianceForType(type: Type, variance: Variance) {
+            doForEachSubtype(type, (subtype) => {
+                const typeParamIndex = typeAliasTypeParams.findIndex((param) => isTypeSame(param, subtype));
+                if (typeParamIndex >= 0) {
+                    usageVariances[typeParamIndex] = combineVariances(usageVariances[typeParamIndex], variance);
+                } else {
+                    updateUsageVariancesRecursive(subtype, typeAliasTypeParams, usageVariances, recursionCount);
+                }
+            });
+        }
+
+        doForEachSubtype(type, (subtype) => {
+            if (subtype.category === TypeCategory.Function) {
+                if (subtype.specializedTypes) {
+                    subtype.specializedTypes.parameterTypes.forEach((paramType) => {
+                        updateUsageVarianceForType(paramType, Variance.Contravariant);
+                    });
+
+                    const returnType = subtype.specializedTypes.returnType;
+                    if (returnType) {
+                        updateUsageVarianceForType(returnType, Variance.Covariant);
+                    }
+                }
+            } else if (subtype.category === TypeCategory.Class) {
+                if (subtype.typeArguments) {
+                    // If the class includes type parameters that uses auto variance,
+                    // compute the calculated variance.
+                    inferTypeParameterVarianceForClass(subtype);
+
+                    // Is the class specialized using any type arguments that correspond to
+                    // the type alias' type parameters?
+                    subtype.typeArguments.forEach((typeArg, classParamIndex) => {
+                        if (classParamIndex < subtype.details.typeParameters.length) {
+                            const classTypeParam = subtype.details.typeParameters[classParamIndex];
+                            updateUsageVarianceForType(
+                                typeArg,
+                                classTypeParam.computedVariance ?? classTypeParam.details.declaredVariance
+                            );
+                        }
+                    });
+                }
+            }
+        });
     }
 
     function makeTupleObject(entryTypes: Type[], isUnspecifiedLength = false) {
@@ -19719,7 +19826,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (!isVarianceOfTypeArgumentCompatible(adjustedTypeArgType, declaredVariance)) {
                         diag.addMessage(
-                            Localizer.DiagnosticAddendum.varianceMismatch().format({
+                            Localizer.DiagnosticAddendum.varianceMismatchForClass().format({
                                 typeVarName: printType(adjustedTypeArgType),
                                 className: classType.details.name,
                             })
