@@ -115,9 +115,17 @@ export interface TypeSameOptions {
 interface TypeAliasInfo {
     name: string;
     fullName: string;
-    typeParameters?: TypeVarType[] | undefined;
-    typeArguments?: Type[] | undefined;
     typeVarScopeId: TypeVarScopeId;
+
+    // Type parameters, if type alias is generic
+    typeParameters?: TypeVarType[] | undefined;
+
+    // Lazily-evaluated variance of type parameters based on how
+    // they are used in the type alias
+    usageVariance?: Variance[];
+
+    // Type argument, if type alias is specialized
+    typeArguments?: Type[] | undefined;
 }
 
 interface TypeBase {

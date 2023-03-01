@@ -466,36 +466,39 @@ export class Checker extends ParseTreeWalker {
                     const functionTypeParam = functionTypeResult.functionType.details.parameters.find(
                         (p) => p.name === param.name?.value
                     );
+
                     if (functionTypeParam) {
                         const paramType = functionTypeParam.type;
 
-                        if (
-                            isUnknown(paramType) ||
-                            (isTypeVar(paramType) &&
-                                paramType.details.isSynthesized &&
-                                !paramType.details.isSynthesizedSelf)
-                        ) {
-                            this._evaluator.addDiagnostic(
-                                this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
-                                DiagnosticRule.reportUnknownParameterType,
-                                Localizer.Diagnostic.paramTypeUnknown().format({ paramName: param.name.value }),
-                                param.name
-                            );
-                        } else if (isPartlyUnknown(paramType)) {
-                            const diagAddendum = new DiagnosticAddendum();
-                            diagAddendum.addMessage(
-                                Localizer.DiagnosticAddendum.paramType().format({
-                                    paramType: this._evaluator.printType(paramType, { expandTypeAlias: true }),
-                                })
-                            );
-                            this._evaluator.addDiagnostic(
-                                this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
-                                DiagnosticRule.reportUnknownParameterType,
-                                Localizer.Diagnostic.paramTypePartiallyUnknown().format({
-                                    paramName: param.name.value,
-                                }) + diagAddendum.getString(),
-                                param.name
-                            );
+                        if (this._fileInfo.diagnosticRuleSet.reportUnknownParameterType !== 'none') {
+                            if (
+                                isUnknown(paramType) ||
+                                (isTypeVar(paramType) &&
+                                    paramType.details.isSynthesized &&
+                                    !paramType.details.isSynthesizedSelf)
+                            ) {
+                                this._evaluator.addDiagnostic(
+                                    this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
+                                    DiagnosticRule.reportUnknownParameterType,
+                                    Localizer.Diagnostic.paramTypeUnknown().format({ paramName: param.name.value }),
+                                    param.name
+                                );
+                            } else if (isPartlyUnknown(paramType)) {
+                                const diagAddendum = new DiagnosticAddendum();
+                                diagAddendum.addMessage(
+                                    Localizer.DiagnosticAddendum.paramType().format({
+                                        paramType: this._evaluator.printType(paramType, { expandTypeAlias: true }),
+                                    })
+                                );
+                                this._evaluator.addDiagnostic(
+                                    this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
+                                    DiagnosticRule.reportUnknownParameterType,
+                                    Localizer.Diagnostic.paramTypePartiallyUnknown().format({
+                                        paramName: param.name.value,
+                                    }) + diagAddendum.getString(),
+                                    param.name
+                                );
+                            }
                         }
 
                         let hasAnnotation = false;
@@ -509,7 +512,7 @@ export class Checker extends ParseTreeWalker {
                             }
                         }
 
-                        if (!hasAnnotation) {
+                        if (!hasAnnotation && this._fileInfo.diagnosticRuleSet.reportMissingParameterType !== 'none') {
                             this._evaluator.addDiagnostic(
                                 this._fileInfo.diagnosticRuleSet.reportMissingParameterType,
                                 DiagnosticRule.reportMissingParameterType,

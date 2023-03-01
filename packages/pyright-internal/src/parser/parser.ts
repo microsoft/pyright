@@ -575,7 +575,7 @@ export class Parser {
                 /* allowAssignmentExpression */ true,
                 /* allowMultipleUnpack */ true,
                 ErrorExpressionCategory.MissingPatternSubject,
-                Localizer.Diagnostic.expectedReturnExpr()
+                () => Localizer.Diagnostic.expectedReturnExpr()
             );
             smellsLikeMatchStatement =
                 expression.nodeType !== ParseNodeType.Error && this._peekToken().type === TokenType.Colon;
@@ -594,7 +594,7 @@ export class Parser {
             /* allowAssignmentExpression */ true,
             /* allowMultipleUnpack */ true,
             ErrorExpressionCategory.MissingPatternSubject,
-            Localizer.Diagnostic.expectedReturnExpr()
+            () => Localizer.Diagnostic.expectedReturnExpr()
         );
         const matchNode = MatchNode.create(matchToken, subjectExpression);
 
@@ -1502,7 +1502,7 @@ export class Parser {
 
         const targetExpr = this._parseExpressionListAsPossibleTuple(
             ErrorExpressionCategory.MissingExpression,
-            Localizer.Diagnostic.expectedExpr(),
+            () => Localizer.Diagnostic.expectedExpr(),
             forToken
         );
 
@@ -1521,7 +1521,7 @@ export class Parser {
                 /* allowAssignmentExpression */ false,
                 /* allowMultipleUnpack */ true,
                 ErrorExpressionCategory.MissingExpression,
-                Localizer.Diagnostic.expectedInExpr()
+                () => Localizer.Diagnostic.expectedInExpr()
             );
 
             forSuite = this._parseLoopSuite();
@@ -1623,7 +1623,7 @@ export class Parser {
 
         const targetExpr = this._parseExpressionListAsPossibleTuple(
             ErrorExpressionCategory.MissingExpression,
-            Localizer.Diagnostic.expectedExpr(),
+            () => Localizer.Diagnostic.expectedExpr(),
             forToken
         );
         let seqExpr: ExpressionNode | undefined;
@@ -2361,7 +2361,7 @@ export class Parser {
                 /* allowAssignmentExpression */ true,
                 /* allowMultipleUnpack */ true,
                 ErrorExpressionCategory.MissingExpression,
-                Localizer.Diagnostic.expectedReturnExpr()
+                () => Localizer.Diagnostic.expectedReturnExpr()
             );
             this._reportConditionalErrorForStarTupleElement(returnExpr);
             returnNode.returnExpression = returnExpr;
@@ -2739,7 +2739,7 @@ export class Parser {
                 /* allowAssignmentExpression */ true,
                 /* allowMultipleUnpack */ true,
                 ErrorExpressionCategory.MissingExpression,
-                Localizer.Diagnostic.expectedYieldExpr()
+                () => Localizer.Diagnostic.expectedYieldExpr()
             );
             this._reportConditionalErrorForStarTupleElement(exprList);
         }
@@ -2909,11 +2909,11 @@ export class Parser {
 
     private _parseExpressionListAsPossibleTuple(
         errorCategory: ErrorExpressionCategory,
-        errorString: string,
+        getErrorString: () => string,
         errorToken: Token
     ): ExpressionNode {
         if (this._isNextTokenNeverExpression()) {
-            this._addError(errorString, errorToken);
+            this._addError(getErrorString(), errorToken);
             return ErrorNode.create(errorToken, errorCategory);
         }
 
@@ -2924,9 +2924,12 @@ export class Parser {
         return this._makeExpressionOrTuple(exprListResult, /* enclosedInParens */ false);
     }
 
-    private _parseTestListAsExpression(errorCategory: ErrorExpressionCategory, errorString: string): ExpressionNode {
+    private _parseTestListAsExpression(
+        errorCategory: ErrorExpressionCategory,
+        getErrorString: () => string
+    ): ExpressionNode {
         if (this._isNextTokenNeverExpression()) {
-            return this._handleExpressionParseError(errorCategory, errorString);
+            return this._handleExpressionParseError(errorCategory, getErrorString());
         }
 
         const exprListResult = this._parseTestExpressionList();
@@ -2940,10 +2943,10 @@ export class Parser {
         allowAssignmentExpression: boolean,
         allowMultipleUnpack: boolean,
         errorCategory: ErrorExpressionCategory,
-        errorString: string
+        getErrorString: () => string
     ): ExpressionNode {
         if (this._isNextTokenNeverExpression()) {
-            return this._handleExpressionParseError(errorCategory, errorString);
+            return this._handleExpressionParseError(errorCategory, getErrorString());
         }
 
         const exprListResult = this._parseTestOrStarExpressionList(allowAssignmentExpression, allowMultipleUnpack);
@@ -3777,8 +3780,7 @@ export class Parser {
             // and emit an error.
             this._addError(Localizer.Diagnostic.backticksIllegal(), nextToken);
 
-            const expressionNode = this._parseTestListAsExpression(
-                ErrorExpressionCategory.MissingExpression,
+            const expressionNode = this._parseTestListAsExpression(ErrorExpressionCategory.MissingExpression, () =>
                 Localizer.Diagnostic.expectedExpr()
             );
 
@@ -4235,7 +4237,7 @@ export class Parser {
             /* allowAssignmentExpression */ false,
             /* allowMultipleUnpack */ false,
             ErrorExpressionCategory.MissingExpression,
-            Localizer.Diagnostic.expectedExpr()
+            () => Localizer.Diagnostic.expectedExpr()
         );
         let annotationExpr: ExpressionNode | undefined;
 
@@ -4273,7 +4275,7 @@ export class Parser {
                     /* allowAssignmentExpression */ false,
                     /* allowMultipleUnpack */ true,
                     ErrorExpressionCategory.MissingExpression,
-                    Localizer.Diagnostic.expectedAssignRightHandExpr()
+                    () => Localizer.Diagnostic.expectedAssignRightHandExpr()
                 );
 
             this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
@@ -4291,8 +4293,7 @@ export class Parser {
 
             const rightExpr =
                 this._tryParseYieldExpression() ||
-                this._parseTestListAsExpression(
-                    ErrorExpressionCategory.MissingExpression,
+                this._parseTestListAsExpression(ErrorExpressionCategory.MissingExpression, () =>
                     Localizer.Diagnostic.expectedBinaryRightHandExpr()
                 );
 
@@ -4318,7 +4319,7 @@ export class Parser {
                     /* allowAssignmentExpression */ false,
                     /* allowMultipleUnpack */ true,
                     ErrorExpressionCategory.MissingExpression,
-                    Localizer.Diagnostic.expectedAssignRightHandExpr()
+                    () => Localizer.Diagnostic.expectedAssignRightHandExpr()
                 );
 
             if (rightExpr.nodeType === ParseNodeType.Error) {

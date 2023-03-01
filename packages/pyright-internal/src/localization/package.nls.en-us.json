@@ -675,7 +675,8 @@
         "useListInstead": "Use List[T] to indicate a list type or Union[T1, T2] to indicate a union type",
         "useTupleInstead": "Use Tuple[T1, ..., Tn] to indicate a tuple type or Union[T1, T2] to indicate a union type",
         "useTypeInstead": "Use Type[T] instead",
-        "varianceMismatch": "Variance of TypeVar \"{typeVarName}\" is incompatible with base class \"{className}\""
+        "varianceMismatchForClass": "Variance of TypeVar \"{typeVarName}\" is incompatible with base class \"{className}\"",
+        "varianceMismatchForTypeAlias": "Variance of TypeVar \"{typeVarName}\" is incompatible with \"{typeAliasParam}\""
     },
     "CodeAction": {
         "addOptionalToAnnotation": "Add \"Optional\" to Type Annotation",
