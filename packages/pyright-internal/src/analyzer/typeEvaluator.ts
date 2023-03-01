@@ -9718,16 +9718,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     if (tooManyPositionals) {
-                        addDiagnostic(
-                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            positionParamLimitIndex === 1
-                                ? Localizer.Diagnostic.argPositionalExpectedOne()
-                                : Localizer.Diagnostic.argPositionalExpectedCount().format({
-                                      expected: positionParamLimitIndex,
-                                  }),
-                            argList[argIndex].valueExpression ?? errorNode
-                        );
+                        if (!isDiagnosticSuppressedForNode(errorNode)) {
+                            addDiagnostic(
+                                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                positionParamLimitIndex === 1
+                                    ? Localizer.Diagnostic.argPositionalExpectedOne()
+                                    : Localizer.Diagnostic.argPositionalExpectedCount().format({
+                                          expected: positionParamLimitIndex,
+                                      }),
+                                argList[argIndex].valueExpression ?? errorNode
+                            );
+                        }
                         reportedArgError = true;
                     }
                 }
@@ -9757,16 +9759,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // all positional parameters specified in the Concatenate must be
                 // filled explicitly.
                 if (typeResult.type.details.paramSpec && paramIndex < positionParamLimitIndex) {
-                    addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        positionParamLimitIndex === 1
-                            ? Localizer.Diagnostic.argPositionalExpectedOne()
-                            : Localizer.Diagnostic.argPositionalExpectedCount().format({
-                                  expected: positionParamLimitIndex,
-                              }),
-                        argList[argIndex].valueExpression ?? errorNode
-                    );
+                    if (!isDiagnosticSuppressedForNode(errorNode)) {
+                        addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            positionParamLimitIndex === 1
+                                ? Localizer.Diagnostic.argPositionalExpectedOne()
+                                : Localizer.Diagnostic.argPositionalExpectedCount().format({
+                                      expected: positionParamLimitIndex,
+                                  }),
+                            argList[argIndex].valueExpression ?? errorNode
+                        );
+                    }
                     reportedArgError = true;
                 }
 
@@ -9833,12 +9837,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // It's not allowed to use unpacked arguments with a variadic *args
                 // parameter unless the argument is a variadic arg as well.
                 if (isParamVariadic && !isArgCompatibleWithVariadic) {
-                    addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.unpackedArgWithVariadicParam(),
-                        argList[argIndex].valueExpression || errorNode
-                    );
+                    if (!isDiagnosticSuppressedForNode(errorNode)) {
+                        addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.unpackedArgWithVariadicParam(),
+                            argList[argIndex].valueExpression || errorNode
+                        );
+                    }
                     reportedArgError = true;
                 } else {
                     if (paramSpecArgList) {
@@ -9851,7 +9857,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             paramType,
                             requiresTypeVarMatching: requiresSpecialization(paramType),
                             argument: funcArg,
-                            errorNode: argList[argIndex].valueExpression || errorNode,
+                            errorNode: argList[argIndex].valueExpression ?? errorNode,
                             paramName,
                             isParamNameSynthesized: paramDetails.params[paramIndex].param.isNameSynthesized,
                             mapsToVarArgList: isParamVariadic && remainingArgCount > remainingParamCount,
@@ -9908,17 +9914,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (remainingArgCount <= remainingParamCount) {
                         if (remainingArgCount < remainingParamCount) {
-                            // Have we run out of arguments and still have parameters left to fill?
-                            addDiagnostic(
-                                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                remainingArgCount === 1
-                                    ? Localizer.Diagnostic.argMorePositionalExpectedOne()
-                                    : Localizer.Diagnostic.argMorePositionalExpectedCount().format({
-                                          expected: remainingArgCount,
-                                      }),
-                                argList[argIndex].valueExpression || errorNode
-                            );
+                            if (!isDiagnosticSuppressedForNode(errorNode)) {
+                                // Have we run out of arguments and still have parameters left to fill?
+                                addDiagnostic(
+                                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    remainingArgCount === 1
+                                        ? Localizer.Diagnostic.argMorePositionalExpectedOne()
+                                        : Localizer.Diagnostic.argMorePositionalExpectedCount().format({
+                                              expected: remainingArgCount,
+                                          }),
+                                    argList[argIndex].valueExpression || errorNode
+                                );
+                            }
                             reportedArgError = true;
                         }
 
@@ -10008,18 +10016,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (argsRemainingCount > 0) {
-                addDiagnostic(
-                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    argsRemainingCount === 1
-                        ? Localizer.Diagnostic.argMorePositionalExpectedOne()
-                        : Localizer.Diagnostic.argMorePositionalExpectedCount().format({
-                              expected: argsRemainingCount,
-                          }),
-                    argList.length > positionalArgCount
-                        ? argList[positionalArgCount].valueExpression || errorNode
-                        : errorNode
-                );
+                if (!isDiagnosticSuppressedForNode(errorNode)) {
+                    addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        argsRemainingCount === 1
+                            ? Localizer.Diagnostic.argMorePositionalExpectedOne()
+                            : Localizer.Diagnostic.argMorePositionalExpectedCount().format({
+                                  expected: argsRemainingCount,
+                              }),
+                        argList.length > positionalArgCount
+                            ? argList[positionalArgCount].valueExpression || errorNode
+                            : errorNode
+                    );
+                }
                 reportedArgError = true;
             }
         }
@@ -10098,12 +10108,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         });
 
                         if (!diag.isEmpty()) {
-                            addDiagnostic(
-                                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.unpackedTypedDictArgument() + diag.getString(),
-                                argList[argIndex].valueExpression || errorNode
-                            );
+                            if (!isDiagnosticSuppressedForNode(errorNode)) {
+                                addDiagnostic(
+                                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    Localizer.Diagnostic.unpackedTypedDictArgument() + diag.getString(),
+                                    argList[argIndex].valueExpression || errorNode
+                                );
+                            }
                             reportedArgError = true;
                         }
                     } else if (isParamSpec(argType) && argType.paramSpecAccess === 'kwargs') {
@@ -10159,12 +10171,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
 
                             if (!isValidMappingType) {
-                                addDiagnostic(
-                                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    Localizer.Diagnostic.unpackedDictArgumentNotMapping(),
-                                    argList[argIndex].valueExpression || errorNode
-                                );
+                                if (!isDiagnosticSuppressedForNode(errorNode)) {
+                                    addDiagnostic(
+                                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet
+                                            .reportGeneralTypeIssues,
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        Localizer.Diagnostic.unpackedDictArgumentNotMapping(),
+                                        argList[argIndex].valueExpression || errorNode
+                                    );
+                                }
                                 reportedArgError = true;
                             }
                         }
@@ -10204,7 +10219,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     paramType,
                                     requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argument: argList[argIndex],
-                                    errorNode: argList[argIndex].valueExpression || errorNode,
+                                    errorNode: argList[argIndex].valueExpression ?? errorNode,
                                     paramName: paramNameValue,
                                 });
                                 trySetActive(argList[argIndex], paramDetails.params[paramInfoIndex].param);
@@ -10219,7 +10234,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     paramType,
                                     requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argument: argList[argIndex],
-                                    errorNode: argList[argIndex].valueExpression || errorNode,
+                                    errorNode: argList[argIndex].valueExpression ?? errorNode,
                                     paramName: paramNameValue,
                                 });
 
@@ -10245,17 +10260,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             reportedArgError = true;
                         }
                     } else if (argList[argIndex].argumentCategory === ArgumentCategory.Simple) {
-                        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            positionParamLimitIndex === 1
-                                ? Localizer.Diagnostic.argPositionalExpectedOne()
-                                : Localizer.Diagnostic.argPositionalExpectedCount().format({
-                                      expected: positionParamLimitIndex,
-                                  }),
-                            argList[argIndex].valueExpression || errorNode
-                        );
+                        if (!isDiagnosticSuppressedForNode(errorNode)) {
+                            const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+                            addDiagnostic(
+                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                positionParamLimitIndex === 1
+                                    ? Localizer.Diagnostic.argPositionalExpectedOne()
+                                    : Localizer.Diagnostic.argPositionalExpectedCount().format({
+                                          expected: positionParamLimitIndex,
+                                      }),
+                                argList[argIndex].valueExpression || errorNode
+                            );
+                        }
                         reportedArgError = true;
                     } else if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
                         // Handle the case where a *args: P.args is passed as an argument to
@@ -10274,7 +10291,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     paramType: typeResult.type.details.paramSpec,
                                     requiresTypeVarMatching: false,
                                     argument: argList[argIndex],
-                                    errorNode: argList[argIndex].valueExpression || errorNode,
+                                    errorNode: argList[argIndex].valueExpression ?? errorNode,
                                 });
                             }
                         }
@@ -10332,15 +10349,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
 
                 if (unassignedParams.length > 0) {
-                    const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
-                    addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        unassignedParams.length === 1
-                            ? Localizer.Diagnostic.argMissingForParam().format({ name: missingParamNames })
-                            : Localizer.Diagnostic.argMissingForParams().format({ names: missingParamNames }),
-                        errorNode
-                    );
+                    if (!isDiagnosticSuppressedForNode(errorNode)) {
+                        const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
+                        addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            unassignedParams.length === 1
+                                ? Localizer.Diagnostic.argMissingForParam().format({ name: missingParamNames })
+                                : Localizer.Diagnostic.argMissingForParams().format({ names: missingParamNames }),
+                            errorNode
+                        );
+                    }
                     reportedArgError = true;
                 }
 
@@ -10369,7 +10388,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         argumentCategory: ArgumentCategory.Simple,
                                         typeResult: { type: defaultArgType },
                                     },
-                                    errorNode: errorNode,
+                                    errorNode,
                                     paramName: param.name,
                                     isParamNameSynthesized: param.isNameSynthesized,
                                 });
@@ -10414,12 +10433,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 argParam.argument.argumentCategory !== ArgumentCategory.UnpackedList &&
                                 !argParam.mapsToVarArgList
                             ) {
-                                addDiagnostic(
-                                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    Localizer.Diagnostic.typeVarTupleMustBeUnpacked(),
-                                    argParam.argument.valueExpression ?? errorNode
-                                );
+                                if (!isDiagnosticSuppressedForNode(errorNode)) {
+                                    addDiagnostic(
+                                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet
+                                            .reportGeneralTypeIssues,
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        Localizer.Diagnostic.typeVarTupleMustBeUnpacked(),
+                                        argParam.argument.valueExpression ?? errorNode
+                                    );
+                                }
                                 reportedArgError = true;
                             }
 
@@ -24904,8 +24926,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // When a value is assigned to a variable with a declared type,
     // we may be able to narrow the type based on the assignment.
     function narrowTypeBasedOnAssignment(declaredType: Type, assignedType: Type): Type {
-        const diag = new DiagnosticAddendum();
-
         const narrowedType = mapSubtypes(assignedType, (assignedSubtype) => {
             const narrowedSubtype = mapSubtypes(declaredType, (declaredSubtype) => {
                 // We can't narrow "Any".
@@ -24913,7 +24933,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return declaredType;
                 }
 
-                if (assignType(declaredSubtype, assignedSubtype, diag)) {
+                if (assignType(declaredSubtype, assignedSubtype)) {
                     // If the source is generic and has unspecified type arguments,
                     // see if we can determine then based on the declared type.
                     if (isInstantiableClass(declaredSubtype) && isInstantiableClass(assignedSubtype)) {
@@ -25672,7 +25692,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Fill out the typeVarContext for the "self" or "cls" parameter.
             typeVarContext.addSolveForScope(getTypeVarScopeId(memberType));
-            const diag = new DiagnosticAddendum();
+            const diag = errorNode ? new DiagnosticAddendum() : undefined;
 
             if (
                 isTypeVar(memberTypeFirstParamType) &&
@@ -25717,7 +25737,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 type: printType(baseType),
                                 methodName: methodName,
                                 paramName: memberTypeFirstParam.name,
-                            }) + diag.getString(),
+                            }) + diag?.getString(),
                             errorNode
                         );
                     } else {
