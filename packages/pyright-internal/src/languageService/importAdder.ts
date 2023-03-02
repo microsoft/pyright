@@ -16,6 +16,7 @@ import {
     isClassDeclaration,
     isFunctionDeclaration,
     isParameterDeclaration,
+    isUnresolvedAliasDeclaration,
     isVariableDeclaration,
     ModuleLoaderActions,
 } from '../analyzer/declaration';
@@ -145,7 +146,7 @@ export class ImportAdder {
         const execEnv = this._configOptions.findExecEnvironment(filePath);
         for (const decl of result.declarations.keys() ?? []) {
             const importInfo = this._getImportInfo(decl, filePath);
-            if (!importInfo) {
+            if (!importInfo || isUnresolvedAliasDeclaration(decl)) {
                 continue;
             }
 
@@ -378,6 +379,10 @@ class NameCollector extends ParseTreeWalker {
     }
 
     override visitName(name: NameNode) {
+        if (!TextRange.containsRange(this._range, name)) {
+            return false;
+        }
+
         throwIfCancellationRequested(this._token);
 
         // We process dotted name as a whole rather than

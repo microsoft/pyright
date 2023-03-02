@@ -159,7 +159,7 @@ function _getIndentation(
     preferDedent: boolean
 ): { token?: Token; indentation: number } {
     const tokens = parseResults.tokenizerOutput.tokens;
-    const startingToken = findPreviousNonWhitespaceToken(tokens, offset);
+    const startingToken = findNonWhitespaceTokenAtOrBeforeOffset(tokens, offset);
     if (!startingToken) {
         return {
             indentation: 0,
@@ -468,7 +468,7 @@ function _getIndentationForNextLine(parseResults: ParseResults, prevToken: Token
             // Found a non whitespace token before we returned.
             whitespaceOnly = false;
         }
-        token = findPreviousNonWhitespaceToken(parseResults.tokenizerOutput.tokens, token.start - 1);
+        token = findNonWhitespaceTokenAtOrBeforeOffset(parseResults.tokenizerOutput.tokens, token.start - 1);
     }
 
     // No parenthesis found
@@ -495,7 +495,7 @@ function _getFirstNonBlankLineIndentationFromText(parseResults: ParseResults, cu
 }
 
 function _findStringToken(tokens: TextRangeCollection<Token>, index: number): Token | undefined {
-    const token = _findPreviousNonWhitespaceTokenFromIndex(tokens, index);
+    const token = _findNonWhitespaceTokenAtOrBeforeIndex(tokens, index);
     if (!token) {
         return undefined;
     }
@@ -503,19 +503,19 @@ function _findStringToken(tokens: TextRangeCollection<Token>, index: number): To
     return token.type === TokenType.String ? token : undefined;
 }
 
-export function findPreviousNonWhitespaceToken(tokens: TextRangeCollection<Token>, offset: number): Token | undefined {
+export function findNonWhitespaceTokenAtOrBeforeOffset(
+    tokens: TextRangeCollection<Token>,
+    offset: number
+): Token | undefined {
     const index = tokens.getItemAtPosition(offset);
     if (index < 0) {
         return undefined;
     }
 
-    return _findPreviousNonWhitespaceTokenFromIndex(tokens, index);
+    return _findNonWhitespaceTokenAtOrBeforeIndex(tokens, index);
 }
 
-function _findPreviousNonWhitespaceTokenFromIndex(
-    tokens: TextRangeCollection<Token>,
-    index: number
-): Token | undefined {
+function _findNonWhitespaceTokenAtOrBeforeIndex(tokens: TextRangeCollection<Token>, index: number): Token | undefined {
     for (let i = index; i >= 0; i--) {
         const token = _getTokenAtIndex(tokens, i);
         if (!token) {
@@ -710,7 +710,7 @@ function _convertTokenStreams(parseResults: ParseResults, span: TextRange) {
 
     let endIndex = Math.min(tokens.getItemAtPosition(TextRange.getEnd(span)), tokens.length - 1);
     const endToken = _getTokenAtIndex(tokens, endIndex)!;
-    if (TextRange.getEnd(span) < endToken.start) {
+    if (TextRange.getEnd(span) <= endToken.start) {
         // ex) |< = span end [endToken]
         endIndex--;
     }
@@ -761,6 +761,12 @@ function _convertTokenStreams(parseResults: ParseResults, span: TextRange) {
     // Handle text in whitespace that is not part of token stream.
     let previousInfo = tokenInfoArray[0];
     const additionalTokens: TokenInfo[] = [];
+    if (previousInfo.kind === 'comment') {
+        // ex) token [#] comment
+        const start = startIndex === 0 ? 0 : TextRange.getEnd(_getTokenAtIndex(tokens, startIndex - 1)!);
+        _addTokenInfoIfMatch(parseResults, start, previousInfo.start, Char.Hash, additionalTokens);
+    }
+
     for (let i = 1; i < tokenInfoArray.length; i++) {
         const info = tokenInfoArray[i];
 
@@ -807,9 +813,13 @@ function _convertTokenStreams(parseResults: ParseResults, span: TextRange) {
         // It is the first token in the file.
         previousInfo.firstTokenOnLine = true;
     } else {
-        const previousToken = _findPreviousNonWhitespaceTokenFromIndex(tokens, startIndex - 1)!;
-        const previousEnd = convertOffsetToPosition(TextRange.getEnd(previousToken), lines);
-        previousInfo.firstTokenOnLine = previousEnd.line !== previousInfo.range.start.line;
+        const previousNonWhitespaceToken = _findNonWhitespaceTokenAtOrBeforeIndex(tokens, startIndex - 1);
+        if (previousNonWhitespaceToken) {
+            const previousEnd = convertOffsetToPosition(TextRange.getEnd(previousNonWhitespaceToken), lines);
+            previousInfo.firstTokenOnLine = previousEnd.line !== previousInfo.range.start.line;
+        } else {
+            previousInfo.firstTokenOnLine = true;
+        }
     }
 
     previousInfo.multilineDocComment = _isMultilineDocComment(parseResults, previousInfo);

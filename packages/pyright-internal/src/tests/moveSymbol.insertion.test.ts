@@ -449,6 +449,120 @@ test('move variable with doc string', () => {
     testFromCode(code);
 });
 
+test('move a variable with another variable next line', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":"!n!guess_word = 'c'"|}import random
+//// 
+//// [|/*marker*/answer_word|] = random.choice(['a','b','c','d'])
+//// guess_word = 'c'|]
+
+// @filename: moved.py
+//// [|{|"r":"import random!n!!n!!n!answer_word = random.choice(['a','b','c','d'])", "name": "dest"|}|]
+    `;
+
+    testFromCode(code);
+});
+
+test('Handle comments at the begining better 1', () => {
+    const code = `
+// @filename: test.py
+//// # this function doesn't do much
+//// [|{|"r":""|}def [|/*marker*/myfunc|](a, b):
+////     return a + b|]
+
+// @filename: moved.py
+//// [|{|"r":"def myfunc(a, b):!n!    return a + b", "name": "dest"|}|]
+    `;
+
+    testFromCode(code);
+});
+
+test('Handle comments at the begining better 2', () => {
+    const code = `
+// @filename: test.py
+//// import os
+////
+//// [|{|"r":""|}# this function doesn't do much
+//// def [|/*marker*/myfunc|](a, b):
+////     return a + b|]
+
+// @filename: moved.py
+//// [|{|"r":"# this function doesn't do much!n!def myfunc(a, b):!n!    return a + b", "name": "dest"|}|]
+    `;
+
+    testFromCode(code);
+});
+
+test('variable with multiline expression', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":"!n!"|}from functools import partial
+//// 
+//// [|/*marker*/sum1_2|] = partial(sum, 
+//// [1, 
+//// 2]
+//// )|]
+
+// @filename: moved.py
+//// [|{|"r":"from functools import partial!n!!n!!n!sum1_2 = partial(sum,!n![1,!n!2]!n!)", "name": "dest"|}|]
+    `;
+
+    testFromCode(code);
+});
+
+test('multiple variables in a single line 1', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":""|}[|/*marker*/a|] = 1; |]b = 1
+
+// @filename: moved.py
+//// [|{|"r":"a = 1;", "name": "dest"|}|]
+    `;
+
+    testFromCode(code);
+});
+
+test('multiple variables in a single line 2', () => {
+    const code = `
+// @filename: test.py
+//// a = 1;[|{|"r":""|}[|/*marker*/b|] = 2|]
+
+// @filename: moved.py
+//// [|{|"r":"b = 2", "name": "dest"|}|]
+    `;
+
+    testFromCode(code);
+});
+
+test('multiple variables in multiple lines 1', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":""|}[|/*marker*/a|] = \\
+////     1 + 2; |]b = 3 + \\
+////                4 
+
+// @filename: moved.py
+//// [|{|"r":"a = \\\\!n!    1 + 2;", "name": "dest"|}|]
+    `;
+
+    testFromCode(code);
+});
+
+test('multiple variables in multiple lines 2', () => {
+    const code = `
+// @filename: test.py
+//// a = \\
+////     1 + 2; [|{|"r":""|}[|/*marker*/b|] = 3 + \\
+////                4|]
+
+// @filename: moved.py
+//// [|{|"r":"b = 3 + \\\\!n!    4", "name": "dest"|}|]
+    `;
+
+    testFromCode(code);
+});
+
 function testFromCode(code: string) {
     const state = parseAndGetTestState(code).state;
 

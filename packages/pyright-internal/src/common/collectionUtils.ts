@@ -386,3 +386,11 @@ export function addIfNotNull<T>(arr: T[], t: T): T[] {
     arr.push(t);
     return arr;
 }
+
+export function arrayEquals<T>(c1: T[], c2: T[], predicate: (e1: T, e2: T) => boolean) {
+    if (c1.length !== c2.length) {
+        return false;
+    }
+
+    return c1.every((v, i) => predicate(v, c2[i]));
+}
