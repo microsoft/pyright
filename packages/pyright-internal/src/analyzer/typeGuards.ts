@@ -191,8 +191,8 @@ export function getTypeNarrowingCallback(
                 }
             }
 
-            // Look for "type(X) is Y" or "type(X) is not Y".
-            if (isOrIsNotOperator && testExpression.leftExpression.nodeType === ParseNodeType.Call) {
+            // Look for "type(X) is Y", "type(X) is not Y", "type(X) == Y" or "type(X) != Y".
+            if (testExpression.leftExpression.nodeType === ParseNodeType.Call) {
                 if (
                     testExpression.leftExpression.arguments.length === 1 &&
                     testExpression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple
