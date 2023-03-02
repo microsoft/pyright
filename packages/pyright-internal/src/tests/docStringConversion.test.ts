@@ -746,6 +746,31 @@ test('EscapeHtmlTagsOutsideCodeBlocks', () => {
     _testConvertToMarkdown(docstring, markdown);
 });
 
+test('IndentedCodeBlock', () => {
+    const docstring = `
+Expected:
+    ${tripleTick}python
+    def some_fn():
+        """
+        Backticks on a different indentation level don't close the code block.
+        ${tripleTick}
+        """
+    ${tripleTick}
+`;
+
+    const markdown = `
+Expected:
+${tripleTick}python
+    def some_fn():
+        """
+        Backticks on a different indentation level don't close the code block.
+        ${tripleTick}
+        """
+${tripleTick}
+`;
+    _testConvertToMarkdown(docstring, markdown);
+});
+
 test('RestTableWithHeader', () => {
     const docstring = `
 =============== =========================================================
