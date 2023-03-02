@@ -1,6 +1,7 @@
 # This sample tests the handling of the Python 3.9
 # TypeAlias feature as documented in PEP 613.
 
+import sys
 from typing import Type, TypeAlias as TA, Union, cast
 
 type1: TA = Union[int, str]
@@ -29,6 +30,8 @@ requires_string(type2)
 # is later declared as a TypeAlias.
 my_type3 = int
 
+# This should generate an error because it is obscured
+# by another type alias declaration.
 my_type3: "TA" = Union[int, str]
 
 # This should generate an error because the symbol
@@ -53,9 +56,10 @@ SimpleAlias = int
 ExplicitAlias: TA = int
 SimpleNonAlias: Type[int] = int
 
-reveal_type(SimpleAlias, expected_text="Type[int]")
-reveal_type(ExplicitAlias, expected_text="Type[int]")
-reveal_type(SimpleNonAlias, expected_text="Type[int]")
+if sys.version_info > (3, 9):
+    reveal_type(SimpleAlias, expected_text="Type[int]")
+    reveal_type(ExplicitAlias, expected_text="Type[int]")
+    reveal_type(SimpleNonAlias, expected_text="Type[int]")
 
 
 class ClassB:

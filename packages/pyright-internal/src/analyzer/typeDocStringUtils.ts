@@ -132,7 +132,7 @@ export function getOverloadedFunctionDocStringsInherited(
 
         for (const classMember of memberIterator) {
             const inheritedDecl = classMember.symbol.getDeclarations().slice(-1)[0];
-            const declType = evaluator.getTypeForDeclaration(inheritedDecl);
+            const declType = evaluator.getTypeForDeclaration(inheritedDecl)?.type;
             if (declType) {
                 docStrings = _getOverloadedFunctionDocStrings(declType, inheritedDecl, sourceMapper);
                 if (docStrings && docStrings.length > 0) {
@@ -315,7 +315,7 @@ function _getPropertyDocStringInherited(
         return;
     }
 
-    const declaredType = evaluator.getTypeForDeclaration(decl);
+    const declaredType = evaluator.getTypeForDeclaration(decl)?.type;
     if (!declaredType || !isMaybeDescriptorInstance(declaredType)) {
         return;
     }
@@ -338,7 +338,7 @@ function _getPropertyDocStringInherited(
         if (decls) {
             for (const decl of decls) {
                 if (isFunctionDeclaration(decl)) {
-                    const declaredType = evaluator.getTypeForDeclaration(decl);
+                    const declaredType = evaluator.getTypeForDeclaration(decl)?.type;
                     if (declaredType && isMaybeDescriptorInstance(declaredType)) {
                         const docString = _getFunctionDocStringFromDeclaration(decl, sourceMapper);
                         if (docString) {

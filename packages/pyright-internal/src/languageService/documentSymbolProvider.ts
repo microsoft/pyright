@@ -179,7 +179,7 @@ function getSymbolKind(name: string, declaration: Declaration, evaluator?: TypeE
 
         case DeclarationType.Function:
             if (declaration.isMethod) {
-                const declType = evaluator?.getTypeForDeclaration(declaration);
+                const declType = evaluator?.getTypeForDeclaration(declaration)?.type;
                 if (declType && isMaybeDescriptorInstance(declType, /* requireSetter */ false)) {
                     symbolKind = SymbolKind.Property;
                 } else {

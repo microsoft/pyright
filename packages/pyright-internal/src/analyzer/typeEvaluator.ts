@@ -158,6 +158,7 @@ import {
     CallSignature,
     CallSignatureInfo,
     ClassTypeResult,
+    DeclaredSymbolTypeInfo,
     EffectiveTypeResult,
     EvaluatorFlags,
     EvaluatorUsage,
@@ -2296,7 +2297,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // where the type isn't declared in this class but is in
                     // a parent class.
                     if (
-                        getDeclaredTypeOfSymbol(symbol, expression) === undefined &&
+                        !getDeclaredTypeOfSymbol(symbol, expression)?.type &&
                         symbolWithScope.scope.type === ScopeType.Class
                     ) {
                         const enclosingClass = ParseTreeUtils.getEnclosingClassOrFunction(expression);
@@ -2403,7 +2404,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (symbol) {
-            let declaredType = getDeclaredTypeOfSymbol(symbol);
+            let declaredType = getDeclaredTypeOfSymbol(symbol)?.type;
             if (declaredType) {
                 // If it's a descriptor, we need to get the setter type.
                 if (isClassInstance(declaredType)) {
@@ -3073,7 +3074,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const declarations = symbolWithScope.symbol.getDeclarations();
-        let declaredType = getDeclaredTypeOfSymbol(symbolWithScope.symbol);
+        let declaredType = getDeclaredTypeOfSymbol(symbolWithScope.symbol)?.type;
         const fileInfo = AnalyzerNodeInfo.getFileInfo(nameNode);
 
         // If this is a class scope and there is no type declared for this class variable,
@@ -3097,7 +3098,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // We found an existing declared type. Make sure the type is assignable.
         let destType = type;
-        if (declaredType) {
+        const isTypeAlias =
+            !!declaredType && isClassInstance(declaredType) && ClassType.isBuiltIn(declaredType, 'TypeAlias');
+
+        if (declaredType && !isTypeAlias) {
             let diagAddendum = new DiagnosticAddendum();
 
             if (!assignType(declaredType, type, diagAddendum)) {
@@ -3349,7 +3353,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 } else {
                     // Is the target a property?
-                    const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
+                    const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol)?.type;
                     if (declaredType && !isProperty(declaredType)) {
                         // Handle the case where there is a class variable defined with the same
                         // name, but there's also now an instance variable introduced. Combine the
@@ -5427,7 +5431,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isInstantiableClass(containingClassType) &&
                         ClassType.isSameGenericClass(containingClassType, classType)
                     ) {
-                        type = getDeclaredTypeOfSymbol(memberInfo.symbol) ?? UnknownType.create();
+                        type = getDeclaredTypeOfSymbol(memberInfo.symbol)?.type ?? UnknownType.create();
                         if (type && isInstantiableClass(memberInfo.classType)) {
                             type = partiallySpecializeType(type, memberInfo.classType);
                         }
@@ -16650,7 +16654,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const paramSymbol = AnalyzerNodeInfo.getTypeParameterSymbol(param.name);
             assert(paramSymbol);
 
-            const typeOfParam = getDeclaredTypeOfSymbol(paramSymbol, param.name);
+            const typeOfParam = getDeclaredTypeOfSymbol(paramSymbol, param.name)?.type;
             if (!typeOfParam || !isTypeVar(typeOfParam)) {
                 return;
             }
@@ -20390,80 +20394,84 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return declarations;
     }
 
-    function getTypeForDeclaration(declaration: Declaration): Type | undefined {
+    function getTypeForDeclaration(declaration: Declaration): DeclaredSymbolTypeInfo {
         switch (declaration.type) {
             case DeclarationType.Intrinsic: {
                 if (declaration.intrinsicType === 'Any') {
-                    return AnyType.create();
+                    return { type: AnyType.create() };
                 }
 
                 if (declaration.intrinsicType === 'class') {
                     const classNode = ParseTreeUtils.getEnclosingClass(declaration.node) as ClassNode;
                     const classTypeInfo = getTypeOfClass(classNode);
-                    return classTypeInfo?.classType;
+                    return { type: classTypeInfo?.classType };
                 }
 
                 const strType = getBuiltInObject(declaration.node, 'str');
                 const intType = getBuiltInObject(declaration.node, 'int');
                 if (isClassInstance(intType) && isClassInstance(strType)) {
                     if (declaration.intrinsicType === 'str') {
-                        return strType;
+                        return { type: strType };
                     }
 
                     if (declaration.intrinsicType === 'str | None') {
-                        return combineTypes([strType, NoneType.createInstance()]);
+                        return { type: combineTypes([strType, NoneType.createInstance()]) };
                     }
 
                     if (declaration.intrinsicType === 'int') {
-                        return intType;
+                        return { type: intType };
                     }
 
                     if (declaration.intrinsicType === 'Iterable[str]') {
                         const iterableType = getBuiltInType(declaration.node, 'Iterable');
                         if (isInstantiableClass(iterableType)) {
-                            return ClassType.cloneAsInstance(
-                                ClassType.cloneForSpecialization(
-                                    iterableType,
-                                    [strType],
-                                    /* isTypeArgumentExplicit */ true
-                                )
-                            );
+                            return {
+                                type: ClassType.cloneAsInstance(
+                                    ClassType.cloneForSpecialization(
+                                        iterableType,
+                                        [strType],
+                                        /* isTypeArgumentExplicit */ true
+                                    )
+                                ),
+                            };
                         }
                     }
 
                     if (declaration.intrinsicType === 'Dict[str, Any]') {
                         const dictType = getBuiltInType(declaration.node, 'dict');
                         if (isInstantiableClass(dictType)) {
-                            return ClassType.cloneAsInstance(
-                                ClassType.cloneForSpecialization(
-                                    dictType,
-                                    [strType, AnyType.create()],
-                                    /* isTypeArgumentExplicit */ true
-                                )
-                            );
+                            return {
+                                type: ClassType.cloneAsInstance(
+                                    ClassType.cloneForSpecialization(
+                                        dictType,
+                                        [strType, AnyType.create()],
+                                        /* isTypeArgumentExplicit */ true
+                                    )
+                                ),
+                            };
                         }
                     }
                 }
 
-                return UnknownType.create();
+                return { type: UnknownType.create() };
             }
 
             case DeclarationType.Class: {
                 const classTypeInfo = getTypeOfClass(declaration.node);
-                return classTypeInfo?.decoratedType;
+                return { type: classTypeInfo?.decoratedType };
             }
 
             case DeclarationType.SpecialBuiltInClass: {
-                return getTypeOfAnnotation(declaration.node.typeAnnotation);
+                return { type: getTypeOfAnnotation(declaration.node.typeAnnotation) };
             }
 
             case DeclarationType.Function: {
                 const functionTypeInfo = getTypeOfFunction(declaration.node);
-                return functionTypeInfo?.decoratedType;
+                return { type: functionTypeInfo?.decoratedType };
             }
 
             case DeclarationType.TypeAlias: {
-                return getTypeOfTypeAlias(declaration.node);
+                return { type: getTypeOfTypeAlias(declaration.node) };
             }
 
             case DeclarationType.Parameter: {
@@ -20488,28 +20496,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (typeAnnotationNode) {
                     const declaredType = getTypeOfParameterAnnotation(typeAnnotationNode, declaration.node.category);
 
-                    return transformVariadicParamType(
-                        declaration.node,
-                        declaration.node.category,
-                        adjustParameterAnnotatedType(declaration.node, declaredType)
-                    );
+                    return {
+                        type: transformVariadicParamType(
+                            declaration.node,
+                            declaration.node.category,
+                            adjustParameterAnnotatedType(declaration.node, declaredType)
+                        ),
+                    };
                 }
 
-                return undefined;
+                return { type: undefined };
             }
 
             case DeclarationType.TypeParameter: {
-                return getTypeOfTypeParameter(declaration.node);
+                return { type: getTypeOfTypeParameter(declaration.node) };
             }
 
             case DeclarationType.Variable: {
                 const typeAnnotationNode = declaration.typeAnnotationNode;
 
                 if (typeAnnotationNode) {
-                    const typeAliasNode = isDeclaredTypeAlias(typeAnnotationNode)
-                        ? ParseTreeUtils.getTypeAnnotationNode(typeAnnotationNode)
-                        : undefined;
-                    let declaredType: Type;
+                    let declaredType: Type | undefined;
 
                     if (declaration.isRuntimeTypeExpression) {
                         declaredType = convertToInstance(
@@ -20538,27 +20545,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 transformTypeForPossibleEnumClass(
                                     evaluatorInterface,
                                     declaration.node,
-                                    () => declaredType
-                                ) || declaredType;
+                                    () => declaredType!
+                                ) ?? declaredType;
                         }
 
-                        if (typeAliasNode && typeAliasNode.valueExpression.nodeType === ParseNodeType.Name) {
-                            declaredType = transformTypeForTypeAlias(
-                                declaredType,
-                                typeAliasNode.valueExpression,
-                                declaration.node
-                            );
+                        if (isClassInstance(declaredType) && ClassType.isBuiltIn(declaredType, 'TypeAlias')) {
+                            return { type: undefined, isTypeAlias: true };
                         }
 
-                        return declaredType;
+                        return { type: declaredType };
                     }
                 }
 
-                return undefined;
+                return { type: undefined };
             }
 
             case DeclarationType.Alias: {
-                return undefined;
+                return { type: undefined };
             }
         }
     }
@@ -20772,8 +20775,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const declaredType = getTypeForDeclaration(resolvedDecl);
-        if (declaredType) {
-            return declaredType;
+        if (declaredType.type) {
+            return declaredType.type;
         }
 
         // If this is part of a "py.typed" package, don't fall back on type inference
@@ -20986,29 +20989,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         usageNode?: NameNode,
         useLastDecl = false
     ): EffectiveTypeResult {
-        // If there's a declared type, it takes precedence over inferred types.
-        if (symbol.hasTypedDeclarations()) {
-            const declaredType = getDeclaredTypeOfSymbol(symbol, usageNode);
-            const typedDecls = symbol.getTypedDeclarations();
-            let isIncomplete = false;
-
-            if (declaredType) {
-                if (isFunction(declaredType) && FunctionType.isPartiallyEvaluated(declaredType)) {
-                    isIncomplete = true;
-                } else if (isClass(declaredType) && ClassType.isPartiallyEvaluated(declaredType)) {
-                    isIncomplete = true;
-                }
-            }
-
-            return {
-                type: declaredType ?? UnknownType.create(),
-                isIncomplete,
-                includesVariableDecl: typedDecls.some((decl) => decl.type === DeclarationType.Variable),
-                includesIllegalTypeAliasDecl: !typedDecls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
-                isRecursiveDefinition: !declaredType,
-            };
-        }
-
         // Look in the cache to see if we've computed this already.
         let cacheEntries = effectiveTypeCache.get(symbol.id);
         const usageNodeId = usageNode ? usageNode.id : undefined;
@@ -21025,6 +21005,41 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        let declaredTypeInfo: DeclaredSymbolTypeInfo | undefined;
+
+        // If there's a declared type, it takes precedence over inferred types.
+        if (symbol.hasTypedDeclarations()) {
+            declaredTypeInfo = getDeclaredTypeOfSymbol(symbol, usageNode);
+
+            const declaredType = declaredTypeInfo?.type;
+            const hasMetadata =
+                !!declaredTypeInfo.isClassVar || !!declaredTypeInfo.isFinal || !!declaredTypeInfo.isTypeAlias;
+
+            if (declaredType || !hasMetadata) {
+                let isIncomplete = false;
+
+                if (declaredType) {
+                    if (isFunction(declaredType) && FunctionType.isPartiallyEvaluated(declaredType)) {
+                        isIncomplete = true;
+                    } else if (isClass(declaredType) && ClassType.isPartiallyEvaluated(declaredType)) {
+                        isIncomplete = true;
+                    }
+                }
+
+                const typedDecls = symbol.getTypedDeclarations();
+                const result: EffectiveTypeResult = {
+                    type: declaredType ?? UnknownType.create(),
+                    isIncomplete,
+                    includesVariableDecl: typedDecls.some((decl) => decl.type === DeclarationType.Variable),
+                    includesIllegalTypeAliasDecl: !typedDecls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
+                    isRecursiveDefinition: !declaredType,
+                };
+
+                addToEffectiveTypeCache(result);
+                return result;
+            }
+        }
+
         // Infer the type.
         const typesToCombine: Type[] = [];
         const decls = symbol.getDeclarations();
@@ -21037,13 +21052,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Limit the number of declarations to explore.
         if (decls.length > maxDeclarationsToUseForInference) {
-            return {
+            const result: EffectiveTypeResult = {
                 type: UnknownType.create(),
                 isIncomplete: false,
                 includesVariableDecl: false,
                 includesIllegalTypeAliasDecl: !decls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
                 isRecursiveDefinition: false,
             };
+
+            addToEffectiveTypeCache(result);
+            return result;
         }
 
         // If the caller has requested that we use only the last decl, we
@@ -21117,17 +21135,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     resolvedDecl.inferredTypeSource?.parent?.nodeType === ParseNodeType.Assignment
                 ) {
                     evaluateTypesForAssignmentStatement(resolvedDecl.inferredTypeSource.parent);
-
-                    if (isExplicitTypeAliasDeclaration(resolvedDecl)) {
-                        if (resolvedDecl.typeAliasAnnotation) {
-                            // Mark "TypeAlias" declaration as accessed.
-                            getTypeOfAnnotation(resolvedDecl.typeAliasAnnotation, {
-                                isVariableAnnotation: true,
-                                allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(resolvedDecl.node),
-                                allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(resolvedDecl.node),
-                            });
-                        }
-                    }
                 }
 
                 if (pushSymbolResolution(symbol, decl)) {
@@ -21219,13 +21226,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             };
 
             if (!includesSpeculativeResult) {
-                // Add the entry to the cache so we don't need to compute it next time.
-                if (!cacheEntries) {
-                    cacheEntries = new Map<string, EffectiveTypeResult>();
-                    effectiveTypeCache.set(symbol.id, cacheEntries);
-                }
-
-                cacheEntries.set(effectiveTypeCacheKey, result);
+                addToEffectiveTypeCache(result);
             }
 
             return result;
@@ -21238,19 +21239,35 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             includesIllegalTypeAliasDecl: !decls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
             isRecursiveDefinition: false,
         };
+
+        function addToEffectiveTypeCache(result: EffectiveTypeResult) {
+            // Add the entry to the cache so we don't need to compute it next time.
+            if (!cacheEntries) {
+                cacheEntries = new Map<string, EffectiveTypeResult>();
+                effectiveTypeCache.set(symbol.id, cacheEntries);
+            }
+
+            cacheEntries.set(effectiveTypeCacheKey, result);
+        }
     }
 
-    function getDeclaredTypeOfSymbol(symbol: Symbol, usageNode?: NameNode): Type | undefined {
+    // If a declaration has an explicit type (e.g. a variable with an annotation),
+    // this function evaluates the type and returns it. If the symbol has no
+    // explicit declared type, its type will need to be inferred instead. In some
+    // cases, non-type information (such as Final or ClassVar attributes) may be
+    // provided, but type inference is still required. In such cases, the attributes
+    // are returned as flags.
+    function getDeclaredTypeOfSymbol(symbol: Symbol, usageNode?: NameNode): DeclaredSymbolTypeInfo {
         const synthesizedType = symbol.getSynthesizedType();
         if (synthesizedType) {
-            return synthesizedType;
+            return { type: synthesizedType };
         }
 
         let typedDecls = symbol.getTypedDeclarations();
 
         if (typedDecls.length === 0) {
             // There was no declaration with a defined type.
-            return undefined;
+            return { type: undefined };
         }
 
         // If there is more than one typed decl, filter out any that are not
@@ -21274,7 +21291,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             if (filteredTypedDecls.length === 0) {
-                return UnboundType.create();
+                return { type: UnboundType.create() };
             }
 
             typedDecls = filteredTypedDecls;
@@ -21293,13 +21310,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // for recursive symbol resolution, return it as the resolved type.
             const partialType = getSymbolResolutionPartialType(symbol, decl);
             if (partialType) {
-                return partialType;
+                return { type: partialType };
             }
 
             if (getIndexOfSymbolResolution(symbol, decl) < 0) {
                 if (pushSymbolResolution(symbol, decl)) {
                     try {
-                        const type = getTypeForDeclaration(decl);
+                        const declaredTypeInfo = getTypeForDeclaration(decl);
 
                         // If there was recursion detected, don't use this declaration.
                         // The exception is it's a class declaration because getTypeOfClass
@@ -21308,7 +21325,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // circular dependency between the "type" and "object" classes in
                         // builtins.pyi (since "object" is a "type" and "type" is an "object").
                         if (popSymbolResolution(symbol) || decl.type === DeclarationType.Class) {
-                            return type;
+                            return declaredTypeInfo;
                         }
                     } catch (e: any) {
                         // Clean up the stack before rethrowing.
@@ -21321,7 +21338,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             declIndex--;
         }
 
-        return undefined;
+        return { type: undefined };
     }
 
     function inferReturnTypeIfNecessary(type: Type) {
@@ -21849,7 +21866,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const memberInfo = lookUpClassMember(srcType, name);
                 assert(memberInfo !== undefined);
 
-                let destMemberType = getDeclaredTypeOfSymbol(symbol);
+                let destMemberType = getDeclaredTypeOfSymbol(symbol)?.type;
                 if (destMemberType) {
                     const srcMemberType = getTypeOfMember(memberInfo!);
                     destMemberType = partiallySpecializeType(destMemberType, destType);
@@ -22211,7 +22228,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const fgetSymbol = propertyClass.details.fields.get('fget');
 
         if (fgetSymbol) {
-            const fgetType = getDeclaredTypeOfSymbol(fgetSymbol);
+            const fgetType = getDeclaredTypeOfSymbol(fgetSymbol)?.type;
             if (fgetType && isFunction(fgetType)) {
                 return getFunctionEffectiveReturnType(fgetType, /* args */ undefined, inferTypeIfNeeded);
             }
@@ -25812,7 +25829,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function isExplicitTypeAliasDeclaration(decl: Declaration): boolean {
-        return decl.type === DeclarationType.Variable && !!decl.typeAliasAnnotation;
+        if (decl.type !== DeclarationType.Variable || !decl.typeAnnotationNode) {
+            return false;
+        }
+
+        if (
+            decl.typeAnnotationNode.nodeType !== ParseNodeType.Name &&
+            decl.typeAnnotationNode.nodeType !== ParseNodeType.MemberAccess &&
+            decl.typeAnnotationNode.nodeType !== ParseNodeType.StringList
+        ) {
+            return false;
+        }
+
+        const type = getTypeOfAnnotation(decl.typeAnnotationNode, { isVariableAnnotation: true, allowClassVar: true });
+        return isClassInstance(type) && ClassType.isBuiltIn(type, 'TypeAlias');
     }
 
     function isPossibleTypeAliasDeclaration(decl: Declaration): boolean {

@@ -1148,6 +1148,7 @@ export class Checker extends ParseTreeWalker {
 
     override visitAssignment(node: AssignmentNode): boolean {
         this._evaluator.evaluateTypesForStatement(node);
+
         if (node.typeAnnotationComment) {
             this._evaluator.getType(node.typeAnnotationComment);
 
@@ -1161,6 +1162,27 @@ export class Checker extends ParseTreeWalker {
                     Localizer.Diagnostic.typeCommentDeprecated(),
                     node.typeAnnotationComment
                 );
+            }
+        }
+
+        // If this isn't a class or global scope, explicit type aliases are not allowed.
+        if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation) {
+            const annotationType = this._evaluator.getTypeOfAnnotation(node.leftExpression.typeAnnotation);
+
+            if (isClassInstance(annotationType) && ClassType.isBuiltIn(annotationType, 'TypeAlias')) {
+                const scope = getScopeForNode(node);
+                if (scope) {
+                    if (
+                        scope.type !== ScopeType.Class &&
+                        scope.type !== ScopeType.Module &&
+                        scope.type !== ScopeType.Builtin
+                    ) {
+                        this._evaluator.addError(
+                            Localizer.Diagnostic.typeAliasNotInModuleOrClass(),
+                            node.leftExpression.typeAnnotation
+                        );
+                    }
+                }
             }
         }
 
@@ -2987,7 +3009,7 @@ export class Checker extends ParseTreeWalker {
                     addPrimaryDeclInfo(diag);
                 }
             } else if (otherDecl.type === DeclarationType.Function) {
-                const primaryType = this._evaluator.getTypeForDeclaration(primaryDecl);
+                const primaryType = this._evaluator.getTypeForDeclaration(primaryDecl)?.type;
                 let duplicateIsOk = false;
 
                 // If the return type has not yet been inferred, do so now.
@@ -2995,7 +3017,7 @@ export class Checker extends ParseTreeWalker {
                     this._evaluator.getFunctionInferredReturnType(primaryType);
                 }
 
-                const otherType = this._evaluator.getTypeForDeclaration(otherDecl);
+                const otherType = this._evaluator.getTypeForDeclaration(otherDecl)?.type;
 
                 const suite1 = ParseTreeUtils.getEnclosingSuite(primaryDecl.node);
                 const suite2 = ParseTreeUtils.getEnclosingSuite(otherDecl.node);
@@ -3055,14 +3077,14 @@ export class Checker extends ParseTreeWalker {
                     }
                 }
             } else if (otherDecl.type === DeclarationType.Variable) {
-                const primaryType = this._evaluator.getTypeForDeclaration(primaryDecl);
+                const primaryType = this._evaluator.getTypeForDeclaration(primaryDecl)?.type;
 
                 if (otherDecl.typeAnnotationNode) {
                     if (otherDecl.node.nodeType === ParseNodeType.Name) {
                         let duplicateIsOk = false;
 
                         // It's OK if they both have the same declared type.
-                        const otherType = this._evaluator.getTypeForDeclaration(otherDecl);
+                        const otherType = this._evaluator.getTypeForDeclaration(otherDecl)?.type;
                         if (primaryType && otherType && isTypeSame(primaryType, otherType)) {
                             duplicateIsOk = true;
                         }
@@ -4485,7 +4507,7 @@ export class Checker extends ParseTreeWalker {
             const param = paramListDetails.params[paramIndex].param;
 
             if (param.hasDeclaredType && param.typeAnnotation) {
-                const fieldType = this._evaluator.getDeclaredTypeOfSymbol(symbol);
+                const fieldType = this._evaluator.getDeclaredTypeOfSymbol(symbol)?.type;
                 const paramType = FunctionType.getEffectiveParameterType(
                     postInitType,
                     paramListDetails.params[paramIndex].index

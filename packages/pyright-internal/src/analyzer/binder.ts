@@ -1706,7 +1706,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitImportFrom(node: ImportFromNode): boolean {
-        const typingSymbolsOfInterest = ['Final', 'TypeAlias', 'ClassVar', 'Required', 'NotRequired', 'Annotated'];
+        const typingSymbolsOfInterest = ['Final', 'ClassVar', 'Required', 'NotRequired', 'Annotated'];
         const dataclassesSymbolsOfInterest = ['InitVar'];
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
 
@@ -3581,23 +3581,10 @@ export class Binder extends ParseTreeWalker {
                 const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
                 if (symbolWithScope && symbolWithScope.symbol) {
                     const finalInfo = this._isAnnotationFinal(typeAnnotation);
-                    const isExplicitTypeAlias = this._isAnnotationTypeAlias(typeAnnotation);
 
                     let typeAnnotationNode: ExpressionNode | undefined = typeAnnotation;
                     let innerTypeAnnotationNode: ExpressionNode | undefined = typeAnnotation;
-                    if (isExplicitTypeAlias) {
-                        typeAnnotationNode = undefined;
-                        innerTypeAnnotationNode = undefined;
-
-                        // Type aliases are allowed only in the global or class scope.
-                        if (
-                            this._currentScope.type !== ScopeType.Class &&
-                            this._currentScope.type !== ScopeType.Module &&
-                            this._currentScope.type !== ScopeType.Builtin
-                        ) {
-                            this._addError(Localizer.Diagnostic.typeAliasNotInModuleOrClass(), typeAnnotation);
-                        }
-                    } else if (finalInfo.isFinal) {
+                    if (finalInfo.isFinal) {
                         innerTypeAnnotationNode = finalInfo.finalTypeNode;
                         if (!finalInfo.finalTypeNode) {
                             typeAnnotationNode = undefined;
@@ -3640,8 +3627,7 @@ export class Binder extends ParseTreeWalker {
                         isFinal: finalInfo.isFinal,
                         isRequired: this._isRequiredAnnotation(innerTypeAnnotationNode),
                         isNotRequired: this._isNotRequiredAnnotation(innerTypeAnnotationNode),
-                        typeAliasAnnotation: isExplicitTypeAlias ? typeAnnotation : undefined,
-                        typeAliasName: isExplicitTypeAlias ? target : undefined,
+                        typeAliasName: target,
                         path: this._fileInfo.filePath,
                         typeAnnotationNode,
                         range: convertTextRangeToRange(name, this._fileInfo.lines),
@@ -3895,14 +3881,6 @@ export class Binder extends ParseTreeWalker {
         }
 
         return false;
-    }
-
-    private _isAnnotationTypeAlias(typeAnnotation: ExpressionNode | undefined) {
-        if (!typeAnnotation) {
-            return false;
-        }
-
-        return this._isTypingAnnotation(typeAnnotation, 'TypeAlias');
     }
 
     // Determines whether a member access expression is referring to a

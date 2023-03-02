@@ -164,9 +164,6 @@ export interface VariableDeclaration extends DeclarationBase {
     // and other complex (more dynamic) class definitions with typed variables.
     isRuntimeTypeExpression?: boolean;
 
-    // Points to the "TypeAlias" annotation described in PEP 613.
-    typeAliasAnnotation?: ExpressionNode | undefined;
-
     // If the declaration is a type alias, points to the alias name.
     typeAliasName?: NameNode | undefined;
 

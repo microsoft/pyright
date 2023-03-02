@@ -331,7 +331,7 @@ export class HoverProvider {
                 let label = 'function';
                 let isProperty = false;
                 if (resolvedDecl.isMethod) {
-                    const declaredType = evaluator.getTypeForDeclaration(resolvedDecl);
+                    const declaredType = evaluator.getTypeForDeclaration(resolvedDecl)?.type;
                     isProperty = !!declaredType && isMaybeDescriptorInstance(declaredType, /* requireSetter */ false);
                     label = isProperty ? 'property' : 'method';
                 }

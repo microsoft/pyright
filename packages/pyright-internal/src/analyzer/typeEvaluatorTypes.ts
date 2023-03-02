@@ -347,6 +347,13 @@ export interface PrintTypeOptions {
     useTypingUnpack?: boolean;
 }
 
+export interface DeclaredSymbolTypeInfo {
+    type: Type | undefined;
+    isFinal?: boolean;
+    isClassVar?: boolean;
+    isTypeAlias?: boolean;
+}
+
 export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
@@ -389,7 +396,7 @@ export interface TypeEvaluator {
 
     getDeclarationsForStringNode: (node: StringNode) => Declaration[] | undefined;
     getDeclarationsForNameNode: (node: NameNode, skipUnreachableCode?: boolean) => Declaration[] | undefined;
-    getTypeForDeclaration: (declaration: Declaration) => Type | undefined;
+    getTypeForDeclaration: (declaration: Declaration) => DeclaredSymbolTypeInfo;
     resolveAliasDeclaration: (
         declaration: Declaration,
         resolveLocalNames: boolean,
@@ -421,7 +428,7 @@ export interface TypeEvaluator {
         callback: (expandedSubtype: Type, unexpandedSubtype: Type) => Type | undefined
     ) => Type;
     lookUpSymbolRecursive: (node: ParseNode, name: string, honorCodeFlow: boolean) => SymbolWithScope | undefined;
-    getDeclaredTypeOfSymbol: (symbol: Symbol) => Type | undefined;
+    getDeclaredTypeOfSymbol: (symbol: Symbol) => DeclaredSymbolTypeInfo;
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
     getEffectiveTypeOfSymbolForUsage: (
         symbol: Symbol,

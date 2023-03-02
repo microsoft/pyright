@@ -97,7 +97,7 @@ export class CallHierarchyProvider {
             parseRoot = declaration.node;
         } else if (declaration.type === DeclarationType.Class) {
             // Look up the __init__ method for this class.
-            const classType = evaluator.getTypeForDeclaration(declaration);
+            const classType = evaluator.getTypeForDeclaration(declaration)?.type;
             if (classType && isInstantiableClass(classType)) {
                 // Don't perform a recursive search of parent classes in this
                 // case because we don't want to find an inherited __init__
@@ -456,7 +456,7 @@ function getSymbolKind(declaration: Declaration, evaluator: TypeEvaluator): Symb
 
         case DeclarationType.Function:
             if (declaration.isMethod) {
-                const declType = evaluator.getTypeForDeclaration(declaration);
+                const declType = evaluator.getTypeForDeclaration(declaration)?.type;
                 if (declType && isMaybeDescriptorInstance(declType, /* requireSetter */ false)) {
                     symbolKind = SymbolKind.Property;
                 } else {

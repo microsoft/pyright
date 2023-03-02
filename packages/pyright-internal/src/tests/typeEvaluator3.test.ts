@@ -513,11 +513,11 @@ test('TypeAlias4', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
     const analysisResults3_9 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
-    TestUtils.validateResults(analysisResults3_9, 11);
+    TestUtils.validateResults(analysisResults3_9, 1);
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults3_10 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
-    TestUtils.validateResults(analysisResults3_10, 10);
+    TestUtils.validateResults(analysisResults3_10, 11);
 });
 
 test('TypeAlias5', () => {
@@ -607,6 +607,12 @@ test('TypeAlias18', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias18.py']);
 
     TestUtils.validateResults(analysisResults, 4);
+});
+
+test('TypeAlias20', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias20.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('RecursiveTypeAlias1', () => {

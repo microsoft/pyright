@@ -503,11 +503,11 @@ export function assignProperty(
 
     accessors.forEach((accessorInfo) => {
         const destAccessSymbol = destPropertyType.details.fields.get(accessorInfo.name);
-        let destAccessType = destAccessSymbol ? evaluator.getDeclaredTypeOfSymbol(destAccessSymbol) : undefined;
+        let destAccessType = destAccessSymbol ? evaluator.getDeclaredTypeOfSymbol(destAccessSymbol)?.type : undefined;
 
         if (destAccessType && isFunction(destAccessType)) {
             const srcAccessSymbol = srcPropertyType.details.fields.get(accessorInfo.name);
-            let srcAccessType = srcAccessSymbol ? evaluator.getDeclaredTypeOfSymbol(srcAccessSymbol) : undefined;
+            let srcAccessType = srcAccessSymbol ? evaluator.getDeclaredTypeOfSymbol(srcAccessSymbol)?.type : undefined;
 
             if (!srcAccessType || !isFunction(srcAccessType)) {
                 diag?.addMessage(accessorInfo.missingDiagMsg());

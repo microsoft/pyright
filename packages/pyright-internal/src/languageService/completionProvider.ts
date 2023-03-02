@@ -1197,7 +1197,7 @@ export class CompletionProvider {
             let decl = getLastTypedDeclaredForSymbol(symbol);
             if (decl && decl.type === DeclarationType.Function) {
                 if (StringUtils.isPatternInSymbol(partialName.value, name)) {
-                    const declaredType = this._evaluator.getTypeForDeclaration(decl);
+                    const declaredType = this._evaluator.getTypeForDeclaration(decl)?.type;
                     if (!declaredType) {
                         return;
                     }
@@ -1847,7 +1847,7 @@ export class CompletionProvider {
         if (member?.symbol.hasDeclarations()) {
             const declaration = member.symbol.getDeclarations()[0];
             if (isFunctionDeclaration(declaration) && declaration.isMethod) {
-                const getItemType = this._evaluator.getTypeForDeclaration(declaration);
+                const getItemType = this._evaluator.getTypeForDeclaration(declaration)?.type;
                 if (getItemType && isFunction(getItemType) && getItemType.details.parameters.length === 2) {
                     return getItemType.details.parameters[1].type;
                 }
