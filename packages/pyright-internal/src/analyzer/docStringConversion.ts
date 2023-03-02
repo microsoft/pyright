@@ -426,10 +426,10 @@ class DocStringConverter {
     private _beginBacktickBlock(): boolean {
         const match = this._currentLine().match(CodeBlockStartRegExp);
         if (match !== null) {
-            this._blockIndent = this._currentIndent()
+            this._blockIndent = this._currentIndent();
 
             // Remove indentation and preserve language tag.
-            this._appendLine('```' + match[1])
+            this._appendLine('```' + match[1]);
 
             this._pushAndSetState(this._parseBacktickBlock);
             this._eatLine();

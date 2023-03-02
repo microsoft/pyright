@@ -768,9 +768,8 @@ ${tripleTick}python
         """
 ${tripleTick}
 `;
-    _testConvertToMarkdown(docstring, markdown)
-})
-
+    _testConvertToMarkdown(docstring, markdown);
+});
 
 test('RestTableWithHeader', () => {
     const docstring = `
