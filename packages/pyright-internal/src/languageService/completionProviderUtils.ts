@@ -137,7 +137,7 @@ export function getTypeDetail(
     }
 }
 
-export function getCompletionItemDocumention(
+export function getCompletionItemDocumentation(
     typeDetail: string | undefined,
     documentation: string | undefined,
     markupKind: MarkupKind

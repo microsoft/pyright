@@ -111,7 +111,12 @@ import {
 import { ParseResults } from '../parser/parser';
 import { StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { AbbreviationInfo, AutoImporter, AutoImportResult, ImportFormat, ModuleSymbolMap } from './autoImporter';
-import { CompletionDetail, getCompletionItemDocumention, getTypeDetail, SymbolDetail } from './completionProviderUtils';
+import {
+    CompletionDetail,
+    getCompletionItemDocumentation,
+    getTypeDetail,
+    SymbolDetail,
+} from './completionProviderUtils';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { IndexResults } from './documentSymbolProvider';
 import { getAutoImportText, getDocumentationPartsForTypeAndDecl } from './tooltipUtils';
@@ -2682,7 +2687,7 @@ export class CompletionProvider {
             );
 
             if (this._options.format === MarkupKind.Markdown || this._options.format === MarkupKind.PlainText) {
-                this._itemToResolve.documentation = getCompletionItemDocumention(
+                this._itemToResolve.documentation = getCompletionItemDocumentation(
                     typeDetail,
                     documentation,
                     this._options.format
