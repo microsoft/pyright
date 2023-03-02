@@ -8,7 +8,7 @@
  */
 
 import { getEmptyRange } from '../common/textRange';
-import { ExpressionNode, NameNode, ParseNodeType } from '../parser/parseNodes';
+import { NameNode, ParseNodeType } from '../parser/parseNodes';
 import { AliasDeclaration, Declaration, DeclarationType, isAliasDeclaration, ModuleLoaderActions } from './declaration';
 import { getFileInfoFromNode } from './parseTreeUtils';
 
@@ -26,6 +26,8 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
             if (declaration.node.typeAnnotation || declaration.node.typeAnnotationComment) {
                 return true;
             }
+
+            // Handle function type comments.
             const parameterParent = declaration.node.parent;
             if (parameterParent?.nodeType === ParseNodeType.Function) {
                 if (
@@ -33,6 +35,7 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
                     !parameterParent.functionAnnotationComment.isParamListEllipsis
                 ) {
                     const paramAnnotations = parameterParent.functionAnnotationComment.paramTypeAnnotations;
+
                     // Handle the case where the annotation comment is missing an
                     // annotation for the first parameter (self or cls).
                     if (
@@ -41,6 +44,7 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
                     ) {
                         return false;
                     }
+
                     return true;
                 }
             }
@@ -99,54 +103,6 @@ export function areDeclarationsSame(
         if (decl1.firstNamePart !== decl2.firstNamePart) {
             return false;
         }
-    }
-
-    return true;
-}
-
-export function isFinalVariableDeclaration(decl: Declaration) {
-    return decl.type === DeclarationType.Variable && !!decl.isFinal;
-}
-
-export function isExplicitTypeAliasDeclaration(decl: Declaration) {
-    return decl.type === DeclarationType.Variable && !!decl.typeAliasAnnotation;
-}
-
-export function isPossibleTypeAliasDeclaration(decl: Declaration) {
-    if (decl.type !== DeclarationType.Variable || !decl.typeAliasName || decl.typeAnnotationNode) {
-        return false;
-    }
-
-    if (decl.node.parent?.nodeType !== ParseNodeType.Assignment) {
-        return false;
-    }
-
-    // Perform a sanity check on the RHS expression. Some expression
-    // forms should never be considered legitimate for type aliases.
-    return isLegalTypeAliasExpressionForm(decl.node.parent.rightExpression);
-}
-
-export function isLegalTypeAliasExpressionForm(node: ExpressionNode) {
-    switch (node.nodeType) {
-        case ParseNodeType.Error:
-        case ParseNodeType.UnaryOperation:
-        case ParseNodeType.AssignmentExpression:
-        case ParseNodeType.TypeAnnotation:
-        case ParseNodeType.Await:
-        case ParseNodeType.Ternary:
-        case ParseNodeType.Unpack:
-        case ParseNodeType.Tuple:
-        case ParseNodeType.Call:
-        case ParseNodeType.ListComprehension:
-        case ParseNodeType.Slice:
-        case ParseNodeType.Yield:
-        case ParseNodeType.YieldFrom:
-        case ParseNodeType.Lambda:
-        case ParseNodeType.Number:
-        case ParseNodeType.Dictionary:
-        case ParseNodeType.List:
-        case ParseNodeType.Set:
-            return false;
     }
 
     return true;

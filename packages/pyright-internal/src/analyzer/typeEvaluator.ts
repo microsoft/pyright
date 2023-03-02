@@ -114,10 +114,6 @@ import {
     createSynthesizedAliasDeclaration,
     getDeclarationsWithUsesLocalNameRemoved,
     getNameNodeForDeclaration,
-    isExplicitTypeAliasDeclaration,
-    isFinalVariableDeclaration,
-    isLegalTypeAliasExpressionForm,
-    isPossibleTypeAliasDeclaration,
 } from './declarationUtils';
 import {
     createEnumType,
@@ -144,7 +140,7 @@ import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
-import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
+import { getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
 import {
     assignToTypedDict,
@@ -3159,7 +3155,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         nameNode
                     );
                 }
-            } else if (varDecl.isFinal && !allowAssignmentToFinalVar) {
+            } else if (isFinalVariableDeclaration(varDecl) && !allowAssignmentToFinalVar) {
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -20796,7 +20792,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                if (resolvedDecl.isFinal || resolvedDecl.isConstant) {
+                if (isFinalVariableDeclaration(resolvedDecl) || resolvedDecl.isConstant) {
                     isUnambiguousType = true;
                 }
             }
@@ -21118,13 +21114,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ) {
                     evaluateTypesForAssignmentStatement(resolvedDecl.inferredTypeSource.parent);
 
-                    if (resolvedDecl.typeAliasAnnotation) {
-                        // Mark "TypeAlias" declaration as accessed.
-                        getTypeOfAnnotation(resolvedDecl.typeAliasAnnotation, {
-                            isVariableAnnotation: true,
-                            allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(resolvedDecl.node),
-                            allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(resolvedDecl.node),
-                        });
+                    if (isExplicitTypeAliasDeclaration(resolvedDecl)) {
+                        if (resolvedDecl.typeAliasAnnotation) {
+                            // Mark "TypeAlias" declaration as accessed.
+                            getTypeOfAnnotation(resolvedDecl.typeAliasAnnotation, {
+                                isVariableAnnotation: true,
+                                allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(resolvedDecl.node),
+                                allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(resolvedDecl.node),
+                            });
+                        }
                     }
                 }
 
@@ -21147,7 +21145,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                 let isConstant = false;
                                 if (resolvedDecl.type === DeclarationType.Variable) {
-                                    if (resolvedDecl.isConstant || resolvedDecl.isFinal) {
+                                    if (resolvedDecl.isConstant || isFinalVariableDeclaration(resolvedDecl)) {
                                         isConstant = true;
                                     }
                                 }
@@ -21879,7 +21877,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // Class and instance variables that are mutable need to
                         // enforce invariance.
                         const flags =
-                            primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal
+                            primaryDecl?.type === DeclarationType.Variable && !isFinalVariableDeclaration(primaryDecl)
                                 ? AssignTypeFlags.EnforceInvariance
                                 : AssignTypeFlags.Default;
                         if (
@@ -25801,6 +25799,58 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return FunctionType.clone(specializedFunction, stripFirstParam, baseType, getTypeVarScopeId(baseType));
     }
 
+    function isFinalVariable(symbol: Symbol): boolean {
+        return symbol.getDeclarations().some((decl) => isFinalVariableDeclaration(decl));
+    }
+
+    function isFinalVariableDeclaration(decl: Declaration): boolean {
+        return decl.type === DeclarationType.Variable && !!decl.isFinal;
+    }
+
+    function isExplicitTypeAliasDeclaration(decl: Declaration): boolean {
+        return decl.type === DeclarationType.Variable && !!decl.typeAliasAnnotation;
+    }
+
+    function isPossibleTypeAliasDeclaration(decl: Declaration): boolean {
+        if (decl.type !== DeclarationType.Variable || !decl.typeAliasName || decl.typeAnnotationNode) {
+            return false;
+        }
+
+        if (decl.node.parent?.nodeType !== ParseNodeType.Assignment) {
+            return false;
+        }
+
+        // Perform a sanity check on the RHS expression. Some expression
+        // forms should never be considered legitimate for type aliases.
+        return isLegalTypeAliasExpressionForm(decl.node.parent.rightExpression);
+    }
+
+    function isLegalTypeAliasExpressionForm(node: ExpressionNode): boolean {
+        switch (node.nodeType) {
+            case ParseNodeType.Error:
+            case ParseNodeType.UnaryOperation:
+            case ParseNodeType.AssignmentExpression:
+            case ParseNodeType.TypeAnnotation:
+            case ParseNodeType.Await:
+            case ParseNodeType.Ternary:
+            case ParseNodeType.Unpack:
+            case ParseNodeType.Tuple:
+            case ParseNodeType.Call:
+            case ParseNodeType.ListComprehension:
+            case ParseNodeType.Slice:
+            case ParseNodeType.Yield:
+            case ParseNodeType.YieldFrom:
+            case ParseNodeType.Lambda:
+            case ParseNodeType.Number:
+            case ParseNodeType.Dictionary:
+            case ParseNodeType.List:
+            case ParseNodeType.Set:
+                return false;
+        }
+
+        return true;
+    }
+
     function printObjectTypeForClass(type: ClassType): string {
         return TypePrinter.printObjectTypeForClass(
             type,
@@ -25977,6 +26027,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         verifyTypeArgumentsAssignable,
         inferReturnTypeIfNecessary,
         inferTypeParameterVarianceForClass,
+        isFinalVariable,
+        isFinalVariableDeclaration,
+        isExplicitTypeAliasDeclaration,
         addError,
         addWarning,
         addInformation,

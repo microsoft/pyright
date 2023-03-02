@@ -207,7 +207,10 @@ export class HoverProvider {
             }
 
             case DeclarationType.Variable: {
-                let label = resolvedDecl.isConstant || resolvedDecl.isFinal ? 'constant' : 'variable';
+                let label =
+                    resolvedDecl.isConstant || evaluator.isFinalVariableDeclaration(resolvedDecl)
+                        ? 'constant'
+                        : 'variable';
 
                 // If the named node is an aliased import symbol, we can't call
                 // getType on the original name because it's not in the symbol

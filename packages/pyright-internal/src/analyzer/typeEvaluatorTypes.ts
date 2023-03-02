@@ -504,6 +504,11 @@ export interface TypeEvaluator {
         flags: AssignTypeFlags,
         recursionCount: number
     ) => boolean;
+
+    isFinalVariable: (symbol: Symbol) => boolean;
+    isFinalVariableDeclaration: (decl: Declaration) => boolean;
+    isExplicitTypeAliasDeclaration: (decl: Declaration) => boolean;
+
     addError: (message: string, node: ParseNode) => Diagnostic | undefined;
     addWarning: (message: string, node: ParseNode) => Diagnostic | undefined;
     addInformation: (message: string, node: ParseNode) => Diagnostic | undefined;

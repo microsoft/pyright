@@ -92,7 +92,6 @@ import { OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
-import { isExplicitTypeAliasDeclaration, isFinalVariableDeclaration } from './declarationUtils';
 import { createImportedModuleDescriptor, ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
@@ -107,7 +106,7 @@ import { isStubFile, SourceMapper } from './sourceMapper';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
-import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
+import { getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { maxCodeComplexity } from './typeEvaluator';
 import { FunctionTypeResult, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
@@ -2791,7 +2790,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _reportMultipleFinalDeclarations(name: string, symbol: Symbol, scopeType: ScopeType) {
-        if (!isFinalVariable(symbol)) {
+        if (!this._evaluator.isFinalVariable(symbol)) {
             return;
         }
 
@@ -2800,7 +2799,7 @@ export class Checker extends ParseTreeWalker {
         let sawAssignment = false;
 
         decls.forEach((decl) => {
-            if (isFinalVariableDeclaration(decl)) {
+            if (this._evaluator.isFinalVariableDeclaration(decl)) {
                 if (sawFinal) {
                     this._evaluator.addError(Localizer.Diagnostic.finalRedeclaration().format({ name }), decl.node);
                 }
@@ -2853,7 +2852,7 @@ export class Checker extends ParseTreeWalker {
 
     private _reportMultipleTypeAliasDeclarations(name: string, symbol: Symbol) {
         const decls = symbol.getDeclarations();
-        const typeAliasDecl = decls.find((decl) => isExplicitTypeAliasDeclaration(decl));
+        const typeAliasDecl = decls.find((decl) => this._evaluator.isExplicitTypeAliasDeclaration(decl));
 
         // If this is a type alias, there should be only one declaration.
         if (typeAliasDecl && decls.length > 1) {
@@ -4282,7 +4281,7 @@ export class Checker extends ParseTreeWalker {
             if (
                 parentSymbol &&
                 isInstantiableClass(parentSymbol.classType) &&
-                isFinalVariable(parentSymbol.symbol) &&
+                this._evaluator.isFinalVariable(parentSymbol.symbol) &&
                 !SymbolNameUtils.isPrivateName(name)
             ) {
                 const decl = localSymbol.getDeclarations()[0];
@@ -5225,7 +5224,7 @@ export class Checker extends ParseTreeWalker {
 
             // If the symbol has no declaration, and the type is inferred,
             // skip this check.
-            if (!symbol.hasTypedDeclarations() && !isFinalVariable(symbol)) {
+            if (!symbol.hasTypedDeclarations() && !this._evaluator.isFinalVariable(symbol)) {
                 return;
             }
 
@@ -5571,8 +5570,8 @@ export class Checker extends ParseTreeWalker {
                     }
 
                     // Verify that there is not a Final mismatch.
-                    const isBaseVarFinal = isFinalVariable(baseClassAndSymbol.symbol);
-                    const overrideFinalVarDecl = decls.find((d) => isFinalVariableDeclaration(d));
+                    const isBaseVarFinal = this._evaluator.isFinalVariable(baseClassAndSymbol.symbol);
+                    const overrideFinalVarDecl = decls.find((d) => this._evaluator.isFinalVariableDeclaration(d));
 
                     if (!isBaseVarFinal && overrideFinalVarDecl) {
                         const diag = this._evaluator.addDiagnostic(

@@ -3638,7 +3638,6 @@ export class Binder extends ParseTreeWalker {
                         node: target,
                         isConstant: isConstantName(name.value),
                         isFinal: finalInfo.isFinal,
-                        isClassVar: classVarInfo.isClassVar,
                         isRequired: this._isRequiredAnnotation(innerTypeAnnotationNode),
                         isNotRequired: this._isNotRequiredAnnotation(innerTypeAnnotationNode),
                         typeAliasAnnotation: isExplicitTypeAlias ? typeAnnotation : undefined,

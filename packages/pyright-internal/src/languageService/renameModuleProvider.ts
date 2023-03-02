@@ -193,7 +193,7 @@ export class RenameModuleProvider {
             if (isVariableDeclaration(d)) {
                 // We only support simple variable assignment.
                 // ex) a = 1
-                if (d.typeAliasAnnotation) {
+                if (evaluator.isExplicitTypeAliasDeclaration(d)) {
                     return false;
                 }
 
