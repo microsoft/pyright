@@ -349,8 +349,6 @@ export interface PrintTypeOptions {
 
 export interface DeclaredSymbolTypeInfo {
     type: Type | undefined;
-    isFinal?: boolean;
-    isClassVar?: boolean;
     isTypeAlias?: boolean;
 }
 

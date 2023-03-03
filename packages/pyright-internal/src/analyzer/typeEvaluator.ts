@@ -21012,8 +21012,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             declaredTypeInfo = getDeclaredTypeOfSymbol(symbol, usageNode);
 
             const declaredType = declaredTypeInfo?.type;
-            const hasMetadata =
-                !!declaredTypeInfo.isClassVar || !!declaredTypeInfo.isFinal || !!declaredTypeInfo.isTypeAlias;
+            const hasMetadata = !!declaredTypeInfo.isTypeAlias;
 
             if (declaredType || !hasMetadata) {
                 let isIncomplete = false;
