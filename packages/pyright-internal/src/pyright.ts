@@ -335,7 +335,7 @@ async function processArgs(): Promise<ExitStatus> {
         }
 
         let errorCount = 0;
-        if (results.diagnostics.length > 0 && !args.createstub && !args['verifytypes']) {
+        if (!args.createstub && !args.verifytypes) {
             if (args.outputjson) {
                 const report = reportDiagnosticsAsJson(
                     results.diagnostics,
