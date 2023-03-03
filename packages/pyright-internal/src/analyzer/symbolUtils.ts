@@ -35,14 +35,6 @@ export function isTypedDictMemberAccessedThroughIndex(symbol: Symbol): boolean {
     return false;
 }
 
-export function isRequiredTypedDictVariable(symbol: Symbol) {
-    return symbol.getDeclarations().some((decl) => decl.type === DeclarationType.Variable && !!decl.isRequired);
-}
-
-export function isNotRequiredTypedDictVariable(symbol: Symbol) {
-    return symbol.getDeclarations().some((decl) => decl.type === DeclarationType.Variable && !!decl.isNotRequired);
-}
-
 export function isVisibleExternally(symbol: Symbol) {
     return !symbol.isExternallyHidden() && !symbol.isPrivatePyTypedImport();
 }

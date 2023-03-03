@@ -28,11 +28,7 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
-import {
-    getLastTypedDeclaredForSymbol,
-    isNotRequiredTypedDictVariable,
-    isRequiredTypedDictVariable,
-} from './symbolUtils';
+import { getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { EvaluatorUsage, FunctionArgument, TypeEvaluator, TypeResult, TypeResultWithNode } from './typeEvaluatorTypes';
 import {
     AnyType,
@@ -155,20 +151,12 @@ export function createTypedDictType(
                 // Record names in a set to detect duplicates.
                 entrySet.add(entryName);
 
-                // Cache the annotation type.
-                const annotatedType = evaluator.getTypeOfExpressionExpectingType(entry.valueExpression, {
-                    allowFinal: true,
-                    allowRequired: true,
-                });
-
                 const newSymbol = new Symbol(SymbolFlags.InstanceMember);
                 const declaration: VariableDeclaration = {
                     type: DeclarationType.Variable,
                     node: entry.keyExpression,
                     path: fileInfo.filePath,
                     typeAnnotationNode: entry.valueExpression,
-                    isRequired: annotatedType.isRequired,
-                    isNotRequired: annotatedType.isNotRequired,
                     isRuntimeTypeExpression: true,
                     range: convertOffsetsToRange(
                         entry.keyExpression.start,
@@ -201,13 +189,6 @@ export function createTypedDictType(
                 // Record names in a map to detect duplicates.
                 entrySet.add(entry.name.value);
 
-                // Evaluate the type with specific evaluation flags. The
-                // type will be cached for later.
-                const annotatedType = evaluator.getTypeOfExpressionExpectingType(entry.valueExpression, {
-                    allowFinal: true,
-                    allowRequired: true,
-                });
-
                 const newSymbol = new Symbol(SymbolFlags.InstanceMember);
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                 const declaration: VariableDeclaration = {
@@ -215,8 +196,6 @@ export function createTypedDictType(
                     node: entry.name,
                     path: fileInfo.filePath,
                     typeAnnotationNode: entry.valueExpression,
-                    isRequired: annotatedType.isRequired,
-                    isNotRequired: annotatedType.isNotRequired,
                     isRuntimeTypeExpression: true,
                     range: convertOffsetsToRange(
                         entry.name.start,
@@ -611,9 +590,9 @@ function getTypedDictMembersForClassRecursive(
 
                 let isRequired = !ClassType.isCanOmitDictValues(classType);
 
-                if (isRequiredTypedDictVariable(symbol)) {
+                if (isRequiredTypedDictVariable(evaluator, symbol)) {
                     isRequired = true;
-                } else if (isNotRequiredTypedDictVariable(symbol)) {
+                } else if (isNotRequiredTypedDictVariable(evaluator, symbol)) {
                     isRequired = false;
                 }
 
@@ -985,4 +964,34 @@ export function narrowForKeyAssignment(classType: ClassType, key: string) {
     narrowedEntries.set(key, { isProvided: true, isRequired: false, valueType: tdEntry.valueType });
 
     return ClassType.cloneForNarrowedTypedDictEntries(classType, narrowedEntries);
+}
+
+function isRequiredTypedDictVariable(evaluator: TypeEvaluator, symbol: Symbol) {
+    return symbol.getDeclarations().some((decl) => {
+        if (decl.type !== DeclarationType.Variable || !decl.typeAnnotationNode) {
+            return false;
+        }
+
+        const annotatedType = evaluator.getTypeOfExpressionExpectingType(decl.typeAnnotationNode, {
+            allowFinal: true,
+            allowRequired: true,
+        });
+
+        return !!annotatedType.isRequired;
+    });
+}
+
+function isNotRequiredTypedDictVariable(evaluator: TypeEvaluator, symbol: Symbol) {
+    return symbol.getDeclarations().some((decl) => {
+        if (decl.type !== DeclarationType.Variable || !decl.typeAnnotationNode) {
+            return false;
+        }
+
+        const annotatedType = evaluator.getTypeOfExpressionExpectingType(decl.typeAnnotationNode, {
+            allowFinal: true,
+            allowRequired: true,
+        });
+
+        return !!annotatedType.isNotRequired;
+    });
 }

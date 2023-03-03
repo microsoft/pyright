@@ -1585,6 +1585,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             evaluatorFlags |= EvaluatorFlags.NotParsedByInterpreter;
         }
 
+        if (options?.allowRequired) {
+            evaluatorFlags |= EvaluatorFlags.AllowRequired;
+        }
+
         if (isAnnotationEvaluationPostponed(fileInfo)) {
             evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
         }
@@ -20535,6 +20539,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             isVariableAnnotation: true,
                             allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(declNode),
                             allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(declNode),
+                            allowRequired: ParseTreeUtils.isRequiredAllowedForAssignmentTarget(declNode),
                         });
                     }
 

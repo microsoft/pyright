@@ -961,6 +961,15 @@ export function isClassVarAllowedForAssignmentTarget(targetNode: ExpressionNode)
     return true;
 }
 
+export function isRequiredAllowedForAssignmentTarget(targetNode: ExpressionNode): boolean {
+    const classNode = getEnclosingClass(targetNode, /* stopAtFunction */ true);
+    if (!classNode) {
+        return false;
+    }
+
+    return true;
+}
+
 export function isNodeContainedWithin(node: ParseNode, potentialContainer: ParseNode): boolean {
     let curNode: ParseNode | undefined = node;
     while (curNode) {

@@ -277,6 +277,7 @@ export interface AnnotationTypeOptions {
     associateTypeVarsWithScope?: boolean;
     allowTypeVarTuple?: boolean;
     allowParamSpec?: boolean;
+    allowRequired?: boolean;
     disallowRecursiveTypeAlias?: boolean;
     allowUnpackedTypedDict?: boolean;
     allowUnpackedTuple?: boolean;

@@ -145,12 +145,6 @@ export interface VariableDeclaration extends DeclarationBase {
     // constant in that reassignment is not permitted)?
     isFinal?: boolean;
 
-    // Is the declaration annotated with "Required"?
-    isRequired?: boolean;
-
-    // Is the declaration annotated with "NotRequired"?
-    isNotRequired?: boolean;
-
     // Is the declaration an entry in __slots__?
     isDefinedBySlots?: boolean;
 

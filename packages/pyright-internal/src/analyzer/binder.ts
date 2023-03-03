@@ -1706,7 +1706,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitImportFrom(node: ImportFromNode): boolean {
-        const typingSymbolsOfInterest = ['Final', 'ClassVar', 'Required', 'NotRequired', 'Annotated'];
+        const typingSymbolsOfInterest = ['Final', 'ClassVar', 'Annotated'];
         const dataclassesSymbolsOfInterest = ['InitVar'];
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
 
@@ -3583,9 +3583,7 @@ export class Binder extends ParseTreeWalker {
                     const finalInfo = this._isAnnotationFinal(typeAnnotation);
 
                     let typeAnnotationNode: ExpressionNode | undefined = typeAnnotation;
-                    let innerTypeAnnotationNode: ExpressionNode | undefined = typeAnnotation;
                     if (finalInfo.isFinal) {
-                        innerTypeAnnotationNode = finalInfo.finalTypeNode;
                         if (!finalInfo.finalTypeNode) {
                             typeAnnotationNode = undefined;
                         }
@@ -3595,8 +3593,6 @@ export class Binder extends ParseTreeWalker {
                     let classVarInfo = this._isAnnotationClassVar(typeAnnotation);
 
                     if (classVarInfo.isClassVar) {
-                        innerTypeAnnotationNode = classVarInfo.classVarTypeNode;
-
                         if (!classVarInfo.classVarTypeNode) {
                             typeAnnotationNode = undefined;
                         }
@@ -3625,8 +3621,6 @@ export class Binder extends ParseTreeWalker {
                         node: target,
                         isConstant: isConstantName(name.value),
                         isFinal: finalInfo.isFinal,
-                        isRequired: this._isRequiredAnnotation(innerTypeAnnotationNode),
-                        isNotRequired: this._isNotRequiredAnnotation(innerTypeAnnotationNode),
                         typeAliasName: target,
                         path: this._fileInfo.filePath,
                         typeAnnotationNode,
