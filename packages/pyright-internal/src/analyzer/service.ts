@@ -1058,7 +1058,13 @@ export class AnalyzerService {
 
     private _parseJsonConfigFile(configPath: string): object | undefined {
         return this._attemptParseFile(configPath, (fileContents) => {
-            return JSONC.parse(fileContents);
+            const errors: JSONC.ParseError[] = [];
+            const result = JSONC.parse(fileContents, errors, { allowTrailingComma: true });
+            if (errors.length > 0) {
+                throw new Error('Errors parsing JSON file');
+            }
+
+            return result;
         });
     }
 
