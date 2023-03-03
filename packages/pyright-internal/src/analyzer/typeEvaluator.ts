@@ -13327,6 +13327,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     verifySetEntryOrDictKeyIsHashable(entryNode.keyExpression, keyType, /* isDictKey */ true);
                 }
 
+                if (expectedDiagAddendum && keyTypeResult.expectedTypeDiagAddendum) {
+                    expectedDiagAddendum.addAddendum(keyTypeResult.expectedTypeDiagAddendum);
+                }
+
                 let valueTypeResult: TypeResult;
 
                 if (
