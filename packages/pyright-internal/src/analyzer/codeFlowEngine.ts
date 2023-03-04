@@ -1526,11 +1526,11 @@ export function getCodeFlowEngine(
         } else if (returnType) {
             return isNever(returnType);
         } else if (functionType.details.declaration) {
-            // If the function has yield expressions, it's a generator, and
-            // we'll assume the yield statements are reachable. Also, don't
-            // infer a "no return" type for abstract methods.
+            // If the function is a generator (i.e. it has yield statements)
+            // then it is not a "no return" call. Also, don't infer a "no
+            // return" type for abstract methods.
             if (
-                !functionType.details.declaration.yieldStatements &&
+                !functionType.details.declaration.isGenerator &&
                 !FunctionType.isAbstractMethod(functionType) &&
                 !FunctionType.isStubDefinition(functionType) &&
                 !FunctionType.isPyTypedDefinition(functionType)
