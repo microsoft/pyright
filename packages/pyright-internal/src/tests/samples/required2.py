@@ -3,14 +3,14 @@
 
 # pyright: reportMissingModuleSource=false
 
-from typing import Literal, Optional, Type, TypedDict
+from typing import Literal, Optional, Type, TypedDict, Annotated
 from typing_extensions import NotRequired, Required
 
 
 class TD1(TypedDict, total=False):
-    a: Required[int]
-    b: NotRequired[str]
-    c: Required[int | str]
+    a: Annotated["Required[int]", ""]
+    b: Annotated[NotRequired[str], ""]
+    c: "Required[int | str]"
     d: Required[Optional[str]]
     e: Required[Literal[1, 2, 3]]
     f: Required[None]

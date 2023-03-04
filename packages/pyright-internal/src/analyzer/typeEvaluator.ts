@@ -4646,7 +4646,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
             if (!type.typeArguments) {
-                type = createSpecializedClassType(type, /* typeArgs */ undefined, flags, node);
+                type = createSpecializedClassType(type, /* typeArgs */ undefined, flags, node)?.type;
             }
         }
 
@@ -4959,6 +4959,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let type: Type | undefined;
         let isIncomplete = !!baseTypeResult.isIncomplete;
         let isAsymmetricDescriptor: boolean | undefined;
+        const isRequired = false;
+        const isNotRequired = false;
 
         // If the base type was incomplete and unbound, don't proceed
         // because false positive errors will be generated.
@@ -5341,7 +5343,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Should we specialize the class?
         if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
             if (isInstantiableClass(type) && !type.typeArguments) {
-                type = createSpecializedClassType(type, /* typeArgs */ undefined, flags, node);
+                type = createSpecializedClassType(type, /* typeArgs */ undefined, flags, node)?.type;
             }
         }
 
@@ -5371,7 +5373,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return { type, isIncomplete, isAsymmetricDescriptor };
+        return { type, isIncomplete, isAsymmetricDescriptor, isRequired, isNotRequired };
     }
 
     function getTypeOfClassMemberName(
@@ -6183,17 +6185,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             indexTypeResult.isIncomplete = true;
         }
 
-        // Handle "Required" and "NotRequired" specially.
-        if ((flags & EvaluatorFlags.AllowRequired) !== 0) {
-            if (isInstantiableClass(baseTypeResult.type)) {
-                if (ClassType.isBuiltIn(baseTypeResult.type, 'Required')) {
-                    indexTypeResult.isRequired = true;
-                } else if (ClassType.isBuiltIn(baseTypeResult.type, 'NotRequired')) {
-                    indexTypeResult.isNotRequired = true;
-                }
-            }
-        }
-
         return indexTypeResult;
     }
 
@@ -6570,6 +6561,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         let isIncomplete = baseTypeResult.isIncomplete;
+        let isRequired = false;
+        let isNotRequired = false;
 
         const type = mapSubtypesExpandTypeVars(
             baseTypeResult.type,
@@ -6712,7 +6705,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return concreteSubtype;
                     }
 
-                    return createSpecializedClassType(concreteSubtype, typeArgs, flags, node);
+                    const result = createSpecializedClassType(concreteSubtype, typeArgs, flags, node);
+                    if (result.isRequired) {
+                        isRequired = true;
+                    } else if (result.isNotRequired) {
+                        isNotRequired = true;
+                    }
+
+                    return result.type;
                 }
 
                 if (isClassInstance(concreteSubtype)) {
@@ -6762,7 +6762,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        return { type, isIncomplete };
+        return { type, isIncomplete, isRequired, isNotRequired };
     }
 
     // Determines the effective variance of the type parameters for a generic
@@ -14822,12 +14822,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         isRequired: boolean,
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvaluatorFlags
-    ): Type {
+    ): TypeResult {
         // If no type arguments are provided, the resulting type
         // depends on whether we're evaluating a type annotation or
         // we're in some other context.
         if (!typeArgs && (flags & EvaluatorFlags.ExpectingTypeAnnotation) === 0) {
-            return classType;
+            return { type: classType };
         }
 
         if (!typeArgs || typeArgs.length !== 1) {
@@ -14835,7 +14835,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isRequired ? Localizer.Diagnostic.requiredArgCount() : Localizer.Diagnostic.notRequiredArgCount(),
                 errorNode
             );
-            return classType;
+            return { type: classType };
         }
 
         const typeArgType = typeArgs[0].type;
@@ -14852,16 +14852,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ClassType.isTypedDictClass(classTypeInfo.classType)
         ) {
             // The only legal usage is when used in a type annotation statement.
-            if (
-                errorNode.parent?.nodeType === ParseNodeType.TypeAnnotation &&
-                errorNode.parent.typeAnnotation === errorNode
-            ) {
+            if (ParseTreeUtils.isNodeContainedWithinNodeType(errorNode, ParseNodeType.TypeAnnotation)) {
                 isUsageLegal = true;
             }
         }
 
         if ((flags & EvaluatorFlags.AllowRequired) !== 0) {
             isUsageLegal = true;
+        }
+
+        // Nested Required/NotRequired are not allowed.
+        if (typeArgs[0].isRequired || typeArgs[0].isNotRequired) {
+            isUsageLegal = false;
         }
 
         if (!isUsageLegal) {
@@ -14871,10 +14873,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     : Localizer.Diagnostic.notRequiredNotInTypedDict(),
                 errorNode
             );
-            return ClassType.cloneForSpecialization(classType, [convertToInstance(typeArgType)], !!typeArgs);
+            return { type: ClassType.cloneForSpecialization(classType, [convertToInstance(typeArgType)], !!typeArgs) };
         }
 
-        return typeArgType;
+        return { type: typeArgType, isRequired, isNotRequired: !isRequired };
     }
 
     function createUnpackType(
@@ -14990,16 +14992,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return createSpecialType(classType, typeArgs, /* paramLimit */ undefined, /* allowParamSpec */ true);
     }
 
-    function createAnnotatedType(errorNode: ParseNode, typeArgs: TypeResultWithNode[] | undefined): Type {
+    function createAnnotatedType(errorNode: ParseNode, typeArgs: TypeResultWithNode[] | undefined): TypeResult {
         if (typeArgs && typeArgs.length < 2) {
             addError(Localizer.Diagnostic.annotatedTypeArgMissing(), errorNode);
         }
 
         if (!typeArgs || typeArgs.length === 0) {
-            return AnyType.create();
+            return { type: AnyType.create() };
         }
 
-        return TypeBase.cloneForAnnotated(typeArgs[0].type);
+        return {
+            type: TypeBase.cloneForAnnotated(typeArgs[0].type),
+            isRequired: typeArgs[0].isRequired,
+            isNotRequired: typeArgs[0].isNotRequired,
+        };
     }
 
     // Creates one of several "special" types that are defined in typing.pyi
@@ -19485,14 +19491,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvaluatorFlags,
         errorNode: ParseNode
-    ): Type {
+    ): TypeResult {
         // Handle the special-case classes that are not defined
         // in the type stubs.
         if (ClassType.isSpecialBuiltIn(classType)) {
             const aliasedName = classType.aliasName || classType.details.name;
             switch (aliasedName) {
                 case 'Callable': {
-                    return createCallableType(typeArgs, errorNode);
+                    return { type: createCallableType(typeArgs, errorNode) };
                 }
 
                 case 'Never': {
@@ -19502,7 +19508,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             typeArgs[0].node
                         );
                     }
-                    return NeverType.createNever();
+                    return { type: NeverType.createNever() };
                 }
 
                 case 'NoReturn': {
@@ -19512,11 +19518,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             typeArgs[0].node
                         );
                     }
-                    return NeverType.createNoReturn();
+                    return { type: NeverType.createNoReturn() };
                 }
 
                 case 'Optional': {
-                    return createOptionalType(classType, errorNode, typeArgs, flags);
+                    return { type: createOptionalType(classType, errorNode, typeArgs, flags) };
                 }
 
                 case 'Type': {
@@ -19528,43 +19534,45 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         typeClassType &&
                         isInstantiableClass(typeClassType)
                     ) {
-                        return typeClassType;
+                        return { type: typeClassType };
                     }
 
                     let typeType = createSpecialType(classType, typeArgs, 1);
                     if (isInstantiableClass(typeType)) {
                         typeType = explodeGenericClass(typeType);
                     }
-                    return typeType;
+                    return { type: typeType };
                 }
 
                 case 'ClassVar': {
-                    return createClassVarType(classType, errorNode, typeArgs, flags);
+                    return { type: createClassVarType(classType, errorNode, typeArgs, flags) };
                 }
 
                 case 'Protocol': {
-                    return createSpecialType(
-                        classType,
-                        typeArgs,
-                        /* paramLimit */ undefined,
-                        /* allowParamSpec */ true
-                    );
+                    return {
+                        type: createSpecialType(
+                            classType,
+                            typeArgs,
+                            /* paramLimit */ undefined,
+                            /* allowParamSpec */ true
+                        ),
+                    };
                 }
 
                 case 'Tuple': {
-                    return createSpecialType(classType, typeArgs, /* paramLimit */ undefined);
+                    return { type: createSpecialType(classType, typeArgs, /* paramLimit */ undefined) };
                 }
 
                 case 'Union': {
-                    return createUnionType(classType, errorNode, typeArgs, flags);
+                    return { type: createUnionType(classType, errorNode, typeArgs, flags) };
                 }
 
                 case 'Generic': {
-                    return createGenericType(classType, errorNode, typeArgs, flags);
+                    return { type: createGenericType(classType, errorNode, typeArgs, flags) };
                 }
 
                 case 'Final': {
-                    return createFinalType(classType, errorNode, typeArgs, flags);
+                    return { type: createFinalType(classType, errorNode, typeArgs, flags) };
                 }
 
                 case 'Annotated': {
@@ -19572,16 +19580,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Concatenate': {
-                    return createConcatenateType(errorNode, classType, typeArgs);
+                    return { type: createConcatenateType(errorNode, classType, typeArgs) };
                 }
 
                 case 'TypeGuard':
                 case 'StrictTypeGuard': {
-                    return createTypeGuardType(errorNode, classType, typeArgs, flags);
+                    return { type: createTypeGuardType(errorNode, classType, typeArgs, flags) };
                 }
 
                 case 'Unpack': {
-                    return createUnpackType(classType, errorNode, typeArgs, flags);
+                    return { type: createUnpackType(classType, errorNode, typeArgs, flags) };
                 }
 
                 case 'Required':
@@ -19590,11 +19598,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Self': {
-                    return createSelfType(classType, errorNode, typeArgs);
+                    return { type: createSelfType(classType, errorNode, typeArgs) };
                 }
 
                 case 'LiteralString': {
-                    return createSpecialType(classType, typeArgs, 0);
+                    return { type: createSpecialType(classType, typeArgs, 0) };
                 }
             }
         }
@@ -19612,7 +19620,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // PEP 484 says that type[Any] should be considered
                 // equivalent to type.
                 if (typeArgs.length === 1 && isAnyOrUnknown(typeArgs[0].type)) {
-                    return classType;
+                    return { type: classType };
                 }
 
                 const typeClass = getTypingType(errorNode, 'Type');
@@ -19629,20 +19637,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         typeType = explodeGenericClass(typeType);
                     }
 
-                    return typeType;
+                    return { type: typeType };
                 }
             }
 
             // Handle "tuple" specially, since it needs to act like "Tuple"
             // in Python 3.9 and newer.
             if (isTupleClass(classType)) {
-                return createSpecialType(
-                    classType,
-                    typeArgs,
-                    /* paramLimit */ undefined,
-                    /* allowParamSpec */ undefined,
-                    /* isCallable */ true
-                );
+                return {
+                    type: createSpecialType(
+                        classType,
+                        typeArgs,
+                        /* paramLimit */ undefined,
+                        /* allowParamSpec */ undefined,
+                        /* isCallable */ true
+                    ),
+                };
             }
         }
 
@@ -19654,7 +19664,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If there are no type parameters or args, the class is already specialized.
         // No need to do any more work.
         if (typeParameters.length === 0 && typeArgCount === 0) {
-            return classType;
+            return { type: classType };
         }
 
         const variadicTypeParamIndex = typeParameters.findIndex((param) => isVariadicTypeVar(param));
@@ -19896,7 +19906,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const specializedClass = ClassType.cloneForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
 
-        return specializedClass;
+        return { type: specializedClass };
     }
 
     function getTypeOfArgument(arg: FunctionArgument): TypeResult {
