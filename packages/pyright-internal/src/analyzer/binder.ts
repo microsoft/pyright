@@ -2511,6 +2511,15 @@ export class Binder extends ParseTreeWalker {
             };
         }
 
+        // See if there is import info for this part of the path. This allows us
+        // to implicitly import all of the modules in a multi-part module name.
+        const implicitImportInfo = AnalyzerNodeInfo.getImportInfo(node.module.nameParts[0]);
+        if (implicitImportInfo && implicitImportInfo.resolvedPaths.length) {
+            newDecl.path = implicitImportInfo.resolvedPaths[0];
+            newDecl.loadSymbolsFromPath = true;
+            this._addImplicitImportsToLoaderActions(implicitImportInfo, newDecl);
+        }
+
         // Add the implicit imports for this module if it's the last
         // name part we're resolving.
         if (importAlias || node.module.nameParts.length === 1) {
@@ -2551,13 +2560,24 @@ export class Binder extends ParseTreeWalker {
                     curLoaderActions.implicitImports.set(namePartValue, loaderActions);
                 }
 
-                // If this is the last name part we're resolving, add in the
-                // implicit imports as well.
                 if (i === node.module.nameParts.length - 1) {
+                    // If this is the last name part we're resolving, add in the
+                    // implicit imports as well.
                     if (importInfo && i < importInfo.resolvedPaths.length) {
                         loaderActions.path = importInfo.resolvedPaths[i];
                         loaderActions.loadSymbolsFromPath = true;
                         this._addImplicitImportsToLoaderActions(importInfo, loaderActions);
+                    }
+                } else {
+                    // If this isn't the last name part we're resolving, see if there
+                    // is import info for this part of the path. This allows us to implicitly
+                    // import all of the modules in a multi-part module name (e.g. "import a.b.c"
+                    // imports "a" and "a.b" and "a.b.c").
+                    const implicitImportInfo = AnalyzerNodeInfo.getImportInfo(node.module.nameParts[i]);
+                    if (implicitImportInfo && implicitImportInfo.resolvedPaths.length) {
+                        loaderActions.path = implicitImportInfo.resolvedPaths[i];
+                        loaderActions.loadSymbolsFromPath = true;
+                        this._addImplicitImportsToLoaderActions(implicitImportInfo, loaderActions);
                     }
                 }
 

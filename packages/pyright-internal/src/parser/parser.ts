@@ -2529,12 +2529,27 @@ export class Parser {
             importNode.list.push(importAsNode);
             importAsNode.parent = importNode;
 
-            this._importedModules.push({
-                nameNode: importAsNode.module,
-                leadingDots: importAsNode.module.leadingDots,
-                nameParts: importAsNode.module.nameParts.map((p) => p.value),
-                importedSymbols: undefined,
-            });
+            const nameParts = importAsNode.module.nameParts.map((p) => p.value);
+
+            if (importAsNode.alias) {
+                this._importedModules.push({
+                    nameNode: importAsNode.module,
+                    leadingDots: importAsNode.module.leadingDots,
+                    nameParts: nameParts,
+                    importedSymbols: undefined,
+                });
+            } else {
+                // Implicitly import all modules in the multi-part name if we
+                // are not assigning the final module to an alias.
+                importAsNode.module.nameParts.forEach((_, index) => {
+                    this._importedModules.push({
+                        nameNode: importAsNode.module,
+                        leadingDots: importAsNode.module.leadingDots,
+                        nameParts: nameParts.slice(0, index + 1),
+                        importedSymbols: undefined,
+                    });
+                });
+            }
 
             if (modName.nameParts.length === 1) {
                 const firstNamePartValue = modName.nameParts[0].value;
