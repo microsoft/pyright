@@ -2132,7 +2132,7 @@ export class Program {
 
             const symbolRange = RenameModuleProvider.getSymbolTextRange(parseResults, sourceDecl);
             const importAdder = new ImportAdder(this._configOptions, this._importResolver, this._evaluator!);
-            const collectedimports = importAdder.collectImportsForSymbolsUsed(parseResults, symbolRange, token);
+            const collectedImports = importAdder.collectImportsForSymbolsUsed(parseResults, symbolRange, token);
 
             let insertionPoint: number | undefined = 0;
             let insertionIndentation = 0;
@@ -2209,7 +2209,7 @@ export class Program {
             const textAfterImportsAdded = _tryGetTextAfterImportsAdded(
                 cloned,
                 newFilePath,
-                collectedimports,
+                collectedImports,
                 insertionPoint,
                 token
             );
@@ -2234,7 +2234,7 @@ export class Program {
             const textAfterUnusedImportsRemoved = _tryGetTextAfterUnusedImportsRemoved(
                 cloned,
                 filePath,
-                collectedimports,
+                collectedImports,
                 0,
                 token
             );
