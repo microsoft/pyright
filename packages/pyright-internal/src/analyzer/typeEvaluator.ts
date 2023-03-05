@@ -94,7 +94,7 @@ import {
     wildcardImportReferenceKey,
 } from './codeFlowTypes';
 import { assignTypeToTypeVar, populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
-import { applyConstructorTransform } from './constructorTransform';
+import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
 import {
     applyDataClassClassBehaviorOverrides,
     applyDataClassDecorator,
@@ -8634,13 +8634,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeVarContext.addSolveForScope(getTypeVarScopeId(constructorMethodType));
 
                 // Skip the unknown argument check if we've already checked for __init__.
-                const callResult = validateCallArguments(
-                    errorNode,
-                    argList,
-                    constructorMethodInfo,
-                    typeVarContext,
-                    skipUnknownArgCheck
-                );
+                let callResult: CallResult;
+                if (hasConstructorTransform(type)) {
+                    // Use speculative mode if we're going to later apply
+                    // a constructor transform. This allows us to use bidirectional
+                    // type inference for arguments in the transform.
+                    callResult = useSpeculativeMode(errorNode, () => {
+                        return validateCallArguments(
+                            errorNode,
+                            argList,
+                            constructorMethodInfo!,
+                            typeVarContext,
+                            skipUnknownArgCheck
+                        );
+                    });
+                } else {
+                    callResult = validateCallArguments(
+                        errorNode,
+                        argList,
+                        constructorMethodInfo,
+                        typeVarContext,
+                        skipUnknownArgCheck
+                    );
+                }
 
                 if (callResult.isTypeIncomplete) {
                     isTypeIncomplete = true;

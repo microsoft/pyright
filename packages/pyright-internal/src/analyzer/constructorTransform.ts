@@ -24,9 +24,18 @@ import {
     getParameterListDetails,
     getTypeVarScopeId,
     lookUpObjectMember,
+    makeInferenceContext,
     ParameterSource,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
+
+export function hasConstructorTransform(classType: ClassType): boolean {
+    if (classType.details.fullName === 'functools.partial') {
+        return true;
+    }
+
+    return false;
+}
 
 export function applyConstructorTransform(
     evaluator: TypeEvaluator,
@@ -98,7 +107,9 @@ function applyPartialTransform(
 
     const remainingArgsList = argList.slice(1);
     remainingArgsList.forEach((arg, argIndex) => {
-        const argTypeResult = evaluator.getTypeOfArgument(arg);
+        if (!arg.valueExpression) {
+            return;
+        }
 
         // Is it a positional argument or a keyword argument?
         if (!arg.name) {
@@ -113,6 +124,12 @@ function applyPartialTransform(
                         paramListDetails.params[paramListDetails.argsIndex].index
                     );
                     const diag = new DiagnosticAddendum();
+
+                    const argTypeResult = evaluator.getTypeOfExpression(
+                        arg.valueExpression,
+                        /* flags */ undefined,
+                        makeInferenceContext(paramType)
+                    );
 
                     if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                         evaluator.addDiagnostic(
@@ -151,6 +168,12 @@ function applyPartialTransform(
                 const paramType = FunctionType.getEffectiveParameterType(origFunctionType, argIndex);
                 const diag = new DiagnosticAddendum();
                 const paramName = paramListDetails.params[argIndex].param.name ?? '';
+
+                const argTypeResult = evaluator.getTypeOfExpression(
+                    arg.valueExpression,
+                    /* flags */ undefined,
+                    makeInferenceContext(paramType)
+                );
 
                 if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                     evaluator.addDiagnostic(
@@ -194,6 +217,12 @@ function applyPartialTransform(
                     );
                     const diag = new DiagnosticAddendum();
 
+                    const argTypeResult = evaluator.getTypeOfExpression(
+                        arg.valueExpression,
+                        /* flags */ undefined,
+                        makeInferenceContext(paramType)
+                    );
+
                     if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                         evaluator.addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -225,6 +254,12 @@ function applyPartialTransform(
                     argumentErrors = true;
                 } else {
                     const diag = new DiagnosticAddendum();
+
+                    const argTypeResult = evaluator.getTypeOfExpression(
+                        arg.valueExpression,
+                        /* flags */ undefined,
+                        makeInferenceContext(paramType)
+                    );
 
                     if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                         evaluator.addDiagnostic(

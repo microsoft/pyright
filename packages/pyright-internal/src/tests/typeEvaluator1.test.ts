@@ -1396,6 +1396,12 @@ test('Partial2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Partial3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['partial3.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TotalOrdering1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['totalOrdering1.py']);
 
