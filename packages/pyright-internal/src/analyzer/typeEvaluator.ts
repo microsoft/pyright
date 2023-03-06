@@ -15008,6 +15008,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     if (isParamSpec(typeArg.type)) {
                         addError(Localizer.Diagnostic.paramSpecContext(), typeArg.node);
+                    } else if (isUnpackedVariadicTypeVar(typeArg.type)) {
+                        addError(Localizer.Diagnostic.typeVarTupleContext(), typeArg.node);
                     }
                 }
             });
