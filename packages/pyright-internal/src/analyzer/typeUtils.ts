@@ -1987,9 +1987,16 @@ export function isEffectivelyInstantiable(type: Type): boolean {
         return true;
     }
 
-    // Handle the special case of 'type', which is instantiable.
-    if (isClassInstance(type) && ClassType.isBuiltIn(type, 'type')) {
-        return true;
+    // Handle the special case of 'type' (or subclasses thereof),
+    // which are instantiable.
+    if (isClassInstance(type)) {
+        if (
+            type.details.mro.some((mroClass) => {
+                return isClass(mroClass) && ClassType.isBuiltIn(mroClass, 'type');
+            })
+        ) {
+            return true;
+        }
     }
 
     if (isUnion(type)) {

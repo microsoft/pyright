@@ -15983,7 +15983,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (!isAnyOrUnknown(argType) && !isUnbound(argType)) {
-                    if (isClass(argType) && TypeBase.isInstance(argType) && ClassType.isBuiltIn(argType, 'type')) {
+                    if (
+                        isClass(argType) &&
+                        TypeBase.isInstance(argType) &&
+                        argType.details.mro.some(
+                            (mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, 'type')
+                        )
+                    ) {
                         argType =
                             argType.typeArguments && argType.typeArguments.length > 0
                                 ? argType.typeArguments[0]
