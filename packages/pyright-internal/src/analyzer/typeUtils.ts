@@ -1982,6 +1982,13 @@ export function getGeneratorYieldType(declaredReturnType: Type, isAsync: boolean
     return isLegalGeneratorType ? yieldType : undefined;
 }
 
+export function isMetaclassInstance(type: Type): boolean {
+    return (
+        isClassInstance(type) &&
+        type.details.mro.some((mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, 'type'))
+    );
+}
+
 export function isEffectivelyInstantiable(type: Type): boolean {
     if (TypeBase.isInstantiable(type)) {
         return true;
@@ -1989,14 +1996,8 @@ export function isEffectivelyInstantiable(type: Type): boolean {
 
     // Handle the special case of 'type' (or subclasses thereof),
     // which are instantiable.
-    if (isClassInstance(type)) {
-        if (
-            type.details.mro.some((mroClass) => {
-                return isClass(mroClass) && ClassType.isBuiltIn(mroClass, 'type');
-            })
-        ) {
-            return true;
-        }
+    if (isMetaclassInstance(type)) {
+        return true;
     }
 
     if (isUnion(type)) {
