@@ -5690,7 +5690,9 @@ export class Checker extends ParseTreeWalker {
             if (
                 node.parameters.length === 0 ||
                 !node.parameters[0].name ||
-                !['cls', '_cls', '__cls', '__mcls'].some((name) => node.parameters[0].name!.value === name)
+                !['cls', '_cls', '__cls', '__mcls', 'mcls', 'mcs'].some(
+                    (name) => node.parameters[0].name!.value === name
+                )
             ) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportSelfClsParameterName,
@@ -5790,9 +5792,9 @@ export class Checker extends ParseTreeWalker {
 
                 // Instance methods should have a "self" parameter.
                 if (firstParamIsSimple && paramName !== 'self') {
-                    // Special-case metaclasses, which can use "cls".
+                    // Special-case metaclasses, which can use "cls" or several variants.
                     let isLegalMetaclassName = false;
-                    if (paramName === 'cls') {
+                    if (['cls', 'mcls', 'mcs'].some((name) => name === paramName)) {
                         const classTypeInfo = this._evaluator.getTypeOfClass(classNode);
                         const typeType = this._evaluator.getBuiltInType(classNode, 'type');
                         if (
