@@ -9,7 +9,7 @@ For absolute (non-relative) imports, Pyright employs the following resolution or
 
 2. Try to resolve using **code within the workspace**.
     
-    * Try to resolve relative to the **root directory** of the execution environment. If no execution environments are specified in the config file, use the root of the workspace. For more information about execution environments, refer to the [configuration documentation](https://github.com/microsoft/pyright/blob/main/docs/configuration.md#execution-environment-options).
+    * Try to resolve relative to the **root directory** of the execution environment. If no execution environments are specified in the config file, use the root of the workspace. For more information about execution environments, refer to the [configuration documentation](configuration.md#execution-environment-options).
 
     * Try to resolve using any of the **extra paths** defined for the execution environment in the config file. If no execution environment applies, use the `python.analysis.extraPaths` setting. Extra paths are searched in the order in which they are provided in the config file or setting.
 

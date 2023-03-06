@@ -112,7 +112,7 @@ a.x = 3.0 # Pyright treats this as an error because the type of `x` is `int | st
 
 ## Class and Instance Variable Enforcement
 
-Pyright distinguishes between “pure class variables”, “regular class variables”, and “pure instance variable”. For a detailed explanation, refer to [this documentation](https://github.com/microsoft/pyright/blob/main/docs/type-concepts.md#class-and-instance-variables).
+Pyright distinguishes between “pure class variables”, “regular class variables”, and “pure instance variable”. For a detailed explanation, refer to [this documentation](type-concepts.md#class-and-instance-variables).
 
 Mypy does not distinguish between class variables and instance variables in all cases. This is a [known issue](https://github.com/python/mypy/issues/240).
 
@@ -146,7 +146,7 @@ reveal_type(v2) # mypy reveals `Sequence[int]` rather than `list[int]`
 
 ## Type Guards
 
-Pyright supports several built-in type guards that mypy does not currently support. For a full list of type guard expression forms supported by pyright, refer to [this documentation](https://github.com/microsoft/pyright/blob/main/docs/type-concepts.md#type-guards).
+Pyright supports several built-in type guards that mypy does not currently support. For a full list of type guard expression forms supported by pyright, refer to [this documentation](type-concepts.md#type-guards).
 
 The following expression forms are not currently supported by mypy as type guards:
 * `x == L` and `x != L` (where L is an expression with a literal type)
@@ -158,12 +158,12 @@ The following expression forms are not currently supported by mypy as type guard
 
 ## Aliased Conditional Expressions
 
-Pyright supports the [aliasing of conditional expressions](https://github.com/microsoft/pyright/blob/main/docs/type-concepts.md#aliased-conditional-expression) used for type guards. Mypy does not currently support this, but it is a frequently-requested feature.
+Pyright supports the [aliasing of conditional expressions](type-concepts.md#aliased-conditional-expression) used for type guards. Mypy does not currently support this, but it is a frequently-requested feature.
 
 
 ## Narrowing for Implied Else
 
-Pyright supports a feature called [type narrowing for implied else](https://github.com/microsoft/pyright/blob/main/docs/type-concepts.md#narrowing-for-implied-else) in cases where an `if` or `elif` clause has no associated `else` clause. This feature allows pyright to determine that all cases have already been handled by the `if` or `elif` statement and that the "implied else" would never be executed if it were present. This eliminates certain false positive errors. Mypy currently does not support this.
+Pyright supports a feature called [type narrowing for implied else](type-concepts.md#narrowing-for-implied-else) in cases where an `if` or `elif` clause has no associated `else` clause. This feature allows pyright to determine that all cases have already been handled by the `if` or `elif` statement and that the "implied else" would never be executed if it were present. This eliminates certain false positive errors. Mypy currently does not support this.
 
 ```python
 class Color(Enum):
@@ -196,7 +196,7 @@ reveal_type(b) # pyright: list[Any], mypy: list[int]
 
 ## Inference of List, Set, and Dict Expressions
 
-Pyright’s inference rules for [list, set and dict expressions](https://github.com/microsoft/pyright/blob/main/docs/type-inference.md#list-expressions) differ from mypy’s when values with heterogeneous types are used. Mypy uses a join operator to combine the types. Pyright uses either an `Unknown` or a union depending on configuration settings. A join operator often produces a type that is not what was intended, and this leads to false positive errors.
+Pyright’s inference rules for [list, set and dict expressions](type-inference.md#list-expressions) differ from mypy’s when values with heterogeneous types are used. Mypy uses a join operator to combine the types. Pyright uses either an `Unknown` or a union depending on configuration settings. A join operator often produces a type that is not what was intended, and this leads to false positive errors.
 
 ```python
 x = [1, 3.4, ""]
@@ -217,7 +217,7 @@ def func(one: Literal[1]):
 
 ## Inference of Tuple Expressions
 
-Pyright’s inference rules for [tuple expressions](https://github.com/microsoft/pyright/blob/main/docs/type-inference.md#tuple-expressions) differ from mypy’s when tuple entries contain literals. Pyright retains these literal types, but mypy widens the types to their non-literal type. Pyright retains the literal types in this case because tuples are immutable, and more precise (narrower) types are almost always beneficial in this situation.
+Pyright’s inference rules for [tuple expressions](type-inference.md#tuple-expressions) differ from mypy’s when tuple entries contain literals. Pyright retains these literal types, but mypy widens the types to their non-literal type. Pyright retains the literal types in this case because tuples are immutable, and more precise (narrower) types are almost always beneficial in this situation.
 
 ```python
 x = (1, "stop")
@@ -259,7 +259,7 @@ When pyright evaluates a write to a class variable that contains a descriptor ob
 
 Mypy infers the type of `self` and `cls` parameters in methods but otherwise does not infer any parameter types.
 
-Pyright implements several parameter type inference techniques that improve type checking and language service features in the absence of explicit parameter type annotations. For details, refer to [this documentation](https://github.com/microsoft/pyright/blob/main/docs/type-inference.md#parameter-type-inference).
+Pyright implements several parameter type inference techniques that improve type checking and language service features in the absence of explicit parameter type annotations. For details, refer to [this documentation](type-inference.md#parameter-type-inference).
 
 
 ## Constraint Solver Behaviors
@@ -334,12 +334,12 @@ def func(a: AnyStr, b: T):
     return a + b # Mypy reports 4 errors
 ```
 
-Pyright cannot use the same multi-pass technique as mypy in this case. It needs to produce a single type for any given identifier to support language server features. Pyright instead uses a mechanism called [conditional types](https://github.com/microsoft/pyright/blob/main/docs/type-concepts.md#constrained-type-variables-and-conditional-types). This approach allows pyright to handle some constrained TypeVar use cases that mypy cannot, but there are conversely other use cases that mypy can handle and pyright cannot.
+Pyright cannot use the same multi-pass technique as mypy in this case. It needs to produce a single type for any given identifier to support language server features. Pyright instead uses a mechanism called [conditional types](type-concepts.md#constrained-type-variables-and-conditional-types). This approach allows pyright to handle some constrained TypeVar use cases that mypy cannot, but there are conversely other use cases that mypy can handle and pyright cannot.
 
 
 ## “Unknown” Type and Strict Mode
 
-Pyright differentiates between explicit and implicit forms of `Any`. The implicit form is referred to as [`Unknown`](https://github.com/microsoft/pyright/blob/main/docs/type-inference.md#unknown-type). For example, if a parameter is annotated as `list[Any]`, that is a use of an explicit `Any`, but if a parameter is annotated as `list`, that is an implicit `Any`, so pyright refers to this type as `list[Unknown]`. Pyright implements several checks that are enabled in “strict” type-checking modes that report the use of an `Unknown` type. Such uses can mask type errors.
+Pyright differentiates between explicit and implicit forms of `Any`. The implicit form is referred to as [`Unknown`](type-inference.md#unknown-type). For example, if a parameter is annotated as `list[Any]`, that is a use of an explicit `Any`, but if a parameter is annotated as `list`, that is an implicit `Any`, so pyright refers to this type as `list[Unknown]`. Pyright implements several checks that are enabled in “strict” type-checking modes that report the use of an `Unknown` type. Such uses can mask type errors.
 
 Mypy does not track the difference between explicit and implicit `Any` types, but it supports various checks that report the use of values whose type is `Any`: `--warn-return-any` and `--disallow-any-*`. For details, refer to [this documentation](https://mypy.readthedocs.io/en/stable/command_line.html#disallow-dynamic-typing).
 
@@ -348,12 +348,12 @@ Pyright’s approach gives developers more control. It provides a way to be expl
 
 ## Overload Resolution
 
-Overload resolution rules are under-specified in PEP 484. Pyright and mypy apply similar rules, but there are likely some complex edge cases where different results will be produced. For full documentation of pyright’s overload behaviors, refer to [this documentation](https://github.com/microsoft/pyright/blob/main/docs/type-concepts.md#overloads).
+Overload resolution rules are under-specified in PEP 484. Pyright and mypy apply similar rules, but there are likely some complex edge cases where different results will be produced. For full documentation of pyright’s overload behaviors, refer to [this documentation](type-concepts.md#overloads).
 
 
 ## Import Statements
 
-Pyright intentionally does not model implicit side effects of the Python import loading mechanism. In general, such side effects cannot be modeled statically because they depend on execution order. Dependency on such side effects leads to fragile code, so pyright treats these as errors. For more details, refer to [this documentation](https://github.com/microsoft/pyright/blob/main/docs/import-statements.md).
+Pyright intentionally does not model implicit side effects of the Python import loading mechanism. In general, such side effects cannot be modeled statically because they depend on execution order. Dependency on such side effects leads to fragile code, so pyright treats these as errors. For more details, refer to [this documentation](import-statements.md).
 
 Mypy models some side effects of the import loader. If an import statement imports a submodule using a multi-part module reference, mypy assumes that all of the parent modules are also initialized and cached such they can be referenced.
 

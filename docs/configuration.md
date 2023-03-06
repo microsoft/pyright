@@ -1,8 +1,8 @@
 # Pyright Configuration
 
-Pyright offers flexible configuration options specified in a JSON-formatted text configuration. By default, the file is called “pyrightconfig.json” and is located within the root directory of your project. Multi-root workspaces (“Add Folder to Workspace…”) are supported, and each workspace root can have its own “pyrightconfig.json” file. For a sample pyrightconfig.json file, see [below](https://github.com/microsoft/pyright/blob/main/docs/configuration.md#sample-config-file).
+Pyright offers flexible configuration options specified in a JSON-formatted text configuration. By default, the file is called “pyrightconfig.json” and is located within the root directory of your project. Multi-root workspaces (“Add Folder to Workspace…”) are supported, and each workspace root can have its own “pyrightconfig.json” file. For a sample pyrightconfig.json file, see [below](configuration.md#sample-config-file).
 
-Pyright settings can also be specified in a `[tool.pyright]` section of a “pyproject.toml” file. A “pyrightconfig.json” file always takes precedent over “pyproject.toml” if both are present. For a sample pyproject.toml file, see [below](https://github.com/microsoft/pyright/blob/main/docs/configuration.md#sample-pyprojecttoml-file).
+Pyright settings can also be specified in a `[tool.pyright]` section of a “pyproject.toml” file. A “pyrightconfig.json” file always takes precedent over “pyproject.toml” if both are present. For a sample pyproject.toml file, see [below](configuration.md#sample-pyprojecttoml-file).
 
 Relative paths specified within the config file are relative to the config file’s location. Paths with shell variables (including `~`) are not supported. Paths within a the config file should generally be relative paths so the config file can be shared by other developers who contribute to the project.
 
@@ -14,7 +14,7 @@ Relative paths specified within the config file are relative to the config file�
 
 **ignore** [array of paths, optional]: Paths of directories or files whose diagnostic output (errors and warnings) should be suppressed even if they are an included file or within the transitive closure of an included file. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character).
 
-**strict** [array of paths, optional]: Paths of directories or files that should use “strict” analysis if they are included. This is the same as manually adding a “# pyright: strict” comment. In strict mode, most type-checking rules are enabled. Refer to [this table](https://github.com/microsoft/pyright/blob/main/docs/configuration.md#diagnostic-rule-defaults) for details about which rules are enabled in strict mode. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character).
+**strict** [array of paths, optional]: Paths of directories or files that should use “strict” analysis if they are included. This is the same as manually adding a “# pyright: strict” comment. In strict mode, most type-checking rules are enabled. Refer to [this table](configuration.md#diagnostic-rule-defaults) for details about which rules are enabled in strict mode. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character).
 
 **defineConstant** [map of constants to values (boolean or string), optional]: Set of identifiers that should be assumed to contain a constant value wherever used within this program. For example, `{ "DEBUG": true }` indicates that pyright should assume that the identifier `DEBUG` will always be equal to `True`. If this identifier is used within a conditional expression (such as `if not DEBUG:`) pyright will use the indicated value to determine whether the guarded block is reachable or not. Member expressions that reference one of these constants (e.g. `my_module.DEBUG`) are also supported.
 
@@ -34,7 +34,7 @@ Relative paths specified within the config file are relative to the config file�
 
 **pythonPlatform** [string, optional]: Specifies the target platform that will be used to execute the source code. Should be one of `"Windows"`, `"Darwin"`, `"Linux"`, or `"All"`. If specified, pyright will tailor its use of type stub files, which conditionalize type definitions based on the platform. If no platform is specified, pyright will use the current platform.
 
-**executionEnvironments** [array of objects, optional]: Specifies a list of execution environments (see [below](https://github.com/microsoft/pyright/blob/main/docs/configuration.md#execution-environment-options)). Execution environments are searched from start to finish by comparing the path of a source file with the root path specified in the execution environment.
+**executionEnvironments** [array of objects, optional]: Specifies a list of execution environments (see [below](configuration.md#execution-environment-options)). Execution environments are searched from start to finish by comparing the path of a source file with the root path specified in the execution environment.
 
 **typeCheckingMode** ["off", "basic", "strict"]: Specifies the default rule set to use. Some rules can be overridden using additional configuration flags documented below. The default value for this setting is "basic". If set to "off", all type-checking rules are disabled, but Python syntax and semantic errors are still reported.
 

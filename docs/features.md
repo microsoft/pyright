@@ -4,7 +4,7 @@
 Pyright is a fast type checker meant for large Python source bases. It can run in a “watch” mode and performs fast incremental updates when files are modified.
 
 ### Configurability
-Pyright supports [configuration files](/docs/configuration.md) that provide granular control over settings. Different “execution environments” can be associated with subdirectories within a source base. Each environment can specify different module search paths, python language versions, and platform targets.
+Pyright supports [configuration files](configuration.md) that provide granular control over settings. Different “execution environments” can be associated with subdirectories within a source base. Each environment can specify different module search paths, python language versions, and platform targets.
 
 ### Type Checking Features
 * [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints including generics

@@ -24,11 +24,11 @@ To generate a type stub file from within VS Code, enable the reportMissingTypeSt
 ### Generating Type Stubs in VS Code
 If “reportMissingTypeStubs” is enabled, pyright will highlight any imports that have no type stub. Hover over the error message, and you will see a “Quick Fix” link. Clicking on this link will reveal a popup menu item titled “Create Type Stub For XXX”. The example below shows a missing typestub for the `django` library.
 
-![Pyright](/docs/img/CreateTypeStub1.png)
+![Pyright](img/CreateTypeStub1.png)
 
 Click on the menu item to create the type stub. Depending on the size of the library, it may take pyright tens of seconds to analyze the library and generate type stub files. Once complete, you should see a message in VS Code indicating success or failure.
 
-![Pyright](/docs/img/CreateTypeStub2.png)
+![Pyright](img/CreateTypeStub2.png)
 
 ### Generating Type Stubs from Command Line
 The command-line version of pyright can also be used to generate type stubs. As with the VS Code version, it must be run within the context of your configured project. Then type `pyright --createstub [import-name]`.
