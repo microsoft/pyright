@@ -103,6 +103,9 @@ def test1(a: int, b: str, c: List[int], d: Union[complex, str]):
     v6_3 = func6(a, b, d)
     reveal_type(v6_3, expected_text="int | str | complex")
 
+    v6_4 = func6()
+    reveal_type(v6_4, expected_text="Never")
+
     # ---------
 
     v7_1 = func7([a])

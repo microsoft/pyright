@@ -8977,7 +8977,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { returnType: UnknownType.create(), argumentErrors: true, overloadsUsedForCall };
         }
 
-        const returnType = mapSubtypesExpandTypeVars(
+        let returnType = mapSubtypesExpandTypeVars(
             callTypeResult.type,
             /* conditionFilter */ undefined,
             (expandedSubtype, unexpandedSubtype) => {
@@ -9512,9 +9512,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         );
 
+        // If we ended up with a "Never" type because all code paths returned
+        // undefined due to argument errors, transform the result into an Unknown
+        // to avoid subsequent false positives.
+        if (argumentErrors && isNever(returnType) && !returnType.isNoReturn) {
+            returnType = UnknownType.create();
+        }
+
         return {
             argumentErrors,
-            returnType: isNever(returnType) && !returnType.isNoReturn ? undefined : returnType,
+            returnType,
             isTypeIncomplete,
             specializedInitSelfType,
             overloadsUsedForCall,
