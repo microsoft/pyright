@@ -20839,8 +20839,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
+                // Special-case constants, which are treated as unambiguous.
                 if (isFinalVariableDeclaration(resolvedDecl) || resolvedDecl.isConstant) {
                     isUnambiguousType = true;
+                }
+
+                // Special-case calls to certain built-in type functions.
+                if (resolvedDecl.inferredTypeSource?.nodeType === ParseNodeType.Call) {
+                    const baseTypeResult = getTypeOfExpression(
+                        resolvedDecl.inferredTypeSource.leftExpression,
+                        EvaluatorFlags.DoNotSpecialize
+                    );
+                    const callType = baseTypeResult.type;
+
+                    if (
+                        isInstantiableClass(callType) &&
+                        ClassType.isBuiltIn(callType, [
+                            'TypeVar',
+                            'ParamSpec',
+                            'TypeVarTuple',
+                            'TypedDict',
+                            'NamedTuple',
+                            'NewType',
+                        ])
+                    ) {
+                        isUnambiguousType = true;
+                    }
                 }
             }
         }
