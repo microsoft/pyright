@@ -5,7 +5,7 @@
 Pyright is a full-featured, standards-based static type checker for Python. It is designed for high performance and can be used with large Python source bases.
 
 ### Command-line Tool or Visual Studio Code Extension
-Pyright includes both a [command-line tool](/docs/command-line.md) and an [extension for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=ms-pyright.pyright) that implements the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/).
+Pyright includes both a [command-line tool](/docs/command-line.md) and an [extension for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=ms-pyright.pyright).
 
 
 ## Installation
@@ -49,26 +49,8 @@ To update to the latest version:
 
 
 ## Documentation
-* [Pyright Features](/docs/features.md)
-* [Getting Started with Type Checking](/docs/getting-started.md)
-* [Type Concepts](/docs/type-concepts.md)
-* [Continuous Integration (CI)](/docs/ci-integration.md)
-* [Command-line Options](/docs/command-line.md)
-* [Configuration](/docs/configuration.md)
-* [Settings](/docs/settings.md)
-* [Comments](/docs/comments.md)
-* [Type Inference](/docs/type-inference.md)
-* [Import Statements](/docs/import-statements.md)
-* [Differences from Mypy](/docs/mypy-comparison.md)
-* [Import Resolution](/docs/import-resolution.md)
-* [Extending Builtins](/docs/builtins.md)
-* [Type Stubs](/docs/type-stubs.md)
-* [Types in Libraries](/docs/typed-libraries.md)
-* [Commands](/docs/commands.md)
-* [Building & Debugging](/docs/build-debug.md)
-* [Pyright Internals](/docs/internals.md)
 
-For additional information about Python static typing, refer to this community-maintained [Python Type School](https://github.com/python/typing/discussions).
+Full documentation can be found [here](https://microsoft.github.io/pyright)
 
 
 ## Community
