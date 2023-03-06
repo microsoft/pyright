@@ -353,7 +353,7 @@ Overload resolution rules are under-specified in PEP 484. Pyright and mypy apply
 
 ## Import Statements
 
-Pyright intentionally does not model any implicit side effects of the Python import loading mechanism. In general, such side effects cannot be modeled statically because they depend on execution order. Dependency on such side effects leads to fragile code, so pyright treats these as errors.
+Pyright intentionally does not model implicit side effects of the Python import loading mechanism. In general, such side effects cannot be modeled statically because they depend on execution order. Dependency on such side effects leads to fragile code, so pyright treats these as errors. For more details, refer to [this documentation](https://github.com/microsoft/pyright/blob/main/docs/import-statements.md).
 
 Mypy models some side effects of the import loader. If an import statement imports a submodule using a multi-part module reference, mypy assumes that all of the parent modules are also initialized and cached such they can be referenced.
 
@@ -361,6 +361,12 @@ Mypy models some side effects of the import loader. If an import statement impor
 import collections.abc
 collections.deque() # Pyright produces an error here because the `collections` module wasn't explicitly imported
 ```
+
+## Ellipsis in Function Body
+
+If Pyright encounters a function body whose implementation is `...`, it does not enforce the return type annotation. The `...` semantically means “this is a code placeholder” — a convention established in type stubs, protocol definitions, and elsewhere.
+
+Mypy treats `...` function bodies as though they are executable and enforces the return type annotation. This was a recent change in mypy — made long after Pyright established a different behavior. Prior to mypy’s recent change, it did not enforce return types for function bodies consisting of either `...` or `pass`. Now it enforces both.
 
 
 ## Circular References
