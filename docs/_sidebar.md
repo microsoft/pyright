@@ -4,7 +4,7 @@
   - [Type Concepts](type-concepts.md)
   - [Getting Started with Type Checking](getting-started.md)
   - [Pyright Features](features.md)
-
+  - [FAQ](faq.md)
 
 - Customization
 
