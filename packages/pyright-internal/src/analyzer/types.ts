@@ -1535,6 +1535,17 @@ export namespace FunctionType {
         return newFunction;
     }
 
+    export function cloneWithDocString(type: FunctionType, docString?: string): FunctionType {
+        const newFunction = TypeBase.cloneType(type);
+
+        // Make a shallow clone of the details.
+        newFunction.details = { ...type.details };
+
+        newFunction.details.docString = docString;
+
+        return newFunction;
+    }
+
     export function cloneForParamSpecApplication(type: FunctionType, paramSpecValue: FunctionType): FunctionType {
         const newFunction = TypeBase.cloneType(type);
 

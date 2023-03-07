@@ -18047,7 +18047,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                const overloadedTypes: FunctionType[] = [];
+                let overloadedTypes: FunctionType[] = [];
 
                 // Look at the previous declaration's type.
                 const prevDecl = decls[declIndex - 1];
@@ -18070,6 +18070,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (overloadedTypes.length === 1) {
                     return overloadedTypes[0];
+                }
+
+                // Apply the implementation's docstring to any overloads that don't
+                // have their own docstrings.
+                const implementation = overloadedTypes.find((signature) => !FunctionType.isOverloaded(signature));
+                if (implementation?.details.docString) {
+                    overloadedTypes = overloadedTypes.map((overload) => {
+                        if (FunctionType.isOverloaded(overload) && !overload.details.docString) {
+                            return FunctionType.cloneWithDocString(overload, implementation.details.docString);
+                        }
+                        return overload;
+                    });
                 }
 
                 // Create a new overloaded type that copies the contents of the previous
