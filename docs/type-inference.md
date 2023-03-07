@@ -109,7 +109,7 @@ var5 = (3,)                     # Type is assumed to be tuple[Literal[3]]
 var6: tuple[float, ...] = (3,)  # Type of RHS is now tuple[float, ...]
 ```
 
-#### Empty list and Dictionary Type Inference
+#### Empty List and Dictionary Type Inference
 
 It is common to initialize a local variable or instance variable to an empty list (`[]`) or empty dictionary (`{}`) on one code path but initialize it to a non-empty list or dictionary on other code paths. In such cases, Pyright will infer the type based on the non-empty list or dictionary and suppress errors about a “partially unknown type”.
 
