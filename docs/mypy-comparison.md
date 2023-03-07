@@ -1,18 +1,18 @@
-# Differences Between Pyright and Mypy
+## Differences Between Pyright and Mypy
 
-## What is Mypy?
+### What is Mypy?
 
 Mypy is the “OG” in the world of Python type checkers. It was started by Jukka Lehtosalo in 2012 with contributions from Guido van Rossum, Ivan Levkivskyi, and many others over the years. For a detailed history, refer to [this documentation](http://mypy-lang.org/about.html). The code for mypy can be found in [this github project](https://github.com/python/mypy).
 
 
-## Why Does Pyright’s Behavior Differ from Mypy’s?
+### Why Does Pyright’s Behavior Differ from Mypy’s?
 
 Mypy served as a reference implementation of [PEP 484](https://www.python.org/dev/peps/pep-0484/), which defines standard behaviors for Python static typing. Although PEP 484 spells out many type checking behaviors, it intentionally leaves many other behaviors undefined. This approach has allowed different type checkers to innovate and differentiate.
 
 Pyright generally adheres to the type checking behaviors spelled out in PEP 484 and follow-on typing PEPs (526, 544, 586, 589, etc.). For behaviors that are not explicitly spelled out in these standards, pyright generally tries to adhere to mypy’s behavior unless there is a compelling justification for deviating. This document discusses these differences and provides the reasoning behind each design choice.
 
 
-## Design Goals
+### Design Goals
 
 Pyright was designed with performance in mind. It is not unusual for pyright to be 3x to 5x faster than mypy when type checking large code bases. Some of its design decisions were motivated by this goal.
 
@@ -23,21 +23,21 @@ To achieve these design goals, pyright is implemented as a “lazy” or “just
 Pyright implements its own parser, which recovers gracefully from syntax errors and continues parsing the remainder of the source file. By comparison, mypy uses the parser built in to the Python interpreter, and it does not support recovery after a syntax error.
 
 
-## Type Checking Unannotated Code
+### Type Checking Unannotated Code
 
 By default, pyright performs type checking for all code regardless of whether it contains type annotations. This is important for language server features. It is also important for catching bugs in code that is unannotated.
 
 By default, mypy skips all functions or methods that do not have type annotations. This is a common source of confusion for mypy users who are surprised when type violations in unannotated functions go unreported. If the option `--check-untyped-defs` is enabled, mypy performs type checking for all functions and methods.
 
 
-## Inferred Return Types
+### Inferred Return Types
 
 If a function or method lacks a return type annotation, pyright infers the return type from `return` and `yield` statements within the function’s body (including the implied `return None` at the end of the function body). This is important for supporting completion suggestions. It also improves type checking coverage and eliminates the need for developers to needlessly supply return type annotations for trivial return types.
 
 By comparison, mypy never infers return types and assumes that functions without a return type annotation have a return type of `Any`. This was an intentional design decision by mypy developers and is explained in [this thread](https://github.com/python/mypy/issues/10149).
 
 
-## Unions vs Joins
+### Unions vs Joins
 
 When merging two types during code flow analysis or widening types during constraint solving, pyright always uses a union operation. Mypy typically (but not always) uses a “join” operation, which merges types by finding a common supertype. The use of joins discards valuable type information and leads to many false positive errors that are [well documented within the mypy issue tracker](https://github.com/python/mypy/issues?q=is%3Aissue+is%3Aopen+label%3Atopic-join-v-union).
 
@@ -61,7 +61,7 @@ def func2(condition: bool, val1: str, val2: int):
 ```
 
 
-## Variable Type Declarations
+### Variable Type Declarations
 
 Pyright treats variable type annotations as type declarations. If a variable is not annotated, pyright allows any value to be assigned to that variable, and its type is inferred to be the union of all assigned types.
 
@@ -90,7 +90,7 @@ def func3(condition: bool):
 Pyright’s behavior is more consistent, is conceptually simpler and more natural for Python developers, leads to fewer false positives, and eliminates the need for many otherwise-necessary variable type annotations.
 
 
-## Class and Instance Variable Inference
+### Class and Instance Variable Inference
 
 Pyright handles instance and class variables consistently with local variables. If a type annotation is provided for an instance or class variable (either within the class or one of its base classes), pyright treats this as a type declaration and enforces it accordingly. If a class implementation does not provide a type annotation for an instance or class variable and its base classes likewise do not provide a type annotation, the variable’s type is inferred from all assignments within the class implementation.
 
@@ -110,7 +110,7 @@ a.x = 3.0 # Pyright treats this as an error because the type of `x` is `int | st
 ```
 
 
-## Class and Instance Variable Enforcement
+### Class and Instance Variable Enforcement
 
 Pyright distinguishes between “pure class variables”, “regular class variables”, and “pure instance variable”. For a detailed explanation, refer to [this documentation](type-concepts.md#class-and-instance-variables).
 
@@ -130,7 +130,7 @@ print(A.z) # pyright: error, mypy: no error
 ```
 
 
-## Assignment-based Type Narrowing
+### Assignment-based Type Narrowing
 
 Pyright applies type narrowing for variable assignments. This is done regardless of whether the assignment statement includes a variable type annotation. Mypy skips assignment-based type narrowing when the target variable includes a type annotation. The consensus of the typing community is that mypy’s behavior here is inconsistent, and there are [plans to eliminate this inconsistency](https://github.com/python/mypy/issues/2008).
 
@@ -144,7 +144,7 @@ reveal_type(v2) # mypy reveals `Sequence[int]` rather than `list[int]`
 ```
 
 
-## Type Guards
+### Type Guards
 
 Pyright supports several built-in type guards that mypy does not currently support. For a full list of type guard expression forms supported by pyright, refer to [this documentation](type-concepts.md#type-guards).
 
@@ -156,12 +156,12 @@ The following expression forms are not currently supported by mypy as type guard
 * `bool(x)` (where x is any expression that is statically verifiable to be truthy or falsey in all cases)
 
 
-## Aliased Conditional Expressions
+### Aliased Conditional Expressions
 
 Pyright supports the [aliasing of conditional expressions](type-concepts.md#aliased-conditional-expression) used for type guards. Mypy does not currently support this, but it is a frequently-requested feature.
 
 
-## Narrowing for Implied Else
+### Narrowing for Implied Else
 
 Pyright supports a feature called [type narrowing for implied else](type-concepts.md#narrowing-for-implied-else) in cases where an `if` or `elif` clause has no associated `else` clause. This feature allows pyright to determine that all cases have already been handled by the `if` or `elif` statement and that the "implied else" would never be executed if it were present. This eliminates certain false positive errors. Mypy currently does not support this.
 
@@ -178,7 +178,7 @@ def is_red(color: Color) -> bool:
     # mypy reports error: Missing return statement
 ```
 
-## Narrowing Any
+### Narrowing Any
 
 Pyright never narrows `Any` when performing type narrowing for assignments. Mypy is inconsistent about when it applies type narrowing to `Any` type arguments.
 
@@ -194,7 +194,7 @@ reveal_type(b) # pyright: list[Any], mypy: list[int]
 ```
 
 
-## Inference of List, Set, and Dict Expressions
+### Inference of List, Set, and Dict Expressions
 
 Pyright’s inference rules for [list, set and dict expressions](type-inference.md#list-expressions) differ from mypy’s when values with heterogeneous types are used. Mypy uses a join operator to combine the types. Pyright uses either an `Unknown` or a union depending on configuration settings. A join operator often produces a type that is not what was intended, and this leads to false positive errors.
 
@@ -215,7 +215,7 @@ def func(one: Literal[1]):
 ```
 
 
-## Inference of Tuple Expressions
+### Inference of Tuple Expressions
 
 Pyright’s inference rules for [tuple expressions](type-inference.md#tuple-expressions) differ from mypy’s when tuple entries contain literals. Pyright retains these literal types, but mypy widens the types to their non-literal type. Pyright retains the literal types in this case because tuples are immutable, and more precise (narrower) types are almost always beneficial in this situation.
 
@@ -227,7 +227,7 @@ y: Literal["stop", "go"] = x[1] # mypy: type error
 ```
 
 
-## Assignment-Based Narrowing for Literals
+### Assignment-Based Narrowing for Literals
 
 When assigning a literal value to a variable, pyright narrows the type to reflect the literal. Mypy does not. Pyright retains the literal types in this case because more precise (narrower) types are typically beneficial and have little or no downside.
 
@@ -250,19 +250,19 @@ def func2():
 ```
 
 
-## Type Narrowing for Asymmetric Descriptors
+### Type Narrowing for Asymmetric Descriptors
 
 When pyright evaluates a write to a class variable that contains a descriptor object (including properties), it normally applies assignment-based type narrowing. However, when the descriptor is asymmetric — that is, its “getter” type is different from its “setter” type, pyright refrains from applying assignment-based type narrowing. For a full discussion of this, refer to [this issue](https://github.com/python/mypy/issues/3004). Mypy has not yet implemented the agreed-upon behavior, so its type narrowing behavior may differ from pyright’s in this case.
 
 
-## Parameter Type Inference
+### Parameter Type Inference
 
 Mypy infers the type of `self` and `cls` parameters in methods but otherwise does not infer any parameter types.
 
 Pyright implements several parameter type inference techniques that improve type checking and language service features in the absence of explicit parameter type annotations. For details, refer to [this documentation](type-inference.md#parameter-type-inference).
 
 
-## Constraint Solver Behaviors
+### Constraint Solver Behaviors
 
 When evaluating a call expression that invokes a generic class constructor or a generic function, a type checker performs a process called “constraint solving” to solve the type variables found within the target function signature. The solved type variables are then applied to the return type of that function to determine the final type of the call expression. This process is called “constraint solving” because it takes into account various constraints that are specified for each type variable. These constraints include variance rules and type variable bounds.
 
@@ -322,7 +322,7 @@ def func2(x: list[int], y: list[str] | int):
 ```
 
 
-## Constrained Type Variables
+### Constrained Type Variables
 
 When mypy analyzes a class or function that has in-scope constrained TypeVars, it analyzes the class or function multiple times, once for each constraint. This can produce multiple errors.
 
@@ -337,7 +337,7 @@ def func(a: AnyStr, b: T):
 Pyright cannot use the same multi-pass technique as mypy in this case. It needs to produce a single type for any given identifier to support language server features. Pyright instead uses a mechanism called [conditional types](type-concepts.md#constrained-type-variables-and-conditional-types). This approach allows pyright to handle some constrained TypeVar use cases that mypy cannot, but there are conversely other use cases that mypy can handle and pyright cannot.
 
 
-## “Unknown” Type and Strict Mode
+### “Unknown” Type and Strict Mode
 
 Pyright differentiates between explicit and implicit forms of `Any`. The implicit form is referred to as [`Unknown`](type-inference.md#unknown-type). For example, if a parameter is annotated as `list[Any]`, that is a use of an explicit `Any`, but if a parameter is annotated as `list`, that is an implicit `Any`, so pyright refers to this type as `list[Unknown]`. Pyright implements several checks that are enabled in “strict” type-checking modes that report the use of an `Unknown` type. Such uses can mask type errors.
 
@@ -346,12 +346,12 @@ Mypy does not track the difference between explicit and implicit `Any` types, bu
 Pyright’s approach gives developers more control. It provides a way to be explicit about `Any` where that is the intent. When an `Any` is implicitly produced due to an missing type argument or some other condition that produces an `Any` within the type checker logic, the developer is alerted to that condition.
 
 
-## Overload Resolution
+### Overload Resolution
 
 Overload resolution rules are under-specified in PEP 484. Pyright and mypy apply similar rules, but there are likely some complex edge cases where different results will be produced. For full documentation of pyright’s overload behaviors, refer to [this documentation](type-concepts.md#overloads).
 
 
-## Import Statements
+### Import Statements
 
 Pyright intentionally does not model implicit side effects of the Python import loading mechanism. In general, such side effects cannot be modeled statically because they depend on execution order. Dependency on such side effects leads to fragile code, so pyright treats these as errors. For more details, refer to [this documentation](import-statements.md).
 
@@ -362,14 +362,14 @@ import collections.abc
 collections.deque() # Pyright produces an error here because the `collections` module wasn't explicitly imported
 ```
 
-## Ellipsis in Function Body
+### Ellipsis in Function Body
 
 If Pyright encounters a function body whose implementation is `...`, it does not enforce the return type annotation. The `...` semantically means “this is a code placeholder” — a convention established in type stubs, protocol definitions, and elsewhere.
 
 Mypy treats `...` function bodies as though they are executable and enforces the return type annotation. This was a recent change in mypy — made long after Pyright established a different behavior. Prior to mypy’s recent change, it did not enforce return types for function bodies consisting of either `...` or `pass`. Now it enforces both.
 
 
-## Circular References
+### Circular References
 
 Because mypy is a multi-pass analyzer, it is able to deal with certain forms of circular references that pyright cannot handle. Here are several examples of circularities that mypy resolves without errors but pyright does not.
 
@@ -398,12 +398,12 @@ def my_decorator(x: Callable[..., "A"]) -> Callable[..., "A"]:
 class A: ...
 ```
 
-## Class Decorator Evaluation
+### Class Decorator Evaluation
 
 Pyright honors class decorators. Mypy largely ignores them. See [this issue](https://github.com/python/mypy/issues/3135) for details.
 
 
-## Support for Type Comments
+### Support for Type Comments
 
 Versions of Python prior to 3.0 did not have a dedicated syntax for supplying type annotations. Annotations therefore needed to be supplied using “type comments” of the form `# type: <annotation>`. Python 3.6 added the ability to supply type annotations for variables. 
 

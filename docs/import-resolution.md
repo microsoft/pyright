@@ -1,6 +1,6 @@
-# Import Resolution
+## Import Resolution
 
-## Resolution Order
+### Resolution Order
 If the import is relative (the module name starts with one or more dots), it resolves the import relative to the path of the importing source file.
 
 For absolute (non-relative) imports, Pyright employs the following resolution order:
@@ -28,7 +28,7 @@ For absolute (non-relative) imports, Pyright employs the following resolution or
 
 
 
-## Configuring Your Python Environment
+### Configuring Your Python Environment
 Pyright does not require a Python environment to be configured if all imports can be resolved using local files and type stubs. If a Python environment is configured, it will attempt to use the packages installed in the `site-packages` subdirectory during import resolution.
 
 Pyright uses the following mechanisms (in priority order) to determine which Python environment to use:
@@ -39,7 +39,7 @@ Pyright uses the following mechanisms (in priority order) to determine which Pyt
 
 3. As a fallback, use the default Python environment (i.e. the one that is invoked when typing `python` in the shell).
 
-## Editable installs
+### Editable installs
 
 [PEP 660](https://peps.python.org/pep-0660/) enables build backends (e.g. setuptools) to
 use import hooks to direct the [import machinery](https://docs.python.org/3/reference/import.html)
@@ -55,21 +55,21 @@ the editable install to use `.pth` files instead of import hooks. See your build
 documentation for details on how to do this. We have provided some basic information for
 common build backends below.
 
-### Setuptools
+#### Setuptools
 Setuptools currently supports two ways to request:
 [“compat mode”](https://setuptools.pypa.io/en/latest/userguide/development_mode.html#legacy-behavior)
 where a `.pth` file will be used -- a config setting and an environment variable. Another
 option is [“strict mode”](https://setuptools.pypa.io/en/latest/userguide/development_mode.html#strict-editable-installs)
 which uses symlinks instead.
 
-### Hatch/Hatchling
+#### Hatch/Hatchling
 [Hatchling](https://hatch.pypa.io/latest/config/build/#dev-mode) uses `.pth` files by
 default. It will only use import hooks if you set `dev-mode-exact` to `true`.
 
-### PDM
+#### PDM
 [PDM](https://pdm.fming.dev/latest/pyproject/build/#editable-build-backend) uses `.pth`
 files by default. It will only use import hooks if you set `editable-backend` to
 `"editables"`.
 
-## Debugging Import Resolution Problems
+### Debugging Import Resolution Problems
 The import resolution mechanisms in Python are complicated, and Pyright offers many configuration options. If you are encountering problems with import resolution, Pyright provides additional logging that may help you identify the cause. To enable verbose logging, pass `--verbose` as a command-line argument or add the following entry to the config file `"verboseOutput": true`. If you are using the Pyright VS Code extension, the additional logging will appear in the Output tab (select “Pyright” from the menu). Please include this verbose logging when reporting import resolution bugs.

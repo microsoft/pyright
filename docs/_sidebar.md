@@ -1,16 +1,16 @@
-- Getting started
+- Getting Started
 
   - [Installation](installation.md)
   - [Type Concepts](type-concepts.md)
-  - [Getting Started with Type Checking](getting-started.md)
-  - [Pyright Features](features.md)
+  - [Type Checking Your Code](getting-started.md)
+  - [Features](features.md)
   - [FAQ](faq.md)
 
 - Customization
 
   - [Continuous Integration (CI)](ci-integration.md)
   - [Configuration](configuration.md)
-    - [Configuration Options](configuration.md#main-pyright-config-options)
+    - [Configuration Options](configuration.md#main-configuration-options)
     - [Diagnostic Rules](configuration.md#type-check-diagnostics-settings)
     - [Execution Environments](configuration.md#execution-environment-options)
     - [Sample pyrightconfig.json](configuration.md#sample-config-file)

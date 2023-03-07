@@ -1,4 +1,4 @@
-# Extending Builtins
+## Extending Builtins
 
 The Python interpreter implicitly adds a set of symbols that are available within every module even though they are not explicitly imported. These so-called “built in” symbols include commonly-used types and functions such as “list”, “dict”, “int”, “float”, “min”, and “len”.
 

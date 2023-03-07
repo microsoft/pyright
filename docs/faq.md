@@ -1,4 +1,4 @@
-# Frequently Asked Questions
+## Frequently Asked Questions
 
 **Q:** What is the difference between Pyright and [Pylance](https://github.com/microsoft/pylance-release)?
 

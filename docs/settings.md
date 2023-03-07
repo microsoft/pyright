@@ -1,4 +1,4 @@
-# Pyright Settings
+## Pyright Settings
 
 The Pyright language server honors the following settings.
 

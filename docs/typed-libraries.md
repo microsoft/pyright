@@ -1,4 +1,4 @@
-# Typing Guidance for Python Libraries
+## Typing Guidance for Python Libraries
 
 Much of Python’s popularity can be attributed to the rich collection of Python libraries available to developers. Authors of these libraries play an important role in improving the experience for Python developers. This document provides some recommendations and guidance for Python library authors.
 
@@ -10,7 +10,7 @@ These recommendations are intended to provide the following benefits:
 4. Library authors should have the benefits of static type checking to produce high-quality, bug-free implementations.
 
 
-## Inlined Type Annotations and Type Stubs
+### Inlined Type Annotations and Type Stubs
 [PEP 561](https://www.python.org/dev/peps/pep-0561/) documents several ways type information can be delivered for a library: inlined type annotations, type stub files included in the package, a separate companion type stub package, and type stubs in the typeshed repository. Some of these options fall short on delivering the benefits above. We therefore provide the following more specific guidance to library authors.
 
 All libraries should include inlined type annotations for the functions, classes, methods, and constants that comprise the public interface for the library.
@@ -22,7 +22,7 @@ There are cases where inlined type annotations are not possible — most notably
 In many existing type stubs (such as those found in typeshed), default parameter values are replaced with with “...” and all docstrings are removed. We recommend that default values and docstrings remain within the type stub file so language servers can display this information to developers.
 
 
-## Library Interface
+### Library Interface
 [PEP 561](https://www.python.org/dev/peps/pep-0561/) indicates that a “py.typed” marker file must be included in the package if the author wishes to support type checking of their code.
 
 If a “py.typed” module is present, a type checker will treat all modules within that package (i.e. all files that end in “.py” or “.pyi”) as importable unless the module is marked private. There are two ways to mark a module private: (1) the module's filename begins with an underscore; (2) the module is inside a sub-package marked private. For example:
@@ -50,7 +50,7 @@ The following idioms are supported for defining the values contained within `__a
 * `__all__.remove('a')`
 
 
-## Type Completeness
+### Type Completeness
 A “py.typed” library is said to be “type complete” if all of the symbols that comprise its interface have type annotations that refer to types that are fully known. Private symbols are exempt.
 
 A “known type” is defined as follows:
@@ -86,14 +86,14 @@ Type annotations can be omitted in a few specific cases where the type is obviou
 * A variable is assigned in only one location using a simple assignment expression and the right-hand side of the assignment is a literal value (e.g. `1`, `3.14`, `"hi"`, or `MyEnum.Value`) or an identifier that has a known type that doesn't depend on type narrowing logic.
 
 
-### Ambiguous Types
+#### Ambiguous Types
 
 When a symbol is missing a type annotation, a type checker may be able to infer its type based on contextual information. However, type inference rules are not standardized and differ between type checkers. A symbol is said to have an “ambiguous type” if its type may be inferred differently between different Python type checkers. This can lead to a bad experience for consumers of the library.
 
 Ambiguous types can be avoided by providing explicit type annotations.
 
 
-### Examples of known, ambiguous and unknown types
+#### Examples of known, ambiguous and unknown types
 ```python
 
 # Variable with known type (unambiguous because it uses a literal assignment)
@@ -206,7 +206,7 @@ class DictSubclass(dict):
 
 ```
 
-## Verifying Type Completeness
+### Verifying Type Completeness
 Pyright provides a feature that allows library authors to verify type completeness for a “py.typed” package. To use this feature, create a clean Python environment and install your package along with all of the other dependent packages. Run the CLI version of pyright with the `--verifytypes` option.
 
 `pyright --verifytypes <lib>`
@@ -222,7 +222,7 @@ The `--verifytypes` feature can be integrated into a continuous integration (CI)
 If the `--verifytypes` option is combined with `--ignoreexternal`, any incomplete types that are imported from other external packages are ignored. This allows library authors to focus on adding type annotations for the code that is directly under their control.
 
 
-### Improving Type Completeness
+#### Improving Type Completeness
 
 Here are some tips for increasing the type completeness score for your library:
 
@@ -232,19 +232,19 @@ Here are some tips for increasing the type completeness score for your library:
 * If your package exposes types from other libraries, work with the maintainers of these other libraries to achieve type completeness.
 
 
-## Best Practices for Inlined Types
+### Best Practices for Inlined Types
 
-### Wide vs. Narrow Types
+#### Wide vs. Narrow Types
 In type theory, when comparing two types that are related to each other, the “wider” type is the one that is more general, and the “narrower” type is more specific. For example, `Sequence[str]` is a wider type than `list[str]` because all `list` objects are also `Sequence` objects, but the converse is not true. A subclass is narrower than a class it derives from. A union of types is wider than the individual types that comprise the union.
 
 In general, a function input parameter should be annotated with the widest possible type supported by the implementation. For example, if the implementation requires the caller to provide an iterable collection of strings, the parameter should be annotated as `Iterable[str]`, not as `list[str]`. The latter type is narrower than necessary, so if a user attempts to pass a tuple of strings (which is supported by the implementation), a type checker will complain about a type incompatibility.
 
 As a specific application of the “use the widest type possible” rule, libraries should generally use immutable forms of container types instead of mutable forms (unless the function needs to modify the container). Use `Sequence` rather than `list`, `Mapping` rather than `dict`, etc. Immutable containers allow for more flexibility because their type parameters are covariant rather than invariant. A parameter that is typed as `Sequence[str | int]` can accept a `list[str | int]`, `list[int]`, `Sequence[str]`, and a `Sequence[int]`. But a parameter typed as `list[str | int]` is much more restrictive and accepts only a `list[str | int]`.
 
-### Overloads
+#### Overloads
 If a function or method can return multiple different types and those types can be determined based on the presence or types of certain parameters, use the `@overload` mechanism defined in [PEP 484](https://www.python.org/dev/peps/pep-0484/#id45). When overloads are used within a “.py” file, they must appear prior to the function implementation, which should not have an `@overload` decorator. 
 
-### Keyword-only Parameters
+#### Keyword-only Parameters
 If a function or method is intended to take parameters that are specified only by name, use the keyword-only separator ("*").
 
 ```python
@@ -252,7 +252,7 @@ def create_user(age: int, *, dob: date | None = None):
     ...
 ```
 
-### Positional-only Parameters
+#### Positional-only Parameters
 If a function or method is intended to take parameters that are specified only by position, use the positional-only separator ("/") as documented in [PEP 570](https://peps.python.org/pep-0570/). If your library needs to run on versions of Python prior to 3.8, you can alternatively name the positional-only parameters with an identifier that begins with a double underscore.
 
 ```python
@@ -288,10 +288,10 @@ def complex_decorator(*, mode: str) -> Callable[[_F], _F]:
 
 Decorators that mutate the signature of the decorated function present challenges for type annotations. The `ParamSpec` and `Concatenate` mechanisms described in [PEP 612](https://www.python.org/dev/peps/pep-0612/) provide some help here, but these are available only in Python 3.10 and newer. More complex signature mutations may require type annotations that erase the original signature, thus blinding type checkers and other tools that provide signature assistance. As such, library authors are discouraged from creating decorators that mutate function signatures in this manner.
 
-### Generic Classes and Functions
+#### Generic Classes and Functions
 Classes and functions that can operate in a generic manner on various types should declare themselves as generic using the mechanisms described in [PEP 484](https://www.python.org/dev/peps/pep-0484/). This includes the use of `TypeVar` symbols. Typically, a `TypeVar` should be private to the file that declares it, and should therefore begin with an underscore.
 
-### Type Aliases
+#### Type Aliases
 Type aliases are symbols that refer to other types. Generic type aliases (those that refer to unspecialized generic classes) are supported by most type checkers. Pyright also provides support for recursive type aliases.
 
 [PEP 613](https://www.python.org/dev/peps/pep-0613/) provides a way to explicitly designate a symbol as a type alias using the new TypeAlias annotation.
@@ -310,7 +310,7 @@ TreeNode = LeafNode | list["TreeNode"]
 StrOrInt: TypeAlias = str | int
 ```
 
-### Abstract Classes and Methods
+#### Abstract Classes and Methods
 Classes that must be subclassed should derive from `ABC`, and methods or properties that must be overridden should be decorated with the `@abstractmethod` decorator. This allows type checkers to validate that the required methods have been overridden and provide developers with useful error messages when they are not. It is customary to implement an abstract method by raising a `NotImplementedError` exception.
 
 ```python
@@ -329,13 +329,13 @@ class Hashable(ABC):
       raise NotImplementedError()
 ```
 
-### Final Classes and Methods
+#### Final Classes and Methods
 Classes that are not intended to be subclassed should be decorated as `@final` as described in [PEP 591](https://www.python.org/dev/peps/pep-0591/). The same decorator can also be used to specify methods that cannot be overridden by subclasses.
 
-### Literals
+#### Literals
 Type annotations should make use of the Literal type where appropriate, as described in [PEP 586](https://www.python.org/dev/peps/pep-0586/). Literals allow for more type specificity than their non-literal counterparts.
 
-### Constants
+#### Constants
 Constant values (those that are read-only) can be specified using the Final annotation as described in [PEP 591](https://www.python.org/dev/peps/pep-0591/).
 
 Type checkers will also typically treat variables that are named using all upper-case characters as constants.
@@ -358,7 +358,7 @@ ColorFormatRgb: Final[Literal["rgb"]] = "rgb"
 LATEST_VERSION: Final[tuple[int, int]] = (4, 5)
 ```
 
-### Typed Dictionaries, Data Classes, and Named Tuples
+#### Typed Dictionaries, Data Classes, and Named Tuples
 If a library runs only on newer versions of Python, it can use some of the new type-friendly classes.
 
 NamedTuple (described in [PEP 484](https://www.python.org/dev/peps/pep-0484/)) is preferred over namedtuple.
@@ -368,10 +368,10 @@ Data classes (described in [PEP 557](https://www.python.org/dev/peps/pep-0557/))
 TypedDict (described in [PEP 589](https://www.python.org/dev/peps/pep-0589/)) is preferred over untyped dictionaries.
 
 
-## Compatibility with Older Python Versions
+### Compatibility with Older Python Versions
 Each new version of Python from 3.5 onward has introduced new typing constructs. This presents a challenge for library authors who want to maintain runtime compatibility with older versions of Python. This section documents several techniques that can be used to add types while maintaining backward compatibility.
 
-### Quoted Annotations
+#### Quoted Annotations
 Type annotations for variables, parameters, and return types can be placed in quotes. The Python interpreter will then ignore them, whereas a type checker will interpret them as type annotations.
 
 ```python
@@ -410,20 +410,20 @@ class Foo:
       ...
 ```
 
-### typing_extensions
+#### typing_extensions
 New type features that require runtime support are typically included in the stdlib `typing` module. Where possible, these new features are back-ported to a runtime library called `typing_extensions` that works with older Python runtimes.
 
-### TYPE_CHECKING
+#### TYPE_CHECKING
 The `typing` module exposes a variable called `TYPE_CHECKING` which has a value of False within the Python runtime but a value of True when the type checker is performing its analysis. This allows type checking statements to be conditionalized.
 
 Care should be taken when using `TYPE_CHECKING` because behavioral changes between type checking and runtime could mask problems that the type checker would otherwise catch.
 
 
-## Non-Standard Type Behaviors
+### Non-Standard Type Behaviors
 Type annotations provide a way to annotate typical type behaviors, but some classes implement specialized, non-standard behaviors that cannot be described using standard type annotations. For now, such types need to be annotated as Any, which is unfortunate because the benefits of static typing are lost.
 
 
-## Docstrings
+### Docstrings
 It is recommended that docstrings be provided for all classes, functions, and methods in the interface. They should be formatted according to [PEP 257](https://www.python.org/dev/peps/pep-0257/).
 
 There is currently no single agreed-upon standard for function and method docstrings, but several common variants have emerged. We recommend using one of these variants.

@@ -1,4 +1,4 @@
-# Pyright Features
+## Pyright Features
 
 ### Speed
 Pyright is a fast type checker meant for large Python source bases. It can run in a “watch” mode and performs fast incremental updates when files are modified.

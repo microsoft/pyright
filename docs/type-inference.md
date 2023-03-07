@@ -1,6 +1,6 @@
-# Understanding Type Inference
+## Understanding Type Inference
 
-## Symbols and Scopes
+### Symbols and Scopes
 
 In Python, a _symbol_ is any name that is not a keyword. Symbols can represent classes, functions, methods, variables, parameters, modules, type aliases, type variables, etc.
 
@@ -13,7 +13,7 @@ The following constructs within Python define a scope:
 4. Each function and lambda defines its own scope. The function’s parameters are symbols within its scope, as are any variables defined within the function.
 5. List comprehensions define their own scope.
 
-## Type Declarations
+### Type Declarations
 
 A symbol can be declared with an explicit type. The “def” and “class” keywords, for example, declare a symbol as a function or a class. Other symbols in Python can be introduced into a scope with no declared type. Newer versions of Python have introduced syntax for declaring the types of input parameters, return parameters, and variables.
 
@@ -43,17 +43,17 @@ var3      | Variable        | func1     | <none>
 
 Note that once a symbol’s type is declared, it cannot be redeclared to a different type.
 
-## Type Inference
+### Type Inference
 
 Some languages require every symbol to be explicitly typed. Python allows a symbol to be bound to different values at runtime, so its type can change over time. A symbol’s type doesn’t need to be declared statically.
 
 When Pyright encounters a symbol with no type declaration, it attempts to _infer_ the type based on the values assigned to it. As we will see below, type inference cannot always determine the correct (intended) type, so type annotations are still required in some cases. Furthermore, type inference can require significant computation, so it is much less efficient than when type annotations are provided.
 
-## “Unknown” Type
+### “Unknown” Type
 
 If a symbol’s type cannot be inferred, Pyright sets its type to “Unknown”, which is a special form of “Any”. The “Unknown” type allows Pyright to optionally warn when types are not declared and cannot be inferred, thus leaving potential “blind spots” in type checking. 
 
-### Single-Assignment Type Inference
+#### Single-Assignment Type Inference
 
 The simplest form of type inference is one that involves a single assignment to a symbol. The inferred type comes from the type of the source expression. Examples include:
 
@@ -66,7 +66,7 @@ for var5 in [3, 4]: ...         # Inferred type is int
 var6 = [p for p in [1, 2, 3]]   # Inferred type is list[int]
 ```
 
-### Multi-Assignment Type Inference
+#### Multi-Assignment Type Inference
 
 When a symbol is assigned values in multiple places within the code, those values may have different types. The inferred type of the variable is the union of all such types.
 
@@ -86,11 +86,11 @@ else:
     var2 = Foo()
 ```
 
-### Ambiguous Type Inference
+#### Ambiguous Type Inference
 
 In some cases, an expression’s type is ambiguous. For example, what is the type of the expression `[]`? Is it `list[None]`, `list[int]`, `list[Any]`, `Sequence[Any]`, `Iterable[Any]`? These ambiguities can lead to unintended type violations. Pyright uses several techniques for reducing these ambiguities based on contextual information. In the absence of contextual information, heuristics are used.
 
-### Bidirectional Type Inference (Expected Types)
+#### Bidirectional Type Inference (Expected Types)
 
 One powerful technique Pyright uses to eliminate type inference ambiguities is _bidirectional inference_. This technique makes use of an “expected type”.
 
@@ -109,7 +109,7 @@ var5 = (3,)                     # Type is assumed to be tuple[Literal[3]]
 var6: tuple[float, ...] = (3,)  # Type of RHS is now tuple[float, ...]
 ```
 
-### Empty list and Dictionary Type Inference
+#### Empty list and Dictionary Type Inference
 
 It is common to initialize a local variable or instance variable to an empty list (`[]`) or empty dictionary (`{}`) on one code path but initialize it to a non-empty list or dictionary on other code paths. In such cases, Pyright will infer the type based on the non-empty list or dictionary and suppress errors about a “partially unknown type”.
 
@@ -123,7 +123,7 @@ reveal_type(my_list) # list[str]
 ```
 
 
-### Return Type Inference
+#### Return Type Inference
 
 As with variable assignments, function return types can be inferred from the `return` statements found within that function. The returned type is assumed to be the union of all types returned from all `return` statements. If a `return` statement is not followed by an expression, it is assumed to return `None`. Likewise, if the function does not end in a `return` statement, and the end of the function is reachable, an implicit `return None` is assumed.
 
@@ -140,7 +140,7 @@ def func1(val: int):
         return True
 ```
 
-### NoReturn return type
+#### NoReturn return type
 
 If there is no code path that returns from a function (e.g. all code paths raise an exception), Pyright infers a return type of `NoReturn`. As an exception to this rule, if the function is decorated with `@abstractmethod`, the return type is not inferred as `NoReturn` even if there is no return. This accommodates a common practice where an abstract method is implemented with a `raise NotImplementedError()` statement.
 
@@ -156,11 +156,11 @@ class Foo:
         raise NotImplementedError()
 ```
 
-### Generator return types
+#### Generator return types
 
 Pyright can infer the return type for a generator function from the `yield` statements contained within that function.
 
-### Call-site Return Type Inference
+#### Call-site Return Type Inference
 
 It is common for input parameters to be unannotated. This can make it difficult for Pyright to infer the correct return type for a function. For example:
 
@@ -191,7 +191,7 @@ def func2(p_int: int, p_str: str, p_flt: float):
     var2 = func1(p_str, p_flt, p_int)
 ```
 
-### Parameter Type Inference
+#### Parameter Type Inference
 
 Input parameters for functions and methods typically require type annotations. There are several cases where Pyright may be able to infer a parameter’s type if it is unannotated.
 
@@ -225,7 +225,7 @@ def func(a, b=0, c=None):
 reveal_type(func)  # (a: Unknown, b: int, c: Unknown | None) -> None
 ```
 
-### Literals
+#### Literals
 
 Python 3.8 introduced support for _literal types_. This allows a type checker like Pyright to track specific literal values of str, bytes, int, bool, and enum values. As with other types, literal types can be declared.
 
@@ -249,7 +249,7 @@ When Pyright is performing type inference, it generally does not infer literal t
 var1 = [4]
 ```
 
-### Tuple Expressions
+#### Tuple Expressions
 
 When inferring the type of a tuple expression (in the absence of bidirectional inference hints), Pyright assumes that the tuple has a fixed length, and each tuple element is typed as specifically as possible.
 
@@ -267,7 +267,7 @@ def func1(a: int):
     var3: tuple[int, ...] = (a, a)
 ```
 
-### List Expressions
+#### List Expressions
 
 When inferring the type of a list expression (in the absence of bidirectional inference hints), Pyright uses the following heuristics:
 
@@ -293,7 +293,7 @@ var4: list[float] = [1, 3.4]    # Infer list[float]
 ```
 
 
-### Set Expressions
+#### Set Expressions
 
 When inferring the type of a set expression (in the absence of bidirectional inference hints), Pyright uses the following heuristics:
 
@@ -316,7 +316,7 @@ var3: set[float] = {1, 3.4}    # Infer set[float]
 ```
 
 
-### Dictionary Expressions
+#### Dictionary Expressions
 
 When inferring the type of a dictionary expression (in the absence of bidirectional inference hints), Pyright uses the following heuristics:
 
@@ -340,7 +340,7 @@ var3 = {"a": 3, "b": 3.4}       # Infer dict[str, int | float] (on)
 var4: dict[str, float] = {"a": 3, "b": 3.4}
 ```
 
-### Lambdas
+#### Lambdas
 
 Lambdas present a particular challenge for a Python type checker because there is no provision in the Python syntax for annotating the types of a lambda’s input parameters. The types of these parameters must therefore be inferred based on context using bidirectional type inference. Absent this context, a lambda’s input parameters (and often its return type) will be unknown.
 
