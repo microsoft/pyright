@@ -352,6 +352,13 @@ interface ValidateTypeArgsOptions {
     allowUnpackedTuples?: boolean;
 }
 
+interface GetTypeArgsOptions {
+    isAnnotatedClass?: boolean;
+    hasCustomClassGetItem?: boolean;
+    isFinalAnnotation?: boolean;
+    isClassVarAnnotation?: boolean;
+}
+
 interface MatchArgsToParamsResult {
     overload: FunctionType;
     overloadIndex: number;
@@ -6586,7 +6593,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
 
                         // Evaluate the index expressions as though they are type arguments for error-reporting.
-                        getTypeArgs(node, flags, /* isAnnotatedClass */ false, /* hasCustomClassGetItem */ false);
+                        getTypeArgs(node, flags);
 
                         return UnknownType.create();
                     }
@@ -6672,14 +6679,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const isClassVarAnnotation =
                         isInstantiableClass(concreteSubtype) && ClassType.isBuiltIn(concreteSubtype, 'ClassVar');
 
-                    let typeArgs = getTypeArgs(
-                        node,
-                        flags,
+                    let typeArgs = getTypeArgs(node, flags, {
                         isAnnotatedClass,
-                        hasCustomClassGetItem || !isGenericClass,
+                        hasCustomClassGetItem: hasCustomClassGetItem || !isGenericClass,
                         isFinalAnnotation,
-                        isClassVarAnnotation
-                    );
+                        isClassVarAnnotation,
+                    });
 
                     if (!isAnnotatedClass) {
                         typeArgs = adjustTypeArgumentsForVariadicTypeVar(
@@ -7145,18 +7150,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         };
     }
 
-    function getTypeArgs(
-        node: IndexNode,
-        flags: EvaluatorFlags,
-        isAnnotatedClass = false,
-        hasCustomClassGetItem = false,
-        isFinalAnnotation = false,
-        isClassVarAnnotation = false
-    ): TypeResultWithNode[] {
+    function getTypeArgs(node: IndexNode, flags: EvaluatorFlags, options?: GetTypeArgsOptions): TypeResultWithNode[] {
         const typeArgs: TypeResultWithNode[] = [];
         let adjFlags = flags;
 
-        if (isFinalAnnotation || isClassVarAnnotation) {
+        if (options?.isFinalAnnotation || options?.isClassVarAnnotation) {
             adjFlags |= EvaluatorFlags.DisallowClassVar | EvaluatorFlags.DisallowFinal;
         } else {
             adjFlags &= ~(
@@ -7166,7 +7164,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 EvaluatorFlags.AllowRequired
             );
 
-            if (!isAnnotatedClass) {
+            if (!options?.isAnnotatedClass) {
                 adjFlags |= EvaluatorFlags.DisallowClassVar | EvaluatorFlags.DisallowFinal;
             }
 
@@ -7180,7 +7178,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If it's a custom __class_getitem__, none of the arguments should be
             // treated as types. If it's an Annotated[a, b, c], only the first index
             // should be treated as a type. The others can be regular (non-type) objects.
-            if (hasCustomClassGetItem || (isAnnotatedClass && argIndex > 0)) {
+            if (options?.hasCustomClassGetItem || (options?.isAnnotatedClass && argIndex > 0)) {
                 typeResult = {
                     ...getTypeOfExpression(
                         expr,
