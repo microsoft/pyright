@@ -37,11 +37,8 @@ Pyright supports [configuration files](configuration.md) that provide granular c
 * Type inference for function return values, instance variables, class variables, and globals
 * Type guards that understand conditional code flow constructs like if/else statements
 
-### VS Code Integration
-Pyright ships as both a command-line tool and a VS Code extension that provides many powerful features that help improve programming efficiency.
-
-### VS Code Language Features
-The VS Code extension supports many time-saving language features including:
+### Language Server Support
+Pyright ships as both a command-line tool and a language server that provides many powerful features that help improve programming efficiency.
 
 * Intelligent type completion of keywords, symbols, and import names appears when editing
 * Import statements are automatically inserted when necessary for type completions

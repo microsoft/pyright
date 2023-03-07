@@ -1,14 +1,12 @@
 - Getting Started
 
-  - [Installation](installation.md)
-  - [Type Concepts](type-concepts.md)
-  - [Type Checking Your Code](getting-started.md)
+  - [Installing Pyright](installation.md)
+  - [Getting Started](getting-started.md)
+  - [Static Typing](type-concepts.md)
   - [Features](features.md)
-  - [FAQ](faq.md)
 
 - Customization
 
-  - [Continuous Integration (CI)](ci-integration.md)
   - [Configuration](configuration.md)
     - [Configuration Options](configuration.md#main-configuration-options)
     - [Diagnostic Rules](configuration.md#type-check-diagnostics-settings)
@@ -16,11 +14,13 @@
     - [Sample pyrightconfig.json](configuration.md#sample-config-file)
     - [Sample pyproject.toml](configuration.md#sample-pyprojecttoml-file)
     - [Diagnostic Rule Defaults](configuration.md#diagnostic-rule-defaults)
-  - [Settings](settings.md)
-  - [Comments](comments.md)
-
+  - [Language Server Settings](settings.md)
+  - [Controlling Behavior With Comments](comments.md)
+  - [Continuous Integration](ci-integration.md)
+  
 - Usage
 
+  - [Advanced Type Concepts](type-concepts-advanced.md)
   - [Type Inference](type-inference.md)
   - [Import Statements](import-statements.md)
   - [Import Resolution](import-resolution.md)

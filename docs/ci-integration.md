@@ -1,4 +1,4 @@
-## Integrating Pyright into Continuous Integration (CI)
+## Integrating Pyright into Continuous Integration
 
 ### Running Pyright as a github action
 

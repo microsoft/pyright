@@ -5,7 +5,7 @@ A static type checker like Pyright can add incremental value to your source code
 Here is a typical progression:
 
 ### 1. Initial Type Checking
-* Install pyright (either the VS Code extension or command-line tool).
+* Install pyright (either the language server or command-line tool).
 * Write a minimal `pyrightconfig.json` that defines `include` entries. Place the config file in your project’s top-level directory and commit it to your repo. Alternatively, you can add a pyright section to a `pyproject.toml` file. For additional details and a sample config file, refer to [this documentation](configuration.md).
 * Optionally enable the `python.analysis.useLibraryCodeForTypes` config option (or pass `--lib` to the command-line tool). This tells Pyright that it should attempt to infer type information from library code if a type stub is not available.
 * Run pyright over your source base with the default settings. Fix any errors and warnings that it emits. Optionally disable specific diagnostic rules if they are generating too many errors. They can be re-enabled at a later time.
