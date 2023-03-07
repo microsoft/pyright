@@ -41,6 +41,7 @@
         "breakOutsideLoop": "\"break\" can be used only within a loop",
         "callableExtraArgs": "Expected only two type arguments to \"Callable\"",
         "callableFirstArg": "Expected parameter type list or \"...\"",
+        "callableNotInstantiable": "Cannot instantiate type \"{type}\"",
         "callableSecondArg": "Expected return type as second type argument for \"Callable\"",
         "casePatternIsIrrefutable": "Irrefutable pattern is allowed only for the last case statement",
         "classAlreadySpecialized": "Type \"{type}\" is already specialized",

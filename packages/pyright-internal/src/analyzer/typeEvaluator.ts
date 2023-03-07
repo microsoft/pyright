@@ -6379,7 +6379,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const typeArgType = typeArgs[index].type;
 
                 if (typeArgs[index].typeList) {
-                    const functionType = FunctionType.createInstantiable(FunctionTypeFlags.ParamSpecValue);
+                    const functionType = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.ParamSpecValue);
                     TypeBase.setSpecialForm(functionType);
                     typeArgs[index].typeList!.forEach((paramType, paramIndex) => {
                         FunctionType.addParameter(functionType, {
@@ -6446,7 +6446,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         AssignTypeFlags.RetainLiteralsForTypeVar
                     );
                 } else if (isEllipsisType(typeArgType)) {
-                    const functionType = FunctionType.createInstantiable(
+                    const functionType = FunctionType.createSynthesizedInstance(
+                        '',
                         FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
                     );
                     TypeBase.setSpecialForm(functionType);
@@ -8999,6 +9000,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     case TypeCategory.Function: {
+                        if (TypeBase.isInstantiable(expandedSubtype)) {
+                            addDiagnostic(
+                                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.callableNotInstantiable().format({
+                                    type: printType(expandedSubtype),
+                                }),
+                                errorNode
+                            );
+                            argumentErrors = true;
+                            return undefined;
+                        }
+
                         // The stdlib collections/__init__.pyi stub file defines namedtuple
                         // as a function rather than a class, so we need to check for it here.
                         if (expandedSubtype.details.builtInName === 'namedtuple') {
@@ -9196,6 +9210,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                                 isNoneInstance(subtype)
                                             ) {
                                                 return convertToInstantiable(stripLiteralValue(subtype));
+                                            } else if (isFunction(subtype) && TypeBase.isInstance(subtype)) {
+                                                return FunctionType.cloneAsInstantiable(subtype);
                                             }
 
                                             return AnyType.create();
@@ -19829,7 +19845,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (typeArgs && index < typeArgs.length) {
                 if (typeParam.details.isParamSpec) {
                     const typeArg = typeArgs[index];
-                    const functionType = FunctionType.createInstantiable(FunctionTypeFlags.ParamSpecValue);
+                    const functionType = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.ParamSpecValue);
                     TypeBase.setSpecialForm(functionType);
 
                     if (isEllipsisType(typeArg.type)) {

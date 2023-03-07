@@ -86,8 +86,8 @@ export function printType(
     recursionTypes: Type[] = [],
     recursionCount = 0
 ): string {
+    const originalPrintTypeFlags = printTypeFlags;
     const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;
-    const parenthesizeCallable = (printTypeFlags & PrintTypeFlags.ParenthesizeCallable) !== 0;
     printTypeFlags &= ~(PrintTypeFlags.ParenthesizeUnion | PrintTypeFlags.ParenthesizeCallable);
 
     if (recursionCount > maxTypeRecursionCount) {
@@ -301,80 +301,24 @@ export function printType(
             }
 
             case TypeCategory.Function: {
-                if (printTypeFlags & PrintTypeFlags.PythonSyntax) {
-                    // Callable works only in cases where all parameters are positional-only.
-                    let isPositionalParamsOnly = false;
-                    if (type.details.parameters.length === 0) {
-                        isPositionalParamsOnly = true;
-                    } else {
-                        if (type.details.parameters.every((param) => param.category === ParameterCategory.Simple)) {
-                            const lastParam = type.details.parameters[type.details.parameters.length - 1];
-                            if (!lastParam.name) {
-                                isPositionalParamsOnly = true;
-                            }
-                        }
-                    }
-
-                    const returnType = returnTypeCallback(type);
-                    let returnTypeString = 'Any';
-                    if (returnType) {
-                        returnTypeString = printType(
-                            returnType,
-                            printTypeFlags,
-                            returnTypeCallback,
-                            recursionTypes,
-                            recursionCount
-                        );
-                    }
-
-                    if (isPositionalParamsOnly) {
-                        const paramTypes: string[] = [];
-
-                        type.details.parameters.forEach((param, index) => {
-                            if (param.name) {
-                                const paramType = FunctionType.getEffectiveParameterType(type, index);
-                                if (recursionTypes.length < maxTypeRecursionCount) {
-                                    paramTypes.push(
-                                        printType(
-                                            paramType,
-                                            printTypeFlags,
-                                            returnTypeCallback,
-                                            recursionTypes,
-                                            recursionCount
-                                        )
-                                    );
-                                } else {
-                                    paramTypes.push('Any');
-                                }
-                            }
-                        });
-
-                        if (type.details.paramSpec) {
-                            return `Callable[Concatenate[${paramTypes.join(', ')}, ${
-                                type.details.paramSpec.details.name
-                            }], ${returnTypeString}]`;
-                        }
-
-                        return `Callable[[${paramTypes.join(', ')}], ${returnTypeString}]`;
-                    } else {
-                        // We can't represent this type using a Callable so default to
-                        // a "catch all" Callable.
-                        return `Callable[..., ${returnTypeString}]`;
-                    }
-                } else {
-                    const parts = printFunctionParts(type, printTypeFlags, returnTypeCallback, recursionTypes);
-                    const paramSignature = `(${parts[0].join(', ')})`;
-                    if (FunctionType.isParamSpecValue(type)) {
-                        return paramSignature;
-                    }
-                    const fullSignature = `${paramSignature} -> ${parts[1]}`;
-
-                    if (parenthesizeCallable) {
-                        return `(${fullSignature})`;
-                    }
-
-                    return fullSignature;
+                if (TypeBase.isInstantiable(type)) {
+                    const typeString = printFunctionType(
+                        TypeBase.cloneTypeAsInstance(type),
+                        printTypeFlags,
+                        returnTypeCallback,
+                        recursionTypes,
+                        recursionCount
+                    );
+                    return `Type[${typeString}]`;
                 }
+
+                return printFunctionType(
+                    type,
+                    originalPrintTypeFlags,
+                    returnTypeCallback,
+                    recursionTypes,
+                    recursionCount
+                );
             }
 
             case TypeCategory.OverloadedFunction: {
@@ -624,6 +568,85 @@ export function printType(
         return '';
     } finally {
         recursionTypes.pop();
+    }
+}
+
+function printFunctionType(
+    type: FunctionType,
+    printTypeFlags: PrintTypeFlags,
+    returnTypeCallback: FunctionReturnTypeCallback,
+    recursionTypes: Type[] = [],
+    recursionCount = 0
+) {
+    if (printTypeFlags & PrintTypeFlags.PythonSyntax) {
+        // Callable works only in cases where all parameters are positional-only.
+        let isPositionalParamsOnly = false;
+        if (type.details.parameters.length === 0) {
+            isPositionalParamsOnly = true;
+        } else {
+            if (type.details.parameters.every((param) => param.category === ParameterCategory.Simple)) {
+                const lastParam = type.details.parameters[type.details.parameters.length - 1];
+                if (!lastParam.name) {
+                    isPositionalParamsOnly = true;
+                }
+            }
+        }
+
+        const returnType = returnTypeCallback(type);
+        let returnTypeString = 'Any';
+        if (returnType) {
+            returnTypeString = printType(
+                returnType,
+                printTypeFlags,
+                returnTypeCallback,
+                recursionTypes,
+                recursionCount
+            );
+        }
+
+        if (isPositionalParamsOnly) {
+            const paramTypes: string[] = [];
+
+            type.details.parameters.forEach((param, index) => {
+                if (param.name) {
+                    const paramType = FunctionType.getEffectiveParameterType(type, index);
+                    if (recursionTypes.length < maxTypeRecursionCount) {
+                        paramTypes.push(
+                            printType(paramType, printTypeFlags, returnTypeCallback, recursionTypes, recursionCount)
+                        );
+                    } else {
+                        paramTypes.push('Any');
+                    }
+                }
+            });
+
+            if (type.details.paramSpec) {
+                return `Callable[Concatenate[${paramTypes.join(', ')}, ${
+                    type.details.paramSpec.details.name
+                }], ${returnTypeString}]`;
+            }
+
+            return `Callable[[${paramTypes.join(', ')}], ${returnTypeString}]`;
+        } else {
+            // We can't represent this type using a Callable so default to
+            // a "catch all" Callable.
+            return `Callable[..., ${returnTypeString}]`;
+        }
+    } else {
+        const parts = printFunctionParts(type, printTypeFlags, returnTypeCallback, recursionTypes);
+        const paramSignature = `(${parts[0].join(', ')})`;
+
+        if (FunctionType.isParamSpecValue(type)) {
+            return paramSignature;
+        }
+        const fullSignature = `${paramSignature} -> ${parts[1]}`;
+
+        const parenthesizeCallable = (printTypeFlags & PrintTypeFlags.ParenthesizeCallable) !== 0;
+        if (parenthesizeCallable) {
+            return `(${fullSignature})`;
+        }
+
+        return fullSignature;
     }
 }
 

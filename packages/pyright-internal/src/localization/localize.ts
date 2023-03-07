@@ -239,6 +239,8 @@ export namespace Localizer {
         export const breakOutsideLoop = () => getRawString('Diagnostic.breakOutsideLoop');
         export const callableExtraArgs = () => getRawString('Diagnostic.callableExtraArgs');
         export const callableFirstArg = () => getRawString('Diagnostic.callableFirstArg');
+        export const callableNotInstantiable = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.callableNotInstantiable'));
         export const callableSecondArg = () => getRawString('Diagnostic.callableSecondArg');
         export const casePatternIsIrrefutable = () => getRawString('Diagnostic.casePatternIsIrrefutable');
         export const classAlreadySpecialized = () =>
