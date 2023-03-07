@@ -1,6 +1,6 @@
-## Understanding Typing
+## Understanding Static Typing
 
-Getting started with typing in Python is easy, but it’s important to understand a few simple concepts.
+Getting started with static type checking in Python is easy, but it’s important to understand a few simple concepts.
 
 ### Type Declarations
 When you add a type annotation to a variable or a parameter in Python, you are _declaring_ that the symbol will be assigned values that are compatible with that type. You can think of type annotations as a powerful way to comment your code. Unlike text-based comments, these comments are readable by both humans and enforceable by type checkers.
@@ -8,24 +8,16 @@ When you add a type annotation to a variable or a parameter in Python, you are _
 If a variable or parameter has no type annotation, the type checker must assume that any value can be assigned to it. This eliminates the ability for a type checker to identify type incompatibilities.
 
 
-### Debugging Inferred Types
+### Debugging Types
 
-When you want to know the type that the type checker has inferred for an expression, you can use the special `reveal_type()` function:
+When you want to know the type that the type checker has evaluated for an expression, you can use the special `reveal_type()` function:
 
 ```python
 x = 1
 reveal_type(x)  # Type of "x" is "Literal[1]"
 ```
 
-This function is always available and does not need to be imported. When you use Pyright within an IDE, you can also simply hover over an expression to see the inferred type.
-
-You can also see the inferred types of all local variables at once with the `reveal_locals()` function:
-
-```python
-def f(x: int, y: str) -> None:
-    z = 1.0
-    reveal_locals()  # Type of "x" is "int". Type of "y" is "str". Type of "z" is "float".
-```
+This function is always available and does not need to be imported. When you use Pyright within an IDE, you can also simply hover over an identifier to see its evaluated type.
 
 
 ### Type Assignability
