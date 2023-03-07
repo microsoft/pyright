@@ -355,11 +355,16 @@ Overload resolution rules are under-specified in PEP 484. Pyright and mypy apply
 
 Pyright intentionally does not model implicit side effects of the Python import loading mechanism. In general, such side effects cannot be modeled statically because they depend on execution order. Dependency on such side effects leads to fragile code, so pyright treats these as errors. For more details, refer to [this documentation](import-statements.md).
 
-Mypy models some side effects of the import loader. If an import statement imports a submodule using a multi-part module reference, mypy assumes that all of the parent modules are also initialized and cached such they can be referenced.
+Mypy models side effects of the import loader that are potentially unsafe.
 
 ```python
-import collections.abc
-collections.deque() # Pyright produces an error here because the `collections` module wasn't explicitly imported
+import http
+
+def func():
+    import http.cookies
+
+# The next line raises an exception at runtime
+x = http.cookies  # mypy allows, pyright flags as error
 ```
 
 ### Ellipsis in Function Body
