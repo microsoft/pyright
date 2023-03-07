@@ -30,7 +30,7 @@
   - [Differences from Mypy](mypy-comparison.md)
   - [Commands](commands.md)
 
-- Advanced Topics
+- Development
 
   - [Building & Debugging](build-debug.md)
   - [Pyright Internals](internals.md)
