@@ -18,6 +18,7 @@ import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
     ClassNode,
+    DictionaryNode,
     ExpressionNode,
     IndexNode,
     ParameterCategory,
@@ -27,7 +28,7 @@ import { KeywordType } from '../parser/tokenizerTypes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
-import { Symbol, SymbolFlags } from './symbol';
+import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { EvaluatorUsage, FunctionArgument, TypeEvaluator, TypeResult, TypeResultWithNode } from './typeEvaluatorTypes';
 import {
@@ -116,7 +117,6 @@ export function createTypedDictType(
         evaluator.addError(Localizer.Diagnostic.typedDictSecondArgDict(), errorNode);
     } else {
         const entriesArg = argList[1];
-        const entrySet = new Set<string>();
 
         if (
             entriesArg.argumentCategory === ArgumentCategory.Simple &&
@@ -124,57 +124,10 @@ export function createTypedDictType(
             entriesArg.valueExpression.nodeType === ParseNodeType.Dictionary
         ) {
             usingDictSyntax = true;
-            const entryDict = entriesArg.valueExpression;
 
-            entryDict.entries.forEach((entry) => {
-                if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry) {
-                    evaluator.addError(Localizer.Diagnostic.typedDictSecondArgDictEntry(), entry);
-                    return;
-                }
-
-                if (entry.keyExpression.nodeType !== ParseNodeType.StringList) {
-                    evaluator.addError(Localizer.Diagnostic.typedDictEntryName(), entry.keyExpression);
-                    return;
-                }
-
-                const entryName = entry.keyExpression.strings.map((s) => s.value).join('');
-                if (!entryName) {
-                    evaluator.addError(Localizer.Diagnostic.typedDictEmptyName(), entry.keyExpression);
-                    return;
-                }
-
-                if (entrySet.has(entryName)) {
-                    evaluator.addError(Localizer.Diagnostic.typedDictEntryUnique(), entry.keyExpression);
-                    return;
-                }
-
-                // Record names in a set to detect duplicates.
-                entrySet.add(entryName);
-
-                const newSymbol = new Symbol(SymbolFlags.InstanceMember);
-                const declaration: VariableDeclaration = {
-                    type: DeclarationType.Variable,
-                    node: entry.keyExpression,
-                    path: fileInfo.filePath,
-                    typeAnnotationNode: entry.valueExpression,
-                    isRuntimeTypeExpression: true,
-                    range: convertOffsetsToRange(
-                        entry.keyExpression.start,
-                        TextRange.getEnd(entry.keyExpression),
-                        fileInfo.lines
-                    ),
-                    moduleName: fileInfo.moduleName,
-                    isInExceptSuite: false,
-                };
-                newSymbol.addDeclaration(declaration);
-
-                classFields.set(entryName, newSymbol);
-            });
-
-            // Set the type in the type cache for the dict node so it doesn't
-            // get evaluated again.
-            evaluator.setTypeForNode(entryDict);
+            getTypedDictFieldsFromDictSyntax(evaluator, entriesArg.valueExpression, classFields);
         } else if (entriesArg.name) {
+            const entrySet = new Set<string>();
             for (let i = 1; i < argList.length; i++) {
                 const entry = argList[i];
                 if (!entry.name || !entry.valueExpression) {
@@ -238,6 +191,34 @@ export function createTypedDictType(
     }
 
     synthesizeTypedDictClassMethods(evaluator, errorNode, classType, /* isClassFinal */ false);
+
+    return classType;
+}
+
+// Creates a new anonymous TypedDict class from an inlined dict[{}] type annotation.
+export function createTypedDictTypeInlined(
+    evaluator: TypeEvaluator,
+    dictNode: DictionaryNode,
+    typedDictClass: ClassType
+): ClassType {
+    const fileInfo = AnalyzerNodeInfo.getFileInfo(dictNode);
+    const className = '<TypedDict>';
+
+    const classType = ClassType.createInstantiable(
+        className,
+        ParseTreeUtils.getClassFullName(dictNode, fileInfo.moduleName, className),
+        fileInfo.moduleName,
+        fileInfo.filePath,
+        ClassTypeFlags.TypedDictClass,
+        ParseTreeUtils.getTypeSourceId(dictNode),
+        /* declaredMetaclass */ undefined,
+        typedDictClass.details.effectiveMetaclass
+    );
+    classType.details.baseClasses.push(typedDictClass);
+    computeMroLinearization(classType);
+
+    getTypedDictFieldsFromDictSyntax(evaluator, dictNode, classType.details.fields);
+    synthesizeTypedDictClassMethods(evaluator, dictNode, classType, /* isClassFinal */ true);
 
     return classType;
 }
@@ -555,6 +536,64 @@ export function getTypedDictMembersForClass(evaluator: TypeEvaluator, classType:
     }
 
     return entries;
+}
+
+function getTypedDictFieldsFromDictSyntax(
+    evaluator: TypeEvaluator,
+    entryDict: DictionaryNode,
+    classFields: SymbolTable
+) {
+    const entrySet = new Set<string>();
+    const fileInfo = AnalyzerNodeInfo.getFileInfo(entryDict);
+
+    entryDict.entries.forEach((entry) => {
+        if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry) {
+            evaluator.addError(Localizer.Diagnostic.typedDictSecondArgDictEntry(), entry);
+            return;
+        }
+
+        if (entry.keyExpression.nodeType !== ParseNodeType.StringList) {
+            evaluator.addError(Localizer.Diagnostic.typedDictEntryName(), entry.keyExpression);
+            return;
+        }
+
+        const entryName = entry.keyExpression.strings.map((s) => s.value).join('');
+        if (!entryName) {
+            evaluator.addError(Localizer.Diagnostic.typedDictEmptyName(), entry.keyExpression);
+            return;
+        }
+
+        if (entrySet.has(entryName)) {
+            evaluator.addError(Localizer.Diagnostic.typedDictEntryUnique(), entry.keyExpression);
+            return;
+        }
+
+        // Record names in a set to detect duplicates.
+        entrySet.add(entryName);
+
+        const newSymbol = new Symbol(SymbolFlags.InstanceMember);
+        const declaration: VariableDeclaration = {
+            type: DeclarationType.Variable,
+            node: entry.keyExpression,
+            path: fileInfo.filePath,
+            typeAnnotationNode: entry.valueExpression,
+            isRuntimeTypeExpression: true,
+            range: convertOffsetsToRange(
+                entry.keyExpression.start,
+                TextRange.getEnd(entry.keyExpression),
+                fileInfo.lines
+            ),
+            moduleName: fileInfo.moduleName,
+            isInExceptSuite: false,
+        };
+        newSymbol.addDeclaration(declaration);
+
+        classFields.set(entryName, newSymbol);
+    });
+
+    // Set the type in the type cache for the dict node so it doesn't
+    // get evaluated again.
+    evaluator.setTypeForNode(entryDict);
 }
 
 function getTypedDictMembersForClassRecursive(

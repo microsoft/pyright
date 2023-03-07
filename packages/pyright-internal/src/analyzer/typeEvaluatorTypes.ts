@@ -163,6 +163,9 @@ export interface TypeResult<T extends Type = Type> {
     unpackedType?: Type | undefined;
     typeList?: TypeResultWithNode[] | undefined;
 
+    // For inlined TypedDict definitions.
+    inlinedTypeDict?: ClassType;
+
     // Type consistency errors detected when evaluating this type.
     typeErrors?: boolean | undefined;
 

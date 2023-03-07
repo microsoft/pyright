@@ -146,6 +146,7 @@ import {
     assignToTypedDict,
     assignTypedDictToTypedDict as assignTypedDictToTypedDict,
     createTypedDictType,
+    createTypedDictTypeInlined,
     getTypedDictMembersForClass,
     getTypeOfIndexedTypedDict,
     synthesizeTypedDictClassMethods,
@@ -357,6 +358,7 @@ interface GetTypeArgsOptions {
     hasCustomClassGetItem?: boolean;
     isFinalAnnotation?: boolean;
     isClassVarAnnotation?: boolean;
+    supportsTypedDictTypeArg?: boolean;
 }
 
 interface MatchArgsToParamsResult {
@@ -642,6 +644,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let strClassType: Type | undefined;
     let dictClassType: Type | undefined;
     let typedDictClassType: Type | undefined;
+    let typedDictPrivateClassType: Type | undefined;
     let printExpressionSpaceCount = 0;
     let incompleteGenerationCount = 0;
 
@@ -947,7 +950,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             intClassType = getBuiltInType(node, 'int');
             strClassType = getBuiltInType(node, 'str');
             dictClassType = getBuiltInType(node, 'dict');
-            typedDictClassType = getTypingType(node, '_TypedDict');
+            typedDictClassType = getTypingType(node, 'TypedDict');
+            typedDictPrivateClassType = getTypingType(node, '_TypedDict');
         }
     }
 
@@ -2782,7 +2786,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypedDictClassType() {
-        return typedDictClassType;
+        return typedDictPrivateClassType;
     }
 
     function getTupleClassType() {
@@ -6679,11 +6683,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const isClassVarAnnotation =
                         isInstantiableClass(concreteSubtype) && ClassType.isBuiltIn(concreteSubtype, 'ClassVar');
 
+                    // Inlined TypedDicts are supported only for 'dict' (and not for 'Dict').
+                    const supportsTypedDictTypeArg =
+                        isInstantiableClass(concreteSubtype) &&
+                        ClassType.isBuiltIn(concreteSubtype, 'dict') &&
+                        !concreteSubtype.aliasName;
+
                     let typeArgs = getTypeArgs(node, flags, {
                         isAnnotatedClass,
                         hasCustomClassGetItem: hasCustomClassGetItem || !isGenericClass,
                         isFinalAnnotation,
                         isClassVarAnnotation,
+                        supportsTypedDictTypeArg,
                     });
 
                     if (!isAnnotatedClass) {
@@ -7190,7 +7201,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     node: expr,
                 };
             } else {
-                typeResult = getTypeArg(expr, adjFlags);
+                typeResult = getTypeArg(expr, adjFlags, !!options?.supportsTypedDictTypeArg && argIndex === 0);
             }
 
             return typeResult;
@@ -7239,7 +7250,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return typeArgs;
     }
 
-    function getTypeArg(node: ExpressionNode, flags: EvaluatorFlags): TypeResultWithNode {
+    function getTypeArg(
+        node: ExpressionNode,
+        flags: EvaluatorFlags,
+        supportsDictExpression: boolean
+    ): TypeResultWithNode {
         let typeResult: TypeResultWithNode;
 
         let adjustedFlags =
@@ -7264,8 +7279,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Set the node's type so it isn't reevaluated later.
             setTypeForNode(node, UnknownType.create());
+        } else if (node.nodeType === ParseNodeType.Dictionary && supportsDictExpression) {
+            const inlinedTypeDict =
+                typedDictClassType && isInstantiableClass(typedDictClassType)
+                    ? createTypedDictTypeInlined(evaluatorInterface, node, typedDictClassType)
+                    : undefined;
+            const keyTypeFallback =
+                strClassType && isInstantiableClass(strClassType) ? strClassType : UnknownType.create();
+
+            typeResult = {
+                type: keyTypeFallback,
+                inlinedTypeDict,
+                node,
+            };
         } else {
             typeResult = { ...getTypeOfExpression(node, adjustedFlags), node };
+
+            if (node.nodeType === ParseNodeType.Dictionary) {
+                addError(Localizer.Diagnostic.dictInAnnotation(), node);
+            }
 
             // "Protocol" is not allowed as a type argument.
             if (isClass(typeResult.type) && ClassType.isBuiltIn(typeResult.type, 'Protocol')) {
@@ -19727,11 +19759,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (typeArgs) {
             let minTypeArgCount = typeParameters.length;
             const firstNonDefaultParam = typeParameters.findIndex((param) => !!param.details.defaultType);
+
             if (firstNonDefaultParam >= 0) {
                 minTypeArgCount = firstNonDefaultParam;
             }
 
-            if (typeArgCount > typeParameters.length) {
+            // Classes that accept inlined type dict type args allow only one.
+            if (typeArgs[0].inlinedTypeDict) {
+                if (typeArgs.length > 1) {
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeArgsTooMany().format({
+                            name: classType.aliasName || classType.details.name,
+                            expected: 1,
+                            received: typeArgCount,
+                        }),
+                        typeArgs[1].node
+                    );
+                }
+
+                return { type: typeArgs[0].inlinedTypeDict };
+            } else if (typeArgCount > typeParameters.length) {
                 if (!ClassType.isPartiallyEvaluated(classType) && !ClassType.isTupleClass(classType)) {
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                     if (typeParameters.length === 0) {

@@ -3844,7 +3844,7 @@ export class Parser {
             return listNode;
         } else if (nextToken.type === TokenType.OpenCurlyBrace) {
             const dictNode = this._parseDictionaryOrSetAtom();
-            if (this._isParsingTypeAnnotation) {
+            if (this._isParsingTypeAnnotation && !this._isParsingIndexTrailer) {
                 const diag = new DiagnosticAddendum();
                 diag.addMessage(Localizer.DiagnosticAddendum.useDictInstead());
                 this._addError(Localizer.Diagnostic.dictInAnnotation() + diag.getString(), dictNode);
