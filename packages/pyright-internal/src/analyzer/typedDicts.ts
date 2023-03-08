@@ -220,6 +220,22 @@ export function createTypedDictTypeInlined(
     getTypedDictFieldsFromDictSyntax(evaluator, dictNode, classType.details.fields);
     synthesizeTypedDictClassMethods(evaluator, dictNode, classType, /* isClassFinal */ true);
 
+    const innerRepr = (
+        [...classType.details.fields.entries()]
+        .filter(([_, sym]) => sym.isInstanceMember())
+        .map(([rawName, sym]) => {
+            const [decl] = sym.getDeclarations() as [VariableDeclaration];
+            const declType = evaluator.getTypeForDeclaration(decl).type;
+            const fieldTypeRepr = declType ? evaluator.printType(declType) : 'Unknown';
+
+            const quotedName = JSON.stringify(rawName)
+
+            return `${quotedName}: ${fieldTypeRepr}`
+        })
+        .join(', ')
+    );
+    classType.details.name = 'dict[{' + innerRepr + '}]';
+
     return classType;
 }
 
