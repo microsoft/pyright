@@ -16867,6 +16867,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         evaluatorInterface,
                         decoratorNode.expression
                     );
+                } else if (decoratorCallType.details.name === 'deprecated') {
+                    originalClassType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
+                    return inputClassType;
                 }
             }
 
@@ -16905,6 +16908,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Don't call getTypeOfDecorator for final. We'll hard-code its
                 // behavior because its function definition results in a cyclical
                 // dependency between builtins, typing and _typeshed stubs.
+                return inputClassType;
+            }
+
+            if (decoratorType.details.builtInName === 'deprecated') {
+                originalClassType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
                 return inputClassType;
             }
 
@@ -17943,6 +17951,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                     return inputFunctionType;
                 }
+
+                if (decoratorCallType.details.name === 'deprecated') {
+                    undecoratedType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
+                    return inputFunctionType;
+                }
             }
 
             if (isOverloadedFunction(decoratorCallType)) {
@@ -17961,6 +17974,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Check for some built-in decorator types with known semantics.
         if (isFunction(decoratorType)) {
             if (decoratorType.details.builtInName === 'abstractmethod') {
+                return inputFunctionType;
+            }
+
+            if (decoratorType.details.builtInName === 'deprecated') {
+                undecoratedType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
                 return inputFunctionType;
             }
 
