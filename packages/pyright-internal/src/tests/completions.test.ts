@@ -4,8 +4,12 @@
  * completions tests.
  */
 
+import assert from 'assert';
+import { CancellationToken } from 'vscode-languageserver';
 import { CompletionItemKind, MarkupKind } from 'vscode-languageserver-types';
 
+import { ImportFormat } from '../languageService/autoImporter';
+import { CompletionOptions } from '../languageService/completionProvider';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 
 test('completion import statement tooltip', async () => {
@@ -357,4 +361,507 @@ test('completion from import statement tooltip - implicit module', async () => {
             ],
         },
     });
+});
+
+test('include literals in expression completion', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import TypedDict
+//// 
+//// class TestType(TypedDict):
+////     A: str
+////     B: int
+//// 
+//// var: TestType = {}
+//// 
+//// var[[|A/*marker*/|]]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: "'A'",
+                    textEdit: { range: state.getPositionRange('marker'), newText: "'A'" },
+                },
+            ],
+        },
+    });
+});
+
+test('include literals in set key', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import TypedDict
+//// 
+//// class TestType(TypedDict):
+////     A: str
+////     B: int
+//// 
+//// var: TestType = { [|A/*marker*/|] }
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: "'A'",
+                    textEdit: { range: state.getPositionRange('marker'), newText: "'A'" },
+                },
+            ],
+        },
+    });
+});
+
+test('include literals in dict key', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import TypedDict
+//// 
+//// class TestType(TypedDict):
+////     A: str
+////     B: int
+//// 
+//// var: TestType = { [|A/*marker*/|] : "hello" }
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"A"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"A"' },
+                },
+            ],
+        },
+    });
+});
+
+test('literals support for binary operators - equals', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Literal
+//// 
+//// Currency = Literal["USD", "EUR"]
+//// 
+//// def foo(c: Currency):
+////     if c == [|"/*marker*/"|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"USD"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"USD"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"EUR"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"EUR"' },
+                },
+            ],
+        },
+    });
+});
+
+test('literals support for binary operators - not equals', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Literal
+//// 
+//// Currency = Literal["USD", "EUR"]
+//// 
+//// def foo(c: Currency):
+////     if c != [|"/*marker*/"|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"USD"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"USD"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"EUR"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"EUR"' },
+                },
+            ],
+        },
+    });
+});
+
+test('literals support for binary operators without string node', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Literal
+//// 
+//// Currency = Literal["USD", "EUR"]
+//// 
+//// def foo(c: Currency):
+////     if c != [|/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"USD"',
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"EUR"',
+                },
+            ],
+        },
+    });
+});
+
+test('literals support for binary operators with prior word', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Literal
+//// 
+//// Currency = Literal["USD", "EUR"]
+//// 
+//// def foo(c: Currency):
+////     if c != [|US/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"USD"',
+                },
+            ],
+        },
+    });
+});
+
+test('literals support for binary operators - assignment expression', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Literal
+//// 
+//// Currency = Literal["USD", "EUR"]
+//// 
+//// def foo(c: Currency):
+////     if c := [|"/*marker*/"|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"USD"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"USD"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"EUR"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"EUR"' },
+                },
+            ],
+        },
+    });
+});
+
+test('literals support for call', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Literal
+//// 
+//// Currency = Literal["USD", "EUR"]
+//// 
+//// def foo(c: Currency) -> Currency:
+////     return c
+////
+//// if foo([|"/*marker1*/"|]) == [|"/*marker2*/"|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker1 = state.getMarkerByName('marker1');
+    state.openFile(marker1.fileName);
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker1: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"USD"',
+                    textEdit: { range: state.getPositionRange('marker1'), newText: '"USD"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"EUR"',
+                    textEdit: { range: state.getPositionRange('marker1'), newText: '"EUR"' },
+                },
+            ],
+        },
+        marker2: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"USD"',
+                    textEdit: { range: state.getPositionRange('marker2'), newText: '"USD"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"EUR"',
+                    textEdit: { range: state.getPositionRange('marker2'), newText: '"EUR"' },
+                },
+            ],
+        },
+    });
+});
+
+test('list with literal types', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Literal
+//// 
+//// Currency = Literal["USD", "EUR"]
+//// 
+//// a: list[Currency] = [[|"/*marker*/"|]]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"USD"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"USD"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"EUR"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"EUR"' },
+                },
+            ],
+        },
+    });
+});
+
+test('literals support for match - error case', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Literal
+//// 
+//// Currency = Literal["USD", "EUR"]
+//// 
+//// def foo(c: Currency):
+////     match c:
+////         case [|/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"USD"',
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"EUR"',
+                },
+            ],
+        },
+    });
+});
+
+test('literals support for match - simple case', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Literal
+//// 
+//// Currency = Literal["USD", "EUR"]
+//// 
+//// def foo(c: Currency):
+////     match c:
+////         case [|"/*marker*/"|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"USD"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"USD"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"EUR"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"EUR"' },
+                },
+            ],
+        },
+    });
+});
+
+test('literals support for match - simple case without string', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Literal
+//// 
+//// Currency = Literal["USD", "EUR"]
+//// 
+//// def foo(c: Currency):
+////     match c:
+////         case [|US/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"USD"',
+                },
+            ],
+        },
+    });
+});
+
+test('completion quote trigger', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Literal
+//// 
+//// Currency = Literal["USD", "EUR"]
+//// 
+//// def foo(c: Currency):
+////     match c:
+////         case [|"/*marker*/"|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    const filePath = marker.fileName;
+    const position = state.convertOffsetToPosition(filePath, marker.position);
+
+    const options: CompletionOptions = {
+        format: 'markdown',
+        snippet: false,
+        lazyEdit: false,
+        autoImport: false,
+        extraCommitChars: false,
+        importFormat: ImportFormat.Absolute,
+        includeUserSymbolsInAutoImport: false,
+        triggerCharacter: '"',
+    };
+
+    const result = await state.workspace.serviceInstance.getCompletionsForPosition(
+        filePath,
+        position,
+        state.workspace.path,
+        options,
+        undefined,
+        CancellationToken.None
+    );
+
+    assert(result);
+    const item = result.completionList.items.find((a) => a.label === '"USD"');
+    assert(item);
+});
+
+test('completion quote trigger - middle', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Literal
+//// 
+//// Currency = Literal["Quote'Middle"]
+//// 
+//// def foo(c: Currency):
+////     match c:
+////         case [|"Quote'/*marker*/"|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    const filePath = marker.fileName;
+    const position = state.convertOffsetToPosition(filePath, marker.position);
+
+    const options: CompletionOptions = {
+        format: 'markdown',
+        snippet: false,
+        lazyEdit: false,
+        autoImport: false,
+        extraCommitChars: false,
+        importFormat: ImportFormat.Absolute,
+        includeUserSymbolsInAutoImport: false,
+        triggerCharacter: "'",
+    };
+
+    const result = await state.workspace.serviceInstance.getCompletionsForPosition(
+        filePath,
+        position,
+        state.workspace.path,
+        options,
+        undefined,
+        CancellationToken.None
+    );
+
+    assert.strictEqual(result?.completionList.items.length, 0);
 });

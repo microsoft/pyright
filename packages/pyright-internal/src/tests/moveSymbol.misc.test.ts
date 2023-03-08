@@ -157,6 +157,41 @@ test('augmented assignment 2', () => {
     testNoMoveFromCode(code);
 });
 
+test('symbol must be from user files', () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "useLibraryCodeForTypes": true
+//// }
+    
+// @filename: used.py
+//// /*used*/
+//// import lib
+//// lib.a
+    
+// @filename: lib.py
+// @library: true
+//// a = 1
+//// [|/*marker*/a|] += 1
+
+// @filename: moved.py
+// @library: true
+//// [|/*dest*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    while (state.workspace.serviceInstance.test_program.analyze());
+
+    const actions = state.program.moveSymbolAtPosition(
+        state.getMarkerByName('marker').fileName,
+        state.getMarkerByName('dest').fileName,
+        state.getPositionRange('marker').start,
+        { importFormat: ImportFormat.Absolute },
+        CancellationToken.None
+    );
+    assert(!actions);
+});
+
 function testNoMoveFromCode(code: string) {
     const state = parseAndGetTestState(code).state;
 

@@ -115,7 +115,8 @@ export function getFunctionTooltip(
     const funcParts = evaluator.printFunctionParts(type);
     const paramSignature = formatSignature(funcParts, indentStr, functionSignatureDisplay);
     const sep = isProperty ? ': ' : '';
-    return `${labelFormatted}def ${functionName}${sep}${paramSignature} -> ${funcParts[1]}`;
+    const defKeyword = isProperty ? '' : 'def ';
+    return `${labelFormatted}${defKeyword}${functionName}${sep}${paramSignature} -> ${funcParts[1]}`;
 }
 
 export function getConstructorTooltip(

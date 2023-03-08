@@ -18,7 +18,7 @@
 // @filename: dict_expression_partial_expression.py
 //// d = { "key" : 1 }
 //// d["key2"] = 1
-//// d[key/*marker4*/]
+//// d[[|key/*marker4*/|]]
 
 // @filename: dict_expression_complex_key.py
 //// class C:
@@ -52,8 +52,18 @@
         },
         marker4: {
             completions: [
-                { label: '"key"', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
-                { label: '"key2"', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
+                {
+                    label: '"key"',
+                    kind: Consts.CompletionItemKind.Constant,
+                    textEdit: { range: helper.getPositionRange('marker4'), newText: '"key"' },
+                    detail: 'Dictionary key',
+                },
+                {
+                    label: '"key2"',
+                    kind: Consts.CompletionItemKind.Constant,
+                    textEdit: { range: helper.getPositionRange('marker4'), newText: '"key2"' },
+                    detail: 'Dictionary key',
+                },
             ],
         },
         marker5: {

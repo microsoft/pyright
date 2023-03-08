@@ -294,6 +294,6 @@ test('import tooltip - check duplicate property', async () => {
     state.openFile(marker.fileName);
 
     state.verifyHover('markdown', {
-        marker: '```python\n(property) def test: (self: Self@Test) -> bool\n```\n---\nTest DocString.\n\nReturns\n-------\nbool  \n&nbsp;&nbsp;&nbsp;&nbsp;Lorem Ipsum',
+        marker: '```python\n(property) test: (self: Self@Test) -> bool\n```\n---\nTest DocString.\n\nReturns\n-------\nbool  \n&nbsp;&nbsp;&nbsp;&nbsp;Lorem Ipsum',
     });
 });
