@@ -4,3 +4,6 @@ extra_description = """\
 The `types-pika` package contains alternate, more complete type stubs, that \
 are maintained outside of typeshed.\
 """
+
+[tool.stubtest]
+stubtest_requirements = ["gevent", "tornado", "twisted"]

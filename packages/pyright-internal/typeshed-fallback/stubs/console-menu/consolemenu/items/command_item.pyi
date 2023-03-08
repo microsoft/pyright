@@ -6,7 +6,13 @@ class CommandItem(ExternalItem):
     arguments: list[str]
     exit_status: int | None
     def __init__(
-        self, text: str, command: str, arguments: list[str] | None = ..., menu: ConsoleMenu | None = ..., should_exit: bool = ...
+        self,
+        text: str,
+        command: str,
+        arguments: list[str] | None = None,
+        menu: ConsoleMenu | None = None,
+        should_exit: bool = False,
+        menu_char: str | None = None,
     ) -> None: ...
     def action(self) -> None: ...
     def get_return(self) -> int: ...

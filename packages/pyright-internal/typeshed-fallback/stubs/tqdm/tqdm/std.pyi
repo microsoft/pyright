@@ -83,7 +83,7 @@ class tqdm(Generic[_T], Iterable[_T], Comparable):
         position: int | None = ...,
         postfix: Mapping[str, object] | str | None = ...,
         unit_divisor: float = ...,
-        write_bytes: bool | None = ...,
+        write_bytes: bool = False,
         lock_args: tuple[bool | None, float | None] | tuple[bool | None] | None = ...,
         nrows: int | None = ...,
         colour: str | None = ...,
@@ -196,7 +196,6 @@ class tqdm(Generic[_T], Iterable[_T], Comparable):
     start_t: Incomplete
 
     def __bool__(self) -> bool: ...
-    def __nonzero__(self) -> bool: ...
     def __len__(self) -> int: ...
     def __reversed__(self) -> Iterator[_T]: ...
     def __contains__(self, item: object) -> bool: ...

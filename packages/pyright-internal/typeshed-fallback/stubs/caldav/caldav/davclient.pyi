@@ -1,6 +1,6 @@
+from _typeshed import Incomplete
 from collections.abc import Iterable, Mapping
 from types import TracebackType
-from typing import Any
 from typing_extensions import Self, TypeAlias
 from urllib.parse import ParseResult, SplitResult
 
@@ -12,7 +12,7 @@ from requests.structures import CaseInsensitiveDict
 from .lib.url import URL
 from .objects import Calendar, DAVObject, Principal
 
-_Element: TypeAlias = Any  # actually lxml.etree._Element
+_Element: TypeAlias = Incomplete  # actually lxml.etree._Element
 
 class DAVResponse:
     reason: str
@@ -26,7 +26,7 @@ class DAVResponse:
     def validate_status(self, status: str) -> None: ...
     def find_objects_and_props(self) -> None: ...
     def expand_simple_props(
-        self, props: Iterable[Any] = ..., multi_value_props: Iterable[Any] = ..., xpath: str | None = ...
+        self, props: Iterable[Incomplete] = ..., multi_value_props: Iterable[Incomplete] = ..., xpath: str | None = ...
     ) -> dict[str, dict[str, str]]: ...
 
 class DAVClient:
@@ -42,13 +42,14 @@ class DAVClient:
     def __init__(
         self,
         url: str,
-        proxy: str | None = ...,
-        username: str | None = ...,
-        password: str | None = ...,
-        auth: AuthBase | None = ...,
-        timeout: _Timeout | None = ...,
-        ssl_verify_cert: bool | str = ...,
-        ssl_cert: str | tuple[str, str] | None = ...,
+        proxy: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
+        auth: AuthBase | None = None,
+        timeout: _Timeout | None = None,
+        ssl_verify_cert: bool | str = True,
+        ssl_cert: str | tuple[str, str] | None = None,
+        headers: dict[str, str] = ...,
     ) -> None: ...
     def __enter__(self) -> Self: ...
     def __exit__(
@@ -61,8 +62,8 @@ class DAVClient:
         parent: DAVObject | None = ...,
         name: str | None = ...,
         id: str | None = ...,
-        props: Mapping[Any, Any] = ...,
-        **extra: Any,
+        props: Mapping[Incomplete, Incomplete] = ...,
+        **extra: Incomplete,
     ) -> Calendar: ...
     def check_dav_support(self) -> str | None: ...
     def check_cdav_support(self) -> bool: ...

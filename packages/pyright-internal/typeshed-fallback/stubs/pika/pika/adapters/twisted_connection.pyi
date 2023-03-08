@@ -5,12 +5,12 @@ from typing_extensions import TypeAlias
 import pika.connection
 from pika.adapters.utils import nbio_interface
 
-DeferredQueue: TypeAlias = Any  # TODO: twisted.internet.defer.DeferredQueue
-Protocol: TypeAlias = Any  # TODO: twisted.internet.protocol.Protocol
+_DeferredQueue: TypeAlias = Any  # TODO: twisted.internet.defer.DeferredQueue
+_Protocol: TypeAlias = Any  # TODO: twisted.internet.protocol.Protocol
 
 LOGGER: Incomplete
 
-class ClosableDeferredQueue(DeferredQueue):
+class ClosableDeferredQueue(_DeferredQueue):
     closed: Incomplete
     def __init__(self, size: Incomplete | None = ..., backlog: Incomplete | None = ...) -> None: ...
     def put(self, obj): ...
@@ -107,7 +107,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
     def connection_lost(self, error) -> None: ...
     def data_received(self, data) -> None: ...
 
-class TwistedProtocolConnection(Protocol):
+class TwistedProtocolConnection(_Protocol):
     ready: Incomplete
     closed: Incomplete
     def __init__(self, parameters: Incomplete | None = ..., custom_reactor: Incomplete | None = ...) -> None: ...

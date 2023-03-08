@@ -70,6 +70,7 @@ __all__ = [
     "assert_never",
     "assert_type",
     "dataclass_transform",
+    "deprecated",
     "final",
     "IntVar",
     "is_typeddict",
@@ -326,13 +327,8 @@ class TypeVarTuple:
     def __iter__(self) -> Any: ...  # Unpack[Self]
 
 def override(__arg: _F) -> _F: ...
+def deprecated(__msg: str, *, category: type[Warning] | None = ..., stacklevel: int = 1) -> Callable[[_T], _T]: ...
 
 
 # Proposed extension to PEP 647
 StrictTypeGuard: _SpecialForm = ...
-
-# Proposed PEP 702
-@overload
-def deprecated(__f: _F) -> _F: ...
-@overload
-def deprecated(__msg: str) -> Callable[[_F], _F]: ...

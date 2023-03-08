@@ -1,4 +1,4 @@
-version = "4.21.*"
+version = "4.22.*"
 extra_description = "Generated with aid from mypy-protobuf v3.4.0"
 
 [tool.stubtest]

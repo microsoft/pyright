@@ -117,7 +117,7 @@ class sconn(NamedTuple):
     laddr: addr | tuple[()]
     raddr: addr | tuple[()]
     status: str
-    pid: int
+    pid: int | None
 
 class snicaddr(NamedTuple):
     family: AddressFamily

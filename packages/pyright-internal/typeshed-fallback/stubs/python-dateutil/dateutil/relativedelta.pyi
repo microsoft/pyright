@@ -2,7 +2,8 @@ from datetime import date, datetime, timedelta
 from typing import SupportsFloat, TypeVar, overload
 from typing_extensions import Self, TypeAlias
 
-from ._common import weekday
+# See #9817 for why we reexport this here
+from ._common import weekday as weekday
 
 _DateT = TypeVar("_DateT", date, datetime)
 # Work around attribute and type having the same name.

@@ -1,4 +1,4 @@
-version = "1.0.*"
+version = "1.2.*"
 # also types-lxml and types-icalendar when those stubs are added
 requires = ["types-requests", "types-vobject"]
 

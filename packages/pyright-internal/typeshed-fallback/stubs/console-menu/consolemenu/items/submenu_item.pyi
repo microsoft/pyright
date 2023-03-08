@@ -6,7 +6,12 @@ from consolemenu.items import MenuItem as MenuItem
 class SubmenuItem(MenuItem):
     submenu: ConsoleMenu
     def __init__(
-        self, text: str | Callable[[], str], submenu: ConsoleMenu, menu: ConsoleMenu | None = ..., should_exit: bool = ...
+        self,
+        text: str | Callable[[], str],
+        submenu: ConsoleMenu,
+        menu: ConsoleMenu | None = None,
+        should_exit: bool = False,
+        menu_char: str | None = None,
     ) -> None: ...
     menu: ConsoleMenu
     def set_menu(self, menu: ConsoleMenu) -> None: ...
