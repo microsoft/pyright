@@ -21132,22 +21132,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         usageNode?: NameNode,
         useLastDecl = false
     ): EffectiveTypeResult {
-        // Look in the cache to see if we've computed this already.
-        let cacheEntries = effectiveTypeCache.get(symbol.id);
-        const usageNodeId = usageNode ? usageNode.id : undefined;
-        const effectiveTypeCacheKey = `${usageNodeId === undefined ? '.' : usageNodeId.toString()}${
-            useLastDecl ? '*' : ''
-        }`;
-
-        if (cacheEntries) {
-            const result = cacheEntries.get(effectiveTypeCacheKey);
-            if (result) {
-                if (!result.isIncomplete) {
-                    return result;
-                }
-            }
-        }
-
         let declaredTypeInfo: DeclaredSymbolTypeInfo | undefined;
 
         // If there's a declared type, it takes precedence over inferred types.
@@ -21177,8 +21161,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isRecursiveDefinition: !declaredType,
                 };
 
-                addToEffectiveTypeCache(result);
                 return result;
+            }
+        }
+
+        // Look in the inferred type cache to see if we've computed this already.
+        let cacheEntries = effectiveTypeCache.get(symbol.id);
+        const usageNodeId = usageNode ? usageNode.id : undefined;
+        const effectiveTypeCacheKey = `${usageNodeId === undefined ? '.' : usageNodeId.toString()}${
+            useLastDecl ? '*' : ''
+        }`;
+
+        if (cacheEntries) {
+            const result = cacheEntries.get(effectiveTypeCacheKey);
+            if (result) {
+                if (!result.isIncomplete) {
+                    return result;
+                }
             }
         }
 
