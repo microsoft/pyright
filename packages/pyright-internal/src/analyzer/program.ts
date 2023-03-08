@@ -2078,7 +2078,10 @@ export class Program {
             }
 
             // If this isn't a name node, there are no references to be found.
-            if (node.nodeType !== ParseNodeType.Name || !RenameModuleProvider.canMoveSymbol(this._evaluator!, node)) {
+            if (
+                node.nodeType !== ParseNodeType.Name ||
+                !RenameModuleProvider.canMoveSymbol(this._configOptions, this._evaluator!, node)
+            ) {
                 return undefined;
             }
 

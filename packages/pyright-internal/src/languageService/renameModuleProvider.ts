@@ -47,7 +47,7 @@ import { isPrivateName } from '../analyzer/symbolNameUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { TypeCategory } from '../analyzer/types';
 import { getOrAdd } from '../common/collectionUtils';
-import { ConfigOptions } from '../common/configOptions';
+import { ConfigOptions, matchFileSpecs } from '../common/configOptions';
 import { assert, assertNever } from '../common/debug';
 import { FileEditAction } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
@@ -164,7 +164,13 @@ export class RenameModuleProvider {
         );
     }
 
-    static canMoveSymbol(evaluator: TypeEvaluator, node: NameNode): boolean {
+    static canMoveSymbol(configOptions: ConfigOptions, evaluator: TypeEvaluator, node: NameNode): boolean {
+        const filePath = getFileInfo(node)?.filePath;
+        if (!filePath || !matchFileSpecs(configOptions, filePath, /* isFile */ true)) {
+            // We only support moving symbols from a user file.
+            return false;
+        }
+
         if (isPrivateName(node.value)) {
             return false;
         }

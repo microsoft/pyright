@@ -166,10 +166,35 @@ export namespace Extensions {
         languageServiceExtensions = languageServiceExtensions.filter((s) => s.owner !== languageServer);
     }
 
+    function getBestProgram(filePath: string): ProgramView {
+        // Find the best program to use for this file.
+        const programs = [...new Set<ProgramView>(programExtensions.map((s) => s.view))];
+        let bestProgram: ProgramView | undefined;
+        programs.forEach((program) => {
+            // If the file is tracked by this program, use it.
+            if (program.owns(filePath)) {
+                if (!bestProgram || filePath.startsWith(program.rootPath)) {
+                    bestProgram = program;
+                }
+            }
+        });
+
+        // If we didn't find a program that tracks the file, use the first one that claims ownership.
+        if (bestProgram === undefined) {
+            if (programs.length === 1) {
+                bestProgram = programs[0];
+            } else {
+                bestProgram = programs.find((p) => p.getBoundSourceFileInfo(filePath)) || programs[0];
+            }
+        }
+        return bestProgram;
+    }
+
     export function getProgramExtensions(nodeOrFilePath: ParseNode | string) {
         const filePath =
             typeof nodeOrFilePath === 'string' ? nodeOrFilePath.toString() : getFileInfo(nodeOrFilePath).filePath;
-        return programExtensions.filter((s) => s.view?.owns(filePath)) as ProgramExtension[];
+        const bestProgram = getBestProgram(filePath);
+        return programExtensions.filter((s) => s.view === bestProgram) as ProgramExtension[];
     }
 
     export function getLanguageServiceExtensions() {

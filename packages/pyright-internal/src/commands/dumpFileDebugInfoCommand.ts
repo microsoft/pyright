@@ -41,6 +41,7 @@ import {
     BinaryOperationNode,
     BreakNode,
     CallNode,
+    CaseNode,
     ClassNode,
     ConstantNode,
     ContinueNode,
@@ -71,6 +72,7 @@ import {
     ListComprehensionIfNode,
     ListComprehensionNode,
     ListNode,
+    MatchNode,
     MemberAccessNode,
     ModuleNameNode,
     ModuleNode,
@@ -82,6 +84,16 @@ import {
     ParseNode,
     ParseNodeType,
     PassNode,
+    PatternAsNode,
+    PatternCaptureNode,
+    PatternClassArgumentNode,
+    PatternClassNode,
+    PatternLiteralNode,
+    PatternMappingExpandEntryNode,
+    PatternMappingKeyEntryNode,
+    PatternMappingNode,
+    PatternSequenceNode,
+    PatternValueNode,
     RaiseNode,
     ReturnNode,
     SetNode,
@@ -93,7 +105,11 @@ import {
     TernaryNode,
     TryNode,
     TupleNode,
+    TypeAliasNode,
     TypeAnnotationNode,
+    TypeParameterCategory,
+    TypeParameterListNode,
+    TypeParameterNode,
     UnaryOperationNode,
     UnpackNode,
     WhileNode,
@@ -911,6 +927,94 @@ class TreeDumper extends ParseTreeWalker {
         this._log(`${this._getPrefix(node)}`);
         return true;
     }
+
+    override visitCase(node: CaseNode): boolean {
+        this._log(`${this._getPrefix(node)} isIrrefutable: ${node.isIrrefutable}`);
+        return true;
+    }
+
+    override visitMatch(node: MatchNode): boolean {
+        this._log(`${this._getPrefix(node)}`);
+        return true;
+    }
+
+    override visitPatternAs(node: PatternAsNode): boolean {
+        this._log(`${this._getPrefix(node)}`);
+        return true;
+    }
+
+    override visitPatternCapture(node: PatternCaptureNode): boolean {
+        this._log(`${this._getPrefix(node)} isStar:${node.isStar} isWildcard:${node.isWildcard}`);
+        return true;
+    }
+
+    override visitPatternClass(node: PatternClassNode): boolean {
+        this._log(`${this._getPrefix(node)}`);
+        return true;
+    }
+
+    override visitPatternClassArgument(node: PatternClassArgumentNode): boolean {
+        this._log(`${this._getPrefix(node)}`);
+        return true;
+    }
+
+    override visitPatternLiteral(node: PatternLiteralNode): boolean {
+        this._log(`${this._getPrefix(node)}`);
+        return true;
+    }
+
+    override visitPatternMapping(node: PatternMappingNode): boolean {
+        this._log(`${this._getPrefix(node)}`);
+        return true;
+    }
+
+    override visitPatternMappingExpandEntry(node: PatternMappingExpandEntryNode): boolean {
+        this._log(`${this._getPrefix(node)}`);
+        return true;
+    }
+
+    override visitPatternMappingKeyEntry(node: PatternMappingKeyEntryNode): boolean {
+        this._log(`${this._getPrefix(node)}`);
+        return true;
+    }
+
+    override visitPatternSequence(node: PatternSequenceNode): boolean {
+        this._log(`${this._getPrefix(node)} starEntryIndex: ${node.starEntryIndex}`);
+        return true;
+    }
+
+    override visitPatternValue(node: PatternValueNode): boolean {
+        this._log(`${this._getPrefix(node)}`);
+        return true;
+    }
+
+    override visitTypeAlias(node: TypeAliasNode): boolean {
+        this._log(`${this._getPrefix(node)}`);
+        return true;
+    }
+
+    override visitTypeParameter(node: TypeParameterNode): boolean {
+        this._log(
+            `${this._getPrefix(node)} typeParamCategory:${getTypeParameterCategoryString(node.typeParamCategory)}`
+        );
+        return true;
+    }
+
+    override visitTypeParameterList(node: TypeParameterListNode): boolean {
+        this._log(`${this._getPrefix(node)}`);
+        return true;
+    }
+}
+
+function getTypeParameterCategoryString(type: TypeParameterCategory) {
+    switch (type) {
+        case TypeParameterCategory.TypeVar:
+            return 'TypeVar';
+        case TypeParameterCategory.TypeVarTuple:
+            return 'TypeVarTuple';
+        case TypeParameterCategory.ParamSpec:
+            return 'ParamSpec';
+    }
 }
 
 function getParameterCategoryString(type: ParameterCategory) {
@@ -961,6 +1065,14 @@ function getErrorExpressionCategoryString(type: ErrorExpressionCategory) {
             return 'MissingListCloseBracket';
         case ErrorExpressionCategory.MissingFunctionParameterList:
             return 'MissingFunctionParameterList';
+        case ErrorExpressionCategory.MissingPattern:
+            return 'MissingPattern';
+        case ErrorExpressionCategory.MissingPatternSubject:
+            return 'MissingPatternSubject';
+        case ErrorExpressionCategory.MissingDictValue:
+            return 'MissingDictValue';
+        case ErrorExpressionCategory.MaxDepthExceeded:
+            return 'MaxDepthExceeded';
         default:
             return `Unknown Value!! (${type})`;
     }
