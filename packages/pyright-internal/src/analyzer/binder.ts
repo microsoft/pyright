@@ -2489,7 +2489,7 @@ export class Binder extends ParseTreeWalker {
                 loadSymbolsFromPath: false,
                 range: getEmptyRange(),
                 usesLocalName: !!importAlias,
-                moduleName: importInfo.importName,
+                moduleName: firstNamePartValue,
                 firstNamePart: firstNamePartValue,
                 isInExceptSuite: this._isInExceptSuite,
             };
