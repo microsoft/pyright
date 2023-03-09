@@ -15,6 +15,7 @@
     - [Sample pyproject.toml](configuration.md#sample-pyprojecttoml-file)
     - [Diagnostic Rule Defaults](configuration.md#diagnostic-rule-defaults)
   - [Language Server Settings](settings.md)
+  - [Command Line Interface](command-line.md)
   - [Controlling Behavior With Comments](comments.md)
   - [Continuous Integration](ci-integration.md)
   
