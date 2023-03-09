@@ -9,7 +9,7 @@ Strict type checking, where most supported type-checking switches generate error
 # pyright: strict
 ```
 
-Likewise, basic type checking can be enabled for a file.
+Likewise, basic type checking can be enabled for a file. If you use `# pyright: basic`, the settings for the file use the default “basic” settings, not any override settings specified in the configuration file or language server settings. You can override the basic default settings within the file by specifying them individually (see below).
 
 ```python
 # pyright: basic
@@ -26,6 +26,7 @@ Diagnostic levels are also supported.
 ```python
 # pyright: reportPrivateUsage=warning, reportOptionalCall=error
 ```
+
 
 ### Line-level Diagnostic Suppression
 

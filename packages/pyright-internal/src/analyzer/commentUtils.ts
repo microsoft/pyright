@@ -65,7 +65,7 @@ function _applyStrictRules(ruleSet: DiagnosticRuleSet) {
 }
 
 function _applyBasicRules(ruleSet: DiagnosticRuleSet) {
-    _overrideRules(ruleSet, getBasicDiagnosticRuleSet(), []);
+    _overwriteRules(ruleSet, getBasicDiagnosticRuleSet());
 }
 
 function _overrideRules(
@@ -103,6 +103,19 @@ function _overrideRules(
         ) {
             (ruleSet as any)[ruleName] = overrideValue;
         }
+    }
+}
+
+function _overwriteRules(ruleSet: DiagnosticRuleSet, overrideRuleSet: DiagnosticRuleSet) {
+    const boolRuleNames = getBooleanDiagnosticRules();
+    const diagRuleNames = getDiagLevelDiagnosticRules();
+
+    for (const ruleName of boolRuleNames) {
+        (ruleSet as any)[ruleName] = (overrideRuleSet as any)[ruleName];
+    }
+
+    for (const ruleName of diagRuleNames) {
+        (ruleSet as any)[ruleName] = (overrideRuleSet as any)[ruleName];
     }
 }
 
