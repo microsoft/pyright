@@ -822,7 +822,7 @@ export class Tokenizer {
                     const bigIntValue = BigInt(simpleIntText);
                     if (
                         !isFinite(intValue) ||
-                        intValue < Number.MAX_SAFE_INTEGER ||
+                        intValue < Number.MIN_SAFE_INTEGER ||
                         intValue > Number.MAX_SAFE_INTEGER
                     ) {
                         intValue = bigIntValue;
