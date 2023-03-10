@@ -20850,7 +20850,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (lookupResults) {
                     moduleType.fields = lookupResults.symbolTable;
                     moduleType.docString = lookupResults.docString;
-                } else {
+                } else if (!loaderActions.implicitImports) {
                     return evaluatorOptions.evaluateUnknownImportsAsAny ? AnyType.create() : UnknownType.create();
                 }
             }
