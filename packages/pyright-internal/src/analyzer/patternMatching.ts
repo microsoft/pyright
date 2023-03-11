@@ -1175,28 +1175,30 @@ export function assignTypeToPatternTargets(
 
         case ParseNodeType.PatternCapture: {
             if (pattern.isWildcard) {
-                const fileInfo = getFileInfo(pattern);
-                if (isUnknown(type)) {
-                    evaluator.addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportUnknownVariableType,
-                        DiagnosticRule.reportUnknownVariableType,
-                        Localizer.Diagnostic.wildcardPatternTypeUnknown(),
-                        pattern.target
-                    );
-                } else if (isPartlyUnknown(type)) {
-                    const diagAddendum = new DiagnosticAddendum();
-                    diagAddendum.addMessage(
-                        Localizer.DiagnosticAddendum.typeOfSymbol().format({
-                            name: '_',
-                            type: evaluator.printType(type, { expandTypeAlias: true }),
-                        })
-                    );
-                    evaluator.addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportUnknownVariableType,
-                        DiagnosticRule.reportUnknownVariableType,
-                        Localizer.Diagnostic.wildcardPatternTypePartiallyUnknown() + diagAddendum.getString(),
-                        pattern.target
-                    );
+                if (!isTypeIncomplete) {
+                    const fileInfo = getFileInfo(pattern);
+                    if (isUnknown(type)) {
+                        evaluator.addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportUnknownVariableType,
+                            DiagnosticRule.reportUnknownVariableType,
+                            Localizer.Diagnostic.wildcardPatternTypeUnknown(),
+                            pattern.target
+                        );
+                    } else if (isPartlyUnknown(type)) {
+                        const diagAddendum = new DiagnosticAddendum();
+                        diagAddendum.addMessage(
+                            Localizer.DiagnosticAddendum.typeOfSymbol().format({
+                                name: '_',
+                                type: evaluator.printType(type, { expandTypeAlias: true }),
+                            })
+                        );
+                        evaluator.addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportUnknownVariableType,
+                            DiagnosticRule.reportUnknownVariableType,
+                            Localizer.Diagnostic.wildcardPatternTypePartiallyUnknown() + diagAddendum.getString(),
+                            pattern.target
+                        );
+                    }
                 }
             } else {
                 evaluator.assignTypeToExpression(pattern.target, type, isTypeIncomplete, pattern.target);
