@@ -38,7 +38,7 @@ def func_a2(
 
 
 P1 = ParamSpec("P1")
-P2 = ParamSpec("P2", default=(int, str))
+P2 = ParamSpec("P2", default=[int, str])
 P3 = ParamSpec("P3", default=...)
 
 

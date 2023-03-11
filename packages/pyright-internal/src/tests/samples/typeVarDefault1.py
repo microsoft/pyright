@@ -61,23 +61,23 @@ Ts6 = TypeVarTuple("Ts6", default=Unpack[tuple[int, ...]])
 Ts7 = TypeVarTuple("Ts7", default=Unpack[tuple[S1, S2]])
 
 
-P1 = ParamSpec("P1", default=())
+P1 = ParamSpec("P1", default=[])
 
-P2 = ParamSpec("P2", default=(int, str, None, int | None))
+P2 = ParamSpec("P2", default=[int, str, None, int | None])
 
-P3 = ParamSpec("P3", default=(int, S1))
+P3 = ParamSpec("P3", default=[int, S1])
 
-P4 = ParamSpec("P4", default=(int, ))
+P4 = ParamSpec("P4", default=[int])
 
 P5 = ParamSpec("P5", default=...)
 
-# This should generate an error because ParamSpec must be a tuple of types.
+# This should generate an error because ParamSpec must be a list of types.
 P6 = ParamSpec("P6", default=int)
 
-# This should generate an error because ParamSpec must be a tuple of types.
+# This should generate an error because ParamSpec must be a list of types.
 P7 = ParamSpec("P7", default=3)
 
-# This should generate an error because ParamSpec must be a tuple of types.
+# This should generate an error because ParamSpec must be a list of types.
 P8 = ParamSpec("P8", default=(1, int))
 
 P9 = ParamSpec("P9", default=P0)

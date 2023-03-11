@@ -11839,8 +11839,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return functionType;
         }
 
-        if (node.nodeType === ParseNodeType.Tuple) {
-            node.expressions.forEach((paramExpr, index) => {
+        if (node.nodeType === ParseNodeType.List) {
+            node.entries.forEach((paramExpr, index) => {
                 const typeResult = getTypeOfExpressionExpectingType(paramExpr);
 
                 FunctionType.addParameter(functionType, {

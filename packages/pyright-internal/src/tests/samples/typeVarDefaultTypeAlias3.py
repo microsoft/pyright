@@ -48,7 +48,7 @@ def func3(pa1: TA_PA, pa2: TA_PA[[str]], pa3: TA_PA[..., [float]], pa4: TA_PA[..
 # This should generate an error because P1 depends on P2.
 type TA_PB[**P2=P1, **P1=...] = tuple[Callable[P2, None], Callable[P1, None]]
 
-type TA_PC[T1=str, **P4=(int, T1, )] = T1 | Callable[P4, T1]
+type TA_PC[T1=str, **P4=[int, T1, ]] = T1 | Callable[P4, T1]
 
 def func4(pc1: TA_PC, pc2: TA_PC[float], pc3: TA_PC[float, ...]):
     reveal_type(pc1, expected_text="str | ((int, str) -> str)")
@@ -57,7 +57,7 @@ def func4(pc1: TA_PC, pc2: TA_PC[float], pc3: TA_PC[float, ...]):
 
 
 # This should generate an error because P4 depends on T1.
-type TA_PD[**P4=(int, T1, ), T1=str] = Callable[P4, T1]
+type TA_PD[**P4=[int, T1], T1=str] = Callable[P4, T1]
 
 
 class ClassTA[T1, T2, *Ts1]: ...

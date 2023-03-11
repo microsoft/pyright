@@ -22,6 +22,7 @@ def func_a1(a: TA1, b: TA1[float], c: TA1[float, float]):
 
 TA2: TypeAlias = dict[T1, T2] | list[T3]
 
+
 def func_a2(a: TA2, b: TA2[float], c: TA2[float, float], d: TA2[float, float, float]):
     reveal_type(a, expected_text="dict[Unknown, int] | list[str]")
     reveal_type(b, expected_text="dict[float, int] | list[str]")
@@ -30,10 +31,11 @@ def func_a2(a: TA2, b: TA2[float], c: TA2[float, float], d: TA2[float, float, fl
 
 
 P1 = ParamSpec("P1")
-P2 = ParamSpec("P2", default=(int, str))
+P2 = ParamSpec("P2", default=[int, str])
 P3 = ParamSpec("P3", default=...)
 
 TA3: TypeAlias = Callable[P2, Any] | Callable[P3, Any]
+
 
 def func_b1(a: TA3, b: TA3[[float]], c: TA3[[float], [list[float]]]):
     reveal_type(a, expected_text="((int, str) -> Any) | ((...) -> Any)")
@@ -52,14 +54,17 @@ TA5: TypeAlias = tuple[T3, *Ts3]
 
 TA6: TypeAlias = tuple[T3, *Ts4]
 
+
 def func_c1(a: TA4, b: TA4[*tuple[float]]):
     reveal_type(a, expected_text="tuple[int, str]")
     reveal_type(b, expected_text="tuple[float]")
+
 
 def func_c2(a: TA5, b: TA5[int], c: TA5[int, *tuple[()]]):
     reveal_type(a, expected_text="tuple[str, *tuple[float, ...]]")
     reveal_type(b, expected_text="tuple[int, *tuple[float, ...]]")
     reveal_type(c, expected_text="tuple[int]")
+
 
 def func_c3(a: TA6, b: TA6[int], c: TA6[int, *tuple[float]]):
     reveal_type(a, expected_text="tuple[str]")
