@@ -20949,16 +20949,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                     const callType = baseTypeResult.type;
 
-                    if (
-                        isInstantiableClass(callType) &&
-                        ClassType.isBuiltIn(callType, [
-                            'TypeVar',
-                            'ParamSpec',
-                            'TypeVarTuple',
-                            'TypedDict',
-                            'NamedTuple',
-                            'NewType',
-                        ])
+                    const exemptBuiltins = [
+                        'TypeVar',
+                        'ParamSpec',
+                        'TypeVarTuple',
+                        'TypedDict',
+                        'NamedTuple',
+                        'NewType',
+                    ];
+
+                    if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, exemptBuiltins)) {
+                        isUnambiguousType = true;
+                    } else if (
+                        isFunction(callType) &&
+                        exemptBuiltins.some((name) => callType.details.builtInName === name)
                     ) {
                         isUnambiguousType = true;
                     }
