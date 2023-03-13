@@ -6608,7 +6608,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (
                         concreteSubtype.details.effectiveMetaclass &&
                         isInstantiableClass(concreteSubtype.details.effectiveMetaclass) &&
-                        !ClassType.isBuiltIn(concreteSubtype.details.effectiveMetaclass, ['type', '_InitVarMeta'])
+                        !ClassType.isBuiltIn(concreteSubtype.details.effectiveMetaclass, ['type', '_InitVarMeta']) &&
+                        !concreteSubtype.details.mro.some(
+                            (mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, 'Generic')
+                        )
                     ) {
                         const itemMethodType = getTypeOfClassMember(
                             node,
@@ -6618,6 +6621,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             /* diag */ undefined,
                             MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.ConsiderMetaclassOnly
                         );
+
+                        if (flags & EvaluatorFlags.ExpectingTypeAnnotation) {
+                            // If the class doesn't derive from Generic, a type argument should not be allowed.
+                            addDiagnostic(
+                                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.typeArgsExpectingNone().format({
+                                    name: printType(ClassType.cloneAsInstance(concreteSubtype)),
+                                }),
+                                node
+                            );
+                        }
+
                         if (itemMethodType) {
                             return getTypeOfIndexedObjectOrClass(node, concreteSubtype, usage).type;
                         }

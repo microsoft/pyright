@@ -43,7 +43,7 @@ test('Required3', () => {
 
 test('Metaclass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass1.py']);
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Metaclass2', () => {
