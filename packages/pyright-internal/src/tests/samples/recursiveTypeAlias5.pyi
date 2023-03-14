@@ -1,5 +1,6 @@
 # This sample tests the case where a recursive type alias
-# indirectly refers to itself in a way that is illegal.
+# indirectly refers to itself through either a parameter
+# annotation or return type annotation.
 
 _str = str
 

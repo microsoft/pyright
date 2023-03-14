@@ -1228,12 +1228,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (flags & EvaluatorFlags.DisallowRecursiveTypeAliasPlaceholder) {
-            if (isTypeVar(typeResult.type) && isTypeAliasPlaceholder(typeResult.type)) {
-                typeResult.type.details.illegalRecursionDetected = true;
-            }
-        }
-
         writeTypeCache(node, typeResult, flags, inferenceContext, /* allowSpeculativeCaching */ true);
 
         if (
@@ -1529,7 +1523,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return getTypeOfAnnotation(paramTypeNode, {
             associateTypeVarsWithScope: true,
             allowTypeVarTuple: paramCategory === ParameterCategory.VarArgList,
-            disallowRecursiveTypeAlias: true,
             allowUnpackedTypedDict: paramCategory === ParameterCategory.VarArgDictionary,
             allowUnpackedTuple: paramCategory === ParameterCategory.VarArgList,
         });
@@ -1579,10 +1572,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             evaluatorFlags |= EvaluatorFlags.AssociateTypeVarsWithCurrentScope;
         } else {
             evaluatorFlags |= EvaluatorFlags.DisallowTypeVarsWithoutScopeId;
-        }
-
-        if (options?.disallowRecursiveTypeAlias) {
-            evaluatorFlags |= EvaluatorFlags.DisallowRecursiveTypeAliasPlaceholder;
         }
 
         if (options?.allowUnpackedTypedDict) {
@@ -14884,7 +14873,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ) {
                         const annotationType = getTypeOfAnnotation(firstParamTypeAnnotation, {
                             associateTypeVarsWithScope: true,
-                            disallowRecursiveTypeAlias: true,
                         });
                         if (!isTypeVar(annotationType) || !annotationType.details.isSynthesizedSelf) {
                             addDiagnostic(
@@ -15758,17 +15746,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // can be specialized.
                         typeAliasTypeVar!.details.recursiveTypeParameters = rightHandType.typeAliasInfo?.typeParameters;
                     }
-
-                    if (typeAliasTypeVar!.details.illegalRecursionDetected) {
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.typeAliasIsRecursiveIndirect().format({
-                                name: typeAliasNameNode.value,
-                            }),
-                            node.leftExpression
-                        );
-                    }
                 }
             }
         }
@@ -15896,17 +15873,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Set the resulting type to the boundType of the original type alias
         // to support recursive type aliases.
         typeAliasTypeVar.details.boundType = aliasType;
-
-        if (typeAliasTypeVar.details.illegalRecursionDetected) {
-            addDiagnostic(
-                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.typeAliasIsRecursiveIndirect().format({
-                    name: node.name.value,
-                }),
-                node.name
-            );
-        }
 
         writeTypeCache(node.name, { type: aliasType, isIncomplete }, EvaluatorFlags.None);
 
@@ -17522,7 +17488,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             const returnType = getTypeOfAnnotation(returnTypeAnnotationNode, {
                 associateTypeVarsWithScope: true,
-                disallowRecursiveTypeAlias: true,
             });
             functionType.details.declaredReturnType = returnType;
         } else {
@@ -19101,7 +19066,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 getTypeOfAnnotation(annotationNode, {
                     associateTypeVarsWithScope: true,
-                    disallowRecursiveTypeAlias: true,
                 });
                 return;
             }

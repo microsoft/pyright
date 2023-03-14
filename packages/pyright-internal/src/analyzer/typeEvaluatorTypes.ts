@@ -117,10 +117,6 @@ export const enum EvaluatorFlags {
     // Used for PEP 526-style variable type annotations
     VariableTypeAnnotation = 1 << 15,
 
-    // Emit an error if an incomplete recursive type alias is
-    // used in this context.
-    DisallowRecursiveTypeAliasPlaceholder = 1 << 16,
-
     // 'ClassVar' is not allowed in this context.
     DisallowClassVar = 1 << 17,
 
@@ -281,7 +277,6 @@ export interface AnnotationTypeOptions {
     allowTypeVarTuple?: boolean;
     allowParamSpec?: boolean;
     allowRequired?: boolean;
-    disallowRecursiveTypeAlias?: boolean;
     allowUnpackedTypedDict?: boolean;
     allowUnpackedTuple?: boolean;
     notParsedByInterpreter?: boolean;

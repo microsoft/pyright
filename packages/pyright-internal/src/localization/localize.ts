@@ -807,8 +807,6 @@ export namespace Localizer {
         export const typeAliasIllegalExpressionForm = () => getRawString('Diagnostic.typeAliasIllegalExpressionForm');
         export const typeAliasIsRecursiveDirect = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeAliasIsRecursiveDirect'));
-        export const typeAliasIsRecursiveIndirect = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeAliasIsRecursiveIndirect'));
         export const typeAliasNotInModuleOrClass = () => getRawString('Diagnostic.typeAliasNotInModuleOrClass');
         export const typeAliasRedeclared = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeAliasRedeclared'));

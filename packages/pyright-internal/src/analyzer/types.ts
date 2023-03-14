@@ -2155,7 +2155,6 @@ export interface TypeVarDetails {
     // Used for recursive type aliases.
     recursiveTypeAliasName?: string | undefined;
     recursiveTypeAliasScopeId?: TypeVarScopeId | undefined;
-    illegalRecursionDetected?: boolean | undefined;
 
     // Type parameters for a recursive type alias.
     recursiveTypeParameters?: TypeVarType[] | undefined;
