@@ -103,7 +103,7 @@ import {
 import { Scope } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode, SourceFile } from './sourceFile';
-import { isUserCode } from './sourceFileInfoUtils';
+import { collectImportedByFiles, isUserCode } from './sourceFileInfoUtils';
 import { isStubFile, SourceMapper } from './sourceMapper';
 import { Symbol } from './symbol';
 import { isPrivateOrProtectedName } from './symbolNameUtils';
@@ -1200,15 +1200,23 @@ export class Program {
                 let dependentFiles: ParseResults[] | undefined = undefined;
                 if (fileToCheck.sourceFile.getIPythonMode() === IPythonMode.CellDocs) {
                     dependentFiles = [];
-                    const importedByFiles = new Set<SourceFileInfo>();
-                    this._collectImportedByFiles(fileToCheck, importedByFiles);
+                    const importedByFiles = collectImportedByFiles(fileToCheck);
                     for (const file of importedByFiles) {
                         if (!isUserCode(file)) {
                             continue;
                         }
 
                         // If the file is already analyzed, it will be no op.
-                        this._checkTypes(file, token);
+                        // And make sure we don't dump parse tree and etc while
+                        // recursively calling checker. Otherwise, inner check
+                        // can dump parse tree required by outer check.
+                        const handle = this._cacheManager.pauseTracking();
+                        try {
+                            this._checkTypes(file, token);
+                        } finally {
+                            handle.dispose();
+                        }
+
                         const parseResults = file.sourceFile.getParseResults();
                         if (parseResults) {
                             dependentFiles.push(parseResults);
@@ -1257,18 +1265,6 @@ export class Program {
             }
 
             return true;
-        });
-    }
-
-    private _collectImportedByFiles(file: SourceFileInfo, importedByFiles: Set<SourceFileInfo>) {
-        file.importedBy.forEach((dep) => {
-            if (importedByFiles.has(dep)) {
-                // Already visited.
-                return;
-            }
-
-            importedByFiles.add(dep);
-            this._collectImportedByFiles(dep, importedByFiles);
         });
     }
 
@@ -1653,15 +1649,14 @@ export class Program {
             this._bindFile(sourceFileInfo);
 
             const execEnv = this._configOptions.findExecEnvironment(filePath);
-            const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-                this._createSourceMapper(execEnv, token, sourceFileInfo),
+            const referencesResult = this._getDeclarationForPosition(
+                sourceFileInfo,
                 position,
-                this._evaluator!,
-                reporter,
                 DocumentSymbolCollectorUseCase.Reference,
-                token
+                this._createSourceMapper(execEnv, token, sourceFileInfo),
+                token,
+                reporter
             );
-
             if (!referencesResult) {
                 return;
             }
@@ -2844,12 +2839,11 @@ export class Program {
         token: CancellationToken
     ) {
         const execEnv = this._configOptions.findExecEnvironment(filePath);
-        const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-            this._createSourceMapper(execEnv, token),
+        const referencesResult = this._getDeclarationForPosition(
+            sourceFileInfo,
             position,
-            this._evaluator!,
-            undefined,
             DocumentSymbolCollectorUseCase.Rename,
+            this._createSourceMapper(execEnv, token),
             token
         );
 
@@ -2873,6 +2867,25 @@ export class Program {
             referencesResult.symbolNames,
             referencesResult.nonImportDeclarations,
             referencesResult.useCase
+        );
+    }
+
+    private _getDeclarationForPosition(
+        sourceFileInfo: SourceFileInfo,
+        position: Position,
+        useCase: DocumentSymbolCollectorUseCase,
+        sourceMapper: SourceMapper,
+        token: CancellationToken,
+        reporter?: ReferenceCallback
+    ) {
+        return sourceFileInfo.sourceFile.getDeclarationForPosition(
+            sourceMapper,
+            position,
+            this._evaluator!,
+            reporter,
+            useCase,
+            token,
+            Array.from(collectImportedByFiles(sourceFileInfo)).map((fileInfo) => fileInfo.sourceFile)
         );
     }
 

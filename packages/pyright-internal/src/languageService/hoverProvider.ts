@@ -100,6 +100,7 @@ export class HoverProvider {
                 .map(
                     (e) =>
                         e.declarationProviderExtension?.tryGetDeclarations(
+                            evaluator,
                             node,
                             DeclarationUseCase.Definition,
                             token

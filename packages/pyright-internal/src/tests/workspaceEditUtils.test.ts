@@ -171,7 +171,7 @@ test('test generateWorkspaceEdits', async () => {
 
     assert.strictEqual(fileChanged.size, 2);
 
-    const actualEdits = generateWorkspaceEdit(state.workspace.serviceInstance, cloned, fileChanged);
+    const actualEdits = generateWorkspaceEdit(state.workspace.service, cloned, fileChanged);
     verifyWorkspaceEdit(
         {
             changes: {
@@ -195,7 +195,7 @@ test('test generateWorkspaceEdits', async () => {
 
 async function getClonedService(state: TestState) {
     return await AnalyzerServiceExecutor.cloneService(
-        new TestLanguageService(state.workspace, state.console, state.workspace.serviceInstance.fs),
+        new TestLanguageService(state.workspace, state.console, state.workspace.service.fs),
         state.workspace,
         { useBackgroundAnalysis: false }
     );
