@@ -1064,7 +1064,8 @@ export class SourceFile {
         evaluator: TypeEvaluator,
         reporter: ReferenceCallback | undefined,
         useCase: DocumentSymbolCollectorUseCase,
-        token: CancellationToken
+        token: CancellationToken,
+        implicitlyImportedBy?: SourceFile[]
     ): ReferencesResult | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -1079,7 +1080,8 @@ export class SourceFile {
             evaluator,
             reporter,
             useCase,
-            token
+            token,
+            implicitlyImportedBy
         );
     }
 

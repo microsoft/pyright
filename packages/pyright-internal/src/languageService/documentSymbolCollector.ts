@@ -27,7 +27,9 @@ import {
 import { getModuleNode, getStringNodeValueRange } from '../analyzer/parseTreeUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
+import { ScopeType } from '../analyzer/scope';
 import * as ScopeUtils from '../analyzer/scopeUtils';
+import { SourceFile } from '../analyzer/sourceFile';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { isInstantiableClass, TypeCategory } from '../analyzer/types';
@@ -103,7 +105,8 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         resolveLocalName: boolean,
         useCase: DocumentSymbolCollectorUseCase,
         token: CancellationToken,
-        sourceMapper?: SourceMapper
+        sourceMapper?: SourceMapper,
+        implicitlyImportedBy?: SourceFile[]
     ): Declaration[] {
         throwIfCancellationRequested(token);
 
@@ -114,6 +117,30 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             token,
             /*skipUnreachableCode*/ false
         );
+
+        // Add declarations from chained source files
+        let builtinsScope = AnalyzerNodeInfo.getFileInfo(node).builtinsScope;
+        while (builtinsScope && builtinsScope.type === ScopeType.Module) {
+            const symbol = builtinsScope?.lookUpSymbol(node.value);
+            if (symbol) {
+                declarations.push(...symbol.getDeclarations());
+            }
+
+            builtinsScope = builtinsScope?.parent;
+        }
+
+        // Add declarations from files that implicitly import the target file.
+        implicitlyImportedBy?.forEach((implicitImport) => {
+            const parseTree = implicitImport.getParseResults()?.parseTree;
+            if (parseTree) {
+                const scope = AnalyzerNodeInfo.getScope(parseTree);
+                const symbol = scope?.lookUpSymbol(node.value);
+                if (symbol) {
+                    declarations.push(...symbol.getDeclarations());
+                }
+            }
+        });
+
         const resolvedDeclarations: Declaration[] = [];
         declarations.forEach((decl) => {
             const resolvedDecl = evaluator.resolveAliasDeclaration(decl, resolveLocalName);
@@ -427,7 +454,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 useCase === DocumentSymbolCollectorUseCase.Rename
                     ? DeclarationUseCase.Rename
                     : DeclarationUseCase.References;
-            const extras = e.declarationProviderExtension?.tryGetDeclarations(node, declUseCase, token);
+            const extras = e.declarationProviderExtension?.tryGetDeclarations(evaluator, node, declUseCase, token);
             if (extras && extras.length > 0) {
                 result.push(...extras);
             }

@@ -76,10 +76,10 @@ function checkSignatureHelp(code: string, expects: boolean) {
     const state = parseAndGetTestState(code).state;
     const marker = state.getMarkerByName('marker');
 
-    const parseResults = state.workspace.serviceInstance.getParseResult(marker.fileName)!;
+    const parseResults = state.workspace.service.getParseResult(marker.fileName)!;
     const position = convertOffsetToPosition(marker.position, parseResults.tokenizerOutput.lines);
 
-    const actual = state.workspace.serviceInstance.getSignatureHelpForPosition(
+    const actual = state.workspace.service.getSignatureHelpForPosition(
         marker.fileName,
         position,
         MarkupKind.Markdown,

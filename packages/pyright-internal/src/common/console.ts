@@ -199,3 +199,26 @@ export function log(console: ConsoleInterface, logType: LogLevel, msg: string) {
             debug.fail(`${logType} is not expected`);
     }
 }
+
+export function convertLogLevel(logLevelValue?: string): LogLevel {
+    if (!logLevelValue) {
+        return LogLevel.Info;
+    }
+
+    switch (logLevelValue.toLowerCase()) {
+        case 'error':
+            return LogLevel.Error;
+
+        case 'warning':
+            return LogLevel.Warn;
+
+        case 'information':
+            return LogLevel.Info;
+
+        case 'trace':
+            return LogLevel.Log;
+
+        default:
+            return LogLevel.Info;
+    }
+}
