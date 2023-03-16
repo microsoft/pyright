@@ -23417,6 +23417,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
+        // Sort the subtypes so we have a deterministic order for unions.
+        let sortedSrcTypes: Type[] = sortTypes(srcType.subtypes);
+
         // Handle the case where the source and dest are both unions. Try
         // to eliminate as many exact type matches between the src and dest.
         if (isUnion(destType)) {
@@ -23440,8 +23443,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             const remainingDestSubtypes: Type[] = [];
-            let remainingSrcSubtypes: Type[] = [...srcType.subtypes];
-            let isIncompatible = false;
+            let remainingSrcSubtypes: Type[] = sortedSrcTypes;
+            let canUseFastPath = true;
 
             // First attempt to match all of the non-generic types in the dest
             // to non-generic types in the source.
@@ -23463,7 +23466,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // For all remaining source subtypes, attempt to find a dest subtype
             // whose primary type matches.
-            sortTypes(remainingSrcSubtypes).forEach((srcSubtype) => {
+            remainingSrcSubtypes.forEach((srcSubtype) => {
                 const destTypeIndex = remainingDestSubtypes.findIndex((destSubtype) => {
                     if (
                         isClass(srcSubtype) &&
@@ -23495,7 +23498,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             recursionCount
                         )
                     ) {
-                        isIncompatible = true;
+                        canUseFastPath = false;
                     }
 
                     remainingDestSubtypes.splice(destTypeIndex, 1);
@@ -23505,12 +23508,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // If there is are remaining dest subtypes and they're all type variables,
             // attempt to assign the remaining source subtypes to them.
-            if (!isIncompatible && (remainingDestSubtypes.length !== 0 || remainingSrcSubtypes.length !== 0)) {
+            if (canUseFastPath && (remainingDestSubtypes.length !== 0 || remainingSrcSubtypes.length !== 0)) {
                 const isReversed = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
                 const effectiveDestSubtypes = isReversed ? remainingSrcSubtypes : remainingDestSubtypes;
 
                 if (effectiveDestSubtypes.length === 0 || effectiveDestSubtypes.some((t) => !isTypeVar(t))) {
-                    isIncompatible = true;
+                    canUseFastPath = false;
+
+                    // We can avoid checking the source subtypes that have already been checked.
+                    sortedSrcTypes = remainingSrcSubtypes;
                 } else if (remainingDestSubtypes.length === remainingSrcSubtypes.length) {
                     // If the number of remaining source subtypes is the same as the number
                     // of dest TypeVars, try to assign each source subtype to its own dest TypeVar.
@@ -23527,9 +23533,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 recursionCount
                             )
                         ) {
-                            isIncompatible = true;
+                            canUseFastPath = false;
                         }
                     });
+
+                    // We can avoid checking the source subtypes that have already been checked.
+                    sortedSrcTypes = remainingSrcSubtypes;
                 } else if (remainingSrcSubtypes.length === 0) {
                     if ((flags & AssignTypeFlags.PopulatingExpectedType) !== 0) {
                         // If we're populating an expected type, try not to leave
@@ -23550,7 +23559,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     // If we've assigned all of the source subtypes but one or more dest
                     // TypeVars have gone unmatched, treat this as success.
-                    return true;
                 } else {
                     // Try to assign a union of the remaining source types to
                     // the first destination TypeVar.
@@ -23565,72 +23573,67 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             recursionCount
                         )
                     ) {
-                        isIncompatible = true;
+                        canUseFastPath = false;
                     }
                 }
             }
 
-            if (!isIncompatible) {
+            if (canUseFastPath) {
                 return true;
             }
         }
 
-        // For union sources, all of the types need to be assignable to the dest.
         let isIncompatible = false;
 
-        // Sort the subtypes so we have a deterministic order for unions.
-        doForEachSubtype(
-            srcType,
-            (subtype, subtypeIndex, allSubtypes) => {
-                if (isIncompatible) {
-                    return;
-                }
+        sortedSrcTypes.forEach((subtype) => {
+            if (isIncompatible) {
+                return;
+            }
 
+            if (
+                !assignType(
+                    destType,
+                    subtype,
+                    /* diag */ undefined,
+                    destTypeVarContext,
+                    srcTypeVarContext,
+                    flags,
+                    recursionCount
+                )
+            ) {
+                const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
+
+                // Determine if the current subtype is subsumed by another subtype
+                // in the same union. If so, we can ignore this.
+                let isSubtypeSubsumed = false;
+                srcType.subtypes.forEach((innerSubtype) => {
+                    if (
+                        !isSubtypeSubsumed &&
+                        !isTypeSame(innerSubtype, subtype) &&
+                        !isAnyOrUnknown(innerSubtype) &&
+                        isProperSubtype(innerSubtype, concreteSubtype, recursionCount)
+                    ) {
+                        isSubtypeSubsumed = true;
+                    }
+                });
+
+                // Try again with a concrete version of the subtype.
                 if (
+                    !isSubtypeSubsumed &&
                     !assignType(
                         destType,
-                        subtype,
-                        /* diag */ undefined,
+                        concreteSubtype,
+                        diag?.createAddendum(),
                         destTypeVarContext,
                         srcTypeVarContext,
                         flags,
                         recursionCount
                     )
                 ) {
-                    const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
-
-                    // Determine if the current subtype is subsumed by another subtype
-                    // in the same union. If so, we can ignore this.
-                    let isSubtypeSubsumed = false;
-                    allSubtypes.forEach((innerSubtype, innerSubtypeIndex) => {
-                        if (isSubtypeSubsumed || subtypeIndex === innerSubtypeIndex || isAnyOrUnknown(innerSubtype)) {
-                            return;
-                        }
-
-                        if (isProperSubtype(innerSubtype, concreteSubtype, recursionCount)) {
-                            isSubtypeSubsumed = true;
-                        }
-                    });
-
-                    // Try again with a concrete version of the subtype.
-                    if (
-                        !isSubtypeSubsumed &&
-                        !assignType(
-                            destType,
-                            concreteSubtype,
-                            diag?.createAddendum(),
-                            destTypeVarContext,
-                            srcTypeVarContext,
-                            flags,
-                            recursionCount
-                        )
-                    ) {
-                        isIncompatible = true;
-                    }
+                    isIncompatible = true;
                 }
-            },
-            /* sortSubtypes */ true
-        );
+            }
+        }, /* sortSubtypes */ true);
 
         if (isIncompatible) {
             diag?.addMessage(
