@@ -150,6 +150,22 @@ test('Override1', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('Override1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['override1.py']);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('Override2', () => {
+    const configOptions = new ConfigOptions('.');
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['override2.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0);
+
+    configOptions.diagnosticRuleSet.reportImplicitOverride = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['override2.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 2);
+});
+
 test('TypeVarDefault1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault1.py']);
     TestUtils.validateResults(analysisResults, 12);

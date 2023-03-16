@@ -629,8 +629,12 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadWithImplementation'));
         export const overloadWithoutImplementation = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadWithoutImplementation'));
-        export const overrideNotFound = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overrideNotFound'));
+        export const overriddenMethodNotFound = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overriddenMethodNotFound'));
+        export const overrideDecoratorMissing = () =>
+            new ParameterizedString<{ name: string; className: string }>(
+                getRawString('Diagnostic.overrideDecoratorMissing')
+            );
         export const paramAfterKwargsParam = () => getRawString('Diagnostic.paramAfterKwargsParam');
         export const paramAlreadyAssigned = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramAlreadyAssigned'));

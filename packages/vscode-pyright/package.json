@@ -856,6 +856,17 @@
                                 "warning",
                                 "error"
                             ]
+                        },
+                        "reportImplicitOverride": {
+                            "type": "string",
+                            "description": "Diagnostics for overridden methods that do not include an `@override` decorator.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
                         }
                     }
                 },

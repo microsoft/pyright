@@ -5258,7 +5258,7 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
-            let foundOverride = false;
+            let firstOverride: ClassMember | undefined;
 
             for (const baseClass of classType.details.baseClasses) {
                 if (!isClass(baseClass)) {
@@ -5279,22 +5279,27 @@ export class Checker extends ParseTreeWalker {
                     continue;
                 }
 
-                foundOverride = true;
+                firstOverride = firstOverride ?? baseClassAndSymbol;
+
                 this._validateBaseClassOverride(baseClassAndSymbol, symbol, typeOfSymbol, classType, name);
             }
 
-            if (!foundOverride) {
+            if (!firstOverride) {
                 // If this is a method decorated with @override, validate that there
                 // is a base class method of the same name.
-                this._validateOverrideDecorator(typeOfSymbol);
+                this._validateOverrideDecoratorNotPresent(typeOfSymbol);
+            } else {
+                this._validateOverrideDecoratorPresent(typeOfSymbol, firstOverride);
             }
         });
     }
 
-    // Determines whether the type is a function or overloaded function with an @override
-    // decorator. In this case, an error is reported because no base class has declared
-    // a method of the same name.
-    private _validateOverrideDecorator(overrideType: Type) {
+    private _validateOverrideDecoratorPresent(overrideType: Type, baseMember: ClassMember) {
+        // Skip this check if disabled.
+        if (this._fileInfo.diagnosticRuleSet.reportImplicitOverride === 'none') {
+            return;
+        }
+
         let overrideFunction: FunctionType | undefined;
 
         if (isFunction(overrideType)) {
@@ -5303,11 +5308,7 @@ export class Checker extends ParseTreeWalker {
             overrideFunction = OverloadedFunctionType.getImplementation(overrideType);
         }
 
-        if (
-            !overrideFunction ||
-            !FunctionType.isOverridden(overrideFunction) ||
-            !overrideFunction.details.declaration
-        ) {
+        if (!overrideFunction?.details.declaration || FunctionType.isOverridden(overrideFunction)) {
             return;
         }
 
@@ -5315,7 +5316,35 @@ export class Checker extends ParseTreeWalker {
         this._evaluator.addDiagnostic(
             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.overrideNotFound().format({ name: funcNode.name.value }),
+            Localizer.Diagnostic.overrideDecoratorMissing().format({
+                name: funcNode.name.value,
+                className: this._evaluator.printType(convertToInstance(baseMember.classType)),
+            }),
+            funcNode.name
+        );
+    }
+
+    // Determines whether the type is a function or overloaded function with an @override
+    // decorator. In this case, an error is reported because no base class has declared
+    // a method of the same name.
+    private _validateOverrideDecoratorNotPresent(overrideType: Type) {
+        let overrideFunction: FunctionType | undefined;
+
+        if (isFunction(overrideType)) {
+            overrideFunction = overrideType;
+        } else if (isOverloadedFunction(overrideType)) {
+            overrideFunction = OverloadedFunctionType.getImplementation(overrideType);
+        }
+
+        if (!overrideFunction?.details.declaration || !FunctionType.isOverridden(overrideFunction)) {
+            return;
+        }
+
+        const funcNode = overrideFunction.details.declaration.node;
+        this._evaluator.addDiagnostic(
+            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.overriddenMethodNotFound().format({ name: funcNode.name.value }),
             funcNode.name
         );
     }

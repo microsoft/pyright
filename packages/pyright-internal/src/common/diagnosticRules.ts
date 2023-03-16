@@ -81,4 +81,5 @@ export enum DiagnosticRule {
     reportUnnecessaryTypeIgnoreComment = 'reportUnnecessaryTypeIgnoreComment',
     reportMatchNotExhaustive = 'reportMatchNotExhaustive',
     reportShadowedImports = 'reportShadowedImports',
+    reportImplicitOverride = 'reportImplicitOverride',
 }

@@ -310,6 +310,9 @@ export interface DiagnosticRuleSet {
 
     // Report files that match stdlib modules.
     reportShadowedImports: DiagnosticLevel;
+
+    // Report missing @override decorator.
+    reportImplicitOverride: DiagnosticLevel;
 }
 
 export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): DiagnosticRuleSet {
@@ -405,6 +408,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnnecessaryTypeIgnoreComment,
         DiagnosticRule.reportMatchNotExhaustive,
         DiagnosticRule.reportShadowedImports,
+        DiagnosticRule.reportImplicitOverride,
     ];
 }
 
@@ -490,6 +494,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
         reportShadowedImports: 'none',
+        reportImplicitOverride: 'none',
     };
 
     return diagSettings;
@@ -571,6 +576,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
         reportShadowedImports: 'none',
+        reportImplicitOverride: 'none',
     };
 
     return diagSettings;
@@ -652,6 +658,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'error',
         reportShadowedImports: 'none',
+        reportImplicitOverride: 'none',
     };
 
     return diagSettings;
