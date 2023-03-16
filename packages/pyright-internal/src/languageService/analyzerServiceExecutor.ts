@@ -13,13 +13,8 @@ import { CommandLineOptions } from '../common/commandLineOptions';
 import { LogLevel } from '../common/console';
 import { FileSystem } from '../common/fileSystem';
 import { combinePaths } from '../common/pathUtils';
-import {
-    createInitStatus,
-    LanguageServerInterface,
-    ServerSettings,
-    WellKnownWorkspaceKinds,
-    WorkspaceServiceInstance,
-} from '../languageServerBase';
+import { LanguageServerInterface, ServerSettings } from '../languageServerBase';
+import { createInitStatus, WellKnownWorkspaceKinds, Workspace } from '../workspaceFactory';
 
 export interface CloneOptions {
     useBackgroundAnalysis?: boolean;
@@ -30,7 +25,7 @@ export interface CloneOptions {
 export class AnalyzerServiceExecutor {
     static runWithOptions(
         languageServiceRootPath: string,
-        workspace: WorkspaceServiceInstance,
+        workspace: Workspace,
         serverSettings: ServerSettings,
         typeStubTargetImportName?: string,
         trackFiles = true
@@ -44,12 +39,12 @@ export class AnalyzerServiceExecutor {
         );
 
         // Setting options causes the analyzer service to re-analyze everything.
-        workspace.serviceInstance.setOptions(commandLineOptions);
+        workspace.service.setOptions(commandLineOptions);
     }
 
     static async cloneService(
         ls: LanguageServerInterface,
-        workspace: WorkspaceServiceInstance,
+        workspace: Workspace,
         options?: CloneOptions
     ): Promise<AnalyzerService> {
         // Allocate a temporary pseudo-workspace to perform this job.
@@ -58,13 +53,15 @@ export class AnalyzerServiceExecutor {
 
         options = options ?? {};
 
-        const tempWorkspace: WorkspaceServiceInstance = {
+        const tempWorkspace: Workspace = {
+            ...workspace,
             workspaceName: `temp workspace for cloned service`,
             rootPath: workspace.rootPath,
-            path: workspace.path,
             uri: workspace.uri,
+            pythonPath: workspace.pythonPath,
+            pythonPathKind: workspace.pythonPathKind,
             kinds: [...workspace.kinds, WellKnownWorkspaceKinds.Cloned],
-            serviceInstance: workspace.serviceInstance.clone(
+            service: workspace.service.clone(
                 instanceName,
                 serviceId,
                 options.useBackgroundAnalysis ? ls.createBackgroundAnalysis(serviceId) : undefined,
@@ -86,7 +83,7 @@ export class AnalyzerServiceExecutor {
             /* trackFiles */ false
         );
 
-        return tempWorkspace.serviceInstance;
+        return tempWorkspace.service;
     }
 }
 

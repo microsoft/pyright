@@ -50,12 +50,7 @@ import {
 import { convertOffsetToPosition, convertPositionToOffset } from '../../../common/positionUtils';
 import { DocumentRange, Position, Range as PositionRange, rangesAreEqual, TextRange } from '../../../common/textRange';
 import { TextRangeCollection } from '../../../common/textRangeCollection';
-import {
-    createInitStatus,
-    LanguageServerInterface,
-    WellKnownWorkspaceKinds,
-    WorkspaceServiceInstance,
-} from '../../../languageServerBase';
+import { LanguageServerInterface } from '../../../languageServerBase';
 import { AbbreviationInfo, ImportFormat } from '../../../languageService/autoImporter';
 import { CompletionOptions } from '../../../languageService/completionProvider';
 import { DefinitionFilter } from '../../../languageService/definitionProvider';
@@ -64,6 +59,12 @@ import { ParseNode } from '../../../parser/parseNodes';
 import { ParseResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
 import { PyrightFileSystem } from '../../../pyrightFileSystem';
+import {
+    createInitStatus,
+    WellKnownWorkspaceKinds,
+    Workspace,
+    WorkspacePythonPathKind,
+} from '../../../workspaceFactory';
 import { TestAccessHost } from '../testAccessHost';
 import * as host from '../testHost';
 import { stringify } from '../utils';
@@ -93,9 +94,9 @@ export interface HostSpecificFeatures {
     importResolverFactory: ImportResolverFactory;
     backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory;
 
-    runIndexer(workspace: WorkspaceServiceInstance, noStdLib: boolean, options?: string): void;
+    runIndexer(workspace: Workspace, noStdLib: boolean, options?: string): void;
     getCodeActionsForPosition(
-        workspace: WorkspaceServiceInstance,
+        workspace: Workspace,
         filePath: string,
         range: PositionRange,
         token: CancellationToken
@@ -113,7 +114,7 @@ export class TestState {
 
     readonly testFS: vfs.TestFileSystem;
     readonly fs: PyrightFileSystem;
-    readonly workspace: WorkspaceServiceInstance;
+    readonly workspace: Workspace;
     readonly console: ConsoleInterface;
     readonly rawConfigJson: any | undefined;
 
@@ -170,10 +171,11 @@ export class TestState {
         this.workspace = {
             workspaceName: 'test workspace',
             rootPath: vfsInfo.projectRoot,
-            path: vfsInfo.projectRoot,
+            pythonPath: undefined,
+            pythonPathKind: WorkspacePythonPathKind.Mutable,
             uri: convertPathToUri(this.fs, vfsInfo.projectRoot),
             kinds: [WellKnownWorkspaceKinds.Test],
-            serviceInstance: service,
+            service: service,
             disableLanguageServices: false,
             disableOrganizeImports: false,
             disableWorkspaceSymbol: false,
@@ -203,19 +205,19 @@ export class TestState {
     }
 
     get importResolver(): ImportResolver {
-        return this.workspace.serviceInstance.getImportResolver();
+        return this.workspace.service.getImportResolver();
     }
 
     get configOptions(): ConfigOptions {
-        return this.workspace.serviceInstance.getConfigOptions();
+        return this.workspace.service.getConfigOptions();
     }
 
     get program(): Program {
-        return this.workspace.serviceInstance.test_program;
+        return this.workspace.service.test_program;
     }
 
     dispose() {
-        this.workspace.serviceInstance.dispose();
+        this.workspace.service.dispose();
     }
 
     cwd() {
@@ -650,7 +652,7 @@ export class TestState {
         verifyCodeActionCount?: boolean
     ): Promise<any> {
         // make sure we don't use cache built from other tests
-        this.workspace.serviceInstance.invalidateAndForceReanalysis();
+        this.workspace.service.invalidateAndForceReanalysis();
         this.analyze();
 
         for (const range of this.getRanges()) {
@@ -932,10 +934,10 @@ export class TestState {
                 includeUserSymbolsInAutoImport: false,
             };
             const nameMap = abbrMap ? new Map<string, AbbreviationInfo>(Object.entries(abbrMap)) : undefined;
-            const result = await this.workspace.serviceInstance.getCompletionsForPosition(
+            const result = await this.workspace.service.getCompletionsForPosition(
                 filePath,
                 completionPosition,
-                this.workspace.path,
+                this.workspace.rootPath,
                 options,
                 nameMap,
                 CancellationToken.None
@@ -979,7 +981,7 @@ export class TestState {
 
                         if (expected.additionalTextEdits !== undefined) {
                             if (actual.additionalTextEdits === undefined) {
-                                this.workspace.serviceInstance.resolveCompletionItem(
+                                this.workspace.service.resolveCompletionItem(
                                     filePath,
                                     actual,
                                     options,
@@ -993,7 +995,7 @@ export class TestState {
 
                         if (expected.documentation !== undefined) {
                             if (actual.documentation === undefined && actual.data) {
-                                this.workspace.serviceInstance.resolveCompletionItem(
+                                this.workspace.service.resolveCompletionItem(
                                     filePath,
                                     actual,
                                     options,

@@ -136,7 +136,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
         const kind = params.arguments[1];
 
         const workspace = await this._ls.getWorkspaceForFile(filePath);
-        const parseResults = workspace.serviceInstance.getParseResult(filePath);
+        const parseResults = workspace.service.getParseResult(filePath);
         if (!parseResults) {
             return [];
         }
@@ -181,7 +181,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
                 break;
             }
             case 'types': {
-                const evaluator = workspace.serviceInstance.getEvaluator();
+                const evaluator = workspace.service.getEvaluator();
                 const start = params.arguments[2] as number;
                 const end = params.arguments[3] as number;
                 if (!evaluator || !start || !end) {
@@ -193,7 +193,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
                 break;
             }
             case 'cachedtypes': {
-                const evaluator = workspace.serviceInstance.getEvaluator();
+                const evaluator = workspace.service.getEvaluator();
                 const start = params.arguments[2] as number;
                 const end = params.arguments[3] as number;
                 if (!evaluator || !start || !end) {
@@ -208,7 +208,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
             }
 
             case 'codeflowgraph': {
-                const evaluator = workspace.serviceInstance.getEvaluator();
+                const evaluator = workspace.service.getEvaluator();
                 const offset = params.arguments[2] as number;
                 if (!evaluator || offset === undefined) {
                     return [];

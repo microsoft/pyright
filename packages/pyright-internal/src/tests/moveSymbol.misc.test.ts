@@ -180,7 +180,7 @@ test('symbol must be from user files', () => {
     `;
 
     const state = parseAndGetTestState(code).state;
-    while (state.workspace.serviceInstance.test_program.analyze());
+    while (state.workspace.service.test_program.analyze());
 
     const actions = state.program.moveSymbolAtPosition(
         state.getMarkerByName('marker').fileName,

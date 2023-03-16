@@ -22,6 +22,7 @@ export interface CacheOwner {
 }
 
 export class CacheManager {
+    private _pausedCount = 0;
     private readonly _cacheOwners: CacheOwner[] = [];
 
     registerCacheOwner(provider: CacheOwner) {
@@ -37,7 +38,21 @@ export class CacheManager {
         }
     }
 
+    pauseTracking(): { dispose(): void } {
+        const local = this;
+        local._pausedCount++;
+        return {
+            dispose() {
+                local._pausedCount--;
+            },
+        };
+    }
+
     getCacheUsage() {
+        if (this._pausedCount > 0) {
+            return -1;
+        }
+
         let totalUsage = 0;
 
         this._cacheOwners.forEach((p) => {

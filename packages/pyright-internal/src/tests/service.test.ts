@@ -70,10 +70,10 @@ test('excluded but still part of program', () => {
     const state = parseAndGetTestState(code, '/projectRoot').state;
     const marker = state.getMarkerByName('marker');
 
-    while (state.workspace.serviceInstance.test_program.analyze());
+    while (state.workspace.service.test_program.analyze());
 
     assert.strictEqual(
-        state.workspace.serviceInstance.test_shouldHandleSourceFileWatchChanges(marker.fileName, /* isFile */ true),
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(marker.fileName, /* isFile */ true),
         true
     );
 });
@@ -87,7 +87,7 @@ test('random folder changed', () => {
     const state = parseAndGetTestState(code, '/projectRoot').state;
 
     assert.strictEqual(
-        state.workspace.serviceInstance.test_shouldHandleSourceFileWatchChanges('/randomFolder', /* isFile */ false),
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges('/randomFolder', /* isFile */ false),
         false
     );
 });
@@ -185,5 +185,5 @@ function testSourceFileWatchChange(code: string, expected = true, isFile = true)
     const marker = state.getMarkerByName('marker');
     const path = isFile ? marker.fileName : getDirectoryPath(marker.fileName);
 
-    assert.strictEqual(state.workspace.serviceInstance.test_shouldHandleSourceFileWatchChanges(path, isFile), expected);
+    assert.strictEqual(state.workspace.service.test_shouldHandleSourceFileWatchChanges(path, isFile), expected);
 }
