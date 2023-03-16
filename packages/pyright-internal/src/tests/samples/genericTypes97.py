@@ -60,8 +60,6 @@ class Class5(Generic[T_contra]):
     ...
 
 
-# This should generate an error because frozenset
-# takes a covariant type parameter.
 class Class5_Child1(Class5[frozenset[T_contra]]):
     ...
 
@@ -105,3 +103,31 @@ class Class6_Child4(Class6[T, T]):
 # compatible with T_contra.
 class Class6_Child5(Class6[Sequence[T_co], Sequence[T_co]]):
     ...
+
+
+class Co(Generic[T_co]):
+    ...
+
+
+class Contra(Generic[T_contra]):
+    ...
+
+
+class CoToContra(Generic[T_contra]):
+    def f(self, arg: Co[T_contra]) -> None:
+        ...
+
+
+class ContraToContra(Generic[T_co]):
+    def f(self, arg: Contra[T_co]) -> None:
+        ...
+
+
+class CoToCo(Generic[T_co]):
+    def f(self) -> Co[T_co]:
+        ...
+
+
+class ContraToCo(Generic[T_contra]):
+    def f(self) -> Contra[T_contra]:
+        ...

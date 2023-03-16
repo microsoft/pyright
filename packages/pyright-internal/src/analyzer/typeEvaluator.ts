@@ -7175,7 +7175,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 EvaluatorFlags.DoNotSpecialize |
                 EvaluatorFlags.DisallowParamSpec |
                 EvaluatorFlags.DisallowTypeVarTuple |
-                EvaluatorFlags.AllowRequired
+                EvaluatorFlags.AllowRequired |
+                EvaluatorFlags.EnforceTypeVarVarianceConsistency
             );
 
             if (!options?.isAnnotatedClass) {

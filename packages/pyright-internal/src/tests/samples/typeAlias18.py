@@ -33,13 +33,13 @@ class A_3(A[T2]):
     ...
 
 
-A_Alias_3 = A[T2] | Callable[[T3], T2]
+class B(Generic[T1, T2]):
+    pass
 
 
-class B(list[A_Alias_3[T1, T2]]):
-    ...
+B_Alias_1 = B[T2, T3]
 
 
 # This should generate an error because the variance is incompatible.
-class C(list[A_Alias_3[T3, T3]]):
+class C(B_Alias_1[T3, T2]):
     ...
