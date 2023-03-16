@@ -2531,11 +2531,11 @@ export class Parser {
 
             const nameParts = importAsNode.module.nameParts.map((p) => p.value);
 
-            if (importAsNode.alias) {
+            if (importAsNode.alias || importAsNode.module.leadingDots > 0) {
                 this._importedModules.push({
                     nameNode: importAsNode.module,
                     leadingDots: importAsNode.module.leadingDots,
-                    nameParts: nameParts,
+                    nameParts,
                     importedSymbols: undefined,
                 });
             } else {
