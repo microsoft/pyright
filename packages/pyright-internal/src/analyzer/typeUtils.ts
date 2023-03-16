@@ -2008,6 +2008,11 @@ export function isEffectivelyInstantiable(type: Type): boolean {
 }
 
 export function convertToInstance(type: Type, includeSubclasses = true): Type {
+    // See if we've already performed this conversion and cached it.
+    if (type.cached?.instanceType) {
+        return type.cached.instanceType;
+    }
+
     let result = mapSubtypes(type, (subtype) => {
         switch (subtype.category) {
             case TypeCategory.Class: {
@@ -2062,10 +2067,21 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
         );
     }
 
+    // Cache the converted value for next time.
+    if (!type.cached) {
+        type.cached = {};
+    }
+    type.cached.instanceType = result;
+
     return result;
 }
 
 export function convertToInstantiable(type: Type): Type {
+    // See if we've already performed this conversion and cached it.
+    if (type.cached?.instantiableType) {
+        return type.cached.instantiableType;
+    }
+
     let result = mapSubtypes(type, (subtype) => {
         switch (subtype.category) {
             case TypeCategory.Class: {
@@ -2099,6 +2115,12 @@ export function convertToInstantiable(type: Type): Type {
             type.typeAliasInfo.typeArguments
         );
     }
+
+    // Cache the converted value for next time.
+    if (!type.cached) {
+        type.cached = {};
+    }
+    type.cached.instantiableType = result;
 
     return result;
 }

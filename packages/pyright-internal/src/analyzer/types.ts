@@ -148,6 +148,13 @@ interface TypeBase {
     // with a TypeFlags because we don't want an ambiguous and unambiguous
     // type to be seen as distinct when comparing types.
     isAmbiguous?: boolean;
+
+    // Cached values are not cloned.
+    cached?: {
+        // Type converted to instantiable and instance (cached)
+        instantiableType?: Type;
+        instanceType?: Type;
+    };
 }
 
 export namespace TypeBase {
@@ -176,7 +183,9 @@ export namespace TypeBase {
     }
 
     export function cloneType<T extends TypeBase>(type: T): T {
-        return { ...type };
+        const clone = { ...type };
+        delete clone.cached;
+        return clone;
     }
 
     export function cloneTypeAsInstance<T extends TypeBase>(type: T): T {
