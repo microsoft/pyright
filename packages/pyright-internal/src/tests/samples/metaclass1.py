@@ -1,7 +1,7 @@
 # This sample tests pyright's ability to use metaclasses.
 
 from ctypes import Array, c_uint64
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeAlias, TypeVar
 
 myArray1 = (c_uint64 * 5)()
 
@@ -20,7 +20,14 @@ class Custom(metaclass=CustomMeta):
     ...
 
 
-# This should generate an errro because the class isn't
+# This should generate an error because the class isn't
 # Generic even though it supports a metaclass with a
 # __getitem__.
-y: Custom[int]
+y1: Custom[int]
+
+# This should not generate an error because it is used
+# as a runtime expression rather than a type annotation.
+y2 = Custom[int]
+
+# This should generate an error.
+y3: TypeAlias = Custom[int]

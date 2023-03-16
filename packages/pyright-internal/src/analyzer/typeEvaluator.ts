@@ -6598,9 +6598,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         concreteSubtype.details.effectiveMetaclass &&
                         isInstantiableClass(concreteSubtype.details.effectiveMetaclass) &&
                         !ClassType.isBuiltIn(concreteSubtype.details.effectiveMetaclass, ['type', '_InitVarMeta']) &&
-                        !concreteSubtype.details.mro.some(
-                            (mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, 'Generic')
-                        )
+                        (flags & EvaluatorFlags.ExpectingType) === 0
                     ) {
                         const itemMethodType = getTypeOfClassMember(
                             node,
