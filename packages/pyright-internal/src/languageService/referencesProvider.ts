@@ -13,6 +13,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { Declaration, DeclarationType, isAliasDeclaration } from '../analyzer/declaration';
 import { getNameFromDeclaration } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { SourceFile } from '../analyzer/sourceFile';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol } from '../analyzer/symbol';
 import { isVisibleExternally } from '../analyzer/symbolUtils';
@@ -144,7 +145,8 @@ export class ReferencesProvider {
         evaluator: TypeEvaluator,
         reporter: ReferenceCallback | undefined,
         useCase: DocumentSymbolCollectorUseCase,
-        token: CancellationToken
+        token: CancellationToken,
+        implicitlyImportedBy?: SourceFile[]
     ) {
         throwIfCancellationRequested(token);
 
@@ -154,7 +156,8 @@ export class ReferencesProvider {
             /* resolveLocalNames */ false,
             useCase,
             token,
-            sourceMapper
+            sourceMapper,
+            implicitlyImportedBy
         );
 
         if (declarations.length === 0) {
@@ -184,7 +187,8 @@ export class ReferencesProvider {
         evaluator: TypeEvaluator,
         reporter: ReferenceCallback | undefined,
         useCase: DocumentSymbolCollectorUseCase,
-        token: CancellationToken
+        token: CancellationToken,
+        implicitlyImportedBy?: SourceFile[]
     ): ReferencesResult | undefined {
         throwIfCancellationRequested(token);
 
@@ -203,7 +207,16 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        return this.getDeclarationForNode(sourceMapper, filePath, node, evaluator, reporter, useCase, token);
+        return this.getDeclarationForNode(
+            sourceMapper,
+            filePath,
+            node,
+            evaluator,
+            reporter,
+            useCase,
+            token,
+            implicitlyImportedBy
+        );
     }
 
     static addReferences(

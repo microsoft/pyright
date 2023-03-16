@@ -812,10 +812,10 @@ test('completion quote trigger', async () => {
         triggerCharacter: '"',
     };
 
-    const result = await state.workspace.serviceInstance.getCompletionsForPosition(
+    const result = await state.workspace.service.getCompletionsForPosition(
         filePath,
         position,
-        state.workspace.path,
+        state.workspace.rootPath,
         options,
         undefined,
         CancellationToken.None
@@ -854,10 +854,10 @@ test('completion quote trigger - middle', async () => {
         triggerCharacter: "'",
     };
 
-    const result = await state.workspace.serviceInstance.getCompletionsForPosition(
+    const result = await state.workspace.service.getCompletionsForPosition(
         filePath,
         position,
-        state.workspace.path,
+        state.workspace.rootPath,
         options,
         undefined,
         CancellationToken.None

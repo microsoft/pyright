@@ -1509,10 +1509,8 @@ export class CompletionProvider {
             });
         }
 
-        // If we don't know this type, look for a module we should stub.
-        if (!leftType || isUnknown(leftType) || isUnbound(leftType)) {
-            memberAccessInfo = this._getLastKnownModule(leftExprNode, leftType);
-        }
+        // Save member access info for every request
+        memberAccessInfo = this._getLastKnownModule(leftExprNode, leftType);
 
         return { completionMap, memberAccessInfo };
     }
@@ -1535,7 +1533,7 @@ export class CompletionProvider {
                         curNode.nodeType === ParseNodeType.MemberAccess ? curNode?.memberName.value ?? '' : '';
                 }
             } else {
-                curNode = undefined;
+                break;
             }
 
             if (curNode) {

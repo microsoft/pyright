@@ -87,7 +87,12 @@ export enum DeclarationUseCase {
 }
 
 export interface DeclarationProviderExtension {
-    tryGetDeclarations(node: ParseNode, useCase: DeclarationUseCase, token: CancellationToken): Declaration[];
+    tryGetDeclarations(
+        evaluator: TypeEvaluator,
+        node: ParseNode,
+        useCase: DeclarationUseCase,
+        token: CancellationToken
+    ): Declaration[];
 }
 
 export interface TypeProviderExtension {
@@ -102,6 +107,7 @@ export interface TypeProviderExtension {
 
 export interface CodeActionExtension {
     addCodeActions(
+        evaluator: TypeEvaluator,
         filePath: string,
         range: Range,
         parseResults: ParseResults,

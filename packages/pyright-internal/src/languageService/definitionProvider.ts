@@ -71,6 +71,7 @@ export class DefinitionProvider {
         Extensions.getProgramExtensions(node).forEach((e) => {
             if (e.declarationProviderExtension) {
                 const declarations = e.declarationProviderExtension.tryGetDeclarations(
+                    evaluator,
                     node,
                     DeclarationUseCase.Definition,
                     token

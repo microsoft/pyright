@@ -297,6 +297,10 @@ export class AnalyzerService {
         return this._program.getUserFiles().map((i) => i.sourceFile.getFilePath());
     }
 
+    getOpenFiles() {
+        return this._program.getOpened().map((i) => i.sourceFile.getFilePath());
+    }
+
     setFileOpened(
         path: string,
         version: number | null,
@@ -305,8 +309,11 @@ export class AnalyzerService {
         chainedFilePath?: string,
         realFilePath?: string
     ) {
+        // Open the file. Notebook cells are always tracked as they aren't 3rd party library files.
+        // This is how it's worked in the past since each notebook used to have its own
+        // workspace and the workspace include setting marked all cells as tracked.
         this._backgroundAnalysisProgram.setFileOpened(path, version, contents, {
-            isTracked: this.isTracked(path),
+            isTracked: this.isTracked(path) || ipythonMode !== IPythonMode.None,
             ipythonMode,
             chainedFilePath,
             realFilePath,

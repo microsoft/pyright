@@ -43,6 +43,7 @@ import { SignatureDisplayType } from '../common/configOptions';
 import { assertNever, fail } from '../common/debug';
 import { DeclarationUseCase, Extensions } from '../common/extensibility';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
+import { hashString } from '../common/stringUtils';
 import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { ExpressionNode, isExpressionNode, NameNode, ParseNode, ParseNodeType, StringNode } from '../parser/parseNodes';
@@ -61,6 +62,7 @@ export interface HoverTextPart {
 
 export interface HoverResults {
     parts: HoverTextPart[];
+    lastKnownModule?: string;
     range: Range;
 }
 
@@ -100,6 +102,7 @@ export class HoverProvider {
                 .map(
                     (e) =>
                         e.declarationProviderExtension?.tryGetDeclarations(
+                            evaluator,
                             node,
                             DeclarationUseCase.Definition,
                             token
@@ -140,6 +143,10 @@ export class HoverProvider {
                     functionSignatureDisplay,
                     token
                 );
+
+                // Add the lastKnownModule for this declaration. We'll use this
+                // in telemetry for hover.
+                results.lastKnownModule = primaryDeclaration.moduleName;
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
                 // this if it's part of a module name, since a module name part with no declaration
@@ -631,12 +638,16 @@ export class HoverProvider {
     }
 }
 
-export function convertHoverResults(format: MarkupKind, hoverResults: HoverResults | undefined): Hover | undefined {
+export function convertHoverResults(
+    format: MarkupKind,
+    hoverResults: HoverResults | undefined,
+    includeHash?: boolean
+): Hover | undefined {
     if (!hoverResults) {
         return undefined;
     }
 
-    const markupString = hoverResults.parts
+    let markupString = hoverResults.parts
         .map((part) => {
             if (part.python) {
                 if (format === MarkupKind.Markdown) {
@@ -651,6 +662,12 @@ export function convertHoverResults(format: MarkupKind, hoverResults: HoverResul
         })
         .join('')
         .trimEnd();
+
+    // If we have a lastKnownModule in the hover results, stick in a comment with
+    // the hashed module name. This is used by the other side to send telemetry.
+    if (hoverResults.lastKnownModule && format === MarkupKind.Markdown && includeHash) {
+        markupString += `<!--moduleHash:${hashString(hoverResults.lastKnownModule)}-->`;
+    }
 
     return {
         contents: {
