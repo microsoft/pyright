@@ -153,7 +153,7 @@ export class HoverProvider {
                 // is a directory (a namespace package), and we don't want to provide any hover
                 // information in that case.
                 if (results.parts.length === 0) {
-                    const type = evaluator.getType(node) || UnknownType.create();
+                    let type = evaluator.getType(node) || UnknownType.create();
 
                     let typeText: string;
                     if (isModule(type)) {
@@ -162,7 +162,23 @@ export class HoverProvider {
                         // the top-level module, which does have a declaration.
                         typeText = '(module) ' + node.value;
                     } else {
-                        typeText = node.value + ': ' + evaluator.printType(type);
+                        type = this._limitOverloadBasedOnCall(node, evaluator, type);
+                        let label = 'function';
+                        let isProperty = false;
+
+                        if (isMaybeDescriptorInstance(type, /* requireSetter */ false)) {
+                            isProperty = true;
+                            label = 'property';
+                        }
+
+                        typeText = getToolTipForType(
+                            type,
+                            label,
+                            node.value,
+                            evaluator,
+                            isProperty,
+                            functionSignatureDisplay
+                        );
                     }
 
                     this._addResultsPart(results.parts, typeText, /* python */ true);
