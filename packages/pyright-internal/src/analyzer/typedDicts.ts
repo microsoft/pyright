@@ -62,6 +62,7 @@ import {
     isLiteralType,
     mapSubtypes,
     partiallySpecializeType,
+    specializeTupleClass,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
@@ -260,6 +261,7 @@ export function synthesizeTypedDictClassMethods(
     });
 
     const entries = getTypedDictMembersForClass(evaluator, classType);
+    let allEntriesAreNotRequired = true;
     entries.forEach((entry, name) => {
         FunctionType.addParameter(initType, {
             category: ParameterCategory.Simple,
@@ -268,6 +270,10 @@ export function synthesizeTypedDictClassMethods(
             type: entry.valueType,
             hasDeclaredType: true,
         });
+
+        if (entry.isRequired) {
+            allEntriesAreNotRequired = false;
+        }
     });
 
     const symbolTable = classType.details.fields;
@@ -503,6 +509,33 @@ export function synthesizeTypedDictClassMethods(
             );
         }
         symbolTable.set('__delitem__', Symbol.createWithType(SymbolFlags.ClassMember, createDelItemMethod(strType)));
+
+        // If the TypedDict is final and all of its entries are NotRequired,
+        // add a "clear" and "popitem" method.
+        if (isClassFinal && allEntriesAreNotRequired) {
+            const clearMethod = FunctionType.createSynthesizedInstance('clear');
+            FunctionType.addParameter(clearMethod, selfParam);
+            clearMethod.details.declaredReturnType = NoneType.createInstance();
+            symbolTable.set('clear', Symbol.createWithType(SymbolFlags.ClassMember, clearMethod));
+
+            const popItemMethod = FunctionType.createSynthesizedInstance('popitem');
+            FunctionType.addParameter(popItemMethod, selfParam);
+            let tupleType = evaluator.getTupleClassType();
+            if (tupleType && isInstantiableClass(tupleType)) {
+                tupleType = specializeTupleClass(
+                    ClassType.cloneAsInstance(tupleType),
+                    [
+                        { type: strType, isUnbounded: false },
+                        { type: UnknownType.create(), isUnbounded: false },
+                    ],
+                    /* isTypeArgumentExplicit */ true
+                );
+            } else {
+                tupleType = UnknownType.create();
+            }
+            popItemMethod.details.declaredReturnType = tupleType;
+            symbolTable.set('popitem', Symbol.createWithType(SymbolFlags.ClassMember, popItemMethod));
+        }
     }
 }
 

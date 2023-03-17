@@ -1,7 +1,5 @@
 # This sample tests the synthesized methods get, setdefault
-# pop, and __delitem__ for a TypedDict.
-
-# pyright: strict
+# pop, __delitem__, clear, and popitem for a TypedDict.
 
 from typing import Optional, TypedDict, Union, final
 from typing_extensions import NotRequired, Required
@@ -46,19 +44,19 @@ td1.__delitem__("bar")
 
 
 @final
-class A(TypedDict):
+class TD3(TypedDict):
     foo: int
     baz: NotRequired[int]
 
 
-class B(TypedDict):
+class TD4(TypedDict):
     bar: str
 
 
-C = Union[A, B]
+C = Union[TD3, TD4]
 
 
-def test(a: A, b: B, c: C, s: str) -> Optional[int]:
+def test(a: TD3, b: TD4, c: C, s: str) -> Optional[int]:
     a1 = a.get("foo")
     reveal_type(a1, expected_text="int")
     a2 = a.get("foo", 1.0)
@@ -101,3 +99,30 @@ def test(a: A, b: B, c: C, s: str) -> Optional[int]:
     reveal_type(c5, expected_text="int | Any | None")
     c6 = c.get("baz", 1.0)
     reveal_type(c6, expected_text="int | float | Any")
+
+
+@final
+class TD5(TypedDict, total=False):
+    a: int
+
+
+@final
+class TD6(TypedDict):
+    a: NotRequired[int]
+    b: Required[int]
+
+
+td5: TD5 = {"a": 1}
+
+reveal_type(td5.clear, expected_text="() -> None")
+reveal_type(td5.popitem, expected_text="() -> tuple[str, Unknown]")
+td5.clear()
+td5.popitem()
+
+td6: TD6 = {"b": 1}
+
+# This should generate an error because not all elements are NotRequired.
+td6.clear()
+
+# This should generate an error because not all elements are NotRequired.
+td6.popitem()
