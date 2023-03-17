@@ -130,7 +130,6 @@ export class AnalyzerService {
     private _backgroundAnalysisProgram: BackgroundAnalysisProgram;
     private _backgroundAnalysisCancellationSource: AbstractCancellationTokenSource | undefined;
     private _disposed = false;
-
     private _pendingLibraryChanges: RefreshOptions = { changesOnly: true };
 
     constructor(instanceName: string, fs: FileSystem, options: AnalyzerServiceOptions) {
@@ -285,8 +284,8 @@ export class AnalyzerService {
         this._applyConfigOptions(host);
     }
 
-    contains(filePath: string): boolean {
-        return this.backgroundAnalysisProgram.contains(filePath);
+    hasSourceFile(filePath: string): boolean {
+        return this.backgroundAnalysisProgram.hasSourceFile(filePath);
     }
 
     isTracked(filePath: string): boolean {

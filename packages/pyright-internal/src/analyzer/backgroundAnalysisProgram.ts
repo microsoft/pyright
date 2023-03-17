@@ -65,7 +65,7 @@ export class BackgroundAnalysisProgram {
         return this._backgroundAnalysis;
     }
 
-    contains(filePath: string): boolean {
+    hasSourceFile(filePath: string): boolean {
         return !!this._program.getSourceFile(filePath);
     }
 
