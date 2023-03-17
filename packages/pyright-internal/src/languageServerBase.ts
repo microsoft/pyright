@@ -535,6 +535,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return this._workspaceFactory.getWorkspaceForFile(filePath, pythonPath);
     }
 
+    async getContainingWorkspacesForFile(filePath: string): Promise<Workspace[]> {
+        return this._workspaceFactory.getContainingWorkspacesForFile(filePath);
+    }
+
     reanalyze() {
         this._workspaceFactory.items().forEach((workspace) => {
             workspace.service.invalidateAndForceReanalysis();
@@ -1276,8 +1280,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return;
         }
 
-        const workspace = await this.getWorkspaceForFile(filePath);
-        workspace.service.setFileOpened(filePath, params.textDocument.version, params.textDocument.text, ipythonMode);
+        // Send this open to all the workspaces that might contain this file.
+        const workspaces = await this.getContainingWorkspacesForFile(filePath);
+        workspaces.forEach((w) => {
+            w.service.setFileOpened(filePath, params.textDocument.version, params.textDocument.text, ipythonMode);
+        });
     }
 
     protected async onDidChangeTextDocument(params: DidChangeTextDocumentParams, ipythonMode = IPythonMode.None) {
@@ -1289,13 +1296,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return;
         }
 
-        const workspace = await this.getWorkspaceForFile(filePath);
-        workspace.service.updateOpenFileContents(
-            filePath,
-            params.textDocument.version,
-            params.contentChanges,
-            ipythonMode
-        );
+        // Send this change to all the workspaces that might contain this file.
+        const workspaces = await this.getContainingWorkspacesForFile(filePath);
+        workspaces.forEach((w) => {
+            w.service.updateOpenFileContents(filePath, params.textDocument.version, params.contentChanges, ipythonMode);
+        });
     }
 
     protected async onDidCloseTextDocument(params: DidCloseTextDocumentParams) {
@@ -1305,8 +1310,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return;
         }
 
-        const workspace = await this.getWorkspaceForFile(filePath);
-        workspace.service.setFileClosed(filePath);
+        // Send this close to all the workspaces that might contain this file.
+        const workspaces = await this.getContainingWorkspacesForFile(filePath);
+        workspaces.forEach((w) => {
+            w.service.setFileClosed(filePath);
+        });
     }
 
     protected onDidChangeWatchedFiles(params: DidChangeWatchedFilesParams) {

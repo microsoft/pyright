@@ -214,23 +214,37 @@ export class WorkspaceFactory {
             return;
         }
 
-        filePaths.forEach((f) => {
-            const fileInfo = fromWorkspace.service.backgroundAnalysisProgram.program.getSourceFileInfo(f);
-            if (fileInfo) {
-                toWorkspace.service.setFileOpened(
-                    f,
-                    fileInfo.sourceFile.getClientVersion() || null,
-                    fileInfo.sourceFile.getFileContent() || '',
-                    fileInfo.sourceFile.getIPythonMode(),
-                    fileInfo.chainedSourceFile ? fileInfo.chainedSourceFile.sourceFile.getFilePath() : undefined,
-                    fileInfo.sourceFile.getRealFilePath()
-                );
-                fromWorkspace.service.setFileClosed(f, fileInfo.isTracked);
-            }
-        });
+        try {
+            filePaths.forEach((f) => {
+                const fileInfo = fromWorkspace.service.backgroundAnalysisProgram.program.getSourceFileInfo(f);
+                if (fileInfo) {
+                    // Copy the source file data (closing can destroy the sourceFile)
+                    const version = fileInfo.sourceFile.getClientVersion() || null;
+                    const content = fileInfo.sourceFile.getFileContent() || '';
+                    const ipythonMode = fileInfo.sourceFile.getIPythonMode();
+                    const chainedSourceFile = fileInfo.chainedSourceFile?.sourceFile.getFilePath();
+                    const realFilePath = fileInfo.sourceFile.getRealFilePath();
 
-        // If the fromWorkspace has no more files in it (and it's an immutable pythonPath), then remove it.
-        this.removeUnused(fromWorkspace);
+                    // Remove the file from the old workspace first (closing will propagate to the toWorkspace automatically).
+                    fromWorkspace.service.setFileClosed(f, /*isTracked*/ false);
+
+                    // Then open it in the toWorkspace so that it is marked tracked there.
+                    toWorkspace.service.setFileOpened(
+                        f,
+                        version,
+                        content,
+                        ipythonMode,
+                        chainedSourceFile,
+                        realFilePath
+                    );
+                }
+            });
+
+            // If the fromWorkspace has no more files in it (and it's an immutable pythonPath), then remove it.
+            this.removeUnused(fromWorkspace);
+        } catch (e: any) {
+            this._console.error(e.toString());
+        }
     }
 
     getNonDefaultWorkspaces(kind?: string): Workspace[] {
@@ -255,7 +269,7 @@ export class WorkspaceFactory {
     async getWorkspaceForFile(filePath: string, pythonPath: string | undefined): Promise<Workspace> {
         // Wait for all workspaces to be initialized before attempting to find the best workspace. Otherwise
         // the list of files won't be complete and the `contains` check might fail.
-        await Promise.all([...this._map.values()].map((w) => w.isInitialized.promise));
+        await Promise.all(this.items().map((w) => w.isInitialized.promise));
 
         // Find or create best match.
         const workspace = await this._getOrCreateBestWorkspaceForFile(filePath, pythonPath);
@@ -266,10 +280,34 @@ export class WorkspaceFactory {
         return workspace;
     }
 
+    async getContainingWorkspacesForFile(filePath: string): Promise<Workspace[]> {
+        // Wait for all workspaces to be initialized before attempting to find the best workspace. Otherwise
+        // the list of files won't be complete and the `contains` check might fail.
+        await Promise.all(this.items().map((w) => w.isInitialized.promise));
+
+        // All workspaces that track the file should be considered.
+        let workspaces = this.items().filter((w) => w.service.isTracked(filePath));
+
+        // If that list is empty, get the best workspace
+        if (workspaces.length === 0) {
+            workspaces.push(this._getOrCreateBestWorkspaceFileSync(filePath, undefined));
+        }
+
+        // If the file is immutable, then only return that workspace.
+        if (this._isPythonPathImmutable(filePath)) {
+            workspaces = workspaces.filter((w) => w.pythonPathKind === WorkspacePythonPathKind.Immutable);
+        }
+
+        // The workspaces may have just been created, wait for them all to be initialized
+        await Promise.all(workspaces.map((w) => w.isInitialized.promise));
+
+        return workspaces;
+    }
+
     removeUnused(workspace: Workspace) {
-        // Only remove this workspace is it's not being used and it's a hardcoded path kind.
+        // Only remove this workspace is it's not being used for immutable files and it's an immutable path kind.
         if (
-            workspace.service.getOpenFiles().length === 0 &&
+            workspace.service.getOpenFiles().filter((f) => this._isPythonPathImmutable(f)).length === 0 &&
             workspace.pythonPathKind === WorkspacePythonPathKind.Immutable
         ) {
             // Destroy the workspace since it only had immutable files in it.
@@ -283,9 +321,9 @@ export class WorkspaceFactory {
         // for the notebook.
         // If a notebook has the new python path but is currently in a workspace with the path hardcoded, we need to move it to
         // this workspace.
-        const oldPathFiles = new Set<string>(
-            mutableWorkspace.service.getOpenFiles().filter((f) => this._isPythonPathImmutable(f))
-        );
+        const oldPathFiles = [
+            ...new Set<string>(mutableWorkspace.service.getOpenFiles().filter((f) => this._isPythonPathImmutable(f))),
+        ];
         const exitingWorkspaceWithSamePath = this.items().find(
             (w) => w.pythonPath === mutableWorkspace.pythonPath && w !== mutableWorkspace
         );
@@ -295,10 +333,12 @@ export class WorkspaceFactory {
 
         // Immutable files that were in this mutableWorkspace have to be moved
         // to a (potentially) new workspace (with the old path).
-        for (const file of oldPathFiles) {
-            const workspace = this._getOrCreateBestWorkspaceFileSync(file, oldPythonPath);
+        if (oldPathFiles.length > 0) {
+            // Given that all of these files were in the same workspace, there should be only
+            // one immutable workspace for all of them. So we can just use the first file.
+            const workspace = this._getOrCreateBestWorkspaceFileSync(oldPathFiles[0], oldPythonPath);
             if (workspace !== mutableWorkspace) {
-                this.moveFiles([file], mutableWorkspace, workspace);
+                this.moveFiles(oldPathFiles, mutableWorkspace, workspace);
             }
         }
 
@@ -394,40 +434,57 @@ export class WorkspaceFactory {
 
         // If this best instance doesn't match the pythonPath, then we need to create a new one.
         if (pythonPath && bestInstance.pythonPath !== pythonPath) {
-            bestInstance = this._add(
-                bestInstance.uri,
-                bestInstance.rootPath,
-                bestInstance.workspaceName,
-                pythonPath,
-                WorkspacePythonPathKind.Immutable, // This means the pythonPath should never change.
-                bestInstance.kinds
-            );
+            bestInstance = this._createImmutableCopy(bestInstance, pythonPath);
         }
 
         return bestInstance;
     }
 
-    private _getOrCreateBestWorkspaceFileSync(filePath: string, pythonPath: string) {
+    private _getOrCreateBestWorkspaceFileSync(filePath: string, pythonPath: string | undefined) {
         // Find the current best workspace (without creating a new one)
         let bestInstance = this._getBestWorkspaceForFile(filePath, pythonPath);
 
         // If this best instance doesn't match the pythonPath, then we need to create a new one.
-        if (bestInstance.pythonPath !== pythonPath) {
-            bestInstance = this._add(
-                bestInstance.uri,
-                bestInstance.rootPath,
-                bestInstance.workspaceName,
-                pythonPath,
-                WorkspacePythonPathKind.Immutable, // This means the pythonPath should never change.
-                bestInstance.kinds
-            );
+        if (pythonPath && bestInstance.pythonPath !== pythonPath) {
+            bestInstance = this._createImmutableCopy(bestInstance, pythonPath);
         }
 
         return bestInstance;
     }
 
+    private _createImmutableCopy(workspace: Workspace, pythonPath: string): Workspace {
+        const result = this._add(
+            workspace.uri,
+            workspace.rootPath,
+            workspace.workspaceName,
+            pythonPath,
+            WorkspacePythonPathKind.Immutable,
+            workspace.kinds
+        );
+
+        // All mutable open files in the first workspace should be opened in the new workspace.
+        // Immutable files should stay where they are since they're tied to a specific workspace.
+        const files = workspace.service.getOpenFiles().filter((f) => !this._isPythonPathImmutable(f));
+        for (const file of files) {
+            const sourceFileInfo = workspace.service.backgroundAnalysisProgram.program.getSourceFileInfo(file);
+            if (sourceFileInfo) {
+                const sourceFile = sourceFileInfo.sourceFile;
+                const fileContents = sourceFile.getFileContent();
+                result.service.setFileOpened(
+                    file,
+                    sourceFile.getClientVersion() || null,
+                    fileContents || '',
+                    sourceFile.getIPythonMode(),
+                    sourceFileInfo.chainedSourceFile?.sourceFile.getFilePath(),
+                    sourceFile.getRealFilePath()
+                );
+            }
+        }
+
+        return result;
+    }
+
     private _getBestWorkspaceForFile(filePath: string, pythonPath: string | undefined): Workspace {
-        let bestRootPath: string | undefined;
         let bestInstance: Workspace | undefined;
 
         // The order of how we find the best matching workspace for the given file is
@@ -439,57 +496,34 @@ export class WorkspaceFactory {
         // 4. The given file doesn't match anything and there are multiple workspaces but one of workspaces
         //    contains the file (ex, open a library file already imported by a workspace).
         // 5. If none of the above works, then it matches the default workspace.
-        this._map.forEach((workspace) => {
-            if (workspace.rootPath) {
-                if (workspace.rootPath !== filePath && !workspace.service.isTracked(filePath)) {
-                    return;
-                }
 
-                // Among workspaces that own the file, make sure we return the inner most one which
-                // we consider as the best workspace.
-                if (
-                    bestRootPath === undefined ||
-                    (workspace.rootPath.startsWith(bestRootPath) && workspace.rootPath !== bestRootPath)
-                ) {
-                    // Among workspaces with a python path, make sure we return the one that matches the python path
-                    if (pythonPath && workspace.pythonPath === pythonPath) {
-                        bestRootPath = workspace.rootPath;
-                        bestInstance = workspace;
-                    } else if (workspace.pythonPathKind === WorkspacePythonPathKind.Mutable && !pythonPath) {
-                        // If no python path passed, pick the workspace with the configured python path.
-                        bestRootPath = workspace.rootPath;
-                        bestInstance = workspace;
-                    }
-                }
-            }
-        });
+        // First find the workspaces that are tracking the file
+        const regularWorkspaces = this.getNonDefaultWorkspaces(WellKnownWorkspaceKinds.Regular);
+        const trackingWorkspaces = this.items().filter((w) => w.service.isTracked(filePath));
 
-        // If there were multiple workspaces or we couldn't find any,
-        // use the default one.
+        // Then find the best in all of those that actually matches the pythonPath.
+        bestInstance = this._getBestRegularWorkspace(trackingWorkspaces, pythonPath);
+
+        // If it's not in a tracked workspace, see if we only have regular workspaces with the same
+        // length root path
+        if (
+            bestInstance === undefined &&
+            regularWorkspaces.every((w) => w.rootPath.length === regularWorkspaces[0].rootPath.length)
+        ) {
+            bestInstance = this._getBestRegularWorkspace(regularWorkspaces, pythonPath);
+        }
+
+        // If the regular workspaces don't all have the same length, then try the workspaces that already have the file open or scanned.
         if (bestInstance === undefined) {
-            const regularWorkspaces = this.getNonDefaultWorkspaces(WellKnownWorkspaceKinds.Regular);
+            bestInstance = this._getBestRegularWorkspace(
+                regularWorkspaces.filter((w) => w.service.hasSourceFile(filePath)),
+                pythonPath
+            );
+        }
 
-            // If we have only regular workspaces with the same path, then pick the one that best matches the python path.
-            if (
-                regularWorkspaces.length &&
-                regularWorkspaces.every((w) => w.rootPath === regularWorkspaces[0].rootPath)
-            ) {
-                bestInstance = pythonPath
-                    ? regularWorkspaces.find((w) => w.pythonPath === pythonPath) || regularWorkspaces[0]
-                    : regularWorkspaces[0];
-            } else {
-                // If we have multiple workspaces, then pick the containing workspace that best matches the python path.
-                const containingWorkspace = this._getBestRegularWorkspace(
-                    regularWorkspaces.filter((w) => w.service.contains(filePath)),
-                    pythonPath
-                );
-                if (containingWorkspace) {
-                    bestInstance = containingWorkspace;
-                } else {
-                    // If no workspace contains it, then it belongs to the default workspace.
-                    bestInstance = this._getOrCreateDefaultWorkspace(pythonPath);
-                }
-            }
+        // If that still didn't work, that must mean we don't have a workspace. Create a default one.
+        if (bestInstance === undefined) {
+            bestInstance = this._getOrCreateDefaultWorkspace(pythonPath);
         }
 
         return bestInstance;
@@ -514,16 +548,7 @@ export class WorkspaceFactory {
         return defaultWorkspace;
     }
 
-    private _getBestRegularWorkspace(workspaces: Workspace[], pythonPath?: string): Workspace | undefined {
-        if (workspaces.length === 0) {
-            return undefined;
-        }
-
-        if (workspaces.length === 1) {
-            return workspaces[0];
-        }
-
-        // Further filter by longest paths.
+    private _getLongestPathWorkspace(workspaces: Workspace[]): Workspace {
         const longestPath = workspaces.reduce((previousPath, currentWorkspace) => {
             if (!previousPath) {
                 return currentWorkspace.rootPath;
@@ -534,9 +559,28 @@ export class WorkspaceFactory {
 
             return previousPath;
         }, '');
-        const longestWorkspaces = workspaces.filter((w) => w.rootPath === longestPath);
+        return workspaces.find((w) => w.rootPath === longestPath)!;
+    }
 
-        // Filter by any that match the current python path.
-        return longestWorkspaces.find((w) => !pythonPath || w.pythonPath === pythonPath) || longestWorkspaces[0];
+    private _getBestRegularWorkspace(workspaces: Workspace[], pythonPath?: string): Workspace | undefined {
+        if (workspaces.length === 0) {
+            return undefined;
+        }
+
+        // If there's only one, then it's the best.
+        if (workspaces.length === 1) {
+            return workspaces[0];
+        }
+
+        // If there's any that match the python path, take the one with the longest path from those.
+        if (pythonPath) {
+            const matchingWorkspaces = workspaces.filter((w) => w.pythonPath === pythonPath);
+            if (matchingWorkspaces.length > 0) {
+                return this._getLongestPathWorkspace(matchingWorkspaces);
+            }
+        }
+
+        // Otherwise, just take the longest path.
+        return this._getLongestPathWorkspace(workspaces);
     }
 }
