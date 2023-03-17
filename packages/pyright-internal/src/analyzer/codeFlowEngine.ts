@@ -1583,7 +1583,15 @@ export function getCodeFlowEngine(
             return true;
         }
 
-        return evaluator.isAfterNodeReachable(functionType.details.declaration.node);
+        // This call is very expensive because it requires a full code flow analysis
+        // of this function and all (unannotated) functions that it calls, recursively.
+        // Rather than incurring this expense, we assume here that all unannotated
+        // functions are not NoReturn functions. To reverse this decision, uncomment
+        // the following line.
+
+        // return evaluator.isAfterNodeReachable(functionType.details.declaration.node);
+
+        return true;
     }
 
     // Performs a cursory analysis to determine whether the expression
