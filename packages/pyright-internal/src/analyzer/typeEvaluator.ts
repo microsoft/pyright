@@ -9440,7 +9440,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                             return returnType;
                         } else {
-                            const memberType = getTypeOfObjectMember(errorNode, expandedSubtype, '__call__')?.type;
+                            const memberType = getTypeOfObjectMember(
+                                errorNode,
+                                expandedSubtype,
+                                '__call__',
+                                /* usage */ undefined,
+                                /* diag */ undefined,
+                                MemberAccessFlags.SkipAttributeAccessOverride
+                            )?.type;
 
                             if (memberType) {
                                 const functionResult = validateCallArguments(
