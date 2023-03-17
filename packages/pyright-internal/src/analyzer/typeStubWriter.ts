@@ -324,7 +324,7 @@ export class TypeStubWriter extends ParseTreeWalker {
     override visitTry(node: TryNode) {
         // Don't emit a doc string after the first statement.
         this._emitDocString = false;
-        return false;
+        return true;
     }
 
     override visitWith(node: WithNode) {
