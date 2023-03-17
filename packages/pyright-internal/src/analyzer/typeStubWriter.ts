@@ -324,6 +324,9 @@ export class TypeStubWriter extends ParseTreeWalker {
     override visitTry(node: TryNode) {
         // Don't emit a doc string after the first statement.
         this._emitDocString = false;
+
+        // Only walk a single branch of the try/catch to for imports.
+        this.walk(node.trySuite);
         return false;
     }
 
