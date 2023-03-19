@@ -1,4 +1,4 @@
-version = "22.1.*"
+version = "23.1.*"
 
 [tool.stubtest]
 # linux and darwin are equivalent

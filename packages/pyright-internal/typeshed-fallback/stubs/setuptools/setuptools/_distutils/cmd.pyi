@@ -7,6 +7,7 @@ from typing_extensions import Self
 from .dist import Distribution
 
 class Command:
+    distribution: Distribution
     sub_commands: ClassVar[list[tuple[str, Callable[[Self], bool] | None]]]
     def __init__(self, dist: Distribution) -> None: ...
     @abstractmethod

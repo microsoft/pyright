@@ -161,12 +161,20 @@ TPFLAGS_IS_ABSTRACT: Literal[1048576]
 
 modulesbyfile: dict[str, Any]
 
+_GetMembersPredicateTypeGuard: TypeAlias = Callable[[Any], TypeGuard[_T]]
 _GetMembersPredicate: TypeAlias = Callable[[Any], bool]
+_GetMembersReturnTypeGuard: TypeAlias = list[tuple[str, _T]]
 _GetMembersReturn: TypeAlias = list[tuple[str, Any]]
 
+@overload
+def getmembers(object: object, predicate: _GetMembersPredicateTypeGuard[_T]) -> _GetMembersReturnTypeGuard[_T]: ...
+@overload
 def getmembers(object: object, predicate: _GetMembersPredicate | None = None) -> _GetMembersReturn: ...
 
 if sys.version_info >= (3, 11):
+    @overload
+    def getmembers_static(object: object, predicate: _GetMembersPredicateTypeGuard[_T]) -> _GetMembersReturnTypeGuard[_T]: ...
+    @overload
     def getmembers_static(object: object, predicate: _GetMembersPredicate | None = None) -> _GetMembersReturn: ...
 
 def getmodulename(path: str) -> str | None: ...

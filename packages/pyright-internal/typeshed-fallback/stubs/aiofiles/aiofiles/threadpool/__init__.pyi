@@ -13,8 +13,8 @@ from typing import overload
 from typing_extensions import Literal, TypeAlias
 
 from ..base import AiofilesContextManager
-from .binary import AsyncBufferedIOBase, AsyncBufferedReader, AsyncFileIO, _UnknownAsyncBinaryIO
-from .text import AsyncTextIOWrapper
+from .binary import AsyncBufferedIOBase, AsyncBufferedReader, AsyncFileIO, AsyncIndirectBufferedIOBase, _UnknownAsyncBinaryIO
+from .text import AsyncTextIndirectIOWrapper, AsyncTextIOWrapper
 
 _Opener: TypeAlias = Callable[[str, int], int]
 
@@ -97,3 +97,10 @@ def open(
     loop: AbstractEventLoop | None = ...,
     executor: Incomplete | None = ...,
 ) -> AiofilesContextManager[None, None, _UnknownAsyncBinaryIO]: ...
+
+stdin: AsyncTextIndirectIOWrapper
+stdout: AsyncTextIndirectIOWrapper
+stderr: AsyncTextIndirectIOWrapper
+stdin_bytes: AsyncIndirectBufferedIOBase
+stdout_bytes: AsyncIndirectBufferedIOBase
+stderr_bytes: AsyncIndirectBufferedIOBase

@@ -23,7 +23,7 @@ class LazyReference(str):
     name: str
     def resolve_refs(self, rule_map: Mapping[str, Expression | LazyReference]) -> Expression: ...
 
-class RuleVisitor(NodeVisitor):
+class RuleVisitor(NodeVisitor[tuple[OrderedDict[str, Expression], Expression | None]]):
     quantifier_classes: dict[str, type[Expression]]
     visit_expression: Callable[[RuleVisitor, Node, collections.abc.Sequence[Any]], Any]
     visit_term: Callable[[RuleVisitor, Node, collections.abc.Sequence[Any]], Any]

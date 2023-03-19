@@ -15,6 +15,13 @@ class Lock:
     lua_extend: ClassVar[Incomplete | None]
     lua_reacquire: ClassVar[Incomplete | None]
     lua_release: ClassVar[Incomplete | None]
+    redis: Redis[Any]
+    name: str
+    timeout: float | None
+    sleep: float
+    blocking: bool
+    blocking_timeout: float | None
+    thread_local: bool
     local: _Local
     def __init__(
         self,

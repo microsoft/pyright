@@ -1,27 +1,38 @@
 from _typeshed import Incomplete, StrPath, SupportsRead
+from zipfile import ZipFile
 
 from openpyxl.chartsheet.chartsheet import Chartsheet
+from openpyxl.packaging.manifest import Manifest
 from openpyxl.packaging.relationship import Relationship
-from openpyxl.workbook.workbook import Workbook
+from openpyxl.reader.workbook import WorkbookParser
+from openpyxl.workbook import Workbook
 
 SUPPORTED_FORMATS: Incomplete
 
 class ExcelReader:
-    archive: Incomplete
-    valid_files: Incomplete
-    read_only: Incomplete
-    keep_vba: Incomplete
-    data_only: Incomplete
-    keep_links: Incomplete
-    shared_strings: Incomplete
+    archive: ZipFile
+    valid_files: list[str]
+    read_only: bool
+    keep_vba: bool
+    data_only: bool
+    keep_links: bool
+    rich_text: bool
+    shared_strings: list[Incomplete]
+    package: Manifest  # defined after call to read_manifest()
+    parser: WorkbookParser  # defined after call to read_workbook()
+    wb: Workbook  # defined after call to read_workbook()
+
     def __init__(
-        self, fn: SupportsRead[bytes] | str, read_only: bool = ..., keep_vba=..., data_only: bool = ..., keep_links: bool = ...
+        self,
+        fn: SupportsRead[bytes] | str,
+        read_only: bool = False,
+        keep_vba: bool = False,
+        data_only: bool = False,
+        keep_links: bool = True,
+        rich_text: bool = False,
     ) -> None: ...
-    package: Incomplete
     def read_manifest(self) -> None: ...
     def read_strings(self) -> None: ...
-    parser: Incomplete
-    wb: Incomplete
     def read_workbook(self) -> None: ...
     def read_properties(self) -> None: ...
     def read_theme(self) -> None: ...
@@ -31,8 +42,9 @@ class ExcelReader:
 
 def load_workbook(
     filename: SupportsRead[bytes] | StrPath,
-    read_only: bool = ...,
-    keep_vba: bool = ...,
-    data_only: bool = ...,
-    keep_links: bool = ...,
+    read_only: bool = False,
+    keep_vba: bool = False,
+    data_only: bool = False,
+    keep_links: bool = True,
+    rich_text: bool = False,
 ) -> Workbook: ...

@@ -388,3 +388,4 @@ class withitem(AST):
 
 class TypeIgnore(AST):
     lineno: int
+    tag: str

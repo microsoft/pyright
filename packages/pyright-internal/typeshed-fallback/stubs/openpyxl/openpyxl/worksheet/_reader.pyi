@@ -1,5 +1,11 @@
+import datetime
 from _typeshed import Incomplete
-from collections.abc import Generator
+from collections.abc import Container, Generator
+
+from .hyperlink import HyperlinkList
+from .pagebreak import ColBreak, RowBreak
+from .protection import SheetProtection
+from .table import TablePartList
 
 CELL_TAG: Incomplete
 VALUE_TAG: Incomplete
@@ -31,39 +37,48 @@ DIMENSION_TAG: Incomplete
 CUSTOM_VIEWS_TAG: Incomplete
 
 class WorkSheetParser:
-    min_row: Incomplete
-    epoch: Incomplete
+    min_row: Incomplete | None
+    min_col: Incomplete | None
+    epoch: datetime.datetime
     source: Incomplete
     shared_strings: Incomplete
-    data_only: Incomplete
-    shared_formulae: Incomplete
-    array_formulae: Incomplete
+    data_only: bool
+    shared_formulae: dict[Incomplete, Incomplete]
     row_counter: int
-    tables: Incomplete
-    date_formats: Incomplete
-    timedelta_formats: Incomplete
-    row_dimensions: Incomplete
-    column_dimensions: Incomplete
-    number_formats: Incomplete
+    col_counter: int
+    tables: TablePartList
+    date_formats: Container[Incomplete]
+    timedelta_formats: Container[Incomplete]
+    row_dimensions: dict[Incomplete, Incomplete]
+    column_dimensions: dict[Incomplete, Incomplete]
+    number_formats: list[Incomplete]
     keep_vba: bool
-    hyperlinks: Incomplete
-    formatting: Incomplete
-    legacy_drawing: Incomplete
-    merged_cells: Incomplete
-    row_breaks: Incomplete
-    col_breaks: Incomplete
+    hyperlinks: HyperlinkList
+    formatting: list[Incomplete]
+    legacy_drawing: Incomplete | None
+    merged_cells: Incomplete | None
+    row_breaks: RowBreak
+    col_breaks: ColBreak
+    rich_text: bool
+    protection: SheetProtection  # initialized after call to parse_sheet_protection()
+
     def __init__(
-        self, src, shared_strings, data_only: bool = ..., epoch=..., date_formats=..., timedelta_formats=...
+        self,
+        src,
+        shared_strings,
+        data_only: bool = False,
+        epoch: datetime.datetime = ...,
+        date_formats: Container[Incomplete] = ...,
+        timedelta_formats: Container[Incomplete] = ...,
+        rich_text: bool = False,
     ) -> None: ...
     def parse(self) -> Generator[Incomplete, None, None]: ...
     def parse_dimensions(self): ...
-    col_counter: Incomplete
     def parse_cell(self, element): ...
     def parse_formula(self, element): ...
     def parse_column_dimensions(self, col) -> None: ...
     def parse_row(self, row): ...
     def parse_formatting(self, element) -> None: ...
-    protection: Incomplete
     def parse_sheet_protection(self, element) -> None: ...
     def parse_extensions(self, element) -> None: ...
     def parse_legacy(self, element) -> None: ...
@@ -75,7 +90,7 @@ class WorksheetReader:
     ws: Incomplete
     parser: Incomplete
     tables: Incomplete
-    def __init__(self, ws, xml_source, shared_strings, data_only) -> None: ...
+    def __init__(self, ws, xml_source, shared_strings, data_only, rich_text: bool) -> None: ...
     def bind_cells(self) -> None: ...
     def bind_formatting(self) -> None: ...
     def bind_tables(self) -> None: ...

@@ -1,10 +1,12 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
 
+from openpyxl.workbook import Workbook
+
 class WorkbookParser:
     archive: Incomplete
     workbook_part_name: Incomplete
-    wb: Incomplete
+    wb: Workbook
     keep_links: Incomplete
     sheets: Incomplete
     def __init__(self, archive, workbook_part_name, keep_links: bool = ...) -> None: ...

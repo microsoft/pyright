@@ -20,7 +20,7 @@ class ConsoleMenu:
     exit_item: ExitItem
     current_option: int
     selected_option: int
-    returned_value: object | None
+    returned_value: object
     should_exit: bool
     previous_active_menu: ConsoleMenu | None
     def __init__(

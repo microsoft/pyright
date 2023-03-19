@@ -3,7 +3,7 @@ extra_description = """\
   Type hints for GDB's \
   [Python API](https://sourceware.org/gdb/onlinedocs/gdb/Python-API.html). \
   Note that this API is available only when running Python scripts under GDB: \
-  is is not possible to install the `gdb` package separately, for instance \
+  it is not possible to install the `gdb` package separately, for instance \
   using `pip`.\
 """
 
