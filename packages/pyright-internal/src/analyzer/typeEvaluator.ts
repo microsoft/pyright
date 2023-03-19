@@ -25184,11 +25184,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         // If the result of narrowing is Any, stick with the declared (unnarrowed) type.
-        // If the result of narrowing is an Unknown that is complete, stick with Unknown.
-        // If it's incomplete, propagate the incomplete type for the benefit of
-        // code flow analysis.
-        if (isAnyOrUnknown(assignedType) && !isIncompleteUnknown(assignedType)) {
+        // If the result of narrowing is an Unknown that is incomplete, propagate the
+        // incomplete type for the benefit of code flow analysis.
+        // If the result of narrowing is a complete Unknown, combine the Unknown type
+        // with the declared type. In strict mode, this will retain the "unknown type"
+        // diagnostics while still providing reasonable completion suggestions.
+        if (isAny(narrowedType)) {
             return declaredType;
+        } else if (isIncompleteUnknown(narrowedType)) {
+            return narrowedType;
+        } else if (isUnknown(narrowedType)) {
+            return combineTypes([narrowedType, declaredType]);
         }
 
         return narrowedType;

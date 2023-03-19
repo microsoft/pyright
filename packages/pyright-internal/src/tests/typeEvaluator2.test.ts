@@ -132,6 +132,17 @@ test('Assignment11', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('Assignment12', () => {
+    const configOptions = new ConfigOptions('.');
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['assignment12.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0);
+
+    configOptions.diagnosticRuleSet.reportUnknownVariableType = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['assignment12.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 2);
+});
+
 test('AugmentedAssignment1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['augmentedAssignment1.py']);
 
