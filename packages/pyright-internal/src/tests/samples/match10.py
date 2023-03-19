@@ -77,23 +77,24 @@ class SingleColor(Enum):
     red = 0
 
 
-def func8(x: SingleColor) -> int:
-    match x:
+def func8(subj: SingleColor) -> int:
+    match subj:
         case SingleColor.red:
             return 1
 
 
-def func9(x: int | None):
-    match x:
+def func9(subj: int | None):
+    match subj:
         case NoneType():
             return 1
         case int():
             return 2
 
-def func10(source: Color | None = None) -> list[str]:
+
+def func10(subj: Color | None = None) -> list[str]:
     results = [""]
     for x in [""]:
-        match source:
+        match subj:
             case None:
                 results.append(x)
             case Color.red:
@@ -103,3 +104,13 @@ def func10(source: Color | None = None) -> list[str]:
             case Color.blue:
                 pass
     return results
+
+
+def func11(subj: int | float | None):
+    match subj:
+        case float():
+            reveal_type(subj, expected_text="int | float")
+        case int():
+            reveal_type(subj, expected_text="int")
+        case NoneType():
+            reveal_type(subj, expected_text="None")

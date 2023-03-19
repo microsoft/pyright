@@ -540,14 +540,30 @@ function narrowTypeBasedOnClassPattern(
                     return subjectSubtypeUnexpanded;
                 }
 
+                if (
+                    isNoneInstance(subjectSubtypeExpanded) &&
+                    isInstantiableClass(classType) &&
+                    ClassType.isBuiltIn(classType, 'NoneType')
+                ) {
+                    return undefined;
+                }
+
                 if (!evaluator.assignType(classInstance, subjectSubtypeExpanded)) {
                     return subjectSubtypeExpanded;
                 }
 
-                // If there are no arguments, we're done. We know that this match
-                // will never succeed.
                 if (pattern.arguments.length === 0) {
-                    return undefined;
+                    if (
+                        isClass(classInstance) &&
+                        isClass(subjectSubtypeExpanded) &&
+                        ClassType.isSameGenericClass(classInstance, subjectSubtypeExpanded)
+                    ) {
+                        // We know that this match will always succeed, so we can
+                        // eliminate this subtype.
+                        return undefined;
+                    }
+
+                    return subjectSubtypeExpanded;
                 }
 
                 // We might be able to narrow further based on arguments, but only
@@ -614,6 +630,14 @@ function narrowTypeBasedOnClassPattern(
                     (subjectSubtypeExpanded) => {
                         if (isAnyOrUnknown(subjectSubtypeExpanded)) {
                             return convertToInstance(unexpandedSubtype);
+                        }
+
+                        if (
+                            isNoneInstance(subjectSubtypeExpanded) &&
+                            isInstantiableClass(expandedSubtype) &&
+                            ClassType.isBuiltIn(expandedSubtype, 'NoneType')
+                        ) {
+                            return subjectSubtypeExpanded;
                         }
 
                         if (isClassInstance(subjectSubtypeExpanded)) {
