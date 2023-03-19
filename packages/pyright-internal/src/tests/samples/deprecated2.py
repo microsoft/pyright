@@ -1,5 +1,6 @@
 # This sample tests the @typing.deprecated decorator introduced in PEP 702.
 
+from typing import Self
 from typing_extensions import deprecated, overload
 
 
@@ -69,3 +70,23 @@ func2("hi")
 
 # This should generate an error if reportDeprecated is enabled.
 func2(3)
+
+
+class ClassD:
+    @overload
+    def __init__(self, x: int) -> None:
+        ...
+
+    @overload
+    @deprecated("str no longer supported")
+    def __init__(self, x: str) -> None:
+        ...
+
+    def __init__(self, x: int | str) -> None:
+        ...
+
+
+ClassD(3)
+
+# This should generate an error if reportDeprecated is enabled.
+ClassD("")

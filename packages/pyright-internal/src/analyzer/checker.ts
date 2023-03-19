@@ -3656,6 +3656,40 @@ export class Checker extends ParseTreeWalker {
         let errorMessage: string | undefined;
         let deprecatedMessage: string | undefined;
 
+        function getDeprecatedMessageForOverloadedCall(evaluator: TypeEvaluator, type: Type) {
+            // Determine if the node is part of a call expression. If so,
+            // we can determine which overload(s) were used to satisfy
+            // the call expression and determine whether any of them
+            // are deprecated.
+            const callNode = ParseTreeUtils.getCallForName(node);
+
+            if (callNode) {
+                const callTypeResult = evaluator.getTypeResult(callNode);
+
+                if (
+                    callTypeResult &&
+                    callTypeResult.overloadsUsedForCall &&
+                    callTypeResult.overloadsUsedForCall.length > 0
+                ) {
+                    callTypeResult.overloadsUsedForCall.forEach((overload) => {
+                        if (overload.details.deprecatedMessage !== undefined) {
+                            if (node.value === overload.details.name) {
+                                deprecatedMessage = overload.details.deprecatedMessage;
+                                errorMessage = Localizer.Diagnostic.deprecatedFunction().format({
+                                    name: overload.details.name,
+                                });
+                            } else if (isInstantiableClass(type) && overload.details.name === '__init__') {
+                                deprecatedMessage = overload.details.deprecatedMessage;
+                                errorMessage = Localizer.Diagnostic.deprecatedConstructor().format({
+                                    name: type.details.name,
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
         doForEachSubtype(type, (subtype) => {
             if (isClass(subtype)) {
                 if (
@@ -3664,39 +3698,24 @@ export class Checker extends ParseTreeWalker {
                     node.value === subtype.details.name
                 ) {
                     deprecatedMessage = subtype.details.deprecatedMessage;
-                    errorMessage = Localizer.Diagnostic.deprecatedClass();
+                    errorMessage = Localizer.Diagnostic.deprecatedClass().format({ name: subtype.details.name });
+                } else {
+                    // See if this is part of a call to a constructor.
+                    getDeprecatedMessageForOverloadedCall(this._evaluator, subtype);
                 }
             } else if (isFunction(subtype)) {
                 if (subtype.details.deprecatedMessage !== undefined && node.value === subtype.details.name) {
                     deprecatedMessage = subtype.details.deprecatedMessage;
-                    errorMessage = Localizer.Diagnostic.deprecatedFunction();
+                    errorMessage = Localizer.Diagnostic.deprecatedFunction().format({
+                        name: subtype.details.name || '<anonymous>',
+                    });
                 }
             } else if (isOverloadedFunction(subtype)) {
                 // Determine if the node is part of a call expression. If so,
                 // we can determine which overload(s) were used to satisfy
                 // the call expression and determine whether any of them
                 // are deprecated.
-                const callNode = ParseTreeUtils.getCallForName(node);
-
-                if (callNode) {
-                    const callTypeResult = this._evaluator.getTypeResult(callNode);
-
-                    if (
-                        callTypeResult &&
-                        callTypeResult.overloadsUsedForCall &&
-                        callTypeResult.overloadsUsedForCall.length > 0
-                    ) {
-                        callTypeResult.overloadsUsedForCall.forEach((overload) => {
-                            if (
-                                overload.details.deprecatedMessage !== undefined &&
-                                node.value === overload.details.name
-                            ) {
-                                deprecatedMessage = overload.details.deprecatedMessage;
-                                errorMessage = Localizer.Diagnostic.deprecatedFunction();
-                            }
-                        });
-                    }
-                }
+                getDeprecatedMessageForOverloadedCall(this._evaluator, subtype);
             }
         });
 
