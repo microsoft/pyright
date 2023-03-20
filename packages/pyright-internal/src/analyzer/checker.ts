@@ -2057,13 +2057,19 @@ export class Checker extends ParseTreeWalker {
             }
 
             // Does the class have an operator overload for eq?
-            if (
-                lookUpClassMember(
-                    ClassType.cloneAsInstantiable(leftType),
-                    '__eq__',
-                    ClassMemberLookupFlags.SkipObjectBaseClass
-                )
-            ) {
+            const eqMethod = lookUpClassMember(
+                ClassType.cloneAsInstantiable(leftType),
+                '__eq__',
+                ClassMemberLookupFlags.SkipObjectBaseClass
+            );
+
+            if (eqMethod) {
+                // If this is a synthesized method for a dataclass, we can assume
+                // that other dataclass types will not be comparable.
+                if (ClassType.isDataClass(leftType) && eqMethod.symbol.getSynthesizedType()) {
+                    return false;
+                }
+
                 return true;
             }
 

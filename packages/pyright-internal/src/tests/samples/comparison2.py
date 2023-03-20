@@ -3,6 +3,7 @@
 
 
 from typing import Any
+from dataclasses import dataclass
 
 
 def cond() -> bool:
@@ -54,3 +55,14 @@ if c is not None:
 def func2(d: str | Any):
     if d is None:
         pass
+
+
+@dataclass
+class DC1:
+    bar: str
+
+
+def func3(x: DC1):
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if x == 42:
+        ...
