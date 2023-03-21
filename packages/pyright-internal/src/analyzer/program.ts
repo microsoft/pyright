@@ -3112,9 +3112,8 @@ export class Program {
             (stubFilePath: string, implFilePath: string) => {
                 let stubFileInfo = this.getSourceFileInfo(stubFilePath);
                 if (!stubFileInfo) {
-                    // Special case for import statement.
-                    // ex) import X.Y
-                    // SourceFile for X might not be in memory since import `X.Y` only brings in Y
+                    // Special case for import statement like "import X.Y". The SourceFile
+                    // for X might not be in memory since import `X.Y` only brings in Y.
                     stubFileInfo = this.addInterimFile(stubFilePath);
                 }
 
@@ -3124,14 +3123,13 @@ export class Program {
             (f) => {
                 let fileInfo = this.getBoundSourceFileInfo(f);
                 if (!fileInfo) {
-                    // Special case for import statement.
-                    // ex) import X.Y
-                    // SourceFile for X might not be in memory since import `X.Y` only brings in Y
+                    // Special case for import statement like "import X.Y". The SourceFile
+                    // for X might not be in memory since import `X.Y` only brings in Y.
                     fileInfo = this.addInterimFile(f);
 
                     // Even though this file is not referenced by anything, make sure
-                    // we have parse tree for doc string.
-                    fileInfo.sourceFile.parse(this._configOptions, this._importResolver);
+                    // we have a parse tree for the doc string.
+                    this._parseFile(fileInfo, /* content */ undefined, /* force */ true);
                 }
 
                 return fileInfo;
