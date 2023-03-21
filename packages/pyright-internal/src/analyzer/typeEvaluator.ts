@@ -5197,6 +5197,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
 
+                    // If the field was not found and the module type is marked
+                    // such that all fields should be Any/Unknown, return that type.
+                    if (!type && baseType.notPresentFieldType) {
+                        type = baseType.notPresentFieldType;
+                    }
+
                     if (!type) {
                         if (!isIncomplete) {
                             addDiagnostic(
@@ -20836,8 +20842,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (lookupResults) {
                     moduleType.fields = lookupResults.symbolTable;
                     moduleType.docString = lookupResults.docString;
-                } else if (!loaderActions.implicitImports) {
-                    return evaluatorOptions.evaluateUnknownImportsAsAny ? AnyType.create() : UnknownType.create();
+                } else {
+                    // Note that all module attributes that are not found in the
+                    // symbol table should be treated as Any or Unknown rather than
+                    // as an error.
+                    moduleType.notPresentFieldType = evaluatorOptions.evaluateUnknownImportsAsAny
+                        ? AnyType.create()
+                        : UnknownType.create();
                 }
             }
 

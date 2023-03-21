@@ -332,6 +332,10 @@ export interface ModuleType extends TypeBase {
     fields: SymbolTable;
     docString?: string | undefined;
 
+    // If a field lookup isn't found, should the type of the
+    // resulting field be Any/Unknown or treated as an error?
+    notPresentFieldType?: AnyType | UnknownType;
+
     // A "loader" module includes symbols that were injected by
     // the module loader. We keep these separate so we don't
     // pollute the symbols exported by the module itself.
