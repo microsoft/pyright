@@ -3351,10 +3351,8 @@ export class Program {
             if (!updatedImportMap.has(normalizedImportPath)) {
                 // We found a new import to add. See if it's already part
                 // of the program.
-                let importedFileInfo: SourceFileInfo;
-                if (this.getSourceFileInfo(importInfo.path)) {
-                    importedFileInfo = this.getSourceFileInfo(importInfo.path)!;
-                } else {
+                let importedFileInfo = this.getSourceFileInfo(importInfo.path);
+                if (!importedFileInfo) {
                     const importName = this._getImportNameForFile(importInfo.path);
                     const sourceFile = new SourceFile(
                         this._fs,
