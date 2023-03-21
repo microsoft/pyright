@@ -1528,7 +1528,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             this.updateSettingsForWorkspace(workspace, workspace.isInitialized).ignoreErrors();
         }
 
-        // Otherwise the intiailize completion should cause settings to be updated on all workspaces.
+        // Otherwise the initialize completion should cause settings to be updated on all workspaces.
     }
 
     protected createAnalyzerServiceForWorkspace(
@@ -1644,7 +1644,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                         break;
                 }
 
-                // if the client doesn't support "taskitem" tags, don't report.
+                // if the client doesn't support "task item" tags, don't report.
                 if (!this.client.supportsTaskItemDiagnosticTag) {
                     return;
                 }
