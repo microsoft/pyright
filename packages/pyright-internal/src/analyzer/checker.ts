@@ -5339,8 +5339,8 @@ export class Checker extends ParseTreeWalker {
 
         const funcNode = overrideFunction.details.declaration.node;
         this._evaluator.addDiagnostic(
-            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
+            this._fileInfo.diagnosticRuleSet.reportImplicitOverride,
+            DiagnosticRule.reportImplicitOverride,
             Localizer.Diagnostic.overrideDecoratorMissing().format({
                 name: funcNode.name.value,
                 className: this._evaluator.printType(convertToInstance(baseMember.classType)),
