@@ -2888,7 +2888,9 @@ export class CompletionProvider {
             // Force auto-import entries to the end.
             completionItem.sortText = this._makeSortText(
                 SortCategory.AutoImport,
-                name,
+                `${name}.${this._formatInteger(detail.autoImportText.source.length, 2)}.${
+                    detail.autoImportText.source
+                }`,
                 detail.autoImportText.importText
             );
             completionItemData.autoImportText = detail.autoImportText.importText;

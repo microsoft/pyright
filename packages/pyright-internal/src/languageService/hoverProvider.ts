@@ -682,7 +682,7 @@ export function convertHoverResults(
     // If we have a lastKnownModule in the hover results, stick in a comment with
     // the hashed module name. This is used by the other side to send telemetry.
     if (hoverResults.lastKnownModule && format === MarkupKind.Markdown && includeHash) {
-        markupString += `<!--moduleHash:${hashString(hoverResults.lastKnownModule)}-->`;
+        markupString += `\n<!--moduleHash:${hashString(hoverResults.lastKnownModule)}-->`;
     }
 
     return {

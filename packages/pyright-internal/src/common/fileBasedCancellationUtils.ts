@@ -89,6 +89,9 @@ class FileBasedCancellationTokenSource implements AbstractCancellationTokenSourc
             // cancelled token when cancellation happens
             // before someone asks for the token.
             this._token = CancellationToken.Cancelled;
+        } else if (this._token.isCancellationRequested) {
+            // Already cancelled.
+            return;
         } else {
             (this._token as FileBasedToken).cancel();
         }
