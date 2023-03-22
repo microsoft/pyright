@@ -865,3 +865,58 @@ test('completion quote trigger - middle', async () => {
 
     assert.strictEqual(result?.completionList.items.length, 0);
 });
+
+test('auto import sort text', async () => {
+    const code = `
+// @filename: test.py
+//// [|os/*marker*/|]
+
+// @filename: unused.py
+//// import os
+//// p = os.path
+
+// @filename: vendored/__init__.py
+// @library: true
+//// # empty
+
+// @filename: vendored/os.py
+// @library: true
+//// def foo(): pass
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFiles(state.testData.files.map((f) => f.fileName));
+
+    while (state.workspace.service.test_program.analyze());
+
+    const filePath = marker.fileName;
+    const position = state.convertOffsetToPosition(filePath, marker.position);
+
+    const options: CompletionOptions = {
+        format: 'markdown',
+        snippet: false,
+        lazyEdit: false,
+        autoImport: true,
+        extraCommitChars: false,
+        importFormat: ImportFormat.Absolute,
+        includeUserSymbolsInAutoImport: true,
+    };
+
+    const result = await state.workspace.service.getCompletionsForPosition(
+        filePath,
+        position,
+        state.workspace.rootPath,
+        options,
+        undefined,
+        CancellationToken.None
+    );
+
+    const items = result?.completionList.items.filter((i) => i.label === 'os');
+    assert.strictEqual(items?.length, 2);
+
+    items.sort((a, b) => a.sortText!.localeCompare(b.sortText!));
+
+    assert(!items[0].labelDetails);
+    assert.strictEqual(items[1].labelDetails!.description, 'vendored');
+});
