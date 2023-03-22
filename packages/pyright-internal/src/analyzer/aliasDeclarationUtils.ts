@@ -44,17 +44,6 @@ export function resolveAliasDeclaration(
 
     while (true) {
         if (curDeclaration.type !== DeclarationType.Alias || !curDeclaration.symbolName) {
-            // If this is an alias with a path, perform the lookup to see if
-            // we can resolve it. If not, it's probably referencing a source file
-            // that we are not analyzing (e.g. a non-py.typed library source file
-            // when useLibraryCodeForTypes is disabled).
-            if (curDeclaration.type === DeclarationType.Alias && curDeclaration.path) {
-                const lookupResult = importLookup(curDeclaration.path);
-                if (!lookupResult) {
-                    return undefined;
-                }
-            }
-
             return {
                 declaration: curDeclaration,
                 isPrivate,
