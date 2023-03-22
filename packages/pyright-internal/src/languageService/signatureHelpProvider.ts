@@ -147,15 +147,17 @@ export class SignatureHelpProvider {
 
             // If we have a typedKwargs, the param name will be wrong.
             const kwargsIndex = paramIndex >= params.length ? params.length - 1 : paramIndex;
-            const kwargsParam = params[kwargsIndex];
-            if (
-                isTypedKwargs(kwargsParam) &&
-                isClassInstance(kwargsParam.type) &&
-                kwargsParam.type.details.typedDictEntries
-            ) {
-                // Use the relative position in typed dict entries.
-                const dictIndex = paramIndex - kwargsIndex;
-                paramName = [...kwargsParam.type.details.typedDictEntries.keys()][dictIndex];
+            if (kwargsIndex >= 0) {
+                const kwargsParam = params[kwargsIndex];
+                if (
+                    isTypedKwargs(kwargsParam) &&
+                    isClassInstance(kwargsParam.type) &&
+                    kwargsParam.type.details.typedDictEntries
+                ) {
+                    // Use the relative position in typed dict entries.
+                    const dictIndex = paramIndex - kwargsIndex;
+                    paramName = [...kwargsParam.type.details.typedDictEntries.keys()][dictIndex];
+                }
             }
 
             parameters.push({
