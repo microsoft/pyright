@@ -435,23 +435,42 @@ function assignClassToProtocolInternal(
     });
 
     // If the dest protocol has type parameters, make sure the source type arguments match.
-    if (typesAreConsistent && destType.details.typeParameters.length > 0 && destType.typeArguments) {
+    if (typesAreConsistent && destType.details.typeParameters.length > 0) {
         // Create a specialized version of the protocol defined by the dest and
         // make sure the resulting type args can be assigned.
         const specializedDestProtocol = applySolvedTypeVars(genericDestType, genericDestTypeVarContext) as ClassType;
 
-        if (
-            !evaluator.verifyTypeArgumentsAssignable(
-                destType,
-                specializedDestProtocol,
-                diag,
-                destTypeVarContext,
-                srcTypeVarContext,
-                flags,
-                recursionCount
-            )
+        if (destType.typeArguments) {
+            if (
+                !evaluator.verifyTypeArgumentsAssignable(
+                    destType,
+                    specializedDestProtocol,
+                    diag,
+                    destTypeVarContext,
+                    srcTypeVarContext,
+                    flags,
+                    recursionCount
+                )
+            ) {
+                typesAreConsistent = false;
+            }
+        } else if (
+            destTypeVarContext &&
+            destType.details.typeParameters.length > 0 &&
+            specializedDestProtocol.typeArguments &&
+            !destTypeVarContext.isLocked()
         ) {
-            typesAreConsistent = false;
+            // Populate the typeVar map with type arguments of the source.
+            const srcTypeArgs = specializedDestProtocol.typeArguments;
+            for (let i = 0; i < destType.details.typeParameters.length; i++) {
+                const typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
+                destTypeVarContext.setTypeVarType(
+                    destType.details.typeParameters[i],
+                    /* narrowBound */ undefined,
+                    /* narrowBoundNoLiterals */ undefined,
+                    typeArgType
+                );
+            }
         }
     }
 

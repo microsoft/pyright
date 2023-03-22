@@ -10131,7 +10131,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Now consume any keyword arguments.
             while (argIndex < argList.length) {
                 if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedDictionary) {
-                    // Verify that the type used in this expression is a Mapping[str, T].
+                    // Verify that the type used in this expression is a SupportsKeysAndGetItem[str, T].
                     const argType = getTypeOfArgument(argList[argIndex]).type;
                     if (isAnyOrUnknown(argType)) {
                         unpackedDictionaryArgType = argType;
@@ -10221,7 +10221,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             });
                         }
                     } else {
-                        const mappingType = getTypingType(errorNode, 'Mapping');
+                        let mappingType = getTypeshedType(errorNode, 'SupportsKeysAndGetItem');
+                        if (!mappingType) {
+                            mappingType = getTypingType(errorNode, 'Mapping');
+                        }
                         const strObjType = getBuiltInObject(errorNode, 'str');
 
                         if (
