@@ -113,21 +113,27 @@ class Contra(Generic[T_contra]):
     ...
 
 
-class CoToContra(Generic[T_contra]):
-    def f(self, arg: Co[T_contra]) -> None:
-        ...
+class CoToContra(Contra[Co[T_contra]]):
+    ...
 
 
-class ContraToContra(Generic[T_co]):
-    def f(self, arg: Contra[T_co]) -> None:
-        ...
+class ContraToContra(Contra[Contra[T_co]]):
+    ...
 
 
-class CoToCo(Generic[T_co]):
-    def f(self) -> Co[T_co]:
-        ...
+class CoToCo(Co[Co[T_co]]):
+    ...
 
 
-class ContraToCo(Generic[T_contra]):
-    def f(self) -> Contra[T_contra]:
-        ...
+class ContraToCo(Co[Contra[T_contra]]):
+    ...
+
+
+# This should generate an error.
+class CoToContraToContra(Contra[Co[Contra[T_contra]]]):
+    ...
+
+
+# This should generate an error.
+class ContraToContraToContra(Contra[Contra[Contra[T_co]]]):
+    ...

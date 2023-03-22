@@ -2658,8 +2658,25 @@ export function isVarianceOfTypeArgumentCompatible(type: Type, typeParamVariance
                     typeArgType = type.typeArguments[index];
                 }
 
-                const effectiveVariance =
-                    typeParam.details.declaredVariance === Variance.Invariant ? Variance.Invariant : typeParamVariance;
+                const declaredVariance = typeParam.details.declaredVariance;
+                if (declaredVariance === Variance.Auto) {
+                    return true;
+                }
+
+                let effectiveVariance = Variance.Invariant;
+                if (declaredVariance === Variance.Covariant) {
+                    // If the declared variance is covariant, the effective variance
+                    // is simply copied from the type param variance.
+                    effectiveVariance = typeParamVariance;
+                } else if (declaredVariance === Variance.Contravariant) {
+                    // If the declared variance is contravariant, it flips the
+                    // effective variance from contravariant to covariant or vice versa.
+                    if (typeParamVariance === Variance.Covariant) {
+                        effectiveVariance = Variance.Contravariant;
+                    } else if (typeParamVariance === Variance.Contravariant) {
+                        effectiveVariance = Variance.Covariant;
+                    }
+                }
 
                 return isVarianceOfTypeArgumentCompatible(typeArgType ?? UnknownType.create(), effectiveVariance);
             });
