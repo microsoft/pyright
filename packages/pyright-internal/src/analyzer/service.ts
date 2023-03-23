@@ -658,7 +658,7 @@ export class AnalyzerService {
             if (configFilePath) {
                 projectRoot = getDirectoryPath(configFilePath);
             } else {
-                this._console.info(`No configuration file found.`);
+                this._console.log(`No configuration file found.`);
                 configFilePath = undefined;
             }
         }
@@ -673,9 +673,9 @@ export class AnalyzerService {
 
             if (pyprojectFilePath) {
                 projectRoot = getDirectoryPath(pyprojectFilePath);
-                this._console.info(`pyproject.toml file found at ${projectRoot}.`);
+                this._console.log(`pyproject.toml file found at ${projectRoot}.`);
             } else {
-                this._console.info(`No pyproject.toml file found.`);
+                this._console.log(`No pyproject.toml file found.`);
             }
         }
 
@@ -840,10 +840,6 @@ export class AnalyzerService {
             } else {
                 reportDuplicateSetting('stubPath', configOptions.stubPath);
             }
-        } else {
-            if (!configOptions.stubPath) {
-                configOptions.stubPath = normalizePath(combinePaths(configOptions.projectRoot, 'typings'));
-            }
         }
 
         // Do some sanity checks on the specified settings and report missing
@@ -983,18 +979,12 @@ export class AnalyzerService {
     }
 
     private _getTypeStubFolder() {
-        const stubPath = this._configOptions.stubPath;
+        const stubPath =
+            this._configOptions.stubPath ?? normalizePath(combinePaths(this._configOptions.projectRoot, 'typings'));
+
         if (!this._typeStubTargetPath || !this._typeStubTargetImportName) {
             const errMsg = `Import '${this._typeStubTargetImportName}'` + ` could not be resolved`;
             this._console.error(errMsg);
-            throw new Error(errMsg);
-        }
-
-        if (!stubPath) {
-            // We should never get here because we always generate a
-            // default typings path if none was specified.
-            const errMsg = 'No typings path was specified';
-            this._console.info(errMsg);
             throw new Error(errMsg);
         }
 
@@ -1231,7 +1221,7 @@ export class AnalyzerService {
             }
         } else if (!this._options.skipScanningUserFiles) {
             let fileList: string[] = [];
-            this._console.info(`Searching for source files`);
+            this._console.log(`Searching for source files`);
             fileList = this._getFileNamesFromFileSpecs();
 
             // getFileNamesFromFileSpecs might have updated configOptions, resync options.

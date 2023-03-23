@@ -1200,7 +1200,7 @@ export class ConfigOptions {
 
         this.defaultPythonPlatform = host.getPythonPlatform();
         if (this.defaultPythonPlatform !== undefined) {
-            console.info(`Assuming Python platform ${this.defaultPythonPlatform}`);
+            console.log(`Assuming Python platform ${this.defaultPythonPlatform}`);
         }
     }
 
