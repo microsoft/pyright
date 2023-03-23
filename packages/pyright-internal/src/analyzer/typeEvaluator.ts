@@ -10992,10 +10992,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             specializedReturnType.typeArguments.length > 0
         ) {
             if (boolClassType && isInstantiableClass(boolClassType)) {
+                let typeGuardType = specializedReturnType.typeArguments[0];
+
+                // If the first argument is a simple (non-constrained) TypeVar,
+                // associate that TypeVar with the resulting TypeGuard type.
+                if (argResults.length > 0) {
+                    const arg0Type = argResults[0].argType;
+                    if (
+                        isTypeVar(arg0Type) &&
+                        !arg0Type.details.isParamSpec &&
+                        arg0Type.details.constraints.length === 0
+                    ) {
+                        typeGuardType = addConditionToType(typeGuardType, [
+                            {
+                                typeVarName: TypeVarType.getNameWithScope(arg0Type),
+                                constraintIndex: 0,
+                                isConstrainedTypeVar: false,
+                            },
+                        ]) as ClassType;
+                    }
+                }
+
                 specializedReturnType = ClassType.cloneAsInstance(
                     ClassType.cloneForTypeGuard(
                         boolClassType,
-                        specializedReturnType.typeArguments[0],
+                        typeGuardType,
                         ClassType.isBuiltIn(specializedReturnType, 'StrictTypeGuard')
                     )
                 );

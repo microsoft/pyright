@@ -90,3 +90,14 @@ def func3(x: Any):
     i = IsInt()
     if i(x):
         reveal_type(x, expected_text="int")
+
+
+def is_int(obj: type) -> TypeGuard[type[int]]:
+    ...
+
+
+def func4(typ: type[_T]) -> _T:
+    if not is_int(typ):
+        raise Exception("Unsupported type")
+
+    return typ()
