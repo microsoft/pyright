@@ -297,3 +297,59 @@ test('import tooltip - check duplicate property', async () => {
         marker: '```python\n(property) test: (self: Self@Test) -> bool\n```\n---\nTest DocString.\n\nReturns\n-------\nbool  \n&nbsp;&nbsp;&nbsp;&nbsp;Lorem Ipsum',
     });
 });
+
+test('import symbol tooltip - useLibraryCodeForTypes false', async () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "useLibraryCodeForTypes": false
+//// }
+
+// @filename: test.py
+//// from foo import [|/*marker1*/bar|]
+
+// @filename: foo/__init__.py
+// @library: true
+//// from .bar import bar
+
+// @filename: foo/bar.py
+// @library: true
+//// class bar: ...
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker1 = state.getMarkerByName('marker1');
+    state.openFile(marker1.fileName);
+
+    state.verifyHover('markdown', {
+        marker1: '```python\n(import) bar: Unknown\n```',
+    });
+});
+
+test('import symbol tooltip - useLibraryCodeForTypes true', async () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "useLibraryCodeForTypes": true
+//// }
+
+// @filename: test.py
+//// from foo import [|/*marker1*/bar|]
+
+// @filename: foo/__init__.py
+// @library: true
+//// from .bar import bar
+
+// @filename: foo/bar.py
+// @library: true
+//// class bar: ...
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker1 = state.getMarkerByName('marker1');
+    state.openFile(marker1.fileName);
+
+    state.verifyHover('markdown', {
+        marker1: '```python\n(class) bar\n```',
+    });
+});

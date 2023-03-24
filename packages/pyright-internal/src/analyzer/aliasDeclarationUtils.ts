@@ -73,6 +73,24 @@ export function resolveAliasDeclaration(
             : undefined;
         if (!symbol) {
             if (curDeclaration.submoduleFallback) {
+                if (curDeclaration.symbolName) {
+                    // See if we are resolving a specific imported symbol name and the submodule
+                    // fallback cannot be resolved. For example, `from a import b`. If b is both
+                    // a symbol in `a/__init__.py` and a submodule `a/b.py` and we are not using
+                    // type information from this library (e.g. a non-py.typed library source file
+                    // when useLibraryCodeForTypes is disabled), b should be evaluated as Unknown,
+                    // not as a module.
+                    if (
+                        curDeclaration.submoduleFallback.type === DeclarationType.Alias &&
+                        curDeclaration.submoduleFallback.path
+                    ) {
+                        const lookupResult = importLookup(curDeclaration.submoduleFallback.path);
+                        if (!lookupResult) {
+                            return undefined;
+                        }
+                    }
+                }
+
                 return resolveAliasDeclaration(
                     importLookup,
                     curDeclaration.submoduleFallback,
