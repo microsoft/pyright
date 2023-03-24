@@ -264,6 +264,7 @@ import {
     getTypeVarScopeId,
     getUnionSubtypeCount,
     InferenceContext,
+    isDescriptorInstance,
     isEffectivelyInstantiable,
     isEllipsisType,
     isIncompleteUnknown,
@@ -5444,9 +5445,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isInstantiableClass(containingClassType) &&
                         ClassType.isSameGenericClass(containingClassType, classType)
                     ) {
-                        type = getDeclaredTypeOfSymbol(memberInfo.symbol)?.type ?? UnknownType.create();
+                        type = getDeclaredTypeOfSymbol(memberInfo.symbol)?.type;
                         if (type && isInstantiableClass(memberInfo.classType)) {
                             type = partiallySpecializeType(type, memberInfo.classType);
+                        }
+
+                        // If we're setting a class variable via a write through an object,
+                        // this is normally considered a type violation. But it is allowed
+                        // if the class variable is a descriptor object. In this case, we will
+                        // clear the flag that causes an error to be generated.
+                        if (usage.method === 'set' && memberInfo.symbol.isClassVar() && isAccessedThroughObject) {
+                            const selfClass = bindToType || memberName === '__new__' ? undefined : classType;
+                            const typeResult = getTypeOfMemberInternal(memberInfo, selfClass);
+
+                            if (typeResult) {
+                                if (isDescriptorInstance(typeResult.type, /* requireSetter */ true)) {
+                                    type = typeResult.type;
+                                    flags &= MemberAccessFlags.DisallowClassVarWrites;
+                                }
+                            }
+                        }
+
+                        if (!type) {
+                            type = UnknownType.create();
                         }
                     }
                 }
@@ -21280,6 +21301,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // are provided -- normally an error, but it can happen in stdlib stubs
             // if the user sets the pythonPlatform to "All".
             if (sawExplicitTypeAlias) {
+                considerDecl = false;
+            }
+
+            // If the symbol is explicitly marked as a ClassVar, consider only the
+            // declarations that assign to it from within the class body, not through
+            // a member access expression.
+            if (symbol.isClassVar() && decl.type === DeclarationType.Variable && decl.isDefinedByMemberAccess) {
                 considerDecl = false;
             }
 
