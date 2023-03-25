@@ -24065,7 +24065,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (!constructorFunction.details.docString && classType.details.docString) {
                         constructorFunction.details.docString = classType.details.docString;
                     }
+
+                    constructorFunction.details.flags &= ~FunctionTypeFlags.StaticMethod;
                 }
+
                 return constructorFunction;
             };
 
@@ -24116,6 +24119,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (!constructorFunction.details.docString && classType.details.docString) {
                         constructorFunction.details.docString = classType.details.docString;
                     }
+
+                    constructorFunction.details.flags &= ~(
+                        FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod
+                    );
                 }
 
                 return constructorFunction;
@@ -24143,10 +24150,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Return a generic constructor.
-        const constructorFunction = FunctionType.createSynthesizedInstance(
-            '__new__',
-            FunctionTypeFlags.ConstructorMethod
-        );
+        const constructorFunction = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.None);
         constructorFunction.details.declaredReturnType = ClassType.cloneAsInstance(classType);
         FunctionType.addDefaultParameters(constructorFunction);
 
