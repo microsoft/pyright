@@ -621,7 +621,7 @@ test('DataClass17', () => {
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass17.py'], configOptions);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('DataClass18', () => {

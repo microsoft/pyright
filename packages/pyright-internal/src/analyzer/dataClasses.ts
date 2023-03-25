@@ -625,6 +625,26 @@ export function synthesizeDataClassMethods(
         classType.details.localSlotsNames = localDataClassEntries.map((entry) => entry.name);
     }
 
+    // Should we synthesize a __slots__ symbol?
+    if (ClassType.isGeneratedDataClassSlots(classType)) {
+        let iterableType = evaluator.getTypingType(node, 'Iterable') ?? UnknownType.create();
+
+        if (isInstantiableClass(iterableType)) {
+            iterableType = ClassType.cloneAsInstance(
+                ClassType.cloneForSpecialization(
+                    iterableType,
+                    [evaluator.getBuiltInObject(node, 'str')],
+                    /* isTypeArgumentExplicit */ true
+                )
+            );
+        }
+
+        symbolTable.set(
+            '__slots__',
+            Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.ClassVar, iterableType)
+        );
+    }
+
     // If this dataclass derived from a NamedTuple, update the NamedTuple with
     // the specialized entry types.
     updateNamedTupleBaseClass(

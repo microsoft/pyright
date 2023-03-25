@@ -44,3 +44,26 @@ class D:
 
 
 D(1, "bar")
+
+
+@dataclass(slots=True)
+class E:
+    a: int
+
+
+E.__slots__
+E(1).__slots__
+
+reveal_type(E.__slots__, expected_text="Iterable[str]")
+
+
+@dataclass
+class F:
+    a: int
+
+
+# This should generate an error.
+F.__slots__
+
+# This should generate an error.
+F(1).__slots__
