@@ -6498,21 +6498,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if ((flags & EvaluatorFlags.EnforceTypeVarVarianceConsistency) !== 0) {
-                    if (isTypeVar(typeArgType)) {
-                        const usageVariances = inferTypeParameterVarianceForTypeAlias(baseType);
-                        if (usageVariances && index < usageVariances.length) {
-                            const usageVariance = usageVariances[index];
+                    const usageVariances = inferTypeParameterVarianceForTypeAlias(baseType);
+                    if (usageVariances && index < usageVariances.length) {
+                        const usageVariance = usageVariances[index];
 
-                            if (!isVarianceOfTypeArgumentCompatible(typeArgType, usageVariance)) {
-                                const messageDiag = diag.createAddendum();
-                                messageDiag.addMessage(
-                                    Localizer.DiagnosticAddendum.varianceMismatchForTypeAlias().format({
-                                        typeVarName: printType(typeArgType),
-                                        typeAliasParam: printType(typeParameters[index]),
-                                    })
-                                );
-                                messageDiag.addTextRange(typeArgs[index].node);
-                            }
+                        if (!isVarianceOfTypeArgumentCompatible(typeArgType, usageVariance)) {
+                            const messageDiag = diag.createAddendum();
+                            messageDiag.addMessage(
+                                Localizer.DiagnosticAddendum.varianceMismatchForTypeAlias().format({
+                                    typeVarName: printType(typeArgType),
+                                    typeAliasParam: printType(typeParameters[index]),
+                                })
+                            );
+                            messageDiag.addTextRange(typeArgs[index].node);
                         }
                     }
                 }
@@ -6892,12 +6890,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // Is the class specialized using any type arguments that correspond to
                     // the type alias' type parameters?
                     subtype.typeArguments.forEach((typeArg, classParamIndex) => {
-                        if (classParamIndex < subtype.details.typeParameters.length) {
+                        if (isTupleClass(subtype)) {
+                            updateUsageVarianceForType(typeArg, Variance.Covariant);
+                        } else if (classParamIndex < subtype.details.typeParameters.length) {
                             const classTypeParam = subtype.details.typeParameters[classParamIndex];
-                            updateUsageVarianceForType(
-                                typeArg,
-                                classTypeParam.computedVariance ?? classTypeParam.details.declaredVariance
-                            );
+                            if (isUnpackedClass(typeArg) && typeArg.tupleTypeArguments) {
+                                typeArg.tupleTypeArguments.forEach((tupleTypeArg) => {
+                                    updateUsageVarianceForType(tupleTypeArg.type, Variance.Invariant);
+                                });
+                            } else {
+                                updateUsageVarianceForType(
+                                    typeArg,
+                                    classTypeParam.computedVariance ?? classTypeParam.details.declaredVariance
+                                );
+                            }
                         }
                     });
                 }

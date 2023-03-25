@@ -2,7 +2,7 @@
 # a base class within a class definition cannot be covariant or
 # contravariant if the base class requires an invariant type parameter.
 
-from typing import Generic, Sequence, TypeVar
+from typing import Generic, Sequence, TypeVar, TypeVarTuple, Unpack
 
 T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
@@ -136,4 +136,89 @@ class CoToContraToContra(Contra[Co[Contra[T_contra]]]):
 
 # This should generate an error.
 class ContraToContraToContra(Contra[Contra[Contra[T_co]]]):
+    ...
+
+
+Co_TA = Co[T_co]
+Contra_TA = Contra[T_contra]
+
+
+class CoToContra_WithTA(Contra_TA[Co_TA[T_contra]]):
+    ...
+
+
+class ContraToContra_WithTA(Contra_TA[Contra_TA[T_co]]):
+    ...
+
+
+class CoToCo_WithTA(Co_TA[Co_TA[T_co]]):
+    ...
+
+
+class ContraToCo_WithTA(Co_TA[Contra_TA[T_contra]]):
+    ...
+
+
+# This should generate an error.
+class CoToContraToContra_WithTA(Contra_TA[Co_TA[Contra_TA[T_contra]]]):
+    ...
+
+
+# This should generate an error.
+class ContraToContraToContra_WithTA(Contra_TA[Contra_TA[Contra_TA[T_co]]]):
+    ...
+
+
+Ts = TypeVarTuple("Ts")
+
+
+class Variadic(Generic[Unpack[Ts]]):
+    ...
+
+
+class VariadicChild(Variadic[T]):
+    ...
+
+
+# This should generate an error.
+class VariadicChildCo(Variadic[T_co]):
+    ...
+
+
+# This should generate an error.
+class VariadicChildContra(Variadic[T_contra]):
+    ...
+
+
+Variadic_TA = Variadic[Unpack[tuple[int, Unpack[Ts]]]]
+
+
+class VariadicChild_WithTA(Variadic_TA[T]):
+    ...
+
+
+# This should generate an error.
+class VariadicChildCo_WithTA(Variadic_TA[T_co]):
+    ...
+
+
+# This should generate an error.
+class VariadicChildContra_WithTA(Variadic_TA[T_contra]):
+    ...
+
+
+Variadic_TA2 = Variadic[Unpack[tuple[int, T]]]
+
+
+class VariadicChild_WithTA2(Variadic_TA2[T]):
+    ...
+
+
+# This should generate an error.
+class VariadicChildCo_WithTA2(Variadic_TA2[T_co]):
+    ...
+
+
+# This should generate an error.
+class VariadicChildContra_WithTA2(Variadic_TA2[T_contra]):
     ...
