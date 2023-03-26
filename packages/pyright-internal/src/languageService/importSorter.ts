@@ -5,7 +5,7 @@
  * Author: Eric Traut
  *
  * Provides code that sorts and formats import statements within a
- * python source file.
+ * Python source file.
  */
 
 import { CancellationToken } from 'vscode-languageserver';

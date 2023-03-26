@@ -18,11 +18,10 @@ import {
 } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 
-import { resolveAliasDeclaration } from '../analyzer/aliasDeclarationUtils';
 import { AnalyzerFileInfo, ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { AliasDeclaration, Declaration, DeclarationType } from '../analyzer/declaration';
-import { getNameFromDeclaration } from '../analyzer/declarationUtils';
+import { getNameFromDeclaration, resolveAliasDeclaration } from '../analyzer/declarationUtils';
 import { getLastTypedDeclaredForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { isMaybeDescriptorInstance } from '../analyzer/typeUtils';

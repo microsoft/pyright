@@ -15,17 +15,16 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
 import { ArgumentCategory, ExpressionNode, ParameterCategory } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
+import { getParameterListDetails, ParameterSource } from './parameterUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { FunctionArgument, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
 import { ClassType, FunctionParameter, FunctionType, isClassInstance, isFunction, isTypeSame } from './types';
 import {
     applySolvedTypeVars,
     convertToInstance,
-    getParameterListDetails,
     getTypeVarScopeId,
     lookUpObjectMember,
     makeInferenceContext,
-    ParameterSource,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 

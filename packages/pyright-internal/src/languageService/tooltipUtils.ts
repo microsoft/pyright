@@ -4,8 +4,8 @@
  * Licensed under the MIT license.
  * Author: Eric Traut
  *
- * Tooltip helper methods that can be shared between multiple language server features such as
- * hover and completion tooltip.
+ * Helper functions for formatting text that can appear in hover text,
+ * completion suggestions, etc.
  */
 
 import { Declaration, DeclarationType, VariableDeclaration } from '../analyzer/declaration';

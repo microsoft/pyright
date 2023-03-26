@@ -3,7 +3,7 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Logic that maps a (.pyi) stub to its (.py) implementation source file.
+ * Logic that maps a ".pyi" stub to its ".py" source file.
  */
 
 import { CancellationToken } from 'vscode-jsonrpc';

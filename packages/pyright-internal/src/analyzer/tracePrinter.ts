@@ -3,7 +3,7 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Converts various types into a string representation.
+ * Converts various types into string representations.
  */
 
 import { isNumber, isString } from '../common/core';

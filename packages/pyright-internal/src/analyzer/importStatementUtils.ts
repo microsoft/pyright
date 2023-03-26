@@ -5,7 +5,7 @@
  * Author: Eric Traut
  *
  * Utility routines for summarizing and manipulating
- * import statements in a python source file.
+ * import statements in a Python source file.
  */
 
 import { CancellationToken } from 'vscode-languageserver';

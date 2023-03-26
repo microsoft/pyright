@@ -4,8 +4,8 @@
  * Licensed under the MIT license.
  * Author: Eric Traut
  *
- * Collection of static methods that operate on expressions
- * (parse node trees).
+ * Functions that operate on expressions (parse node trees)
+ * whose values can be evaluated statically.
  */
 
 import { ExecutionEnvironment, PythonPlatform } from '../common/configOptions';

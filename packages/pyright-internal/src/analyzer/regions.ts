@@ -41,8 +41,8 @@ export function getRegionComments(parseResults: ParseResults): RegionComment[] {
 
 // A comment starting with "region" or "endregion" is only treated as a region/endregion
 // if it is not followed by an identifier character.
-const StartRegionRegx = /^\s*region\b/;
-const EndRegionRegex = /^\s*endregion\b/;
+const StartRegionRegEx = /^\s*region\b/;
+const EndRegionRegEx = /^\s*endregion\b/;
 
 function getRegionCommentType(comment: Comment, parseResults: ParseResults): RegionCommentType | undefined {
     const hashOffset = comment.start - 1;
@@ -58,8 +58,8 @@ function getRegionCommentType(comment: Comment, parseResults: ParseResults): Reg
         }
     }
 
-    const startRegionMatch = StartRegionRegx.exec(comment.value);
-    const endRegionMatch = EndRegionRegex.exec(comment.value);
+    const startRegionMatch = StartRegionRegEx.exec(comment.value);
+    const endRegionMatch = EndRegionRegEx.exec(comment.value);
 
     if (startRegionMatch) {
         return RegionCommentType.Region;

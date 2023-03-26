@@ -1,7 +1,7 @@
 /*
  * realFileSystem.ts
  *
- * Collection of helper functions that require real fs access.
+ * Helper functions that require real filesystem access.
  */
 
 import { FakeFS, NativePath, PortablePath, PosixFS, ppath, VirtualFS, ZipFS, ZipOpenFS } from '@yarnpkg/fslib';

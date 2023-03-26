@@ -5,6 +5,7 @@
  *
  * Helper functions for providing completions
  */
+
 import { InsertTextFormat, MarkupContent, MarkupKind, TextEdit } from 'vscode-languageserver-types';
 
 import { Declaration, DeclarationType } from '../analyzer/declaration';

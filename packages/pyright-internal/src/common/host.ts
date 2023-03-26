@@ -3,7 +3,7 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Provides accesses to the host the language service runs on
+ * Provides access to the host environment the language service is running on.
  */
 
 import { PythonPathResult } from '../analyzer/pythonPathUtils';

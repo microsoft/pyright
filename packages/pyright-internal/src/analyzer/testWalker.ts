@@ -1,5 +1,8 @@
 /*
  * testWalker.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
  *
  * Walks a parse tree to validate internal consistency and completeness.
  */

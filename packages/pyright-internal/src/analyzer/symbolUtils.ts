@@ -4,7 +4,7 @@
  * Licensed under the MIT license.
  * Author: Eric Traut
  *
- * Collection of functions that operate on Symbol objects.
+ * Functions that operate on Symbol objects.
  */
 
 import { Declaration, DeclarationType } from './declaration';

@@ -1,7 +1,10 @@
 /*
  * progressReporter.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
  *
- * Implements progress reporter.
+ * Implements a mechanism for reporting progress in a language server client.
  */
 
 export interface ProgressReporter {

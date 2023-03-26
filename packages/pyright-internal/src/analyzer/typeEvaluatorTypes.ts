@@ -5,7 +5,6 @@
  * Author: Eric Traut
  *
  * Abstract interface and other helper types for type evaluator module.
- *
  */
 
 import { CancellationToken } from 'vscode-languageserver-protocol';
@@ -30,10 +29,10 @@ import {
     RaiseNode,
     StringNode,
 } from '../parser/parseNodes';
-import * as DeclarationUtils from './aliasDeclarationUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { CodeFlowReferenceExpressionNode, FlowNode } from './codeFlowTypes';
 import { Declaration } from './declaration';
+import * as DeclarationUtils from './declarationUtils';
 import { SymbolWithScope } from './scope';
 import { Symbol } from './symbol';
 import { PrintTypeFlags } from './typePrinter';

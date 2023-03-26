@@ -4,7 +4,7 @@
  * Licensed under the MIT license.
  * Author: Eric Traut
  *
- * A persistent service that is able to analyze a collection of
+ * A service that is able to analyze a collection of
  * Python files.
  */
 

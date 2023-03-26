@@ -4,8 +4,7 @@
  * Licensed under the MIT license.
  * Author: Eric Traut
  *
- * Types and functions that relate to the Python language version
- * and features within them.
+ * Types and functions that relate to the Python language version.
  */
 
 export enum PythonVersion {

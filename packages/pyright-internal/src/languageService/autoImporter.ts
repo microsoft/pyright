@@ -3,6 +3,7 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
+ * Logic for performing auto-import completions.
  */
 
 import { CancellationToken, CompletionItemKind, SymbolKind } from 'vscode-languageserver';

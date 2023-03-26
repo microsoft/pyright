@@ -4,7 +4,7 @@
  * Licensed under the MIT license.
  * Author: Eric Traut
  *
- * Class that represents errors and warnings.
+ * Class that collects and deduplicates diagnostics.
  */
 
 import { appendArray } from './collectionUtils';

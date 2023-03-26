@@ -3,7 +3,7 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Helper methods relating to file based cancellation.
+ * Helper methods relating to file-based cancellation.
  */
 
 import * as fs from 'fs';

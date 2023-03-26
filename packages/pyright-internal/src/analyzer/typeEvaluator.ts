@@ -82,7 +82,6 @@ import {
 } from '../parser/parseNodes';
 import { ParseOptions, Parser } from '../parser/parser';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
-import * as DeclarationUtils from './aliasDeclarationUtils';
 import { AnalyzerFileInfo, ImportLookup, isAnnotationEvaluationPostponed } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CodeFlowAnalyzer, FlowNodeTypeOptions, FlowNodeTypeResult, getCodeFlowEngine } from './codeFlowEngine';
@@ -114,6 +113,8 @@ import {
     createSynthesizedAliasDeclaration,
     getDeclarationsWithUsesLocalNameRemoved,
     getNameNodeForDeclaration,
+    resolveAliasDeclaration as resolveAliasDeclarationUtil,
+    ResolvedAliasInfo,
 } from './declarationUtils';
 import {
     createEnumType,
@@ -125,6 +126,12 @@ import {
 } from './enums';
 import { applyFunctionTransform } from './functionTransform';
 import { createNamedTupleType } from './namedTuples';
+import {
+    getParameterListDetails,
+    ParameterListDetails,
+    ParameterSource,
+    VirtualParameterDetails,
+} from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { assignTypeToPatternTargets, checkForUnusedPattern, narrowTypeBasedOnPattern } from './patternMatching';
 import {
@@ -257,7 +264,6 @@ import {
     getGeneratorTypeArgs,
     getGeneratorYieldType,
     getLiteralTypeClassName,
-    getParameterListDetails,
     getSpecializedTupleType,
     getTypeCondition,
     getTypeVarArgumentsRecursive,
@@ -285,8 +291,6 @@ import {
     lookUpObjectMember,
     makeInferenceContext,
     mapSubtypes,
-    ParameterListDetails,
-    ParameterSource,
     partiallySpecializeType,
     preserveUnknown,
     removeParamSpecVariadicsFromFunction,
@@ -301,7 +305,6 @@ import {
     synthesizeTypeVarForSelfCls,
     transformPossibleRecursiveTypeAlias,
     validateTypeVarDefault,
-    VirtualParameterDetails,
 } from './typeUtils';
 import { TypeVarContext, TypeVarSignatureContext } from './typeVarContext';
 
@@ -21166,25 +21169,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         resolveLocalNames: boolean,
         allowExternallyHiddenAccess = false
     ): Declaration | undefined {
-        return DeclarationUtils.resolveAliasDeclaration(
-            importLookup,
-            declaration,
-            resolveLocalNames,
-            allowExternallyHiddenAccess
-        )?.declaration;
+        return resolveAliasDeclarationUtil(importLookup, declaration, resolveLocalNames, allowExternallyHiddenAccess)
+            ?.declaration;
     }
 
     function resolveAliasDeclarationWithInfo(
         declaration: Declaration,
         resolveLocalNames: boolean,
         allowExternallyHiddenAccess = false
-    ): DeclarationUtils.ResolvedAliasInfo | undefined {
-        return DeclarationUtils.resolveAliasDeclaration(
-            importLookup,
-            declaration,
-            resolveLocalNames,
-            allowExternallyHiddenAccess
-        );
+    ): ResolvedAliasInfo | undefined {
+        return resolveAliasDeclarationUtil(importLookup, declaration, resolveLocalNames, allowExternallyHiddenAccess);
     }
 
     // Returns the type of the symbol. If the type is explicitly declared, that type

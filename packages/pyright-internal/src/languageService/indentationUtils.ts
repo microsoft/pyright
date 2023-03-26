@@ -3,7 +3,8 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Provides code to get indentation and re-indent code to the given indentation.
+ * Provides code to get indentation and re-indent code for the
+ * given indentation.
  */
 
 import Char from 'typescript-char';

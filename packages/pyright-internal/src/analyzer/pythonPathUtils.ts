@@ -4,7 +4,7 @@
  * Licensed under the MIT license.
  * Author: Eric Traut
  *
- * Utility routines used to resolve various paths in python.
+ * Utility routines used to resolve various paths in Python.
  */
 
 import { ConfigOptions } from '../common/configOptions';

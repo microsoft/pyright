@@ -11,6 +11,7 @@
  * and checked. It also performs some additional checks that
  * cannot (or should not be) performed lazily.
  */
+
 import { CancellationToken } from 'vscode-languageserver';
 
 import { Commands } from '../commands/commands';
@@ -95,6 +96,7 @@ import { Declaration, DeclarationType, isAliasDeclaration } from './declaration'
 import { createImportedModuleDescriptor, ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
+import { getParameterListDetails } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
@@ -158,7 +160,6 @@ import {
     getDeclaredGeneratorReturnType,
     getGeneratorTypeArgs,
     getGeneratorYieldType,
-    getParameterListDetails,
     getProtocolSymbols,
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,

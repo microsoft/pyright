@@ -4,7 +4,7 @@
  * Licensed under the MIT license.
  * Author: Eric Traut
  *
- * Class that represents a single python source file.
+ * Class that represents a single Python source or stub file.
  */
 
 import {

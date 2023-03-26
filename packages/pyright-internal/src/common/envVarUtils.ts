@@ -1,3 +1,11 @@
+/*
+ * envVarUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ *
+ * Utils functions that handles environment variables.
+ */
+
 import * as os from 'os';
 
 import {
@@ -6,14 +14,6 @@ import {
     getPathComponents,
     hasTrailingDirectorySeparator,
 } from './pathUtils';
-
-/*
- * envVarUtils.ts
- * Copyright (c) Microsoft Corporation.
- * Licensed under the MIT license.
- *
- * Utils functions that handles environment variables.
- */
 
 // Expands certain predefined variables supported within VS Code settings.
 // Ideally, VS Code would provide an API for doing this expansion, but

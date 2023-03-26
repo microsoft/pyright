@@ -3,7 +3,7 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Track text edits per files.
+ * Tracks text edits on a per-file basis.
  */
 
 import { CancellationToken } from 'vscode-languageserver';

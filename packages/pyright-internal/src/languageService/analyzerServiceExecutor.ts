@@ -7,6 +7,7 @@
  * Runs the analyzer service of a given workspace service instance
  * with a specified set of options.
  */
+
 import { isPythonBinary } from '../analyzer/pythonPathUtils';
 import { AnalyzerService, getNextServiceId } from '../analyzer/service';
 import { CommandLineOptions } from '../common/commandLineOptions';
