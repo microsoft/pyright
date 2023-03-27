@@ -150,7 +150,8 @@ function assignClassToProtocolInternal(
     const genericDestTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
 
     const selfTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
-    populateTypeVarContextForSelfType(selfTypeVarContext, destType, srcType);
+    const noLiteralSrcType = evaluator.stripLiteralValue(srcType) as ClassType;
+    populateTypeVarContextForSelfType(selfTypeVarContext, destType, noLiteralSrcType);
 
     // If the source is a TypedDict, use the _TypedDict placeholder class
     // instead. We don't want to use the TypedDict members for protocol
@@ -248,7 +249,11 @@ function assignClassToProtocolInternal(
                                 evaluator.inferReturnTypeIfNecessary(symbolType);
                             }
 
-                            srcMemberType = partiallySpecializeType(symbolType, srcMemberInfo.classType, srcType);
+                            srcMemberType = partiallySpecializeType(
+                                symbolType,
+                                srcMemberInfo.classType,
+                                noLiteralSrcType
+                            );
                         } else {
                             srcMemberType = UnknownType.create();
                         }
