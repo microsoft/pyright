@@ -1815,11 +1815,13 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
         );
     }
 
-    // Cache the converted value for next time.
-    if (!type.cached) {
-        type.cached = {};
+    if (type !== result) {
+        // Cache the converted value for next time.
+        if (!type.cached) {
+            type.cached = {};
+        }
+        type.cached.instanceType = result;
     }
-    type.cached.instanceType = result;
 
     return result;
 }
