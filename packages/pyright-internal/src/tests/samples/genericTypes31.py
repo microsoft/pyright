@@ -2,29 +2,48 @@
 # whereby it attempts to solve type variables with the simplest
 # possible solution.
 
-from typing import Union, List, TypeVar, Type
+from typing import Callable, TypeVar
 
 T = TypeVar("T")
 
 
-def to_list1(obj_type: Type[T], obj: Union[List[T], T]) -> List[T]:
+def func1(obj_type: type[T], obj: list[T] | T) -> list[T]:
     return []
 
 
-def to_list2(obj_type: Type[T], obj: Union[T, List[T]]) -> List[T]:
+def func2(obj_type: type[T], obj: T | list[T]) -> list[T]:
     return []
 
 
-input_list: List[str] = ["string"]
+def func3(input1: list[str]):
+    val1 = func1(str, input1)
+    reveal_type(val1, expected_text="list[str]")
+
+    val2 = func2(str, input1)
+    reveal_type(val2, expected_text="list[str]")
 
 
-# The expression on the RHS can satisfy the type variable T
-# with either the type str or Union[List[str], str]. It should
-# pick the simpler of the two.
-output_list1 = to_list1(str, input_list)
-verify_type1: List[str] = output_list1
+def func4(
+    func: Callable[[], T] | Callable[[T], None] | list[T] | dict[str, T] | T
+) -> T:
+    ...
 
-# The resulting type should not depend on the order of the union
-# elements.
-output_list2 = to_list2(str, input_list)
-verify_type2: List[str] = output_list2
+
+def func5(func: Callable[[], T]) -> T:
+    ...
+
+
+def func6(val: str) -> None:
+    ...
+
+
+def func7() -> str:
+    ...
+
+
+reveal_type(func4([""]), expected_text="str")
+reveal_type(func4({"": 1}), expected_text="int")
+reveal_type(func4(func6), expected_text="str")
+reveal_type(func4(func7), expected_text="str")
+reveal_type(func4(str), expected_text="Type[str]")
+reveal_type(func5(str), expected_text="str")

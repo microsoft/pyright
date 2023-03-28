@@ -223,10 +223,15 @@ export class TypeVarSignatureContext {
             case TypeCategory.Unknown:
             case TypeCategory.Any:
             case TypeCategory.None:
-            case TypeCategory.Function:
-            case TypeCategory.OverloadedFunction:
             case TypeCategory.TypeVar: {
                 return 0.5;
+            }
+
+            case TypeCategory.Function:
+            case TypeCategory.OverloadedFunction: {
+                // Classes and unions should be preferred over functions,
+                // so make this relatively high (more than 0.75).
+                return 0.8;
             }
 
             case TypeCategory.Unbound:
