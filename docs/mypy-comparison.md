@@ -112,7 +112,7 @@ a.x = 3.0 # Pyright treats this as an error because the type of `x` is `int | st
 
 ### Class and Instance Variable Enforcement
 
-Pyright distinguishes between “pure class variables”, “regular class variables”, and “pure instance variable”. For a detailed explanation, refer to [this documentation](type-concepts.md#class-and-instance-variables).
+Pyright distinguishes between “pure class variables”, “regular class variables”, and “pure instance variable”. For a detailed explanation, refer to [this documentation](type-concepts-advanced.md#class-and-instance-variables).
 
 Mypy does not distinguish between class variables and instance variables in all cases. This is a [known issue](https://github.com/python/mypy/issues/240).
 
@@ -146,7 +146,7 @@ reveal_type(v2) # mypy reveals `Sequence[int]` rather than `list[int]`
 
 ### Type Guards
 
-Pyright supports several built-in type guards that mypy does not currently support. For a full list of type guard expression forms supported by pyright, refer to [this documentation](type-concepts.md#type-guards).
+Pyright supports several built-in type guards that mypy does not currently support. For a full list of type guard expression forms supported by pyright, refer to [this documentation](type-concepts-advanced.md#type-guards).
 
 The following expression forms are not currently supported by mypy as type guards:
 * `x == L` and `x != L` (where L is an expression with a literal type)
@@ -157,12 +157,12 @@ The following expression forms are not currently supported by mypy as type guard
 
 ### Aliased Conditional Expressions
 
-Pyright supports the [aliasing of conditional expressions](type-concepts.md#aliased-conditional-expression) used for type guards. Mypy does not currently support this, but it is a frequently-requested feature.
+Pyright supports the [aliasing of conditional expressions](type-concepts-advanced.md#aliased-conditional-expression) used for type guards. Mypy does not currently support this, but it is a frequently-requested feature.
 
 
 ### Narrowing for Implied Else
 
-Pyright supports a feature called [type narrowing for implied else](type-concepts.md#narrowing-for-implied-else) in cases where an `if` or `elif` clause has no associated `else` clause. This feature allows pyright to determine that all cases have already been handled by the `if` or `elif` statement and that the "implied else" would never be executed if it were present. This eliminates certain false positive errors. Mypy currently does not support this.
+Pyright supports a feature called [type narrowing for implied else](type-concepts-advanced.md#narrowing-for-implied-else) in cases where an `if` or `elif` clause has no associated `else` clause. This feature allows pyright to determine that all cases have already been handled by the `if` or `elif` statement and that the "implied else" would never be executed if it were present. This eliminates certain false positive errors. Mypy currently does not support this.
 
 ```python
 class Color(Enum):
@@ -333,7 +333,7 @@ def func(a: AnyStr, b: T):
     return a + b # Mypy reports 4 errors
 ```
 
-Pyright cannot use the same multi-pass technique as mypy in this case. It needs to produce a single type for any given identifier to support language server features. Pyright instead uses a mechanism called [conditional types](type-concepts.md#constrained-type-variables-and-conditional-types). This approach allows pyright to handle some constrained TypeVar use cases that mypy cannot, but there are conversely other use cases that mypy can handle and pyright cannot.
+Pyright cannot use the same multi-pass technique as mypy in this case. It needs to produce a single type for any given identifier to support language server features. Pyright instead uses a mechanism called [conditional types](type-concepts-advanced.md#constrained-type-variables-and-conditional-types). This approach allows pyright to handle some constrained TypeVar use cases that mypy cannot, but there are conversely other use cases that mypy can handle and pyright cannot.
 
 
 ### “Unknown” Type and Strict Mode
@@ -347,7 +347,7 @@ Pyright’s approach gives developers more control. It provides a way to be expl
 
 ### Overload Resolution
 
-Overload resolution rules are under-specified in PEP 484. Pyright and mypy apply similar rules, but there are likely some complex edge cases where different results will be produced. For full documentation of pyright’s overload behaviors, refer to [this documentation](type-concepts.md#overloads).
+Overload resolution rules are under-specified in PEP 484. Pyright and mypy apply similar rules, but there are likely some complex edge cases where different results will be produced. For full documentation of pyright’s overload behaviors, refer to [this documentation](type-concepts-advanced.md#overloads).
 
 
 ### Import Statements

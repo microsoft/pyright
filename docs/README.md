@@ -1,4 +1,4 @@
-![Pyright](/img/PyrightLarge.png)
+![Pyright](img/PyrightLarge.png)
 
 # Static type checker for Python
 
