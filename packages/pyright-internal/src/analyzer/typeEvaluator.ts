@@ -16389,7 +16389,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // The scope for this class becomes the "fields" for the corresponding type.
         const innerScope = ScopeUtils.getScopeForNode(node.suite);
-        classType.details.fields = innerScope?.symbolTable || new Map<string, Symbol>();
+        classType.details.fields = innerScope?.symbolTable
+            ? new Map<string, Symbol>(innerScope.symbolTable)
+            : new Map<string, Symbol>();
 
         // Determine whether the class's instance variables are constrained
         // to those defined by __slots__. We need to do this prior to dataclass
