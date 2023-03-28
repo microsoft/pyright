@@ -46,11 +46,6 @@ const EndRegionRegEx = /^\s*endregion\b/;
 
 function getRegionCommentType(comment: Comment, parseResults: ParseResults): RegionCommentType | undefined {
     const hashOffset = comment.start - 1;
-
-    if (hashOffset < 0 || hashOffset > parseResults.tokenizerOutput.lines.end) {
-        return undefined;
-    }
-
     const hashPosition = convertOffsetToPosition(hashOffset, parseResults.tokenizerOutput.lines);
 
     // If anything other than whitespace is found before the #region (ex. a statement)
