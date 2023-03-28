@@ -6218,11 +6218,10 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _addDiagnosticForRegionComment(regionComment: RegionComment, message: string): Diagnostic | undefined {
-        // extend range to include # character
-        const range: TextRange = regionComment.comment;
-        range.start -= 1;
-        range.length += 1;
-
-        return this._evaluator.addDiagnosticForTextRange(this._fileInfo, 'error', '', message, range);
+        return this._evaluator.addDiagnosticForTextRange(this._fileInfo, 'error', '', message, {
+            // extend range to include # character
+            start: regionComment.comment.start - 1,
+            length: regionComment.comment.length + 1,
+        });
     }
 }
