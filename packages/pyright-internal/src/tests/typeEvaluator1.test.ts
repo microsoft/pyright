@@ -1458,6 +1458,12 @@ test('LiteralString2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('LiteralString3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literalString3.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ParamInference1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramInference1.py']);
 

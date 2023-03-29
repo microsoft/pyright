@@ -215,6 +215,42 @@ export function isIncompleteUnknown(type: Type): boolean {
     return isUnknown(type) && type.isIncomplete;
 }
 
+// Similar to isTypeSame except that type1 is a TypeVar and type2
+// can be either a TypeVar of the same type or a union that includes
+// conditional types associated with that bound TypeVar.
+export function isTypeVarSame(type1: TypeVarType, type2: Type) {
+    if (isTypeSame(type1, type2)) {
+        return true;
+    }
+
+    // If this isn't a bound TypeVar, return false.
+    if (type1.details.isParamSpec || type1.details.isVariadic || !type1.details.boundType) {
+        return false;
+    }
+
+    // If the second type isn't a union, return false.
+    if (!isUnion(type2)) {
+        return false;
+    }
+
+    let isCompatible = true;
+    doForEachSubtype(type2, (subtype) => {
+        if (!isCompatible) {
+            return;
+        }
+
+        if (!isTypeSame(type1, subtype)) {
+            const conditions = getTypeCondition(subtype);
+
+            if (!conditions || !conditions.some((condition) => condition.typeVarName === type1.nameWithScope)) {
+                isCompatible = false;
+            }
+        }
+    });
+
+    return isCompatible;
+}
+
 export function makeInferenceContext(
     expectedType: undefined,
     typeVarContext?: TypeVarContext,

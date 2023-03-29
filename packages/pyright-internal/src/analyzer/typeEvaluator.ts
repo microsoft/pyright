@@ -284,6 +284,7 @@ import {
     isTypeAliasPlaceholder,
     isTypeAliasRecursive,
     isTypeVarLimitedToCallable,
+    isTypeVarSame,
     isUnboundedTupleClass,
     isUnionableType,
     isVarianceOfTypeArgumentCompatible,
@@ -1514,7 +1515,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (ClassType.isBuiltIn(subtype, 'LiteralString')) {
                     // Handle "LiteralString" specially.
                     if (strClassType && isInstantiableClass(strClassType)) {
-                        return ClassType.cloneAsInstance(strClassType);
+                        let strInstance = ClassType.cloneAsInstance(strClassType);
+
+                        if (subtype.condition) {
+                            strInstance = TypeBase.cloneForCondition(strInstance, getTypeCondition(subtype));
+                        }
+
+                        return strInstance;
                     }
                 }
             }
@@ -22690,7 +22697,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
         if (isTypeVar(destType)) {
-            if (isTypeSame(destType, srcType)) {
+            if (isTypeVarSame(destType, srcType)) {
                 if (destType.scopeId && destTypeVarContext?.hasSolveForScope(destType.scopeId)) {
                     return assignTypeToTypeVar(
                         evaluatorInterface,
