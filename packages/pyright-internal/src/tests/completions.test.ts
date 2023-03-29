@@ -913,10 +913,11 @@ test('auto import sort text', async () => {
     );
 
     const items = result?.completionList.items.filter((i) => i.label === 'os');
-    assert.strictEqual(items?.length, 2);
+    assert.strictEqual(items?.length, 3);
 
     items.sort((a, b) => a.sortText!.localeCompare(b.sortText!));
 
     assert(!items[0].labelDetails);
-    assert.strictEqual(items[1].labelDetails!.description, 'vendored');
+    assert.strictEqual(items[1].labelDetails!.description, 'unused');
+    assert.strictEqual(items[2].labelDetails!.description, 'vendored');
 });
