@@ -1181,6 +1181,37 @@ export class TestState {
         }
     }
 
+    verifyShowCallHierarchyGetIncomingCalls(map: {
+        [marker: string]: {
+            references: DocumentRange[];
+        };
+    }) {
+        this.analyze();
+
+        for (const marker of this.getMarkers()) {
+            const fileName = marker.fileName;
+            const name = this.getMarkerName(marker);
+
+            if (!(name in map)) {
+                continue;
+            }
+
+            const expected = map[name].references;
+
+            const position = this.convertOffsetToPosition(fileName, marker.position);
+
+            const actual = this.program.getIncomingCallsForPosition(fileName, position, CancellationToken.None);
+
+            assert.strictEqual(actual?.length ?? 0, expected.length, `${name} has failed`);
+            if (actual) {
+                for (const a of actual) {
+                    assert.equal(expected?.filter((e) => this._deepEqual(a.from.range, e.range)).length, 1);
+                    assert.equal(expected?.filter((e) => this._deepEqual(a.from.uri, e.path)).length, 1);
+                }
+            }
+        }
+    }
+
     getDocumentHighlightKind(m?: Marker): DocumentHighlightKind | undefined {
         const kind = m?.data ? ((m.data as any).kind as string) : undefined;
         switch (kind) {

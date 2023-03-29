@@ -118,7 +118,7 @@ export class WorkspaceFactory {
                 ]);
             });
         } else if (params.rootPath) {
-            this._add(params.rootPath, params.rootPath, params.rootPath, undefined, WorkspacePythonPathKind.Mutable, [
+            this._add(params.rootUri || '', params.rootPath, '', undefined, WorkspacePythonPathKind.Mutable, [
                 WellKnownWorkspaceKinds.Regular,
             ]);
         }
@@ -136,9 +136,25 @@ export class WorkspaceFactory {
 
         params.added.forEach((workspaceInfo) => {
             const rootPath = this._uriParser.decodeTextDocumentUri(workspaceInfo.uri);
-            this._add(workspaceInfo.uri, rootPath, workspaceInfo.name, undefined, WorkspacePythonPathKind.Mutable, [
-                WellKnownWorkspaceKinds.Regular,
-            ]);
+
+            // If there's a workspace that contains this folder, we need to mimic files from this workspace to
+            // to the new one. Otherwise the subfolder won't have the changes for the files in it.
+            const containing = this.items().filter((w) => rootPath.startsWith(w.rootPath))[0];
+
+            // Add the new workspace.
+            const newWorkspace = this._add(
+                workspaceInfo.uri,
+                rootPath,
+                workspaceInfo.name,
+                undefined,
+                WorkspacePythonPathKind.Mutable,
+                [WellKnownWorkspaceKinds.Regular]
+            );
+
+            // Move files from the containing workspace to the new one that are in the new folder.
+            if (containing) {
+                this._mimicOpenFiles(containing, newWorkspace, (f) => f.startsWith(rootPath));
+            }
         });
     }
 
@@ -452,6 +468,27 @@ export class WorkspaceFactory {
         return bestInstance;
     }
 
+    private _mimicOpenFiles(source: Workspace, dest: Workspace, predicate: (f: string) => boolean) {
+        // All mutable open files in the first workspace should be opened in the new workspace.
+        // Immutable files should stay where they are since they're tied to a specific workspace.
+        const files = source.service.getOpenFiles().filter((f) => !this._isPythonPathImmutable(f));
+        for (const file of files) {
+            const sourceFileInfo = source.service.backgroundAnalysisProgram.program.getSourceFileInfo(file);
+            if (sourceFileInfo && predicate(file)) {
+                const sourceFile = sourceFileInfo.sourceFile;
+                const fileContents = sourceFile.getFileContent();
+                dest.service.setFileOpened(
+                    file,
+                    sourceFile.getClientVersion() || null,
+                    fileContents || '',
+                    sourceFile.getIPythonMode(),
+                    sourceFileInfo.chainedSourceFile?.sourceFile.getFilePath(),
+                    sourceFile.getRealFilePath()
+                );
+            }
+        }
+    }
+
     private _createImmutableCopy(workspace: Workspace, pythonPath: string): Workspace {
         const result = this._add(
             workspace.uri,
@@ -462,24 +499,8 @@ export class WorkspaceFactory {
             workspace.kinds
         );
 
-        // All mutable open files in the first workspace should be opened in the new workspace.
-        // Immutable files should stay where they are since they're tied to a specific workspace.
-        const files = workspace.service.getOpenFiles().filter((f) => !this._isPythonPathImmutable(f));
-        for (const file of files) {
-            const sourceFileInfo = workspace.service.backgroundAnalysisProgram.program.getSourceFileInfo(file);
-            if (sourceFileInfo) {
-                const sourceFile = sourceFileInfo.sourceFile;
-                const fileContents = sourceFile.getFileContent();
-                result.service.setFileOpened(
-                    file,
-                    sourceFile.getClientVersion() || null,
-                    fileContents || '',
-                    sourceFile.getIPythonMode(),
-                    sourceFileInfo.chainedSourceFile?.sourceFile.getFilePath(),
-                    sourceFile.getRealFilePath()
-                );
-            }
-        }
+        // Copy over the open files
+        this._mimicOpenFiles(workspace, result, () => true);
 
         return result;
     }

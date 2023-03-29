@@ -109,7 +109,7 @@ import {
     TypeAnnotationNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
+import { OperatorToken, OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { AbbreviationInfo, AutoImporter, AutoImportResult, ImportFormat, ModuleSymbolMap } from './autoImporter';
 import {
     CompletionDetail,
@@ -2685,11 +2685,8 @@ export class CompletionProvider {
                 // Don't add a symbol more than once. It may have already been
                 // added from an inner scope's symbol table.
                 if (!completionMap.has(name)) {
-                    // Skip func parens for non builtin classes. It's too hard to tell if the user
-                    // wants to type in the class constructor or is about to call a static method.
-                    const skipForClass: boolean = symbol
-                        .getDeclarations()
-                        .some((d) => d.type === DeclarationType.Class && d.moduleName !== 'builtins');
+                    // Skip func parens for classes when not a direct assignment or an argument (passed as a value)
+                    const skipForClass = !this._shouldShowAutoParensForClass(symbol, node);
                     this._addSymbol(name, symbol, priorWord, completionMap, {
                         boundObjectOrClass,
                         funcParensDisabled: isInImport || insideTypeAnnotation || skipForClass,
@@ -2698,6 +2695,27 @@ export class CompletionProvider {
                 }
             }
         });
+    }
+
+    private _shouldShowAutoParensForClass(symbol: Symbol, node: ParseNode) {
+        if (symbol.getDeclarations().every((d) => d.type !== DeclarationType.Class)) {
+            // Not actually a class, so yes show parens.
+            return true;
+        }
+
+        // If an argument then show parens for classes.
+        if (node.parent?.nodeType === ParseNodeType.Argument) {
+            return true;
+        }
+
+        // Otherwise only show when the class is being assigned to a variable.
+        const nodeIndex = ParseTreeUtils.getTokenIndexAtLeft(this._parseResults.tokenizerOutput.tokens, node.start);
+        const prevToken = ParseTreeUtils.getTokenAtIndex(this._parseResults.tokenizerOutput.tokens, nodeIndex);
+        return (
+            prevToken &&
+            prevToken.type === TokenType.Operator &&
+            (prevToken as OperatorToken).operatorType === OperatorType.Assign
+        );
     }
 
     private _addSymbol(

@@ -303,6 +303,11 @@ declare namespace _ {
                 references: DocumentRange[];
             };
         }): void;
+        verifyShowCallHierarchyGetIncomingCalls(map: {
+            [marker: string]: {
+                references: DocumentRange[];
+            };
+        }): void;
         verifyHighlightReferences(map: {
             [marker: string]: {
                 references: DocumentHighlight[];
