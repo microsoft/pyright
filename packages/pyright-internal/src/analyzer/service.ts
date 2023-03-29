@@ -35,6 +35,7 @@ import { FileEditActions, TextEditAction } from '../common/editAction';
 import { Extensions } from '../common/extensibility';
 import { FileSystem, FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileSystem';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
+import { defaultStubsDirectory } from '../common/pathConsts';
 import {
     combinePaths,
     FileSpec,
@@ -833,13 +834,22 @@ export class AnalyzerService {
             reportDuplicateSetting('useLibraryCodeForTypes', configOptions.useLibraryCodeForTypes);
         }
 
-        // If there was no stub path specified, use a default path.
         if (commandLineOptions.stubPath) {
             if (!configOptions.stubPath) {
                 configOptions.stubPath = commandLineOptions.stubPath;
             } else {
                 reportDuplicateSetting('stubPath', configOptions.stubPath);
             }
+        }
+
+        if (configOptions.stubPath) {
+            // If there was a stub path specified, validate it.
+            if (!this.fs.existsSync(configOptions.stubPath) || !isDirectory(this.fs, configOptions.stubPath)) {
+                this._console.warn(`stubPath ${configOptions.stubPath} is not a valid directory.`);
+            }
+        } else {
+            // If no stub path was specified, use a default path.
+            configOptions.stubPath = normalizePath(combinePaths(configOptions.projectRoot, defaultStubsDirectory));
         }
 
         // Do some sanity checks on the specified settings and report missing
@@ -888,12 +898,6 @@ export class AnalyzerService {
         if (configOptions.typeshedPath) {
             if (!this.fs.existsSync(configOptions.typeshedPath) || !isDirectory(this.fs, configOptions.typeshedPath)) {
                 this._console.error(`typeshedPath ${configOptions.typeshedPath} is not a valid directory.`);
-            }
-        }
-
-        if (configOptions.stubPath) {
-            if (!this.fs.existsSync(configOptions.stubPath) || !isDirectory(this.fs, configOptions.stubPath)) {
-                this._console.warn(`stubPath ${configOptions.stubPath} is not a valid directory.`);
             }
         }
 
@@ -980,7 +984,8 @@ export class AnalyzerService {
 
     private _getTypeStubFolder() {
         const stubPath =
-            this._configOptions.stubPath ?? normalizePath(combinePaths(this._configOptions.projectRoot, 'typings'));
+            this._configOptions.stubPath ??
+            normalizePath(combinePaths(this._configOptions.projectRoot, defaultStubsDirectory));
 
         if (!this._typeStubTargetPath || !this._typeStubTargetImportName) {
             const errMsg = `Import '${this._typeStubTargetImportName}'` + ` could not be resolved`;
