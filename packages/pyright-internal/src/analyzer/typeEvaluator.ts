@@ -3260,7 +3260,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const setTypeResult = getTypeOfMemberAccessWithBaseType(
             target,
             baseTypeResult,
-            { method: 'set', setType: type, setErrorNode: srcExpr, setExpectedTypeDiag: expectedTypeDiagAddendum },
+            {
+                method: 'set',
+                setType: { type, isIncomplete: isTypeIncomplete },
+                setErrorNode: srcExpr,
+                setExpectedTypeDiag: expectedTypeDiagAddendum,
+            },
             EvaluatorFlags.None
         );
 
@@ -3836,7 +3841,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     baseTypeResult,
                     {
                         method: 'set',
-                        setType: type,
+                        setType: { type, isIncomplete: isTypeIncomplete },
                         setErrorNode: srcExpr,
                         setExpectedTypeDiag: expectedTypeDiagAddendum,
                     },
@@ -5543,14 +5548,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (usage.method === 'set' && usage.setType) {
                 // Verify that the assigned type is compatible.
-                if (!assignType(type, usage.setType, diag?.createAddendum())) {
-                    diag?.addMessage(
-                        Localizer.DiagnosticAddendum.memberAssignment().format({
-                            type: printType(usage.setType),
-                            name: memberName,
-                            classType: printObjectTypeForClass(classType),
-                        })
-                    );
+                if (!assignType(type, usage.setType.type, diag?.createAddendum())) {
+                    if (!usage.setType.isIncomplete) {
+                        diag?.addMessage(
+                            Localizer.DiagnosticAddendum.memberAssignment().format({
+                                type: printType(usage.setType.type),
+                                name: memberName,
+                                classType: printObjectTypeForClass(classType),
+                            })
+                        );
+                    }
                     return undefined;
                 }
 
@@ -5719,7 +5726,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // Provide "value" argument.
                             argList.push({
                                 argumentCategory: ArgumentCategory.Simple,
-                                typeResult: { type: usage.setType ?? UnknownType.create() },
+                                typeResult: {
+                                    type: usage.setType?.type ?? UnknownType.create(),
+                                    isIncomplete: !!usage.setType?.isIncomplete,
+                                },
                             });
                         }
 
@@ -5824,7 +5834,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                             if (
                                                 usage.setType &&
                                                 isFunction(boundMethodType) &&
-                                                boundMethodType.details.parameters.length >= 2
+                                                boundMethodType.details.parameters.length >= 2 &&
+                                                !usage.setType.isIncomplete
                                             ) {
                                                 const setterType = FunctionType.getEffectiveParameterType(
                                                     boundMethodType,
@@ -5834,7 +5845,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                                 diag?.addMessage(
                                                     Localizer.DiagnosticAddendum.typeIncompatible().format({
                                                         destType: printType(setterType),
-                                                        sourceType: printType(usage.setType),
+                                                        sourceType: printType(usage.setType.type),
                                                     })
                                                 );
                                             } else if (isOverloadedFunction(boundMethodType)) {
@@ -6099,7 +6110,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 argList.push({
                     // Provide "value" argument.
                     argumentCategory: ArgumentCategory.Simple,
-                    typeResult: { type: usage.setType ?? UnknownType.create() },
+                    typeResult: {
+                        type: usage.setType?.type ?? UnknownType.create(),
+                        isIncomplete: !!usage.setType?.isIncomplete,
+                    },
                 });
             }
 
@@ -7133,7 +7147,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         ];
 
         if (usage.method === 'set') {
-            let setType = usage.setType || AnyType.create();
+            let setType = usage.setType?.type ?? AnyType.create();
 
             // Expand constrained type variables.
             if (isTypeVar(setType) && setType.details.constraints.length > 0) {
@@ -7143,7 +7157,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             argList.push({
                 argumentCategory: ArgumentCategory.Simple,
-                typeResult: { type: setType, isIncomplete: isPositionalIndexTypeIncomplete },
+                typeResult: {
+                    type: setType,
+                    isIncomplete: !!usage.setType?.isIncomplete,
+                },
             });
         }
 

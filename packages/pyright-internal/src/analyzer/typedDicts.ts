@@ -955,7 +955,7 @@ export function getTypeOfIndexedTypedDict(
             }
 
             if (usage.method === 'set') {
-                if (!evaluator.assignType(entry.valueType, usage.setType || AnyType.create(), diag)) {
+                if (!evaluator.assignType(entry.valueType, usage.setType?.type ?? AnyType.create(), diag)) {
                     allDiagsInvolveNotRequiredKeys = false;
                 }
             } else if (usage.method === 'del' && entry.isRequired) {

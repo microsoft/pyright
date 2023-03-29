@@ -194,7 +194,7 @@ export interface EvaluatorUsage {
     method: 'get' | 'set' | 'del';
 
     // Used only for set methods
-    setType?: Type | undefined;
+    setType?: TypeResult | undefined;
     setErrorNode?: ExpressionNode | undefined;
     setExpectedTypeDiag?: DiagnosticAddendum | undefined;
 }
