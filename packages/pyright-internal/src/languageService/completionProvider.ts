@@ -1431,15 +1431,20 @@ export class CompletionProvider {
         function getParameters(parameters: ParameterNode[]) {
             const results: [node: ParameterNode, keywordOnly: boolean][] = [];
 
-            let keywordOnly = false;
+            let sawKeywordOnlySeparator = false;
             for (const parameter of parameters) {
                 if (parameter.name) {
-                    results.push([parameter, keywordOnly]);
+                    results.push([
+                        parameter,
+                        parameter.category === ParameterCategory.Simple && !!parameter.name && sawKeywordOnlySeparator,
+                    ]);
                 }
 
-                keywordOnly =
-                    parameter.category === ParameterCategory.VarArgList ||
-                    parameter.category === ParameterCategory.VarArgDictionary;
+                // All simple parameters after a `*` or `*args` parameter
+                // are considered keyword only.
+                if (parameter.category === ParameterCategory.VarArgList) {
+                    sawKeywordOnlySeparator = true;
+                }
             }
 
             return results;
