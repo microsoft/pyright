@@ -329,8 +329,60 @@ function narrowTypeBasedOnMappingPattern(
     isPositiveTest: boolean
 ): Type {
     if (!isPositiveTest) {
-        // Never narrow in negative case.
-        return type;
+        // Our ability to narrow in the negative case for mapping patterns is
+        // limited, but we can do it if the type is a union that includes a
+        // TypedDict with a field discriminated by a literal.
+        if (pattern.entries.length !== 1 || pattern.entries[0].nodeType !== ParseNodeType.PatternMappingKeyEntry) {
+            return type;
+        }
+
+        const keyPattern = pattern.entries[0].keyPattern;
+        const valuePattern = pattern.entries[0].valuePattern;
+        if (
+            keyPattern.nodeType !== ParseNodeType.PatternLiteral ||
+            valuePattern.nodeType !== ParseNodeType.PatternAs ||
+            !valuePattern.orPatterns.every((orPattern) => orPattern.nodeType === ParseNodeType.PatternLiteral)
+        ) {
+            return type;
+        }
+
+        const keyType = evaluator.getTypeOfExpression(keyPattern.expression).type;
+
+        // The key type must be a str literal.
+        if (!isClassInstance(keyType) || !ClassType.isBuiltIn(keyType, 'str') || keyType.literalValue === undefined) {
+            return type;
+        }
+        const keyValue = keyType.literalValue as string;
+
+        const valueTypes = valuePattern.orPatterns.map(
+            (orPattern) => evaluator.getTypeOfExpression((orPattern as PatternLiteralNode).expression).type
+        );
+
+        return mapSubtypes(type, (subtype) => {
+            if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
+                const typedDictMembers = getTypedDictMembersForClass(evaluator, subtype, /* allowNarrowed */ true);
+                const member = typedDictMembers.get(keyValue);
+
+                if (member && (member.isRequired || member.isProvided) && isClassInstance(member.valueType)) {
+                    const memberValueType = member.valueType;
+
+                    // If there's at least one literal value pattern that matches
+                    // the literal type of the member, we can eliminate this type.
+                    if (
+                        valueTypes.some(
+                            (valueType) =>
+                                isClassInstance(valueType) &&
+                                ClassType.isSameGenericClass(valueType, memberValueType) &&
+                                valueType.literalValue === memberValueType.literalValue
+                        )
+                    ) {
+                        return undefined;
+                    }
+                }
+            }
+
+            return subtype;
+        });
     }
 
     let mappingInfo = getMappingPatternInfo(evaluator, type);
