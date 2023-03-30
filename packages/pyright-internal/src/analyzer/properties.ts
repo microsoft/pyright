@@ -97,7 +97,7 @@ export function createProperty(
     propertyClass.isAsymmetricDescriptor = false;
 
     // Update the __set__ and __delete__ methods if present.
-    updateGetSetDelMethodForClonedProperty(propertyObject, evaluator);
+    updateGetSetDelMethodForClonedProperty(evaluator, propertyObject);
 
     // Fill in the fget method.
     const fgetSymbol = Symbol.createWithType(
@@ -111,7 +111,7 @@ export function createProperty(
     }
 
     // Fill in the __get__ method with an overload.
-    addGetMethodToPropertySymbolTable(propertyObject, fget);
+    addGetMethodToPropertySymbolTable(evaluator, propertyObject, fget);
 
     // Fill in the getter, setter and deleter methods.
     addDecoratorMethodsToPropertySymbolTable(propertyObject);
@@ -194,7 +194,7 @@ export function clonePropertyWithSetter(
     });
 
     // Update the __get__ and __delete__ methods if present.
-    updateGetSetDelMethodForClonedProperty(propertyObject, evaluator);
+    updateGetSetDelMethodForClonedProperty(evaluator, propertyObject);
 
     // Fill in the fset method.
     const fsetSymbol = Symbol.createWithType(
@@ -204,7 +204,7 @@ export function clonePropertyWithSetter(
     fields.set('fset', fsetSymbol);
 
     // Fill in the __set__ method.
-    addSetMethodToPropertySymbolTable(propertyObject, fset, evaluator);
+    addSetMethodToPropertySymbolTable(evaluator, propertyObject, fset);
 
     // Fill in the getter, setter and deleter methods.
     addDecoratorMethodsToPropertySymbolTable(propertyObject);
@@ -250,7 +250,7 @@ export function clonePropertyWithDeleter(
     });
 
     // Update the __get__ and __set__ methods if present.
-    updateGetSetDelMethodForClonedProperty(propertyObject, evaluator);
+    updateGetSetDelMethodForClonedProperty(evaluator, propertyObject);
 
     // Fill in the fdel method.
     const fdelSymbol = Symbol.createWithType(
@@ -260,7 +260,7 @@ export function clonePropertyWithDeleter(
     fields.set('fdel', fdelSymbol);
 
     // Fill in the __delete__ method.
-    addDelMethodToPropertySymbolTable(propertyObject, fdel, evaluator);
+    addDelMethodToPropertySymbolTable(evaluator, propertyObject, fdel);
 
     // Fill in the getter, setter and deleter methods.
     addDecoratorMethodsToPropertySymbolTable(propertyObject);
@@ -268,7 +268,7 @@ export function clonePropertyWithDeleter(
     return propertyObject;
 }
 
-function addGetMethodToPropertySymbolTable(propertyObject: ClassType, fget: FunctionType) {
+function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObject: ClassType, fget: FunctionType) {
     const fields = propertyObject.details.fields;
 
     const getFunction1 = FunctionType.createSynthesizedInstance('__get__', FunctionTypeFlags.Overloaded);
@@ -342,7 +342,7 @@ function addGetMethodToPropertySymbolTable(propertyObject: ClassType, fget: Func
     fields.set('__get__', getSymbol);
 }
 
-function addSetMethodToPropertySymbolTable(propertyObject: ClassType, fset: FunctionType, evaluator: TypeEvaluator) {
+function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObject: ClassType, fset: FunctionType) {
     const fields = propertyObject.details.fields;
 
     const setFunction = FunctionType.createSynthesizedInstance('__set__');
@@ -390,7 +390,7 @@ function addSetMethodToPropertySymbolTable(propertyObject: ClassType, fset: Func
     fields.set('__set__', setSymbol);
 }
 
-function addDelMethodToPropertySymbolTable(propertyObject: ClassType, fdel: FunctionType, evaluator: TypeEvaluator) {
+function addDelMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObject: ClassType, fdel: FunctionType) {
     const fields = propertyObject.details.fields;
 
     const delFunction = FunctionType.createSynthesizedInstance('__delete__');
@@ -422,25 +422,25 @@ function addDelMethodToPropertySymbolTable(propertyObject: ClassType, fdel: Func
     fields.set('__delete__', delSymbol);
 }
 
-function updateGetSetDelMethodForClonedProperty(propertyObject: ClassType, evaluator: TypeEvaluator) {
+function updateGetSetDelMethodForClonedProperty(evaluator: TypeEvaluator, propertyObject: ClassType) {
     const fields = propertyObject.details.fields;
 
     const fgetSymbol = fields.get('fget');
     const fgetType = fgetSymbol?.getSynthesizedType();
     if (fgetType && isFunction(fgetType)) {
-        addGetMethodToPropertySymbolTable(propertyObject, fgetType);
+        addGetMethodToPropertySymbolTable(evaluator, propertyObject, fgetType);
     }
 
     const fsetSymbol = fields.get('fset');
     const fsetType = fsetSymbol?.getSynthesizedType();
     if (fsetType && isFunction(fsetType)) {
-        addSetMethodToPropertySymbolTable(propertyObject, fsetType, evaluator);
+        addSetMethodToPropertySymbolTable(evaluator, propertyObject, fsetType);
     }
 
     const fdelSymbol = fields.get('fdel');
     const fdelType = fdelSymbol?.getSynthesizedType();
     if (fdelType && isFunction(fdelType)) {
-        addDelMethodToPropertySymbolTable(propertyObject, fdelType, evaluator);
+        addDelMethodToPropertySymbolTable(evaluator, propertyObject, fdelType);
     }
 }
 
