@@ -5,46 +5,45 @@ from datetime import datetime, timezone, timedelta
 
 
 @overload
-def from_json_timestamp(ts: int) -> datetime:
+def func1(ts: int) -> datetime:
     ...
 
 
 @overload
-def from_json_timestamp(ts: None) -> None:
+def func1(ts: None) -> None:
     ...
 
 
-def from_json_timestamp(ts: Optional[int]) -> Optional[datetime]:
+@overload
+def func1(ts: complex):
+    ...
+
+
+def func1(ts: int | complex | None) -> datetime | None:
     return (
         None
-        if ts is None
+        if not isinstance(ts, int)
         else (datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(milliseconds=ts))
     )
 
 
-result1: datetime = from_json_timestamp(2418049)
-
-# This should generate an error
-result2: datetime = from_json_timestamp(None)
-
-result3: None = from_json_timestamp(None)
-
-# This should generate an error
-result4: None = from_json_timestamp(2345)
+reveal_type(func1(2418049), expected_text="datetime")
+reveal_type(func1(None), expected_text="None")
+reveal_type(func1(3j), expected_text="Unknown")
 
 
 @overload
-def func1(x: int) -> int:
+def func2(x: int) -> int:
     ...
 
 
 @overload
-def func1(x: float) -> float:
+def func2(x: float) -> float:
     ...
 
 
-def func1(x):
+def func2(x):
     return x
 
 
-reveal_type(func1(abs(0.0)), expected_text="float")
+reveal_type(func2(abs(0.0)), expected_text="float")

@@ -21620,6 +21620,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return UnknownType.create();
         }
 
+        // Don't infer the return type for an overloaded function (unless it's synthesized,
+        // which is needed for proper operation of the __get__ method in properties).
+        if (FunctionType.isOverloaded(type) && !FunctionType.isSynthesizedMethod(type)) {
+            return UnknownType.create();
+        }
+
         // If the return type has already been lazily evaluated,
         // don't bother computing it again.
         if (type.inferredReturnType) {
