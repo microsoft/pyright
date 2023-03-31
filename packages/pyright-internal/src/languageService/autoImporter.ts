@@ -106,8 +106,7 @@ type AutoImportResultMap = Map<string, AutoImportResult[]>;
 // level scope that contains the symbol table for the module.
 export function buildModuleSymbolsMap(
     files: SourceFileInfo[],
-    includeSymbolsFromIndices: boolean,
-    includeImportAliasFromUserFiles: boolean,
+    includeIndexUserSymbols: boolean,
     token: CancellationToken
 ): ModuleSymbolMap {
     const moduleSymbolMap = new Map<string, ModuleSymbolTable>();
@@ -149,11 +148,7 @@ export function buildModuleSymbolsMap(
                             return;
                         }
 
-                        if (
-                            !includeImportAliasFromUserFiles &&
-                            declaration.type === DeclarationType.Alias &&
-                            isUserCode(file)
-                        ) {
+                        if (declaration.type === DeclarationType.Alias && isUserCode(file)) {
                             // We don't include import alias in auto import
                             // for workspace files.
                             return;
@@ -174,7 +169,7 @@ export function buildModuleSymbolsMap(
 
         // Iterate through closed user files using indices if asked.
         const indexResults = file.sourceFile.getCachedIndexResults();
-        if (indexResults && includeSymbolsFromIndices && !indexResults.privateOrProtected) {
+        if (indexResults && includeIndexUserSymbols && !indexResults.privateOrProtected) {
             moduleSymbolMap.set(filePath, createModuleSymbolTableFromIndexResult(indexResults, /* library */ false));
             return;
         }
