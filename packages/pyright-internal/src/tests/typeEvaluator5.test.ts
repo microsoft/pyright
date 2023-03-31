@@ -163,7 +163,7 @@ test('Override2', () => {
 
     configOptions.diagnosticRuleSet.reportImplicitOverride = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['override2.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 2);
+    TestUtils.validateResults(analysisResults2, 1);
 });
 
 test('TypeVarDefault1', () => {

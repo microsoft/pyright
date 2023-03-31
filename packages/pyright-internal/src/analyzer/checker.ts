@@ -5338,6 +5338,11 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // Constructors are exempt.
+        if (overrideFunction.details.name === '__init__' || overrideFunction.details.name === '__new__') {
+            return;
+        }
+
         const funcNode = overrideFunction.details.declaration.node;
         this._evaluator.addDiagnostic(
             this._fileInfo.diagnosticRuleSet.reportImplicitOverride,

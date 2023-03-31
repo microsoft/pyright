@@ -14,7 +14,6 @@ class Base:
 
 
 class Child(Base):
-    # This should generate an error if reportImplicitOverride is enabled.
     def __init__(self):
         pass
 
