@@ -20,6 +20,13 @@ class ClassB:
 
 
 class ClassC(ClassA, ClassB):
+    @property
+    @override
+    # This should generate an error because prop_a doesn't
+    # override anything in its base class.
+    def prop_a(self) -> int:
+        raise NotImplementedError
+
     @override
     def method1(self) -> None:
         pass

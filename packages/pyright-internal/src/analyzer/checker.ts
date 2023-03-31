@@ -5332,6 +5332,15 @@ export class Checker extends ParseTreeWalker {
             overrideFunction = overrideType;
         } else if (isOverloadedFunction(overrideType)) {
             overrideFunction = OverloadedFunctionType.getImplementation(overrideType);
+        } else if (isClassInstance(overrideType) && ClassType.isPropertyClass(overrideType)) {
+            const fgetSymbol = overrideType.details.fields.get('fget');
+
+            if (fgetSymbol) {
+                const fgetType = this._evaluator.getDeclaredTypeOfSymbol(fgetSymbol)?.type;
+                if (fgetType && isFunction(fgetType)) {
+                    overrideFunction = fgetType;
+                }
+            }
         }
 
         if (!overrideFunction?.details.declaration || FunctionType.isOverridden(overrideFunction)) {
@@ -5365,6 +5374,15 @@ export class Checker extends ParseTreeWalker {
             overrideFunction = overrideType;
         } else if (isOverloadedFunction(overrideType)) {
             overrideFunction = OverloadedFunctionType.getImplementation(overrideType);
+        } else if (isClassInstance(overrideType) && ClassType.isPropertyClass(overrideType)) {
+            const fgetSymbol = overrideType.details.fields.get('fget');
+
+            if (fgetSymbol) {
+                const fgetType = this._evaluator.getDeclaredTypeOfSymbol(fgetSymbol)?.type;
+                if (fgetType && isFunction(fgetType)) {
+                    overrideFunction = fgetType;
+                }
+            }
         }
 
         if (!overrideFunction?.details.declaration || !FunctionType.isOverridden(overrideFunction)) {

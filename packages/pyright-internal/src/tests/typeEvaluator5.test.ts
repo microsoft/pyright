@@ -147,12 +147,7 @@ test('Hashability1', () => {
 
 test('Override1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['override1.py']);
-    TestUtils.validateResults(analysisResults, 2);
-});
-
-test('Override1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['override1.py']);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Override2', () => {
@@ -163,7 +158,7 @@ test('Override2', () => {
 
     configOptions.diagnosticRuleSet.reportImplicitOverride = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['override2.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 1);
+    TestUtils.validateResults(analysisResults2, 2);
 });
 
 test('TypeVarDefault1', () => {
