@@ -366,7 +366,7 @@ test('DuplicateImports1', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('ParamName1', () => {
+test('ParamNames1', () => {
     const configOptions = new ConfigOptions('.');
 
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramNames1.py'], configOptions);

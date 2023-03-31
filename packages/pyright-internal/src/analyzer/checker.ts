@@ -6008,12 +6008,6 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        // Don't enforce this for an overloaded method because the "self" param
-        // annotation can be used as a filter for the overload.
-        if (FunctionType.isOverloaded(functionType)) {
-            return;
-        }
-
         const typeVarContext = new TypeVarContext(getTypeVarScopeId(functionType));
         if (!this._evaluator.assignType(paramType, expectedType, /* diag */ undefined, typeVarContext)) {
             // We exempt Never from this check because it has a legitimate use in this case.
