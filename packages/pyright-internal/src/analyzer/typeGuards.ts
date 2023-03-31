@@ -29,6 +29,7 @@ import { getScopeForNode } from './scopeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { getTypedDictMembersForClass } from './typedDicts';
 import { EvaluatorFlags, TypeEvaluator } from './typeEvaluatorTypes';
+import { EnumLiteral } from './types';
 import {
     ClassType,
     ClassTypeFlags,
@@ -281,23 +282,29 @@ export function getTypeNarrowingCallback(
                             const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
                             const rightType = rightTypeResult.type;
 
-                            if (
-                                isClassInstance(rightType) &&
-                                ClassType.isBuiltIn(rightType, 'bool') &&
-                                rightType.literalValue !== undefined
-                            ) {
-                                return (type: Type) => {
-                                    return {
-                                        type: narrowTypeForDiscriminatedTupleComparison(
-                                            evaluator,
-                                            type,
-                                            indexType,
-                                            rightType,
-                                            adjIsPositiveTest
-                                        ),
-                                        isIncomplete: !!rightTypeResult.isIncomplete,
+                            if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
+                                let canNarrow = false;
+                                // Narrowing can be applied only for bool or enum literals.
+                                if (ClassType.isBuiltIn(rightType, 'bool')) {
+                                    canNarrow = true;
+                                } else if (rightType.literalValue instanceof EnumLiteral) {
+                                    canNarrow = true;
+                                }
+
+                                if (canNarrow) {
+                                    return (type: Type) => {
+                                        return {
+                                            type: narrowTypeForDiscriminatedTupleComparison(
+                                                evaluator,
+                                                type,
+                                                indexType,
+                                                rightType,
+                                                adjIsPositiveTest
+                                            ),
+                                            isIncomplete: !!rightTypeResult.isIncomplete,
+                                        };
                                     };
-                                };
+                                }
                             }
                         }
                     }
