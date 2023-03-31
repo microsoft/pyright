@@ -645,7 +645,6 @@
         "tupleEntryTypeMismatch": "Tuple entry {entry} is incorrect type",
         "tupleAssignmentMismatch": "Type \"{type}\" is incompatible with target tuple",
         "tupleSizeMismatch": "Element size mismatch; expected {expected} but received {received}",
-        "tupleSizeMismatchIndeterminate": "Tuple size mismatch; expected {expected} but received indeterminate number",
         "typeAssignmentMismatch": "Type \"{sourceType}\" cannot be assigned to type \"{destType}\"",
         "typeBound": "Type \"{sourceType}\" is incompatible with bound type \"{destType}\" for type variable \"{name}\"",
         "typeConstrainedTypeVar": "Type \"{type}\" is incompatible with constrained type variable \"{name}\"",

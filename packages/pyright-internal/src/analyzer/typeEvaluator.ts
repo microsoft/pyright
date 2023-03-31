@@ -22310,19 +22310,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
         } else {
-            if (srcUnboundedIndex >= 0) {
-                // PEP 646 allows an indeterminate tuple type to be assigned to
-                // a determinate tuple type if it's associated with a TypeVarTuple.
-                if (!destType.isUnpacked) {
-                    diag?.addMessage(
-                        Localizer.DiagnosticAddendum.tupleSizeMismatchIndeterminate().format({
-                            expected: destTypeArgs.length,
-                        })
-                    );
-
-                    return false;
-                }
-            } else {
+            if (srcUnboundedIndex < 0) {
                 diag?.addMessage(
                     Localizer.DiagnosticAddendum.tupleSizeMismatch().format({
                         expected: destTypeArgs.length,

@@ -1,12 +1,13 @@
 # This sample file tests various aspects of type analysis for tuples.
 
-from typing import List, Tuple, Union
 import os
+from typing import Callable
 from typing_extensions import TypeVarTuple, Unpack
 
 Ts = TypeVarTuple("Ts")
 
-def func1() -> Tuple[int, int, int]:
+
+def func1() -> tuple[int, int, int]:
     a = 1, 2, 3
 
     # This should generate an error because
@@ -27,7 +28,7 @@ def func1() -> Tuple[int, int, int]:
     return a
 
 
-def func2() -> Tuple[int, int, str]:
+def func2() -> tuple[int, int, str]:
     a = 1, 2, 3
 
     # This should generate an error because the
@@ -35,7 +36,7 @@ def func2() -> Tuple[int, int, str]:
     return a
 
 
-def func3() -> Tuple[str, ...]:
+def func3() -> tuple[str, ...]:
     a = "1", 2, 3
 
     # This should generate an error because the
@@ -44,7 +45,7 @@ def func3() -> Tuple[str, ...]:
     return a
 
 
-def func4() -> Tuple[str, ...]:
+def func4() -> tuple[str, ...]:
     a = (1,)
 
     # This should generate an error because the first
@@ -57,7 +58,7 @@ def func6():
     a.index("1")
 
 
-def func7(a: Tuple) -> Tuple[()]:
+def func7(a: tuple) -> tuple[()]:
     return ()
 
 
@@ -73,7 +74,7 @@ def func8() -> str:
     return dirname
 
 
-def func9(param1: Tuple[int, ...]):
+def func9(param1: tuple[int, ...]):
     pass
 
 
@@ -127,20 +128,20 @@ def func11() -> float:
 def func12():
     data = ["a", "b"]
     data1 = (*map(str.split, data),)
-    data2: Tuple[List[str], ...] = (*map(str.split, data),)
+    data2: tuple[list[str], ...] = (*map(str.split, data),)
     data3 = (*map(str.split, data),)
-    data4: Tuple[List[str], ...] = (*map(str.split, data),)
+    data4: tuple[list[str], ...] = (*map(str.split, data),)
 
 
 # Tests for index-out-of-range error.
 def func13(
-    a: Tuple[int, str],
-    b: Tuple[()],
-    c: Tuple[int, ...],
-    d: Union[Tuple[int], Tuple[str, str], Tuple[int, ...]],
-    e: Tuple[int, Unpack[Tuple[str, ...]], float],
-    f: Tuple[int, Unpack[Ts], float],
-    g: Tuple[Unpack[Ts]]
+    a: tuple[int, str],
+    b: tuple[()],
+    c: tuple[int, ...],
+    d: tuple[int] | tuple[str, str] | tuple[int, ...],
+    e: tuple[int, Unpack[tuple[str, ...]], float],
+    f: tuple[int, Unpack[Ts], float],
+    g: tuple[Unpack[Ts]],
 ):
     v1 = a[0]
     reveal_type(v1, expected_text="int")
@@ -189,8 +190,25 @@ def func13(
     reveal_type(v15, expected_text="int | Union[*Ts@func13] | float")
 
 
-# Test for construction using the tuple constructor
 def func14():
     list1 = [1, 2, 3]
     v1 = tuple(list1)
     reveal_type(v1, expected_text="tuple[int, ...]")
+
+
+def func15(var: tuple[()]) -> str:
+    raise NotImplementedError
+
+
+def func16(var: tuple[int, int]) -> str:
+    raise NotImplementedError
+
+
+def func17(var: tuple[int, int, int]) -> str:
+    raise NotImplementedError
+
+
+f: Callable[[tuple[int, ...]], str]
+f = func15
+f = func16
+f = func17
