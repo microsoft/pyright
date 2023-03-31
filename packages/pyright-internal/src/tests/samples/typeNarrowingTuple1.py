@@ -1,23 +1,43 @@
 # This sample tests the type narrowing for known-length tuples
 # that have an entry with a declared literal type.
 
-from typing import Tuple, Union, Literal
+from typing import Literal
 
-MsgA = Tuple[Literal[1], str]
-MsgB = Tuple[Literal[2], float]
+MsgA = tuple[Literal[1], str]
+MsgB = tuple[Literal[2], float]
 
-Msg = Union[MsgA, MsgB]
+MsgAOrB = MsgA | MsgB
 
 
-def func1(m: Msg):
+def func1(m: MsgAOrB):
     if m[0] == 1:
-        reveal_type(m, expected_text="Tuple[Literal[1], str]")
+        reveal_type(m, expected_text="tuple[Literal[1], str]")
     else:
-        reveal_type(m, expected_text="Tuple[Literal[2], float]")
+        reveal_type(m, expected_text="tuple[Literal[2], float]")
 
 
-def func2(m: Msg):
+def func2(m: MsgAOrB):
     if m[0] != 1:
-        reveal_type(m, expected_text="Tuple[Literal[2], float]")
+        reveal_type(m, expected_text="tuple[Literal[2], float]")
     else:
-        reveal_type(m, expected_text="Tuple[Literal[1], str]")
+        reveal_type(m, expected_text="tuple[Literal[1], str]")
+
+
+MsgC = tuple[Literal[True], str]
+MsgD = tuple[Literal[False], float]
+
+MsgCOrD = MsgC | MsgD
+
+
+def func3(m: MsgCOrD):
+    if m[0] is True:
+        reveal_type(m, expected_text="tuple[Literal[True], str]")
+    else:
+        reveal_type(m, expected_text="tuple[Literal[False], float]")
+
+
+def func4(m: MsgCOrD):
+    if m[0] is not True:
+        reveal_type(m, expected_text="tuple[Literal[False], float]")
+    else:
+        reveal_type(m, expected_text="tuple[Literal[True], str]")

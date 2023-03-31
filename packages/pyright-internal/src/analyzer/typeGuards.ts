@@ -277,6 +277,28 @@ export function getTypeNarrowingCallback(
                                     };
                                 };
                             }
+                        } else if (ClassType.isBuiltIn(indexType, 'int')) {
+                            const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                            const rightType = rightTypeResult.type;
+
+                            if (
+                                isClassInstance(rightType) &&
+                                ClassType.isBuiltIn(rightType, 'bool') &&
+                                rightType.literalValue !== undefined
+                            ) {
+                                return (type: Type) => {
+                                    return {
+                                        type: narrowTypeForDiscriminatedTupleComparison(
+                                            evaluator,
+                                            type,
+                                            indexType,
+                                            rightType,
+                                            adjIsPositiveTest
+                                        ),
+                                        isIncomplete: !!rightTypeResult.isIncomplete,
+                                    };
+                                };
+                            }
                         }
                     }
                 }
