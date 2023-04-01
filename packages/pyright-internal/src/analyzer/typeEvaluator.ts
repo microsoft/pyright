@@ -7175,7 +7175,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Expand constrained type variables.
             if (isTypeVar(setType) && setType.details.constraints.length > 0) {
                 const conditionFilter = isClassInstance(baseType) ? baseType.condition : undefined;
-                setType = makeTopLevelTypeVarsConcrete(setType, /* makeParamSpecsConcrete */ undefined, conditionFilter);
+                setType = makeTopLevelTypeVarsConcrete(
+                    setType,
+                    /* makeParamSpecsConcrete */ undefined,
+                    conditionFilter
+                );
             }
 
             argList.push({
