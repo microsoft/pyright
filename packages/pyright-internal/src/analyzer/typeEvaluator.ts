@@ -3544,7 +3544,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // used as type arguments in other types) with their concrete form.
     // If conditionFilter is specified and the TypeVar is a constrained
     // TypeVar, only the conditions that match the filter will be included.
-    function makeTopLevelTypeVarsConcrete(type: Type, conditionFilter?: TypeCondition[]): Type {
+    function makeTopLevelTypeVarsConcrete(
+        type: Type,
+        makeParamSpecsConcrete = false,
+        conditionFilter?: TypeCondition[]
+    ): Type {
         return mapSubtypes(type, (subtype) => {
             if (isParamSpec(subtype)) {
                 if (subtype.paramSpecAccess === 'args') {
@@ -3580,6 +3584,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     return UnknownType.create();
                 }
+            }
+
+            // If this is a function that contains only a ParamSpec (no additional
+            // parameters), convert it to a concrete type of (*args: Any, **kwargs: Any).
+            if (
+                makeParamSpecsConcrete &&
+                isFunction(subtype) &&
+                subtype.details.parameters.length === 0 &&
+                subtype.details.paramSpec
+            ) {
+                const concreteFunction = FunctionType.createInstance(
+                    '',
+                    '',
+                    '',
+                    FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+                );
+                FunctionType.addDefaultParameters(concreteFunction);
+
+                return FunctionType.cloneForParamSpec(subtype, concreteFunction);
             }
 
             // If this is a TypeVarTuple *Ts, convert it to an unpacked tuple
@@ -7152,7 +7175,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Expand constrained type variables.
             if (isTypeVar(setType) && setType.details.constraints.length > 0) {
                 const conditionFilter = isClassInstance(baseType) ? baseType.condition : undefined;
-                setType = makeTopLevelTypeVarsConcrete(setType, conditionFilter);
+                setType = makeTopLevelTypeVarsConcrete(setType, /* makeParamSpecsConcrete */ undefined, conditionFilter);
             }
 
             argList.push({
