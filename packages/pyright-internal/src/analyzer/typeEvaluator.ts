@@ -3445,10 +3445,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const unboundedIndex = tupleType.tupleTypeArguments.findIndex((t) => t.isUnbounded);
 
                 if (unboundedIndex >= 0) {
-                    if (sourceEntryTypes.length > targetTypes.length) {
-                        // Splice out the unbounded since it might be zero length.
-                        sourceEntryTypes.splice(unboundedIndex, 1);
-                    } else if (sourceEntryTypes.length < targetTypes.length) {
+                    if (sourceEntryTypes.length < targetTypes.length) {
                         const typeToReplicate =
                             sourceEntryTypes.length > 0 ? sourceEntryTypes[unboundedIndex] : AnyType.create();
 
