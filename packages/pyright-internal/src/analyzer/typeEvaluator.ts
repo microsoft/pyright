@@ -258,6 +258,7 @@ import {
     convertTypeToParamSpecValue,
     derivesFromClassRecursive,
     doForEachSubtype,
+    ensureFunctionSignaturesAreUnique,
     explodeGenericClass,
     getContainerDepth,
     getDeclaredGeneratorReturnType,
@@ -305,6 +306,7 @@ import {
     specializeTupleClass,
     synthesizeTypeVarForSelfCls,
     transformPossibleRecursiveTypeAlias,
+    UniqueSignatureTracker,
     validateTypeVarDefault,
 } from './typeUtils';
 import { TypeVarContext, TypeVarSignatureContext } from './typeVarContext';
@@ -10877,6 +10879,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // where more than two passes are needed.
             let passCount = Math.min(typeVarMatchingCount, 2);
             for (let i = 0; i < passCount; i++) {
+                const signatureTracker = new UniqueSignatureTracker();
+
                 useSpeculativeMode(errorNode, () => {
                     matchResults.argParams.forEach((argParam) => {
                         if (!argParam.requiresTypeVarMatching) {
@@ -10893,6 +10897,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const argResult = validateArgType(
                             argParam,
                             typeVarContext,
+                            signatureTracker,
                             { type, isIncomplete: matchResults.isTypeIncomplete },
                             skipUnknownArgCheck,
                             /* skipOverloadArg */ i === 0,
@@ -10925,10 +10930,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let condition: TypeCondition[] = [];
         const argResults: ArgResult[] = [];
 
+        const signatureTracker = new UniqueSignatureTracker();
         matchResults.argParams.forEach((argParam) => {
             const argResult = validateArgType(
                 argParam,
                 typeVarContext,
+                signatureTracker,
                 { type, isIncomplete: matchResults.isTypeIncomplete },
                 skipUnknownArgCheck,
                 /* skipOverloadArg */ false,
@@ -11275,6 +11282,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             (paramInfo) => paramInfo.category === ParameterCategory.VarArgDictionary
         );
 
+        const signatureTracker = new UniqueSignatureTracker();
+
         argList.forEach((arg) => {
             if (arg.argumentCategory === ArgumentCategory.Simple) {
                 let paramType: Type | undefined;
@@ -11331,6 +11340,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             errorNode: arg.valueExpression || errorNode,
                         },
                         srcTypeVarContext,
+                        signatureTracker,
                         /* functionType */ undefined,
                         /* skipUnknownArgCheck */ false,
                         /* skipOverloadArg */ false,
@@ -11382,6 +11392,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function validateArgType(
         argParam: ValidateArgTypeParams,
         typeVarContext: TypeVarContext,
+        signatureTracker: UniqueSignatureTracker,
         typeResult: TypeResult<FunctionType> | undefined,
         skipUnknownCheck: boolean,
         skipOverloadArg: boolean,
@@ -11480,6 +11491,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
         }
+
+        // If the type includes multiple instances of a generic function
+        // signature, force the type arguments for the duplicates to have
+        // unique names.
+        argType = ensureFunctionSignaturesAreUnique(argType, signatureTracker);
 
         // If we're assigning to a var arg dictionary with a TypeVar type,
         // strip literals before performing the assignment. This is used in
@@ -17170,6 +17186,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         argList.forEach((arg) => {
+                            const signatureTracker = new UniqueSignatureTracker();
+
                             if (arg.argumentCategory === ArgumentCategory.Simple && arg.name) {
                                 const paramIndex = paramMap.get(arg.name.value) ?? paramListDetails.kwargsIndex;
 
@@ -17189,6 +17207,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     validateArgType(
                                         argParam,
                                         new TypeVarContext(),
+                                        signatureTracker,
                                         { type: newMethodType },
                                         /* skipUnknownCheck */ true,
                                         /* skipOverloadArg */ true,

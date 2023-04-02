@@ -2236,6 +2236,18 @@ export namespace TypeVarType {
         return newInstance;
     }
 
+    export function cloneForNewName(type: TypeVarType, name: string): TypeVarType {
+        const newInstance = TypeBase.cloneType(type);
+        newInstance.details = { ...type.details };
+        newInstance.details.name = name;
+
+        if (newInstance.scopeId) {
+            newInstance.nameWithScope = makeNameWithScope(name, newInstance.scopeId);
+        }
+
+        return newInstance;
+    }
+
     export function cloneForScopeId(
         type: TypeVarType,
         scopeId: string,
