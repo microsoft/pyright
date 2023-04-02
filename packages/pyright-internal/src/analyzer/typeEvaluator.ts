@@ -8625,7 +8625,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     initMethodType
                 );
 
-                if (expectedCallResult) {
+                if (expectedCallResult && !expectedCallResult.argumentErrors) {
                     returnType = expectedCallResult.returnType;
 
                     if (expectedCallResult.isTypeIncomplete) {
@@ -8725,6 +8725,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (constructorMethodInfo && !skipConstructorCheck(constructorMethodInfo.type)) {
                 const constructorMethodType = constructorMethodInfo.type;
+                let newReturnType: Type | undefined;
 
                 // If there is an expected type that was not applied above when
                 // handling the __init__ method, try to apply it with the __new__ method.
@@ -8738,8 +8739,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         constructorMethodType
                     );
 
-                    if (expectedCallResult) {
-                        returnType = expectedCallResult.returnType;
+                    if (expectedCallResult && !expectedCallResult.argumentErrors) {
+                        newReturnType = expectedCallResult.returnType;
+                        returnType = newReturnType;
 
                         if (expectedCallResult.isTypeIncomplete) {
                             isTypeIncomplete = true;
@@ -8786,8 +8788,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (callResult.argumentErrors) {
                     reportedErrors = true;
-                } else {
-                    let newReturnType = callResult.returnType;
+                } else if (!newReturnType) {
+                    newReturnType = callResult.returnType;
 
                     // If the constructor returned an object whose type matches the class of
                     // the original type being constructed, use the return type in case it was
