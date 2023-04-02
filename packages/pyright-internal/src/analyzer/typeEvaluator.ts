@@ -10879,34 +10879,36 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             for (let i = 0; i < passCount; i++) {
                 useSpeculativeMode(errorNode, () => {
                     matchResults.argParams.forEach((argParam) => {
-                        if (argParam.requiresTypeVarMatching) {
-                            // Populate the typeVarContext for the argument. If the argument
-                            // is an overload function, skip it during the first pass
-                            // because the selection of the proper overload may depend
-                            // on type arguments supplied by other function arguments.
-                            // Set useNarrowBoundOnly to true the first time through
-                            // the loop if we're going to go through the loop multiple
-                            // times.
-                            const argResult = validateArgType(
-                                argParam,
-                                typeVarContext,
-                                { type, isIncomplete: matchResults.isTypeIncomplete },
-                                skipUnknownArgCheck,
-                                /* skipOverloadArg */ i === 0,
-                                /* useNarrowBoundOnly */ passCount > 1 && i === 0,
-                                typeCondition
-                            );
+                        if (!argParam.requiresTypeVarMatching) {
+                            return;
+                        }
 
-                            if (argResult.isTypeIncomplete) {
-                                isTypeIncomplete = true;
-                            }
+                        // Populate the typeVarContext for the argument. If the argument
+                        // is an overload function, skip it during the first pass
+                        // because the selection of the proper overload may depend
+                        // on type arguments supplied by other function arguments.
+                        // Set useNarrowBoundOnly to true the first time through
+                        // the loop if we're going to go through the loop multiple
+                        // times.
+                        const argResult = validateArgType(
+                            argParam,
+                            typeVarContext,
+                            { type, isIncomplete: matchResults.isTypeIncomplete },
+                            skipUnknownArgCheck,
+                            /* skipOverloadArg */ i === 0,
+                            /* useNarrowBoundOnly */ passCount > 1 && i === 0,
+                            typeCondition
+                        );
 
-                            // If we skipped a overload arg during the first pass,
-                            // add another pass to ensure that we handle all of the
-                            // type variables.
-                            if (i === 0 && argResult.skippedOverloadArg) {
-                                passCount++;
-                            }
+                        if (argResult.isTypeIncomplete) {
+                            isTypeIncomplete = true;
+                        }
+
+                        // If we skipped a overload arg during the first pass,
+                        // add another pass to ensure that we handle all of the
+                        // type variables.
+                        if (i === 0 && argResult.skippedOverloadArg) {
+                            passCount++;
                         }
                     });
                 });

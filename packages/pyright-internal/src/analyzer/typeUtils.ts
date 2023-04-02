@@ -2925,7 +2925,7 @@ class TypeVarTransformer {
     }
 
     transformTypeVar(typeVar: TypeVarType, recursionCount: number): Type | undefined {
-        return typeVar;
+        return undefined;
     }
 
     transformTupleTypeVar(paramSpec: TypeVarType, recursionCount: number): TupleTypeArgument[] | undefined {
