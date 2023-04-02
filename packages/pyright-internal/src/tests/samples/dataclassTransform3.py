@@ -70,7 +70,6 @@ c1_1.id = 4
 # This should generate an error because the class is kw_only.
 c1_2 = Customer1(3, "Sue")
 
-# This should generate an error because other_name is missing.
 c1_3 = Customer1(id=3, name="John")
 
 # This should generate an error because comparison methods are
@@ -88,6 +87,7 @@ v2 = c2_1 < c2_2
 c2_3 = Customer2(0, "John")
 
 _T = TypeVar("_T")
+
 
 @__dataclass_transform__(
     kw_only_default=True,
@@ -109,11 +109,14 @@ class GenericModelBase(Generic[_T]):
 class GenericCustomer(GenericModelBase[int]):
     id: int = model_field()
 
+
 gc_1 = GenericCustomer(id=3)
+
 
 @__dataclass_transform__(frozen_default=True)
 class ModelBaseFrozen:
     not_a_field: str
+
 
 class Customer3(ModelBaseFrozen):
     id: int
