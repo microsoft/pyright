@@ -18667,9 +18667,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return getExceptionType(subType, node.typeExpression!);
         });
 
-        // If this is an except group, wrap the exception type in an ExceptionGroup.
+        // If this is an except group, wrap the exception type in an BaseExceptionGroup.
         if (node.isExceptGroup) {
-            targetType = getBuiltInObject(node, 'ExceptionGroup', [targetType]);
+            targetType = getBuiltInObject(node, 'BaseExceptionGroup', [targetType]);
         }
 
         if (node.name) {
