@@ -1137,37 +1137,14 @@ export class Program {
     // level scope that contains the symbol table for the module.
     private _buildModuleSymbolsMap(
         sourceFileToExclude: SourceFileInfo,
-        libraryMap: Map<string, IndexResults> | undefined,
-        includeSymbolsFromIndices: boolean,
+        userFileOnly: boolean,
+        includeIndexUserSymbols: boolean,
         token: CancellationToken
     ): ModuleSymbolMap {
-        // If we have library map, always use the map for library symbols.
-        const predicate = (s: SourceFileInfo) => {
-            if (!libraryMap) {
-                // We don't have any prebuilt indices, so we need to include
-                // all files.
-                return true;
-            }
-
-            if (!this._configOptions.indexing) {
-                // We have some prebuilt indices such as stdlib, but indexing is disabled.
-                // Include files we don't have prebuilt indices.
-                return libraryMap.get(s.sourceFile.getFilePath()) === undefined;
-            }
-
-            // We have prebuilt indices for third party libraries. Include only
-            // user files.
-            return isUserCode(s);
-        };
-
-        // Only include import alias from user files if indexing is off for now.
-        // Currently, when indexing is off, we don't do import alias deduplication, so
-        // adding import alias is cheap. But when indexing is on, we do deduplication, which
         // require resolveAliasDeclaration that can cause more files to be parsed and bound.
         return buildModuleSymbolsMap(
-            this._sourceFileList.filter((s) => s !== sourceFileToExclude && predicate(s)),
-            includeSymbolsFromIndices,
-            !this._configOptions.indexing,
+            this._sourceFileList.filter((s) => s !== sourceFileToExclude && (userFileOnly ? isUserCode(s) : true)),
+            includeIndexUserSymbols,
             token
         );
     }
@@ -1504,8 +1481,8 @@ export class Program {
             const writtenWord = fileContents.substr(textRange.start, textRange.length);
             const map = this._buildModuleSymbolsMap(
                 sourceFileInfo,
-                options.libraryMap,
-                /* includeSymbolsFromIndices */ true,
+                !!options.libraryMap,
+                /* includeIndexUserSymbols */ true,
                 token
             );
 
@@ -1943,7 +1920,7 @@ export class Program {
                         () =>
                             this._buildModuleSymbolsMap(
                                 sourceFileInfo,
-                                libraryMap,
+                                !!libraryMap,
                                 options.includeUserSymbolsInAutoImport,
                                 token
                             ),
@@ -2016,7 +1993,7 @@ export class Program {
                 () =>
                     this._buildModuleSymbolsMap(
                         sourceFileInfo,
-                        libraryMap,
+                        !!libraryMap,
                         options.includeUserSymbolsInAutoImport,
                         token
                     ),
