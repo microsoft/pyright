@@ -9,7 +9,7 @@ def func1():
 
     # This should generate an error if using Python 3.10 or earlier.
     except* ValueError as e:
-        reveal_type(e, expected_text="ExceptionGroup[ValueError]")
+        reveal_type(e, expected_text="BaseExceptionGroup[ValueError]")
         pass
 
     # This should generate an error if using Python 3.10 or earlier.

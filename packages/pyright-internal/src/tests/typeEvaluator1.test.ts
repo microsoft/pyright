@@ -607,6 +607,14 @@ test('Unpack4', () => {
     TestUtils.validateResults(analysisResults39, 1);
 });
 
+test('Unpack4', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unpack5.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Lambda1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda1.py']);
 

@@ -258,6 +258,7 @@ import {
     convertTypeToParamSpecValue,
     derivesFromClassRecursive,
     doForEachSubtype,
+    ensureFunctionSignaturesAreUnique,
     explodeGenericClass,
     getContainerDepth,
     getDeclaredGeneratorReturnType,
@@ -305,6 +306,7 @@ import {
     specializeTupleClass,
     synthesizeTypeVarForSelfCls,
     transformPossibleRecursiveTypeAlias,
+    UniqueSignatureTracker,
     validateTypeVarDefault,
 } from './typeUtils';
 import { TypeVarContext, TypeVarSignatureContext } from './typeVarContext';
@@ -3443,10 +3445,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const unboundedIndex = tupleType.tupleTypeArguments.findIndex((t) => t.isUnbounded);
 
                 if (unboundedIndex >= 0) {
-                    if (sourceEntryTypes.length > targetTypes.length) {
-                        // Splice out the unbounded since it might be zero length.
-                        sourceEntryTypes.splice(unboundedIndex, 1);
-                    } else if (sourceEntryTypes.length < targetTypes.length) {
+                    if (sourceEntryTypes.length < targetTypes.length) {
                         const typeToReplicate =
                             sourceEntryTypes.length > 0 ? sourceEntryTypes[unboundedIndex] : AnyType.create();
 
@@ -3544,7 +3543,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // used as type arguments in other types) with their concrete form.
     // If conditionFilter is specified and the TypeVar is a constrained
     // TypeVar, only the conditions that match the filter will be included.
-    function makeTopLevelTypeVarsConcrete(type: Type, conditionFilter?: TypeCondition[]): Type {
+    function makeTopLevelTypeVarsConcrete(
+        type: Type,
+        makeParamSpecsConcrete = false,
+        conditionFilter?: TypeCondition[]
+    ): Type {
         return mapSubtypes(type, (subtype) => {
             if (isParamSpec(subtype)) {
                 if (subtype.paramSpecAccess === 'args') {
@@ -3580,6 +3583,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     return UnknownType.create();
                 }
+            }
+
+            // If this is a function that contains only a ParamSpec (no additional
+            // parameters), convert it to a concrete type of (*args: Any, **kwargs: Any).
+            if (
+                makeParamSpecsConcrete &&
+                isFunction(subtype) &&
+                subtype.details.parameters.length === 0 &&
+                subtype.details.paramSpec
+            ) {
+                const concreteFunction = FunctionType.createInstance(
+                    '',
+                    '',
+                    '',
+                    FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+                );
+                FunctionType.addDefaultParameters(concreteFunction);
+
+                return FunctionType.cloneForParamSpec(subtype, concreteFunction);
             }
 
             // If this is a TypeVarTuple *Ts, convert it to an unpacked tuple
@@ -7152,7 +7174,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Expand constrained type variables.
             if (isTypeVar(setType) && setType.details.constraints.length > 0) {
                 const conditionFilter = isClassInstance(baseType) ? baseType.condition : undefined;
-                setType = makeTopLevelTypeVarsConcrete(setType, conditionFilter);
+                setType = makeTopLevelTypeVarsConcrete(
+                    setType,
+                    /* makeParamSpecsConcrete */ undefined,
+                    conditionFilter
+                );
             }
 
             argList.push({
@@ -8599,7 +8625,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     initMethodType
                 );
 
-                if (expectedCallResult) {
+                if (expectedCallResult && !expectedCallResult.argumentErrors) {
                     returnType = expectedCallResult.returnType;
 
                     if (expectedCallResult.isTypeIncomplete) {
@@ -8699,6 +8725,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (constructorMethodInfo && !skipConstructorCheck(constructorMethodInfo.type)) {
                 const constructorMethodType = constructorMethodInfo.type;
+                let newReturnType: Type | undefined;
 
                 // If there is an expected type that was not applied above when
                 // handling the __init__ method, try to apply it with the __new__ method.
@@ -8712,8 +8739,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         constructorMethodType
                     );
 
-                    if (expectedCallResult) {
-                        returnType = expectedCallResult.returnType;
+                    if (expectedCallResult && !expectedCallResult.argumentErrors) {
+                        newReturnType = expectedCallResult.returnType;
+                        returnType = newReturnType;
 
                         if (expectedCallResult.isTypeIncomplete) {
                             isTypeIncomplete = true;
@@ -8760,8 +8788,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (callResult.argumentErrors) {
                     reportedErrors = true;
-                } else {
-                    let newReturnType = callResult.returnType;
+                } else if (!newReturnType) {
+                    newReturnType = callResult.returnType;
 
                     // If the constructor returned an object whose type matches the class of
                     // the original type being constructed, use the return type in case it was
@@ -10850,36 +10878,41 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // where more than two passes are needed.
             let passCount = Math.min(typeVarMatchingCount, 2);
             for (let i = 0; i < passCount; i++) {
+                const signatureTracker = new UniqueSignatureTracker();
+
                 useSpeculativeMode(errorNode, () => {
                     matchResults.argParams.forEach((argParam) => {
-                        if (argParam.requiresTypeVarMatching) {
-                            // Populate the typeVarContext for the argument. If the argument
-                            // is an overload function, skip it during the first pass
-                            // because the selection of the proper overload may depend
-                            // on type arguments supplied by other function arguments.
-                            // Set useNarrowBoundOnly to true the first time through
-                            // the loop if we're going to go through the loop multiple
-                            // times.
-                            const argResult = validateArgType(
-                                argParam,
-                                typeVarContext,
-                                { type, isIncomplete: matchResults.isTypeIncomplete },
-                                skipUnknownArgCheck,
-                                /* skipOverloadArg */ i === 0,
-                                /* useNarrowBoundOnly */ passCount > 1 && i === 0,
-                                typeCondition
-                            );
+                        if (!argParam.requiresTypeVarMatching) {
+                            return;
+                        }
 
-                            if (argResult.isTypeIncomplete) {
-                                isTypeIncomplete = true;
-                            }
+                        // Populate the typeVarContext for the argument. If the argument
+                        // is an overload function, skip it during the first pass
+                        // because the selection of the proper overload may depend
+                        // on type arguments supplied by other function arguments.
+                        // Set useNarrowBoundOnly to true the first time through
+                        // the loop if we're going to go through the loop multiple
+                        // times.
+                        const argResult = validateArgType(
+                            argParam,
+                            typeVarContext,
+                            signatureTracker,
+                            { type, isIncomplete: matchResults.isTypeIncomplete },
+                            skipUnknownArgCheck,
+                            /* skipOverloadArg */ i === 0,
+                            /* useNarrowBoundOnly */ passCount > 1 && i === 0,
+                            typeCondition
+                        );
 
-                            // If we skipped a overload arg during the first pass,
-                            // add another pass to ensure that we handle all of the
-                            // type variables.
-                            if (i === 0 && argResult.skippedOverloadArg) {
-                                passCount++;
-                            }
+                        if (argResult.isTypeIncomplete) {
+                            isTypeIncomplete = true;
+                        }
+
+                        // If we skipped a overload arg during the first pass,
+                        // add another pass to ensure that we handle all of the
+                        // type variables.
+                        if (i === 0 && argResult.skippedOverloadArg) {
+                            passCount++;
                         }
                     });
                 });
@@ -10896,10 +10929,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let condition: TypeCondition[] = [];
         const argResults: ArgResult[] = [];
 
+        const signatureTracker = new UniqueSignatureTracker();
         matchResults.argParams.forEach((argParam) => {
             const argResult = validateArgType(
                 argParam,
                 typeVarContext,
+                signatureTracker,
                 { type, isIncomplete: matchResults.isTypeIncomplete },
                 skipUnknownArgCheck,
                 /* skipOverloadArg */ false,
@@ -11246,6 +11281,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             (paramInfo) => paramInfo.category === ParameterCategory.VarArgDictionary
         );
 
+        const signatureTracker = new UniqueSignatureTracker();
+
         argList.forEach((arg) => {
             if (arg.argumentCategory === ArgumentCategory.Simple) {
                 let paramType: Type | undefined;
@@ -11302,6 +11339,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             errorNode: arg.valueExpression || errorNode,
                         },
                         srcTypeVarContext,
+                        signatureTracker,
                         /* functionType */ undefined,
                         /* skipUnknownArgCheck */ false,
                         /* skipOverloadArg */ false,
@@ -11353,6 +11391,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function validateArgType(
         argParam: ValidateArgTypeParams,
         typeVarContext: TypeVarContext,
+        signatureTracker: UniqueSignatureTracker,
         typeResult: TypeResult<FunctionType> | undefined,
         skipUnknownCheck: boolean,
         skipOverloadArg: boolean,
@@ -11451,6 +11490,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
         }
+
+        // If the type includes multiple instances of a generic function
+        // signature, force the type arguments for the duplicates to have
+        // unique names.
+        argType = ensureFunctionSignaturesAreUnique(argType, signatureTracker);
 
         // If we're assigning to a var arg dictionary with a TypeVar type,
         // strip literals before performing the assignment. This is used in
@@ -17141,6 +17185,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         argList.forEach((arg) => {
+                            const signatureTracker = new UniqueSignatureTracker();
+
                             if (arg.argumentCategory === ArgumentCategory.Simple && arg.name) {
                                 const paramIndex = paramMap.get(arg.name.value) ?? paramListDetails.kwargsIndex;
 
@@ -17160,6 +17206,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     validateArgType(
                                         argParam,
                                         new TypeVarContext(),
+                                        signatureTracker,
                                         { type: newMethodType },
                                         /* skipUnknownCheck */ true,
                                         /* skipOverloadArg */ true,
@@ -18619,9 +18666,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return getExceptionType(subType, node.typeExpression!);
         });
 
-        // If this is an except group, wrap the exception type in an ExceptionGroup.
+        // If this is an except group, wrap the exception type in an BaseExceptionGroup.
         if (node.isExceptGroup) {
-            targetType = getBuiltInObject(node, 'ExceptionGroup', [targetType]);
+            targetType = getBuiltInObject(node, 'BaseExceptionGroup', [targetType]);
         }
 
         if (node.name) {
@@ -22914,8 +22961,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isNever(srcType)) {
+            if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+                return isNever(destType);
+            }
+
             const targetTypeVarContext =
                 (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destTypeVarContext : srcTypeVarContext;
+
             if (targetTypeVarContext) {
                 setTypeArgumentsRecursive(destType, UnknownType.create(), targetTypeVarContext, recursionCount);
             }

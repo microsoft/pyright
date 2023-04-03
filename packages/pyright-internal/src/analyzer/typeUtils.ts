@@ -203,6 +203,34 @@ export interface InferenceContext {
     typeVarContext?: TypeVarContext;
 }
 
+export interface SignatureWithCount {
+    type: FunctionType;
+    count: number;
+}
+
+export class UniqueSignatureTracker {
+    public signaturesSeen: SignatureWithCount[];
+
+    constructor() {
+        this.signaturesSeen = [];
+    }
+
+    findSignature(signature: FunctionType): SignatureWithCount | undefined {
+        return this.signaturesSeen.find((s) => {
+            return isTypeSame(signature, s.type);
+        });
+    }
+
+    addSignature(signature: FunctionType) {
+        const existingSignature = this.findSignature(signature);
+        if (existingSignature) {
+            existingSignature.count++;
+        } else {
+            this.signaturesSeen.push({ type: signature, count: 1 });
+        }
+    }
+}
+
 export function isOptionalType(type: Type): boolean {
     if (isUnion(type)) {
         return findSubtype(type, (subtype) => isNoneInstance(subtype)) !== undefined;
@@ -934,6 +962,13 @@ export function populateTypeVarContextForSelfType(
 ) {
     const synthesizedSelfTypeVar = synthesizeTypeVarForSelfCls(contextClassType, /* isClsParam */ false);
     typeVarContext.setTypeVarType(synthesizedSelfTypeVar, convertToInstance(selfClass));
+}
+
+// Looks for duplicate function types within the type and ensures that
+// if they are generic, they have unique type variables.
+export function ensureFunctionSignaturesAreUnique(type: Type, signatureTracker: UniqueSignatureTracker): Type {
+    const transformer = new UniqueFunctionSignatureTransformer(signatureTracker);
+    return transformer.apply(type, 0);
 }
 
 // Specializes a (potentially generic) type by substituting
@@ -2766,7 +2801,7 @@ class TypeVarTransformer {
         }
         recursionCount++;
 
-        type = this._transformGenericTypeAlias(type, recursionCount);
+        type = this.transformGenericTypeAlias(type, recursionCount);
 
         // Shortcut the operation if possible.
         if (!requiresSpecialization(type)) {
@@ -2873,7 +2908,7 @@ class TypeVarTransformer {
         }
 
         if (isClass(type)) {
-            return this._transformTypeVarsInClassType(type, recursionCount);
+            return this.transformTypeVarsInClassType(type, recursionCount);
         }
 
         if (isFunction(type)) {
@@ -2883,7 +2918,7 @@ class TypeVarTransformer {
             }
 
             this._pendingFunctionTransformations.push(type);
-            const result = this._transformTypeVarsInFunctionType(type, recursionCount);
+            const result = this.transformTypeVarsInFunctionType(type, recursionCount);
             this._pendingFunctionTransformations.pop();
 
             return result;
@@ -2902,7 +2937,7 @@ class TypeVarTransformer {
             // Specialize each of the functions in the overload.
             const newOverloads: FunctionType[] = [];
             type.overloads.forEach((entry) => {
-                const replacementType = this._transformTypeVarsInFunctionType(entry, recursionCount);
+                const replacementType = this.transformTypeVarsInFunctionType(entry, recursionCount);
 
                 if (isFunction(replacementType)) {
                     newOverloads.push(replacementType);
@@ -2925,7 +2960,7 @@ class TypeVarTransformer {
     }
 
     transformTypeVar(typeVar: TypeVarType, recursionCount: number): Type | undefined {
-        return typeVar;
+        return undefined;
     }
 
     transformTupleTypeVar(paramSpec: TypeVarType, recursionCount: number): TupleTypeArgument[] | undefined {
@@ -2946,7 +2981,7 @@ class TypeVarTransformer {
         return callback();
     }
 
-    private _transformGenericTypeAlias(type: Type, recursionCount: number) {
+    transformGenericTypeAlias(type: Type, recursionCount: number) {
         if (!type.typeAliasInfo || !type.typeAliasInfo.typeParameters || !type.typeAliasInfo.typeArguments) {
             return type;
         }
@@ -2972,7 +3007,7 @@ class TypeVarTransformer {
             : type;
     }
 
-    private _transformTypeVarsInClassType(classType: ClassType, recursionCount: number): ClassType {
+    transformTypeVarsInClassType(classType: ClassType, recursionCount: number): ClassType {
         // Handle the common case where the class has no type parameters.
         if (ClassType.getTypeParameters(classType).length === 0 && !ClassType.isSpecialBuiltIn(classType)) {
             return classType;
@@ -3091,7 +3126,7 @@ class TypeVarTransformer {
         );
     }
 
-    private _transformTypeVarsInFunctionType(
+    transformTypeVarsInFunctionType(
         sourceType: FunctionType,
         recursionCount: number
     ): FunctionType | OverloadedFunctionType {
@@ -3314,6 +3349,45 @@ class TypeVarDefaultValidator extends TypeVarTransformer {
         }
 
         return undefined;
+    }
+}
+
+class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
+    constructor(private _signatureTracker: UniqueSignatureTracker) {
+        super();
+    }
+
+    override transformTypeVarsInFunctionType(
+        sourceType: FunctionType,
+        recursionCount: number
+    ): FunctionType | OverloadedFunctionType {
+        // If this function has already been specialized or is not generic,
+        // there's no need to check for uniqueness.
+        if (sourceType.specializedTypes || sourceType.details.typeParameters.length === 0) {
+            return super.transformTypeVarsInFunctionType(sourceType, recursionCount);
+        }
+
+        let updatedSourceType: Type = sourceType;
+        const existingSignature = this._signatureTracker.findSignature(sourceType);
+        if (existingSignature) {
+            const typeVarContext = new TypeVarContext(getTypeVarScopeId(sourceType));
+
+            // Create new type variables with the same scope but with
+            // different (unique) names.
+            sourceType.details.typeParameters.forEach((typeParam) => {
+                const replacement = TypeVarType.cloneForNewName(
+                    typeParam,
+                    `${typeParam.details.name}(${existingSignature.count})`
+                );
+                typeVarContext.setTypeVarType(typeParam, replacement);
+
+                updatedSourceType = applySolvedTypeVars(sourceType, typeVarContext);
+            });
+        }
+
+        this._signatureTracker.addSignature(sourceType);
+
+        return updatedSourceType;
     }
 }
 

@@ -902,7 +902,7 @@ test('TypeGuard4', () => {
 test('Never1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['never1.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Never2', () => {
@@ -1354,6 +1354,12 @@ test('Constructor13', () => {
 
 test('Constructor14', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor14.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Constructor15', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor15.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

@@ -609,9 +609,13 @@ export function assignTypeToTypeVar(
                     }
                 }
 
+                const adjWideTypeBound = makeConcrete
+                    ? evaluator.makeTopLevelTypeVarsConcrete(curWideTypeBound, /* makeParamSpecsConcrete */ true)
+                    : curWideTypeBound;
+
                 if (
                     !evaluator.assignType(
-                        makeConcrete ? evaluator.makeTopLevelTypeVarsConcrete(curWideTypeBound) : curWideTypeBound,
+                        adjWideTypeBound,
                         newNarrowTypeBound,
                         diag?.createAddendum(),
                         /* destTypeVarContext */ undefined,
