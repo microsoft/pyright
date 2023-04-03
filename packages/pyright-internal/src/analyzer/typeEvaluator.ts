@@ -22961,8 +22961,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isNever(srcType)) {
+            if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+                return isNever(destType);
+            }
+
             const targetTypeVarContext =
                 (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destTypeVarContext : srcTypeVarContext;
+
             if (targetTypeVarContext) {
                 setTypeArgumentsRecursive(destType, UnknownType.create(), targetTypeVarContext, recursionCount);
             }
