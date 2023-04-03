@@ -22547,6 +22547,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             srcTypeArgs = srcType.typeArguments;
         }
 
+        let isCompatible = true;
+
         if (srcTypeArgs) {
             for (let srcArgIndex = 0; srcArgIndex < srcTypeArgs.length; srcArgIndex++) {
                 const srcTypeArg = srcTypeArgs[srcArgIndex];
@@ -22584,7 +22586,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 diag.addAddendum(assignmentDiag);
                             }
                         }
-                        return false;
+                        isCompatible = false;
                     }
                 } else if (TypeVarType.getVariance(destTypeParam) === Variance.Contravariant) {
                     if (
@@ -22607,7 +22609,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             );
                             childDiag.addAddendum(assignmentDiag);
                         }
-                        return false;
+                        isCompatible = false;
                     }
                 } else {
                     if (
@@ -22633,14 +22635,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 );
                                 childDiag.addAddendum(assignmentDiag);
                             }
-                            return false;
+                            isCompatible = false;
                         }
                     }
                 }
             }
         }
 
-        return true;
+        return isCompatible;
     }
 
     // Determines if the source type can be assigned to the dest type.
