@@ -913,6 +913,7 @@ function narrowTypeBasedOnValuePattern(
                             } else if (
                                 isClassInstance(subjectSubtypeExpanded) &&
                                 isClassInstance(valueSubtypeExpanded) &&
+                                isLiteralType(subjectSubtypeExpanded) &&
                                 ClassType.isLiteralValueSame(valueSubtypeExpanded, subjectSubtypeExpanded)
                             ) {
                                 return undefined;

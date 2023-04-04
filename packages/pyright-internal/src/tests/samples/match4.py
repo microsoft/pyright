@@ -5,13 +5,14 @@ from enum import Enum, auto
 from typing import Tuple, TypeVar, Union
 from http import HTTPStatus
 
+
 def handle_reply(reply: Tuple[HTTPStatus, str] | Tuple[HTTPStatus]):
     match reply:
         case (HTTPStatus.OK as a1, a2):
             reveal_type(a1, expected_text="Literal[HTTPStatus.OK]")
             reveal_type(a2, expected_text="str")
 
-        case (HTTPStatus.NOT_FOUND as d1, ):
+        case (HTTPStatus.NOT_FOUND as d1,):
             reveal_type(d1, expected_text="Literal[HTTPStatus.NOT_FOUND]")
 
 
@@ -19,10 +20,13 @@ class MyEnum(Enum):
     V1 = 0
     V2 = 1
 
+
 class MyClass:
     class_var_1: "MyClass"
 
-    def __eq__(self, object: "MyClass") -> bool: ...
+    def __eq__(self, object: "MyClass") -> bool:
+        ...
+
 
 def test_unknown(value_to_match):
     match value_to_match:
@@ -47,6 +51,7 @@ def test_class_var(value_to_match: str):
 
 TInt = TypeVar("TInt", bound=MyEnum)
 
+
 def test_union(value_to_match: Union[TInt, MyEnum]) -> Union[TInt, MyEnum]:
     match value_to_match:
         case MyEnum.V1 as a1:
@@ -61,6 +66,7 @@ class Medal(Enum):
     silver = 2
     bronze = 3
 
+
 class Color(Enum):
     red = 1
     blue = 2
@@ -70,20 +76,20 @@ class Color(Enum):
 def test_enum_narrowing(m: Union[Medal, Color, int]):
     match m:
         case Medal.gold as a1:
-            reveal_type(a1, expected_text='Literal[Medal.gold]')
-            reveal_type(m, expected_text='Literal[Medal.gold]')
+            reveal_type(a1, expected_text="Literal[Medal.gold]")
+            reveal_type(m, expected_text="Literal[Medal.gold]")
 
         case Medal.silver as b1:
-            reveal_type(b1, expected_text='Literal[Medal.silver]')
-            reveal_type(m, expected_text='Literal[Medal.silver]')
+            reveal_type(b1, expected_text="Literal[Medal.silver]")
+            reveal_type(m, expected_text="Literal[Medal.silver]")
 
         case Color() as c1:
-            reveal_type(c1, expected_text='Color')
-            reveal_type(m, expected_text='Color')
+            reveal_type(c1, expected_text="Color")
+            reveal_type(m, expected_text="Color")
 
         case d1:
-            reveal_type(d1, expected_text='int | Literal[Medal.bronze]')
-            reveal_type(m, expected_text='int | Literal[Medal.bronze]')
+            reveal_type(d1, expected_text="int | Literal[Medal.bronze]")
+            reveal_type(m, expected_text="int | Literal[Medal.bronze]")
 
 
 class Foo(Enum):
@@ -98,3 +104,19 @@ class Foo(Enum):
                 reveal_type(x, expected_text="Never")
 
 
+class Numbers:
+    ZERO = 0.0
+    ONE = 1
+    INFINITY = float("inf")
+
+
+def parse_float(subj: float):
+    match subj:
+        case Numbers.ONE:
+            reveal_type(subj, expected_text="Literal[1]")
+        case Numbers.INFINITY:
+            reveal_type(subj, expected_text="float")
+        case Numbers.ZERO:
+            reveal_type(subj, expected_text="float")
+        case f:
+            reveal_type(subj, expected_text="float")
