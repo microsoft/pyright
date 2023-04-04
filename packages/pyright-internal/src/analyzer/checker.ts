@@ -6008,6 +6008,16 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // If the declared type is LiteralString and the class is str, exempt this case.
+        // It's used in the typeshed stubs.
+        if (
+            isClassInstance(paramType) &&
+            ClassType.isBuiltIn(paramType, 'LiteralString') &&
+            ClassType.isBuiltIn(classType, 'str')
+        ) {
+            return;
+        }
+
         const typeVarContext = new TypeVarContext(getTypeVarScopeId(functionType));
         if (!this._evaluator.assignType(paramType, expectedType, /* diag */ undefined, typeVarContext)) {
             // We exempt Never from this check because it has a legitimate use in this case.
