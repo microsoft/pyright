@@ -50,7 +50,7 @@ def test_2(f: Callable[[A], X]) -> Callable[[A, B, C], tuple[X, B, C]]:
 
     reveal_type(
         val,
-        expected_text="(A@test_2, T(1)@identity, T(2)@identity) -> tuple[X@test_2, T(1)@identity, T(2)@identity]",
+        expected_text="(A@test_2, T@identity, T(1)@identity) -> tuple[X@test_2, T@identity, T(1)@identity]",
     )
 
     return val

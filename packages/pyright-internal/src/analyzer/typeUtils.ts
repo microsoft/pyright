@@ -3013,7 +3013,7 @@ class TypeVarTransformer {
             return classType;
         }
 
-        let newTypeArgs: Type[] = [];
+        let newTypeArgs: Type[] | undefined;
         let newTupleTypeArgs: TupleTypeArgument[] | undefined;
         let specializationNeeded = false;
         const typeParams = ClassType.getTypeParameters(classType);
@@ -3032,55 +3032,8 @@ class TypeVarTransformer {
         this._isTransformingTypeArg = true;
 
         // If type args were previously provided, specialize them.
-        if (classType.typeArguments) {
-            newTypeArgs = classType.typeArguments.map((oldTypeArgType) => {
-                if (isTypeVar(oldTypeArgType) && oldTypeArgType.details.isParamSpec) {
-                    return transformParamSpec(oldTypeArgType);
-                }
 
-                let newTypeArgType = this.apply(oldTypeArgType, recursionCount);
-                if (newTypeArgType !== oldTypeArgType) {
-                    specializationNeeded = true;
-
-                    // If this was a variadic type variable that was part of a union
-                    // (e.g. Union[Unpack[Vs]]), expand the subtypes into a union here.
-                    if (
-                        isTypeVar(oldTypeArgType) &&
-                        isVariadicTypeVar(oldTypeArgType) &&
-                        oldTypeArgType.isVariadicInUnion
-                    ) {
-                        newTypeArgType = _expandVariadicUnpackedUnion(newTypeArgType);
-                    }
-                }
-                return newTypeArgType;
-            });
-        } else {
-            typeParams.forEach((typeParam) => {
-                let replacementType: Type = typeParam;
-
-                if (typeParam.details.isParamSpec) {
-                    replacementType = transformParamSpec(typeParam);
-                    if (replacementType !== typeParam) {
-                        specializationNeeded = true;
-                    }
-                } else {
-                    const typeParamName = TypeVarType.getNameWithScope(typeParam);
-                    if (!this._pendingTypeVarTransformations.has(typeParamName)) {
-                        const transformedType = this.transformTypeVar(typeParam, recursionCount);
-                        replacementType = transformedType ?? typeParam;
-
-                        if (replacementType !== typeParam) {
-                            specializationNeeded = true;
-                        } else if (transformedType !== undefined && !classType.typeArguments) {
-                            specializationNeeded = true;
-                        }
-                    }
-                }
-
-                newTypeArgs.push(replacementType);
-            });
-        }
-
+        // Handle tuples specially.
         if (ClassType.isTupleClass(classType)) {
             if (classType.tupleTypeArguments) {
                 newTupleTypeArgs = [];
@@ -3107,6 +3060,76 @@ class TypeVarTransformer {
                 if (newTupleTypeArgs) {
                     specializationNeeded = true;
                 }
+            }
+
+            // If this is an empty tuple, don't recompute the non-tuple type argument.
+            if (newTupleTypeArgs && newTupleTypeArgs.length > 0) {
+                // Combine the tuple type args into a single non-tuple type argument.
+                newTypeArgs = [
+                    combineTypes(
+                        newTupleTypeArgs.map((t) => {
+                            if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type)) {
+                                // Treat the unpacked TypeVarTuple as a union.
+                                return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
+                            }
+
+                            return t.type;
+                        })
+                    ),
+                ];
+            }
+        }
+
+        if (!newTypeArgs) {
+            if (classType.typeArguments) {
+                newTypeArgs = classType.typeArguments.map((oldTypeArgType) => {
+                    if (isTypeVar(oldTypeArgType) && oldTypeArgType.details.isParamSpec) {
+                        return transformParamSpec(oldTypeArgType);
+                    }
+
+                    let newTypeArgType = this.apply(oldTypeArgType, recursionCount);
+                    if (newTypeArgType !== oldTypeArgType) {
+                        specializationNeeded = true;
+
+                        // If this was a variadic type variable that was part of a union
+                        // (e.g. Union[Unpack[Vs]]), expand the subtypes into a union here.
+                        if (
+                            isTypeVar(oldTypeArgType) &&
+                            isVariadicTypeVar(oldTypeArgType) &&
+                            oldTypeArgType.isVariadicInUnion
+                        ) {
+                            newTypeArgType = _expandVariadicUnpackedUnion(newTypeArgType);
+                        }
+                    }
+                    return newTypeArgType;
+                });
+            } else {
+                newTypeArgs = [];
+
+                typeParams.forEach((typeParam) => {
+                    let replacementType: Type = typeParam;
+
+                    if (typeParam.details.isParamSpec) {
+                        replacementType = transformParamSpec(typeParam);
+                        if (replacementType !== typeParam) {
+                            specializationNeeded = true;
+                        }
+                    } else {
+                        const typeParamName = TypeVarType.getNameWithScope(typeParam);
+                        if (!this._pendingTypeVarTransformations.has(typeParamName)) {
+                            const transformedType = this.transformTypeVar(typeParam, recursionCount);
+                            replacementType = transformedType ?? typeParam;
+
+                            if (replacementType !== typeParam) {
+                                specializationNeeded = true;
+                            } else if (transformedType !== undefined && !classType.typeArguments) {
+                                specializationNeeded = true;
+                            }
+                        }
+                    }
+
+                    newTypeArgs!.push(replacementType);
+                });
             }
         }
 
