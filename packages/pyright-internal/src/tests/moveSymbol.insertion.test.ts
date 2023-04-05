@@ -563,6 +563,31 @@ test('multiple variables in multiple lines 2', () => {
     testFromCode(code);
 });
 
+test('insert after comment', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":""|}[|/*marker*/b|] = 3|]
+
+// @filename: moved.py
+//// a = 1 # type: ignore[|{|"r":"!n!!n!!n!b = 3", "name": "dest"|}|]
+    `;
+
+    testFromCode(code);
+});
+
+test('keep comments', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":""|}def [|/*marker*/test|]():
+////     return # comment|]
+
+// @filename: moved.py
+//// [|{|"r":"def test():!n!    return # comment", "name": "dest"|}|]
+    `;
+
+    testFromCode(code);
+});
+
 function testFromCode(code: string) {
     const state = parseAndGetTestState(code).state;
 

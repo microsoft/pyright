@@ -1142,7 +1142,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected async onCompletionResolve(params: CompletionItem, token: CancellationToken): Promise<CompletionItem> {
         const completionItemData = fromLSPAny<CompletionItemData>(params.data);
         if (completionItemData && completionItemData.filePath) {
-            const workspace = await this.getWorkspaceForFile(completionItemData.workspacePath);
+            const workspace = await this.getWorkspaceForFile(completionItemData.filePath);
             this.resolveWorkspaceCompletionItem(workspace, completionItemData.filePath, params, token);
         }
         return params;

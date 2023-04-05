@@ -141,6 +141,23 @@ test('insert symbol before insert marker with other statements', () => {
     });
 });
 
+test('insert symbol after comments', () => {
+    const code = `
+//// a = 1 # comment [|/*marker*/|]
+//// 
+    `;
+
+    testInsertionPoint(code, 'b');
+});
+
+test('insert symbol after comments at EOF', () => {
+    const code = `
+//// a = 1 # comment [|/*marker*/|]
+    `;
+
+    testInsertionPoint(code, 'b');
+});
+
 function testInsertionPoint(
     code: string,
     symbolName: string,

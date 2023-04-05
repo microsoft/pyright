@@ -13,7 +13,7 @@ import { getFirstAncestorOrSelf, isBlankLine } from '../analyzer/parseTreeUtils'
 import { isPrivateName } from '../analyzer/symbolNameUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { containsOnlyWhitespace } from '../common/core';
-import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
+import { convertOffsetToPosition, convertPositionToOffset, getLineEndOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { MatchNode, ParseNode, ParseNodeType, StatementNode, SuiteNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
@@ -69,7 +69,9 @@ export function getInsertionPointForSymbolUnderModule(
         module.statements,
         options?.insertBefore ?? defaultInsertionPoint
     );
-    return TextRange.getEnd(lastStatement);
+
+    const position = convertOffsetToPosition(TextRange.getEnd(lastStatement), parseResults.tokenizerOutput.lines);
+    return getLineEndOffset(parseResults.tokenizerOutput, parseResults.text, position.line);
 }
 
 export function getContainer(node: ParseNode, includeSelf = true): SuiteNode | MatchNode | undefined {

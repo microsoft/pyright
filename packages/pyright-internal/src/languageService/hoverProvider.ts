@@ -27,9 +27,9 @@ import {
     isModule,
     isOverloadedFunction,
     isTypeVar,
+    isUnknown,
     OverloadedFunctionType,
     Type,
-    TypeCategory,
     UnknownType,
 } from '../analyzer/types';
 import {
@@ -153,8 +153,7 @@ export class HoverProvider {
                 // is a directory (a namespace package), and we don't want to provide any hover
                 // information in that case.
                 if (results.parts.length === 0) {
-                    let type = evaluator.getType(node) || UnknownType.create();
-
+                    const type = this._getType(evaluator, node);
                     let typeText: string;
                     if (isModule(type)) {
                         // Handle modules specially because submodules aren't associated with
@@ -162,7 +161,6 @@ export class HoverProvider {
                         // the top-level module, which does have a declaration.
                         typeText = '(module) ' + node.value;
                     } else {
-                        type = this._limitOverloadBasedOnCall(node, evaluator, type);
                         let label = 'function';
                         let isProperty = false;
 
@@ -259,24 +257,24 @@ export class HoverProvider {
 
                 // Determine if this identifier is a type alias. If so, expand
                 // the type alias when printing the type information.
-                let type = evaluator.getType(typeNode);
+                let type = this._getType(evaluator, typeNode);
 
                 // We may have more type information in the alternativeTypeNode. Use that if it's better.
                 if (
-                    (!type || type.category === TypeCategory.Unknown) &&
+                    isUnknown(type) &&
                     resolvedDecl.alternativeTypeNode &&
                     isExpressionNode(resolvedDecl.alternativeTypeNode)
                 ) {
-                    const inferredType = evaluator.getType(resolvedDecl.alternativeTypeNode);
-                    if (inferredType && inferredType.category !== TypeCategory.Unknown) {
+                    const inferredType = this._getType(evaluator, resolvedDecl.alternativeTypeNode);
+                    if (!isUnknown(inferredType)) {
                         type = inferredType;
                         typeNode = resolvedDecl.alternativeTypeNode;
                     }
                 }
+
                 let expandTypeAlias = false;
                 let typeVarName: string | undefined;
-
-                if (type?.typeAliasInfo && typeNode.nodeType === ParseNodeType.Name) {
+                if (type.typeAliasInfo && typeNode.nodeType === ParseNodeType.Name) {
                     const typeAliasInfo = getTypeAliasInfo(type);
                     if (typeAliasInfo?.name === typeNode.value) {
                         if (isTypeVar(type)) {
@@ -359,28 +357,24 @@ export class HoverProvider {
                     label = isProperty ? 'property' : 'method';
                 }
 
-                let type = evaluator.getType(node);
+                let type = this._getType(evaluator, node);
                 const resolvedType =
                     Extensions.getProgramExtensions(resolvedDecl.node)
                         .map((e) =>
                             e.typeProviderExtension?.tryGetFunctionNodeType(resolvedDecl.node, evaluator, token)
                         )
-                        .find((t) => !!t) || evaluator.getType(resolvedDecl.node.name);
-                type = type === undefined || isAnyOrUnknown(type) ? resolvedType : type;
+                        .find((t) => !!t) || this._getType(evaluator, resolvedDecl.node.name);
+                type = isAnyOrUnknown(type) ? resolvedType : type;
+                const signatureString = getToolTipForType(
+                    type,
+                    label,
+                    node.value,
+                    evaluator,
+                    isProperty,
+                    functionSignatureDisplay
+                );
 
-                if (type) {
-                    type = this._limitOverloadBasedOnCall(node, evaluator, type);
-
-                    const signatureString = getToolTipForType(
-                        type,
-                        label,
-                        node.value,
-                        evaluator,
-                        isProperty,
-                        functionSignatureDisplay
-                    );
-                    this._addResultsPart(parts, signatureString, /* python */ true);
-                }
+                this._addResultsPart(parts, signatureString, /* python */ true);
                 this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
@@ -483,14 +477,13 @@ export class HoverProvider {
         }
 
         // Get the init method for this class.
-        const classType = evaluator.getType(node);
-
-        if (!classType || !isInstantiableClass(classType)) {
+        const classType = this._getType(evaluator, node);
+        if (!isInstantiableClass(classType)) {
             return false;
         }
 
-        const instanceType = evaluator.getType(callLeftNode.parent);
-        if (!instanceType || !isClassInstance(instanceType)) {
+        const instanceType = this._getType(evaluator, callLeftNode.parent);
+        if (!isClassInstance(instanceType)) {
             return false;
         }
 
@@ -504,7 +497,7 @@ export class HoverProvider {
             const functionType = evaluator.getTypeOfMember(initMember);
 
             if (isFunction(functionType) || isOverloadedFunction(functionType)) {
-                methodType = evaluator.bindFunctionToClassOrObject(instanceType, functionType);
+                methodType = this._bindFunctionToClassOrObject(evaluator, node, instanceType, functionType);
             }
         }
 
@@ -528,12 +521,11 @@ export class HoverProvider {
                 // Prefer `__new__` if it doesn't have default params (*args: Any, **kwargs: Any) or no params ().
                 if (isFunction(newMemberType) || isOverloadedFunction(newMemberType)) {
                     // Set `treatConstructorAsClassMember` to true to exclude `cls` as a parameter.
-                    methodType = evaluator.bindFunctionToClassOrObject(
+                    methodType = this._bindFunctionToClassOrObject(
+                        evaluator,
+                        node,
                         instanceType,
                         newMemberType,
-                        /* memberClass */ undefined,
-                        /* errorNode */ undefined,
-                        /* recursiveCount */ undefined,
                         /* treatConstructorAsClassMember */ true
                     );
                 }
@@ -541,7 +533,6 @@ export class HoverProvider {
         }
 
         if (methodType && (isFunction(methodType) || isOverloadedFunction(methodType))) {
-            methodType = this._limitOverloadBasedOnCall(node, evaluator, methodType);
             this._addResultsPart(
                 parts,
                 getConstructorTooltip(node.value, methodType, evaluator, functionSignatureDisplay),
@@ -566,8 +557,7 @@ export class HoverProvider {
     }
 
     private static _getTypeText(node: ExpressionNode, evaluator: TypeEvaluator, expandTypeAlias = false): string {
-        let type = evaluator.getType(node) || UnknownType.create();
-        type = this._limitOverloadBasedOnCall(node, evaluator, type);
+        const type = this._getType(evaluator, node);
         return ': ' + evaluator.printType(type, { expandTypeAlias });
     }
 
@@ -576,26 +566,67 @@ export class HoverProvider {
         return ': ' + evaluator.printType(type, { expandTypeAlias });
     }
 
-    private static _limitOverloadBasedOnCall(node: ExpressionNode, evaluator: TypeEvaluator, type: Type) {
+    private static _bindFunctionToClassOrObject(
+        evaluator: TypeEvaluator,
+        node: ExpressionNode,
+        baseType: ClassType | undefined,
+        memberType: FunctionType | OverloadedFunctionType,
+        treatConstructorAsClassMember?: boolean
+    ): FunctionType | OverloadedFunctionType | undefined {
+        const methodType = evaluator.bindFunctionToClassOrObject(
+            baseType,
+            memberType,
+            /* memberClass */ undefined,
+            /* errorNode */ undefined,
+            /* recursiveCount */ undefined,
+            treatConstructorAsClassMember
+        );
+
+        if (!methodType) {
+            return undefined;
+        }
+
+        return this._limitOverloadBasedOnCall(evaluator, methodType, node);
+    }
+
+    private static _getType(evaluator: TypeEvaluator, node: ExpressionNode) {
+        // It does common work necessary for hover for a type we got
+        // from raw type evaluator.
+        const type = evaluator.getType(node) ?? UnknownType.create();
+        return this._limitOverloadBasedOnCall(evaluator, type, node);
+    }
+
+    private static _limitOverloadBasedOnCall<T extends Type>(
+        evaluator: TypeEvaluator,
+        type: T,
+        node: ExpressionNode
+    ): T | FunctionType | OverloadedFunctionType {
         // If it's an overloaded function, see if it's part of a call expression.
         // If so, we may be able to eliminate some of the overloads based on
         // the overload resolution.
-        if (isOverloadedFunction(type) && node.nodeType === ParseNodeType.Name) {
-            const callNode = ParseTreeUtils.getCallForName(node);
-            if (callNode) {
-                const callTypeResult = evaluator.getTypeResult(callNode);
-
-                if (callTypeResult?.overloadsUsedForCall && callTypeResult.overloadsUsedForCall.length > 0) {
-                    if (callTypeResult.overloadsUsedForCall.length === 1) {
-                        type = callTypeResult.overloadsUsedForCall[0];
-                    } else {
-                        type = OverloadedFunctionType.create(callTypeResult.overloadsUsedForCall);
-                    }
-                }
-            }
+        if (!isOverloadedFunction(type) || node.nodeType !== ParseNodeType.Name) {
+            return type;
         }
 
-        return type;
+        const callNode = ParseTreeUtils.getCallForName(node);
+        if (!callNode) {
+            return type;
+        }
+
+        const callTypeResult = evaluator.getTypeResult(callNode);
+        if (
+            !callTypeResult ||
+            !callTypeResult.overloadsUsedForCall ||
+            callTypeResult.overloadsUsedForCall.length === 0
+        ) {
+            return type;
+        }
+
+        if (callTypeResult.overloadsUsedForCall.length === 1) {
+            return callTypeResult.overloadsUsedForCall[0];
+        }
+
+        return OverloadedFunctionType.create(callTypeResult.overloadsUsedForCall);
     }
 
     private static _addDocumentationPart(
@@ -606,7 +637,7 @@ export class HoverProvider {
         evaluator: TypeEvaluator,
         resolvedDecl: Declaration | undefined
     ) {
-        const type = evaluator.getType(node);
+        const type = this._getType(evaluator, node);
         this._addDocumentationPartForType(format, sourceMapper, parts, type, resolvedDecl, evaluator, node.value);
     }
 
