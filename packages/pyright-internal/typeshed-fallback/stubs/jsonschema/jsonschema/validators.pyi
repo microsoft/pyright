@@ -43,8 +43,8 @@ class _Validator:
 def validates(version: str) -> Callable[..., Any]: ...
 def create(
     meta_schema: _Schema,
-    validators: Mapping[str, _ValidatorCallback] | tuple[()] = ...,
-    version: Incomplete | None = ...,
+    validators: Mapping[str, _ValidatorCallback] | tuple[()] = (),
+    version: Incomplete | None = None,
     type_checker: TypeChecker = ...,
     format_checker: FormatChecker = ...,
     id_of: Callable[[_Schema], str] = ...,
@@ -52,10 +52,10 @@ def create(
 ) -> type[_Validator]: ...
 def extend(
     validator,
-    validators=...,
-    version: Incomplete | None = ...,
-    type_checker: Incomplete | None = ...,
-    format_checker: Incomplete | None = ...,
+    validators=(),
+    version: Incomplete | None = None,
+    type_checker: Incomplete | None = None,
+    format_checker: Incomplete | None = None,
 ): ...
 
 # At runtime these are fields that are assigned the return values of create() calls.
@@ -78,10 +78,10 @@ class RefResolver:
         base_uri: str,
         referrer: dict[str, Any],
         store: SupportsKeysAndGetItem[str, str] | Iterable[tuple[str, str]] = ...,
-        cache_remote: bool = ...,
-        handlers: SupportsKeysAndGetItem[str, _Handler] | Iterable[tuple[str, _Handler]] = ...,
-        urljoin_cache: Incomplete | None = ...,
-        remote_cache: Incomplete | None = ...,
+        cache_remote: bool = True,
+        handlers: SupportsKeysAndGetItem[str, _Handler] | Iterable[tuple[str, _Handler]] = (),
+        urljoin_cache: Incomplete | None = None,
+        remote_cache: Incomplete | None = None,
     ) -> None: ...
     @classmethod
     def from_schema(cls, schema: _Schema, id_of=..., *args, **kwargs): ...
@@ -100,5 +100,5 @@ class RefResolver:
     def resolve_fragment(self, document, fragment): ...
     def resolve_remote(self, uri): ...
 
-def validate(instance: object, schema: _Schema, cls: type[_Validator] | None = ..., *args: Any, **kwargs: Any) -> None: ...
+def validate(instance: object, schema: _Schema, cls: type[_Validator] | None = None, *args: Any, **kwargs: Any) -> None: ...
 def validator_for(schema: _Schema | bool, default=...): ...

@@ -10,12 +10,12 @@ class CORSRule:
     expose_header: Any
     def __init__(
         self,
-        allowed_method: Incomplete | None = ...,
-        allowed_origin: Incomplete | None = ...,
-        id: Incomplete | None = ...,
-        allowed_header: Incomplete | None = ...,
-        max_age_seconds: Incomplete | None = ...,
-        expose_header: Incomplete | None = ...,
+        allowed_method: Incomplete | None = None,
+        allowed_origin: Incomplete | None = None,
+        id: Incomplete | None = None,
+        allowed_header: Incomplete | None = None,
+        max_age_seconds: Incomplete | None = None,
+        expose_header: Incomplete | None = None,
     ) -> None: ...
     def startElement(self, name, attrs, connection): ...
     def endElement(self, name, value, connection): ...
@@ -29,8 +29,8 @@ class CORSConfiguration(list[CORSRule]):
         self,
         allowed_method,
         allowed_origin,
-        id: Incomplete | None = ...,
-        allowed_header: Incomplete | None = ...,
-        max_age_seconds: Incomplete | None = ...,
-        expose_header: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        allowed_header: Incomplete | None = None,
+        max_age_seconds: Incomplete | None = None,
+        expose_header: Incomplete | None = None,
     ): ...

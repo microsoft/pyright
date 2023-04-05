@@ -10,17 +10,17 @@ class Outline(Serialisable):
     showOutlineSymbols: Incomplete
     def __init__(
         self,
-        applyStyles: Incomplete | None = ...,
-        summaryBelow: Incomplete | None = ...,
-        summaryRight: Incomplete | None = ...,
-        showOutlineSymbols: Incomplete | None = ...,
+        applyStyles: Incomplete | None = None,
+        summaryBelow: Incomplete | None = None,
+        summaryRight: Incomplete | None = None,
+        showOutlineSymbols: Incomplete | None = None,
     ) -> None: ...
 
 class PageSetupProperties(Serialisable):
     tagname: str
     autoPageBreaks: Incomplete
     fitToPage: Incomplete
-    def __init__(self, autoPageBreaks: Incomplete | None = ..., fitToPage: Incomplete | None = ...) -> None: ...
+    def __init__(self, autoPageBreaks: Incomplete | None = None, fitToPage: Incomplete | None = None) -> None: ...
 
 class WorksheetProperties(Serialisable):
     tagname: str
@@ -39,16 +39,16 @@ class WorksheetProperties(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        codeName: Incomplete | None = ...,
-        enableFormatConditionsCalculation: Incomplete | None = ...,
-        filterMode: Incomplete | None = ...,
-        published: Incomplete | None = ...,
-        syncHorizontal: Incomplete | None = ...,
-        syncRef: Incomplete | None = ...,
-        syncVertical: Incomplete | None = ...,
-        transitionEvaluation: Incomplete | None = ...,
-        transitionEntry: Incomplete | None = ...,
-        tabColor: Incomplete | None = ...,
-        outlinePr: Incomplete | None = ...,
-        pageSetUpPr: Incomplete | None = ...,
+        codeName: Incomplete | None = None,
+        enableFormatConditionsCalculation: Incomplete | None = None,
+        filterMode: Incomplete | None = None,
+        published: Incomplete | None = None,
+        syncHorizontal: Incomplete | None = None,
+        syncRef: Incomplete | None = None,
+        syncVertical: Incomplete | None = None,
+        transitionEvaluation: Incomplete | None = None,
+        transitionEntry: Incomplete | None = None,
+        tabColor: Incomplete | None = None,
+        outlinePr: Incomplete | None = None,
+        pageSetUpPr: Incomplete | None = None,
     ) -> None: ...

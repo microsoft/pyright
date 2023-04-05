@@ -20,7 +20,7 @@ class StyleArray(array[Incomplete]):
     pivotButton: Incomplete
     quotePrefix: Incomplete
     xfId: Incomplete
-    def __new__(cls, args=...): ...
+    def __new__(cls, args=[0, 0, 0, 0, 0, 0, 0, 0, 0]): ...
     def __hash__(self) -> int: ...
     def __copy__(self): ...
     def __deepcopy__(self, memo): ...
@@ -48,22 +48,22 @@ class CellStyle(Serialisable):
     __attrs__: Incomplete
     def __init__(
         self,
-        numFmtId: int = ...,
-        fontId: int = ...,
-        fillId: int = ...,
-        borderId: int = ...,
-        xfId: Incomplete | None = ...,
-        quotePrefix: Incomplete | None = ...,
-        pivotButton: Incomplete | None = ...,
-        applyNumberFormat: Incomplete | None = ...,
-        applyFont: Incomplete | None = ...,
-        applyFill: Incomplete | None = ...,
-        applyBorder: Incomplete | None = ...,
-        applyAlignment: Incomplete | None = ...,
-        applyProtection: Incomplete | None = ...,
-        alignment: Incomplete | None = ...,
-        protection: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        numFmtId: int = 0,
+        fontId: int = 0,
+        fillId: int = 0,
+        borderId: int = 0,
+        xfId: Incomplete | None = None,
+        quotePrefix: Incomplete | None = None,
+        pivotButton: Incomplete | None = None,
+        applyNumberFormat: Incomplete | None = None,
+        applyFont: Incomplete | None = None,
+        applyFill: Incomplete | None = None,
+        applyBorder: Incomplete | None = None,
+        applyAlignment: Incomplete | None = None,
+        applyProtection: Incomplete | None = None,
+        alignment: Incomplete | None = None,
+        protection: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
     def to_array(self): ...
     @classmethod
@@ -82,7 +82,7 @@ class CellStyleList(Serialisable):
     alignment: Incomplete
     protection: Incomplete
     __elements__: Incomplete
-    def __init__(self, count: Incomplete | None = ..., xf=...) -> None: ...
+    def __init__(self, count: Incomplete | None = None, xf=()) -> None: ...
     @property
     def count(self): ...
     def __getitem__(self, idx): ...

@@ -39,7 +39,7 @@ class UndefinedName(Message):
 
 class DoctestSyntaxError(Message):
     message_args: tuple[()]
-    def __init__(self, filename, loc: ast.AST, position: tuple[int, int] | None = ...) -> None: ...
+    def __init__(self, filename, loc: ast.AST, position: tuple[int, int] | None = None) -> None: ...
 
 class UndefinedExport(Message):
     message_args: tuple[Any]

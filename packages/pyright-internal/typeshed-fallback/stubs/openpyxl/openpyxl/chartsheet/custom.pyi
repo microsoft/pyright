@@ -14,17 +14,17 @@ class CustomChartsheetView(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        guid: Incomplete | None = ...,
-        scale: Incomplete | None = ...,
-        state: str = ...,
-        zoomToFit: Incomplete | None = ...,
-        pageMargins: Incomplete | None = ...,
-        pageSetup: Incomplete | None = ...,
-        headerFooter: Incomplete | None = ...,
+        guid: Incomplete | None = None,
+        scale: Incomplete | None = None,
+        state: str = "visible",
+        zoomToFit: Incomplete | None = None,
+        pageMargins: Incomplete | None = None,
+        pageSetup: Incomplete | None = None,
+        headerFooter: Incomplete | None = None,
     ) -> None: ...
 
 class CustomChartsheetViews(Serialisable):
     tagname: str
     customSheetView: Incomplete
     __elements__: Incomplete
-    def __init__(self, customSheetView: Incomplete | None = ...) -> None: ...
+    def __init__(self, customSheetView: Incomplete | None = None) -> None: ...

@@ -42,10 +42,10 @@ class Cleaner:
         tags: Iterable[str] = ...,
         attributes: _Attributes = ...,
         protocols: Iterable[str] = ...,
-        strip: bool = ...,
-        strip_comments: bool = ...,
-        filters: Iterable[_Filter] | None = ...,
-        css_sanitizer: CSSSanitizer | None = ...,
+        strip: bool = False,
+        strip_comments: bool = True,
+        filters: Iterable[_Filter] | None = None,
+        css_sanitizer: CSSSanitizer | None = None,
     ) -> None: ...
     def clean(self, text: str) -> str: ...
 

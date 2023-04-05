@@ -6,12 +6,12 @@ class TemplateSummaryDiffNotificationEndpoints:
     discriminator: Incomplete
     def __init__(
         self,
-        kind: Incomplete | None = ...,
-        state_status: Incomplete | None = ...,
-        id: Incomplete | None = ...,
-        template_meta_name: Incomplete | None = ...,
-        new: Incomplete | None = ...,
-        old: Incomplete | None = ...,
+        kind: Incomplete | None = None,
+        state_status: Incomplete | None = None,
+        id: Incomplete | None = None,
+        template_meta_name: Incomplete | None = None,
+        new: Incomplete | None = None,
+        old: Incomplete | None = None,
     ) -> None: ...
     @property
     def kind(self): ...

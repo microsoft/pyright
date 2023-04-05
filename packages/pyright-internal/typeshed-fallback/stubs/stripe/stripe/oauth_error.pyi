@@ -7,10 +7,10 @@ class OAuthError(StripeError):
         self,
         code,
         description,
-        http_body: Incomplete | None = ...,
-        http_status: Incomplete | None = ...,
-        json_body: Incomplete | None = ...,
-        headers: Incomplete | None = ...,
+        http_body: Incomplete | None = None,
+        http_status: Incomplete | None = None,
+        json_body: Incomplete | None = None,
+        headers: Incomplete | None = None,
     ) -> None: ...
     def construct_error_object(self): ...
 

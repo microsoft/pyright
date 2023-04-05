@@ -10,9 +10,9 @@ class RequestTokenEndpoint(BaseEndpoint):
     def create_request_token_response(
         self,
         uri,
-        http_method: str = ...,
-        body: Incomplete | None = ...,
-        headers: Incomplete | None = ...,
-        credentials: Incomplete | None = ...,
+        http_method: str = "GET",
+        body: Incomplete | None = None,
+        headers: Incomplete | None = None,
+        credentials: Incomplete | None = None,
     ): ...
     def validate_request_token_request(self, request): ...

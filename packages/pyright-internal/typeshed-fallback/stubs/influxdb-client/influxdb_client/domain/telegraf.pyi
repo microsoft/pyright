@@ -8,14 +8,14 @@ class Telegraf(TelegrafRequest):
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        links: Incomplete | None = ...,
-        labels: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        metadata: Incomplete | None = ...,
-        config: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        links: Incomplete | None = None,
+        labels: Incomplete | None = None,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        metadata: Incomplete | None = None,
+        config: Incomplete | None = None,
+        org_id: Incomplete | None = None,
     ) -> None: ...
     @property
     def id(self): ...

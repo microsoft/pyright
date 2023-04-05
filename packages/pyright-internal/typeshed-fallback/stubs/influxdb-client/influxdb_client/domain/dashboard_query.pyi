@@ -6,10 +6,10 @@ class DashboardQuery:
     discriminator: Incomplete
     def __init__(
         self,
-        text: Incomplete | None = ...,
-        edit_mode: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        builder_config: Incomplete | None = ...,
+        text: Incomplete | None = None,
+        edit_mode: Incomplete | None = None,
+        name: Incomplete | None = None,
+        builder_config: Incomplete | None = None,
     ) -> None: ...
     @property
     def text(self): ...

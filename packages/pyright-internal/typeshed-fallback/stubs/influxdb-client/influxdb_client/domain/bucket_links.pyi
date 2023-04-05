@@ -6,12 +6,12 @@ class BucketLinks:
     discriminator: Incomplete
     def __init__(
         self,
-        labels: Incomplete | None = ...,
-        members: Incomplete | None = ...,
-        org: Incomplete | None = ...,
-        owners: Incomplete | None = ...,
-        _self: Incomplete | None = ...,
-        write: Incomplete | None = ...,
+        labels: Incomplete | None = None,
+        members: Incomplete | None = None,
+        org: Incomplete | None = None,
+        owners: Incomplete | None = None,
+        _self: Incomplete | None = None,
+        write: Incomplete | None = None,
     ) -> None: ...
     @property
     def labels(self): ...

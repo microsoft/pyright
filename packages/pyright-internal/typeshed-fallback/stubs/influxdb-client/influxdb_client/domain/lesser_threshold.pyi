@@ -7,7 +7,11 @@ class LesserThreshold(ThresholdBase):
     attribute_map: Incomplete
     discriminator: Incomplete
     def __init__(
-        self, type: str = ..., value: Incomplete | None = ..., level: Incomplete | None = ..., all_values: Incomplete | None = ...
+        self,
+        type: str = "lesser",
+        value: Incomplete | None = None,
+        level: Incomplete | None = None,
+        all_values: Incomplete | None = None,
     ) -> None: ...
     @property
     def type(self): ...

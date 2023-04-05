@@ -15,13 +15,13 @@ class DataTable(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        showHorzBorder: Incomplete | None = ...,
-        showVertBorder: Incomplete | None = ...,
-        showOutline: Incomplete | None = ...,
-        showKeys: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        txPr: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        showHorzBorder: Incomplete | None = None,
+        showVertBorder: Incomplete | None = None,
+        showOutline: Incomplete | None = None,
+        showKeys: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        txPr: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class PlotArea(Serialisable):
@@ -54,13 +54,13 @@ class PlotArea(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        layout: Incomplete | None = ...,
-        dTable: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        _charts=...,
-        _axes=...,
-        extLst: Incomplete | None = ...,
+        layout: Incomplete | None = None,
+        dTable: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        _charts=(),
+        _axes=(),
+        extLst: Incomplete | None = None,
     ) -> None: ...
-    def to_tree(self, tagname: Incomplete | None = ..., idx: Incomplete | None = ..., namespace: Incomplete | None = ...): ...
+    def to_tree(self, tagname: Incomplete | None = None, idx: Incomplete | None = None, namespace: Incomplete | None = None): ...
     @classmethod
     def from_tree(cls, node): ...

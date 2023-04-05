@@ -8,12 +8,12 @@ class RangeThreshold(ThresholdBase):
     discriminator: Incomplete
     def __init__(
         self,
-        type: str = ...,
-        min: Incomplete | None = ...,
-        max: Incomplete | None = ...,
-        within: Incomplete | None = ...,
-        level: Incomplete | None = ...,
-        all_values: Incomplete | None = ...,
+        type: str = "range",
+        min: Incomplete | None = None,
+        max: Incomplete | None = None,
+        within: Incomplete | None = None,
+        level: Incomplete | None = None,
+        all_values: Incomplete | None = None,
     ) -> None: ...
     @property
     def type(self): ...

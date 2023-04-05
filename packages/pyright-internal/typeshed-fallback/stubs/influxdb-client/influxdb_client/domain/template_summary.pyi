@@ -6,11 +6,11 @@ class TemplateSummary:
     discriminator: Incomplete
     def __init__(
         self,
-        sources: Incomplete | None = ...,
-        stack_id: Incomplete | None = ...,
-        summary: Incomplete | None = ...,
-        diff: Incomplete | None = ...,
-        errors: Incomplete | None = ...,
+        sources: Incomplete | None = None,
+        stack_id: Incomplete | None = None,
+        summary: Incomplete | None = None,
+        diff: Incomplete | None = None,
+        errors: Incomplete | None = None,
     ) -> None: ...
     @property
     def sources(self): ...

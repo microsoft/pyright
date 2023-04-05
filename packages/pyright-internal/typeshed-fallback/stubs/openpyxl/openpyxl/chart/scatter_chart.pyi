@@ -15,10 +15,10 @@ class ScatterChart(ChartBase):
     __elements__: Incomplete
     def __init__(
         self,
-        scatterStyle: Incomplete | None = ...,
-        varyColors: Incomplete | None = ...,
-        ser=...,
-        dLbls: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        scatterStyle: Incomplete | None = None,
+        varyColors: Incomplete | None = None,
+        ser=(),
+        dLbls: Incomplete | None = None,
+        extLst: Incomplete | None = None,
         **kw,
     ) -> None: ...

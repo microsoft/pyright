@@ -10,12 +10,12 @@ class ApiClient:
     cookie: Incomplete
     def __init__(
         self,
-        configuration: Incomplete | None = ...,
-        header_name: Incomplete | None = ...,
-        header_value: Incomplete | None = ...,
-        cookie: Incomplete | None = ...,
-        pool_threads: Incomplete | None = ...,
-        retries: bool = ...,
+        configuration: Incomplete | None = None,
+        header_name: Incomplete | None = None,
+        header_value: Incomplete | None = None,
+        cookie: Incomplete | None = None,
+        pool_threads: Incomplete | None = None,
+        retries: bool = False,
     ) -> None: ...
     def __del__(self) -> None: ...
     @property
@@ -31,35 +31,35 @@ class ApiClient:
         self,
         resource_path,
         method,
-        path_params: Incomplete | None = ...,
-        query_params: Incomplete | None = ...,
-        header_params: Incomplete | None = ...,
-        body: Incomplete | None = ...,
-        post_params: Incomplete | None = ...,
-        files: Incomplete | None = ...,
-        response_type: Incomplete | None = ...,
-        auth_settings: Incomplete | None = ...,
-        async_req: Incomplete | None = ...,
-        _return_http_data_only: Incomplete | None = ...,
-        collection_formats: Incomplete | None = ...,
-        _preload_content: bool = ...,
-        _request_timeout: Incomplete | None = ...,
-        urlopen_kw: Incomplete | None = ...,
+        path_params: Incomplete | None = None,
+        query_params: Incomplete | None = None,
+        header_params: Incomplete | None = None,
+        body: Incomplete | None = None,
+        post_params: Incomplete | None = None,
+        files: Incomplete | None = None,
+        response_type: Incomplete | None = None,
+        auth_settings: Incomplete | None = None,
+        async_req: Incomplete | None = None,
+        _return_http_data_only: Incomplete | None = None,
+        collection_formats: Incomplete | None = None,
+        _preload_content: bool = True,
+        _request_timeout: Incomplete | None = None,
+        urlopen_kw: Incomplete | None = None,
     ): ...
     def request(
         self,
         method,
         url,
-        query_params: Incomplete | None = ...,
-        headers: Incomplete | None = ...,
-        post_params: Incomplete | None = ...,
-        body: Incomplete | None = ...,
-        _preload_content: bool = ...,
-        _request_timeout: Incomplete | None = ...,
+        query_params: Incomplete | None = None,
+        headers: Incomplete | None = None,
+        post_params: Incomplete | None = None,
+        body: Incomplete | None = None,
+        _preload_content: bool = True,
+        _request_timeout: Incomplete | None = None,
         **urlopen_kw,
     ): ...
     def parameters_to_tuples(self, params, collection_formats): ...
-    def prepare_post_parameters(self, post_params: Incomplete | None = ..., files: Incomplete | None = ...): ...
+    def prepare_post_parameters(self, post_params: Incomplete | None = None, files: Incomplete | None = None): ...
     def select_header_accept(self, accepts): ...
     def select_header_content_type(self, content_types): ...
     def update_params_for_auth(self, headers, querys, auth_settings) -> None: ...

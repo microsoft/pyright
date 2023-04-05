@@ -6,11 +6,11 @@ class TemplateChart:
     discriminator: Incomplete
     def __init__(
         self,
-        x_pos: Incomplete | None = ...,
-        y_pos: Incomplete | None = ...,
-        height: Incomplete | None = ...,
-        width: Incomplete | None = ...,
-        properties: Incomplete | None = ...,
+        x_pos: Incomplete | None = None,
+        y_pos: Incomplete | None = None,
+        height: Incomplete | None = None,
+        width: Incomplete | None = None,
+        properties: Incomplete | None = None,
     ) -> None: ...
     @property
     def x_pos(self): ...

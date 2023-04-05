@@ -1,6 +1,6 @@
 from collections.abc import Callable, Sequence, Sized
 from typing import Any, TypeVar
-from typing_extensions import Literal
+from typing_extensions import Final, Literal
 
 from Xlib._typing import Unused
 from Xlib.display import Display
@@ -10,19 +10,22 @@ from Xlib.xobject import resource
 _T = TypeVar("_T")
 _S = TypeVar("_S", bound=Sized)
 
-extname: str
-FromServerTime: int
-FromClientTime: int
-FromClientSequence: int
-CurrentClients: int
-FutureClients: int
-AllClients: int
-FromServer: int
-FromClient: int
-ClientStarted: int
-ClientDied: int
-StartOfData: int
-EndOfData: int
+extname: Final = "RECORD"
+
+FromServerTime: Final = 0x01
+FromClientTime: Final = 0x02
+FromClientSequence: Final = 0x04
+
+CurrentClients: Final = 1
+FutureClients: Final = 2
+AllClients: Final = 3
+
+FromServer: Final = 0
+FromClient: Final = 1
+ClientStarted: Final = 2
+ClientDied: Final = 3
+StartOfData: Final = 4
+EndOfData: Final = 5
 Record_Range8: rq.Struct
 Record_Range16: rq.Struct
 Record_ExtRange: rq.Struct
@@ -94,7 +97,7 @@ class EnableContext(rq.ReplyRequest):
         self,
         callback: Callable[[rq.DictWrapper | dict[str, Any]], Any],
         display: display.Display,
-        defer: bool = ...,
+        defer: bool = False,
         *args: object | bool,
         **keys: object | bool,
     ) -> None: ...

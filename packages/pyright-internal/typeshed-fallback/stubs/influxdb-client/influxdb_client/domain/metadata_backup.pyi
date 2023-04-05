@@ -4,7 +4,9 @@ class MetadataBackup:
     openapi_types: Incomplete
     attribute_map: Incomplete
     discriminator: Incomplete
-    def __init__(self, kv: Incomplete | None = ..., sql: Incomplete | None = ..., buckets: Incomplete | None = ...) -> None: ...
+    def __init__(
+        self, kv: Incomplete | None = None, sql: Incomplete | None = None, buckets: Incomplete | None = None
+    ) -> None: ...
     @property
     def kv(self): ...
     @kv.setter

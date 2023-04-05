@@ -6,17 +6,17 @@ class TemplateSummarySummaryTasks:
     discriminator: Incomplete
     def __init__(
         self,
-        kind: Incomplete | None = ...,
-        template_meta_name: Incomplete | None = ...,
-        id: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        cron: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        every: Incomplete | None = ...,
-        offset: Incomplete | None = ...,
-        query: Incomplete | None = ...,
-        status: Incomplete | None = ...,
-        env_references: Incomplete | None = ...,
+        kind: Incomplete | None = None,
+        template_meta_name: Incomplete | None = None,
+        id: Incomplete | None = None,
+        name: Incomplete | None = None,
+        cron: Incomplete | None = None,
+        description: Incomplete | None = None,
+        every: Incomplete | None = None,
+        offset: Incomplete | None = None,
+        query: Incomplete | None = None,
+        status: Incomplete | None = None,
+        env_references: Incomplete | None = None,
     ) -> None: ...
     @property
     def kind(self): ...

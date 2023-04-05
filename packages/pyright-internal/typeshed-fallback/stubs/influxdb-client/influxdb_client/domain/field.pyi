@@ -6,10 +6,10 @@ class Field:
     discriminator: Incomplete
     def __init__(
         self,
-        value: Incomplete | None = ...,
-        type: Incomplete | None = ...,
-        alias: Incomplete | None = ...,
-        args: Incomplete | None = ...,
+        value: Incomplete | None = None,
+        type: Incomplete | None = None,
+        alias: Incomplete | None = None,
+        args: Incomplete | None = None,
     ) -> None: ...
     @property
     def value(self): ...

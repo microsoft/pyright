@@ -6,12 +6,12 @@ class RemoteConnectionUpdateRequest:
     discriminator: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        remote_url: Incomplete | None = ...,
-        remote_api_token: Incomplete | None = ...,
-        remote_org_id: Incomplete | None = ...,
-        allow_insecure_tls: bool = ...,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        remote_url: Incomplete | None = None,
+        remote_api_token: Incomplete | None = None,
+        remote_org_id: Incomplete | None = None,
+        allow_insecure_tls: bool = False,
     ) -> None: ...
     @property
     def name(self): ...

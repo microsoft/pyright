@@ -5,11 +5,11 @@ from openpyxl.descriptors.serialisable import Serialisable
 class Connection(Serialisable):
     id: Incomplete
     idx: Incomplete
-    def __init__(self, id: Incomplete | None = ..., idx: Incomplete | None = ...) -> None: ...
+    def __init__(self, id: Incomplete | None = None, idx: Incomplete | None = None) -> None: ...
 
 class ConnectorLocking(Serialisable):
     extLst: Incomplete
-    def __init__(self, extLst: Incomplete | None = ...) -> None: ...
+    def __init__(self, extLst: Incomplete | None = None) -> None: ...
 
 class NonVisualConnectorProperties(Serialisable):
     cxnSpLocks: Incomplete
@@ -18,17 +18,17 @@ class NonVisualConnectorProperties(Serialisable):
     extLst: Incomplete
     def __init__(
         self,
-        cxnSpLocks: Incomplete | None = ...,
-        stCxn: Incomplete | None = ...,
-        endCxn: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        cxnSpLocks: Incomplete | None = None,
+        stCxn: Incomplete | None = None,
+        endCxn: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class ConnectorNonVisual(Serialisable):
     cNvPr: Incomplete
     cNvCxnSpPr: Incomplete
     __elements__: Incomplete
-    def __init__(self, cNvPr: Incomplete | None = ..., cNvCxnSpPr: Incomplete | None = ...) -> None: ...
+    def __init__(self, cNvPr: Incomplete | None = None, cNvCxnSpPr: Incomplete | None = None) -> None: ...
 
 class ConnectorShape(Serialisable):
     tagname: str
@@ -39,18 +39,18 @@ class ConnectorShape(Serialisable):
     fPublished: Incomplete
     def __init__(
         self,
-        nvCxnSpPr: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        style: Incomplete | None = ...,
-        macro: Incomplete | None = ...,
-        fPublished: Incomplete | None = ...,
+        nvCxnSpPr: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        style: Incomplete | None = None,
+        macro: Incomplete | None = None,
+        fPublished: Incomplete | None = None,
     ) -> None: ...
 
 class ShapeMeta(Serialisable):
     tagname: str
     cNvPr: Incomplete
     cNvSpPr: Incomplete
-    def __init__(self, cNvPr: Incomplete | None = ..., cNvSpPr: Incomplete | None = ...) -> None: ...
+    def __init__(self, cNvPr: Incomplete | None = None, cNvSpPr: Incomplete | None = None) -> None: ...
 
 class Shape(Serialisable):
     macro: Incomplete
@@ -65,12 +65,12 @@ class Shape(Serialisable):
     txBody: Incomplete
     def __init__(
         self,
-        macro: Incomplete | None = ...,
-        textlink: Incomplete | None = ...,
-        fPublished: Incomplete | None = ...,
-        fLocksText: Incomplete | None = ...,
-        nvSpPr: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        style: Incomplete | None = ...,
-        txBody: Incomplete | None = ...,
+        macro: Incomplete | None = None,
+        textlink: Incomplete | None = None,
+        fPublished: Incomplete | None = None,
+        fLocksText: Incomplete | None = None,
+        nvSpPr: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        style: Incomplete | None = None,
+        txBody: Incomplete | None = None,
     ) -> None: ...

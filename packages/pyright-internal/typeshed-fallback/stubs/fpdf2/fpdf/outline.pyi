@@ -22,7 +22,7 @@ class OutlineItemDictionary(PDFObject):
     count: int
     dest: Destination | None
     struct_elem: StructElem | None
-    def __init__(self, title: str, dest: Destination | None = ..., struct_elem: StructElem | None = ...) -> None: ...
+    def __init__(self, title: str, dest: Destination | None = None, struct_elem: StructElem | None = None) -> None: ...
 
 class OutlineDictionary(PDFObject):
     type: str

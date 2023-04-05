@@ -6,12 +6,12 @@ class ScraperTargetRequest:
     discriminator: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        type: Incomplete | None = ...,
-        url: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        bucket_id: Incomplete | None = ...,
-        allow_insecure: bool = ...,
+        name: Incomplete | None = None,
+        type: Incomplete | None = None,
+        url: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        bucket_id: Incomplete | None = None,
+        allow_insecure: bool = False,
     ) -> None: ...
     @property
     def name(self): ...

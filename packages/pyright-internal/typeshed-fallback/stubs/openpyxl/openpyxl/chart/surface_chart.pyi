@@ -12,20 +12,20 @@ class BandFormat(Serialisable):
     spPr: Incomplete
     graphicalProperties: Incomplete
     __elements__: Incomplete
-    def __init__(self, idx: int = ..., spPr: Incomplete | None = ...) -> None: ...
+    def __init__(self, idx: int = 0, spPr: Incomplete | None = None) -> None: ...
 
 class BandFormatList(Serialisable):
     tagname: str
     bandFmt: Incomplete
     __elements__: Incomplete
-    def __init__(self, bandFmt=...) -> None: ...
+    def __init__(self, bandFmt=()) -> None: ...
 
 class _SurfaceChartBase(ChartBase):
     wireframe: Incomplete
     ser: Incomplete
     bandFmts: Incomplete
     __elements__: Incomplete
-    def __init__(self, wireframe: Incomplete | None = ..., ser=..., bandFmts: Incomplete | None = ..., **kw) -> None: ...
+    def __init__(self, wireframe: Incomplete | None = None, ser=(), bandFmts: Incomplete | None = None, **kw) -> None: ...
     @property
     @abstractmethod
     def tagname(self) -> str: ...

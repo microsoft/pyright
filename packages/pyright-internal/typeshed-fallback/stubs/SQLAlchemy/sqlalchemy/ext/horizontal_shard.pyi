@@ -22,13 +22,13 @@ class ShardedSession(Session):
         self,
         shard_chooser,
         id_chooser,
-        execute_chooser: Incomplete | None = ...,
-        shards: Incomplete | None = ...,
+        execute_chooser: Incomplete | None = None,
+        shards: Incomplete | None = None,
         query_cls=...,
         **kwargs,
     ): ...
     def connection_callable(
-        self, mapper: Incomplete | None = ..., instance: Incomplete | None = ..., shard_id: Incomplete | None = ..., **kwargs
+        self, mapper: Incomplete | None = None, instance: Incomplete | None = None, shard_id: Incomplete | None = None, **kwargs
     ): ...
-    def get_bind(self, mapper: Incomplete | None = ..., shard_id: Incomplete | None = ..., instance: Incomplete | None = ..., clause: Incomplete | None = ..., **kw): ...  # type: ignore[override]
+    def get_bind(self, mapper: Incomplete | None = None, shard_id: Incomplete | None = None, instance: Incomplete | None = None, clause: Incomplete | None = None, **kw): ...  # type: ignore[override]
     def bind_shard(self, shard_id, bind) -> None: ...

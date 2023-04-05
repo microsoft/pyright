@@ -14,10 +14,10 @@ class FunctionItem(ExternalItem):
         self,
         text: str,
         function: Callable[..., Any],
-        args: Sequence[Any] | None = ...,
-        kwargs: Mapping[str, Any] | None = ...,
-        menu: ConsoleMenu | None = ...,
-        should_exit: bool = ...,
+        args: Sequence[Any] | None = None,
+        kwargs: Mapping[str, Any] | None = None,
+        menu: ConsoleMenu | None = None,
+        should_exit: bool = False,
         menu_char: str | None = None,
     ) -> None: ...
     def action(self) -> None: ...

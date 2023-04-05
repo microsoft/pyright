@@ -1,4 +1,4 @@
-version = "4.5.1"
+version = "4.5.4"
 # Requires a version of cryptography with a `py.typed` file
 requires = ["cryptography>=35.0.0", "types-pyOpenSSL"]
 

@@ -10,11 +10,11 @@ class Pane(Serialisable):  # type: ignore[misc]
     state: Incomplete
     def __init__(
         self,
-        xSplit: Incomplete | None = ...,
-        ySplit: Incomplete | None = ...,
-        topLeftCell: Incomplete | None = ...,
-        activePane: str = ...,
-        state: str = ...,
+        xSplit: Incomplete | None = None,
+        ySplit: Incomplete | None = None,
+        topLeftCell: Incomplete | None = None,
+        activePane: str = "topLeft",
+        state: str = "split",
     ) -> None: ...
 
 class Selection(Serialisable):  # type: ignore[misc]
@@ -23,7 +23,7 @@ class Selection(Serialisable):  # type: ignore[misc]
     activeCellId: Incomplete
     sqref: Incomplete
     def __init__(
-        self, pane: Incomplete | None = ..., activeCell: str = ..., activeCellId: Incomplete | None = ..., sqref: str = ...
+        self, pane: Incomplete | None = None, activeCell: str = "A1", activeCellId: Incomplete | None = None, sqref: str = "A1"
     ) -> None: ...
 
 class SheetView(Serialisable):
@@ -52,28 +52,28 @@ class SheetView(Serialisable):
     pane: Incomplete
     def __init__(
         self,
-        windowProtection: Incomplete | None = ...,
-        showFormulas: Incomplete | None = ...,
-        showGridLines: Incomplete | None = ...,
-        showRowColHeaders: Incomplete | None = ...,
-        showZeros: Incomplete | None = ...,
-        rightToLeft: Incomplete | None = ...,
-        tabSelected: Incomplete | None = ...,
-        showRuler: Incomplete | None = ...,
-        showOutlineSymbols: Incomplete | None = ...,
-        defaultGridColor: Incomplete | None = ...,
-        showWhiteSpace: Incomplete | None = ...,
-        view: Incomplete | None = ...,
-        topLeftCell: Incomplete | None = ...,
-        colorId: Incomplete | None = ...,
-        zoomScale: Incomplete | None = ...,
-        zoomScaleNormal: Incomplete | None = ...,
-        zoomScaleSheetLayoutView: Incomplete | None = ...,
-        zoomScalePageLayoutView: Incomplete | None = ...,
-        zoomToFit: Incomplete | None = ...,
-        workbookViewId: int = ...,
-        selection: Incomplete | None = ...,
-        pane: Incomplete | None = ...,
+        windowProtection: Incomplete | None = None,
+        showFormulas: Incomplete | None = None,
+        showGridLines: Incomplete | None = None,
+        showRowColHeaders: Incomplete | None = None,
+        showZeros: Incomplete | None = None,
+        rightToLeft: Incomplete | None = None,
+        tabSelected: Incomplete | None = None,
+        showRuler: Incomplete | None = None,
+        showOutlineSymbols: Incomplete | None = None,
+        defaultGridColor: Incomplete | None = None,
+        showWhiteSpace: Incomplete | None = None,
+        view: Incomplete | None = None,
+        topLeftCell: Incomplete | None = None,
+        colorId: Incomplete | None = None,
+        zoomScale: Incomplete | None = None,
+        zoomScaleNormal: Incomplete | None = None,
+        zoomScaleSheetLayoutView: Incomplete | None = None,
+        zoomScalePageLayoutView: Incomplete | None = None,
+        zoomToFit: Incomplete | None = None,
+        workbookViewId: int = 0,
+        selection: Incomplete | None = None,
+        pane: Incomplete | None = None,
     ) -> None: ...
 
 class SheetViewList(Serialisable):
@@ -81,4 +81,4 @@ class SheetViewList(Serialisable):
     sheetView: Incomplete
     extLst: Incomplete
     __elements__: Incomplete
-    def __init__(self, sheetView: Incomplete | None = ..., extLst: Incomplete | None = ...) -> None: ...
+    def __init__(self, sheetView: Incomplete | None = None, extLst: Incomplete | None = None) -> None: ...

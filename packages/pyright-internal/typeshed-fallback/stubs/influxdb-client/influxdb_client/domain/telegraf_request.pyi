@@ -6,11 +6,11 @@ class TelegrafRequest:
     discriminator: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        metadata: Incomplete | None = ...,
-        config: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        metadata: Incomplete | None = None,
+        config: Incomplete | None = None,
+        org_id: Incomplete | None = None,
     ) -> None: ...
     @property
     def name(self): ...

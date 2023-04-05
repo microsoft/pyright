@@ -1,4 +1,4 @@
-from typing_extensions import TypeAlias
+from typing_extensions import Final, TypeAlias
 
 from Xlib.protocol import rq
 
@@ -77,4 +77,4 @@ _EventClass: TypeAlias = dict[
     | type[ClientMessage]
     | type[MappingNotify],
 ]
-event_class: _EventClass
+event_class: Final[_EventClass]

@@ -6,10 +6,10 @@ class TableViewPropertiesTableOptions:
     discriminator: Incomplete
     def __init__(
         self,
-        vertical_time_axis: Incomplete | None = ...,
-        sort_by: Incomplete | None = ...,
-        wrapping: Incomplete | None = ...,
-        fix_first_column: Incomplete | None = ...,
+        vertical_time_axis: Incomplete | None = None,
+        sort_by: Incomplete | None = None,
+        wrapping: Incomplete | None = None,
+        fix_first_column: Incomplete | None = None,
     ) -> None: ...
     @property
     def vertical_time_axis(self): ...

@@ -6,15 +6,15 @@ class TemplateApply:
     discriminator: Incomplete
     def __init__(
         self,
-        dry_run: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        stack_id: Incomplete | None = ...,
-        template: Incomplete | None = ...,
-        templates: Incomplete | None = ...,
-        env_refs: Incomplete | None = ...,
-        secrets: Incomplete | None = ...,
-        remotes: Incomplete | None = ...,
-        actions: Incomplete | None = ...,
+        dry_run: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        stack_id: Incomplete | None = None,
+        template: Incomplete | None = None,
+        templates: Incomplete | None = None,
+        env_refs: Incomplete | None = None,
+        secrets: Incomplete | None = None,
+        remotes: Incomplete | None = None,
+        actions: Incomplete | None = None,
     ) -> None: ...
     @property
     def dry_run(self): ...

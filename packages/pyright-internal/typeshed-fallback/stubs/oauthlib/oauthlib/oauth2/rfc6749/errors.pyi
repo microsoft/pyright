@@ -15,11 +15,11 @@ class OAuth2Error(Exception):
     grant_type: Any
     def __init__(
         self,
-        description: Incomplete | None = ...,
-        uri: Incomplete | None = ...,
-        state: Incomplete | None = ...,
-        status_code: Incomplete | None = ...,
-        request: Incomplete | None = ...,
+        description: Incomplete | None = None,
+        uri: Incomplete | None = None,
+        state: Incomplete | None = None,
+        status_code: Incomplete | None = None,
+        request: Incomplete | None = None,
     ) -> None: ...
     def in_uri(self, uri): ...
     @property
@@ -138,4 +138,4 @@ class CustomOAuth2Error(OAuth2Error):
     error: Any
     def __init__(self, error, *args, **kwargs) -> None: ...
 
-def raise_from_error(error, params: Incomplete | None = ...) -> None: ...
+def raise_from_error(error, params: Incomplete | None = None) -> None: ...

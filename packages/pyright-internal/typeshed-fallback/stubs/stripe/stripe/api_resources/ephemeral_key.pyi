@@ -8,9 +8,9 @@ class EphemeralKey(DeletableAPIResource):
     @classmethod
     def create(
         cls,
-        api_key: Incomplete | None = ...,
-        idempotency_key: str | None = ...,
-        stripe_version: Incomplete | None = ...,
-        stripe_account: Incomplete | None = ...,
+        api_key: Incomplete | None = None,
+        idempotency_key: str | None = None,
+        stripe_version: Incomplete | None = None,
+        stripe_account: Incomplete | None = None,
         **params,
     ): ...

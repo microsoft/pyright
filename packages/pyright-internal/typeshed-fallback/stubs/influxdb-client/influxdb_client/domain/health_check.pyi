@@ -6,12 +6,12 @@ class HealthCheck:
     discriminator: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        message: Incomplete | None = ...,
-        checks: Incomplete | None = ...,
-        status: Incomplete | None = ...,
-        version: Incomplete | None = ...,
-        commit: Incomplete | None = ...,
+        name: Incomplete | None = None,
+        message: Incomplete | None = None,
+        checks: Incomplete | None = None,
+        status: Incomplete | None = None,
+        version: Incomplete | None = None,
+        commit: Incomplete | None = None,
     ) -> None: ...
     @property
     def name(self): ...

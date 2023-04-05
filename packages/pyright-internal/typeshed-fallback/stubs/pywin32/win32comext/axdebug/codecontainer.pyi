@@ -3,6 +3,8 @@ from _typeshed import Incomplete
 from win32comext.axdebug import contexts as contexts
 from win32comext.axdebug.util import RaiseNotImpl as RaiseNotImpl
 
+name: str
+
 class SourceCodeContainer:
     sourceContext: Incomplete
     text: Incomplete

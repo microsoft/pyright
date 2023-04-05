@@ -37,13 +37,13 @@ class BeautifulSoup(Tag):
     markup: str
     def __init__(
         self,
-        markup: str | bytes | SupportsRead[str] | SupportsRead[bytes] = ...,
-        features: str | Sequence[str] | None = ...,
-        builder: TreeBuilder | type[TreeBuilder] | None = ...,
-        parse_only: SoupStrainer | None = ...,
-        from_encoding: str | None = ...,
-        exclude_encodings: Sequence[str] | None = ...,
-        element_classes: dict[type[PageElement], type[Any]] | None = ...,
+        markup: str | bytes | SupportsRead[str] | SupportsRead[bytes] = "",
+        features: str | Sequence[str] | None = None,
+        builder: TreeBuilder | type[TreeBuilder] | None = None,
+        parse_only: SoupStrainer | None = None,
+        from_encoding: str | None = None,
+        exclude_encodings: Sequence[str] | None = None,
+        element_classes: dict[type[PageElement], type[Any]] | None = None,
         **kwargs,
     ) -> None: ...
     def __copy__(self) -> Self: ...
@@ -58,35 +58,35 @@ class BeautifulSoup(Tag):
     def new_tag(
         self,
         name,
-        namespace: Incomplete | None = ...,
-        nsprefix: Incomplete | None = ...,
-        attrs=...,
-        sourceline: Incomplete | None = ...,
-        sourcepos: Incomplete | None = ...,
+        namespace: Incomplete | None = None,
+        nsprefix: Incomplete | None = None,
+        attrs={},
+        sourceline: Incomplete | None = None,
+        sourcepos: Incomplete | None = None,
         **kwattrs,
     ) -> Tag: ...
-    def string_container(self, base_class: Incomplete | None = ...): ...
-    def new_string(self, s, subclass: Incomplete | None = ...): ...
+    def string_container(self, base_class: Incomplete | None = None): ...
+    def new_string(self, s, subclass: Incomplete | None = None): ...
     def insert_before(self, *args) -> None: ...
     def insert_after(self, *args) -> None: ...
     def popTag(self): ...
     def pushTag(self, tag) -> None: ...
-    def endData(self, containerClass: Incomplete | None = ...) -> None: ...
-    def object_was_parsed(self, o, parent: Incomplete | None = ..., most_recent_element: Incomplete | None = ...) -> None: ...
+    def endData(self, containerClass: Incomplete | None = None) -> None: ...
+    def object_was_parsed(self, o, parent: Incomplete | None = None, most_recent_element: Incomplete | None = None) -> None: ...
     def handle_starttag(
         self,
         name,
         namespace,
         nsprefix,
         attrs,
-        sourceline: Incomplete | None = ...,
-        sourcepos: Incomplete | None = ...,
-        namespaces: dict[str, str] | None = ...,
+        sourceline: Incomplete | None = None,
+        sourcepos: Incomplete | None = None,
+        namespaces: dict[str, str] | None = None,
     ): ...
-    def handle_endtag(self, name, nsprefix: Incomplete | None = ...) -> None: ...
+    def handle_endtag(self, name, nsprefix: Incomplete | None = None) -> None: ...
     def handle_data(self, data) -> None: ...
     def decode(  # type: ignore[override]
-        self, pretty_print: bool = ..., eventual_encoding: str = ..., formatter: str | Formatter = ...
+        self, pretty_print: bool = False, eventual_encoding: str = "utf-8", formatter: str | Formatter = "minimal"
     ): ...  # missing some arguments
 
 class BeautifulStoneSoup(BeautifulSoup): ...

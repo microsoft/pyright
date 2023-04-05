@@ -6,10 +6,10 @@ class RoutesQuery:
     discriminator: Incomplete
     def __init__(
         self,
-        _self: Incomplete | None = ...,
-        ast: Incomplete | None = ...,
-        analyze: Incomplete | None = ...,
-        suggestions: Incomplete | None = ...,
+        _self: Incomplete | None = None,
+        ast: Incomplete | None = None,
+        analyze: Incomplete | None = None,
+        suggestions: Incomplete | None = None,
     ) -> None: ...
     @property
     def ast(self): ...

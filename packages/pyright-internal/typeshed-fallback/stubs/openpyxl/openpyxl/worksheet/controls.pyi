@@ -22,22 +22,22 @@ class ControlProperty(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        anchor: Incomplete | None = ...,
-        locked: bool = ...,
-        defaultSize: bool = ...,
-        _print: bool = ...,
-        disabled: bool = ...,
-        recalcAlways: bool = ...,
-        uiObject: bool = ...,
-        autoFill: bool = ...,
-        autoLine: bool = ...,
-        autoPict: bool = ...,
-        macro: Incomplete | None = ...,
-        altText: Incomplete | None = ...,
-        linkedCell: Incomplete | None = ...,
-        listFillRange: Incomplete | None = ...,
-        cf: str = ...,
-        id: Incomplete | None = ...,
+        anchor: Incomplete | None = None,
+        locked: bool = True,
+        defaultSize: bool = True,
+        _print: bool = True,
+        disabled: bool = False,
+        recalcAlways: bool = False,
+        uiObject: bool = False,
+        autoFill: bool = True,
+        autoLine: bool = True,
+        autoPict: bool = True,
+        macro: Incomplete | None = None,
+        altText: Incomplete | None = None,
+        linkedCell: Incomplete | None = None,
+        listFillRange: Incomplete | None = None,
+        cf: str = "pict",
+        id: Incomplete | None = None,
     ) -> None: ...
 
 class Control(Serialisable):
@@ -47,11 +47,11 @@ class Control(Serialisable):
     name: Incomplete
     __elements__: Incomplete
     def __init__(
-        self, controlPr: Incomplete | None = ..., shapeId: Incomplete | None = ..., name: Incomplete | None = ...
+        self, controlPr: Incomplete | None = None, shapeId: Incomplete | None = None, name: Incomplete | None = None
     ) -> None: ...
 
 class Controls(Serialisable):
     tagname: str
     control: Incomplete
     __elements__: Incomplete
-    def __init__(self, control=...) -> None: ...
+    def __init__(self, control=()) -> None: ...

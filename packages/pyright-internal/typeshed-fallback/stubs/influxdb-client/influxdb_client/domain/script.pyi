@@ -6,15 +6,15 @@ class Script:
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        script: Incomplete | None = ...,
-        language: Incomplete | None = ...,
-        url: Incomplete | None = ...,
-        created_at: Incomplete | None = ...,
-        updated_at: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        script: Incomplete | None = None,
+        language: Incomplete | None = None,
+        url: Incomplete | None = None,
+        created_at: Incomplete | None = None,
+        updated_at: Incomplete | None = None,
     ) -> None: ...
     @property
     def id(self): ...

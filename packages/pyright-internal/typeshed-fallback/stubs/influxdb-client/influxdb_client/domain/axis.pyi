@@ -6,12 +6,12 @@ class Axis:
     discriminator: Incomplete
     def __init__(
         self,
-        bounds: Incomplete | None = ...,
-        label: Incomplete | None = ...,
-        prefix: Incomplete | None = ...,
-        suffix: Incomplete | None = ...,
-        base: Incomplete | None = ...,
-        scale: Incomplete | None = ...,
+        bounds: Incomplete | None = None,
+        label: Incomplete | None = None,
+        prefix: Incomplete | None = None,
+        suffix: Incomplete | None = None,
+        base: Incomplete | None = None,
+        scale: Incomplete | None = None,
     ) -> None: ...
     @property
     def bounds(self): ...

@@ -8,10 +8,10 @@ class LogicalExpression(Expression):
     discriminator: Incomplete
     def __init__(
         self,
-        type: Incomplete | None = ...,
-        operator: Incomplete | None = ...,
-        left: Incomplete | None = ...,
-        right: Incomplete | None = ...,
+        type: Incomplete | None = None,
+        operator: Incomplete | None = None,
+        left: Incomplete | None = None,
+        right: Incomplete | None = None,
     ) -> None: ...
     @property
     def type(self): ...

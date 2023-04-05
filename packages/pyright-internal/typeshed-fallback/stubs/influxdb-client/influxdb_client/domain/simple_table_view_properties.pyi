@@ -8,12 +8,12 @@ class SimpleTableViewProperties(ViewProperties):
     discriminator: Incomplete
     def __init__(
         self,
-        type: Incomplete | None = ...,
-        show_all: Incomplete | None = ...,
-        queries: Incomplete | None = ...,
-        shape: Incomplete | None = ...,
-        note: Incomplete | None = ...,
-        show_note_when_empty: Incomplete | None = ...,
+        type: Incomplete | None = None,
+        show_all: Incomplete | None = None,
+        queries: Incomplete | None = None,
+        shape: Incomplete | None = None,
+        note: Incomplete | None = None,
+        show_note_when_empty: Incomplete | None = None,
     ) -> None: ...
     @property
     def type(self): ...

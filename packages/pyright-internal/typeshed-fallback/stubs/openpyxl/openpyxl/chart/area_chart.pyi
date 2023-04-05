@@ -13,11 +13,11 @@ class _AreaChartBase(ChartBase):
     __elements__: Incomplete
     def __init__(
         self,
-        grouping: str = ...,
-        varyColors: Incomplete | None = ...,
-        ser=...,
-        dLbls: Incomplete | None = ...,
-        dropLines: Incomplete | None = ...,
+        grouping: str = "standard",
+        varyColors: Incomplete | None = None,
+        ser=(),
+        dLbls: Incomplete | None = None,
+        dropLines: Incomplete | None = None,
     ) -> None: ...
     @property
     @abstractmethod
@@ -34,7 +34,7 @@ class AreaChart(_AreaChartBase):
     y_axis: Incomplete
     extLst: Incomplete
     __elements__: Incomplete
-    def __init__(self, axId: Incomplete | None = ..., extLst: Incomplete | None = ..., **kw) -> None: ...
+    def __init__(self, axId: Incomplete | None = None, extLst: Incomplete | None = None, **kw) -> None: ...
 
 class AreaChart3D(AreaChart):
     tagname: str
@@ -48,4 +48,4 @@ class AreaChart3D(AreaChart):
     y_axis: Incomplete
     z_axis: Incomplete
     __elements__: Incomplete
-    def __init__(self, gapDepth: Incomplete | None = ..., **kw) -> None: ...
+    def __init__(self, gapDepth: Incomplete | None = None, **kw) -> None: ...

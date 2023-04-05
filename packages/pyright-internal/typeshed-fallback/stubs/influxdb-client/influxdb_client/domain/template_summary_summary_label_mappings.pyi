@@ -6,14 +6,14 @@ class TemplateSummarySummaryLabelMappings:
     discriminator: Incomplete
     def __init__(
         self,
-        status: Incomplete | None = ...,
-        resource_template_meta_name: Incomplete | None = ...,
-        resource_name: Incomplete | None = ...,
-        resource_id: Incomplete | None = ...,
-        resource_type: Incomplete | None = ...,
-        label_template_meta_name: Incomplete | None = ...,
-        label_name: Incomplete | None = ...,
-        label_id: Incomplete | None = ...,
+        status: Incomplete | None = None,
+        resource_template_meta_name: Incomplete | None = None,
+        resource_name: Incomplete | None = None,
+        resource_id: Incomplete | None = None,
+        resource_type: Incomplete | None = None,
+        label_template_meta_name: Incomplete | None = None,
+        label_name: Incomplete | None = None,
+        label_id: Incomplete | None = None,
     ) -> None: ...
     @property
     def status(self): ...

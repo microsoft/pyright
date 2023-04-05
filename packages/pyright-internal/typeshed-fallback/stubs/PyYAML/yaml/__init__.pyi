@@ -30,7 +30,7 @@ _Representer = TypeVar("_Representer", bound=BaseRepresenter)
 __with_libyaml__: bool
 __version__: str
 
-def warnings(settings=...): ...
+def warnings(settings=None): ...
 def scan(stream, Loader: type[_Loader | _CLoader] = ...): ...
 def parse(stream, Loader: type[_Loader | _CLoader] = ...): ...
 def compose(stream, Loader: type[_Loader | _CLoader] = ...): ...
@@ -45,45 +45,45 @@ def unsafe_load(stream: _ReadStream) -> Any: ...
 def unsafe_load_all(stream: _ReadStream) -> Iterator[Any]: ...
 def emit(
     events,
-    stream: _WriteStream[Any] | None = ...,
+    stream: _WriteStream[Any] | None = None,
     Dumper=...,
-    canonical: bool | None = ...,
-    indent: int | None = ...,
-    width: int | _Inf | None = ...,
-    allow_unicode: bool | None = ...,
-    line_break: str | None = ...,
+    canonical: bool | None = None,
+    indent: int | None = None,
+    width: int | _Inf | None = None,
+    allow_unicode: bool | None = None,
+    line_break: str | None = None,
 ): ...
 @overload
 def serialize_all(
     nodes,
     stream: _WriteStream[Any],
     Dumper=...,
-    canonical: bool | None = ...,
-    indent: int | None = ...,
-    width: int | _Inf | None = ...,
-    allow_unicode: bool | None = ...,
-    line_break: str | None = ...,
-    encoding: str | None = ...,
-    explicit_start: bool | None = ...,
-    explicit_end: bool | None = ...,
-    version: tuple[int, int] | None = ...,
-    tags: Mapping[str, str] | None = ...,
+    canonical: bool | None = None,
+    indent: int | None = None,
+    width: int | _Inf | None = None,
+    allow_unicode: bool | None = None,
+    line_break: str | None = None,
+    encoding: str | None = None,
+    explicit_start: bool | None = None,
+    explicit_end: bool | None = None,
+    version: tuple[int, int] | None = None,
+    tags: Mapping[str, str] | None = None,
 ) -> None: ...
 @overload
 def serialize_all(
     nodes,
-    stream: None = ...,
+    stream: None = None,
     Dumper=...,
-    canonical: bool | None = ...,
-    indent: int | None = ...,
-    width: int | _Inf | None = ...,
-    allow_unicode: bool | None = ...,
-    line_break: str | None = ...,
-    encoding: str | None = ...,
-    explicit_start: bool | None = ...,
-    explicit_end: bool | None = ...,
-    version: tuple[int, int] | None = ...,
-    tags: Mapping[str, str] | None = ...,
+    canonical: bool | None = None,
+    indent: int | None = None,
+    width: int | _Inf | None = None,
+    allow_unicode: bool | None = None,
+    line_break: str | None = None,
+    encoding: str | None = None,
+    explicit_start: bool | None = None,
+    explicit_end: bool | None = None,
+    version: tuple[int, int] | None = None,
+    tags: Mapping[str, str] | None = None,
 ) -> _Yaml: ...
 @overload
 def serialize(
@@ -105,7 +105,7 @@ def serialize(
 @overload
 def serialize(
     node,
-    stream: None = ...,
+    stream: None = None,
     Dumper=...,
     *,
     canonical: bool | None = ...,
@@ -124,38 +124,38 @@ def dump_all(
     documents: Iterable[Any],
     stream: _WriteStream[Any],
     Dumper=...,
-    default_style: str | None = ...,
-    default_flow_style: bool | None = ...,
-    canonical: bool | None = ...,
-    indent: int | None = ...,
-    width: int | _Inf | None = ...,
-    allow_unicode: bool | None = ...,
-    line_break: str | None = ...,
-    encoding: str | None = ...,
-    explicit_start: bool | None = ...,
-    explicit_end: bool | None = ...,
-    version: tuple[int, int] | None = ...,
-    tags: Mapping[str, str] | None = ...,
-    sort_keys: bool = ...,
+    default_style: str | None = None,
+    default_flow_style: bool | None = False,
+    canonical: bool | None = None,
+    indent: int | None = None,
+    width: int | _Inf | None = None,
+    allow_unicode: bool | None = None,
+    line_break: str | None = None,
+    encoding: str | None = None,
+    explicit_start: bool | None = None,
+    explicit_end: bool | None = None,
+    version: tuple[int, int] | None = None,
+    tags: Mapping[str, str] | None = None,
+    sort_keys: bool = True,
 ) -> None: ...
 @overload
 def dump_all(
     documents: Iterable[Any],
-    stream: None = ...,
+    stream: None = None,
     Dumper=...,
-    default_style: str | None = ...,
-    default_flow_style: bool | None = ...,
-    canonical: bool | None = ...,
-    indent: int | None = ...,
-    width: int | _Inf | None = ...,
-    allow_unicode: bool | None = ...,
-    line_break: str | None = ...,
-    encoding: str | None = ...,
-    explicit_start: bool | None = ...,
-    explicit_end: bool | None = ...,
-    version: tuple[int, int] | None = ...,
-    tags: Mapping[str, str] | None = ...,
-    sort_keys: bool = ...,
+    default_style: str | None = None,
+    default_flow_style: bool | None = False,
+    canonical: bool | None = None,
+    indent: int | None = None,
+    width: int | _Inf | None = None,
+    allow_unicode: bool | None = None,
+    line_break: str | None = None,
+    encoding: str | None = None,
+    explicit_start: bool | None = None,
+    explicit_end: bool | None = None,
+    version: tuple[int, int] | None = None,
+    tags: Mapping[str, str] | None = None,
+    sort_keys: bool = True,
 ) -> _Yaml: ...
 @overload
 def dump(
@@ -180,7 +180,7 @@ def dump(
 @overload
 def dump(
     data: Any,
-    stream: None = ...,
+    stream: None = None,
     Dumper=...,
     *,
     default_style: str | None = ...,
@@ -219,7 +219,7 @@ def safe_dump_all(
 @overload
 def safe_dump_all(
     documents: Iterable[Any],
-    stream: None = ...,
+    stream: None = None,
     *,
     default_style: str | None = ...,
     default_flow_style: bool | None = ...,
@@ -257,7 +257,7 @@ def safe_dump(
 @overload
 def safe_dump(
     data: Any,
-    stream: None = ...,
+    stream: None = None,
     *,
     default_style: str | None = ...,
     default_flow_style: bool | None = ...,
@@ -276,26 +276,26 @@ def safe_dump(
 def add_implicit_resolver(
     tag: str,
     regexp: Pattern[str],
-    first: Iterable[Any] | None = ...,
-    Loader: type[BaseResolver] | None = ...,
+    first: Iterable[Any] | None = None,
+    Loader: type[BaseResolver] | None = None,
     Dumper: type[BaseResolver] = ...,
 ) -> None: ...
 def add_path_resolver(
     tag: str,
     path: Iterable[Any],
-    kind: type[Any] | None = ...,
-    Loader: type[BaseResolver] | None = ...,
+    kind: type[Any] | None = None,
+    Loader: type[BaseResolver] | None = None,
     Dumper: type[BaseResolver] = ...,
 ) -> None: ...
 @overload
 def add_constructor(
-    tag: str, constructor: Callable[[Loader | FullLoader | UnsafeLoader, Node], Any], Loader: None = ...
+    tag: str, constructor: Callable[[Loader | FullLoader | UnsafeLoader, Node], Any], Loader: None = None
 ) -> None: ...
 @overload
 def add_constructor(tag: str, constructor: Callable[[_Constructor, Node], Any], Loader: type[_Constructor]) -> None: ...
 @overload
 def add_multi_constructor(
-    tag_prefix: str, multi_constructor: Callable[[Loader | FullLoader | UnsafeLoader, str, Node], Any], Loader: None = ...
+    tag_prefix: str, multi_constructor: Callable[[Loader | FullLoader | UnsafeLoader, str, Node], Any], Loader: None = None
 ) -> None: ...
 @overload
 def add_multi_constructor(

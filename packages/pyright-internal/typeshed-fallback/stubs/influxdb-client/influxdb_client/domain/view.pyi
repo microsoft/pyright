@@ -6,10 +6,10 @@ class View:
     discriminator: Incomplete
     def __init__(
         self,
-        links: Incomplete | None = ...,
-        id: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        properties: Incomplete | None = ...,
+        links: Incomplete | None = None,
+        id: Incomplete | None = None,
+        name: Incomplete | None = None,
+        properties: Incomplete | None = None,
     ) -> None: ...
     @property
     def links(self): ...

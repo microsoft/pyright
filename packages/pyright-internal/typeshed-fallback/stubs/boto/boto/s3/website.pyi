@@ -10,10 +10,10 @@ class WebsiteConfiguration:
     routing_rules: Any
     def __init__(
         self,
-        suffix: Incomplete | None = ...,
-        error_key: Incomplete | None = ...,
-        redirect_all_requests_to: Incomplete | None = ...,
-        routing_rules: Incomplete | None = ...,
+        suffix: Incomplete | None = None,
+        error_key: Incomplete | None = None,
+        redirect_all_requests_to: Incomplete | None = None,
+        routing_rules: Incomplete | None = None,
     ) -> None: ...
     def startElement(self, name, attrs, connection): ...
     def endElement(self, name, value, connection): ...
@@ -22,7 +22,7 @@ class WebsiteConfiguration:
 class _XMLKeyValue:
     translator: Any
     container: Any
-    def __init__(self, translator, container: Incomplete | None = ...) -> None: ...
+    def __init__(self, translator, container: Incomplete | None = None) -> None: ...
     def startElement(self, name, attrs, connection): ...
     def endElement(self, name, value, connection): ...
     def to_xml(self): ...
@@ -31,7 +31,7 @@ class RedirectLocation(_XMLKeyValue):
     TRANSLATOR: Any
     hostname: Any
     protocol: Any
-    def __init__(self, hostname: Incomplete | None = ..., protocol: Incomplete | None = ...) -> None: ...
+    def __init__(self, hostname: Incomplete | None = None, protocol: Incomplete | None = None) -> None: ...
     def to_xml(self): ...
 
 class RoutingRules(list[RoutingRule]):
@@ -43,26 +43,26 @@ class RoutingRules(list[RoutingRule]):
 class RoutingRule:
     condition: Any
     redirect: Any
-    def __init__(self, condition: Incomplete | None = ..., redirect: Incomplete | None = ...) -> None: ...
+    def __init__(self, condition: Incomplete | None = None, redirect: Incomplete | None = None) -> None: ...
     def startElement(self, name, attrs, connection): ...
     def endElement(self, name, value, connection): ...
     def to_xml(self): ...
     @classmethod
-    def when(cls, key_prefix: Incomplete | None = ..., http_error_code: Incomplete | None = ...): ...
+    def when(cls, key_prefix: Incomplete | None = None, http_error_code: Incomplete | None = None): ...
     def then_redirect(
         self,
-        hostname: Incomplete | None = ...,
-        protocol: Incomplete | None = ...,
-        replace_key: Incomplete | None = ...,
-        replace_key_prefix: Incomplete | None = ...,
-        http_redirect_code: Incomplete | None = ...,
+        hostname: Incomplete | None = None,
+        protocol: Incomplete | None = None,
+        replace_key: Incomplete | None = None,
+        replace_key_prefix: Incomplete | None = None,
+        http_redirect_code: Incomplete | None = None,
     ): ...
 
 class Condition(_XMLKeyValue):
     TRANSLATOR: Any
     key_prefix: Any
     http_error_code: Any
-    def __init__(self, key_prefix: Incomplete | None = ..., http_error_code: Incomplete | None = ...) -> None: ...
+    def __init__(self, key_prefix: Incomplete | None = None, http_error_code: Incomplete | None = None) -> None: ...
     def to_xml(self): ...
 
 class Redirect(_XMLKeyValue):
@@ -74,10 +74,10 @@ class Redirect(_XMLKeyValue):
     http_redirect_code: Any
     def __init__(
         self,
-        hostname: Incomplete | None = ...,
-        protocol: Incomplete | None = ...,
-        replace_key: Incomplete | None = ...,
-        replace_key_prefix: Incomplete | None = ...,
-        http_redirect_code: Incomplete | None = ...,
+        hostname: Incomplete | None = None,
+        protocol: Incomplete | None = None,
+        replace_key: Incomplete | None = None,
+        replace_key_prefix: Incomplete | None = None,
+        http_redirect_code: Incomplete | None = None,
     ) -> None: ...
     def to_xml(self): ...

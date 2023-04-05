@@ -12,7 +12,7 @@ SEGMENTS: Any
 
 class GradientFile:
     gradient: Any
-    def getpalette(self, entries: int = ...): ...
+    def getpalette(self, entries: int = 256): ...
 
 class GimpGradientFile(GradientFile):
     gradient: Any

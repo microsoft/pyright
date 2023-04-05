@@ -6,11 +6,11 @@ class DashboardColor:
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        type: Incomplete | None = ...,
-        hex: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        value: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        type: Incomplete | None = None,
+        hex: Incomplete | None = None,
+        name: Incomplete | None = None,
+        value: Incomplete | None = None,
     ) -> None: ...
     @property
     def id(self): ...

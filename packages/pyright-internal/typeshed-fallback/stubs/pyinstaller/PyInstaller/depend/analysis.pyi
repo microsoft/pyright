@@ -16,8 +16,8 @@ class PyiModuleGraph:  # incomplete
     def __init__(
         self,
         pyi_homepath: str,
-        user_hook_dirs: Iterable[StrPath] = ...,
-        excludes: Iterable[str] = ...,
+        user_hook_dirs: Iterable[StrPath] = (),
+        excludes: Iterable[str] = (),
         *,
         path: Iterable[str] | None = None,
         replace_paths: Iterable[tuple[StrPath, StrPath]] = ...,

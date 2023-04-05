@@ -15,11 +15,11 @@ class _BarChartBase(ChartBase):
     __elements__: Incomplete
     def __init__(
         self,
-        barDir: str = ...,
-        grouping: str = ...,
-        varyColors: Incomplete | None = ...,
-        ser=...,
-        dLbls: Incomplete | None = ...,
+        barDir: str = "col",
+        grouping: str = "clustered",
+        varyColors: Incomplete | None = None,
+        ser=(),
+        dLbls: Incomplete | None = None,
         **kw,
     ) -> None: ...
     @property
@@ -43,10 +43,10 @@ class BarChart(_BarChartBase):
     legend: Incomplete
     def __init__(
         self,
-        gapWidth: int = ...,
-        overlap: Incomplete | None = ...,
-        serLines: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        gapWidth: int = 150,
+        overlap: Incomplete | None = None,
+        serLines: Incomplete | None = None,
+        extLst: Incomplete | None = None,
         **kw,
     ) -> None: ...
 
@@ -72,10 +72,10 @@ class BarChart3D(_BarChartBase, _3DBase):
     __elements__: Incomplete
     def __init__(
         self,
-        gapWidth: int = ...,
-        gapDepth: int = ...,
-        shape: Incomplete | None = ...,
-        serLines: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        gapWidth: int = 150,
+        gapDepth: int = 150,
+        shape: Incomplete | None = None,
+        serLines: Incomplete | None = None,
+        extLst: Incomplete | None = None,
         **kw,
     ) -> None: ...

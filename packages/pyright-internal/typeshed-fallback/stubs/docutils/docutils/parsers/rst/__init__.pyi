@@ -10,7 +10,7 @@ class Parser(parsers.Parser):
     initial_state: Literal["Body", "RFC2822Body"]
     state_classes: Any
     inliner: Any
-    def __init__(self, rfc2822: bool = ..., inliner: Incomplete | None = ...) -> None: ...
+    def __init__(self, rfc2822: bool = False, inliner: Incomplete | None = None) -> None: ...
 
 class DirectiveError(Exception):
     level: Any

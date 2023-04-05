@@ -46,22 +46,22 @@ DEFAULT: _SentinelObject
 class _Call(tuple[Any, ...]):
     def __new__(
         cls,
-        value: Any = ...,
-        name: Incomplete | None = ...,
-        parent: Incomplete | None = ...,
-        two: bool = ...,
-        from_kall: bool = ...,
+        value: Any = (),
+        name: Incomplete | None = "",
+        parent: Incomplete | None = None,
+        two: bool = False,
+        from_kall: bool = True,
     ) -> Self: ...
     name: Any
     parent: Any
     from_kall: Any
     def __init__(
         self,
-        value: Any = ...,
-        name: Incomplete | None = ...,
-        parent: Incomplete | None = ...,
-        two: bool = ...,
-        from_kall: bool = ...,
+        value: Any = (),
+        name: Incomplete | None = None,
+        parent: Incomplete | None = None,
+        two: bool = False,
+        from_kall: bool = True,
     ) -> None: ...
     def __eq__(self, other: object) -> bool: ...
     def __ne__(self, __other: object) -> bool: ...
@@ -86,48 +86,48 @@ class Base:
 class NonCallableMock(Base, Any):
     def __new__(
         cls,
-        spec: list[str] | object | type[object] | None = ...,
-        wraps: Incomplete | None = ...,
-        name: str | None = ...,
-        spec_set: list[str] | object | type[object] | None = ...,
-        parent: NonCallableMock | None = ...,
-        _spec_state: Incomplete | None = ...,
-        _new_name: str = ...,
-        _new_parent: NonCallableMock | None = ...,
-        _spec_as_instance: bool = ...,
-        _eat_self: bool | None = ...,
-        unsafe: bool = ...,
+        spec: list[str] | object | type[object] | None = None,
+        wraps: Incomplete | None = None,
+        name: str | None = None,
+        spec_set: list[str] | object | type[object] | None = None,
+        parent: NonCallableMock | None = None,
+        _spec_state: Incomplete | None = None,
+        _new_name: str = "",
+        _new_parent: NonCallableMock | None = None,
+        _spec_as_instance: bool = False,
+        _eat_self: bool | None = None,
+        unsafe: bool = False,
         **kwargs: Any,
     ) -> Self: ...
     def __init__(
         self,
-        spec: list[str] | object | type[object] | None = ...,
-        wraps: Incomplete | None = ...,
-        name: str | None = ...,
-        spec_set: list[str] | object | type[object] | None = ...,
-        parent: NonCallableMock | None = ...,
-        _spec_state: Incomplete | None = ...,
-        _new_name: str = ...,
-        _new_parent: NonCallableMock | None = ...,
-        _spec_as_instance: bool = ...,
-        _eat_self: bool | None = ...,
-        unsafe: bool = ...,
+        spec: list[str] | object | type[object] | None = None,
+        wraps: Incomplete | None = None,
+        name: str | None = None,
+        spec_set: list[str] | object | type[object] | None = None,
+        parent: NonCallableMock | None = None,
+        _spec_state: Incomplete | None = None,
+        _new_name: str = "",
+        _new_parent: NonCallableMock | None = None,
+        _spec_as_instance: bool = False,
+        _eat_self: bool | None = None,
+        unsafe: bool = False,
         **kwargs: Any,
     ) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
-    def _calls_repr(self, prefix: str = ...) -> str: ...
+    def _calls_repr(self, prefix: str = "Calls") -> str: ...
     def assert_called_with(_mock_self, *args: Any, **kwargs: Any) -> None: ...
     def assert_not_called(_mock_self) -> None: ...
     def assert_called_once_with(_mock_self, *args: Any, **kwargs: Any) -> None: ...
-    def _format_mock_failure_message(self, args: Any, kwargs: Any, action: str = ...) -> str: ...
+    def _format_mock_failure_message(self, args: Any, kwargs: Any, action: str = "call") -> str: ...
     def assert_called(_mock_self) -> None: ...
     def assert_called_once(_mock_self) -> None: ...
-    def reset_mock(self, visited: Any = ..., *, return_value: bool = ..., side_effect: bool = ...) -> None: ...
+    def reset_mock(self, visited: Any = None, *, return_value: bool = False, side_effect: bool = False) -> None: ...
     def _extract_mock_name(self) -> str: ...
     def assert_any_call(self, *args: Any, **kwargs: Any) -> None: ...
-    def assert_has_calls(self, calls: Sequence[_Call], any_order: bool = ...) -> None: ...
-    def mock_add_spec(self, spec: Any, spec_set: bool = ...) -> None: ...
-    def _mock_add_spec(self, spec: Any, spec_set: bool, _spec_as_instance: bool = ..., _eat_self: bool = ...) -> None: ...
+    def assert_has_calls(self, calls: Sequence[_Call], any_order: bool = False) -> None: ...
+    def mock_add_spec(self, spec: Any, spec_set: bool = False) -> None: ...
+    def _mock_add_spec(self, spec: Any, spec_set: bool, _spec_as_instance: bool = False, _eat_self: bool = False) -> None: ...
     def attach_mock(self, mock: NonCallableMock, attribute: str) -> None: ...
     def configure_mock(self, **kwargs: Any) -> None: ...
     return_value: Any
@@ -145,16 +145,16 @@ class CallableMixin(Base):
     side_effect: Any
     def __init__(
         self,
-        spec: Incomplete | None = ...,
-        side_effect: Incomplete | None = ...,
+        spec: Incomplete | None = None,
+        side_effect: Incomplete | None = None,
         return_value: Any = ...,
-        wraps: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        spec_set: Incomplete | None = ...,
-        parent: Incomplete | None = ...,
-        _spec_state: Incomplete | None = ...,
-        _new_name: Any = ...,
-        _new_parent: Incomplete | None = ...,
+        wraps: Incomplete | None = None,
+        name: Incomplete | None = None,
+        spec_set: Incomplete | None = None,
+        parent: Incomplete | None = None,
+        _spec_state: Incomplete | None = None,
+        _new_name: Any = "",
+        _new_parent: Incomplete | None = None,
         **kwargs: Any,
     ) -> None: ...
     def __call__(_mock_self, *args: Any, **kwargs: Any) -> Any: ...
@@ -186,7 +186,7 @@ class _patch(Generic[_T]):
         new_callable: Incomplete | None,
         kwargs: Mapping[str, Any],
         *,
-        unsafe: bool = ...,
+        unsafe: bool = False,
     ) -> None: ...
     def copy(self) -> _patch[_T]: ...
     def __call__(self, func: Callable[..., _R]) -> Callable[..., _R]: ...
@@ -211,7 +211,7 @@ class _patch_dict:
     in_dict: Any
     values: Any
     clear: Any
-    def __init__(self, in_dict: Any, values: Any = ..., clear: Any = ..., **kwargs: Any) -> None: ...
+    def __init__(self, in_dict: Any, values: Any = (), clear: Any = False, **kwargs: Any) -> None: ...
     def __call__(self, f: Any) -> Any: ...
     def decorate_callable(self, f: _F) -> _F: ...
     def decorate_async_callable(self, f: _AF) -> _AF: ...
@@ -303,10 +303,10 @@ class MagicMixin:
     def __init__(self, *args: Any, **kw: Any) -> None: ...
 
 class NonCallableMagicMock(MagicMixin, NonCallableMock):
-    def mock_add_spec(self, spec: Any, spec_set: bool = ...) -> None: ...
+    def mock_add_spec(self, spec: Any, spec_set: bool = False) -> None: ...
 
 class MagicMock(MagicMixin, Mock):
-    def mock_add_spec(self, spec: Any, spec_set: bool = ...) -> None: ...
+    def mock_add_spec(self, spec: Any, spec_set: bool = False) -> None: ...
 
 class AsyncMockMixin(Base):
     def __init__(self, *args: Any, **kwargs: Any) -> None: ...
@@ -315,7 +315,7 @@ class AsyncMockMixin(Base):
     def assert_awaited_with(_mock_self, *args: Any, **kwargs: Any) -> None: ...
     def assert_awaited_once_with(_mock_self, *args: Any, **kwargs: Any) -> None: ...
     def assert_any_await(_mock_self, *args: Any, **kwargs: Any) -> None: ...
-    def assert_has_awaits(_mock_self, calls: _CallList, any_order: bool = ...) -> None: ...
+    def assert_has_awaits(_mock_self, calls: _CallList, any_order: bool = False) -> None: ...
     def assert_not_awaited(_mock_self) -> None: ...
     def reset_mock(self, *args: Any, **kwargs: Any) -> None: ...
     await_count: int
@@ -334,7 +334,7 @@ class MagicProxy(Base):
     parent: Any
     def __init__(self, name: str, parent: Any) -> None: ...
     def create_mock(self) -> Any: ...
-    def __get__(self, obj: Any, _type: Incomplete | None = ...) -> Any: ...
+    def __get__(self, obj: Any, _type: Incomplete | None = None) -> Any: ...
 
 class _ANY:
     def __eq__(self, other: object) -> Literal[True]: ...
@@ -344,12 +344,12 @@ ANY: Any
 
 def create_autospec(
     spec: Any,
-    spec_set: Any = ...,
-    instance: Any = ...,
-    _parent: Incomplete | None = ...,
-    _name: Incomplete | None = ...,
+    spec_set: Any = False,
+    instance: Any = False,
+    _parent: Incomplete | None = None,
+    _name: Incomplete | None = None,
     *,
-    unsafe: bool = ...,
+    unsafe: bool = False,
     **kwargs: Any,
 ) -> Any: ...
 
@@ -363,17 +363,17 @@ class _SpecState:
     def __init__(
         self,
         spec: Any,
-        spec_set: Any = ...,
-        parent: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        ids: Incomplete | None = ...,
-        instance: Any = ...,
+        spec_set: Any = False,
+        parent: Incomplete | None = None,
+        name: Incomplete | None = None,
+        ids: Incomplete | None = None,
+        instance: Any = False,
     ) -> None: ...
 
-def mock_open(mock: Incomplete | None = ..., read_data: Any = ...) -> Any: ...
+def mock_open(mock: Incomplete | None = None, read_data: Any = "") -> Any: ...
 
 class PropertyMock(Mock):
-    def __get__(self, obj: _T, obj_type: type[_T] | None = ...) -> Self: ...
+    def __get__(self, obj: _T, obj_type: type[_T] | None = None) -> Self: ...
     def __set__(self, obj: Any, value: Any) -> None: ...
 
 def seal(mock: Any) -> None: ...

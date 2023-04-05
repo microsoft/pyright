@@ -18,13 +18,13 @@ class BubbleChart(ChartBase):
     __elements__: Incomplete
     def __init__(
         self,
-        varyColors: Incomplete | None = ...,
-        ser=...,
-        dLbls: Incomplete | None = ...,
-        bubble3D: Incomplete | None = ...,
-        bubbleScale: Incomplete | None = ...,
-        showNegBubbles: Incomplete | None = ...,
-        sizeRepresents: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        varyColors: Incomplete | None = None,
+        ser=(),
+        dLbls: Incomplete | None = None,
+        bubble3D: Incomplete | None = None,
+        bubbleScale: Incomplete | None = None,
+        showNegBubbles: Incomplete | None = None,
+        sizeRepresents: Incomplete | None = None,
+        extLst: Incomplete | None = None,
         **kw,
     ) -> None: ...

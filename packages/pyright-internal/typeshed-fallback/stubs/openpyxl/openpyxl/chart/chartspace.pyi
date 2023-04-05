@@ -20,19 +20,19 @@ class ChartContainer(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        title: Incomplete | None = ...,
-        autoTitleDeleted: Incomplete | None = ...,
-        pivotFmts=...,
-        view3D: Incomplete | None = ...,
-        floor: Incomplete | None = ...,
-        sideWall: Incomplete | None = ...,
-        backWall: Incomplete | None = ...,
-        plotArea: Incomplete | None = ...,
-        legend: Incomplete | None = ...,
-        plotVisOnly: bool = ...,
-        dispBlanksAs: str = ...,
-        showDLblsOverMax: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        title: Incomplete | None = None,
+        autoTitleDeleted: Incomplete | None = None,
+        pivotFmts=(),
+        view3D: Incomplete | None = None,
+        floor: Incomplete | None = None,
+        sideWall: Incomplete | None = None,
+        backWall: Incomplete | None = None,
+        plotArea: Incomplete | None = None,
+        legend: Incomplete | None = None,
+        plotVisOnly: bool = True,
+        dispBlanksAs: str = "gap",
+        showDLblsOverMax: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class Protection(Serialisable):
@@ -45,18 +45,18 @@ class Protection(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        chartObject: Incomplete | None = ...,
-        data: Incomplete | None = ...,
-        formatting: Incomplete | None = ...,
-        selection: Incomplete | None = ...,
-        userInterface: Incomplete | None = ...,
+        chartObject: Incomplete | None = None,
+        data: Incomplete | None = None,
+        formatting: Incomplete | None = None,
+        selection: Incomplete | None = None,
+        userInterface: Incomplete | None = None,
     ) -> None: ...
 
 class ExternalData(Serialisable):
     tagname: str
     autoUpdate: Incomplete
     id: Incomplete
-    def __init__(self, autoUpdate: Incomplete | None = ..., id: Incomplete | None = ...) -> None: ...
+    def __init__(self, autoUpdate: Incomplete | None = None, id: Incomplete | None = None) -> None: ...
 
 class ChartSpace(Serialisable):
     tagname: str
@@ -79,19 +79,19 @@ class ChartSpace(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        date1904: Incomplete | None = ...,
-        lang: Incomplete | None = ...,
-        roundedCorners: Incomplete | None = ...,
-        style: Incomplete | None = ...,
-        clrMapOvr: Incomplete | None = ...,
-        pivotSource: Incomplete | None = ...,
-        protection: Incomplete | None = ...,
-        chart: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        txPr: Incomplete | None = ...,
-        externalData: Incomplete | None = ...,
-        printSettings: Incomplete | None = ...,
-        userShapes: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        date1904: Incomplete | None = None,
+        lang: Incomplete | None = None,
+        roundedCorners: Incomplete | None = None,
+        style: Incomplete | None = None,
+        clrMapOvr: Incomplete | None = None,
+        pivotSource: Incomplete | None = None,
+        protection: Incomplete | None = None,
+        chart: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        txPr: Incomplete | None = None,
+        externalData: Incomplete | None = None,
+        printSettings: Incomplete | None = None,
+        userShapes: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
-    def to_tree(self, tagname: Incomplete | None = ..., idx: Incomplete | None = ..., namespace: Incomplete | None = ...): ...
+    def to_tree(self, tagname: Incomplete | None = None, idx: Incomplete | None = None, namespace: Incomplete | None = None): ...

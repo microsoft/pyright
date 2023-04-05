@@ -6,7 +6,9 @@ class IndexExpression(Expression):
     openapi_types: Incomplete
     attribute_map: Incomplete
     discriminator: Incomplete
-    def __init__(self, type: Incomplete | None = ..., array: Incomplete | None = ..., index: Incomplete | None = ...) -> None: ...
+    def __init__(
+        self, type: Incomplete | None = None, array: Incomplete | None = None, index: Incomplete | None = None
+    ) -> None: ...
     @property
     def type(self): ...
     @type.setter

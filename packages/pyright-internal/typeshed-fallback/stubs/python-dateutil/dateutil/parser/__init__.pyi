@@ -18,7 +18,7 @@ class parserinfo:
     UTCZONE: list[str]
     PERTAIN: list[str]
     TZOFFSET: dict[str, int]
-    def __init__(self, dayfirst: bool = ..., yearfirst: bool = ...) -> None: ...
+    def __init__(self, dayfirst: bool = False, yearfirst: bool = False) -> None: ...
     def jump(self, name: str) -> bool: ...
     def weekday(self, name: str) -> int | None: ...
     def month(self, name: str) -> int | None: ...
@@ -31,13 +31,13 @@ class parserinfo:
     def validate(self, res: datetime) -> bool: ...
 
 class parser:
-    def __init__(self, info: parserinfo | None = ...) -> None: ...
+    def __init__(self, info: parserinfo | None = None) -> None: ...
     def parse(
         self,
         timestr: _FileOrStr,
-        default: datetime | None = ...,
-        ignoretz: bool = ...,
-        tzinfos: _TzInfo | None = ...,
+        default: datetime | None = None,
+        ignoretz: bool = False,
+        tzinfos: _TzInfo | None = None,
         *,
         dayfirst: bool | None = ...,
         yearfirst: bool | None = ...,
@@ -49,7 +49,7 @@ DEFAULTPARSER: parser
 
 def parse(
     timestr: _FileOrStr,
-    parserinfo: parserinfo | None = ...,
+    parserinfo: parserinfo | None = None,
     *,
     dayfirst: bool | None = ...,
     yearfirst: bool | None = ...,

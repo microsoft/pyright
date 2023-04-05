@@ -6,11 +6,11 @@ class Dialect:
     discriminator: Incomplete
     def __init__(
         self,
-        header: bool = ...,
-        delimiter: str = ...,
-        annotations: Incomplete | None = ...,
-        comment_prefix: str = ...,
-        date_time_format: str = ...,
+        header: bool = True,
+        delimiter: str = ",",
+        annotations: Incomplete | None = None,
+        comment_prefix: str = "#",
+        date_time_format: str = "RFC3339",
     ) -> None: ...
     @property
     def header(self): ...

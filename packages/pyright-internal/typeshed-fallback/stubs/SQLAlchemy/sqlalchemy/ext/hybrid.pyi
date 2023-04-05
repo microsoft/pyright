@@ -10,7 +10,7 @@ class hybrid_method(interfaces.InspectionAttrInfo):
     is_attribute: bool
     extension_type: Any
     func: Any
-    def __init__(self, func, expr: Incomplete | None = ...) -> None: ...
+    def __init__(self, func, expr: Incomplete | None = None) -> None: ...
     def __get__(self, instance, owner): ...
     expr: Any
     def expression(self, expr): ...
@@ -27,11 +27,11 @@ class hybrid_property(interfaces.InspectionAttrInfo):
     def __init__(
         self,
         fget,
-        fset: Incomplete | None = ...,
-        fdel: Incomplete | None = ...,
-        expr: Incomplete | None = ...,
-        custom_comparator: Incomplete | None = ...,
-        update_expr: Incomplete | None = ...,
+        fset: Incomplete | None = None,
+        fdel: Incomplete | None = None,
+        expr: Incomplete | None = None,
+        custom_comparator: Incomplete | None = None,
+        update_expr: Incomplete | None = None,
     ) -> None: ...
     def __get__(self, instance, owner): ...
     def __set__(self, instance, value) -> None: ...

@@ -8,16 +8,16 @@ class ScraperTargetResponse(ScraperTargetRequest):
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        org: Incomplete | None = ...,
-        bucket: Incomplete | None = ...,
-        links: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        type: Incomplete | None = ...,
-        url: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        bucket_id: Incomplete | None = ...,
-        allow_insecure: bool = ...,
+        id: Incomplete | None = None,
+        org: Incomplete | None = None,
+        bucket: Incomplete | None = None,
+        links: Incomplete | None = None,
+        name: Incomplete | None = None,
+        type: Incomplete | None = None,
+        url: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        bucket_id: Incomplete | None = None,
+        allow_insecure: bool = False,
     ) -> None: ...
     @property
     def id(self): ...

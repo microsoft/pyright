@@ -30,13 +30,13 @@ class Configuration:
     wrap_http_exceptions: Any
     def __init__(
         self,
-        environment: Incomplete | None = ...,
-        merchant_id: Incomplete | None = ...,
-        public_key: Incomplete | None = ...,
-        private_key: Incomplete | None = ...,
-        client_id: Incomplete | None = ...,
-        client_secret: Incomplete | None = ...,
-        access_token: Incomplete | None = ...,
+        environment: Incomplete | None = None,
+        merchant_id: Incomplete | None = None,
+        public_key: Incomplete | None = None,
+        private_key: Incomplete | None = None,
+        client_id: Incomplete | None = None,
+        client_secret: Incomplete | None = None,
+        access_token: Incomplete | None = None,
         *args,
         **kwargs,
     ) -> None: ...

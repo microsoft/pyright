@@ -8,10 +8,10 @@ def ansilen(s: str) -> int: ...
 class Dimension:
     width: int
     height: int
-    def __init__(self, width: int = ..., height: int = ..., dimension: Dimension | None = ...) -> None: ...
+    def __init__(self, width: int = 0, height: int = 0, dimension: Dimension | None = None) -> None: ...
 
 class MenuComponent:
-    def __init__(self, menu_style: MenuStyle, max_dimension: Dimension | None = ...) -> None: ...
+    def __init__(self, menu_style: MenuStyle, max_dimension: Dimension | None = None) -> None: ...
     @property
     def max_dimension(self) -> Dimension: ...
     @property
@@ -30,7 +30,7 @@ class MenuComponent:
     def outer_horizontals(self) -> str: ...
     def outer_horizontal_border_bottom(self) -> str: ...
     def outer_horizontal_border_top(self) -> str: ...
-    def row(self, content: str = ..., align: str = ..., indent_len: int = ...) -> str: ...
+    def row(self, content: str = "", align: str = "left", indent_len: int = 0) -> str: ...
 
 class MenuHeader(MenuComponent):
     title: str
@@ -41,12 +41,12 @@ class MenuHeader(MenuComponent):
     def __init__(
         self,
         menu_style: MenuStyle,
-        max_dimension: Dimension | None = ...,
-        title: str | None = ...,
-        title_align: str = ...,
-        subtitle: str | None = ...,
-        subtitle_align: str = ...,
-        show_bottom_border: bool = ...,
+        max_dimension: Dimension | None = None,
+        title: str | None = None,
+        title_align: str = "left",
+        subtitle: str | None = None,
+        subtitle_align: str = "left",
+        show_bottom_border: bool = False,
     ) -> None: ...
     def generate(self) -> Generator[str, None, None]: ...
 
@@ -58,11 +58,11 @@ class MenuTextSection(MenuComponent):
     def __init__(
         self,
         menu_style: MenuStyle,
-        max_dimension: Dimension | None = ...,
-        text: str | None = ...,
-        text_align: str = ...,
-        show_top_border: bool = ...,
-        show_bottom_border: bool = ...,
+        max_dimension: Dimension | None = None,
+        text: str | None = None,
+        text_align: str = "left",
+        show_top_border: bool = False,
+        show_bottom_border: bool = False,
     ) -> None: ...
     def generate(self) -> Generator[str, None, None]: ...
 
@@ -71,9 +71,9 @@ class MenuItemsSection(MenuComponent):
     def __init__(
         self,
         menu_style: MenuStyle,
-        max_dimension: Dimension | None = ...,
-        items: list[MenuItem] | None = ...,
-        items_align: str = ...,
+        max_dimension: Dimension | None = None,
+        items: list[MenuItem] | None = None,
+        items_align: str = "left",
     ) -> None: ...
     @property
     def items(self) -> list[MenuItem]: ...
@@ -91,7 +91,7 @@ class MenuFooter(MenuComponent):
     def generate(self) -> Generator[str, None, None]: ...
 
 class MenuPrompt(MenuComponent):
-    def __init__(self, menu_style: MenuStyle, max_dimension: Dimension | None = ..., prompt_string: str = ...) -> None: ...
+    def __init__(self, menu_style: MenuStyle, max_dimension: Dimension | None = None, prompt_string: str = ">>") -> None: ...
     @property
     def prompt(self) -> str: ...
     @prompt.setter

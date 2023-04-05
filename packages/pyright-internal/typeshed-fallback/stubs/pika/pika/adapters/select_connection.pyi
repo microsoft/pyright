@@ -11,16 +11,16 @@ SELECT_TYPE: Incomplete
 class SelectConnection(BaseConnection):
     def __init__(
         self,
-        parameters: Incomplete | None = ...,
-        on_open_callback: Incomplete | None = ...,
-        on_open_error_callback: Incomplete | None = ...,
-        on_close_callback: Incomplete | None = ...,
-        custom_ioloop: Incomplete | None = ...,
-        internal_connection_workflow: bool = ...,
+        parameters: Incomplete | None = None,
+        on_open_callback: Incomplete | None = None,
+        on_open_error_callback: Incomplete | None = None,
+        on_close_callback: Incomplete | None = None,
+        custom_ioloop: Incomplete | None = None,
+        internal_connection_workflow: bool = True,
     ) -> None: ...
     @classmethod
     def create_connection(
-        cls, connection_configs, on_done, custom_ioloop: Incomplete | None = ..., workflow: Incomplete | None = ...
+        cls, connection_configs, on_done, custom_ioloop: Incomplete | None = None, workflow: Incomplete | None = None
     ): ...
 
 class _Timeout:

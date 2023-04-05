@@ -6,11 +6,11 @@ class PermissionResource:
     discriminator: Incomplete
     def __init__(
         self,
-        type: Incomplete | None = ...,
-        id: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        org: Incomplete | None = ...,
+        type: Incomplete | None = None,
+        id: Incomplete | None = None,
+        name: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        org: Incomplete | None = None,
     ) -> None: ...
     @property
     def type(self): ...

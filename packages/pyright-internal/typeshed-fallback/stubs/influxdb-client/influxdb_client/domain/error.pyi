@@ -6,10 +6,10 @@ class Error:
     discriminator: Incomplete
     def __init__(
         self,
-        code: Incomplete | None = ...,
-        message: Incomplete | None = ...,
-        op: Incomplete | None = ...,
-        err: Incomplete | None = ...,
+        code: Incomplete | None = None,
+        message: Incomplete | None = None,
+        op: Incomplete | None = None,
+        err: Incomplete | None = None,
     ) -> None: ...
     @property
     def code(self): ...

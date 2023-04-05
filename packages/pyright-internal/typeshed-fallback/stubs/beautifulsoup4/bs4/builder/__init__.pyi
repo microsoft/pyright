@@ -35,9 +35,9 @@ class TreeBuilder:
     def prepare_markup(
         self,
         markup,
-        user_specified_encoding: Incomplete | None = ...,
-        document_declared_encoding: Incomplete | None = ...,
-        exclude_encodings: Incomplete | None = ...,
+        user_specified_encoding: Incomplete | None = None,
+        document_declared_encoding: Incomplete | None = None,
+        exclude_encodings: Incomplete | None = None,
     ) -> None: ...
     def test_fragment_to_document(self, fragment): ...
     def set_up_substitutions(self, tag): ...

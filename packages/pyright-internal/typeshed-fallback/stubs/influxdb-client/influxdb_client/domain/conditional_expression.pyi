@@ -8,10 +8,10 @@ class ConditionalExpression(Expression):
     discriminator: Incomplete
     def __init__(
         self,
-        type: Incomplete | None = ...,
-        test: Incomplete | None = ...,
-        alternate: Incomplete | None = ...,
-        consequent: Incomplete | None = ...,
+        type: Incomplete | None = None,
+        test: Incomplete | None = None,
+        alternate: Incomplete | None = None,
+        consequent: Incomplete | None = None,
     ) -> None: ...
     @property
     def type(self): ...

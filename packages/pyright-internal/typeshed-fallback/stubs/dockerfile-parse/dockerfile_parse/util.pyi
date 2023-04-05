@@ -17,15 +17,18 @@ class WordSplitter:
     envs: Mapping[str, str] | None
     quotes: _Quotes | None
     escaped: bool
-    def __init__(self, s: str, args: Mapping[str, str] | None = ..., envs: Mapping[str, str] | None = ...) -> None: ...
+    def __init__(self, s: str, args: Mapping[str, str] | None = None, envs: Mapping[str, str] | None = None) -> None: ...
     def dequote(self) -> str: ...
-    def split(self, maxsplit: int | None = ..., dequote: bool = ...) -> Generator[str | None, None, None]: ...
+    def split(self, maxsplit: int | None = None, dequote: bool = True) -> Generator[str | None, None, None]: ...
 
 def extract_key_values(
     env_replace: bool, args: Mapping[str, str], envs: Mapping[str, str], instruction_value: str
 ) -> list[tuple[str, str]]: ...
 def get_key_val_dictionary(
-    instruction_value: str, env_replace: bool = ..., args: Mapping[str, str] | None = ..., envs: Mapping[str, str] | None = ...
+    instruction_value: str,
+    env_replace: bool = False,
+    args: Mapping[str, str] | None = None,
+    envs: Mapping[str, str] | None = None,
 ) -> dict[str, str]: ...
 
 class Context:
@@ -37,12 +40,12 @@ class Context:
     line_labels: Mapping[str, str]
     def __init__(
         self,
-        args: MutableMapping[str, str] | None = ...,
-        envs: MutableMapping[str, str] | None = ...,
-        labels: MutableMapping[str, str] | None = ...,
-        line_args: Mapping[str, str] | None = ...,
-        line_envs: Mapping[str, str] | None = ...,
-        line_labels: Mapping[str, str] | None = ...,
+        args: MutableMapping[str, str] | None = None,
+        envs: MutableMapping[str, str] | None = None,
+        labels: MutableMapping[str, str] | None = None,
+        line_args: Mapping[str, str] | None = None,
+        line_envs: Mapping[str, str] | None = None,
+        line_labels: Mapping[str, str] | None = None,
     ) -> None: ...
     def set_line_value(self, context_type: _ContextType, value: Mapping[str, str]) -> None: ...
     def get_line_value(self, context_type: _ContextType) -> Mapping[str, str]: ...

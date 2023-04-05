@@ -42,8 +42,8 @@ class FluxCsvParser:
         self,
         response,
         serialization_mode: FluxSerializationMode,
-        data_frame_index: list[str] | None = ...,
-        query_options: Incomplete | None = ...,
+        data_frame_index: list[str] | None = None,
+        query_options: Incomplete | None = None,
         response_metadata_mode: FluxResponseMetadataMode = ...,
     ) -> None: ...
     def __enter__(self) -> Self: ...

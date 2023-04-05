@@ -1,78 +1,80 @@
-num_glyphs: int
-X_cursor: int
-arrow: int
-based_arrow_down: int
-based_arrow_up: int
-boat: int
-bogosity: int
-bottom_left_corner: int
-bottom_right_corner: int
-bottom_side: int
-bottom_tee: int
-box_spiral: int
-center_ptr: int
-circle: int
-clock: int
-coffee_mug: int
-cross: int
-cross_reverse: int
-crosshair: int
-diamond_cross: int
-dot: int
-dotbox: int
-double_arrow: int
-draft_large: int
-draft_small: int
-draped_box: int
-exchange: int
-fleur: int
-gobbler: int
-gumby: int
-hand1: int
-hand2: int
-heart: int
-icon: int
-iron_cross: int
-left_ptr: int
-left_side: int
-left_tee: int
-leftbutton: int
-ll_angle: int
-lr_angle: int
-man: int
-middlebutton: int
-mouse: int
-pencil: int
-pirate: int
-plus: int
-question_arrow: int
-right_ptr: int
-right_side: int
-right_tee: int
-rightbutton: int
-rtl_logo: int
-sailboat: int
-sb_down_arrow: int
-sb_h_double_arrow: int
-sb_left_arrow: int
-sb_right_arrow: int
-sb_up_arrow: int
-sb_v_double_arrow: int
-shuttle: int
-sizing: int
-spider: int
-spraycan: int
-star: int
-target: int
-tcross: int
-top_left_arrow: int
-top_left_corner: int
-top_right_corner: int
-top_side: int
-top_tee: int
-trek: int
-ul_angle: int
-umbrella: int
-ur_angle: int
-watch: int
-xterm: int
+from typing_extensions import Final
+
+num_glyphs: Final = 154
+X_cursor: Final = 0
+arrow: Final = 2
+based_arrow_down: Final = 4
+based_arrow_up: Final = 6
+boat: Final = 8
+bogosity: Final = 10
+bottom_left_corner: Final = 12
+bottom_right_corner: Final = 14
+bottom_side: Final = 16
+bottom_tee: Final = 18
+box_spiral: Final = 20
+center_ptr: Final = 22
+circle: Final = 24
+clock: Final = 26
+coffee_mug: Final = 28
+cross: Final = 30
+cross_reverse: Final = 32
+crosshair: Final = 34
+diamond_cross: Final = 36
+dot: Final = 38
+dotbox: Final = 40
+double_arrow: Final = 42
+draft_large: Final = 44
+draft_small: Final = 46
+draped_box: Final = 48
+exchange: Final = 50
+fleur: Final = 52
+gobbler: Final = 54
+gumby: Final = 56
+hand1: Final = 58
+hand2: Final = 60
+heart: Final = 62
+icon: Final = 64
+iron_cross: Final = 66
+left_ptr: Final = 68
+left_side: Final = 70
+left_tee: Final = 72
+leftbutton: Final = 74
+ll_angle: Final = 76
+lr_angle: Final = 78
+man: Final = 80
+middlebutton: Final = 82
+mouse: Final = 84
+pencil: Final = 86
+pirate: Final = 88
+plus: Final = 90
+question_arrow: Final = 92
+right_ptr: Final = 94
+right_side: Final = 96
+right_tee: Final = 98
+rightbutton: Final = 100
+rtl_logo: Final = 102
+sailboat: Final = 104
+sb_down_arrow: Final = 106
+sb_h_double_arrow: Final = 108
+sb_left_arrow: Final = 110
+sb_right_arrow: Final = 112
+sb_up_arrow: Final = 114
+sb_v_double_arrow: Final = 116
+shuttle: Final = 118
+sizing: Final = 120
+spider: Final = 122
+spraycan: Final = 124
+star: Final = 126
+target: Final = 128
+tcross: Final = 130
+top_left_arrow: Final = 132
+top_left_corner: Final = 134
+top_right_corner: Final = 136
+top_side: Final = 138
+top_tee: Final = 140
+trek: Final = 142
+ul_angle: Final = 144
+umbrella: Final = 146
+ur_angle: Final = 148
+watch: Final = 150
+xterm: Final = 152

@@ -57,7 +57,7 @@ class tqdm_gui(Generic[_T], std_tqdm[_T]):
     @overload
     def __init__(
         self: tqdm_gui[NoReturn],
-        iterable: None = ...,
+        iterable: None = None,
         desc: str | None = ...,
         total: float | None = ...,
         leave: bool | None = ...,

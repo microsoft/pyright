@@ -9,5 +9,5 @@ class ChartsheetProperties(Serialisable):
     tabColor: Incomplete
     __elements__: Incomplete
     def __init__(
-        self, published: Incomplete | None = ..., codeName: Incomplete | None = ..., tabColor: Incomplete | None = ...
+        self, published: Incomplete | None = None, codeName: Incomplete | None = None, tabColor: Incomplete | None = None
     ) -> None: ...

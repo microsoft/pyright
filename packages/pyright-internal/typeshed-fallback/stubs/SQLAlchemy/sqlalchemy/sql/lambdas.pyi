@@ -17,12 +17,12 @@ class LambdaOptions(Options):
 
 def lambda_stmt(
     lmb,
-    enable_tracking: bool = ...,
-    track_closure_variables: bool = ...,
-    track_on: Incomplete | None = ...,
-    global_track_bound_values: bool = ...,
-    track_bound_values: bool = ...,
-    lambda_cache: Incomplete | None = ...,
+    enable_tracking: bool = True,
+    track_closure_variables: bool = True,
+    track_on: Incomplete | None = None,
+    global_track_bound_values: bool = True,
+    track_bound_values: bool = True,
+    lambda_cache: Incomplete | None = None,
 ): ...
 
 class LambdaElement(elements.ClauseElement):
@@ -32,22 +32,22 @@ class LambdaElement(elements.ClauseElement):
     role: Incomplete
     tracker_key: Incomplete
     opts: Incomplete
-    def __init__(self, fn, role, opts=..., apply_propagate_attrs: Incomplete | None = ...) -> None: ...
+    def __init__(self, fn, role, opts=..., apply_propagate_attrs: Incomplete | None = None) -> None: ...
     def __getattr__(self, key: str): ...
 
 class DeferredLambdaElement(LambdaElement):
     lambda_args: Incomplete
-    def __init__(self, fn, role, opts=..., lambda_args=...) -> None: ...
+    def __init__(self, fn, role, opts=..., lambda_args=()) -> None: ...
 
 class StatementLambdaElement(roles.AllowsLambdaRole, LambdaElement):
     def __add__(self, other): ...
     def add_criteria(
         self,
         other,
-        enable_tracking: bool = ...,
-        track_on: Incomplete | None = ...,
-        track_closure_variables: bool = ...,
-        track_bound_values: bool = ...,
+        enable_tracking: bool = True,
+        track_on: Incomplete | None = None,
+        track_closure_variables: bool = True,
+        track_bound_values: bool = True,
     ): ...
     def spoil(self): ...
 
@@ -105,9 +105,9 @@ class PyWrapper(ColumnOperators[_T], Generic[_T]):
         fn,
         name,
         to_evaluate,
-        closure_index: Incomplete | None = ...,
-        getter: Incomplete | None = ...,
-        track_bound_values: bool = ...,
+        closure_index: Incomplete | None = None,
+        getter: Incomplete | None = None,
+        track_bound_values: bool = True,
     ) -> None: ...
     def __call__(self, *arg, **kw): ...
     def operate(self, op, *other, **kwargs): ...

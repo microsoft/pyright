@@ -7,5 +7,5 @@ from typing import Any
 ACCEPT_ENCODING: Any
 
 def make_headers(
-    keep_alive=..., accept_encoding=..., user_agent=..., basic_auth=..., proxy_basic_auth=..., disable_cache=...
+    keep_alive=None, accept_encoding=None, user_agent=None, basic_auth=None, proxy_basic_auth=None, disable_cache=None
 ): ...

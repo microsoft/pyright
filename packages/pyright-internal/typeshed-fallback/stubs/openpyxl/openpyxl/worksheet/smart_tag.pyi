@@ -6,7 +6,7 @@ class CellSmartTagPr(Serialisable):
     tagname: str
     key: Incomplete
     val: Incomplete
-    def __init__(self, key: Incomplete | None = ..., val: Incomplete | None = ...) -> None: ...
+    def __init__(self, key: Incomplete | None = None, val: Incomplete | None = None) -> None: ...
 
 class CellSmartTag(Serialisable):
     tagname: str
@@ -15,17 +15,19 @@ class CellSmartTag(Serialisable):
     deleted: Incomplete
     xmlBased: Incomplete
     __elements__: Incomplete
-    def __init__(self, cellSmartTagPr=..., type: Incomplete | None = ..., deleted: bool = ..., xmlBased: bool = ...) -> None: ...
+    def __init__(
+        self, cellSmartTagPr=(), type: Incomplete | None = None, deleted: bool = False, xmlBased: bool = False
+    ) -> None: ...
 
 class CellSmartTags(Serialisable):
     tagname: str
     cellSmartTag: Incomplete
     r: Incomplete
     __elements__: Incomplete
-    def __init__(self, cellSmartTag=..., r: Incomplete | None = ...) -> None: ...
+    def __init__(self, cellSmartTag=(), r: Incomplete | None = None) -> None: ...
 
 class SmartTags(Serialisable):
     tagname: str
     cellSmartTags: Incomplete
     __elements__: Incomplete
-    def __init__(self, cellSmartTags=...) -> None: ...
+    def __init__(self, cellSmartTags=()) -> None: ...

@@ -6,7 +6,9 @@ class FunctionExpression(Expression):
     openapi_types: Incomplete
     attribute_map: Incomplete
     discriminator: Incomplete
-    def __init__(self, type: Incomplete | None = ..., params: Incomplete | None = ..., body: Incomplete | None = ...) -> None: ...
+    def __init__(
+        self, type: Incomplete | None = None, params: Incomplete | None = None, body: Incomplete | None = None
+    ) -> None: ...
     @property
     def type(self): ...
     @type.setter

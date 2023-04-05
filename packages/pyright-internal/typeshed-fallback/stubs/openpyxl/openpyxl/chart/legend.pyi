@@ -10,7 +10,7 @@ class LegendEntry(Serialisable):
     extLst: Incomplete
     __elements__: Incomplete
     def __init__(
-        self, idx: int = ..., delete: bool = ..., txPr: Incomplete | None = ..., extLst: Incomplete | None = ...
+        self, idx: int = 0, delete: bool = False, txPr: Incomplete | None = None, extLst: Incomplete | None = None
     ) -> None: ...
 
 class Legend(Serialisable):
@@ -28,11 +28,11 @@ class Legend(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        legendPos: str = ...,
-        legendEntry=...,
-        layout: Incomplete | None = ...,
-        overlay: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        txPr: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        legendPos: str = "r",
+        legendEntry=(),
+        layout: Incomplete | None = None,
+        overlay: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        txPr: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...

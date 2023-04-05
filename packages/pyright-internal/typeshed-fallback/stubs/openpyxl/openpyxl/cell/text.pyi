@@ -9,7 +9,7 @@ class PhoneticProperties(Serialisable):
     type: Incomplete
     alignment: Incomplete
     def __init__(
-        self, fontId: Incomplete | None = ..., type: Incomplete | None = ..., alignment: Incomplete | None = ...
+        self, fontId: Incomplete | None = None, type: Incomplete | None = None, alignment: Incomplete | None = None
     ) -> None: ...
 
 class PhoneticText(Serialisable):
@@ -18,7 +18,7 @@ class PhoneticText(Serialisable):
     eb: Incomplete
     t: Incomplete
     text: Incomplete
-    def __init__(self, sb: Incomplete | None = ..., eb: Incomplete | None = ..., t: Incomplete | None = ...) -> None: ...
+    def __init__(self, sb: Incomplete | None = None, eb: Incomplete | None = None, t: Incomplete | None = None) -> None: ...
 
 class InlineFont(Font):
     tagname: str
@@ -40,21 +40,21 @@ class InlineFont(Font):
     __elements__: Incomplete
     def __init__(
         self,
-        rFont: Incomplete | None = ...,
-        charset: Incomplete | None = ...,
-        family: Incomplete | None = ...,
-        b: Incomplete | None = ...,
-        i: Incomplete | None = ...,
-        strike: Incomplete | None = ...,
-        outline: Incomplete | None = ...,
-        shadow: Incomplete | None = ...,
-        condense: Incomplete | None = ...,
-        extend: Incomplete | None = ...,
-        color: Incomplete | None = ...,
-        sz: Incomplete | None = ...,
-        u: Incomplete | None = ...,
-        vertAlign: Incomplete | None = ...,
-        scheme: Incomplete | None = ...,
+        rFont: Incomplete | None = None,
+        charset: Incomplete | None = None,
+        family: Incomplete | None = None,
+        b: Incomplete | None = None,
+        i: Incomplete | None = None,
+        strike: Incomplete | None = None,
+        outline: Incomplete | None = None,
+        shadow: Incomplete | None = None,
+        condense: Incomplete | None = None,
+        extend: Incomplete | None = None,
+        color: Incomplete | None = None,
+        sz: Incomplete | None = None,
+        u: Incomplete | None = None,
+        vertAlign: Incomplete | None = None,
+        scheme: Incomplete | None = None,
     ) -> None: ...
 
 class RichText(Serialisable):
@@ -64,7 +64,7 @@ class RichText(Serialisable):
     t: Incomplete
     text: Incomplete
     __elements__: Incomplete
-    def __init__(self, rPr: Incomplete | None = ..., t: Incomplete | None = ...) -> None: ...
+    def __init__(self, rPr: Incomplete | None = None, t: Incomplete | None = None) -> None: ...
 
 class Text(Serialisable):
     tagname: str
@@ -77,6 +77,6 @@ class Text(Serialisable):
     phoneticPr: Incomplete
     PhoneticProperties: Incomplete
     __elements__: Incomplete
-    def __init__(self, t: Incomplete | None = ..., r=..., rPh=..., phoneticPr: Incomplete | None = ...) -> None: ...
+    def __init__(self, t: Incomplete | None = None, r=(), rPh=(), phoneticPr: Incomplete | None = None) -> None: ...
     @property
     def content(self): ...

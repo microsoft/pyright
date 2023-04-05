@@ -6,12 +6,12 @@ class RetentionPolicyManifest:
     discriminator: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        replica_n: Incomplete | None = ...,
-        duration: Incomplete | None = ...,
-        shard_group_duration: Incomplete | None = ...,
-        shard_groups: Incomplete | None = ...,
-        subscriptions: Incomplete | None = ...,
+        name: Incomplete | None = None,
+        replica_n: Incomplete | None = None,
+        duration: Incomplete | None = None,
+        shard_group_duration: Incomplete | None = None,
+        shard_groups: Incomplete | None = None,
+        subscriptions: Incomplete | None = None,
     ) -> None: ...
     @property
     def name(self): ...

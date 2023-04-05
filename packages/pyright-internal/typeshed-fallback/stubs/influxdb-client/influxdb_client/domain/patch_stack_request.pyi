@@ -6,10 +6,10 @@ class PatchStackRequest:
     discriminator: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        template_ur_ls: Incomplete | None = ...,
-        additional_resources: Incomplete | None = ...,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        template_ur_ls: Incomplete | None = None,
+        additional_resources: Incomplete | None = None,
     ) -> None: ...
     @property
     def name(self): ...

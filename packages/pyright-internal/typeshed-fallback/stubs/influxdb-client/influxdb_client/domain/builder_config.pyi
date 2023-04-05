@@ -6,10 +6,10 @@ class BuilderConfig:
     discriminator: Incomplete
     def __init__(
         self,
-        buckets: Incomplete | None = ...,
-        tags: Incomplete | None = ...,
-        functions: Incomplete | None = ...,
-        aggregate_window: Incomplete | None = ...,
+        buckets: Incomplete | None = None,
+        tags: Incomplete | None = None,
+        functions: Incomplete | None = None,
+        aggregate_window: Incomplete | None = None,
     ) -> None: ...
     @property
     def buckets(self): ...

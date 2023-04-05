@@ -8,19 +8,19 @@ class TelegramNotificationEndpoint(NotificationEndpointDiscriminator):
     discriminator: Incomplete
     def __init__(
         self,
-        token: Incomplete | None = ...,
-        channel: Incomplete | None = ...,
-        id: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        user_id: Incomplete | None = ...,
-        created_at: Incomplete | None = ...,
-        updated_at: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        status: str = ...,
-        labels: Incomplete | None = ...,
-        links: Incomplete | None = ...,
-        type: str = ...,
+        token: Incomplete | None = None,
+        channel: Incomplete | None = None,
+        id: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        user_id: Incomplete | None = None,
+        created_at: Incomplete | None = None,
+        updated_at: Incomplete | None = None,
+        description: Incomplete | None = None,
+        name: Incomplete | None = None,
+        status: str = "active",
+        labels: Incomplete | None = None,
+        links: Incomplete | None = None,
+        type: str = "telegram",
     ) -> None: ...
     @property
     def token(self): ...

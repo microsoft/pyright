@@ -16,10 +16,10 @@ class _HeaderFooterPart(Strict):
     color: Incomplete
     def __init__(
         self,
-        text: Incomplete | None = ...,
-        font: Incomplete | None = ...,
-        size: Incomplete | None = ...,
-        color: Incomplete | None = ...,
+        text: Incomplete | None = None,
+        font: Incomplete | None = None,
+        size: Incomplete | None = None,
+        color: Incomplete | None = None,
     ) -> None: ...
     def __bool__(self) -> bool: ...
     @classmethod
@@ -31,7 +31,7 @@ class HeaderFooterItem(Strict):
     centre: Incomplete
     right: Incomplete
     def __init__(
-        self, left: Incomplete | None = ..., right: Incomplete | None = ..., center: Incomplete | None = ...
+        self, left: Incomplete | None = None, right: Incomplete | None = None, center: Incomplete | None = None
     ) -> None: ...
     def __bool__(self) -> bool: ...
     def to_tree(self, tagname): ...
@@ -53,15 +53,15 @@ class HeaderFooter(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        differentOddEven: Incomplete | None = ...,
-        differentFirst: Incomplete | None = ...,
-        scaleWithDoc: Incomplete | None = ...,
-        alignWithMargins: Incomplete | None = ...,
-        oddHeader: Incomplete | None = ...,
-        oddFooter: Incomplete | None = ...,
-        evenHeader: Incomplete | None = ...,
-        evenFooter: Incomplete | None = ...,
-        firstHeader: Incomplete | None = ...,
-        firstFooter: Incomplete | None = ...,
+        differentOddEven: Incomplete | None = None,
+        differentFirst: Incomplete | None = None,
+        scaleWithDoc: Incomplete | None = None,
+        alignWithMargins: Incomplete | None = None,
+        oddHeader: Incomplete | None = None,
+        oddFooter: Incomplete | None = None,
+        evenHeader: Incomplete | None = None,
+        evenFooter: Incomplete | None = None,
+        firstHeader: Incomplete | None = None,
+        firstFooter: Incomplete | None = None,
     ) -> None: ...
     def __bool__(self) -> bool: ...

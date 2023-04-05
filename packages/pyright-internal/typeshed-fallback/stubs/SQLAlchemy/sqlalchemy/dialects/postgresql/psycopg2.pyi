@@ -70,13 +70,13 @@ class PGDialect_psycopg2(PGDialect):
     executemany_values_page_size: Any
     def __init__(
         self,
-        use_native_unicode: bool = ...,
-        client_encoding: Incomplete | None = ...,
-        use_native_hstore: bool = ...,
-        use_native_uuid: bool = ...,
-        executemany_mode: str = ...,
-        executemany_batch_page_size: int = ...,
-        executemany_values_page_size: int = ...,
+        use_native_unicode: bool = True,
+        client_encoding: Incomplete | None = None,
+        use_native_hstore: bool = True,
+        use_native_uuid: bool = True,
+        executemany_mode: str = "values_only",
+        executemany_batch_page_size: int = 100,
+        executemany_values_page_size: int = 1000,
         **kwargs,
     ) -> None: ...
     def initialize(self, connection) -> None: ...
@@ -89,7 +89,7 @@ class PGDialect_psycopg2(PGDialect):
     def get_deferrable(self, connection): ...
     def do_ping(self, dbapi_connection): ...
     def on_connect(self): ...
-    def do_executemany(self, cursor, statement, parameters, context: Incomplete | None = ...) -> None: ...
+    def do_executemany(self, cursor, statement, parameters, context: Incomplete | None = None) -> None: ...
     def create_connect_args(self, url): ...
     def is_disconnect(self, e, connection, cursor): ...
 

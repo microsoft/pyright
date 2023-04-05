@@ -6,4 +6,6 @@ from .base import BaseEndpoint as BaseEndpoint
 log: Any
 
 class SignatureOnlyEndpoint(BaseEndpoint):
-    def validate_request(self, uri, http_method: str = ..., body: Incomplete | None = ..., headers: Incomplete | None = ...): ...
+    def validate_request(
+        self, uri, http_method: str = "GET", body: Incomplete | None = None, headers: Incomplete | None = None
+    ): ...

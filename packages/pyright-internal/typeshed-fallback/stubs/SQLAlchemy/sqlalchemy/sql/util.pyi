@@ -11,11 +11,11 @@ def find_left_clause_to_join_from(clauses, join_to, onclause): ...
 def visit_binary_product(fn, expr) -> None: ...
 def find_tables(
     clause,
-    check_columns: bool = ...,
-    include_aliases: bool = ...,
-    include_joins: bool = ...,
-    include_selects: bool = ...,
-    include_crud: bool = ...,
+    check_columns: bool = False,
+    include_aliases: bool = False,
+    include_joins: bool = False,
+    include_selects: bool = False,
+    include_crud: bool = False,
 ): ...
 def unwrap_order_by(clause): ...
 def unwrap_label_reference(element): ...
@@ -35,23 +35,23 @@ class _repr_base:
 class _repr_row(_repr_base):
     row: Any
     max_chars: Any
-    def __init__(self, row, max_chars: int = ...) -> None: ...
+    def __init__(self, row, max_chars: int = 300) -> None: ...
 
 class _repr_params(_repr_base):
     params: Any
     ismulti: Any
     batches: Any
     max_chars: Any
-    def __init__(self, params, batches, max_chars: int = ..., ismulti: Incomplete | None = ...) -> None: ...
+    def __init__(self, params, batches, max_chars: int = 300, ismulti: Incomplete | None = None) -> None: ...
 
 def adapt_criterion_to_null(crit, nulls): ...
-def splice_joins(left, right, stop_on: Incomplete | None = ...): ...
+def splice_joins(left, right, stop_on: Incomplete | None = None): ...
 def reduce_columns(columns, *clauses, **kw): ...
 def criterion_as_pairs(
     expression,
-    consider_as_foreign_keys: Incomplete | None = ...,
-    consider_as_referenced_keys: Incomplete | None = ...,
-    any_operator: bool = ...,
+    consider_as_foreign_keys: Incomplete | None = None,
+    consider_as_referenced_keys: Incomplete | None = None,
+    any_operator: bool = False,
 ): ...
 
 class ClauseAdapter(visitors.ReplacingExternalTraversal):
@@ -65,14 +65,14 @@ class ClauseAdapter(visitors.ReplacingExternalTraversal):
     def __init__(
         self,
         selectable,
-        equivalents: Incomplete | None = ...,
-        include_fn: Incomplete | None = ...,
-        exclude_fn: Incomplete | None = ...,
-        adapt_on_names: bool = ...,
-        anonymize_labels: bool = ...,
-        adapt_from_selectables: Incomplete | None = ...,
+        equivalents: Incomplete | None = None,
+        include_fn: Incomplete | None = None,
+        exclude_fn: Incomplete | None = None,
+        adapt_on_names: bool = False,
+        anonymize_labels: bool = False,
+        adapt_from_selectables: Incomplete | None = None,
     ) -> None: ...
-    def replace(self, col, _include_singleton_constants: bool = ...): ...
+    def replace(self, col, _include_singleton_constants: bool = False): ...
 
 class ColumnAdapter(ClauseAdapter):
     columns: Any
@@ -81,14 +81,14 @@ class ColumnAdapter(ClauseAdapter):
     def __init__(
         self,
         selectable,
-        equivalents: Incomplete | None = ...,
-        adapt_required: bool = ...,
-        include_fn: Incomplete | None = ...,
-        exclude_fn: Incomplete | None = ...,
-        adapt_on_names: bool = ...,
-        allow_label_resolve: bool = ...,
-        anonymize_labels: bool = ...,
-        adapt_from_selectables: Incomplete | None = ...,
+        equivalents: Incomplete | None = None,
+        adapt_required: bool = False,
+        include_fn: Incomplete | None = None,
+        exclude_fn: Incomplete | None = None,
+        adapt_on_names: bool = False,
+        allow_label_resolve: bool = True,
+        anonymize_labels: bool = False,
+        adapt_from_selectables: Incomplete | None = None,
     ) -> None: ...
 
     class _IncludeExcludeMapping:

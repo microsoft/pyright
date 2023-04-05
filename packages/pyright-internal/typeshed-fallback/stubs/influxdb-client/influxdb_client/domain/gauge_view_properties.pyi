@@ -8,17 +8,17 @@ class GaugeViewProperties(ViewProperties):
     discriminator: Incomplete
     def __init__(
         self,
-        type: Incomplete | None = ...,
-        queries: Incomplete | None = ...,
-        colors: Incomplete | None = ...,
-        shape: Incomplete | None = ...,
-        note: Incomplete | None = ...,
-        show_note_when_empty: Incomplete | None = ...,
-        prefix: Incomplete | None = ...,
-        tick_prefix: Incomplete | None = ...,
-        suffix: Incomplete | None = ...,
-        tick_suffix: Incomplete | None = ...,
-        decimal_places: Incomplete | None = ...,
+        type: Incomplete | None = None,
+        queries: Incomplete | None = None,
+        colors: Incomplete | None = None,
+        shape: Incomplete | None = None,
+        note: Incomplete | None = None,
+        show_note_when_empty: Incomplete | None = None,
+        prefix: Incomplete | None = None,
+        tick_prefix: Incomplete | None = None,
+        suffix: Incomplete | None = None,
+        tick_suffix: Incomplete | None = None,
+        decimal_places: Incomplete | None = None,
     ) -> None: ...
     @property
     def type(self): ...

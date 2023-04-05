@@ -7,15 +7,15 @@ class MultiSelectMenu(ConsoleMenu):
     ack_item_completion: bool
     def __init__(
         self,
-        title: str | None = ...,
-        subtitle: str | None = ...,
-        formatter: MenuFormatBuilder | None = ...,
-        prologue_text: str | None = ...,
-        epilogue_text: str | None = ...,
-        ack_item_completion: bool = ...,
-        show_exit_option: bool = ...,
-        exit_option_text: str = ...,
-        clear_screen: bool = ...,
+        title: str | None = None,
+        subtitle: str | None = None,
+        formatter: MenuFormatBuilder | None = None,
+        prologue_text: str | None = None,
+        epilogue_text: str | None = None,
+        ack_item_completion: bool = True,
+        show_exit_option: bool = True,
+        exit_option_text: str = "Exit",
+        clear_screen: bool = True,
     ) -> None: ...
     def append_item(self, item: MenuItem) -> None: ...
     current_option: int

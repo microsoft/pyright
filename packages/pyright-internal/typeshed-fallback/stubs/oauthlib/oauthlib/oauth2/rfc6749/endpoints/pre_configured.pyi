@@ -17,9 +17,9 @@ class Server(AuthorizationEndpoint, IntrospectEndpoint, TokenEndpoint, ResourceE
     def __init__(
         self,
         request_validator,
-        token_expires_in: Incomplete | None = ...,
-        token_generator: Incomplete | None = ...,
-        refresh_token_generator: Incomplete | None = ...,
+        token_expires_in: Incomplete | None = None,
+        token_generator: Incomplete | None = None,
+        refresh_token_generator: Incomplete | None = None,
         *args,
         **kwargs,
     ) -> None: ...
@@ -31,9 +31,9 @@ class WebApplicationServer(AuthorizationEndpoint, IntrospectEndpoint, TokenEndpo
     def __init__(
         self,
         request_validator,
-        token_generator: Incomplete | None = ...,
-        token_expires_in: Incomplete | None = ...,
-        refresh_token_generator: Incomplete | None = ...,
+        token_generator: Incomplete | None = None,
+        token_expires_in: Incomplete | None = None,
+        refresh_token_generator: Incomplete | None = None,
         **kwargs,
     ) -> None: ...
 
@@ -43,9 +43,9 @@ class MobileApplicationServer(AuthorizationEndpoint, IntrospectEndpoint, Resourc
     def __init__(
         self,
         request_validator,
-        token_generator: Incomplete | None = ...,
-        token_expires_in: Incomplete | None = ...,
-        refresh_token_generator: Incomplete | None = ...,
+        token_generator: Incomplete | None = None,
+        token_expires_in: Incomplete | None = None,
+        refresh_token_generator: Incomplete | None = None,
         **kwargs,
     ) -> None: ...
 
@@ -56,9 +56,9 @@ class LegacyApplicationServer(TokenEndpoint, IntrospectEndpoint, ResourceEndpoin
     def __init__(
         self,
         request_validator,
-        token_generator: Incomplete | None = ...,
-        token_expires_in: Incomplete | None = ...,
-        refresh_token_generator: Incomplete | None = ...,
+        token_generator: Incomplete | None = None,
+        token_expires_in: Incomplete | None = None,
+        refresh_token_generator: Incomplete | None = None,
         **kwargs,
     ) -> None: ...
 
@@ -68,8 +68,8 @@ class BackendApplicationServer(TokenEndpoint, IntrospectEndpoint, ResourceEndpoi
     def __init__(
         self,
         request_validator,
-        token_generator: Incomplete | None = ...,
-        token_expires_in: Incomplete | None = ...,
-        refresh_token_generator: Incomplete | None = ...,
+        token_generator: Incomplete | None = None,
+        token_expires_in: Incomplete | None = None,
+        refresh_token_generator: Incomplete | None = None,
         **kwargs,
     ) -> None: ...

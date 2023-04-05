@@ -6,12 +6,12 @@ class Query:
     discriminator: Incomplete
     def __init__(
         self,
-        extern: Incomplete | None = ...,
-        query: Incomplete | None = ...,
-        type: Incomplete | None = ...,
-        params: Incomplete | None = ...,
-        dialect: Incomplete | None = ...,
-        now: Incomplete | None = ...,
+        extern: Incomplete | None = None,
+        query: Incomplete | None = None,
+        type: Incomplete | None = None,
+        params: Incomplete | None = None,
+        dialect: Incomplete | None = None,
+        now: Incomplete | None = None,
     ) -> None: ...
     @property
     def extern(self): ...

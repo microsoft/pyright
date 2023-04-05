@@ -1,5 +1,5 @@
 from _typeshed import SliceableBuffer
-from typing_extensions import Literal
+from typing_extensions import Final, Literal
 
 from Xlib.protocol import display, rq
 
@@ -44,7 +44,7 @@ class BadName(XError): ...
 class BadLength(XError): ...
 class BadImplementation(XError): ...
 
-xerror_class: dict[int, type[XError]]
+xerror_class: Final[dict[int, type[XError]]]
 
 class CatchError:
     error_types: tuple[type[XError], ...]

@@ -15,12 +15,12 @@ class TrendlineLabel(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        layout: Incomplete | None = ...,
-        tx: Incomplete | None = ...,
-        numFmt: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        txPr: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        layout: Incomplete | None = None,
+        tx: Incomplete | None = None,
+        numFmt: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        txPr: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class Trendline(Serialisable):
@@ -41,16 +41,16 @@ class Trendline(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        trendlineType: str = ...,
-        order: Incomplete | None = ...,
-        period: Incomplete | None = ...,
-        forward: Incomplete | None = ...,
-        backward: Incomplete | None = ...,
-        intercept: Incomplete | None = ...,
-        dispRSqr: Incomplete | None = ...,
-        dispEq: Incomplete | None = ...,
-        trendlineLbl: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        name: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        trendlineType: str = "linear",
+        order: Incomplete | None = None,
+        period: Incomplete | None = None,
+        forward: Incomplete | None = None,
+        backward: Incomplete | None = None,
+        intercept: Incomplete | None = None,
+        dispRSqr: Incomplete | None = None,
+        dispEq: Incomplete | None = None,
+        trendlineLbl: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...

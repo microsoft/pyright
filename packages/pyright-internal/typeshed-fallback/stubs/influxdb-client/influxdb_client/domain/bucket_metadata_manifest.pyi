@@ -6,13 +6,13 @@ class BucketMetadataManifest:
     discriminator: Incomplete
     def __init__(
         self,
-        organization_id: Incomplete | None = ...,
-        organization_name: Incomplete | None = ...,
-        bucket_id: Incomplete | None = ...,
-        bucket_name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        default_retention_policy: Incomplete | None = ...,
-        retention_policies: Incomplete | None = ...,
+        organization_id: Incomplete | None = None,
+        organization_name: Incomplete | None = None,
+        bucket_id: Incomplete | None = None,
+        bucket_name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        default_retention_policy: Incomplete | None = None,
+        retention_policies: Incomplete | None = None,
     ) -> None: ...
     @property
     def organization_id(self): ...

@@ -15,11 +15,11 @@ class ChartsheetProtection(Serialisable, _Protected):
     password: Incomplete
     def __init__(
         self,
-        content: Incomplete | None = ...,
-        objects: Incomplete | None = ...,
-        hashValue: Incomplete | None = ...,
-        spinCount: Incomplete | None = ...,
-        saltValue: Incomplete | None = ...,
-        algorithmName: Incomplete | None = ...,
-        password: Incomplete | None = ...,
+        content: Incomplete | None = None,
+        objects: Incomplete | None = None,
+        hashValue: Incomplete | None = None,
+        spinCount: Incomplete | None = None,
+        saltValue: Incomplete | None = None,
+        algorithmName: Incomplete | None = None,
+        password: Incomplete | None = None,
     ) -> None: ...

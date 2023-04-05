@@ -51,40 +51,40 @@ class RelationshipProperty(StrategizedProperty):
     def __init__(
         self,
         argument,
-        secondary: Incomplete | None = ...,
-        primaryjoin: Incomplete | None = ...,
-        secondaryjoin: Incomplete | None = ...,
-        foreign_keys: Incomplete | None = ...,
-        uselist: Incomplete | None = ...,
-        order_by: bool = ...,
-        backref: Incomplete | None = ...,
-        back_populates: Incomplete | None = ...,
-        overlaps: Incomplete | None = ...,
-        post_update: bool = ...,
-        cascade: bool = ...,
-        viewonly: bool = ...,
-        lazy: str = ...,
-        collection_class: Incomplete | None = ...,
-        passive_deletes=...,
-        passive_updates=...,
-        remote_side: Incomplete | None = ...,
-        enable_typechecks=...,
-        join_depth: Incomplete | None = ...,
-        comparator_factory: Incomplete | None = ...,
-        single_parent: bool = ...,
-        innerjoin: bool = ...,
-        distinct_target_key: Incomplete | None = ...,
-        doc: Incomplete | None = ...,
-        active_history=...,
-        cascade_backrefs=...,
-        load_on_pending: bool = ...,
-        bake_queries: bool = ...,
-        _local_remote_pairs: Incomplete | None = ...,
-        query_class: Incomplete | None = ...,
-        info: Incomplete | None = ...,
-        omit_join: Incomplete | None = ...,
-        sync_backref: Incomplete | None = ...,
-        _legacy_inactive_history_style: bool = ...,
+        secondary: Incomplete | None = None,
+        primaryjoin: Incomplete | None = None,
+        secondaryjoin: Incomplete | None = None,
+        foreign_keys: Incomplete | None = None,
+        uselist: Incomplete | None = None,
+        order_by: bool = False,
+        backref: Incomplete | None = None,
+        back_populates: Incomplete | None = None,
+        overlaps: Incomplete | None = None,
+        post_update: bool = False,
+        cascade: bool = False,
+        viewonly: bool = False,
+        lazy: str = "select",
+        collection_class: Incomplete | None = None,
+        passive_deletes=False,
+        passive_updates=True,
+        remote_side: Incomplete | None = None,
+        enable_typechecks=True,
+        join_depth: Incomplete | None = None,
+        comparator_factory: Incomplete | None = None,
+        single_parent: bool = False,
+        innerjoin: bool = False,
+        distinct_target_key: Incomplete | None = None,
+        doc: Incomplete | None = None,
+        active_history=False,
+        cascade_backrefs=True,
+        load_on_pending: bool = False,
+        bake_queries: bool = True,
+        _local_remote_pairs: Incomplete | None = None,
+        query_class: Incomplete | None = None,
+        info: Incomplete | None = None,
+        omit_join: Incomplete | None = None,
+        sync_backref: Incomplete | None = None,
+        _legacy_inactive_history_style: bool = False,
     ) -> None: ...
     def instrument_class(self, mapper) -> None: ...
 
@@ -94,9 +94,9 @@ class RelationshipProperty(StrategizedProperty):
             self,
             prop,
             parentmapper,
-            adapt_to_entity: Incomplete | None = ...,
-            of_type: Incomplete | None = ...,
-            extra_criteria=...,
+            adapt_to_entity: Incomplete | None = None,
+            of_type: Incomplete | None = None,
+            extra_criteria=(),
         ) -> None: ...
         def adapt_to_entity(self, adapt_to_entity): ...
         @memoized_property
@@ -109,8 +109,8 @@ class RelationshipProperty(StrategizedProperty):
         def in_(self, other) -> ColumnOperators[_T]: ...
         __hash__: ClassVar[None]  # type: ignore[assignment]
         def __eq__(self, other): ...
-        def any(self, criterion: Incomplete | None = ..., **kwargs): ...
-        def has(self, criterion: Incomplete | None = ..., **kwargs): ...
+        def any(self, criterion: Incomplete | None = None, **kwargs): ...
+        def has(self, criterion: Incomplete | None = None, **kwargs): ...
         def contains(self, other, **kwargs) -> ColumnOperators[_T]: ...
         def __ne__(self, other) -> ColumnOperators[_T]: ...  # type: ignore[override]
         @memoized_property
@@ -119,7 +119,7 @@ class RelationshipProperty(StrategizedProperty):
     def merge(
         self, session, source_state, source_dict, dest_state, dest_dict, load, _recursive, _resolve_conflict_map
     ) -> None: ...
-    def cascade_iterator(self, type_, state, dict_, visited_states, halt_on: Incomplete | None = ...) -> None: ...
+    def cascade_iterator(self, type_, state, dict_, visited_states, halt_on: Incomplete | None = None) -> None: ...
     @memoized_property
     def entity(self): ...
     @memoized_property
@@ -151,17 +151,17 @@ class JoinCondition:
         child_persist_selectable,
         parent_local_selectable,
         child_local_selectable,
-        primaryjoin: Incomplete | None = ...,
-        secondary: Incomplete | None = ...,
-        secondaryjoin: Incomplete | None = ...,
-        parent_equivalents: Incomplete | None = ...,
-        child_equivalents: Incomplete | None = ...,
-        consider_as_foreign_keys: Incomplete | None = ...,
-        local_remote_pairs: Incomplete | None = ...,
-        remote_side: Incomplete | None = ...,
-        self_referential: bool = ...,
-        prop: Incomplete | None = ...,
-        support_sync: bool = ...,
+        primaryjoin: Incomplete | None = None,
+        secondary: Incomplete | None = None,
+        secondaryjoin: Incomplete | None = None,
+        parent_equivalents: Incomplete | None = None,
+        child_equivalents: Incomplete | None = None,
+        consider_as_foreign_keys: Incomplete | None = None,
+        local_remote_pairs: Incomplete | None = None,
+        remote_side: Incomplete | None = None,
+        self_referential: bool = False,
+        prop: Incomplete | None = None,
+        support_sync: bool = True,
         can_be_synced_fn=...,
     ): ...
     @property
@@ -177,9 +177,9 @@ class JoinCondition:
     @memoized_property
     def foreign_key_columns(self): ...
     def join_targets(
-        self, source_selectable, dest_selectable, aliased, single_crit: Incomplete | None = ..., extra_criteria=...
+        self, source_selectable, dest_selectable, aliased, single_crit: Incomplete | None = None, extra_criteria=()
     ): ...
-    def create_lazy_clause(self, reverse_direction: bool = ...): ...
+    def create_lazy_clause(self, reverse_direction: bool = False): ...
 
 class _ColInAnnotations:
     name: Any

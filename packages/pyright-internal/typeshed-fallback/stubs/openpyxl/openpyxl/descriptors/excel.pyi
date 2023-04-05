@@ -24,11 +24,11 @@ class Percentage(MinMax):
 
 class Extension(Serialisable):
     uri: Incomplete
-    def __init__(self, uri: Incomplete | None = ...) -> None: ...
+    def __init__(self, uri: Incomplete | None = None) -> None: ...
 
 class ExtensionList(Serialisable):
     ext: Incomplete
-    def __init__(self, ext=...) -> None: ...
+    def __init__(self, ext=()) -> None: ...
 
 class Relation(String):
     namespace: Incomplete

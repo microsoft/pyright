@@ -32,11 +32,11 @@ class ServerPool:
     strategy: Any
     def __init__(
         self,
-        servers: Incomplete | None = ...,
-        pool_strategy=...,
-        active: bool = ...,
-        exhaust: bool = ...,
-        single_state: bool = ...,
+        servers: Incomplete | None = None,
+        pool_strategy="ROUND_ROBIN",
+        active: bool = True,
+        exhaust: bool = False,
+        single_state: bool = True,
     ) -> None: ...
     def __len__(self) -> int: ...
     def __getitem__(self, item): ...

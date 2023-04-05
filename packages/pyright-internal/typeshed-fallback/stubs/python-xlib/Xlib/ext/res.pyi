@@ -1,23 +1,24 @@
 from collections.abc import Sequence
+from typing_extensions import Final
 
 from Xlib._typing import Unused
 from Xlib.display import Display
 from Xlib.protocol import rq
 from Xlib.xobject import resource
 
-RES_MAJOR_VERSION: int
-RES_MINOR_VERSION: int
-extname: str
-ResQueryVersion: int
-ResQueryClients: int
-ResQueryClientResources: int
-ResQueryClientPixmapBytes: int
-ResQueryClientIds: int
-ResQueryResourceBytes: int
+RES_MAJOR_VERSION: Final = 1
+RES_MINOR_VERSION: Final = 2
+extname: Final = "X-Resource"
+ResQueryVersion: Final = 0
+ResQueryClients: Final = 1
+ResQueryClientResources: Final = 2
+ResQueryClientPixmapBytes: Final = 3
+ResQueryClientIds: Final = 4
+ResQueryResourceBytes: Final = 5
 
 class QueryVersion(rq.ReplyRequest): ...
 
-def query_version(self: Display | resource.Resource, client_major: int = ..., client_minor: int = ...) -> QueryVersion: ...
+def query_version(self: Display | resource.Resource, client_major: int = 1, client_minor: int = 2) -> QueryVersion: ...
 
 Client: rq.Struct
 
@@ -40,8 +41,8 @@ class SizeOf(rq.LengthOf):
     def __init__(self, name: str | list[str] | tuple[str, ...], size: int, item_size: int) -> None: ...
     def parse_value(self, length: int, display: Unused) -> int: ...  # type: ignore[override]
 
-ClientXIDMask: int
-LocalClientPIDMask: int
+ClientXIDMask: Final = 0x1
+LocalClientPIDMask: Final = 0x2
 ClientIdSpec: rq.Struct
 ClientIdValue: rq.Struct
 

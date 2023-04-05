@@ -20,9 +20,9 @@ class EntitySubstitution:
     @classmethod
     def quoted_attribute_value(cls, value): ...
     @classmethod
-    def substitute_xml(cls, value, make_quoted_attribute: bool = ...): ...
+    def substitute_xml(cls, value, make_quoted_attribute: bool = False): ...
     @classmethod
-    def substitute_xml_containing_entities(cls, value, make_quoted_attribute: bool = ...): ...
+    def substitute_xml_containing_entities(cls, value, make_quoted_attribute: bool = False): ...
     @classmethod
     def substitute_html(cls, s): ...
 
@@ -38,18 +38,18 @@ class EncodingDetector:
     def __init__(
         self,
         markup,
-        known_definite_encodings: Iterable[str] | None = ...,
-        is_html: bool = ...,
-        exclude_encodings: list[str] | None = ...,
-        user_encodings: list[str] | None = ...,
-        override_encodings: list[str] | None = ...,
+        known_definite_encodings: Iterable[str] | None = None,
+        is_html: bool = False,
+        exclude_encodings: list[str] | None = None,
+        user_encodings: list[str] | None = None,
+        override_encodings: list[str] | None = None,
     ) -> None: ...
     @property
     def encodings(self) -> Iterator[str]: ...
     @classmethod
     def strip_byte_order_mark(cls, data): ...
     @classmethod
-    def find_declared_encoding(cls, markup, is_html: bool = ..., search_entire_document: bool = ...) -> str | None: ...
+    def find_declared_encoding(cls, markup, is_html: bool = False, search_entire_document: bool = False) -> str | None: ...
 
 class UnicodeDammit:
     CHARSET_ALIASES: dict[str, str]
@@ -66,12 +66,12 @@ class UnicodeDammit:
     def __init__(
         self,
         markup,
-        known_definite_encodings: list[str] | None = ...,
-        smart_quotes_to: Literal["ascii", "xml", "html"] | None = ...,
-        is_html: bool = ...,
-        exclude_encodings: list[str] | None = ...,
-        user_encodings: list[str] | None = ...,
-        override_encodings: list[str] | None = ...,
+        known_definite_encodings: list[str] | None = [],
+        smart_quotes_to: Literal["ascii", "xml", "html"] | None = None,
+        is_html: bool = False,
+        exclude_encodings: list[str] | None = [],
+        user_encodings: list[str] | None = None,
+        override_encodings: list[str] | None = None,
     ) -> None: ...
     @property
     def declared_html_encoding(self) -> str | None: ...
@@ -83,4 +83,4 @@ class UnicodeDammit:
     FIRST_MULTIBYTE_MARKER: int
     LAST_MULTIBYTE_MARKER: int
     @classmethod
-    def detwingle(cls, in_bytes: bytes, main_encoding: str = ..., embedded_encoding: str = ...) -> bytes: ...
+    def detwingle(cls, in_bytes: bytes, main_encoding: str = "utf8", embedded_encoding: str = "windows-1252") -> bytes: ...

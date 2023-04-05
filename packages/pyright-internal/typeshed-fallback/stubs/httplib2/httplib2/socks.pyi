@@ -14,27 +14,27 @@ class Socks4Error(ProxyError): ...
 class HTTPError(ProxyError): ...
 
 def setdefaultproxy(
-    proxytype: Incomplete | None = ...,
-    addr: Incomplete | None = ...,
-    port: Incomplete | None = ...,
-    rdns: bool = ...,
-    username: Incomplete | None = ...,
-    password: Incomplete | None = ...,
+    proxytype: Incomplete | None = None,
+    addr: Incomplete | None = None,
+    port: Incomplete | None = None,
+    rdns: bool = True,
+    username: Incomplete | None = None,
+    password: Incomplete | None = None,
 ) -> None: ...
 def wrapmodule(module) -> None: ...
 
 class socksocket(socket.socket):
-    def __init__(self, family=..., type=..., proto: int = ..., _sock: Incomplete | None = ...) -> None: ...
+    def __init__(self, family=..., type=..., proto: int = 0, _sock: Incomplete | None = None) -> None: ...
     def sendall(self, content, *args): ...
     def setproxy(
         self,
-        proxytype: Incomplete | None = ...,
-        addr: Incomplete | None = ...,
-        port: Incomplete | None = ...,
-        rdns: bool = ...,
-        username: Incomplete | None = ...,
-        password: Incomplete | None = ...,
-        headers: Incomplete | None = ...,
+        proxytype: Incomplete | None = None,
+        addr: Incomplete | None = None,
+        port: Incomplete | None = None,
+        rdns: bool = True,
+        username: Incomplete | None = None,
+        password: Incomplete | None = None,
+        headers: Incomplete | None = None,
     ) -> None: ...
     def getproxysockname(self): ...
     def getproxypeername(self): ...

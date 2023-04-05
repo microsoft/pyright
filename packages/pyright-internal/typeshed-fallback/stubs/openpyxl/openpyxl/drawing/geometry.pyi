@@ -7,7 +7,7 @@ class Point2D(Serialisable):
     namespace: Incomplete
     x: Incomplete
     y: Incomplete
-    def __init__(self, x: Incomplete | None = ..., y: Incomplete | None = ...) -> None: ...
+    def __init__(self, x: Incomplete | None = None, y: Incomplete | None = None) -> None: ...
 
 class PositiveSize2D(Serialisable):
     tagname: str
@@ -16,7 +16,7 @@ class PositiveSize2D(Serialisable):
     width: Incomplete
     cy: Incomplete
     height: Incomplete
-    def __init__(self, cx: Incomplete | None = ..., cy: Incomplete | None = ...) -> None: ...
+    def __init__(self, cx: Incomplete | None = None, cy: Incomplete | None = None) -> None: ...
 
 class Transform2D(Serialisable):
     tagname: str
@@ -31,13 +31,13 @@ class Transform2D(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        rot: Incomplete | None = ...,
-        flipH: Incomplete | None = ...,
-        flipV: Incomplete | None = ...,
-        off: Incomplete | None = ...,
-        ext: Incomplete | None = ...,
-        chOff: Incomplete | None = ...,
-        chExt: Incomplete | None = ...,
+        rot: Incomplete | None = None,
+        flipH: Incomplete | None = None,
+        flipV: Incomplete | None = None,
+        off: Incomplete | None = None,
+        ext: Incomplete | None = None,
+        chOff: Incomplete | None = None,
+        chExt: Incomplete | None = None,
     ) -> None: ...
 
 class GroupTransform2D(Serialisable):
@@ -53,13 +53,13 @@ class GroupTransform2D(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        rot: int = ...,
-        flipH: Incomplete | None = ...,
-        flipV: Incomplete | None = ...,
-        off: Incomplete | None = ...,
-        ext: Incomplete | None = ...,
-        chOff: Incomplete | None = ...,
-        chExt: Incomplete | None = ...,
+        rot: int = 0,
+        flipH: Incomplete | None = None,
+        flipV: Incomplete | None = None,
+        off: Incomplete | None = None,
+        ext: Incomplete | None = None,
+        chOff: Incomplete | None = None,
+        chExt: Incomplete | None = None,
     ) -> None: ...
 
 class SphereCoords(Serialisable):
@@ -67,7 +67,7 @@ class SphereCoords(Serialisable):
     lat: Incomplete
     lon: Incomplete
     rev: Incomplete
-    def __init__(self, lat: Incomplete | None = ..., lon: Incomplete | None = ..., rev: Incomplete | None = ...) -> None: ...
+    def __init__(self, lat: Incomplete | None = None, lon: Incomplete | None = None, rev: Incomplete | None = None) -> None: ...
 
 class Camera(Serialisable):
     tagname: str
@@ -77,10 +77,10 @@ class Camera(Serialisable):
     rot: Incomplete
     def __init__(
         self,
-        prst: Incomplete | None = ...,
-        fov: Incomplete | None = ...,
-        zoom: Incomplete | None = ...,
-        rot: Incomplete | None = ...,
+        prst: Incomplete | None = None,
+        fov: Incomplete | None = None,
+        zoom: Incomplete | None = None,
+        rot: Incomplete | None = None,
     ) -> None: ...
 
 class LightRig(Serialisable):
@@ -88,21 +88,21 @@ class LightRig(Serialisable):
     rig: Incomplete
     dir: Incomplete
     rot: Incomplete
-    def __init__(self, rig: Incomplete | None = ..., dir: Incomplete | None = ..., rot: Incomplete | None = ...) -> None: ...
+    def __init__(self, rig: Incomplete | None = None, dir: Incomplete | None = None, rot: Incomplete | None = None) -> None: ...
 
 class Vector3D(Serialisable):
     tagname: str
     dx: Incomplete
     dy: Incomplete
     dz: Incomplete
-    def __init__(self, dx: Incomplete | None = ..., dy: Incomplete | None = ..., dz: Incomplete | None = ...) -> None: ...
+    def __init__(self, dx: Incomplete | None = None, dy: Incomplete | None = None, dz: Incomplete | None = None) -> None: ...
 
 class Point3D(Serialisable):
     tagname: str
     x: Incomplete
     y: Incomplete
     z: Incomplete
-    def __init__(self, x: Incomplete | None = ..., y: Incomplete | None = ..., z: Incomplete | None = ...) -> None: ...
+    def __init__(self, x: Incomplete | None = None, y: Incomplete | None = None, z: Incomplete | None = None) -> None: ...
 
 class Backdrop(Serialisable):
     anchor: Incomplete
@@ -111,10 +111,10 @@ class Backdrop(Serialisable):
     extLst: Incomplete
     def __init__(
         self,
-        anchor: Incomplete | None = ...,
-        norm: Incomplete | None = ...,
-        up: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        anchor: Incomplete | None = None,
+        norm: Incomplete | None = None,
+        up: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class Scene3D(Serialisable):
@@ -124,10 +124,10 @@ class Scene3D(Serialisable):
     extLst: Incomplete
     def __init__(
         self,
-        camera: Incomplete | None = ...,
-        lightRig: Incomplete | None = ...,
-        backdrop: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        camera: Incomplete | None = None,
+        lightRig: Incomplete | None = None,
+        backdrop: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class Bevel(Serialisable):
@@ -135,7 +135,7 @@ class Bevel(Serialisable):
     w: Incomplete
     h: Incomplete
     prst: Incomplete
-    def __init__(self, w: Incomplete | None = ..., h: Incomplete | None = ..., prst: Incomplete | None = ...) -> None: ...
+    def __init__(self, w: Incomplete | None = None, h: Incomplete | None = None, prst: Incomplete | None = None) -> None: ...
 
 class Shape3D(Serialisable):
     namespace: Incomplete
@@ -150,15 +150,15 @@ class Shape3D(Serialisable):
     extLst: Incomplete
     def __init__(
         self,
-        z: Incomplete | None = ...,
-        extrusionH: Incomplete | None = ...,
-        contourW: Incomplete | None = ...,
-        prstMaterial: Incomplete | None = ...,
-        bevelT: Incomplete | None = ...,
-        bevelB: Incomplete | None = ...,
-        extrusionClr: Incomplete | None = ...,
-        contourClr: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        z: Incomplete | None = None,
+        extrusionH: Incomplete | None = None,
+        contourW: Incomplete | None = None,
+        prstMaterial: Incomplete | None = None,
+        bevelT: Incomplete | None = None,
+        bevelB: Incomplete | None = None,
+        extrusionClr: Incomplete | None = None,
+        contourClr: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class Path2D(Serialisable):
@@ -169,16 +169,16 @@ class Path2D(Serialisable):
     extrusionOk: Incomplete
     def __init__(
         self,
-        w: Incomplete | None = ...,
-        h: Incomplete | None = ...,
-        fill: Incomplete | None = ...,
-        stroke: Incomplete | None = ...,
-        extrusionOk: Incomplete | None = ...,
+        w: Incomplete | None = None,
+        h: Incomplete | None = None,
+        fill: Incomplete | None = None,
+        stroke: Incomplete | None = None,
+        extrusionOk: Incomplete | None = None,
     ) -> None: ...
 
 class Path2DList(Serialisable):
     path: Incomplete
-    def __init__(self, path: Incomplete | None = ...) -> None: ...
+    def __init__(self, path: Incomplete | None = None) -> None: ...
 
 class GeomRect(Serialisable):
     l: Incomplete
@@ -186,33 +186,33 @@ class GeomRect(Serialisable):
     r: Incomplete
     b: Incomplete
     def __init__(
-        self, l: Incomplete | None = ..., t: Incomplete | None = ..., r: Incomplete | None = ..., b: Incomplete | None = ...
+        self, l: Incomplete | None = None, t: Incomplete | None = None, r: Incomplete | None = None, b: Incomplete | None = None
     ) -> None: ...
 
 class AdjPoint2D(Serialisable):
     x: Incomplete
     y: Incomplete
-    def __init__(self, x: Incomplete | None = ..., y: Incomplete | None = ...) -> None: ...
+    def __init__(self, x: Incomplete | None = None, y: Incomplete | None = None) -> None: ...
 
 class ConnectionSite(Serialisable):
     ang: Incomplete
     pos: Incomplete
-    def __init__(self, ang: Incomplete | None = ..., pos: Incomplete | None = ...) -> None: ...
+    def __init__(self, ang: Incomplete | None = None, pos: Incomplete | None = None) -> None: ...
 
 class ConnectionSiteList(Serialisable):
     cxn: Incomplete
-    def __init__(self, cxn: Incomplete | None = ...) -> None: ...
+    def __init__(self, cxn: Incomplete | None = None) -> None: ...
 
 class AdjustHandleList(Serialisable): ...
 
 class GeomGuide(Serialisable):
     name: Incomplete
     fmla: Incomplete
-    def __init__(self, name: Incomplete | None = ..., fmla: Incomplete | None = ...) -> None: ...
+    def __init__(self, name: Incomplete | None = None, fmla: Incomplete | None = None) -> None: ...
 
 class GeomGuideList(Serialisable):
     gd: Incomplete
-    def __init__(self, gd: Incomplete | None = ...) -> None: ...
+    def __init__(self, gd: Incomplete | None = None) -> None: ...
 
 class CustomGeometry2D(Serialisable):
     avLst: Incomplete
@@ -223,27 +223,27 @@ class CustomGeometry2D(Serialisable):
     rect: Incomplete
     def __init__(
         self,
-        avLst: Incomplete | None = ...,
-        gdLst: Incomplete | None = ...,
-        ahLst: Incomplete | None = ...,
-        cxnLst: Incomplete | None = ...,
-        rect: Incomplete | None = ...,
-        pathLst: Incomplete | None = ...,
+        avLst: Incomplete | None = None,
+        gdLst: Incomplete | None = None,
+        ahLst: Incomplete | None = None,
+        cxnLst: Incomplete | None = None,
+        rect: Incomplete | None = None,
+        pathLst: Incomplete | None = None,
     ) -> None: ...
 
 class PresetGeometry2D(Serialisable):
     namespace: Incomplete
     prst: Incomplete
     avLst: Incomplete
-    def __init__(self, prst: Incomplete | None = ..., avLst: Incomplete | None = ...) -> None: ...
+    def __init__(self, prst: Incomplete | None = None, avLst: Incomplete | None = None) -> None: ...
 
 class FontReference(Serialisable):
     idx: Incomplete
-    def __init__(self, idx: Incomplete | None = ...) -> None: ...
+    def __init__(self, idx: Incomplete | None = None) -> None: ...
 
 class StyleMatrixReference(Serialisable):
     idx: Incomplete
-    def __init__(self, idx: Incomplete | None = ...) -> None: ...
+    def __init__(self, idx: Incomplete | None = None) -> None: ...
 
 class ShapeStyle(Serialisable):
     lnRef: Incomplete
@@ -252,8 +252,8 @@ class ShapeStyle(Serialisable):
     fontRef: Incomplete
     def __init__(
         self,
-        lnRef: Incomplete | None = ...,
-        fillRef: Incomplete | None = ...,
-        effectRef: Incomplete | None = ...,
-        fontRef: Incomplete | None = ...,
+        lnRef: Incomplete | None = None,
+        fillRef: Incomplete | None = None,
+        effectRef: Incomplete | None = None,
+        fontRef: Incomplete | None = None,
     ) -> None: ...

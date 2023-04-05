@@ -23,13 +23,13 @@ class Color(Serialisable):
     type: Incomplete
     def __init__(
         self,
-        rgb=...,
-        indexed: Incomplete | None = ...,
-        auto: Incomplete | None = ...,
-        theme: Incomplete | None = ...,
-        tint: float = ...,
-        index: Incomplete | None = ...,
-        type: str = ...,
+        rgb="00000000",
+        indexed: Incomplete | None = None,
+        auto: Incomplete | None = None,
+        theme: Incomplete | None = None,
+        tint: float = 0.0,
+        index: Incomplete | None = None,
+        type: str = "rgb",
     ) -> None: ...
     @property
     def value(self): ...
@@ -47,14 +47,14 @@ class ColorDescriptor(Typed):
 class RgbColor(Serialisable):
     tagname: str
     rgb: Incomplete
-    def __init__(self, rgb: Incomplete | None = ...) -> None: ...
+    def __init__(self, rgb: Incomplete | None = None) -> None: ...
 
 class ColorList(Serialisable):
     tagname: str
     indexedColors: Incomplete
     mruColors: Incomplete
     __elements__: Incomplete
-    def __init__(self, indexedColors=..., mruColors=...) -> None: ...
+    def __init__(self, indexedColors=(), mruColors=()) -> None: ...
     def __bool__(self) -> bool: ...
     @property
     def index(self): ...

@@ -6,10 +6,10 @@ class Package:
     discriminator: Incomplete
     def __init__(
         self,
-        type: Incomplete | None = ...,
-        path: Incomplete | None = ...,
-        package: Incomplete | None = ...,
-        files: Incomplete | None = ...,
+        type: Incomplete | None = None,
+        path: Incomplete | None = None,
+        package: Incomplete | None = None,
+        files: Incomplete | None = None,
     ) -> None: ...
     @property
     def type(self): ...

@@ -6,15 +6,15 @@ class Run:
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        task_id: Incomplete | None = ...,
-        status: Incomplete | None = ...,
-        scheduled_for: Incomplete | None = ...,
-        log: Incomplete | None = ...,
-        started_at: Incomplete | None = ...,
-        finished_at: Incomplete | None = ...,
-        requested_at: Incomplete | None = ...,
-        links: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        task_id: Incomplete | None = None,
+        status: Incomplete | None = None,
+        scheduled_for: Incomplete | None = None,
+        log: Incomplete | None = None,
+        started_at: Incomplete | None = None,
+        finished_at: Incomplete | None = None,
+        requested_at: Incomplete | None = None,
+        links: Incomplete | None = None,
     ) -> None: ...
     @property
     def id(self): ...

@@ -17,12 +17,12 @@ class Title(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        tx: Incomplete | None = ...,
-        layout: Incomplete | None = ...,
-        overlay: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        txPr: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        tx: Incomplete | None = None,
+        layout: Incomplete | None = None,
+        overlay: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        txPr: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 def title_maker(text): ...

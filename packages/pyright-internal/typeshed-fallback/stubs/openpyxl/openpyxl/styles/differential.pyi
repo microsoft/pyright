@@ -14,13 +14,13 @@ class DifferentialStyle(Serialisable):
     extLst: Incomplete
     def __init__(
         self,
-        font: Incomplete | None = ...,
-        numFmt: Incomplete | None = ...,
-        fill: Incomplete | None = ...,
-        alignment: Incomplete | None = ...,
-        border: Incomplete | None = ...,
-        protection: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        font: Incomplete | None = None,
+        numFmt: Incomplete | None = None,
+        fill: Incomplete | None = None,
+        alignment: Incomplete | None = None,
+        border: Incomplete | None = None,
+        protection: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class DifferentialStyleList(Serialisable):
@@ -28,7 +28,7 @@ class DifferentialStyleList(Serialisable):
     dxf: Incomplete
     styles: Incomplete
     __attrs__: Incomplete
-    def __init__(self, dxf=..., count: Incomplete | None = ...) -> None: ...
+    def __init__(self, dxf=(), count: Incomplete | None = None) -> None: ...
     def append(self, dxf) -> None: ...
     def add(self, dxf): ...
     def __bool__(self) -> bool: ...

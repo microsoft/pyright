@@ -8,10 +8,10 @@ logger: Logger
 
 def process_file(
     fh: Reader,
-    stop_tag: str = ...,
-    details: bool = ...,
-    strict: bool = ...,
-    debug: bool = ...,
-    truncate_tags: bool = ...,
-    auto_seek: bool = ...,
+    stop_tag: str = "UNDEF",
+    details: bool = True,
+    strict: bool = False,
+    debug: bool = False,
+    truncate_tags: bool = True,
+    auto_seek: bool = True,
 ) -> dict[str, Any]: ...

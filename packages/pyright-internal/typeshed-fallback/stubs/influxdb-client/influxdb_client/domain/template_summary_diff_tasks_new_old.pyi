@@ -6,13 +6,13 @@ class TemplateSummaryDiffTasksNewOld:
     discriminator: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        cron: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        every: Incomplete | None = ...,
-        offset: Incomplete | None = ...,
-        query: Incomplete | None = ...,
-        status: Incomplete | None = ...,
+        name: Incomplete | None = None,
+        cron: Incomplete | None = None,
+        description: Incomplete | None = None,
+        every: Incomplete | None = None,
+        offset: Incomplete | None = None,
+        query: Incomplete | None = None,
+        status: Incomplete | None = None,
     ) -> None: ...
     @property
     def name(self): ...

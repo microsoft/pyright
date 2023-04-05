@@ -7,7 +7,12 @@ error: Incomplete
 langid: Incomplete
 
 def AddSourceToRegistry(
-    appName, msgDLL: Incomplete | None = ..., eventLogType: str = ..., eventLogFlags: Incomplete | None = ...
+    appName,
+    msgDLL: Incomplete | None = None,
+    eventLogType: str = "Application",
+    eventLogFlags: Incomplete | None = None,
+    categoryDLL: Incomplete | None = None,
+    categoryCount: int = 0,
 ) -> None: ...
 def RemoveSourceFromRegistry(appName, eventLogType: str = ...) -> None: ...
 def ReportEvent(

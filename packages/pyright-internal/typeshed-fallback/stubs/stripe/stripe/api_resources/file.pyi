@@ -11,10 +11,10 @@ class File(ListableAPIResource):
     @classmethod
     def create(
         cls,
-        api_key: Incomplete | None = ...,
-        api_version: Incomplete | None = ...,
-        stripe_version: Incomplete | None = ...,
-        stripe_account: Incomplete | None = ...,
+        api_key: Incomplete | None = None,
+        api_version: Incomplete | None = None,
+        stripe_version: Incomplete | None = None,
+        stripe_account: Incomplete | None = None,
         **params,
     ): ...
 

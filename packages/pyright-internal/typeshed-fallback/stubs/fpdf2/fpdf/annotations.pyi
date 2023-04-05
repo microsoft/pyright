@@ -35,19 +35,19 @@ class AnnotationMixin:
         width: int,
         height: int,
         flags: tuple[AnnotationFlag, ...] = ...,
-        contents: str | None = ...,
-        dest: Destination | None = ...,
-        action: Action | None = ...,
-        color: tuple[int, int, int] | None = ...,
-        modification_time: datetime | None = ...,
-        title: str | None = ...,
-        quad_points: tuple[float, ...] | None = ...,  # multiple of 8 floats
-        border_width: int = ...,
-        name: AnnotationName | FileAttachmentAnnotationName | None = ...,
-        ink_list: tuple[int, ...] = ...,
-        file_spec: str | None = ...,
-        field_type: str | None = ...,
-        value: Incomplete | None = ...,
+        contents: str | None = None,
+        dest: Destination | None = None,
+        action: Action | None = None,
+        color: tuple[int, int, int] | None = None,
+        modification_time: datetime | None = None,
+        title: str | None = None,
+        quad_points: tuple[float, ...] | None = None,  # multiple of 8 floats
+        border_width: int = 0,
+        name: AnnotationName | FileAttachmentAnnotationName | None = None,
+        ink_list: tuple[int, ...] = (),
+        file_spec: str | None = None,
+        field_type: str | None = None,
+        value: Incomplete | None = None,
     ) -> None: ...
 
 class PDFAnnotation(AnnotationMixin, PDFObject): ...
@@ -62,11 +62,11 @@ class PDFEmbeddedFile(PDFContentStream):
         self,
         basename: str,
         contents: bytes,
-        desc: str = ...,
-        creation_date: datetime | None = ...,
-        modification_date: datetime | None = ...,
-        compress: bool = ...,
-        checksum: bool = ...,
+        desc: str = "",
+        creation_date: datetime | None = None,
+        modification_date: datetime | None = None,
+        compress: bool = False,
+        checksum: bool = False,
     ) -> None: ...
     def globally_enclosed(self) -> bool: ...
     def set_globally_enclosed(self, value: bool) -> None: ...

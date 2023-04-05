@@ -6,12 +6,12 @@ class CreateCell:
     discriminator: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        x: Incomplete | None = ...,
-        y: Incomplete | None = ...,
-        w: Incomplete | None = ...,
-        h: Incomplete | None = ...,
-        using_view: Incomplete | None = ...,
+        name: Incomplete | None = None,
+        x: Incomplete | None = None,
+        y: Incomplete | None = None,
+        w: Incomplete | None = None,
+        h: Incomplete | None = None,
+        using_view: Incomplete | None = None,
     ) -> None: ...
     @property
     def name(self): ...

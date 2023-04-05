@@ -13,13 +13,13 @@ class SortCondition(Serialisable):
     iconId: Incomplete
     def __init__(
         self,
-        ref: Incomplete | None = ...,
-        descending: Incomplete | None = ...,
-        sortBy: Incomplete | None = ...,
-        customList: Incomplete | None = ...,
-        dxfId: Incomplete | None = ...,
-        iconSet: Incomplete | None = ...,
-        iconId: Incomplete | None = ...,
+        ref: Incomplete | None = None,
+        descending: Incomplete | None = None,
+        sortBy: Incomplete | None = None,
+        customList: Incomplete | None = None,
+        dxfId: Incomplete | None = None,
+        iconSet: Incomplete | None = None,
+        iconId: Incomplete | None = None,
     ) -> None: ...
 
 class SortState(Serialisable):
@@ -33,12 +33,12 @@ class SortState(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        columnSort: Incomplete | None = ...,
-        caseSensitive: Incomplete | None = ...,
-        sortMethod: Incomplete | None = ...,
-        ref: Incomplete | None = ...,
-        sortCondition=...,
-        extLst: Incomplete | None = ...,
+        columnSort: Incomplete | None = None,
+        caseSensitive: Incomplete | None = None,
+        sortMethod: Incomplete | None = None,
+        ref: Incomplete | None = None,
+        sortCondition=(),
+        extLst: Incomplete | None = None,
     ) -> None: ...
     def __bool__(self) -> bool: ...
 
@@ -46,13 +46,13 @@ class IconFilter(Serialisable):
     tagname: str
     iconSet: Incomplete
     iconId: Incomplete
-    def __init__(self, iconSet: Incomplete | None = ..., iconId: Incomplete | None = ...) -> None: ...
+    def __init__(self, iconSet: Incomplete | None = None, iconId: Incomplete | None = None) -> None: ...
 
 class ColorFilter(Serialisable):
     tagname: str
     dxfId: Incomplete
     cellColor: Incomplete
-    def __init__(self, dxfId: Incomplete | None = ..., cellColor: Incomplete | None = ...) -> None: ...
+    def __init__(self, dxfId: Incomplete | None = None, cellColor: Incomplete | None = None) -> None: ...
 
 class DynamicFilter(Serialisable):
     tagname: str
@@ -63,24 +63,24 @@ class DynamicFilter(Serialisable):
     maxValIso: Incomplete
     def __init__(
         self,
-        type: Incomplete | None = ...,
-        val: Incomplete | None = ...,
-        valIso: Incomplete | None = ...,
-        maxVal: Incomplete | None = ...,
-        maxValIso: Incomplete | None = ...,
+        type: Incomplete | None = None,
+        val: Incomplete | None = None,
+        valIso: Incomplete | None = None,
+        maxVal: Incomplete | None = None,
+        maxValIso: Incomplete | None = None,
     ) -> None: ...
 
 class CustomFilter(Serialisable):
     tagname: str
     operator: Incomplete
     val: Incomplete
-    def __init__(self, operator: Incomplete | None = ..., val: Incomplete | None = ...) -> None: ...
+    def __init__(self, operator: Incomplete | None = None, val: Incomplete | None = None) -> None: ...
 
 class CustomFilters(Serialisable):
     tagname: str
     customFilter: Incomplete
     __elements__: Incomplete
-    def __init__(self, _and: Incomplete | None = ..., customFilter=...) -> None: ...
+    def __init__(self, _and: Incomplete | None = False, customFilter=()) -> None: ...
 
 class Top10(Serialisable):
     tagname: str
@@ -90,10 +90,10 @@ class Top10(Serialisable):
     filterVal: Incomplete
     def __init__(
         self,
-        top: Incomplete | None = ...,
-        percent: Incomplete | None = ...,
-        val: Incomplete | None = ...,
-        filterVal: Incomplete | None = ...,
+        top: Incomplete | None = None,
+        percent: Incomplete | None = None,
+        val: Incomplete | None = None,
+        filterVal: Incomplete | None = None,
     ) -> None: ...
 
 class DateGroupItem(Serialisable):
@@ -107,13 +107,13 @@ class DateGroupItem(Serialisable):
     dateTimeGrouping: Incomplete
     def __init__(
         self,
-        year: Incomplete | None = ...,
-        month: Incomplete | None = ...,
-        day: Incomplete | None = ...,
-        hour: Incomplete | None = ...,
-        minute: Incomplete | None = ...,
-        second: Incomplete | None = ...,
-        dateTimeGrouping: Incomplete | None = ...,
+        year: Incomplete | None = None,
+        month: Incomplete | None = None,
+        day: Incomplete | None = None,
+        hour: Incomplete | None = None,
+        minute: Incomplete | None = None,
+        second: Incomplete | None = None,
+        dateTimeGrouping: Incomplete | None = None,
     ) -> None: ...
 
 class Filters(Serialisable):
@@ -124,7 +124,7 @@ class Filters(Serialisable):
     dateGroupItem: Incomplete
     __elements__: Incomplete
     def __init__(
-        self, blank: Incomplete | None = ..., calendarType: Incomplete | None = ..., filter=..., dateGroupItem=...
+        self, blank: Incomplete | None = None, calendarType: Incomplete | None = None, filter=(), dateGroupItem=()
     ) -> None: ...
 
 class FilterColumn(Serialisable):
@@ -143,18 +143,18 @@ class FilterColumn(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        colId: Incomplete | None = ...,
-        hiddenButton: Incomplete | None = ...,
-        showButton: Incomplete | None = ...,
-        filters: Incomplete | None = ...,
-        top10: Incomplete | None = ...,
-        customFilters: Incomplete | None = ...,
-        dynamicFilter: Incomplete | None = ...,
-        colorFilter: Incomplete | None = ...,
-        iconFilter: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
-        blank: Incomplete | None = ...,
-        vals: Incomplete | None = ...,
+        colId: Incomplete | None = None,
+        hiddenButton: Incomplete | None = False,
+        showButton: Incomplete | None = True,
+        filters: Incomplete | None = None,
+        top10: Incomplete | None = None,
+        customFilters: Incomplete | None = None,
+        dynamicFilter: Incomplete | None = None,
+        colorFilter: Incomplete | None = None,
+        iconFilter: Incomplete | None = None,
+        extLst: Incomplete | None = None,
+        blank: Incomplete | None = None,
+        vals: Incomplete | None = None,
     ) -> None: ...
 
 class AutoFilter(Serialisable):
@@ -165,8 +165,12 @@ class AutoFilter(Serialisable):
     extLst: Incomplete
     __elements__: Incomplete
     def __init__(
-        self, ref: Incomplete | None = ..., filterColumn=..., sortState: Incomplete | None = ..., extLst: Incomplete | None = ...
+        self,
+        ref: Incomplete | None = None,
+        filterColumn=(),
+        sortState: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
     def __bool__(self) -> bool: ...
-    def add_filter_column(self, col_id, vals, blank: bool = ...) -> None: ...
-    def add_sort_condition(self, ref, descending: bool = ...) -> None: ...
+    def add_filter_column(self, col_id, vals, blank: bool = False) -> None: ...
+    def add_sort_condition(self, ref, descending: bool = False) -> None: ...

@@ -10,11 +10,11 @@ class BooleanDecoder(decoder.AbstractSimpleDecoder):
         self,
         substrate,
         asn1Spec,
-        tagSet: TagSet | None = ...,
-        length: int | None = ...,
-        state: Unused = ...,
-        decodeFun: Unused = ...,
-        substrateFun: Unused = ...,
+        tagSet: TagSet | None = None,
+        length: int | None = None,
+        state: Unused = None,
+        decodeFun: Unused = None,
+        substrateFun: Unused = None,
         **options,
     ): ...
 

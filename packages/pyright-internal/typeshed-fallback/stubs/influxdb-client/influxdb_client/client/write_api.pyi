@@ -61,7 +61,7 @@ class _BatchItemKey:
     bucket: Incomplete
     org: Incomplete
     precision: Incomplete
-    def __init__(self, bucket, org, precision=...) -> None: ...
+    def __init__(self, bucket, org, precision="ns") -> None: ...
     def __hash__(self) -> int: ...
     def __eq__(self, o: object) -> bool: ...
 
@@ -69,13 +69,13 @@ class _BatchItem:
     key: Incomplete
     data: Incomplete
     size: Incomplete
-    def __init__(self, key: _BatchItemKey, data, size: int = ...) -> None: ...
+    def __init__(self, key: _BatchItemKey, data, size: int = 1) -> None: ...
     def to_key_tuple(self) -> tuple[str, str, str]: ...
 
 class _BatchResponse:
     data: Incomplete
     exception: Incomplete
-    def __init__(self, data: _BatchItem, exception: Exception | None = ...) -> None: ...
+    def __init__(self, data: _BatchItem, exception: Exception | None = None) -> None: ...
 
 class WriteApi(_BaseWriteApi):
     def __init__(
@@ -84,7 +84,7 @@ class WriteApi(_BaseWriteApi):
     def write(
         self,
         bucket: str,
-        org: str | None = ...,
+        org: str | None = None,
         record: str
         | Iterable[str]
         | Point
@@ -97,8 +97,8 @@ class WriteApi(_BaseWriteApi):
         | _NamedTuple
         | Iterable[_NamedTuple]
         | _DataClass
-        | Iterable[_DataClass] = ...,
-        write_precision: _WritePrecision = ...,
+        | Iterable[_DataClass] = None,
+        write_precision: _WritePrecision = "ns",
         **kwargs,
     ) -> Any: ...
     def flush(self) -> None: ...

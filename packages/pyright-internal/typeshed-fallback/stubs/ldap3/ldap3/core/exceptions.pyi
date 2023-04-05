@@ -8,12 +8,12 @@ class LDAPException(Exception): ...
 class LDAPOperationResult(LDAPException):
     def __new__(
         cls,
-        result: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        dn: Incomplete | None = ...,
-        message: Incomplete | None = ...,
-        response_type: Incomplete | None = ...,
-        response: Incomplete | None = ...,
+        result: Incomplete | None = None,
+        description: Incomplete | None = None,
+        dn: Incomplete | None = None,
+        message: Incomplete | None = None,
+        response_type: Incomplete | None = None,
+        response: Incomplete | None = None,
     ) -> Self: ...
     result: Any
     description: Any
@@ -23,12 +23,12 @@ class LDAPOperationResult(LDAPException):
     response: Any
     def __init__(
         self,
-        result: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        dn: Incomplete | None = ...,
-        message: Incomplete | None = ...,
-        response_type: Incomplete | None = ...,
-        response: Incomplete | None = ...,
+        result: Incomplete | None = None,
+        description: Incomplete | None = None,
+        dn: Incomplete | None = None,
+        message: Incomplete | None = None,
+        response_type: Incomplete | None = None,
+        response: Incomplete | None = None,
     ) -> None: ...
 
 class LDAPOperationsErrorResult(LDAPOperationResult): ...

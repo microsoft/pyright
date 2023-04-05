@@ -22,14 +22,14 @@ class Message:
     def __init__(
         self,
         id: str,
-        string: str = ...,
-        locations: Iterable[tuple[str, int]] = ...,
-        flags: Iterable[str] = ...,
-        auto_comments: Iterable[str] = ...,
-        user_comments: Iterable[str] = ...,
-        previous_id: _MessageID = ...,
-        lineno: int | None = ...,
-        context: str | None = ...,
+        string: str = "",
+        locations: Iterable[tuple[str, int]] = (),
+        flags: Iterable[str] = (),
+        auto_comments: Iterable[str] = (),
+        user_comments: Iterable[str] = (),
+        previous_id: _MessageID = (),
+        lineno: int | None = None,
+        context: str | None = None,
     ) -> None: ...
     def __cmp__(self, other: Message) -> int: ...
     def __gt__(self, other: Message) -> bool: ...
@@ -40,7 +40,7 @@ class Message:
     def __ne__(self, other: object) -> bool: ...
     def is_identical(self, other: Message) -> bool: ...
     def clone(self) -> Message: ...
-    def check(self, catalog: Catalog | None = ...) -> list[TranslationError]: ...
+    def check(self, catalog: Catalog | None = None) -> list[TranslationError]: ...
     @property
     def fuzzy(self) -> bool: ...
     @property
@@ -65,19 +65,19 @@ class Catalog:
     obsolete: OrderedDict[str | tuple[str, str], Message]
     def __init__(
         self,
-        locale: str | Locale | None = ...,
-        domain: str | None = ...,
+        locale: str | Locale | None = None,
+        domain: str | None = None,
         header_comment: str | None = ...,
-        project: str | None = ...,
-        version: str | None = ...,
-        copyright_holder: str | None = ...,
-        msgid_bugs_address: str | None = ...,
-        creation_date: datetime.datetime | str | None = ...,
-        revision_date: datetime.datetime | datetime.time | float | str | None = ...,
-        last_translator: str | None = ...,
-        language_team: str | None = ...,
-        charset: str | None = ...,
-        fuzzy: bool = ...,
+        project: str | None = None,
+        version: str | None = None,
+        copyright_holder: str | None = None,
+        msgid_bugs_address: str | None = None,
+        creation_date: datetime.datetime | str | None = None,
+        revision_date: datetime.datetime | datetime.time | float | str | None = None,
+        last_translator: str | None = None,
+        language_team: str | None = None,
+        charset: str | None = None,
+        fuzzy: bool = True,
     ) -> None: ...
     @property
     def locale(self) -> Locale | None: ...
@@ -108,19 +108,23 @@ class Catalog:
     def add(
         self,
         id: _MessageID,
-        string: _MessageID | None = ...,
-        locations: Iterable[tuple[str, int]] = ...,
-        flags: Iterable[str] = ...,
-        auto_comments: Iterable[str] = ...,
-        user_comments: Iterable[str] = ...,
-        previous_id: _MessageID = ...,
-        lineno: int | None = ...,
-        context: str | None = ...,
+        string: _MessageID | None = None,
+        locations: Iterable[tuple[str, int]] = (),
+        flags: Iterable[str] = (),
+        auto_comments: Iterable[str] = (),
+        user_comments: Iterable[str] = (),
+        previous_id: _MessageID = (),
+        lineno: int | None = None,
+        context: str | None = None,
     ) -> Message: ...
     def check(self) -> Generator[tuple[Message, list[TranslationError]], None, None]: ...
-    def get(self, id: _MessageID, context: str | None = ...): ...
-    def delete(self, id, context: str | None = ...) -> None: ...
+    def get(self, id: _MessageID, context: str | None = None): ...
+    def delete(self, id, context: str | None = None) -> None: ...
     def update(
-        self, template: Catalog, no_fuzzy_matching: bool = ..., update_header_comment: bool = ..., keep_user_comments: bool = ...
+        self,
+        template: Catalog,
+        no_fuzzy_matching: bool = False,
+        update_header_comment: bool = False,
+        keep_user_comments: bool = True,
     ) -> None: ...
     def is_identical(self, other: Catalog) -> bool: ...

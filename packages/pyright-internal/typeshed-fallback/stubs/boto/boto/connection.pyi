@@ -42,7 +42,7 @@ class HTTPRequest:
 
 class HTTPResponse(http.client.HTTPResponse):
     def __init__(self, *args, **kwargs) -> None: ...
-    def read(self, amt: Incomplete | None = ...): ...
+    def read(self, amt: Incomplete | None = None): ...
 
 class AWSAuthConnection:
     suppress_consec_slashes: Any
@@ -67,22 +67,22 @@ class AWSAuthConnection:
     def __init__(
         self,
         host,
-        aws_access_key_id: Incomplete | None = ...,
-        aws_secret_access_key: Incomplete | None = ...,
-        is_secure: bool = ...,
-        port: Incomplete | None = ...,
-        proxy: Incomplete | None = ...,
-        proxy_port: Incomplete | None = ...,
-        proxy_user: Incomplete | None = ...,
-        proxy_pass: Incomplete | None = ...,
-        debug: int = ...,
-        https_connection_factory: Incomplete | None = ...,
-        path: str = ...,
-        provider: str = ...,
-        security_token: Incomplete | None = ...,
-        suppress_consec_slashes: bool = ...,
-        validate_certs: bool = ...,
-        profile_name: Incomplete | None = ...,
+        aws_access_key_id: Incomplete | None = None,
+        aws_secret_access_key: Incomplete | None = None,
+        is_secure: bool = True,
+        port: Incomplete | None = None,
+        proxy: Incomplete | None = None,
+        proxy_port: Incomplete | None = None,
+        proxy_user: Incomplete | None = None,
+        proxy_pass: Incomplete | None = None,
+        debug: int = 0,
+        https_connection_factory: Incomplete | None = None,
+        path: str = "/",
+        provider: str = "aws",
+        security_token: Incomplete | None = None,
+        suppress_consec_slashes: bool = True,
+        validate_certs: bool = True,
+        profile_name: Incomplete | None = None,
     ) -> None: ...
     auth_region_name: Any
     @property
@@ -101,8 +101,8 @@ class AWSAuthConnection:
     def secret_key(self): ...
     @property
     def profile_name(self): ...
-    def get_path(self, path: str = ...): ...
-    def server_name(self, port: Incomplete | None = ...): ...
+    def get_path(self, path: str = "/"): ...
+    def server_name(self, port: Incomplete | None = None): ...
     proxy: Any
     proxy_port: Any
     proxy_user: Any
@@ -114,8 +114,8 @@ class AWSAuthConnection:
     def skip_proxy(self, host): ...
     def new_http_connection(self, host, port, is_secure): ...
     def put_http_connection(self, host, port, is_secure, connection): ...
-    def proxy_ssl(self, host: Incomplete | None = ..., port: Incomplete | None = ...): ...
-    def prefix_proxy_to_path(self, path, host: Incomplete | None = ...): ...
+    def proxy_ssl(self, host: Incomplete | None = None, port: Incomplete | None = None): ...
+    def prefix_proxy_to_path(self, path, host: Incomplete | None = None): ...
     def get_proxy_auth_header(self): ...
     def get_proxy_url_with_auth(self): ...
     def set_host_header(self, request): ...
@@ -125,23 +125,23 @@ class AWSAuthConnection:
         method,
         path,
         auth_path,
-        params: Incomplete | None = ...,
-        headers: Incomplete | None = ...,
-        data: str = ...,
-        host: Incomplete | None = ...,
+        params: Incomplete | None = None,
+        headers: Incomplete | None = None,
+        data: str = "",
+        host: Incomplete | None = None,
     ): ...
     def make_request(
         self,
         method,
         path,
-        headers: Incomplete | None = ...,
-        data: str = ...,
-        host: Incomplete | None = ...,
-        auth_path: Incomplete | None = ...,
-        sender: Incomplete | None = ...,
-        override_num_retries: Incomplete | None = ...,
-        params: Incomplete | None = ...,
-        retry_handler: Incomplete | None = ...,
+        headers: Incomplete | None = None,
+        data: str = "",
+        host: Incomplete | None = None,
+        auth_path: Incomplete | None = None,
+        sender: Incomplete | None = None,
+        override_num_retries: Incomplete | None = None,
+        params: Incomplete | None = None,
+        retry_handler: Incomplete | None = None,
     ): ...
     def close(self): ...
 
@@ -150,29 +150,29 @@ class AWSQueryConnection(AWSAuthConnection):
     ResponseError: Any
     def __init__(
         self,
-        aws_access_key_id: Incomplete | None = ...,
-        aws_secret_access_key: Incomplete | None = ...,
-        is_secure: bool = ...,
-        port: Incomplete | None = ...,
-        proxy: Incomplete | None = ...,
-        proxy_port: Incomplete | None = ...,
-        proxy_user: Incomplete | None = ...,
-        proxy_pass: Incomplete | None = ...,
-        host: Incomplete | None = ...,
-        debug: int = ...,
-        https_connection_factory: Incomplete | None = ...,
-        path: str = ...,
-        security_token: Incomplete | None = ...,
-        validate_certs: bool = ...,
-        profile_name: Incomplete | None = ...,
-        provider: str = ...,
+        aws_access_key_id: Incomplete | None = None,
+        aws_secret_access_key: Incomplete | None = None,
+        is_secure: bool = True,
+        port: Incomplete | None = None,
+        proxy: Incomplete | None = None,
+        proxy_port: Incomplete | None = None,
+        proxy_user: Incomplete | None = None,
+        proxy_pass: Incomplete | None = None,
+        host: Incomplete | None = None,
+        debug: int = 0,
+        https_connection_factory: Incomplete | None = None,
+        path: str = "/",
+        security_token: Incomplete | None = None,
+        validate_certs: bool = True,
+        profile_name: Incomplete | None = None,
+        provider: str = "aws",
     ) -> None: ...
     def get_utf8_value(self, value): ...
     def make_request(  # type: ignore[override]
-        self, action, params: Incomplete | None = ..., path: str = ..., verb: str = ..., *args, **kwargs
+        self, action, params: Incomplete | None = None, path: str = "/", verb: str = "GET", *args, **kwargs
     ): ...
     def build_list_params(self, params, items, label): ...
     def build_complex_list_params(self, params, items, label, names): ...
-    def get_list(self, action, params, markers, path: str = ..., parent: Incomplete | None = ..., verb: str = ...): ...
-    def get_object(self, action, params, cls, path: str = ..., parent: Incomplete | None = ..., verb: str = ...): ...
-    def get_status(self, action, params, path: str = ..., parent: Incomplete | None = ..., verb: str = ...): ...
+    def get_list(self, action, params, markers, path: str = "/", parent: Incomplete | None = None, verb: str = "GET"): ...
+    def get_object(self, action, params, cls, path: str = "/", parent: Incomplete | None = None, verb: str = "GET"): ...
+    def get_status(self, action, params, path: str = "/", parent: Incomplete | None = None, verb: str = "GET"): ...

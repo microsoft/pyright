@@ -1,4 +1,4 @@
-from . import client, connection, exceptions, sentinel, utils
+from . import client, connection, credentials, exceptions, sentinel, utils
 from .cluster import RedisCluster as RedisCluster
 
 __all__ = [
@@ -10,6 +10,7 @@ __all__ = [
     "Connection",
     "ConnectionError",
     "ConnectionPool",
+    "CredentialProvider",
     "DataError",
     "from_url",
     "InvalidResponse",
@@ -24,6 +25,7 @@ __all__ = [
     "SentinelManagedConnection",
     "SentinelManagedSSLConnection",
     "SSLConnection",
+    "UsernamePasswordCredentialProvider",
     "StrictRedis",
     "TimeoutError",
     "UnixDomainSocketConnection",
@@ -59,6 +61,9 @@ RedisError = exceptions.RedisError
 ResponseError = exceptions.ResponseError
 TimeoutError = exceptions.TimeoutError
 WatchError = exceptions.WatchError
+
+CredentialProvider = credentials.CredentialProvider
+UsernamePasswordCredentialProvider = credentials.UsernamePasswordCredentialProvider
 
 __version__: str
 VERSION: tuple[int | str, ...]

@@ -42,11 +42,11 @@ class BaseAdapter:
     def send(
         self,
         request: PreparedRequest,
-        stream: bool = ...,
-        timeout: None | float | tuple[float, float] | tuple[float, None] = ...,
-        verify: bool | str = ...,
-        cert: None | bytes | str | tuple[bytes | str, bytes | str] = ...,
-        proxies: Mapping[str, str] | None = ...,
+        stream: bool = False,
+        timeout: None | float | tuple[float, float] | tuple[float, None] = None,
+        verify: bool | str = True,
+        cert: None | bytes | str | tuple[bytes | str, bytes | str] = None,
+        proxies: Mapping[str, str] | None = None,
     ) -> Response: ...
     def close(self) -> None: ...
 
@@ -56,14 +56,14 @@ class HTTPAdapter(BaseAdapter):
     config: Any
     proxy_manager: Any
     def __init__(
-        self, pool_connections: int = ..., pool_maxsize: int = ..., max_retries: Retry | int | None = ..., pool_block: bool = ...
+        self, pool_connections: int = 10, pool_maxsize: int = 10, max_retries: Retry | int | None = 0, pool_block: bool = False
     ) -> None: ...
     poolmanager: Any
-    def init_poolmanager(self, connections, maxsize, block=..., **pool_kwargs): ...
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs): ...
     def proxy_manager_for(self, proxy, **proxy_kwargs): ...
     def cert_verify(self, conn, url, verify, cert): ...
     def build_response(self, req, resp): ...
-    def get_connection(self, url, proxies=...): ...
+    def get_connection(self, url, proxies=None): ...
     def close(self): ...
     def request_url(self, request, proxies): ...
     def add_headers(self, request, **kwargs): ...
@@ -71,9 +71,9 @@ class HTTPAdapter(BaseAdapter):
     def send(
         self,
         request: PreparedRequest,
-        stream: bool = ...,
-        timeout: None | float | tuple[float, float] | tuple[float, None] = ...,
-        verify: bool | str = ...,
-        cert: None | bytes | str | tuple[bytes | str, bytes | str] = ...,
-        proxies: Mapping[str, str] | None = ...,
+        stream: bool = False,
+        timeout: None | float | tuple[float, float] | tuple[float, None] = None,
+        verify: bool | str = True,
+        cert: None | bytes | str | tuple[bytes | str, bytes | str] = None,
+        proxies: Mapping[str, str] | None = None,
     ) -> Response: ...

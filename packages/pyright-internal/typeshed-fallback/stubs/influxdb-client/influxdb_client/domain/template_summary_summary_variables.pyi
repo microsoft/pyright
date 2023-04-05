@@ -6,15 +6,15 @@ class TemplateSummarySummaryVariables:
     discriminator: Incomplete
     def __init__(
         self,
-        kind: Incomplete | None = ...,
-        template_meta_name: Incomplete | None = ...,
-        id: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        arguments: Incomplete | None = ...,
-        label_associations: Incomplete | None = ...,
-        env_references: Incomplete | None = ...,
+        kind: Incomplete | None = None,
+        template_meta_name: Incomplete | None = None,
+        id: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        arguments: Incomplete | None = None,
+        label_associations: Incomplete | None = None,
+        env_references: Incomplete | None = None,
     ) -> None: ...
     @property
     def kind(self): ...

@@ -46,31 +46,31 @@ class PoFileParser:
     in_msgid: bool
     in_msgstr: bool
     in_msgctxt: bool
-    def __init__(self, catalog, ignore_obsolete: bool = ..., abort_invalid: bool = ...) -> None: ...
+    def __init__(self, catalog, ignore_obsolete: bool = False, abort_invalid: bool = False) -> None: ...
     def parse(self, fileobj: Iterable[str | bytes]) -> None: ...
 
 def read_po(
     fileobj: Iterable[str | bytes],
-    locale: str | Locale | None = ...,
-    domain: str | None = ...,
-    ignore_obsolete: bool = ...,
-    charset: str | None = ...,
-    abort_invalid: bool = ...,
+    locale: str | Locale | None = None,
+    domain: str | None = None,
+    ignore_obsolete: bool = False,
+    charset: str | None = None,
+    abort_invalid: bool = False,
 ) -> Catalog: ...
 
 WORD_SEP: Pattern[str]
 
 def escape(string: str) -> str: ...
-def normalize(string: str, prefix: str = ..., width: int = ...) -> str: ...
+def normalize(string: str, prefix: str = "", width: int = 76) -> str: ...
 def write_po(
     fileobj: SupportsWrite[bytes],
     catalog: Catalog,
-    width: int | None = ...,
-    no_location: bool = ...,
-    omit_header: bool = ...,
-    sort_output: bool = ...,
-    sort_by_file: bool = ...,
-    ignore_obsolete: bool = ...,
-    include_previous: bool = ...,
-    include_lineno: bool = ...,
+    width: int | None = 76,
+    no_location: bool = False,
+    omit_header: bool = False,
+    sort_output: bool = False,
+    sort_by_file: bool = False,
+    ignore_obsolete: bool = False,
+    include_previous: bool = False,
+    include_lineno: bool = True,
 ) -> None: ...

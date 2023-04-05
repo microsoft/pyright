@@ -7,7 +7,9 @@ class TableStyleElement(Serialisable):
     type: Incomplete
     size: Incomplete
     dxfId: Incomplete
-    def __init__(self, type: Incomplete | None = ..., size: Incomplete | None = ..., dxfId: Incomplete | None = ...) -> None: ...
+    def __init__(
+        self, type: Incomplete | None = None, size: Incomplete | None = None, dxfId: Incomplete | None = None
+    ) -> None: ...
 
 class TableStyle(Serialisable):
     tagname: str
@@ -19,11 +21,11 @@ class TableStyle(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        pivot: Incomplete | None = ...,
-        table: Incomplete | None = ...,
-        count: Incomplete | None = ...,
-        tableStyleElement=...,
+        name: Incomplete | None = None,
+        pivot: Incomplete | None = None,
+        table: Incomplete | None = None,
+        count: Incomplete | None = None,
+        tableStyleElement=(),
     ) -> None: ...
 
 class TableStyleList(Serialisable):
@@ -34,7 +36,11 @@ class TableStyleList(Serialisable):
     __elements__: Incomplete
     __attrs__: Incomplete
     def __init__(
-        self, count: Incomplete | None = ..., defaultTableStyle: str = ..., defaultPivotStyle: str = ..., tableStyle=...
+        self,
+        count: Incomplete | None = None,
+        defaultTableStyle: str = "TableStyleMedium9",
+        defaultPivotStyle: str = "PivotStyleLight16",
+        tableStyle=(),
     ) -> None: ...
     @property
     def count(self): ...

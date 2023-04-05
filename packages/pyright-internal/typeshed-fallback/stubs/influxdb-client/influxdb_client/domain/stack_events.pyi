@@ -6,13 +6,13 @@ class StackEvents:
     discriminator: Incomplete
     def __init__(
         self,
-        event_type: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        sources: Incomplete | None = ...,
-        resources: Incomplete | None = ...,
-        urls: Incomplete | None = ...,
-        updated_at: Incomplete | None = ...,
+        event_type: Incomplete | None = None,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        sources: Incomplete | None = None,
+        resources: Incomplete | None = None,
+        urls: Incomplete | None = None,
+        updated_at: Incomplete | None = None,
     ) -> None: ...
     @property
     def event_type(self): ...

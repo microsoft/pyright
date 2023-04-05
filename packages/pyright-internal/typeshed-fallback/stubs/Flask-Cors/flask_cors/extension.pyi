@@ -11,7 +11,7 @@ LOG: Logger
 class CORS:
     def __init__(
         self,
-        app: Incomplete | None = ...,
+        app: Incomplete | None = None,
         *,
         resources: dict[str, dict[str, Any]] | list[str] | str | None = ...,
         origins: str | list[str] | None = ...,

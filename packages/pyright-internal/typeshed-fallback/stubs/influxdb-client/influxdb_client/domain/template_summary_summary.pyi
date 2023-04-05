@@ -6,18 +6,18 @@ class TemplateSummarySummary:
     discriminator: Incomplete
     def __init__(
         self,
-        buckets: Incomplete | None = ...,
-        checks: Incomplete | None = ...,
-        dashboards: Incomplete | None = ...,
-        labels: Incomplete | None = ...,
-        label_mappings: Incomplete | None = ...,
-        missing_env_refs: Incomplete | None = ...,
-        missing_secrets: Incomplete | None = ...,
-        notification_endpoints: Incomplete | None = ...,
-        notification_rules: Incomplete | None = ...,
-        tasks: Incomplete | None = ...,
-        telegraf_configs: Incomplete | None = ...,
-        variables: Incomplete | None = ...,
+        buckets: Incomplete | None = None,
+        checks: Incomplete | None = None,
+        dashboards: Incomplete | None = None,
+        labels: Incomplete | None = None,
+        label_mappings: Incomplete | None = None,
+        missing_env_refs: Incomplete | None = None,
+        missing_secrets: Incomplete | None = None,
+        notification_endpoints: Incomplete | None = None,
+        notification_rules: Incomplete | None = None,
+        tasks: Incomplete | None = None,
+        telegraf_configs: Incomplete | None = None,
+        variables: Incomplete | None = None,
     ) -> None: ...
     @property
     def buckets(self): ...

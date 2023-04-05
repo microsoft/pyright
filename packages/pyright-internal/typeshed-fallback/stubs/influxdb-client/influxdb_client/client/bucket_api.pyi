@@ -6,12 +6,12 @@ class BucketsApi:
     def __init__(self, influxdb_client) -> None: ...
     def create_bucket(
         self,
-        bucket: Incomplete | None = ...,
-        bucket_name: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        retention_rules: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        org: Incomplete | None = ...,
+        bucket: Incomplete | None = None,
+        bucket_name: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        retention_rules: Incomplete | None = None,
+        description: Incomplete | None = None,
+        org: Incomplete | None = None,
     ) -> Bucket: ...
     def update_bucket(self, bucket: Bucket) -> Bucket: ...
     def delete_bucket(self, bucket): ...

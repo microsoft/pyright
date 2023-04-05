@@ -8,16 +8,16 @@ class TableViewProperties(ViewProperties):
     discriminator: Incomplete
     def __init__(
         self,
-        type: Incomplete | None = ...,
-        queries: Incomplete | None = ...,
-        colors: Incomplete | None = ...,
-        shape: Incomplete | None = ...,
-        note: Incomplete | None = ...,
-        show_note_when_empty: Incomplete | None = ...,
-        table_options: Incomplete | None = ...,
-        field_options: Incomplete | None = ...,
-        time_format: Incomplete | None = ...,
-        decimal_places: Incomplete | None = ...,
+        type: Incomplete | None = None,
+        queries: Incomplete | None = None,
+        colors: Incomplete | None = None,
+        shape: Incomplete | None = None,
+        note: Incomplete | None = None,
+        show_note_when_empty: Incomplete | None = None,
+        table_options: Incomplete | None = None,
+        field_options: Incomplete | None = None,
+        time_format: Incomplete | None = None,
+        decimal_places: Incomplete | None = None,
     ) -> None: ...
     @property
     def type(self): ...

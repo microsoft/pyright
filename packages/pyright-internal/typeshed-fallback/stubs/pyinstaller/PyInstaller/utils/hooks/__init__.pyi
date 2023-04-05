@@ -45,7 +45,9 @@ def is_module_or_submodule(name: str, mod_or_submod: str) -> bool: ...
 
 PY_DYLIB_PATTERNS: Final[list[str]]
 
-def collect_dynamic_libs(package: str, destdir: object = None, search_patterns: Iterable[str] = ...) -> list[tuple[str, str]]: ...
+def collect_dynamic_libs(
+    package: str, destdir: object = None, search_patterns: Iterable[str] = ["*.dll", "*.dylib", "lib*.so"]
+) -> list[tuple[str, str]]: ...
 def collect_data_files(
     package: str,
     include_py_files: bool = False,

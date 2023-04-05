@@ -8,7 +8,7 @@ class UninstrumentedColumnLoader(LoaderStrategy):
     columns: Any
     def __init__(self, parent, strategy_key) -> None: ...
     def setup_query(
-        self, compile_state, query_entity, path, loadopt, adapter, column_collection: Incomplete | None = ..., **kwargs
+        self, compile_state, query_entity, path, loadopt, adapter, column_collection: Incomplete | None = None, **kwargs
     ) -> None: ...
     def create_row_processor(self, context, query_entity, path, loadopt, mapper, result, adapter, populators) -> None: ...
 
@@ -17,7 +17,7 @@ class ColumnLoader(LoaderStrategy):
     columns: Any
     is_composite: Any
     def __init__(self, parent, strategy_key) -> None: ...
-    def setup_query(self, compile_state, query_entity, path, loadopt, adapter, column_collection, memoized_populators, check_for_adapt: bool = ..., **kwargs) -> None: ...  # type: ignore[override]
+    def setup_query(self, compile_state, query_entity, path, loadopt, adapter, column_collection, memoized_populators, check_for_adapt: bool = False, **kwargs) -> None: ...  # type: ignore[override]
     is_class_level: bool
     def init_class_attribute(self, mapper) -> None: ...
     def create_row_processor(self, context, query_entity, path, loadopt, mapper, result, adapter, populators) -> None: ...
@@ -39,12 +39,12 @@ class DeferredColumnLoader(LoaderStrategy):
     def create_row_processor(self, context, query_entity, path, loadopt, mapper, result, adapter, populators) -> None: ...
     is_class_level: bool
     def init_class_attribute(self, mapper) -> None: ...
-    def setup_query(self, compile_state, query_entity, path, loadopt, adapter, column_collection, memoized_populators, only_load_props: Incomplete | None = ..., **kw) -> None: ...  # type: ignore[override]
+    def setup_query(self, compile_state, query_entity, path, loadopt, adapter, column_collection, memoized_populators, only_load_props: Incomplete | None = None, **kw) -> None: ...  # type: ignore[override]
 
 class LoadDeferredColumns:
     key: Any
     raiseload: Any
-    def __init__(self, key, raiseload: bool = ...) -> None: ...
+    def __init__(self, key, raiseload: bool = False) -> None: ...
     def __call__(self, state, passive=...): ...
 
 class AbstractRelationshipLoader(LoaderStrategy):
@@ -116,9 +116,9 @@ class JoinedLoader(AbstractRelationshipLoader):
         path,
         loadopt,
         adapter,
-        column_collection: Incomplete | None = ...,
-        parentmapper: Incomplete | None = ...,
-        chained_from_outerjoin: bool = ...,
+        column_collection: Incomplete | None = None,
+        parentmapper: Incomplete | None = None,
+        chained_from_outerjoin: bool = False,
         **kwargs,
     ) -> None: ...
     def create_row_processor(self, context, query_entity, path, loadopt, mapper, result, adapter, populators) -> None: ...

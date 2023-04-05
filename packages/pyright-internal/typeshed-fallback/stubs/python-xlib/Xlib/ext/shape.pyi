@@ -1,11 +1,12 @@
 from collections.abc import Sequence
+from typing_extensions import Final
 
 from Xlib.display import Display
 from Xlib.protocol import request, rq
 from Xlib.protocol.structs import _Rectangle4IntSequence
 from Xlib.xobject import drawable, resource
 
-extname: str
+extname: Final = "SHAPE"
 OP = rq.Card8
 
 class SO:

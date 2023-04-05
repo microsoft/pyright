@@ -6,7 +6,9 @@ class MemberAssignment(Statement):
     openapi_types: Incomplete
     attribute_map: Incomplete
     discriminator: Incomplete
-    def __init__(self, type: Incomplete | None = ..., member: Incomplete | None = ..., init: Incomplete | None = ...) -> None: ...
+    def __init__(
+        self, type: Incomplete | None = None, member: Incomplete | None = None, init: Incomplete | None = None
+    ) -> None: ...
     @property
     def type(self): ...
     @type.setter

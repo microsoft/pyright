@@ -1,14 +1,16 @@
+from typing_extensions import Final, Literal
+
 from Xlib._typing import Unused
 from Xlib.display import Display
 from Xlib.protocol import rq
 from Xlib.xobject import resource
 
-extname: str
-DPMSModeOn: int
-DPMSModeStandby: int
-DPMSModeSuspend: int
-DPMSModeOff: int
-DPMSPowerLevel: tuple[int, int, int, int]
+extname: Final = "DPMS"
+DPMSModeOn: Final = 0
+DPMSModeStandby: Final = 1
+DPMSModeSuspend: Final = 2
+DPMSModeOff: Final = 3
+DPMSPowerLevel: Final[tuple[Literal[0], Literal[1], Literal[2], Literal[3]]]
 
 class DPMSGetVersion(rq.ReplyRequest): ...
 

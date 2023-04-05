@@ -12,12 +12,12 @@ class WebPublishObject(Serialisable):
     autoRepublish: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        divId: Incomplete | None = ...,
-        sourceObject: Incomplete | None = ...,
-        destinationFile: Incomplete | None = ...,
-        title: Incomplete | None = ...,
-        autoRepublish: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        divId: Incomplete | None = None,
+        sourceObject: Incomplete | None = None,
+        destinationFile: Incomplete | None = None,
+        title: Incomplete | None = None,
+        autoRepublish: Incomplete | None = None,
     ) -> None: ...
 
 class WebPublishObjectList(Serialisable):
@@ -26,7 +26,7 @@ class WebPublishObjectList(Serialisable):
     # count: Integer
     webPublishObject: Incomplete
     __elements__: Incomplete
-    def __init__(self, count: Incomplete | None = ..., webPublishObject=...) -> None: ...
+    def __init__(self, count: Incomplete | None = None, webPublishObject=()) -> None: ...
     @property
     def count(self): ...
 
@@ -43,13 +43,13 @@ class WebPublishing(Serialisable):
     characterSet: Incomplete
     def __init__(
         self,
-        css: Incomplete | None = ...,
-        thicket: Incomplete | None = ...,
-        longFileNames: Incomplete | None = ...,
-        vml: Incomplete | None = ...,
-        allowPng: Incomplete | None = ...,
-        targetScreenSize: str = ...,
-        dpi: Incomplete | None = ...,
-        codePage: Incomplete | None = ...,
-        characterSet: Incomplete | None = ...,
+        css: Incomplete | None = None,
+        thicket: Incomplete | None = None,
+        longFileNames: Incomplete | None = None,
+        vml: Incomplete | None = None,
+        allowPng: Incomplete | None = None,
+        targetScreenSize: str = "800x600",
+        dpi: Incomplete | None = None,
+        codePage: Incomplete | None = None,
+        characterSet: Incomplete | None = None,
     ) -> None: ...

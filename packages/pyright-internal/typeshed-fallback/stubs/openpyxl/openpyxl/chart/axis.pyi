@@ -7,7 +7,7 @@ class ChartLines(Serialisable):
     tagname: str
     spPr: Incomplete
     graphicalProperties: Incomplete
-    def __init__(self, spPr: Incomplete | None = ...) -> None: ...
+    def __init__(self, spPr: Incomplete | None = None) -> None: ...
 
 class Scaling(Serialisable):
     tagname: str
@@ -19,11 +19,11 @@ class Scaling(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        logBase: Incomplete | None = ...,
-        orientation: str = ...,
-        max: Incomplete | None = ...,
-        min: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        logBase: Incomplete | None = None,
+        orientation: str = "minMax",
+        max: Incomplete | None = None,
+        min: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class _BaseAxis(Serialisable):
@@ -49,22 +49,22 @@ class _BaseAxis(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        axId: Incomplete | None = ...,
-        scaling: Incomplete | None = ...,
-        delete: Incomplete | None = ...,
-        axPos: str = ...,
-        majorGridlines: Incomplete | None = ...,
-        minorGridlines: Incomplete | None = ...,
-        title: Incomplete | None = ...,
-        numFmt: Incomplete | None = ...,
-        majorTickMark: Incomplete | None = ...,
-        minorTickMark: Incomplete | None = ...,
-        tickLblPos: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        txPr: Incomplete | None = ...,
-        crossAx: Incomplete | None = ...,
-        crosses: Incomplete | None = ...,
-        crossesAt: Incomplete | None = ...,
+        axId: Incomplete | None = None,
+        scaling: Incomplete | None = None,
+        delete: Incomplete | None = None,
+        axPos: str = "l",
+        majorGridlines: Incomplete | None = None,
+        minorGridlines: Incomplete | None = None,
+        title: Incomplete | None = None,
+        numFmt: Incomplete | None = None,
+        majorTickMark: Incomplete | None = None,
+        minorTickMark: Incomplete | None = None,
+        tickLblPos: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        txPr: Incomplete | None = None,
+        crossAx: Incomplete | None = None,
+        crosses: Incomplete | None = None,
+        crossesAt: Incomplete | None = None,
     ) -> None: ...
     @property
     @abstractmethod
@@ -82,10 +82,10 @@ class DisplayUnitsLabel(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        layout: Incomplete | None = ...,
-        tx: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        txPr: Incomplete | None = ...,
+        layout: Incomplete | None = None,
+        tx: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        txPr: Incomplete | None = None,
     ) -> None: ...
 
 class DisplayUnitsLabelList(Serialisable):
@@ -97,10 +97,10 @@ class DisplayUnitsLabelList(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        custUnit: Incomplete | None = ...,
-        builtInUnit: Incomplete | None = ...,
-        dispUnitsLbl: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        custUnit: Incomplete | None = None,
+        builtInUnit: Incomplete | None = None,
+        dispUnitsLbl: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class NumericAxis(_BaseAxis):
@@ -129,11 +129,11 @@ class NumericAxis(_BaseAxis):
     __elements__: Incomplete
     def __init__(
         self,
-        crossBetween: Incomplete | None = ...,
-        majorUnit: Incomplete | None = ...,
-        minorUnit: Incomplete | None = ...,
-        dispUnits: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        crossBetween: Incomplete | None = None,
+        majorUnit: Incomplete | None = None,
+        minorUnit: Incomplete | None = None,
+        dispUnits: Incomplete | None = None,
+        extLst: Incomplete | None = None,
         **kw,
     ) -> None: ...
     @classmethod
@@ -167,13 +167,13 @@ class TextAxis(_BaseAxis):
     __elements__: Incomplete
     def __init__(
         self,
-        auto: Incomplete | None = ...,
-        lblAlgn: Incomplete | None = ...,
-        lblOffset: int = ...,
-        tickLblSkip: Incomplete | None = ...,
-        tickMarkSkip: Incomplete | None = ...,
-        noMultiLvlLbl: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        auto: Incomplete | None = None,
+        lblAlgn: Incomplete | None = None,
+        lblOffset: int = 100,
+        tickLblSkip: Incomplete | None = None,
+        tickMarkSkip: Incomplete | None = None,
+        noMultiLvlLbl: Incomplete | None = None,
+        extLst: Incomplete | None = None,
         **kw,
     ) -> None: ...
 
@@ -206,14 +206,14 @@ class DateAxis(TextAxis):
     __elements__: Incomplete
     def __init__(
         self,
-        auto: Incomplete | None = ...,
-        lblOffset: Incomplete | None = ...,
-        baseTimeUnit: Incomplete | None = ...,
-        majorUnit: Incomplete | None = ...,
-        majorTimeUnit: Incomplete | None = ...,
-        minorUnit: Incomplete | None = ...,
-        minorTimeUnit: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        auto: Incomplete | None = None,
+        lblOffset: Incomplete | None = None,
+        baseTimeUnit: Incomplete | None = None,
+        majorUnit: Incomplete | None = None,
+        majorTimeUnit: Incomplete | None = None,
+        minorUnit: Incomplete | None = None,
+        minorTimeUnit: Incomplete | None = None,
+        extLst: Incomplete | None = None,
         **kw,
     ) -> None: ...
 
@@ -240,5 +240,9 @@ class SeriesAxis(_BaseAxis):
     extLst: Incomplete
     __elements__: Incomplete
     def __init__(
-        self, tickLblSkip: Incomplete | None = ..., tickMarkSkip: Incomplete | None = ..., extLst: Incomplete | None = ..., **kw
+        self,
+        tickLblSkip: Incomplete | None = None,
+        tickMarkSkip: Incomplete | None = None,
+        extLst: Incomplete | None = None,
+        **kw,
     ) -> None: ...

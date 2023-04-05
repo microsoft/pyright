@@ -8,11 +8,11 @@ class AuthorizationPostRequest(AuthorizationUpdateRequest):
     discriminator: Incomplete
     def __init__(
         self,
-        org_id: Incomplete | None = ...,
-        user_id: Incomplete | None = ...,
-        permissions: Incomplete | None = ...,
-        status: str = ...,
-        description: Incomplete | None = ...,
+        org_id: Incomplete | None = None,
+        user_id: Incomplete | None = None,
+        permissions: Incomplete | None = None,
+        status: str = "active",
+        description: Incomplete | None = None,
     ) -> None: ...
     @property
     def org_id(self): ...

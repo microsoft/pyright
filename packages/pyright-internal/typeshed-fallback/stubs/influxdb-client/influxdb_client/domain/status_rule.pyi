@@ -6,10 +6,10 @@ class StatusRule:
     discriminator: Incomplete
     def __init__(
         self,
-        current_level: Incomplete | None = ...,
-        previous_level: Incomplete | None = ...,
-        count: Incomplete | None = ...,
-        period: Incomplete | None = ...,
+        current_level: Incomplete | None = None,
+        previous_level: Incomplete | None = None,
+        count: Incomplete | None = None,
+        period: Incomplete | None = None,
     ) -> None: ...
     @property
     def current_level(self): ...

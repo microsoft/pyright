@@ -5,11 +5,11 @@ from consolemenu.format.menu_padding import MenuPadding as MenuPadding
 class MenuStyle:
     def __init__(
         self,
-        margins: MenuMargins | None = ...,
-        padding: MenuPadding | None = ...,
-        border_style: MenuBorderStyle | None = ...,
-        border_style_type: int | None = ...,
-        border_style_factory: MenuBorderStyleFactory | None = ...,
+        margins: MenuMargins | None = None,
+        padding: MenuPadding | None = None,
+        border_style: MenuBorderStyle | None = None,
+        border_style_type: int | None = None,
+        border_style_factory: MenuBorderStyleFactory | None = None,
     ) -> None: ...
     @property
     def margins(self) -> MenuMargins: ...

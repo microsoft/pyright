@@ -4,8 +4,8 @@ from tarfile import TarInfo
 
 def rebuild(
     filename: StrOrBytesPath,
-    tag: Incomplete | None = ...,
-    format: str = ...,
-    zonegroups: Sequence[str | TarInfo] = ...,
-    metadata: Incomplete | None = ...,
+    tag: Incomplete | None = None,
+    format: str = "gz",
+    zonegroups: Sequence[str | TarInfo] = [],
+    metadata: Incomplete | None = None,
 ) -> None: ...

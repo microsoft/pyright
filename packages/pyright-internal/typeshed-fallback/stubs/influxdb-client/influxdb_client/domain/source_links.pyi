@@ -6,10 +6,10 @@ class SourceLinks:
     discriminator: Incomplete
     def __init__(
         self,
-        _self: Incomplete | None = ...,
-        query: Incomplete | None = ...,
-        health: Incomplete | None = ...,
-        buckets: Incomplete | None = ...,
+        _self: Incomplete | None = None,
+        query: Incomplete | None = None,
+        health: Incomplete | None = None,
+        buckets: Incomplete | None = None,
     ) -> None: ...
     @property
     def query(self): ...

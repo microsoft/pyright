@@ -52,18 +52,18 @@ class SerialBase(io.RawIOBase):
     name: str | None
     def __init__(
         self,
-        port: str | None = ...,
-        baudrate: int = ...,
-        bytesize: int = ...,
-        parity: str = ...,
-        stopbits: float = ...,
-        timeout: float | None = ...,
-        xonxoff: bool = ...,
-        rtscts: bool = ...,
-        write_timeout: float | None = ...,
-        dsrdtr: bool = ...,
-        inter_byte_timeout: float | None = ...,
-        exclusive: float | None = ...,
+        port: str | None = None,
+        baudrate: int = 9600,
+        bytesize: int = 8,
+        parity: str = "N",
+        stopbits: float = 1,
+        timeout: float | None = None,
+        xonxoff: bool = False,
+        rtscts: bool = False,
+        write_timeout: float | None = None,
+        dsrdtr: bool = False,
+        inter_byte_timeout: float | None = None,
+        exclusive: float | None = None,
     ) -> None: ...
 
     # Return type:
@@ -147,7 +147,7 @@ class SerialBase(io.RawIOBase):
     def get_settings(self) -> dict[str, Any]: ...
     def apply_settings(self, d: dict[str, Any]) -> None: ...
     def readinto(self, __buffer: WriteableBuffer) -> int: ...  # returns int unlike `io.RawIOBase`
-    def send_break(self, duration: float = ...) -> None: ...
+    def send_break(self, duration: float = 0.25) -> None: ...
     def read_all(self) -> bytes | None: ...
-    def read_until(self, expected: bytes = ..., size: int | None = ...) -> bytes: ...
+    def read_until(self, expected: bytes = b"\n", size: int | None = None) -> bytes: ...
     def iread_until(self, expected: bytes = ..., size: int | None = ...) -> Generator[bytes, None, None]: ...

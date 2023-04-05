@@ -28,7 +28,7 @@ def request(
 ) -> Response: ...
 def get(
     url: str | bytes,
-    params: _Params | None = ...,
+    params: _Params | None = None,
     *,
     data: _Data | None = ...,
     headers: _HeadersMapping | None = ...,
@@ -82,8 +82,8 @@ def head(
 ) -> Response: ...
 def post(
     url: str | bytes,
-    data: _Data | None = ...,
-    json: Incomplete | None = ...,
+    data: _Data | None = None,
+    json: Incomplete | None = None,
     *,
     params: _Params | None = ...,
     headers: _HeadersMapping | None = ...,
@@ -100,7 +100,7 @@ def post(
 ) -> Response: ...
 def put(
     url: str | bytes,
-    data: _Data | None = ...,
+    data: _Data | None = None,
     *,
     params: _Params | None = ...,
     headers: _HeadersMapping | None = ...,
@@ -118,7 +118,7 @@ def put(
 ) -> Response: ...
 def patch(
     url: str | bytes,
-    data: _Data | None = ...,
+    data: _Data | None = None,
     *,
     params: _Params | None = ...,
     headers: _HeadersMapping | None = ...,
