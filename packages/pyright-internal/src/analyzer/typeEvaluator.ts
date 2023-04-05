@@ -23258,11 +23258,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 }
 
-                // All functions are objects, so try to assign as an object.
-                if (objectType && isClassInstance(objectType)) {
+                // All functions are considered instances of "builtins.function".
+                if (functionObj && isClassInstance(functionObj)) {
                     return assignType(
                         destType,
-                        objectType,
+                        functionObj,
                         diag,
                         destTypeVarContext,
                         srcTypeVarContext,
