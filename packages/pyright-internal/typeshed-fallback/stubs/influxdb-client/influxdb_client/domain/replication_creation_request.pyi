@@ -6,14 +6,14 @@ class ReplicationCreationRequest:
     discriminator: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        remote_id: Incomplete | None = ...,
-        local_bucket_id: Incomplete | None = ...,
-        remote_bucket_id: Incomplete | None = ...,
-        max_queue_size_bytes: int = ...,
-        drop_non_retryable_data: bool = ...,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        remote_id: Incomplete | None = None,
+        local_bucket_id: Incomplete | None = None,
+        remote_bucket_id: Incomplete | None = None,
+        max_queue_size_bytes: int = 67108860,
+        drop_non_retryable_data: bool = False,
     ) -> None: ...
     @property
     def name(self): ...

@@ -4,7 +4,9 @@ class RunLinks:
     openapi_types: Incomplete
     attribute_map: Incomplete
     discriminator: Incomplete
-    def __init__(self, _self: Incomplete | None = ..., task: Incomplete | None = ..., retry: Incomplete | None = ...) -> None: ...
+    def __init__(
+        self, _self: Incomplete | None = None, task: Incomplete | None = None, retry: Incomplete | None = None
+    ) -> None: ...
     @property
     def task(self): ...
     @task.setter

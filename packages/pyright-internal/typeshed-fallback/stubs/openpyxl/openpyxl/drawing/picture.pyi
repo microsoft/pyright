@@ -20,18 +20,18 @@ class PictureLocking(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        noCrop: Incomplete | None = ...,
-        noGrp: Incomplete | None = ...,
-        noSelect: Incomplete | None = ...,
-        noRot: Incomplete | None = ...,
-        noChangeAspect: Incomplete | None = ...,
-        noMove: Incomplete | None = ...,
-        noResize: Incomplete | None = ...,
-        noEditPoints: Incomplete | None = ...,
-        noAdjustHandles: Incomplete | None = ...,
-        noChangeArrowheads: Incomplete | None = ...,
-        noChangeShapeType: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        noCrop: Incomplete | None = None,
+        noGrp: Incomplete | None = None,
+        noSelect: Incomplete | None = None,
+        noRot: Incomplete | None = None,
+        noChangeAspect: Incomplete | None = None,
+        noMove: Incomplete | None = None,
+        noResize: Incomplete | None = None,
+        noEditPoints: Incomplete | None = None,
+        noAdjustHandles: Incomplete | None = None,
+        noChangeArrowheads: Incomplete | None = None,
+        noChangeShapeType: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class NonVisualPictureProperties(Serialisable):
@@ -41,7 +41,7 @@ class NonVisualPictureProperties(Serialisable):
     extLst: Incomplete
     __elements__: Incomplete
     def __init__(
-        self, preferRelativeResize: Incomplete | None = ..., picLocks: Incomplete | None = ..., extLst: Incomplete | None = ...
+        self, preferRelativeResize: Incomplete | None = None, picLocks: Incomplete | None = None, extLst: Incomplete | None = None
     ) -> None: ...
 
 class PictureNonVisual(Serialisable):
@@ -49,7 +49,7 @@ class PictureNonVisual(Serialisable):
     cNvPr: Incomplete
     cNvPicPr: Incomplete
     __elements__: Incomplete
-    def __init__(self, cNvPr: Incomplete | None = ..., cNvPicPr: Incomplete | None = ...) -> None: ...
+    def __init__(self, cNvPr: Incomplete | None = None, cNvPicPr: Incomplete | None = None) -> None: ...
 
 class PictureFrame(Serialisable):
     tagname: str
@@ -63,10 +63,10 @@ class PictureFrame(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        macro: Incomplete | None = ...,
-        fPublished: Incomplete | None = ...,
-        nvPicPr: Incomplete | None = ...,
-        blipFill: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        style: Incomplete | None = ...,
+        macro: Incomplete | None = None,
+        fPublished: Incomplete | None = None,
+        nvPicPr: Incomplete | None = None,
+        blipFill: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        style: Incomplete | None = None,
     ) -> None: ...

@@ -6,15 +6,15 @@ class TemplateSummarySummaryDashboards:
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        kind: Incomplete | None = ...,
-        template_meta_name: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        label_associations: Incomplete | None = ...,
-        charts: Incomplete | None = ...,
-        env_references: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        kind: Incomplete | None = None,
+        template_meta_name: Incomplete | None = None,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        label_associations: Incomplete | None = None,
+        charts: Incomplete | None = None,
+        env_references: Incomplete | None = None,
     ) -> None: ...
     @property
     def id(self): ...

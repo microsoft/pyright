@@ -12,11 +12,11 @@ class ChartsheetView(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        tabSelected: Incomplete | None = ...,
-        zoomScale: Incomplete | None = ...,
-        workbookViewId: int = ...,
-        zoomToFit: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        tabSelected: Incomplete | None = None,
+        zoomScale: Incomplete | None = None,
+        workbookViewId: int = 0,
+        zoomToFit: Incomplete | None = True,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class ChartsheetViewList(Serialisable):
@@ -24,4 +24,4 @@ class ChartsheetViewList(Serialisable):
     sheetView: Incomplete
     extLst: Incomplete
     __elements__: Incomplete
-    def __init__(self, sheetView: Incomplete | None = ..., extLst: Incomplete | None = ...) -> None: ...
+    def __init__(self, sheetView: Incomplete | None = None, extLst: Incomplete | None = None) -> None: ...

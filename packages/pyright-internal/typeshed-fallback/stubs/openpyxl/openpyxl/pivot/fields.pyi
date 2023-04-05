@@ -5,19 +5,19 @@ from openpyxl.descriptors.serialisable import Serialisable
 class Index(Serialisable):
     tagname: str
     v: Incomplete
-    def __init__(self, v: int = ...) -> None: ...
+    def __init__(self, v: int = 0) -> None: ...
 
 class Tuple(Serialisable):  # type: ignore[misc]
     fld: Incomplete
     hier: Incomplete
     item: Incomplete
-    def __init__(self, fld: Incomplete | None = ..., hier: Incomplete | None = ..., item: Incomplete | None = ...) -> None: ...
+    def __init__(self, fld: Incomplete | None = None, hier: Incomplete | None = None, item: Incomplete | None = None) -> None: ...
 
 class TupleList(Serialisable):  # type: ignore[misc]
     c: Incomplete
     tpl: Incomplete
     __elements__: Incomplete
-    def __init__(self, c: Incomplete | None = ..., tpl: Incomplete | None = ...) -> None: ...
+    def __init__(self, c: Incomplete | None = None, tpl: Incomplete | None = None) -> None: ...
 
 class Missing(Serialisable):
     tagname: str
@@ -36,19 +36,19 @@ class Missing(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        tpls=...,
-        x=...,
-        u: Incomplete | None = ...,
-        f: Incomplete | None = ...,
-        c: Incomplete | None = ...,
-        cp: Incomplete | None = ...,
-        _in: Incomplete | None = ...,
-        bc: Incomplete | None = ...,
-        fc: Incomplete | None = ...,
-        i: Incomplete | None = ...,
-        un: Incomplete | None = ...,
-        st: Incomplete | None = ...,
-        b: Incomplete | None = ...,
+        tpls=(),
+        x=(),
+        u: Incomplete | None = None,
+        f: Incomplete | None = None,
+        c: Incomplete | None = None,
+        cp: Incomplete | None = None,
+        _in: Incomplete | None = None,
+        bc: Incomplete | None = None,
+        fc: Incomplete | None = None,
+        i: Incomplete | None = None,
+        un: Incomplete | None = None,
+        st: Incomplete | None = None,
+        b: Incomplete | None = None,
     ) -> None: ...
 
 class Number(Serialisable):
@@ -69,20 +69,20 @@ class Number(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        tpls=...,
-        x=...,
-        v: Incomplete | None = ...,
-        u: Incomplete | None = ...,
-        f: Incomplete | None = ...,
-        c: Incomplete | None = ...,
-        cp: Incomplete | None = ...,
-        _in: Incomplete | None = ...,
-        bc: Incomplete | None = ...,
-        fc: Incomplete | None = ...,
-        i: Incomplete | None = ...,
-        un: Incomplete | None = ...,
-        st: Incomplete | None = ...,
-        b: Incomplete | None = ...,
+        tpls=(),
+        x=(),
+        v: Incomplete | None = None,
+        u: Incomplete | None = None,
+        f: Incomplete | None = None,
+        c: Incomplete | None = None,
+        cp: Incomplete | None = None,
+        _in: Incomplete | None = None,
+        bc: Incomplete | None = None,
+        fc: Incomplete | None = None,
+        i: Incomplete | None = None,
+        un: Incomplete | None = None,
+        st: Incomplete | None = None,
+        b: Incomplete | None = None,
     ) -> None: ...
 
 class Error(Serialisable):
@@ -103,20 +103,20 @@ class Error(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        tpls: Incomplete | None = ...,
-        x=...,
-        v: Incomplete | None = ...,
-        u: Incomplete | None = ...,
-        f: Incomplete | None = ...,
-        c: Incomplete | None = ...,
-        cp: Incomplete | None = ...,
-        _in: Incomplete | None = ...,
-        bc: Incomplete | None = ...,
-        fc: Incomplete | None = ...,
-        i: Incomplete | None = ...,
-        un: Incomplete | None = ...,
-        st: Incomplete | None = ...,
-        b: Incomplete | None = ...,
+        tpls: Incomplete | None = None,
+        x=(),
+        v: Incomplete | None = None,
+        u: Incomplete | None = None,
+        f: Incomplete | None = None,
+        c: Incomplete | None = None,
+        cp: Incomplete | None = None,
+        _in: Incomplete | None = None,
+        bc: Incomplete | None = None,
+        fc: Incomplete | None = None,
+        i: Incomplete | None = None,
+        un: Incomplete | None = None,
+        st: Incomplete | None = None,
+        b: Incomplete | None = None,
     ) -> None: ...
 
 class Boolean(Serialisable):
@@ -130,12 +130,12 @@ class Boolean(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        x=...,
-        v: Incomplete | None = ...,
-        u: Incomplete | None = ...,
-        f: Incomplete | None = ...,
-        c: Incomplete | None = ...,
-        cp: Incomplete | None = ...,
+        x=(),
+        v: Incomplete | None = None,
+        u: Incomplete | None = None,
+        f: Incomplete | None = None,
+        c: Incomplete | None = None,
+        cp: Incomplete | None = None,
     ) -> None: ...
 
 class Text(Serialisable):
@@ -156,20 +156,20 @@ class Text(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        tpls=...,
-        x=...,
-        v: Incomplete | None = ...,
-        u: Incomplete | None = ...,
-        f: Incomplete | None = ...,
-        c: Incomplete | None = ...,
-        cp: Incomplete | None = ...,
-        _in: Incomplete | None = ...,
-        bc: Incomplete | None = ...,
-        fc: Incomplete | None = ...,
-        i: Incomplete | None = ...,
-        un: Incomplete | None = ...,
-        st: Incomplete | None = ...,
-        b: Incomplete | None = ...,
+        tpls=(),
+        x=(),
+        v: Incomplete | None = None,
+        u: Incomplete | None = None,
+        f: Incomplete | None = None,
+        c: Incomplete | None = None,
+        cp: Incomplete | None = None,
+        _in: Incomplete | None = None,
+        bc: Incomplete | None = None,
+        fc: Incomplete | None = None,
+        i: Incomplete | None = None,
+        un: Incomplete | None = None,
+        st: Incomplete | None = None,
+        b: Incomplete | None = None,
     ) -> None: ...
 
 class DateTimeField(Serialisable):
@@ -183,10 +183,10 @@ class DateTimeField(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        x=...,
-        v: Incomplete | None = ...,
-        u: Incomplete | None = ...,
-        f: Incomplete | None = ...,
-        c: Incomplete | None = ...,
-        cp: Incomplete | None = ...,
+        x=(),
+        v: Incomplete | None = None,
+        u: Incomplete | None = None,
+        f: Incomplete | None = None,
+        c: Incomplete | None = None,
+        cp: Incomplete | None = None,
     ) -> None: ...

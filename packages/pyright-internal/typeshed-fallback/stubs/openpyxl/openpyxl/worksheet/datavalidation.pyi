@@ -2,7 +2,7 @@ from _typeshed import Incomplete
 
 from openpyxl.descriptors.serialisable import Serialisable
 
-def collapse_cell_addresses(cells, input_ranges=...): ...
+def collapse_cell_addresses(cells, input_ranges=()): ...
 def expand_cell_ranges(range_string): ...
 
 class DataValidation(Serialisable):
@@ -29,22 +29,22 @@ class DataValidation(Serialisable):
     validation_type: Incomplete
     def __init__(
         self,
-        type: Incomplete | None = ...,
-        formula1: Incomplete | None = ...,
-        formula2: Incomplete | None = ...,
-        showErrorMessage: bool = ...,
-        showInputMessage: bool = ...,
-        showDropDown: Incomplete | None = ...,
-        allowBlank: Incomplete | None = ...,
-        sqref=...,
-        promptTitle: Incomplete | None = ...,
-        errorStyle: Incomplete | None = ...,
-        error: Incomplete | None = ...,
-        prompt: Incomplete | None = ...,
-        errorTitle: Incomplete | None = ...,
-        imeMode: Incomplete | None = ...,
-        operator: Incomplete | None = ...,
-        allow_blank: Incomplete | None = ...,
+        type: Incomplete | None = None,
+        formula1: Incomplete | None = None,
+        formula2: Incomplete | None = None,
+        showErrorMessage: bool = False,
+        showInputMessage: bool = False,
+        showDropDown: Incomplete | None = False,
+        allowBlank: Incomplete | None = False,
+        sqref=(),
+        promptTitle: Incomplete | None = None,
+        errorStyle: Incomplete | None = None,
+        error: Incomplete | None = None,
+        prompt: Incomplete | None = None,
+        errorTitle: Incomplete | None = None,
+        imeMode: Incomplete | None = None,
+        operator: Incomplete | None = None,
+        allow_blank: Incomplete | None = False,
     ) -> None: ...
     def add(self, cell) -> None: ...
     def __contains__(self, cell): ...
@@ -59,14 +59,14 @@ class DataValidationList(Serialisable):
     __attrs__: Incomplete
     def __init__(
         self,
-        disablePrompts: Incomplete | None = ...,
-        xWindow: Incomplete | None = ...,
-        yWindow: Incomplete | None = ...,
-        count: Incomplete | None = ...,
-        dataValidation=...,
+        disablePrompts: Incomplete | None = None,
+        xWindow: Incomplete | None = None,
+        yWindow: Incomplete | None = None,
+        count: Incomplete | None = None,
+        dataValidation=(),
     ) -> None: ...
     @property
     def count(self): ...
     def __len__(self) -> int: ...
     def append(self, dv) -> None: ...
-    def to_tree(self, tagname: Incomplete | None = ...): ...  # type: ignore[override]
+    def to_tree(self, tagname: Incomplete | None = None): ...  # type: ignore[override]

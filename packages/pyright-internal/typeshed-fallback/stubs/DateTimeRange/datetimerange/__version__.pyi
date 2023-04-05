@@ -1,4 +1,4 @@
-__author__: str = ...
+__author__: str
 __copyright__: str
 __license__: str
 __version__: str

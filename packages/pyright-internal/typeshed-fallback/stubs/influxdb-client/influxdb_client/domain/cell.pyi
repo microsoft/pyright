@@ -6,13 +6,13 @@ class Cell:
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        links: Incomplete | None = ...,
-        x: Incomplete | None = ...,
-        y: Incomplete | None = ...,
-        w: Incomplete | None = ...,
-        h: Incomplete | None = ...,
-        view_id: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        links: Incomplete | None = None,
+        x: Incomplete | None = None,
+        y: Incomplete | None = None,
+        w: Incomplete | None = None,
+        h: Incomplete | None = None,
+        view_id: Incomplete | None = None,
     ) -> None: ...
     @property
     def id(self): ...

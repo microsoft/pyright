@@ -6,13 +6,13 @@ class TaskUpdateRequest:
     discriminator: Incomplete
     def __init__(
         self,
-        status: Incomplete | None = ...,
-        flux: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        every: Incomplete | None = ...,
-        cron: Incomplete | None = ...,
-        offset: Incomplete | None = ...,
-        description: Incomplete | None = ...,
+        status: Incomplete | None = None,
+        flux: Incomplete | None = None,
+        name: Incomplete | None = None,
+        every: Incomplete | None = None,
+        cron: Incomplete | None = None,
+        offset: Incomplete | None = None,
+        description: Incomplete | None = None,
     ) -> None: ...
     @property
     def status(self): ...

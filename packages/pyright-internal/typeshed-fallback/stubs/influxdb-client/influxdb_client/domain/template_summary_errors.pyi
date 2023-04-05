@@ -6,10 +6,10 @@ class TemplateSummaryErrors:
     discriminator: Incomplete
     def __init__(
         self,
-        kind: Incomplete | None = ...,
-        reason: Incomplete | None = ...,
-        fields: Incomplete | None = ...,
-        indexes: Incomplete | None = ...,
+        kind: Incomplete | None = None,
+        reason: Incomplete | None = None,
+        fields: Incomplete | None = None,
+        indexes: Incomplete | None = None,
     ) -> None: ...
     @property
     def kind(self): ...

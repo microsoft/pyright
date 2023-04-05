@@ -8,7 +8,7 @@ class ApiException(InfluxDBError):
     body: Incomplete
     headers: Incomplete
     def __init__(
-        self, status: Incomplete | None = ..., reason: Incomplete | None = ..., http_resp: Incomplete | None = ...
+        self, status: Incomplete | None = None, reason: Incomplete | None = None, http_resp: Incomplete | None = None
     ) -> None: ...
 
 class _BaseRESTClient:

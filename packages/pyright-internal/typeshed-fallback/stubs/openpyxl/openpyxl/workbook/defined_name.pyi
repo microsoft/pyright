@@ -30,22 +30,22 @@ class DefinedName(Serialisable):
     value: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        comment: Incomplete | None = ...,
-        customMenu: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        help: Incomplete | None = ...,
-        statusBar: Incomplete | None = ...,
-        localSheetId: Incomplete | None = ...,
-        hidden: Incomplete | None = ...,
-        function: Incomplete | None = ...,
-        vbProcedure: Incomplete | None = ...,
-        xlm: Incomplete | None = ...,
-        functionGroupId: Incomplete | None = ...,
-        shortcutKey: Incomplete | None = ...,
-        publishToServer: Incomplete | None = ...,
-        workbookParameter: Incomplete | None = ...,
-        attr_text: Incomplete | None = ...,
+        name: Incomplete | None = None,
+        comment: Incomplete | None = None,
+        customMenu: Incomplete | None = None,
+        description: Incomplete | None = None,
+        help: Incomplete | None = None,
+        statusBar: Incomplete | None = None,
+        localSheetId: Incomplete | None = None,
+        hidden: Incomplete | None = None,
+        function: Incomplete | None = None,
+        vbProcedure: Incomplete | None = None,
+        xlm: Incomplete | None = None,
+        functionGroupId: Incomplete | None = None,
+        shortcutKey: Incomplete | None = None,
+        publishToServer: Incomplete | None = None,
+        workbookParameter: Incomplete | None = None,
+        attr_text: Incomplete | None = None,
     ) -> None: ...
     @property
     def type(self): ...
@@ -63,6 +63,6 @@ class DefinedNameDict(dict[str, DefinedName]):
 class DefinedNameList(Serialisable):
     tagname: str
     definedName: Sequence
-    def __init__(self, definedName=...) -> None: ...
+    def __init__(self, definedName=()) -> None: ...
     def by_sheet(self) -> defaultdict[int, DefinedNameDict]: ...
     def __len__(self) -> int: ...

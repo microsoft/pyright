@@ -31,7 +31,12 @@ class PDFFont(PDFObject):
     font_descriptor: Incomplete | None
     c_i_d_to_g_i_d_map: Incomplete | None
     def __init__(
-        self, subtype: str, base_font: str, encoding: str | None = ..., d_w: Incomplete | None = ..., w: Incomplete | None = ...
+        self,
+        subtype: str,
+        base_font: str,
+        encoding: str | None = None,
+        d_w: Incomplete | None = None,
+        w: Incomplete | None = None,
     ) -> None: ...
 
 class PDFFontDescriptor(PDFObject):
@@ -94,10 +99,10 @@ class PDFCatalog(PDFObject):
     struct_tree_root: Incomplete | None
     def __init__(
         self,
-        lang: str | None = ...,
-        page_layout: Incomplete | None = ...,
-        page_mode: Incomplete | None = ...,
-        viewer_preferences: Incomplete | None = ...,
+        lang: str | None = None,
+        page_layout: Incomplete | None = None,
+        page_mode: Incomplete | None = None,
+        viewer_preferences: Incomplete | None = None,
     ) -> None: ...
 
 class PDFResources(PDFObject):
@@ -135,9 +140,9 @@ class PDFXObject(PDFContentStream):
         height,
         color_space,
         bits_per_component,
-        img_filter: str | None = ...,
-        decode: Incomplete | None = ...,
-        decode_parms: Incomplete | None = ...,
+        img_filter: str | None = None,
+        decode: Incomplete | None = None,
+        decode_parms: Incomplete | None = None,
     ) -> None: ...
 
 class PDFPage(PDFObject):

@@ -4,7 +4,9 @@ class Links:
     openapi_types: Incomplete
     attribute_map: Incomplete
     discriminator: Incomplete
-    def __init__(self, next: Incomplete | None = ..., _self: Incomplete | None = ..., prev: Incomplete | None = ...) -> None: ...
+    def __init__(
+        self, next: Incomplete | None = None, _self: Incomplete | None = None, prev: Incomplete | None = None
+    ) -> None: ...
     @property
     def next(self): ...
     @next.setter

@@ -6,10 +6,10 @@ class ScriptCreateRequest:
     discriminator: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        script: Incomplete | None = ...,
-        language: Incomplete | None = ...,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        script: Incomplete | None = None,
+        language: Incomplete | None = None,
     ) -> None: ...
     @property
     def name(self): ...

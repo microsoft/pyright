@@ -10,11 +10,11 @@ class ObjectAnchor(Serialisable):
     z_order: Incomplete
     def __init__(
         self,
-        _from: Incomplete | None = ...,
-        to: Incomplete | None = ...,
-        moveWithCells: bool = ...,
-        sizeWithCells: bool = ...,
-        z_order: Incomplete | None = ...,
+        _from: Incomplete | None = None,
+        to: Incomplete | None = None,
+        moveWithCells: bool = False,
+        sizeWithCells: bool = False,
+        z_order: Incomplete | None = None,
     ) -> None: ...
 
 class ObjectPr(Serialisable):
@@ -33,18 +33,18 @@ class ObjectPr(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        anchor: Incomplete | None = ...,
-        locked: bool = ...,
-        defaultSize: bool = ...,
-        _print: bool = ...,
-        disabled: bool = ...,
-        uiObject: bool = ...,
-        autoFill: bool = ...,
-        autoLine: bool = ...,
-        autoPict: bool = ...,
-        macro: Incomplete | None = ...,
-        altText: Incomplete | None = ...,
-        dde: bool = ...,
+        anchor: Incomplete | None = None,
+        locked: bool = True,
+        defaultSize: bool = True,
+        _print: bool = True,
+        disabled: bool = False,
+        uiObject: bool = False,
+        autoFill: bool = True,
+        autoLine: bool = True,
+        autoPict: bool = True,
+        macro: Incomplete | None = None,
+        altText: Incomplete | None = None,
+        dde: bool = False,
     ) -> None: ...
 
 class OleObject(Serialisable):
@@ -59,17 +59,17 @@ class OleObject(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        objectPr: Incomplete | None = ...,
-        progId: Incomplete | None = ...,
-        dvAspect: str = ...,
-        link: Incomplete | None = ...,
-        oleUpdate: Incomplete | None = ...,
-        autoLoad: bool = ...,
-        shapeId: Incomplete | None = ...,
+        objectPr: Incomplete | None = None,
+        progId: Incomplete | None = None,
+        dvAspect: str = "DVASPECT_CONTENT",
+        link: Incomplete | None = None,
+        oleUpdate: Incomplete | None = None,
+        autoLoad: bool = False,
+        shapeId: Incomplete | None = None,
     ) -> None: ...
 
 class OleObjects(Serialisable):
     tagname: str
     oleObject: Incomplete
     __elements__: Incomplete
-    def __init__(self, oleObject=...) -> None: ...
+    def __init__(self, oleObject=()) -> None: ...

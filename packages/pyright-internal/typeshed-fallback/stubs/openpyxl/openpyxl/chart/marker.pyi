@@ -12,10 +12,10 @@ class Marker(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        symbol: Incomplete | None = ...,
-        size: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        symbol: Incomplete | None = None,
+        size: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class DataPoint(Serialisable):
@@ -32,12 +32,12 @@ class DataPoint(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        idx: Incomplete | None = ...,
-        invertIfNegative: Incomplete | None = ...,
-        marker: Incomplete | None = ...,
-        bubble3D: Incomplete | None = ...,
-        explosion: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        pictureOptions: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        idx: Incomplete | None = None,
+        invertIfNegative: Incomplete | None = None,
+        marker: Incomplete | None = None,
+        bubble3D: Incomplete | None = None,
+        explosion: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        pictureOptions: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...

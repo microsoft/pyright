@@ -6,14 +6,14 @@ class OrganizationLinks:
     discriminator: Incomplete
     def __init__(
         self,
-        _self: Incomplete | None = ...,
-        members: Incomplete | None = ...,
-        owners: Incomplete | None = ...,
-        labels: Incomplete | None = ...,
-        secrets: Incomplete | None = ...,
-        buckets: Incomplete | None = ...,
-        tasks: Incomplete | None = ...,
-        dashboards: Incomplete | None = ...,
+        _self: Incomplete | None = None,
+        members: Incomplete | None = None,
+        owners: Incomplete | None = None,
+        labels: Incomplete | None = None,
+        secrets: Incomplete | None = None,
+        buckets: Incomplete | None = None,
+        tasks: Incomplete | None = None,
+        dashboards: Incomplete | None = None,
     ) -> None: ...
     @property
     def members(self): ...

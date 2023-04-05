@@ -6,11 +6,11 @@ class UserResponse:
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        oauth_id: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        status: str = ...,
-        links: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        oauth_id: Incomplete | None = None,
+        name: Incomplete | None = None,
+        status: str = "active",
+        links: Incomplete | None = None,
     ) -> None: ...
     @property
     def id(self): ...

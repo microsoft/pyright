@@ -6,10 +6,10 @@ class OnboardingResponse:
     discriminator: Incomplete
     def __init__(
         self,
-        user: Incomplete | None = ...,
-        org: Incomplete | None = ...,
-        bucket: Incomplete | None = ...,
-        auth: Incomplete | None = ...,
+        user: Incomplete | None = None,
+        org: Incomplete | None = None,
+        bucket: Incomplete | None = None,
+        auth: Incomplete | None = None,
     ) -> None: ...
     @property
     def user(self): ...

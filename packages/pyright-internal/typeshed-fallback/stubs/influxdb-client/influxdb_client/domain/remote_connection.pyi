@@ -6,13 +6,13 @@ class RemoteConnection:
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        remote_url: Incomplete | None = ...,
-        remote_org_id: Incomplete | None = ...,
-        allow_insecure_tls: bool = ...,
+        id: Incomplete | None = None,
+        name: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        description: Incomplete | None = None,
+        remote_url: Incomplete | None = None,
+        remote_org_id: Incomplete | None = None,
+        allow_insecure_tls: bool = False,
     ) -> None: ...
     @property
     def id(self): ...

@@ -6,13 +6,13 @@ class OnboardingRequest:
     discriminator: Incomplete
     def __init__(
         self,
-        username: Incomplete | None = ...,
-        password: Incomplete | None = ...,
-        org: Incomplete | None = ...,
-        bucket: Incomplete | None = ...,
-        retention_period_seconds: Incomplete | None = ...,
-        retention_period_hrs: Incomplete | None = ...,
-        token: Incomplete | None = ...,
+        username: Incomplete | None = None,
+        password: Incomplete | None = None,
+        org: Incomplete | None = None,
+        bucket: Incomplete | None = None,
+        retention_period_seconds: Incomplete | None = None,
+        retention_period_hrs: Incomplete | None = None,
+        token: Incomplete | None = None,
     ) -> None: ...
     @property
     def username(self): ...

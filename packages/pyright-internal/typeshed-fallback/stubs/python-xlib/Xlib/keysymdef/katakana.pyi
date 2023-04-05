@@ -1,70 +1,72 @@
-XK_overline: int
-XK_kana_fullstop: int
-XK_kana_openingbracket: int
-XK_kana_closingbracket: int
-XK_kana_comma: int
-XK_kana_conjunctive: int
-XK_kana_middledot: int
-XK_kana_WO: int
-XK_kana_a: int
-XK_kana_i: int
-XK_kana_u: int
-XK_kana_e: int
-XK_kana_o: int
-XK_kana_ya: int
-XK_kana_yu: int
-XK_kana_yo: int
-XK_kana_tsu: int
-XK_kana_tu: int
-XK_prolongedsound: int
-XK_kana_A: int
-XK_kana_I: int
-XK_kana_U: int
-XK_kana_E: int
-XK_kana_O: int
-XK_kana_KA: int
-XK_kana_KI: int
-XK_kana_KU: int
-XK_kana_KE: int
-XK_kana_KO: int
-XK_kana_SA: int
-XK_kana_SHI: int
-XK_kana_SU: int
-XK_kana_SE: int
-XK_kana_SO: int
-XK_kana_TA: int
-XK_kana_CHI: int
-XK_kana_TI: int
-XK_kana_TSU: int
-XK_kana_TU: int
-XK_kana_TE: int
-XK_kana_TO: int
-XK_kana_NA: int
-XK_kana_NI: int
-XK_kana_NU: int
-XK_kana_NE: int
-XK_kana_NO: int
-XK_kana_HA: int
-XK_kana_HI: int
-XK_kana_FU: int
-XK_kana_HU: int
-XK_kana_HE: int
-XK_kana_HO: int
-XK_kana_MA: int
-XK_kana_MI: int
-XK_kana_MU: int
-XK_kana_ME: int
-XK_kana_MO: int
-XK_kana_YA: int
-XK_kana_YU: int
-XK_kana_YO: int
-XK_kana_RA: int
-XK_kana_RI: int
-XK_kana_RU: int
-XK_kana_RE: int
-XK_kana_RO: int
-XK_kana_WA: int
-XK_kana_N: int
-XK_voicedsound: int
-XK_semivoicedsound: int
-XK_kana_switch: int
+from typing_extensions import Final
+
+XK_overline: Final = 0x47E
+XK_kana_fullstop: Final = 0x4A1
+XK_kana_openingbracket: Final = 0x4A2
+XK_kana_closingbracket: Final = 0x4A3
+XK_kana_comma: Final = 0x4A4
+XK_kana_conjunctive: Final = 0x4A5
+XK_kana_middledot: Final = 0x4A5
+XK_kana_WO: Final = 0x4A6
+XK_kana_a: Final = 0x4A7
+XK_kana_i: Final = 0x4A8
+XK_kana_u: Final = 0x4A9
+XK_kana_e: Final = 0x4AA
+XK_kana_o: Final = 0x4AB
+XK_kana_ya: Final = 0x4AC
+XK_kana_yu: Final = 0x4AD
+XK_kana_yo: Final = 0x4AE
+XK_kana_tsu: Final = 0x4AF
+XK_kana_tu: Final = 0x4AF
+XK_prolongedsound: Final = 0x4B0
+XK_kana_A: Final = 0x4B1
+XK_kana_I: Final = 0x4B2
+XK_kana_U: Final = 0x4B3
+XK_kana_E: Final = 0x4B4
+XK_kana_O: Final = 0x4B5
+XK_kana_KA: Final = 0x4B6
+XK_kana_KI: Final = 0x4B7
+XK_kana_KU: Final = 0x4B8
+XK_kana_KE: Final = 0x4B9
+XK_kana_KO: Final = 0x4BA
+XK_kana_SA: Final = 0x4BB
+XK_kana_SHI: Final = 0x4BC
+XK_kana_SU: Final = 0x4BD
+XK_kana_SE: Final = 0x4BE
+XK_kana_SO: Final = 0x4BF
+XK_kana_TA: Final = 0x4C0
+XK_kana_CHI: Final = 0x4C1
+XK_kana_TI: Final = 0x4C1
+XK_kana_TSU: Final = 0x4C2
+XK_kana_TU: Final = 0x4C2
+XK_kana_TE: Final = 0x4C3
+XK_kana_TO: Final = 0x4C4
+XK_kana_NA: Final = 0x4C5
+XK_kana_NI: Final = 0x4C6
+XK_kana_NU: Final = 0x4C7
+XK_kana_NE: Final = 0x4C8
+XK_kana_NO: Final = 0x4C9
+XK_kana_HA: Final = 0x4CA
+XK_kana_HI: Final = 0x4CB
+XK_kana_FU: Final = 0x4CC
+XK_kana_HU: Final = 0x4CC
+XK_kana_HE: Final = 0x4CD
+XK_kana_HO: Final = 0x4CE
+XK_kana_MA: Final = 0x4CF
+XK_kana_MI: Final = 0x4D0
+XK_kana_MU: Final = 0x4D1
+XK_kana_ME: Final = 0x4D2
+XK_kana_MO: Final = 0x4D3
+XK_kana_YA: Final = 0x4D4
+XK_kana_YU: Final = 0x4D5
+XK_kana_YO: Final = 0x4D6
+XK_kana_RA: Final = 0x4D7
+XK_kana_RI: Final = 0x4D8
+XK_kana_RU: Final = 0x4D9
+XK_kana_RE: Final = 0x4DA
+XK_kana_RO: Final = 0x4DB
+XK_kana_WA: Final = 0x4DC
+XK_kana_N: Final = 0x4DD
+XK_voicedsound: Final = 0x4DE
+XK_semivoicedsound: Final = 0x4DF
+XK_kana_switch: Final = 0xFF7E

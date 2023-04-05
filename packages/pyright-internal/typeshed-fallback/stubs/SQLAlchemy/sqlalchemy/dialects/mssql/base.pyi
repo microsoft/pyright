@@ -47,7 +47,7 @@ class _MSDate(sqltypes.Date):
 
 class TIME(sqltypes.TIME):
     precision: Any
-    def __init__(self, precision: Incomplete | None = ..., **kwargs) -> None: ...
+    def __init__(self, precision: Incomplete | None = None, **kwargs) -> None: ...
     def bind_processor(self, dialect): ...
     def result_processor(self, dialect, coltype): ...
 
@@ -67,12 +67,12 @@ class SMALLDATETIME(_DateTimeBase, sqltypes.DateTime):
 class DATETIME2(_DateTimeBase, sqltypes.DateTime):
     __visit_name__: str
     precision: Any
-    def __init__(self, precision: Incomplete | None = ..., **kw) -> None: ...
+    def __init__(self, precision: Incomplete | None = None, **kw) -> None: ...
 
 class DATETIMEOFFSET(_DateTimeBase, sqltypes.DateTime):
     __visit_name__: str
     precision: Any
-    def __init__(self, precision: Incomplete | None = ..., **kw) -> None: ...
+    def __init__(self, precision: Incomplete | None = None, **kw) -> None: ...
 
 class _UnicodeLiteral:
     def literal_processor(self, dialect): ...
@@ -84,7 +84,7 @@ class TIMESTAMP(sqltypes._Binary):
     __visit_name__: str
     length: Any
     convert_int: Any
-    def __init__(self, convert_int: bool = ...) -> None: ...
+    def __init__(self, convert_int: bool = False) -> None: ...
     def result_processor(self, dialect, coltype): ...
 
 class ROWVERSION(TIMESTAMP):
@@ -101,7 +101,7 @@ class VARBINARY(sqltypes.VARBINARY, sqltypes.LargeBinary):
     @overload
     def __init__(self, *, filestream: Literal[True]) -> None: ...
     @overload
-    def __init__(self, length: Incomplete | None = ..., filestream: Literal[False] = ...) -> None: ...
+    def __init__(self, length: Incomplete | None = None, filestream: Literal[False] = False) -> None: ...
 
 class IMAGE(sqltypes.LargeBinary):
     __visit_name__: str
@@ -251,7 +251,7 @@ class MSSQLStrictCompiler(MSSQLCompiler):
 
 class MSDDLCompiler(compiler.DDLCompiler):
     def get_column_specification(self, column, **kwargs): ...
-    def visit_create_index(self, create, include_schema: bool = ...): ...  # type: ignore[override]
+    def visit_create_index(self, create, include_schema: bool = False): ...  # type: ignore[override]
     def visit_drop_index(self, drop): ...
     def visit_primary_key_constraint(self, constraint): ...
     def visit_unique_constraint(self, constraint): ...
@@ -262,7 +262,7 @@ class MSDDLCompiler(compiler.DDLCompiler):
 class MSIdentifierPreparer(compiler.IdentifierPreparer):
     reserved_words: Any
     def __init__(self, dialect) -> None: ...
-    def quote_schema(self, schema, force: Incomplete | None = ...): ...
+    def quote_schema(self, schema, force: Incomplete | None = None): ...
 
 class MSDialect(default.DefaultDialect):
     name: str
@@ -296,15 +296,15 @@ class MSDialect(default.DefaultDialect):
     isolation_level: Any
     def __init__(
         self,
-        query_timeout: Incomplete | None = ...,
-        use_scope_identity: bool = ...,
-        schema_name: str = ...,
-        isolation_level: Incomplete | None = ...,
-        deprecate_large_types: Incomplete | None = ...,
-        json_serializer: Incomplete | None = ...,
-        json_deserializer: Incomplete | None = ...,
-        legacy_schema_aliasing: Incomplete | None = ...,
-        ignore_no_transaction_on_rollback: bool = ...,
+        query_timeout: Incomplete | None = None,
+        use_scope_identity: bool = True,
+        schema_name: str = "dbo",
+        isolation_level: Incomplete | None = None,
+        deprecate_large_types: Incomplete | None = None,
+        json_serializer: Incomplete | None = None,
+        json_deserializer: Incomplete | None = None,
+        legacy_schema_aliasing: Incomplete | None = None,
+        ignore_no_transaction_on_rollback: bool = False,
         **opts,
     ) -> None: ...
     def do_savepoint(self, connection, name) -> None: ...

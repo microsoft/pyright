@@ -8,18 +8,18 @@ class Authorization(AuthorizationUpdateRequest):
     discriminator: Incomplete
     def __init__(
         self,
-        created_at: Incomplete | None = ...,
-        updated_at: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        permissions: Incomplete | None = ...,
-        id: Incomplete | None = ...,
-        token: Incomplete | None = ...,
-        user_id: Incomplete | None = ...,
-        user: Incomplete | None = ...,
-        org: Incomplete | None = ...,
-        links: Incomplete | None = ...,
-        status: str = ...,
-        description: Incomplete | None = ...,
+        created_at: Incomplete | None = None,
+        updated_at: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        permissions: Incomplete | None = None,
+        id: Incomplete | None = None,
+        token: Incomplete | None = None,
+        user_id: Incomplete | None = None,
+        user: Incomplete | None = None,
+        org: Incomplete | None = None,
+        links: Incomplete | None = None,
+        status: str = "active",
+        description: Incomplete | None = None,
     ) -> None: ...
     @property
     def created_at(self): ...

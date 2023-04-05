@@ -10,10 +10,10 @@ class GroupShapeProperties(Serialisable):
     extLst: Incomplete
     def __init__(
         self,
-        bwMode: Incomplete | None = ...,
-        xfrm: Incomplete | None = ...,
-        scene3d: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        bwMode: Incomplete | None = None,
+        xfrm: Incomplete | None = None,
+        scene3d: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class GroupLocking(Serialisable):
@@ -34,18 +34,18 @@ class GroupLocking(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        noGrp: Incomplete | None = ...,
-        noUngrp: Incomplete | None = ...,
-        noSelect: Incomplete | None = ...,
-        noRot: Incomplete | None = ...,
-        noChangeAspect: Incomplete | None = ...,
-        noChangeArrowheads: Incomplete | None = ...,
-        noMove: Incomplete | None = ...,
-        noResize: Incomplete | None = ...,
-        noEditPoints: Incomplete | None = ...,
-        noAdjustHandles: Incomplete | None = ...,
-        noChangeShapeType: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        noGrp: Incomplete | None = None,
+        noUngrp: Incomplete | None = None,
+        noSelect: Incomplete | None = None,
+        noRot: Incomplete | None = None,
+        noChangeAspect: Incomplete | None = None,
+        noChangeArrowheads: Incomplete | None = None,
+        noMove: Incomplete | None = None,
+        noResize: Incomplete | None = None,
+        noEditPoints: Incomplete | None = None,
+        noAdjustHandles: Incomplete | None = None,
+        noChangeShapeType: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class NonVisualGroupDrawingShapeProps(Serialisable):
@@ -53,7 +53,7 @@ class NonVisualGroupDrawingShapeProps(Serialisable):
     grpSpLocks: Incomplete
     extLst: Incomplete
     __elements__: Incomplete
-    def __init__(self, grpSpLocks: Incomplete | None = ..., extLst: Incomplete | None = ...) -> None: ...
+    def __init__(self, grpSpLocks: Incomplete | None = None, extLst: Incomplete | None = None) -> None: ...
 
 class NonVisualDrawingShapeProps(Serialisable):
     tagname: str
@@ -63,7 +63,7 @@ class NonVisualDrawingShapeProps(Serialisable):
     __elements__: Incomplete
     txBox: Incomplete
     def __init__(
-        self, spLocks: Incomplete | None = ..., txBox: Incomplete | None = ..., extLst: Incomplete | None = ...
+        self, spLocks: Incomplete | None = None, txBox: Incomplete | None = None, extLst: Incomplete | None = None
     ) -> None: ...
 
 class NonVisualDrawingProps(Serialisable):
@@ -79,14 +79,14 @@ class NonVisualDrawingProps(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        descr: Incomplete | None = ...,
-        hidden: Incomplete | None = ...,
-        title: Incomplete | None = ...,
-        hlinkClick: Incomplete | None = ...,
-        hlinkHover: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        name: Incomplete | None = None,
+        descr: Incomplete | None = None,
+        hidden: Incomplete | None = None,
+        title: Incomplete | None = None,
+        hlinkClick: Incomplete | None = None,
+        hlinkHover: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class NonVisualGroupShape(Serialisable):
@@ -94,4 +94,4 @@ class NonVisualGroupShape(Serialisable):
     cNvPr: Incomplete
     cNvGrpSpPr: Incomplete
     __elements__: Incomplete
-    def __init__(self, cNvPr: Incomplete | None = ..., cNvGrpSpPr: Incomplete | None = ...) -> None: ...
+    def __init__(self, cNvPr: Incomplete | None = None, cNvGrpSpPr: Incomplete | None = None) -> None: ...

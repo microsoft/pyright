@@ -9,7 +9,9 @@ class ParseError(JMESPathError):
     token_type: str
     msg: str
     expression: str | None
-    def __init__(self, lex_position: int, token_value: str, token_type: str, msg: str = ...) -> None: ...
+    def __init__(
+        self, lex_position: int, token_value: str, token_type: str, msg: str = "Invalid jmespath expression"
+    ) -> None: ...
 
 class IncompleteExpressionError(ParseError):
     # When ParseError is used directly, the token always have a non-null value and type
@@ -22,7 +24,7 @@ class LexerError(ParseError):
     lexer_position: int
     lexer_value: str
     message: str
-    def __init__(self, lexer_position: int, lexer_value: str, message: str, expression: str | None = ...) -> None: ...
+    def __init__(self, lexer_position: int, lexer_value: str, message: str, expression: str | None = None) -> None: ...
 
 class ArityError(ParseError):
     expected_arity: int

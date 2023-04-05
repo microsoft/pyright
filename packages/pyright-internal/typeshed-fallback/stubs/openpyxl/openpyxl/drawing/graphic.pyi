@@ -12,40 +12,40 @@ class GraphicFrameLocking(Serialisable):
     extLst: Incomplete
     def __init__(
         self,
-        noGrp: Incomplete | None = ...,
-        noDrilldown: Incomplete | None = ...,
-        noSelect: Incomplete | None = ...,
-        noChangeAspect: Incomplete | None = ...,
-        noMove: Incomplete | None = ...,
-        noResize: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        noGrp: Incomplete | None = None,
+        noDrilldown: Incomplete | None = None,
+        noSelect: Incomplete | None = None,
+        noChangeAspect: Incomplete | None = None,
+        noMove: Incomplete | None = None,
+        noResize: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class NonVisualGraphicFrameProperties(Serialisable):
     tagname: str
     graphicFrameLocks: Incomplete
     extLst: Incomplete
-    def __init__(self, graphicFrameLocks: Incomplete | None = ..., extLst: Incomplete | None = ...) -> None: ...
+    def __init__(self, graphicFrameLocks: Incomplete | None = None, extLst: Incomplete | None = None) -> None: ...
 
 class NonVisualGraphicFrame(Serialisable):
     tagname: str
     cNvPr: Incomplete
     cNvGraphicFramePr: Incomplete
     __elements__: Incomplete
-    def __init__(self, cNvPr: Incomplete | None = ..., cNvGraphicFramePr: Incomplete | None = ...) -> None: ...
+    def __init__(self, cNvPr: Incomplete | None = None, cNvGraphicFramePr: Incomplete | None = None) -> None: ...
 
 class GraphicData(Serialisable):
     tagname: str
     namespace: Incomplete
     uri: Incomplete
     chart: Incomplete
-    def __init__(self, uri=..., chart: Incomplete | None = ...) -> None: ...
+    def __init__(self, uri: str = ..., chart: Incomplete | None = None) -> None: ...
 
 class GraphicObject(Serialisable):
     tagname: str
     namespace: Incomplete
     graphicData: Incomplete
-    def __init__(self, graphicData: Incomplete | None = ...) -> None: ...
+    def __init__(self, graphicData: Incomplete | None = None) -> None: ...
 
 class GraphicFrame(Serialisable):
     tagname: str
@@ -57,11 +57,11 @@ class GraphicFrame(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        nvGraphicFramePr: Incomplete | None = ...,
-        xfrm: Incomplete | None = ...,
-        graphic: Incomplete | None = ...,
-        macro: Incomplete | None = ...,
-        fPublished: Incomplete | None = ...,
+        nvGraphicFramePr: Incomplete | None = None,
+        xfrm: Incomplete | None = None,
+        graphic: Incomplete | None = None,
+        macro: Incomplete | None = None,
+        fPublished: Incomplete | None = None,
     ) -> None: ...
 
 class GroupShape(Serialisable):
@@ -72,5 +72,5 @@ class GroupShape(Serialisable):
     pic: Incomplete
     __elements__: Incomplete
     def __init__(
-        self, nvGrpSpPr: Incomplete | None = ..., grpSpPr: Incomplete | None = ..., pic: Incomplete | None = ...
+        self, nvGrpSpPr: Incomplete | None = None, grpSpPr: Incomplete | None = None, pic: Incomplete | None = None
     ) -> None: ...

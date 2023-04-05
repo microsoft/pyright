@@ -59,7 +59,7 @@ class tqdm_telegram(Generic[_T], tqdm_auto[_T]):
     @overload
     def __init__(
         self: tqdm_telegram[NoReturn],
-        iterable: None = ...,
+        iterable: None = None,
         desc: str | None = ...,
         total: float | None = ...,
         leave: bool | None = ...,

@@ -2,7 +2,7 @@ from typing import Any
 
 from .._distutils.command import sdist as orig
 
-def walk_revctrl(dirname: str = ...) -> None: ...
+def walk_revctrl(dirname: str = "") -> None: ...
 
 class sdist(orig.sdist):
     user_options: Any

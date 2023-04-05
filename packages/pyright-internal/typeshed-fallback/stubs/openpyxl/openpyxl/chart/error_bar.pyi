@@ -20,13 +20,13 @@ class ErrorBars(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        errDir: Incomplete | None = ...,
-        errBarType: str = ...,
-        errValType: str = ...,
-        noEndCap: Incomplete | None = ...,
-        plus: Incomplete | None = ...,
-        minus: Incomplete | None = ...,
-        val: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        errDir: Incomplete | None = None,
+        errBarType: str = "both",
+        errValType: str = "fixedVal",
+        noEndCap: Incomplete | None = None,
+        plus: Incomplete | None = None,
+        minus: Incomplete | None = None,
+        val: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...

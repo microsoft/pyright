@@ -6,20 +6,20 @@ class ErrorObject(StripeObject):
     def refresh_from(
         self,
         values,
-        api_key: Incomplete | None = ...,
-        partial: bool = ...,
-        stripe_version: Incomplete | None = ...,
-        stripe_account: Incomplete | None = ...,
-        last_response: Incomplete | None = ...,
+        api_key: Incomplete | None = None,
+        partial: bool = False,
+        stripe_version: Incomplete | None = None,
+        stripe_account: Incomplete | None = None,
+        last_response: Incomplete | None = None,
     ): ...
 
 class OAuthErrorObject(StripeObject):
     def refresh_from(
         self,
         values,
-        api_key: Incomplete | None = ...,
-        partial: bool = ...,
-        stripe_version: Incomplete | None = ...,
-        stripe_account: Incomplete | None = ...,
-        last_response: Incomplete | None = ...,
+        api_key: Incomplete | None = None,
+        partial: bool = False,
+        stripe_version: Incomplete | None = None,
+        stripe_account: Incomplete | None = None,
+        last_response: Incomplete | None = None,
     ): ...

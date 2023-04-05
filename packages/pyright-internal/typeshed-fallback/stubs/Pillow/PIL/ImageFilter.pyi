@@ -18,7 +18,7 @@ class BuiltinFilter(MultibandFilter):
 class Kernel(BuiltinFilter):
     name: str
     filterargs: _FilterArgs
-    def __init__(self, size: Sequence[int], kernel: Sequence[int], scale: Incomplete | None = ..., offset: int = ...) -> None: ...
+    def __init__(self, size: Sequence[int], kernel: Sequence[int], scale: Incomplete | None = None, offset: int = 0) -> None: ...
 
 class RankFilter(Filter):
     name: str
@@ -31,30 +31,30 @@ class MedianFilter(RankFilter):
     name: str
     size: int
     rank: int
-    def __init__(self, size: int = ...) -> None: ...
+    def __init__(self, size: int = 3) -> None: ...
 
 class MinFilter(RankFilter):
     name: str
     size: int
     rank: int
-    def __init__(self, size: int = ...) -> None: ...
+    def __init__(self, size: int = 3) -> None: ...
 
 class MaxFilter(RankFilter):
     name: str
     size: int
     rank: int
-    def __init__(self, size: int = ...) -> None: ...
+    def __init__(self, size: int = 3) -> None: ...
 
 class ModeFilter(Filter):
     name: str
     size: int
-    def __init__(self, size: int = ...) -> None: ...
+    def __init__(self, size: int = 3) -> None: ...
     def filter(self, image) -> Image: ...
 
 class GaussianBlur(MultibandFilter):
     name: str
     radius: float
-    def __init__(self, radius: float = ...) -> None: ...
+    def __init__(self, radius: float = 2) -> None: ...
     def filter(self, image) -> Image: ...
 
 class BoxBlur(MultibandFilter):
@@ -68,7 +68,7 @@ class UnsharpMask(MultibandFilter):
     radius: float
     percent: int
     threshold: int
-    def __init__(self, radius: float = ..., percent: int = ..., threshold: int = ...) -> None: ...
+    def __init__(self, radius: float = 2, percent: int = 150, threshold: int = 3) -> None: ...
     def filter(self, image) -> Image: ...
 
 class BLUR(BuiltinFilter):
@@ -117,22 +117,20 @@ class Color3DLUT(MultibandFilter):
     channels: int
     mode: str | None
     table: Any
-    def __init__(
-        self, size: int | Iterable[int], table, channels: int = ..., target_mode: str | None = ..., **kwargs
-    ) -> None: ...
+    def __init__(self, size: int | Iterable[int], table, channels: int = 3, target_mode: str | None = None, **kwargs) -> None: ...
     @classmethod
     def generate(
         cls,
         size: int | tuple[int, int, int],
         callback: Callable[[float, float, float], Iterable[float]],
-        channels: int = ...,
-        target_mode: str | None = ...,
+        channels: int = 3,
+        target_mode: str | None = None,
     ) -> Self: ...
     def transform(
         self,
         callback: Callable[..., Iterable[float]],
-        with_normals: bool = ...,
-        channels: Literal[3, 4] | None = ...,
-        target_mode: Incomplete | None = ...,
+        with_normals: bool = False,
+        channels: Literal[3, 4] | None = None,
+        target_mode: Incomplete | None = None,
     ) -> Self: ...
     def filter(self, image) -> Image: ...

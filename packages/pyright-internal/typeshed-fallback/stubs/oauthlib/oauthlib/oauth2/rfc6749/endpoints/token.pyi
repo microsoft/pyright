@@ -19,11 +19,11 @@ class TokenEndpoint(BaseEndpoint):
     def create_token_response(
         self,
         uri,
-        http_method: str = ...,
-        body: Incomplete | None = ...,
-        headers: Incomplete | None = ...,
-        credentials: Incomplete | None = ...,
-        grant_type_for_scope: Incomplete | None = ...,
-        claims: Incomplete | None = ...,
+        http_method: str = "POST",
+        body: Incomplete | None = None,
+        headers: Incomplete | None = None,
+        credentials: Incomplete | None = None,
+        grant_type_for_scope: Incomplete | None = None,
+        claims: Incomplete | None = None,
     ): ...
     def validate_token_request(self, request) -> None: ...

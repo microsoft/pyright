@@ -15,10 +15,10 @@ class AppWallet:
     default_tag: Any
     def __init__(
         self,
-        secrets: Incomplete | None = ...,
-        default_tag: Incomplete | None = ...,
-        encrypt_cost: Incomplete | None = ...,
-        secrets_path: Incomplete | None = ...,
+        secrets: Incomplete | None = None,
+        default_tag: Incomplete | None = None,
+        encrypt_cost: Incomplete | None = None,
+        secrets_path: Incomplete | None = None,
     ) -> None: ...
     @property
     def has_secrets(self): ...
@@ -40,28 +40,28 @@ class TOTP:
     @classmethod
     def using(
         cls,
-        digits: Incomplete | None = ...,
-        alg: Incomplete | None = ...,
-        period: Incomplete | None = ...,
-        issuer: Incomplete | None = ...,
-        wallet: Incomplete | None = ...,
-        now: Incomplete | None = ...,
+        digits: Incomplete | None = None,
+        alg: Incomplete | None = None,
+        period: Incomplete | None = None,
+        issuer: Incomplete | None = None,
+        wallet: Incomplete | None = None,
+        now: Incomplete | None = None,
         **kwds,
     ): ...
     @classmethod
     def new(cls, **kwds): ...
     def __init__(
         self,
-        key: Incomplete | None = ...,
-        format: str = ...,
-        new: bool = ...,
-        digits: Incomplete | None = ...,
-        alg: Incomplete | None = ...,
-        size: Incomplete | None = ...,
-        period: Incomplete | None = ...,
-        label: Incomplete | None = ...,
-        issuer: Incomplete | None = ...,
-        changed: bool = ...,
+        key: Incomplete | None = None,
+        format: str = "base32",
+        new: bool = False,
+        digits: Incomplete | None = None,
+        alg: Incomplete | None = None,
+        size: Incomplete | None = None,
+        period: Incomplete | None = None,
+        label: Incomplete | None = None,
+        issuer: Incomplete | None = None,
+        changed: bool = False,
         **kwds,
     ) -> None: ...
     @property
@@ -76,27 +76,27 @@ class TOTP:
     def hex_key(self): ...
     @property
     def base32_key(self): ...
-    def pretty_key(self, format: str = ..., sep: str = ...): ...
+    def pretty_key(self, format: str = "base32", sep: str = "-"): ...
     @classmethod
     def normalize_time(cls, time): ...
     def normalize_token(self_or_cls, token): ...
-    def generate(self, time: Incomplete | None = ...): ...
+    def generate(self, time: Incomplete | None = None): ...
     @classmethod
     def verify(cls, token, source, **kwds): ...
     def match(
-        self, token, time: Incomplete | None = ..., window: int = ..., skew: int = ..., last_counter: Incomplete | None = ...
+        self, token, time: Incomplete | None = None, window: int = 30, skew: int = 0, last_counter: Incomplete | None = None
     ): ...
     @classmethod
     def from_source(cls, source): ...
     @classmethod
     def from_uri(cls, uri): ...
-    def to_uri(self, label: Incomplete | None = ..., issuer: Incomplete | None = ...): ...
+    def to_uri(self, label: Incomplete | None = None, issuer: Incomplete | None = None): ...
     @classmethod
     def from_json(cls, source): ...
-    def to_json(self, encrypt: Incomplete | None = ...): ...
+    def to_json(self, encrypt: Incomplete | None = None): ...
     @classmethod
     def from_dict(cls, source): ...
-    def to_dict(self, encrypt: Incomplete | None = ...): ...
+    def to_dict(self, encrypt: Incomplete | None = None): ...
 
 class TotpToken(SequenceMixin):
     totp: Any
@@ -117,7 +117,7 @@ class TotpMatch(SequenceMixin):
     counter: int
     time: int
     window: int
-    def __init__(self, totp, counter, time, window: int = ...) -> None: ...
+    def __init__(self, totp, counter, time, window: int = 30) -> None: ...
     @property
     def expected_counter(self): ...
     @property

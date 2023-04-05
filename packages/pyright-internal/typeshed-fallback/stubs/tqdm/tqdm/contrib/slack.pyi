@@ -54,7 +54,7 @@ class tqdm_slack(Generic[_T], tqdm_auto[_T]):
     @overload
     def __init__(
         self: tqdm_slack[NoReturn],
-        iterable: None = ...,
+        iterable: None = None,
         desc: str | None = ...,
         total: float | None = ...,
         leave: bool | None = ...,

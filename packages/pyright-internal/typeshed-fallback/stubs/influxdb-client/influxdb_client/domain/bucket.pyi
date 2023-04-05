@@ -6,18 +6,18 @@ class Bucket:
     discriminator: Incomplete
     def __init__(
         self,
-        links: Incomplete | None = ...,
-        id: Incomplete | None = ...,
-        type: str = ...,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        rp: Incomplete | None = ...,
-        schema_type: Incomplete | None = ...,
-        created_at: Incomplete | None = ...,
-        updated_at: Incomplete | None = ...,
-        retention_rules: Incomplete | None = ...,
-        labels: Incomplete | None = ...,
+        links: Incomplete | None = None,
+        id: Incomplete | None = None,
+        type: str = "user",
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        rp: Incomplete | None = None,
+        schema_type: Incomplete | None = None,
+        created_at: Incomplete | None = None,
+        updated_at: Incomplete | None = None,
+        retention_rules: Incomplete | None = None,
+        labels: Incomplete | None = None,
     ) -> None: ...
     @property
     def links(self): ...

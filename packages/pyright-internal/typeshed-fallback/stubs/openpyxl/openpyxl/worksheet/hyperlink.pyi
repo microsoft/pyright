@@ -13,18 +13,18 @@ class Hyperlink(Serialisable):
     __attrs__: Incomplete
     def __init__(
         self,
-        ref: Incomplete | None = ...,
-        location: Incomplete | None = ...,
-        tooltip: Incomplete | None = ...,
-        display: Incomplete | None = ...,
-        id: Incomplete | None = ...,
-        target: Incomplete | None = ...,
+        ref: Incomplete | None = None,
+        location: Incomplete | None = None,
+        tooltip: Incomplete | None = None,
+        display: Incomplete | None = None,
+        id: Incomplete | None = None,
+        target: Incomplete | None = None,
     ) -> None: ...
 
 class HyperlinkList(Serialisable):
     tagname: str
     hyperlink: Incomplete
-    def __init__(self, hyperlink=...) -> None: ...
+    def __init__(self, hyperlink=()) -> None: ...
     def __bool__(self) -> bool: ...
     def __len__(self) -> int: ...
     def append(self, value) -> None: ...

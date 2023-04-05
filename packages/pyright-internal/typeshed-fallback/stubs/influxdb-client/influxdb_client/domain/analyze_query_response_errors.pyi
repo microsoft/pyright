@@ -6,10 +6,10 @@ class AnalyzeQueryResponseErrors:
     discriminator: Incomplete
     def __init__(
         self,
-        line: Incomplete | None = ...,
-        column: Incomplete | None = ...,
-        character: Incomplete | None = ...,
-        message: Incomplete | None = ...,
+        line: Incomplete | None = None,
+        column: Incomplete | None = None,
+        character: Incomplete | None = None,
+        message: Incomplete | None = None,
     ) -> None: ...
     @property
     def line(self): ...

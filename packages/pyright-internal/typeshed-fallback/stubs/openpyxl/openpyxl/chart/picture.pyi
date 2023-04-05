@@ -12,9 +12,9 @@ class PictureOptions(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        applyToFront: Incomplete | None = ...,
-        applyToSides: Incomplete | None = ...,
-        applyToEnd: Incomplete | None = ...,
-        pictureFormat: Incomplete | None = ...,
-        pictureStackUnit: Incomplete | None = ...,
+        applyToFront: Incomplete | None = None,
+        applyToSides: Incomplete | None = None,
+        applyToEnd: Incomplete | None = None,
+        pictureFormat: Incomplete | None = None,
+        pictureStackUnit: Incomplete | None = None,
     ) -> None: ...

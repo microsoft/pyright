@@ -6,13 +6,13 @@ class TemplateSummaryLabel:
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        kind: Incomplete | None = ...,
-        template_meta_name: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        properties: Incomplete | None = ...,
-        env_references: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        kind: Incomplete | None = None,
+        template_meta_name: Incomplete | None = None,
+        name: Incomplete | None = None,
+        properties: Incomplete | None = None,
+        env_references: Incomplete | None = None,
     ) -> None: ...
     @property
     def id(self): ...

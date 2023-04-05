@@ -22,6 +22,6 @@ class MSDialect_mxodbc(MxODBCConnector, MSDialect):
     supports_statement_cache: bool
     colspecs: Any
     description_encoding: Any
-    def __init__(self, description_encoding: Incomplete | None = ..., **params) -> None: ...
+    def __init__(self, description_encoding: Incomplete | None = None, **params) -> None: ...
 
 dialect = MSDialect_mxodbc

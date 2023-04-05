@@ -8,19 +8,19 @@ class PagerDutyNotificationEndpoint(NotificationEndpointDiscriminator):
     discriminator: Incomplete
     def __init__(
         self,
-        client_url: Incomplete | None = ...,
-        routing_key: Incomplete | None = ...,
-        id: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        user_id: Incomplete | None = ...,
-        created_at: Incomplete | None = ...,
-        updated_at: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        status: str = ...,
-        labels: Incomplete | None = ...,
-        links: Incomplete | None = ...,
-        type: str = ...,
+        client_url: Incomplete | None = None,
+        routing_key: Incomplete | None = None,
+        id: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        user_id: Incomplete | None = None,
+        created_at: Incomplete | None = None,
+        updated_at: Incomplete | None = None,
+        description: Incomplete | None = None,
+        name: Incomplete | None = None,
+        status: str = "active",
+        labels: Incomplete | None = None,
+        links: Incomplete | None = None,
+        type: str = "pagerduty",
     ) -> None: ...
     @property
     def client_url(self): ...

@@ -21,7 +21,7 @@ class ExceptionHandlingThread(threading.Thread):
     def __init__(
         self,
         *,
-        group: None = ...,
+        group: None = None,
         target: Callable[..., object] | None = ...,
         name: str | None = ...,
         args: Iterable[Any] = ...,

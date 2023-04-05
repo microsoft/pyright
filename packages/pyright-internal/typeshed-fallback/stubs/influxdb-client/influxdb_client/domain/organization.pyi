@@ -6,13 +6,13 @@ class Organization:
     discriminator: Incomplete
     def __init__(
         self,
-        links: Incomplete | None = ...,
-        id: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        created_at: Incomplete | None = ...,
-        updated_at: Incomplete | None = ...,
-        status: str = ...,
+        links: Incomplete | None = None,
+        id: Incomplete | None = None,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        created_at: Incomplete | None = None,
+        updated_at: Incomplete | None = None,
+        status: str = "active",
     ) -> None: ...
     @property
     def links(self): ...

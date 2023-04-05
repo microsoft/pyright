@@ -6,10 +6,10 @@ class NotificationEndpointBaseLinks:
     discriminator: Incomplete
     def __init__(
         self,
-        _self: Incomplete | None = ...,
-        labels: Incomplete | None = ...,
-        members: Incomplete | None = ...,
-        owners: Incomplete | None = ...,
+        _self: Incomplete | None = None,
+        labels: Incomplete | None = None,
+        members: Incomplete | None = None,
+        owners: Incomplete | None = None,
     ) -> None: ...
     @property
     def labels(self): ...

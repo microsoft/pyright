@@ -7,12 +7,12 @@ class AuthorizationEndpoint(BaseEndpoint):
     def create_authorization_response(
         self,
         uri,
-        http_method: str = ...,
-        body: Incomplete | None = ...,
-        headers: Incomplete | None = ...,
-        realms: Incomplete | None = ...,
-        credentials: Incomplete | None = ...,
+        http_method: str = "GET",
+        body: Incomplete | None = None,
+        headers: Incomplete | None = None,
+        realms: Incomplete | None = None,
+        credentials: Incomplete | None = None,
     ): ...
     def get_realms_and_credentials(
-        self, uri, http_method: str = ..., body: Incomplete | None = ..., headers: Incomplete | None = ...
+        self, uri, http_method: str = "GET", body: Incomplete | None = None, headers: Incomplete | None = None
     ): ...

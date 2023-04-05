@@ -16,10 +16,10 @@ class RadarChart(ChartBase):
     __elements__: Incomplete
     def __init__(
         self,
-        radarStyle: str = ...,
-        varyColors: Incomplete | None = ...,
-        ser=...,
-        dLbls: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        radarStyle: str = "standard",
+        varyColors: Incomplete | None = None,
+        ser=(),
+        dLbls: Incomplete | None = None,
+        extLst: Incomplete | None = None,
         **kw,
     ) -> None: ...

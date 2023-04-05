@@ -4,7 +4,9 @@ class ModelProperty:
     openapi_types: Incomplete
     attribute_map: Incomplete
     discriminator: Incomplete
-    def __init__(self, type: Incomplete | None = ..., key: Incomplete | None = ..., value: Incomplete | None = ...) -> None: ...
+    def __init__(
+        self, type: Incomplete | None = None, key: Incomplete | None = None, value: Incomplete | None = None
+    ) -> None: ...
     @property
     def type(self): ...
     @type.setter

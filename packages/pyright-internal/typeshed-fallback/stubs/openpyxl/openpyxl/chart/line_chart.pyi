@@ -13,11 +13,11 @@ class _LineChartBase(ChartBase):
     __elements__: Incomplete
     def __init__(
         self,
-        grouping: str = ...,
-        varyColors: Incomplete | None = ...,
-        ser=...,
-        dLbls: Incomplete | None = ...,
-        dropLines: Incomplete | None = ...,
+        grouping: str = "standard",
+        varyColors: Incomplete | None = None,
+        ser=(),
+        dLbls: Incomplete | None = None,
+        dropLines: Incomplete | None = None,
         **kw,
     ) -> None: ...
     @property
@@ -41,11 +41,11 @@ class LineChart(_LineChartBase):
     __elements__: Incomplete
     def __init__(
         self,
-        hiLowLines: Incomplete | None = ...,
-        upDownBars: Incomplete | None = ...,
-        marker: Incomplete | None = ...,
-        smooth: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        hiLowLines: Incomplete | None = None,
+        upDownBars: Incomplete | None = None,
+        marker: Incomplete | None = None,
+        smooth: Incomplete | None = None,
+        extLst: Incomplete | None = None,
         **kw,
     ) -> None: ...
 
@@ -68,10 +68,10 @@ class LineChart3D(_LineChartBase):
     __elements__: Incomplete
     def __init__(
         self,
-        gapDepth: Incomplete | None = ...,
-        hiLowLines: Incomplete | None = ...,
-        upDownBars: Incomplete | None = ...,
-        marker: Incomplete | None = ...,
-        smooth: Incomplete | None = ...,
+        gapDepth: Incomplete | None = None,
+        hiLowLines: Incomplete | None = None,
+        upDownBars: Incomplete | None = None,
+        marker: Incomplete | None = None,
+        smooth: Incomplete | None = None,
         **kw,
     ) -> None: ...

@@ -3,7 +3,7 @@ from _typeshed import Incomplete
 from openpyxl.descriptors.serialisable import Serialisable
 
 class _Protected:
-    def set_password(self, value: str = ..., already_hashed: bool = ...) -> None: ...
+    def set_password(self, value: str = "", already_hashed: bool = False) -> None: ...
     @property
     def password(self): ...
     @password.setter
@@ -36,29 +36,29 @@ class SheetProtection(Serialisable, _Protected):
     password: Incomplete
     def __init__(
         self,
-        sheet: bool = ...,
-        objects: bool = ...,
-        scenarios: bool = ...,
-        formatCells: bool = ...,
-        formatRows: bool = ...,
-        formatColumns: bool = ...,
-        insertColumns: bool = ...,
-        insertRows: bool = ...,
-        insertHyperlinks: bool = ...,
-        deleteColumns: bool = ...,
-        deleteRows: bool = ...,
-        selectLockedCells: bool = ...,
-        selectUnlockedCells: bool = ...,
-        sort: bool = ...,
-        autoFilter: bool = ...,
-        pivotTables: bool = ...,
-        password: Incomplete | None = ...,
-        algorithmName: Incomplete | None = ...,
-        saltValue: Incomplete | None = ...,
-        spinCount: Incomplete | None = ...,
-        hashValue: Incomplete | None = ...,
+        sheet: bool = False,
+        objects: bool = False,
+        scenarios: bool = False,
+        formatCells: bool = True,
+        formatRows: bool = True,
+        formatColumns: bool = True,
+        insertColumns: bool = True,
+        insertRows: bool = True,
+        insertHyperlinks: bool = True,
+        deleteColumns: bool = True,
+        deleteRows: bool = True,
+        selectLockedCells: bool = False,
+        selectUnlockedCells: bool = False,
+        sort: bool = True,
+        autoFilter: bool = True,
+        pivotTables: bool = True,
+        password: Incomplete | None = None,
+        algorithmName: Incomplete | None = None,
+        saltValue: Incomplete | None = None,
+        spinCount: Incomplete | None = None,
+        hashValue: Incomplete | None = None,
     ) -> None: ...
-    def set_password(self, value: str = ..., already_hashed: bool = ...) -> None: ...
+    def set_password(self, value: str = "", already_hashed: bool = False) -> None: ...
     def enable(self) -> None: ...
     def disable(self) -> None: ...
     def __bool__(self) -> bool: ...

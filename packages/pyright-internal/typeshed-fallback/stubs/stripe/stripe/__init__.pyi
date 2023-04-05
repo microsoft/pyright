@@ -21,5 +21,5 @@ ca_bundle_path: Any
 log: Any
 
 def set_app_info(
-    name, partner_id: Incomplete | None = ..., url: Incomplete | None = ..., version: Incomplete | None = ...
+    name, partner_id: Incomplete | None = None, url: Incomplete | None = None, version: Incomplete | None = None
 ) -> None: ...

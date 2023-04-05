@@ -11,12 +11,12 @@ class StripeError(Exception):
     error: Any
     def __init__(
         self,
-        message: Incomplete | None = ...,
-        http_body: Incomplete | None = ...,
-        http_status: Incomplete | None = ...,
-        json_body: Incomplete | None = ...,
-        headers: Incomplete | None = ...,
-        code: Incomplete | None = ...,
+        message: Incomplete | None = None,
+        http_body: Incomplete | None = None,
+        http_status: Incomplete | None = None,
+        json_body: Incomplete | None = None,
+        headers: Incomplete | None = None,
+        code: Incomplete | None = None,
     ) -> None: ...
     @property
     def user_message(self): ...
@@ -29,12 +29,12 @@ class APIConnectionError(StripeError):
     def __init__(
         self,
         message,
-        http_body: Incomplete | None = ...,
-        http_status: Incomplete | None = ...,
-        json_body: Incomplete | None = ...,
-        headers: Incomplete | None = ...,
-        code: Incomplete | None = ...,
-        should_retry: bool = ...,
+        http_body: Incomplete | None = None,
+        http_status: Incomplete | None = None,
+        json_body: Incomplete | None = None,
+        headers: Incomplete | None = None,
+        code: Incomplete | None = None,
+        should_retry: bool = False,
     ) -> None: ...
 
 class StripeErrorWithParamCode(StripeError): ...
@@ -46,10 +46,10 @@ class CardError(StripeErrorWithParamCode):
         message,
         param,
         code,
-        http_body: Incomplete | None = ...,
-        http_status: Incomplete | None = ...,
-        json_body: Incomplete | None = ...,
-        headers: Incomplete | None = ...,
+        http_body: Incomplete | None = None,
+        http_status: Incomplete | None = None,
+        json_body: Incomplete | None = None,
+        headers: Incomplete | None = None,
     ) -> None: ...
 
 class IdempotencyError(StripeError): ...
@@ -60,11 +60,11 @@ class InvalidRequestError(StripeErrorWithParamCode):
         self,
         message,
         param,
-        code: Incomplete | None = ...,
-        http_body: Incomplete | None = ...,
-        http_status: Incomplete | None = ...,
-        json_body: Incomplete | None = ...,
-        headers: Incomplete | None = ...,
+        code: Incomplete | None = None,
+        http_body: Incomplete | None = None,
+        http_status: Incomplete | None = None,
+        json_body: Incomplete | None = None,
+        headers: Incomplete | None = None,
     ) -> None: ...
 
 class AuthenticationError(StripeError): ...
@@ -73,4 +73,4 @@ class RateLimitError(StripeError): ...
 
 class SignatureVerificationError(StripeError):
     sig_header: Any
-    def __init__(self, message, sig_header, http_body: Incomplete | None = ...) -> None: ...
+    def __init__(self, message, sig_header, http_body: Incomplete | None = None) -> None: ...

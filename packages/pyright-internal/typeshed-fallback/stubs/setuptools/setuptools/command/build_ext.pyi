@@ -27,20 +27,20 @@ class build_ext(_build_ext):
     def build_extension(self, ext) -> None: ...
     def links_to_dynamic(self, ext): ...
     def get_outputs(self): ...
-    def write_stub(self, output_dir, ext, compile: bool = ...) -> None: ...
+    def write_stub(self, output_dir, ext, compile: bool = False) -> None: ...
 
 def link_shared_object(
     self,
     objects,
     output_libname,
-    output_dir: Incomplete | None = ...,
-    libraries: Incomplete | None = ...,
-    library_dirs: Incomplete | None = ...,
-    runtime_library_dirs: Incomplete | None = ...,
-    export_symbols: Incomplete | None = ...,
-    debug: int = ...,
-    extra_preargs: Incomplete | None = ...,
-    extra_postargs: Incomplete | None = ...,
-    build_temp: Incomplete | None = ...,
-    target_lang: Incomplete | None = ...,
+    output_dir: Incomplete | None = None,
+    libraries: Incomplete | None = None,
+    library_dirs: Incomplete | None = None,
+    runtime_library_dirs: Incomplete | None = None,
+    export_symbols: Incomplete | None = None,
+    debug: int = 0,
+    extra_preargs: Incomplete | None = None,
+    extra_postargs: Incomplete | None = None,
+    build_temp: Incomplete | None = None,
+    target_lang: Incomplete | None = None,
 ) -> None: ...

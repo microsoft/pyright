@@ -19,5 +19,5 @@ class sha1_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandler
     rounds_cost: ClassVar[str]
     @classmethod
     def from_string(cls, hash: str | bytes) -> Self: ...  # type: ignore[override]
-    def to_string(self, config: bool = ...) -> str: ...
+    def to_string(self, config: bool = False) -> str: ...
     backends: ClassVar[tuple[str, ...]]

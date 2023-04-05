@@ -12,15 +12,15 @@ class _TagInfo(NamedTuple):
 class TagInfo(_TagInfo):
     def __new__(
         cls,
-        value: Incomplete | None = ...,
-        name: str = ...,
-        type: _TagType | None = ...,
-        length: int | None = ...,
-        enum: dict[str, int] | None = ...,
+        value: Incomplete | None = None,
+        name: str = "unknown",
+        type: _TagType | None = None,
+        length: int | None = None,
+        enum: dict[str, int] | None = None,
     ): ...
     def cvt_enum(self, value): ...
 
-def lookup(tag: int, group: int | None = ...) -> _TagInfo: ...
+def lookup(tag: int, group: int | None = None) -> _TagInfo: ...
 
 BYTE: Literal[1]
 ASCII: Literal[2]

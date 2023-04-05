@@ -6,13 +6,13 @@ class StaticLegend:
     discriminator: Incomplete
     def __init__(
         self,
-        colorize_rows: Incomplete | None = ...,
-        height_ratio: Incomplete | None = ...,
-        show: Incomplete | None = ...,
-        opacity: Incomplete | None = ...,
-        orientation_threshold: Incomplete | None = ...,
-        value_axis: Incomplete | None = ...,
-        width_ratio: Incomplete | None = ...,
+        colorize_rows: Incomplete | None = None,
+        height_ratio: Incomplete | None = None,
+        show: Incomplete | None = None,
+        opacity: Incomplete | None = None,
+        orientation_threshold: Incomplete | None = None,
+        value_axis: Incomplete | None = None,
+        width_ratio: Incomplete | None = None,
     ) -> None: ...
     @property
     def colorize_rows(self): ...

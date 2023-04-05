@@ -31,18 +31,18 @@ class Task(Generic[_P, _R_co]):
     def __init__(
         self,
         body: Callable[..., Any],
-        name: str | None = ...,
-        aliases: tuple[str, ...] = ...,
-        positional: Iterable[str] | None = ...,
-        optional: Iterable[str] = ...,
-        default: bool = ...,
-        auto_shortflags: bool = ...,
-        help: dict[str, str] | None = ...,
-        pre: Iterable[Task[..., Any] | Call] | None = ...,
-        post: Iterable[Task[..., Any] | Call] | None = ...,
-        autoprint: bool = ...,
-        iterable: Iterable[str] | None = ...,
-        incrementable: Iterable[str] | None = ...,
+        name: str | None = None,
+        aliases: tuple[str, ...] = (),
+        positional: Iterable[str] | None = None,
+        optional: Iterable[str] = (),
+        default: bool = False,
+        auto_shortflags: bool = True,
+        help: dict[str, str] | None = None,
+        pre: Iterable[Task[..., Any] | Call] | None = None,
+        post: Iterable[Task[..., Any] | Call] | None = None,
+        autoprint: bool = False,
+        iterable: Iterable[str] | None = None,
+        incrementable: Iterable[str] | None = None,
     ) -> None: ...
     @property
     def name(self): ...
@@ -54,7 +54,7 @@ class Task(Generic[_P, _R_co]):
     def argspec(self, body): ...
     def fill_implicit_positionals(self, positional: Iterable[str] | None) -> Iterable[str]: ...
     def arg_opts(self, name: str, default: Any, taken_names: Iterable[str]) -> dict[str, Any]: ...
-    def get_arguments(self, ignore_unknown_help: bool | None = ...) -> list[Argument]: ...
+    def get_arguments(self, ignore_unknown_help: bool | None = None) -> list[Argument]: ...
 
 @overload
 def task(
@@ -100,9 +100,9 @@ class Call:
     def __init__(
         self,
         task: Task[..., Any],
-        called_as: str | None = ...,
-        args: tuple[Any, ...] | None = ...,
-        kwargs: dict[str, Any] | None = ...,
+        called_as: str | None = None,
+        args: tuple[Any, ...] | None = None,
+        kwargs: dict[str, Any] | None = None,
     ) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
     def __deepcopy__(self, memo: Any) -> Self: ...
@@ -110,6 +110,6 @@ class Call:
     def make_context(self, config: Config) -> Context: ...
     def clone_data(self): ...
     # TODO use overload
-    def clone(self, into: type[Call] | None = ..., with_: dict[str, Any] | None = ...) -> Call: ...
+    def clone(self, into: type[Call] | None = None, with_: dict[str, Any] | None = None) -> Call: ...
 
 def call(task: Task[..., Any], *args: Any, **kwargs: Any) -> Call: ...

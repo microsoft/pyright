@@ -15,7 +15,7 @@ class PageMargins(Serialisable):
     header: Incomplete
     footer: Incomplete
     def __init__(
-        self, l: float = ..., r: float = ..., t: int = ..., b: int = ..., header: float = ..., footer: float = ...
+        self, l: float = 0.75, r: float = 0.75, t: int = 1, b: int = 1, header: float = 0.5, footer: float = 0.5
     ) -> None: ...
 
 class PrintSettings(Serialisable):
@@ -25,5 +25,5 @@ class PrintSettings(Serialisable):
     pageSetup: Incomplete
     __elements__: Incomplete
     def __init__(
-        self, headerFooter: Incomplete | None = ..., pageMargins: Incomplete | None = ..., pageSetup: Incomplete | None = ...
+        self, headerFooter: Incomplete | None = None, pageMargins: Incomplete | None = None, pageSetup: Incomplete | None = None
     ) -> None: ...

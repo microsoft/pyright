@@ -8,14 +8,14 @@ class DashboardWithViewProperties(CreateDashboardRequest):
     discriminator: Incomplete
     def __init__(
         self,
-        links: Incomplete | None = ...,
-        id: Incomplete | None = ...,
-        meta: Incomplete | None = ...,
-        cells: Incomplete | None = ...,
-        labels: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
+        links: Incomplete | None = None,
+        id: Incomplete | None = None,
+        meta: Incomplete | None = None,
+        cells: Incomplete | None = None,
+        labels: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
     ) -> None: ...
     @property
     def links(self): ...

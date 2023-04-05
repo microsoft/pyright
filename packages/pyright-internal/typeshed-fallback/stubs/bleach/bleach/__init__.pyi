@@ -24,10 +24,10 @@ def clean(
     tags: Iterable[str] = ...,
     attributes: _Attributes = ...,
     protocols: Iterable[str] = ...,
-    strip: bool = ...,
-    strip_comments: bool = ...,
-    css_sanitizer: CSSSanitizer | None = ...,
+    strip: bool = False,
+    strip_comments: bool = True,
+    css_sanitizer: CSSSanitizer | None = None,
 ) -> str: ...
 def linkify(
-    text: str, callbacks: Iterable[_Callback] = ..., skip_tags: Container[str] | None = ..., parse_email: bool = ...
+    text: str, callbacks: Iterable[_Callback] = ..., skip_tags: Container[str] | None = None, parse_email: bool = False
 ) -> str: ...

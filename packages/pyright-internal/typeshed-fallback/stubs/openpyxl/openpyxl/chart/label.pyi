@@ -23,19 +23,19 @@ class _DataLabelBase(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        numFmt: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        txPr: Incomplete | None = ...,
-        dLblPos: Incomplete | None = ...,
-        showLegendKey: Incomplete | None = ...,
-        showVal: Incomplete | None = ...,
-        showCatName: Incomplete | None = ...,
-        showSerName: Incomplete | None = ...,
-        showPercent: Incomplete | None = ...,
-        showBubbleSize: Incomplete | None = ...,
-        showLeaderLines: Incomplete | None = ...,
-        separator: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        numFmt: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        txPr: Incomplete | None = None,
+        dLblPos: Incomplete | None = None,
+        showLegendKey: Incomplete | None = None,
+        showVal: Incomplete | None = None,
+        showCatName: Incomplete | None = None,
+        showSerName: Incomplete | None = None,
+        showPercent: Incomplete | None = None,
+        showBubbleSize: Incomplete | None = None,
+        showLeaderLines: Incomplete | None = None,
+        separator: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
     @property
     @abstractmethod
@@ -58,7 +58,7 @@ class DataLabel(_DataLabelBase):
     separator: Incomplete
     extLst: Incomplete
     __elements__: Incomplete
-    def __init__(self, idx: int = ..., **kw) -> None: ...
+    def __init__(self, idx: int = 0, **kw) -> None: ...
 
 class DataLabelList(_DataLabelBase):
     tagname: str
@@ -78,4 +78,4 @@ class DataLabelList(_DataLabelBase):
     separator: Incomplete
     extLst: Incomplete
     __elements__: Incomplete
-    def __init__(self, dLbl=..., delete: Incomplete | None = ..., **kw) -> None: ...
+    def __init__(self, dLbl=(), delete: Incomplete | None = None, **kw) -> None: ...

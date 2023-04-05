@@ -17,16 +17,16 @@ class AttrDef:
     def __init__(
         self,
         name,
-        key: Incomplete | None = ...,
-        validate: Incomplete | None = ...,
-        pre_query: Incomplete | None = ...,
-        post_query: Incomplete | None = ...,
+        key: Incomplete | None = None,
+        validate: Incomplete | None = None,
+        pre_query: Incomplete | None = None,
+        post_query: Incomplete | None = None,
         default=...,
-        dereference_dn: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        mandatory: bool = ...,
-        single_value: Incomplete | None = ...,
-        alias: Incomplete | None = ...,
+        dereference_dn: Incomplete | None = None,
+        description: Incomplete | None = None,
+        mandatory: bool = False,
+        single_value: Incomplete | None = None,
+        alias: Incomplete | None = None,
     ) -> None: ...
     def __eq__(self, other): ...
     def __lt__(self, other): ...

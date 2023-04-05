@@ -12,12 +12,12 @@ class Insert(StandardInsert):
     def excluded(self): ...
     def on_conflict_do_update(
         self,
-        index_elements: Incomplete | None = ...,
-        index_where: Incomplete | None = ...,
-        set_: Incomplete | None = ...,
-        where: Incomplete | None = ...,
+        index_elements: Incomplete | None = None,
+        index_where: Incomplete | None = None,
+        set_: Incomplete | None = None,
+        where: Incomplete | None = None,
     ) -> None: ...
-    def on_conflict_do_nothing(self, index_elements: Incomplete | None = ..., index_where: Incomplete | None = ...) -> None: ...
+    def on_conflict_do_nothing(self, index_elements: Incomplete | None = None, index_where: Incomplete | None = None) -> None: ...
 
 insert: Any
 
@@ -26,7 +26,7 @@ class OnConflictClause(ClauseElement):
     constraint_target: Any
     inferred_target_elements: Any
     inferred_target_whereclause: Any
-    def __init__(self, index_elements: Incomplete | None = ..., index_where: Incomplete | None = ...) -> None: ...
+    def __init__(self, index_elements: Incomplete | None = None, index_where: Incomplete | None = None) -> None: ...
 
 class OnConflictDoNothing(OnConflictClause):
     __visit_name__: str
@@ -37,8 +37,8 @@ class OnConflictDoUpdate(OnConflictClause):
     update_whereclause: Any
     def __init__(
         self,
-        index_elements: Incomplete | None = ...,
-        index_where: Incomplete | None = ...,
-        set_: Incomplete | None = ...,
-        where: Incomplete | None = ...,
+        index_elements: Incomplete | None = None,
+        index_where: Incomplete | None = None,
+        set_: Incomplete | None = None,
+        where: Incomplete | None = None,
     ) -> None: ...

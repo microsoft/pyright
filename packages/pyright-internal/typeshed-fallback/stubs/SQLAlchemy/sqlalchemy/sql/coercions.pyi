@@ -13,9 +13,9 @@ traversals: Any
 def expect(
     role,
     element,
-    apply_propagate_attrs: Incomplete | None = ...,
-    argname: Incomplete | None = ...,
-    post_inspect: bool = ...,
+    apply_propagate_attrs: Incomplete | None = None,
+    argname: Incomplete | None = None,
+    post_inspect: bool = False,
     **kw,
 ): ...
 def expect_as_key(role, element, **kw): ...

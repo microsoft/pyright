@@ -10,10 +10,10 @@ class FileRecoveryProperties(Serialisable):
     repairLoad: Incomplete
     def __init__(
         self,
-        autoRecover: Incomplete | None = ...,
-        crashSave: Incomplete | None = ...,
-        dataExtractLoad: Incomplete | None = ...,
-        repairLoad: Incomplete | None = ...,
+        autoRecover: Incomplete | None = None,
+        crashSave: Incomplete | None = None,
+        dataExtractLoad: Incomplete | None = None,
+        repairLoad: Incomplete | None = None,
     ) -> None: ...
 
 class ChildSheet(Serialisable):
@@ -23,14 +23,18 @@ class ChildSheet(Serialisable):
     state: Incomplete
     id: Incomplete
     def __init__(
-        self, name: Incomplete | None = ..., sheetId: Incomplete | None = ..., state: str = ..., id: Incomplete | None = ...
+        self,
+        name: Incomplete | None = None,
+        sheetId: Incomplete | None = None,
+        state: str = "visible",
+        id: Incomplete | None = None,
     ) -> None: ...
 
 class PivotCache(Serialisable):
     tagname: str
     cacheId: Incomplete
     id: Incomplete
-    def __init__(self, cacheId: Incomplete | None = ..., id: Incomplete | None = ...) -> None: ...
+    def __init__(self, cacheId: Incomplete | None = None, id: Incomplete | None = None) -> None: ...
 
 class WorkbookPackage(Serialisable):
     tagname: str
@@ -59,27 +63,27 @@ class WorkbookPackage(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        conformance: Incomplete | None = ...,
-        fileVersion: Incomplete | None = ...,
-        fileSharing: Incomplete | None = ...,
-        workbookPr: Incomplete | None = ...,
-        workbookProtection: Incomplete | None = ...,
-        bookViews=...,
-        sheets=...,
-        functionGroups: Incomplete | None = ...,
-        externalReferences=...,
-        definedNames: Incomplete | None = ...,
-        calcPr: Incomplete | None = ...,
-        oleSize: Incomplete | None = ...,
-        customWorkbookViews=...,
-        pivotCaches=...,
-        smartTagPr: Incomplete | None = ...,
-        smartTagTypes: Incomplete | None = ...,
-        webPublishing: Incomplete | None = ...,
-        fileRecoveryPr: Incomplete | None = ...,
-        webPublishObjects: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
-        Ignorable: Incomplete | None = ...,
+        conformance: Incomplete | None = None,
+        fileVersion: Incomplete | None = None,
+        fileSharing: Incomplete | None = None,
+        workbookPr: Incomplete | None = None,
+        workbookProtection: Incomplete | None = None,
+        bookViews=(),
+        sheets=(),
+        functionGroups: Incomplete | None = None,
+        externalReferences=(),
+        definedNames: Incomplete | None = None,
+        calcPr: Incomplete | None = None,
+        oleSize: Incomplete | None = None,
+        customWorkbookViews=(),
+        pivotCaches=(),
+        smartTagPr: Incomplete | None = None,
+        smartTagTypes: Incomplete | None = None,
+        webPublishing: Incomplete | None = None,
+        fileRecoveryPr: Incomplete | None = None,
+        webPublishObjects: Incomplete | None = None,
+        extLst: Incomplete | None = None,
+        Ignorable: Incomplete | None = None,
     ) -> None: ...
     def to_tree(self): ...
     @property

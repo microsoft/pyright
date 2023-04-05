@@ -25,82 +25,82 @@ class Migrate:
     alembic_ctx_kwargs: dict[str, Any]
     def __init__(
         self,
-        app: flask.Flask | None = ...,
-        db: SQLAlchemy | None = ...,
-        directory: str = ...,
-        command: str = ...,
-        compare_type: bool = ...,
-        render_as_batch: bool = ...,
+        app: flask.Flask | None = None,
+        db: SQLAlchemy | None = None,
+        directory: str = "migrations",
+        command: str = "db",
+        compare_type: bool = True,
+        render_as_batch: bool = True,
         **kwargs,
     ) -> None: ...
     def init_app(
         self,
         app: flask.Flask,
-        db: SQLAlchemy | None = ...,
-        directory: str | None = ...,
-        command: str | None = ...,
-        compare_type: bool | None = ...,
-        render_as_batch: bool | None = ...,
+        db: SQLAlchemy | None = None,
+        directory: str | None = None,
+        command: str | None = None,
+        compare_type: bool | None = None,
+        render_as_batch: bool | None = None,
         **kwargs,
     ) -> None: ...
     def configure(self, f: _ConfigureCallback) -> _ConfigureCallback: ...
     def call_configure_callbacks(self, config: Config): ...
     def get_config(
-        self, directory: str | None = ..., x_arg: str | Sequence[str] | None = ..., opts: Iterable[str] | None = ...
+        self, directory: str | None = None, x_arg: str | Sequence[str] | None = None, opts: Iterable[str] | None = None
     ): ...
 
 def catch_errors(f: Callable[_P, _T]) -> Callable[_P, _T]: ...
 def list_templates() -> None: ...
-def init(directory: str | None = ..., multidb: bool = ..., template: str | None = ..., package: bool = ...) -> None: ...
+def init(directory: str | None = None, multidb: bool = False, template: str | None = None, package: bool = False) -> None: ...
 def revision(
-    directory: str | None = ...,
-    message: str | None = ...,
-    autogenerate: bool = ...,
-    sql: bool = ...,
-    head: str = ...,
-    splice: bool = ...,
-    branch_label: str | None = ...,
-    version_path: str | None = ...,
-    rev_id: str | None = ...,
+    directory: str | None = None,
+    message: str | None = None,
+    autogenerate: bool = False,
+    sql: bool = False,
+    head: str = "head",
+    splice: bool = False,
+    branch_label: str | None = None,
+    version_path: str | None = None,
+    rev_id: str | None = None,
 ) -> None: ...
 def migrate(
-    directory: str | None = ...,
-    message: str | None = ...,
-    sql: bool = ...,
-    head: str = ...,
-    splice: bool = ...,
-    branch_label: str | None = ...,
-    version_path: str | None = ...,
-    rev_id: str | None = ...,
-    x_arg: str | Sequence[str] | None = ...,
+    directory: str | None = None,
+    message: str | None = None,
+    sql: bool = False,
+    head: str = "head",
+    splice: bool = False,
+    branch_label: str | None = None,
+    version_path: str | None = None,
+    rev_id: str | None = None,
+    x_arg: str | Sequence[str] | None = None,
 ) -> None: ...
-def edit(directory: str | None = ..., revision: str = ...) -> None: ...
+def edit(directory: str | None = None, revision: str = "current") -> None: ...
 def merge(
-    directory: str | None = ...,
-    revisions: str = ...,
-    message: str | None = ...,
-    branch_label: str | None = ...,
-    rev_id: str | None = ...,
+    directory: str | None = None,
+    revisions: str = "",
+    message: str | None = None,
+    branch_label: str | None = None,
+    rev_id: str | None = None,
 ) -> None: ...
 def upgrade(
-    directory: str | None = ...,
-    revision: str = ...,
-    sql: bool = ...,
-    tag: str | None = ...,
-    x_arg: str | Sequence[str] | None = ...,
+    directory: str | None = None,
+    revision: str = "head",
+    sql: bool = False,
+    tag: str | None = None,
+    x_arg: str | Sequence[str] | None = None,
 ) -> None: ...
 def downgrade(
-    directory: str | None = ...,
-    revision: str = ...,
-    sql: bool = ...,
-    tag: str | None = ...,
-    x_arg: str | Sequence[str] | None = ...,
+    directory: str | None = None,
+    revision: str = "-1",
+    sql: bool = False,
+    tag: str | None = None,
+    x_arg: str | Sequence[str] | None = None,
 ) -> None: ...
-def show(directory: str | None = ..., revision: str = ...) -> None: ...
+def show(directory: str | None = None, revision: str = "head") -> None: ...
 def history(
-    directory: str | None = ..., rev_range: str | None = ..., verbose: bool = ..., indicate_current: bool = ...
+    directory: str | None = None, rev_range: str | None = None, verbose: bool = False, indicate_current: bool = False
 ) -> None: ...
-def heads(directory: str | None = ..., verbose: bool = ..., resolve_dependencies: bool = ...) -> None: ...
-def branches(directory: str | None = ..., verbose: bool = ...) -> None: ...
-def current(directory: str | None = ..., verbose: bool = ...) -> None: ...
-def stamp(directory: str | None = ..., revision: str = ..., sql: bool = ..., tag: str | None = ...) -> None: ...
+def heads(directory: str | None = None, verbose: bool = False, resolve_dependencies: bool = False) -> None: ...
+def branches(directory: str | None = None, verbose: bool = False) -> None: ...
+def current(directory: str | None = None, verbose: bool = False) -> None: ...
+def stamp(directory: str | None = None, revision: str = "head", sql: bool = False, tag: str | None = None) -> None: ...

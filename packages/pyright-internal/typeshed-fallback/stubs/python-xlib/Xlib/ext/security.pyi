@@ -1,12 +1,14 @@
+from typing_extensions import Final
+
 from Xlib._typing import Unused
 from Xlib.display import Display
 from Xlib.protocol import rq
 from Xlib.xobject import resource
 
-extname: str
-SecurityClientTrusted: int
-SecurityClientUntrusted: int
-SecurityAuthorizationRevokedMask: int
+extname: Final = "SECURITY"
+SecurityClientTrusted: Final = 0
+SecurityClientUntrusted: Final = 1
+SecurityAuthorizationRevokedMask: Final = 1
 AUTHID = rq.Card32
 
 class QueryVersion(rq.ReplyRequest): ...
@@ -18,11 +20,11 @@ class SecurityGenerateAuthorization(rq.ReplyRequest): ...
 def generate_authorization(
     self: Display | resource.Resource,
     auth_proto: str,
-    auth_data: bytes | bytearray = ...,
-    timeout: int | None = ...,
-    trust_level: int | None = ...,
-    group: int | None = ...,
-    event_mask: int | None = ...,
+    auth_data: bytes | bytearray = b"",
+    timeout: int | None = None,
+    trust_level: int | None = None,
+    group: int | None = None,
+    event_mask: int | None = None,
 ) -> SecurityGenerateAuthorization: ...
 
 class SecurityRevokeAuthorization(rq.Request): ...

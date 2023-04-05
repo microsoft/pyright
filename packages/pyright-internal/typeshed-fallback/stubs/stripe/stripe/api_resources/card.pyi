@@ -19,8 +19,8 @@ class Card(DeletableAPIResource, UpdateableAPIResource):
     def retrieve(
         cls,
         id,
-        api_key: Incomplete | None = ...,
-        stripe_version: Incomplete | None = ...,
-        stripe_account: Incomplete | None = ...,
+        api_key: Incomplete | None = None,
+        stripe_version: Incomplete | None = None,
+        stripe_account: Incomplete | None = None,
         **params,
     ) -> NoReturn: ...

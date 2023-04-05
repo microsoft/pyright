@@ -16,185 +16,185 @@ __version__: str
 
 def compile(
     pattern: AnyStr | Pattern[AnyStr],
-    flags: int = ...,
-    ignore_unused: bool = ...,
-    cache_pattern: bool | None = ...,
+    flags: int = 0,
+    ignore_unused: bool = False,
+    cache_pattern: bool | None = None,
     **kwargs: Any,
 ) -> Pattern[AnyStr]: ...
 @overload
 def search(
     pattern: str | Pattern[str],
     string: str,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    partial: bool = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    partial: bool = False,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> Match[str] | None: ...
 @overload
 def search(
     pattern: bytes | Pattern[bytes],
     string: ReadableBuffer,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    partial: bool = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    partial: bool = False,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> Match[bytes] | None: ...
 @overload
 def match(
     pattern: str | Pattern[str],
     string: str,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    partial: bool = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    partial: bool = False,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> Match[str] | None: ...
 @overload
 def match(
     pattern: bytes | Pattern[bytes],
     string: ReadableBuffer,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    partial: bool = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    partial: bool = False,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> Match[bytes] | None: ...
 @overload
 def fullmatch(
     pattern: str | Pattern[str],
     string: str,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    partial: bool = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    partial: bool = False,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> Match[str] | None: ...
 @overload
 def fullmatch(
     pattern: bytes | Pattern[bytes],
     string: ReadableBuffer,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    partial: bool = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    partial: bool = False,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> Match[bytes] | None: ...
 @overload
 def split(
     pattern: str | Pattern[str],
     string: str,
-    maxsplit: int = ...,
-    flags: int = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    maxsplit: int = 0,
+    flags: int = 0,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> list[str | Any]: ...
 @overload
 def split(
     pattern: ReadableBuffer | Pattern[bytes],
     string: ReadableBuffer,
-    maxsplit: int = ...,
-    flags: int = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    maxsplit: int = 0,
+    flags: int = 0,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> list[bytes | Any]: ...
 @overload
 def splititer(
     pattern: str | Pattern[str],
     string: str,
-    maxsplit: int = ...,
-    flags: int = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    maxsplit: int = 0,
+    flags: int = 0,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> _regex.Splitter[str]: ...
 @overload
 def splititer(
     pattern: ReadableBuffer | Pattern[bytes],
     string: ReadableBuffer,
-    maxsplit: int = ...,
-    flags: int = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    maxsplit: int = 0,
+    flags: int = 0,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> _regex.Splitter[bytes]: ...
 @overload
 def findall(
     pattern: str | Pattern[str],
     string: str,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    overlapped: bool = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    overlapped: bool = False,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> list[Any]: ...
 @overload
 def findall(
     pattern: ReadableBuffer | Pattern[bytes],
     string: ReadableBuffer,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    overlapped: bool = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    overlapped: bool = False,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> list[Any]: ...
 @overload
 def finditer(
     pattern: str | Pattern[str],
     string: str,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    overlapped: bool = ...,
-    partial: bool = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    overlapped: bool = False,
+    partial: bool = False,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> _regex.Scanner[str]: ...
 @overload
 def finditer(
     pattern: ReadableBuffer | Pattern[bytes],
     string: ReadableBuffer,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    overlapped: bool = ...,
-    partial: bool = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    overlapped: bool = False,
+    partial: bool = False,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> _regex.Scanner[bytes]: ...
 @overload
@@ -202,13 +202,13 @@ def sub(
     pattern: str | Pattern[str],
     repl: str | Callable[[Match[str]], str],
     string: str,
-    count: int = ...,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    count: int = 0,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> str: ...
 @overload
@@ -216,13 +216,13 @@ def sub(
     pattern: ReadableBuffer | Pattern[bytes],
     repl: ReadableBuffer | Callable[[Match[bytes]], ReadableBuffer],
     string: ReadableBuffer,
-    count: int = ...,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    count: int = 0,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> bytes: ...
 @overload
@@ -230,13 +230,13 @@ def subf(
     pattern: str | Pattern[str],
     format: str | Callable[[Match[str]], str],
     string: str,
-    count: int = ...,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    count: int = 0,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> str: ...
 @overload
@@ -244,13 +244,13 @@ def subf(
     pattern: ReadableBuffer | Pattern[bytes],
     format: ReadableBuffer | Callable[[Match[bytes]], ReadableBuffer],
     string: ReadableBuffer,
-    count: int = ...,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    count: int = 0,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> bytes: ...
 @overload
@@ -258,13 +258,13 @@ def subn(
     pattern: str | Pattern[str],
     repl: str | Callable[[Match[str]], str],
     string: str,
-    count: int = ...,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    count: int = 0,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> tuple[str, int]: ...
 @overload
@@ -272,13 +272,13 @@ def subn(
     pattern: ReadableBuffer | Pattern[bytes],
     repl: ReadableBuffer | Callable[[Match[bytes]], ReadableBuffer],
     string: ReadableBuffer,
-    count: int = ...,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    count: int = 0,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> tuple[bytes, int]: ...
 @overload
@@ -286,13 +286,13 @@ def subfn(
     pattern: str | Pattern[str],
     format: str | Callable[[Match[str]], str],
     string: str,
-    count: int = ...,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    count: int = 0,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> tuple[str, int]: ...
 @overload
@@ -300,22 +300,22 @@ def subfn(
     pattern: ReadableBuffer | Pattern[bytes],
     format: ReadableBuffer | Callable[[Match[bytes]], ReadableBuffer],
     string: ReadableBuffer,
-    count: int = ...,
-    flags: int = ...,
-    pos: int | None = ...,
-    endpos: int | None = ...,
-    concurrent: bool | None = ...,
-    timeout: float | None = ...,
-    ignore_unused: bool = ...,
+    count: int = 0,
+    flags: int = 0,
+    pos: int | None = None,
+    endpos: int | None = None,
+    concurrent: bool | None = None,
+    timeout: float | None = None,
+    ignore_unused: bool = False,
     **kwargs: Any,
 ) -> tuple[bytes, int]: ...
 def purge() -> None: ...
 @overload
-def cache_all(value: bool = ...) -> None: ...
+def cache_all(value: bool = True) -> None: ...
 @overload
 def cache_all(value: None) -> bool: ...
-def escape(pattern: AnyStr, special_only: bool = ..., literal_spaces: bool = ...) -> AnyStr: ...
-def template(pattern: AnyStr | Pattern[AnyStr], flags: int = ...) -> Pattern[AnyStr]: ...
+def escape(pattern: AnyStr, special_only: bool = True, literal_spaces: bool = False) -> AnyStr: ...
+def template(pattern: AnyStr | Pattern[AnyStr], flags: int = 0) -> Pattern[AnyStr]: ...
 
 Regex = compile
 
@@ -593,17 +593,17 @@ class Match(Generic[AnyStr]):
     @property
     def fuzzy_changes(self) -> tuple[list[int], list[int], list[int]]: ...
     @overload
-    def group(self, __group: Literal[0] = ...) -> AnyStr: ...
+    def group(self, __group: Literal[0] = 0) -> AnyStr: ...
     @overload
     def group(self, __group: int | str = ...) -> AnyStr | Any: ...
     @overload
     def group(self, __group1: int | str, __group2: int | str, *groups: int | str) -> tuple[AnyStr | Any, ...]: ...
     @overload
-    def groups(self, default: None = ...) -> tuple[AnyStr | Any, ...]: ...
+    def groups(self, default: None = None) -> tuple[AnyStr | Any, ...]: ...
     @overload
     def groups(self, default: _T) -> tuple[AnyStr | _T, ...]: ...
     @overload
-    def groupdict(self, default: None = ...) -> dict[str, AnyStr | Any]: ...
+    def groupdict(self, default: None = None) -> dict[str, AnyStr | Any]: ...
     @overload
     def groupdict(self, default: _T) -> dict[str, AnyStr | _T]: ...
     @overload

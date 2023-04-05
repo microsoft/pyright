@@ -4,7 +4,9 @@ class VariableLinks:
     openapi_types: Incomplete
     attribute_map: Incomplete
     discriminator: Incomplete
-    def __init__(self, _self: Incomplete | None = ..., org: Incomplete | None = ..., labels: Incomplete | None = ...) -> None: ...
+    def __init__(
+        self, _self: Incomplete | None = None, org: Incomplete | None = None, labels: Incomplete | None = None
+    ) -> None: ...
     @property
     def org(self): ...
     @org.setter

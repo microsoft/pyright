@@ -22,8 +22,8 @@ class Connection(_LegacyConnection):
     def commit(self) -> None: ...
     def rollback(self) -> None: ...
     def close(self) -> None: ...
-    def execute(self, statement, parameters: Incomplete | None = ..., execution_options: Incomplete | None = ...): ...  # type: ignore[override]
-    def scalar(self, statement, parameters: Incomplete | None = ..., execution_options: Incomplete | None = ...): ...  # type: ignore[override]
+    def execute(self, statement, parameters: Incomplete | None = None, execution_options: Incomplete | None = None): ...  # type: ignore[override]
+    def scalar(self, statement, parameters: Incomplete | None = None, execution_options: Incomplete | None = None): ...  # type: ignore[override]
 
 class Engine(_LegacyEngine):
     transaction: Any

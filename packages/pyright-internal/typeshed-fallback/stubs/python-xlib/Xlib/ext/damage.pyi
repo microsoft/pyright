@@ -1,21 +1,21 @@
+from typing_extensions import Final, Literal
+
 from Xlib.display import Display
 from Xlib.error import XError
 from Xlib.protocol import request, rq
 from Xlib.xobject import resource
 
-extname: str
-DamageNotifyCode: int
-BadDamageCode: int
-
-class BadDamageError(XError): ...
-
-DamageReportRawRectangles: int
-DamageReportDeltaRectangles: int
-DamageReportBoundingBox: int
-DamageReportNonEmpty: int
-DamageReportLevel: tuple[int, int, int, int]
+extname: Final = "DAMAGE"
+DamageNotifyCode: Final = 0
+BadDamageCode: Final = 0
+DamageReportRawRectangles: Final = 0
+DamageReportDeltaRectangles: Final = 1
+DamageReportBoundingBox: Final = 2
+DamageReportNonEmpty: Final = 3
+DamageReportLevel: Final[tuple[Literal[0], Literal[1], Literal[2], Literal[3]]]
 DAMAGE = rq.Card32
 
+class BadDamageError(XError): ...
 class QueryVersion(rq.ReplyRequest): ...
 
 def query_version(self: Display | resource.Resource) -> QueryVersion: ...
@@ -30,7 +30,7 @@ def damage_destroy(self: Display | resource.Resource, damage: int) -> None: ...
 
 class DamageSubtract(rq.Request): ...
 
-def damage_subtract(self: Display | resource.Resource, damage: int, repair: int = ..., parts: int = ...) -> None: ...
+def damage_subtract(self: Display | resource.Resource, damage: int, repair: int = 0, parts: int = 0) -> None: ...
 
 class DamageAdd(rq.Request): ...
 

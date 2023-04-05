@@ -23,7 +23,7 @@ class Side(Serialisable):  # type: ignore[misc]
     style: Incomplete
     border_style: Incomplete
     def __init__(
-        self, style: Incomplete | None = ..., color: Incomplete | None = ..., border_style: Incomplete | None = ...
+        self, style: Incomplete | None = None, color: Incomplete | None = None, border_style: Incomplete | None = None
     ) -> None: ...
 
 class Border(Serialisable):
@@ -45,19 +45,19 @@ class Border(Serialisable):
     diagonal_direction: Incomplete
     def __init__(
         self,
-        left: Incomplete | None = ...,
-        right: Incomplete | None = ...,
-        top: Incomplete | None = ...,
-        bottom: Incomplete | None = ...,
-        diagonal: Incomplete | None = ...,
-        diagonal_direction: Incomplete | None = ...,
-        vertical: Incomplete | None = ...,
-        horizontal: Incomplete | None = ...,
-        diagonalUp: bool = ...,
-        diagonalDown: bool = ...,
-        outline: bool = ...,
-        start: Incomplete | None = ...,
-        end: Incomplete | None = ...,
+        left: Incomplete | None = None,
+        right: Incomplete | None = None,
+        top: Incomplete | None = None,
+        bottom: Incomplete | None = None,
+        diagonal: Incomplete | None = None,
+        diagonal_direction: Incomplete | None = None,
+        vertical: Incomplete | None = None,
+        horizontal: Incomplete | None = None,
+        diagonalUp: bool = False,
+        diagonalDown: bool = False,
+        outline: bool = True,
+        start: Incomplete | None = None,
+        end: Incomplete | None = None,
     ) -> None: ...
     def __iter__(self): ...
 

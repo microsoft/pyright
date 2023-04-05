@@ -11,11 +11,11 @@ class InputCells(Serialisable):
     numFmtId: Incomplete
     def __init__(
         self,
-        r: Incomplete | None = ...,
-        deleted: bool = ...,
-        undone: bool = ...,
-        val: Incomplete | None = ...,
-        numFmtId: Incomplete | None = ...,
+        r: Incomplete | None = None,
+        deleted: bool = False,
+        undone: bool = False,
+        val: Incomplete | None = None,
+        numFmtId: Incomplete | None = None,
     ) -> None: ...
 
 class Scenario(Serialisable):
@@ -30,13 +30,13 @@ class Scenario(Serialisable):
     __attrs__: Incomplete
     def __init__(
         self,
-        inputCells=...,
-        name: Incomplete | None = ...,
-        locked: bool = ...,
-        hidden: bool = ...,
-        count: Incomplete | None = ...,
-        user: Incomplete | None = ...,
-        comment: Incomplete | None = ...,
+        inputCells=(),
+        name: Incomplete | None = None,
+        locked: bool = False,
+        hidden: bool = False,
+        count: Incomplete | None = None,
+        user: Incomplete | None = None,
+        comment: Incomplete | None = None,
     ) -> None: ...
     @property
     def count(self): ...
@@ -49,7 +49,7 @@ class ScenarioList(Serialisable):
     sqref: Incomplete
     __elements__: Incomplete
     def __init__(
-        self, scenario=..., current: Incomplete | None = ..., show: Incomplete | None = ..., sqref: Incomplete | None = ...
+        self, scenario=(), current: Incomplete | None = None, show: Incomplete | None = None, sqref: Incomplete | None = None
     ) -> None: ...
     def append(self, scenario) -> None: ...
     def __bool__(self) -> bool: ...

@@ -6,10 +6,10 @@ class PostStackRequest:
     discriminator: Incomplete
     def __init__(
         self,
-        org_id: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        urls: Incomplete | None = ...,
+        org_id: Incomplete | None = None,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        urls: Incomplete | None = None,
     ) -> None: ...
     @property
     def org_id(self): ...

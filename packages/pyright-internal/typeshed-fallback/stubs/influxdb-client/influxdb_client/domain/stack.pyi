@@ -6,10 +6,10 @@ class Stack:
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        created_at: Incomplete | None = ...,
-        events: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        created_at: Incomplete | None = None,
+        events: Incomplete | None = None,
     ) -> None: ...
     @property
     def id(self): ...

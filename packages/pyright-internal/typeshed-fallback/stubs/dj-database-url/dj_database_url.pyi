@@ -6,7 +6,7 @@ DEFAULT_ENV: str
 SCHEMES: dict[str, str]
 
 # From https://docs.djangoproject.com/en/4.0/ref/settings/#databases
-class _DBConfig(TypedDict, total=False):
+class DBConfig(TypedDict, total=False):
     ATOMIC_REQUESTS: bool
     AUTOCOMMIT: bool
     CONN_MAX_AGE: int
@@ -28,7 +28,7 @@ def parse(
     conn_health_checks: bool = ...,
     ssl_require: bool = ...,
     test_options: dict[Incomplete, Incomplete] | None = ...,
-) -> _DBConfig: ...
+) -> DBConfig: ...
 def config(
     env: str = ...,
     default: str | None = ...,
@@ -37,4 +37,4 @@ def config(
     conn_health_checks: bool = ...,
     ssl_require: bool = ...,
     test_options: dict[Incomplete, Incomplete] | None = ...,
-) -> _DBConfig: ...
+) -> DBConfig: ...

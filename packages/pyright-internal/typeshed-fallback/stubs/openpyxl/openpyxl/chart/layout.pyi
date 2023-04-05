@@ -19,16 +19,16 @@ class ManualLayout(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        layoutTarget: Incomplete | None = ...,
-        xMode: Incomplete | None = ...,
-        yMode: Incomplete | None = ...,
-        wMode: str = ...,
-        hMode: str = ...,
-        x: Incomplete | None = ...,
-        y: Incomplete | None = ...,
-        w: Incomplete | None = ...,
-        h: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        layoutTarget: Incomplete | None = None,
+        xMode: Incomplete | None = None,
+        yMode: Incomplete | None = None,
+        wMode: str = "factor",
+        hMode: str = "factor",
+        x: Incomplete | None = None,
+        y: Incomplete | None = None,
+        w: Incomplete | None = None,
+        h: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class Layout(Serialisable):
@@ -36,4 +36,4 @@ class Layout(Serialisable):
     manualLayout: Incomplete
     extLst: Incomplete
     __elements__: Incomplete
-    def __init__(self, manualLayout: Incomplete | None = ..., extLst: Incomplete | None = ...) -> None: ...
+    def __init__(self, manualLayout: Incomplete | None = None, extLst: Incomplete | None = None) -> None: ...

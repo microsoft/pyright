@@ -6,12 +6,12 @@ class TaskLinks:
     discriminator: Incomplete
     def __init__(
         self,
-        _self: Incomplete | None = ...,
-        owners: Incomplete | None = ...,
-        members: Incomplete | None = ...,
-        runs: Incomplete | None = ...,
-        logs: Incomplete | None = ...,
-        labels: Incomplete | None = ...,
+        _self: Incomplete | None = None,
+        owners: Incomplete | None = None,
+        members: Incomplete | None = None,
+        runs: Incomplete | None = None,
+        logs: Incomplete | None = None,
+        labels: Incomplete | None = None,
     ) -> None: ...
     @property
     def owners(self): ...

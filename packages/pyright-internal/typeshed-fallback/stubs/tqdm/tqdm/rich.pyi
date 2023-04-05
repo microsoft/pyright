@@ -72,7 +72,7 @@ class tqdm_rich(Generic[_T], std_tqdm[_T]):
     @overload
     def __init__(
         self: tqdm_rich[NoReturn],
-        iterable: None = ...,
+        iterable: None = None,
         desc: str | None = ...,
         total: float | None = ...,
         leave: bool | None = ...,

@@ -5,7 +5,7 @@ from openpyxl.descriptors.serialisable import Serialisable
 class AnchorClientData(Serialisable):
     fLocksWithSheet: Incomplete
     fPrintsWithSheet: Incomplete
-    def __init__(self, fLocksWithSheet: Incomplete | None = ..., fPrintsWithSheet: Incomplete | None = ...) -> None: ...
+    def __init__(self, fLocksWithSheet: Incomplete | None = None, fPrintsWithSheet: Incomplete | None = None) -> None: ...
 
 class AnchorMarker(Serialisable):
     tagname: str
@@ -13,7 +13,7 @@ class AnchorMarker(Serialisable):
     colOff: Incomplete
     row: Incomplete
     rowOff: Incomplete
-    def __init__(self, col: int = ..., colOff: int = ..., row: int = ..., rowOff: int = ...) -> None: ...
+    def __init__(self, col: int = 0, colOff: int = 0, row: int = 0, rowOff: int = 0) -> None: ...
 
 class _AnchorBase(Serialisable):
     sp: Incomplete
@@ -29,13 +29,13 @@ class _AnchorBase(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        clientData: Incomplete | None = ...,
-        sp: Incomplete | None = ...,
-        grpSp: Incomplete | None = ...,
-        graphicFrame: Incomplete | None = ...,
-        cxnSp: Incomplete | None = ...,
-        pic: Incomplete | None = ...,
-        contentPart: Incomplete | None = ...,
+        clientData: Incomplete | None = None,
+        sp: Incomplete | None = None,
+        grpSp: Incomplete | None = None,
+        graphicFrame: Incomplete | None = None,
+        cxnSp: Incomplete | None = None,
+        pic: Incomplete | None = None,
+        contentPart: Incomplete | None = None,
     ) -> None: ...
 
 class AbsoluteAnchor(_AnchorBase):
@@ -50,7 +50,7 @@ class AbsoluteAnchor(_AnchorBase):
     contentPart: Incomplete
     clientData: Incomplete
     __elements__: Incomplete
-    def __init__(self, pos: Incomplete | None = ..., ext: Incomplete | None = ..., **kw) -> None: ...
+    def __init__(self, pos: Incomplete | None = None, ext: Incomplete | None = None, **kw) -> None: ...
 
 class OneCellAnchor(_AnchorBase):
     tagname: str
@@ -63,7 +63,7 @@ class OneCellAnchor(_AnchorBase):
     contentPart: Incomplete
     clientData: Incomplete
     __elements__: Incomplete
-    def __init__(self, _from: Incomplete | None = ..., ext: Incomplete | None = ..., **kw) -> None: ...
+    def __init__(self, _from: Incomplete | None = None, ext: Incomplete | None = None, **kw) -> None: ...
 
 class TwoCellAnchor(_AnchorBase):
     tagname: str
@@ -78,7 +78,7 @@ class TwoCellAnchor(_AnchorBase):
     clientData: Incomplete
     __elements__: Incomplete
     def __init__(
-        self, editAs: Incomplete | None = ..., _from: Incomplete | None = ..., to: Incomplete | None = ..., **kw
+        self, editAs: Incomplete | None = None, _from: Incomplete | None = None, to: Incomplete | None = None, **kw
     ) -> None: ...
 
 class SpreadsheetDrawing(Serialisable):
@@ -91,7 +91,7 @@ class SpreadsheetDrawing(Serialisable):
     __elements__: Incomplete
     charts: Incomplete
     images: Incomplete
-    def __init__(self, twoCellAnchor=..., oneCellAnchor=..., absoluteAnchor=...) -> None: ...
+    def __init__(self, twoCellAnchor=(), oneCellAnchor=(), absoluteAnchor=()) -> None: ...
     def __hash__(self) -> int: ...
     def __bool__(self) -> bool: ...
     @property

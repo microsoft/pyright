@@ -6,11 +6,11 @@ class File:
     discriminator: Incomplete
     def __init__(
         self,
-        type: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        package: Incomplete | None = ...,
-        imports: Incomplete | None = ...,
-        body: Incomplete | None = ...,
+        type: Incomplete | None = None,
+        name: Incomplete | None = None,
+        package: Incomplete | None = None,
+        imports: Incomplete | None = None,
+        body: Incomplete | None = None,
     ) -> None: ...
     @property
     def type(self): ...

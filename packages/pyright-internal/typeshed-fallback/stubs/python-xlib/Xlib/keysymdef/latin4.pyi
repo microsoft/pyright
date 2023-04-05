@@ -1,36 +1,38 @@
-XK_kra: int
-XK_kappa: int
-XK_Rcedilla: int
-XK_Itilde: int
-XK_Lcedilla: int
-XK_Emacron: int
-XK_Gcedilla: int
-XK_Tslash: int
-XK_rcedilla: int
-XK_itilde: int
-XK_lcedilla: int
-XK_emacron: int
-XK_gcedilla: int
-XK_tslash: int
-XK_ENG: int
-XK_eng: int
-XK_Amacron: int
-XK_Iogonek: int
-XK_Eabovedot: int
-XK_Imacron: int
-XK_Ncedilla: int
-XK_Omacron: int
-XK_Kcedilla: int
-XK_Uogonek: int
-XK_Utilde: int
-XK_Umacron: int
-XK_amacron: int
-XK_iogonek: int
-XK_eabovedot: int
-XK_imacron: int
-XK_ncedilla: int
-XK_omacron: int
-XK_kcedilla: int
-XK_uogonek: int
-XK_utilde: int
-XK_umacron: int
+from typing_extensions import Final
+
+XK_kra: Final = 0x3A2
+XK_kappa: Final = 0x3A2
+XK_Rcedilla: Final = 0x3A3
+XK_Itilde: Final = 0x3A5
+XK_Lcedilla: Final = 0x3A6
+XK_Emacron: Final = 0x3AA
+XK_Gcedilla: Final = 0x3AB
+XK_Tslash: Final = 0x3AC
+XK_rcedilla: Final = 0x3B3
+XK_itilde: Final = 0x3B5
+XK_lcedilla: Final = 0x3B6
+XK_emacron: Final = 0x3BA
+XK_gcedilla: Final = 0x3BB
+XK_tslash: Final = 0x3BC
+XK_ENG: Final = 0x3BD
+XK_eng: Final = 0x3BF
+XK_Amacron: Final = 0x3C0
+XK_Iogonek: Final = 0x3C7
+XK_Eabovedot: Final = 0x3CC
+XK_Imacron: Final = 0x3CF
+XK_Ncedilla: Final = 0x3D1
+XK_Omacron: Final = 0x3D2
+XK_Kcedilla: Final = 0x3D3
+XK_Uogonek: Final = 0x3D9
+XK_Utilde: Final = 0x3DD
+XK_Umacron: Final = 0x3DE
+XK_amacron: Final = 0x3E0
+XK_iogonek: Final = 0x3E7
+XK_eabovedot: Final = 0x3EC
+XK_imacron: Final = 0x3EF
+XK_ncedilla: Final = 0x3F1
+XK_omacron: Final = 0x3F2
+XK_kcedilla: Final = 0x3F3
+XK_uogonek: Final = 0x3F9
+XK_utilde: Final = 0x3FD
+XK_umacron: Final = 0x3FE

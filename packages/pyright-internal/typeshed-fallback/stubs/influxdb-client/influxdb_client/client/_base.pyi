@@ -18,12 +18,12 @@ class _BaseClient:
         self,
         url: str,
         token: str | None,
-        debug: bool | None = ...,
-        timeout: int = ...,
-        enable_gzip: bool = ...,
-        org: str | None = ...,
-        default_tags: dict[Incomplete, Incomplete] | None = ...,
-        http_client_logger: str | None = ...,
+        debug: bool | None = None,
+        timeout: int = 10000,
+        enable_gzip: bool = False,
+        org: str | None = None,
+        default_tags: dict[Incomplete, Incomplete] | None = None,
+        http_client_logger: str | None = None,
         *,
         verify_ssl: bool = ...,
         ssl_ca_cert: Incomplete | None = ...,
@@ -43,10 +43,10 @@ class _BaseClient:
 
 class _BaseQueryApi:
     default_dialect: Incomplete
-    def __init__(self, influxdb_client, query_options: Incomplete | None = ...) -> None: ...
+    def __init__(self, influxdb_client, query_options: Incomplete | None = None) -> None: ...
 
 class _BaseWriteApi:
-    def __init__(self, influxdb_client, point_settings: Incomplete | None = ...) -> None: ...
+    def __init__(self, influxdb_client, point_settings: Incomplete | None = None) -> None: ...
 
 class _BaseDeleteApi:
     def __init__(self, influxdb_client) -> None: ...

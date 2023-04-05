@@ -15,7 +15,7 @@ class FormatObject(Serialisable):
     extLst: Incomplete
     __elements__: Incomplete
     def __init__(
-        self, type, val: Incomplete | None = ..., gte: Incomplete | None = ..., extLst: Incomplete | None = ...
+        self, type, val: Incomplete | None = None, gte: Incomplete | None = None, extLst: Incomplete | None = None
     ) -> None: ...
 
 class RuleType(Serialisable):  # type: ignore[misc]
@@ -31,11 +31,11 @@ class IconSet(RuleType):
     cfvo: Incomplete
     def __init__(
         self,
-        iconSet: Incomplete | None = ...,
-        showValue: Incomplete | None = ...,
-        percent: Incomplete | None = ...,
-        reverse: Incomplete | None = ...,
-        cfvo: Incomplete | None = ...,
+        iconSet: Incomplete | None = None,
+        showValue: Incomplete | None = None,
+        percent: Incomplete | None = None,
+        reverse: Incomplete | None = None,
+        cfvo: Incomplete | None = None,
     ) -> None: ...
 
 class DataBar(RuleType):
@@ -48,11 +48,11 @@ class DataBar(RuleType):
     cfvo: Incomplete
     def __init__(
         self,
-        minLength: Incomplete | None = ...,
-        maxLength: Incomplete | None = ...,
-        showValue: Incomplete | None = ...,
-        cfvo: Incomplete | None = ...,
-        color: Incomplete | None = ...,
+        minLength: Incomplete | None = None,
+        maxLength: Incomplete | None = None,
+        showValue: Incomplete | None = None,
+        cfvo: Incomplete | None = None,
+        color: Incomplete | None = None,
     ) -> None: ...
 
 class ColorScale(RuleType):
@@ -60,7 +60,7 @@ class ColorScale(RuleType):
     color: Incomplete
     __elements__: Incomplete
     cfvo: Incomplete
-    def __init__(self, cfvo: Incomplete | None = ..., color: Incomplete | None = ...) -> None: ...
+    def __init__(self, cfvo: Incomplete | None = None, color: Incomplete | None = None) -> None: ...
 
 class Rule(Serialisable):
     tagname: str
@@ -88,67 +88,67 @@ class Rule(Serialisable):
     def __init__(
         self,
         type,
-        dxfId: Incomplete | None = ...,
-        priority: int = ...,
-        stopIfTrue: Incomplete | None = ...,
-        aboveAverage: Incomplete | None = ...,
-        percent: Incomplete | None = ...,
-        bottom: Incomplete | None = ...,
-        operator: Incomplete | None = ...,
-        text: Incomplete | None = ...,
-        timePeriod: Incomplete | None = ...,
-        rank: Incomplete | None = ...,
-        stdDev: Incomplete | None = ...,
-        equalAverage: Incomplete | None = ...,
-        formula=...,
-        colorScale: Incomplete | None = ...,
-        dataBar: Incomplete | None = ...,
-        iconSet: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
-        dxf: Incomplete | None = ...,
+        dxfId: Incomplete | None = None,
+        priority: int = 0,
+        stopIfTrue: Incomplete | None = None,
+        aboveAverage: Incomplete | None = None,
+        percent: Incomplete | None = None,
+        bottom: Incomplete | None = None,
+        operator: Incomplete | None = None,
+        text: Incomplete | None = None,
+        timePeriod: Incomplete | None = None,
+        rank: Incomplete | None = None,
+        stdDev: Incomplete | None = None,
+        equalAverage: Incomplete | None = None,
+        formula=(),
+        colorScale: Incomplete | None = None,
+        dataBar: Incomplete | None = None,
+        iconSet: Incomplete | None = None,
+        extLst: Incomplete | None = None,
+        dxf: Incomplete | None = None,
     ) -> None: ...
 
 def ColorScaleRule(
-    start_type: Incomplete | None = ...,
-    start_value: Incomplete | None = ...,
-    start_color: Incomplete | None = ...,
-    mid_type: Incomplete | None = ...,
-    mid_value: Incomplete | None = ...,
-    mid_color: Incomplete | None = ...,
-    end_type: Incomplete | None = ...,
-    end_value: Incomplete | None = ...,
-    end_color: Incomplete | None = ...,
+    start_type: Incomplete | None = None,
+    start_value: Incomplete | None = None,
+    start_color: Incomplete | None = None,
+    mid_type: Incomplete | None = None,
+    mid_value: Incomplete | None = None,
+    mid_color: Incomplete | None = None,
+    end_type: Incomplete | None = None,
+    end_value: Incomplete | None = None,
+    end_color: Incomplete | None = None,
 ): ...
 def FormulaRule(
-    formula: Incomplete | None = ...,
-    stopIfTrue: Incomplete | None = ...,
-    font: Incomplete | None = ...,
-    border: Incomplete | None = ...,
-    fill: Incomplete | None = ...,
+    formula: Incomplete | None = None,
+    stopIfTrue: Incomplete | None = None,
+    font: Incomplete | None = None,
+    border: Incomplete | None = None,
+    fill: Incomplete | None = None,
 ): ...
 def CellIsRule(
-    operator: Incomplete | None = ...,
-    formula: Incomplete | None = ...,
-    stopIfTrue: Incomplete | None = ...,
-    font: Incomplete | None = ...,
-    border: Incomplete | None = ...,
-    fill: Incomplete | None = ...,
+    operator: Incomplete | None = None,
+    formula: Incomplete | None = None,
+    stopIfTrue: Incomplete | None = None,
+    font: Incomplete | None = None,
+    border: Incomplete | None = None,
+    fill: Incomplete | None = None,
 ): ...
 def IconSetRule(
-    icon_style: Incomplete | None = ...,
-    type: Incomplete | None = ...,
-    values: Incomplete | None = ...,
-    showValue: Incomplete | None = ...,
-    percent: Incomplete | None = ...,
-    reverse: Incomplete | None = ...,
+    icon_style: Incomplete | None = None,
+    type: Incomplete | None = None,
+    values: Incomplete | None = None,
+    showValue: Incomplete | None = None,
+    percent: Incomplete | None = None,
+    reverse: Incomplete | None = None,
 ): ...
 def DataBarRule(
-    start_type: Incomplete | None = ...,
-    start_value: Incomplete | None = ...,
-    end_type: Incomplete | None = ...,
-    end_value: Incomplete | None = ...,
-    color: Incomplete | None = ...,
-    showValue: Incomplete | None = ...,
-    minLength: Incomplete | None = ...,
-    maxLength: Incomplete | None = ...,
+    start_type: Incomplete | None = None,
+    start_value: Incomplete | None = None,
+    end_type: Incomplete | None = None,
+    end_value: Incomplete | None = None,
+    color: Incomplete | None = None,
+    showValue: Incomplete | None = None,
+    minLength: Incomplete | None = None,
+    maxLength: Incomplete | None = None,
 ): ...

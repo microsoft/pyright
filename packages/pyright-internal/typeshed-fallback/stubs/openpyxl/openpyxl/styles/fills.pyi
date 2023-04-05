@@ -40,14 +40,14 @@ class PatternFill(Fill):
     end_color: Incomplete
     def __init__(
         self,
-        patternType: Incomplete | None = ...,
+        patternType: Incomplete | None = None,
         fgColor=...,
         bgColor=...,
-        fill_type: Incomplete | None = ...,
-        start_color: Incomplete | None = ...,
-        end_color: Incomplete | None = ...,
+        fill_type: Incomplete | None = None,
+        start_color: Incomplete | None = None,
+        end_color: Incomplete | None = None,
     ) -> None: ...
-    def to_tree(self, tagname: Incomplete | None = ..., idx: Incomplete | None = ...): ...  # type: ignore[override]
+    def to_tree(self, tagname: Incomplete | None = None, idx: Incomplete | None = None): ...  # type: ignore[override]
 
 DEFAULT_EMPTY_FILL: Incomplete
 DEFAULT_GRAY_FILL: Incomplete
@@ -73,7 +73,7 @@ class GradientFill(Fill):
     bottom: Incomplete
     stop: Incomplete
     def __init__(
-        self, type: str = ..., degree: int = ..., left: int = ..., right: int = ..., top: int = ..., bottom: int = ..., stop=...
+        self, type: str = "linear", degree: int = 0, left: int = 0, right: int = 0, top: int = 0, bottom: int = 0, stop=()
     ) -> None: ...
     def __iter__(self): ...
-    def to_tree(self, tagname: Incomplete | None = ..., namespace: Incomplete | None = ..., idx: Incomplete | None = ...): ...  # type: ignore[override]
+    def to_tree(self, tagname: Incomplete | None = None, namespace: Incomplete | None = None, idx: Incomplete | None = None): ...  # type: ignore[override]

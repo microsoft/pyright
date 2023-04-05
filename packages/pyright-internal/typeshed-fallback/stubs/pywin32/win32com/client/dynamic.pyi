@@ -15,7 +15,7 @@ class _DispatchCreateClass(Protocol[_T_co]):
         IDispatch: str | PyIDispatchType | _GoodDispatchTypes | PyIUnknownType,
         olerepr: build.DispatchItem | build.LazyDispatchItem,
         userName: str | None = ...,
-        UnicodeToString: None = ...,
+        UnicodeToString: None = None,
         lazydata: Incomplete | None = ...,
     ) -> _T_co: ...
 
@@ -40,16 +40,16 @@ def Dispatch(
     userName: str | None,
     createClass: _DispatchCreateClass[_T],
     typeinfo: _win32typing.PyITypeInfo | None = ...,
-    UnicodeToString: None = ...,
+    UnicodeToString: None = None,
     clsctx: int = ...,
 ) -> _T: ...
 @overload
 def Dispatch(
     IDispatch: str | PyIDispatchType | _GoodDispatchTypes | PyIUnknownType,
     userName: str | None = ...,
-    createClass: None = ...,
+    createClass: None = None,
     typeinfo: _win32typing.PyITypeInfo | None = ...,
-    UnicodeToString: None = ...,
+    UnicodeToString: None = None,
     clsctx: int = ...,
 ) -> CDispatch: ...
 def MakeOleRepr(IDispatch, typeinfo, typecomp): ...
@@ -67,7 +67,7 @@ class CDispatch:
         IDispatch,
         olerepr,
         userName: Incomplete | None = ...,
-        UnicodeToString: None = ...,
+        UnicodeToString: None = None,
         lazydata: Incomplete | None = ...,
     ) -> None: ...
     def __call__(self, *args): ...

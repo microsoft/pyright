@@ -16,13 +16,13 @@ class ScalarNode(Node):
     id: ClassVar[str]
     style: str | Any
     def __init__(
-        self, tag: str, value, start_mark: Mark | None = ..., end_mark: Mark | None = ..., style: str | None = ...
+        self, tag: str, value, start_mark: Mark | None = None, end_mark: Mark | None = None, style: str | None = None
     ) -> None: ...
 
 class CollectionNode(Node):
     flow_style: bool | Any
     def __init__(
-        self, tag: str, value, start_mark: Mark | None = ..., end_mark: Mark | None = ..., flow_style: bool | None = ...
+        self, tag: str, value, start_mark: Mark | None = None, end_mark: Mark | None = None, flow_style: bool | None = None
     ) -> None: ...
 
 class SequenceNode(CollectionNode):

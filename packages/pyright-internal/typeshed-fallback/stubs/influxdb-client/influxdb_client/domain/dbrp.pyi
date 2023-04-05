@@ -6,13 +6,13 @@ class DBRP:
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        bucket_id: Incomplete | None = ...,
-        database: Incomplete | None = ...,
-        retention_policy: Incomplete | None = ...,
-        default: Incomplete | None = ...,
-        links: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        bucket_id: Incomplete | None = None,
+        database: Incomplete | None = None,
+        retention_policy: Incomplete | None = None,
+        default: Incomplete | None = None,
+        links: Incomplete | None = None,
     ) -> None: ...
     @property
     def id(self): ...

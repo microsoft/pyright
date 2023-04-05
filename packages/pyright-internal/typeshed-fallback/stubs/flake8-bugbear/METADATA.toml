@@ -1,4 +1,4 @@
-version = "23.3.12"
+version = "23.3.23"
 
 [tool.stubtest]
 ignore_missing_stub = true

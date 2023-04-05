@@ -6,7 +6,9 @@ class MarkdownViewProperties(ViewProperties):
     openapi_types: Incomplete
     attribute_map: Incomplete
     discriminator: Incomplete
-    def __init__(self, type: Incomplete | None = ..., shape: Incomplete | None = ..., note: Incomplete | None = ...) -> None: ...
+    def __init__(
+        self, type: Incomplete | None = None, shape: Incomplete | None = None, note: Incomplete | None = None
+    ) -> None: ...
     @property
     def type(self): ...
     @type.setter

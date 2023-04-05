@@ -27,7 +27,7 @@ class PhotoImage(tkinter._PhotoImageLike):
     def width(self) -> int: ...
     def height(self) -> int: ...
     # box is deprecated and unused
-    def paste(self, im: Image, box: _Box | None = ...) -> None: ...
+    def paste(self, im: Image, box: _Box | None = None) -> None: ...
 
 class BitmapImage(tkinter._BitmapImageLike):
     def __init__(
@@ -40,8 +40,8 @@ class BitmapImage(tkinter._BitmapImageLike):
         name: str | None = None,
         cnf: dict[str, Any] = ...,
         master: tkinter.Misc | _tkinter.TkappType | None = None,
-        background: tkinter._Color = ...,
-        foreground: tkinter._Color = ...,
+        background: str = ...,
+        foreground: str = ...,
         maskdata: str = ...,
         maskfile: StrOrBytesPath = ...,
     ) -> None: ...

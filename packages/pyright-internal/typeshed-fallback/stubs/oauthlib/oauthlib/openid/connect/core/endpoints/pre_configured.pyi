@@ -28,9 +28,9 @@ class Server(AuthorizationEndpoint, IntrospectEndpoint, TokenEndpoint, ResourceE
     def __init__(
         self,
         request_validator,
-        token_expires_in: Incomplete | None = ...,
-        token_generator: Incomplete | None = ...,
-        refresh_token_generator: Incomplete | None = ...,
+        token_expires_in: Incomplete | None = None,
+        token_generator: Incomplete | None = None,
+        refresh_token_generator: Incomplete | None = None,
         *args,
         **kwargs,
     ) -> None: ...

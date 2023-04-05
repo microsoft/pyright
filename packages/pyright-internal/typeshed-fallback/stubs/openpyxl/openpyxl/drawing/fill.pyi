@@ -12,7 +12,9 @@ class PatternFillProperties(Serialisable):
     bgClr: Incomplete
     background: Incomplete
     __elements__: Incomplete
-    def __init__(self, prst: Incomplete | None = ..., fgClr: Incomplete | None = ..., bgClr: Incomplete | None = ...) -> None: ...
+    def __init__(
+        self, prst: Incomplete | None = None, fgClr: Incomplete | None = None, bgClr: Incomplete | None = None
+    ) -> None: ...
 
 class RelativeRect(Serialisable):
     tagname: str
@@ -26,7 +28,7 @@ class RelativeRect(Serialisable):
     b: Incomplete
     bottom: Incomplete
     def __init__(
-        self, l: Incomplete | None = ..., t: Incomplete | None = ..., r: Incomplete | None = ..., b: Incomplete | None = ...
+        self, l: Incomplete | None = None, t: Incomplete | None = None, r: Incomplete | None = None, b: Incomplete | None = None
     ) -> None: ...
 
 class StretchInfoProperties(Serialisable):
@@ -50,13 +52,13 @@ class GradientStop(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        pos: Incomplete | None = ...,
-        scrgbClr: Incomplete | None = ...,
-        srgbClr: Incomplete | None = ...,
-        hslClr: Incomplete | None = ...,
-        sysClr: Incomplete | None = ...,
-        schemeClr: Incomplete | None = ...,
-        prstClr: Incomplete | None = ...,
+        pos: Incomplete | None = None,
+        scrgbClr: Incomplete | None = None,
+        srgbClr: Incomplete | None = None,
+        hslClr: Incomplete | None = None,
+        sysClr: Incomplete | None = None,
+        schemeClr: Incomplete | None = None,
+        prstClr: Incomplete | None = None,
     ) -> None: ...
 
 class LinearShadeProperties(Serialisable):
@@ -64,14 +66,14 @@ class LinearShadeProperties(Serialisable):
     namespace: Incomplete
     ang: Incomplete
     scaled: Incomplete
-    def __init__(self, ang: Incomplete | None = ..., scaled: Incomplete | None = ...) -> None: ...
+    def __init__(self, ang: Incomplete | None = None, scaled: Incomplete | None = None) -> None: ...
 
 class PathShadeProperties(Serialisable):
     tagname: str
     namespace: Incomplete
     path: Incomplete
     fillToRect: Incomplete
-    def __init__(self, path: Incomplete | None = ..., fillToRect: Incomplete | None = ...) -> None: ...
+    def __init__(self, path: Incomplete | None = None, fillToRect: Incomplete | None = None) -> None: ...
 
 class GradientFillProperties(Serialisable):
     tagname: str
@@ -87,12 +89,12 @@ class GradientFillProperties(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        flip: Incomplete | None = ...,
-        rotWithShape: Incomplete | None = ...,
-        gsLst=...,
-        lin: Incomplete | None = ...,
-        path: Incomplete | None = ...,
-        tileRect: Incomplete | None = ...,
+        flip: Incomplete | None = None,
+        rotWithShape: Incomplete | None = None,
+        gsLst=(),
+        lin: Incomplete | None = None,
+        path: Incomplete | None = None,
+        tileRect: Incomplete | None = None,
     ) -> None: ...
 
 class SolidColorFillProperties(Serialisable):
@@ -108,12 +110,12 @@ class SolidColorFillProperties(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        scrgbClr: Incomplete | None = ...,
-        srgbClr: Incomplete | None = ...,
-        hslClr: Incomplete | None = ...,
-        sysClr: Incomplete | None = ...,
-        schemeClr: Incomplete | None = ...,
-        prstClr: Incomplete | None = ...,
+        scrgbClr: Incomplete | None = None,
+        srgbClr: Incomplete | None = None,
+        hslClr: Incomplete | None = None,
+        sysClr: Incomplete | None = None,
+        schemeClr: Incomplete | None = None,
+        prstClr: Incomplete | None = None,
     ) -> None: ...
 
 class Blip(Serialisable):
@@ -153,37 +155,37 @@ class Blip(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        cstate: Incomplete | None = ...,
-        embed: Incomplete | None = ...,
-        link: Incomplete | None = ...,
-        noGrp: Incomplete | None = ...,
-        noSelect: Incomplete | None = ...,
-        noRot: Incomplete | None = ...,
-        noChangeAspect: Incomplete | None = ...,
-        noMove: Incomplete | None = ...,
-        noResize: Incomplete | None = ...,
-        noEditPoints: Incomplete | None = ...,
-        noAdjustHandles: Incomplete | None = ...,
-        noChangeArrowheads: Incomplete | None = ...,
-        noChangeShapeType: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
-        alphaBiLevel: Incomplete | None = ...,
-        alphaCeiling: Incomplete | None = ...,
-        alphaFloor: Incomplete | None = ...,
-        alphaInv: Incomplete | None = ...,
-        alphaMod: Incomplete | None = ...,
-        alphaModFix: Incomplete | None = ...,
-        alphaRepl: Incomplete | None = ...,
-        biLevel: Incomplete | None = ...,
-        blur: Incomplete | None = ...,
-        clrChange: Incomplete | None = ...,
-        clrRepl: Incomplete | None = ...,
-        duotone: Incomplete | None = ...,
-        fillOverlay: Incomplete | None = ...,
-        grayscl: Incomplete | None = ...,
-        hsl: Incomplete | None = ...,
-        lum: Incomplete | None = ...,
-        tint: Incomplete | None = ...,
+        cstate: Incomplete | None = None,
+        embed: Incomplete | None = None,
+        link: Incomplete | None = None,
+        noGrp: Incomplete | None = None,
+        noSelect: Incomplete | None = None,
+        noRot: Incomplete | None = None,
+        noChangeAspect: Incomplete | None = None,
+        noMove: Incomplete | None = None,
+        noResize: Incomplete | None = None,
+        noEditPoints: Incomplete | None = None,
+        noAdjustHandles: Incomplete | None = None,
+        noChangeArrowheads: Incomplete | None = None,
+        noChangeShapeType: Incomplete | None = None,
+        extLst: Incomplete | None = None,
+        alphaBiLevel: Incomplete | None = None,
+        alphaCeiling: Incomplete | None = None,
+        alphaFloor: Incomplete | None = None,
+        alphaInv: Incomplete | None = None,
+        alphaMod: Incomplete | None = None,
+        alphaModFix: Incomplete | None = None,
+        alphaRepl: Incomplete | None = None,
+        biLevel: Incomplete | None = None,
+        blur: Incomplete | None = None,
+        clrChange: Incomplete | None = None,
+        clrRepl: Incomplete | None = None,
+        duotone: Incomplete | None = None,
+        fillOverlay: Incomplete | None = None,
+        grayscl: Incomplete | None = None,
+        hsl: Incomplete | None = None,
+        lum: Incomplete | None = None,
+        tint: Incomplete | None = None,
     ) -> None: ...
 
 class TileInfoProperties(Serialisable):
@@ -195,12 +197,12 @@ class TileInfoProperties(Serialisable):
     algn: Incomplete
     def __init__(
         self,
-        tx: Incomplete | None = ...,
-        ty: Incomplete | None = ...,
-        sx: Incomplete | None = ...,
-        sy: Incomplete | None = ...,
-        flip: Incomplete | None = ...,
-        algn: Incomplete | None = ...,
+        tx: Incomplete | None = None,
+        ty: Incomplete | None = None,
+        sx: Incomplete | None = None,
+        sy: Incomplete | None = None,
+        flip: Incomplete | None = None,
+        algn: Incomplete | None = None,
     ) -> None: ...
 
 class BlipFillProperties(Serialisable):
@@ -214,10 +216,10 @@ class BlipFillProperties(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        dpi: Incomplete | None = ...,
-        rotWithShape: Incomplete | None = ...,
-        blip: Incomplete | None = ...,
-        tile: Incomplete | None = ...,
+        dpi: Incomplete | None = None,
+        rotWithShape: Incomplete | None = None,
+        blip: Incomplete | None = None,
+        tile: Incomplete | None = None,
         stretch=...,
-        srcRect: Incomplete | None = ...,
+        srcRect: Incomplete | None = None,
     ) -> None: ...

@@ -6,11 +6,11 @@ class TaskCreateRequest:
     discriminator: Incomplete
     def __init__(
         self,
-        org_id: Incomplete | None = ...,
-        org: Incomplete | None = ...,
-        status: Incomplete | None = ...,
-        flux: Incomplete | None = ...,
-        description: Incomplete | None = ...,
+        org_id: Incomplete | None = None,
+        org: Incomplete | None = None,
+        status: Incomplete | None = None,
+        flux: Incomplete | None = None,
+        description: Incomplete | None = None,
     ) -> None: ...
     @property
     def org_id(self): ...

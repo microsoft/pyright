@@ -11,8 +11,8 @@ class UpDownBars(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        gapWidth: int = ...,
-        upBars: Incomplete | None = ...,
-        downBars: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        gapWidth: int = 150,
+        upBars: Incomplete | None = None,
+        downBars: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...

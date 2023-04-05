@@ -18,13 +18,13 @@ class _UrlBase(NamedTuple):
 class Url(_UrlBase):
     def __new__(
         cls,
-        scheme: str | None = ...,
-        auth: str | None = ...,
-        host: str | None = ...,
-        port: int | None = ...,
-        path: str | None = ...,
-        query: str | None = ...,
-        fragment: str | None = ...,
+        scheme: str | None = None,
+        auth: str | None = None,
+        host: str | None = None,
+        port: int | None = None,
+        path: str | None = None,
+        query: str | None = None,
+        fragment: str | None = None,
     ): ...
     @property
     def hostname(self) -> str | None: ...

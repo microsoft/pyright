@@ -11,7 +11,7 @@ class _PieChartBase(ChartBase):
     dLbls: Incomplete
     dataLabels: Incomplete
     __elements__: Incomplete
-    def __init__(self, varyColors: bool = ..., ser=..., dLbls: Incomplete | None = ...) -> None: ...
+    def __init__(self, varyColors: bool = True, ser=(), dLbls: Incomplete | None = None) -> None: ...
     @property
     @abstractmethod
     def tagname(self) -> str: ...
@@ -24,7 +24,7 @@ class PieChart(_PieChartBase):
     firstSliceAng: Incomplete
     extLst: Incomplete
     __elements__: Incomplete
-    def __init__(self, firstSliceAng: int = ..., extLst: Incomplete | None = ..., **kw) -> None: ...
+    def __init__(self, firstSliceAng: int = 0, extLst: Incomplete | None = None, **kw) -> None: ...
 
 class PieChart3D(_PieChartBase):
     tagname: str
@@ -43,13 +43,13 @@ class DoughnutChart(_PieChartBase):
     holeSize: Incomplete
     extLst: Incomplete
     __elements__: Incomplete
-    def __init__(self, firstSliceAng: int = ..., holeSize: int = ..., extLst: Incomplete | None = ..., **kw) -> None: ...
+    def __init__(self, firstSliceAng: int = 0, holeSize: int = 10, extLst: Incomplete | None = None, **kw) -> None: ...
 
 class CustomSplit(Serialisable):
     tagname: str
     secondPiePt: Incomplete
     __elements__: Incomplete
-    def __init__(self, secondPiePt=...) -> None: ...
+    def __init__(self, secondPiePt=()) -> None: ...
 
 class ProjectedPieChart(_PieChartBase):
     tagname: str
@@ -69,13 +69,13 @@ class ProjectedPieChart(_PieChartBase):
     __elements__: Incomplete
     def __init__(
         self,
-        ofPieType: str = ...,
-        gapWidth: Incomplete | None = ...,
-        splitType: str = ...,
-        splitPos: Incomplete | None = ...,
-        custSplit: Incomplete | None = ...,
-        secondPieSize: int = ...,
-        serLines: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        ofPieType: str = "pie",
+        gapWidth: Incomplete | None = None,
+        splitType: str = "auto",
+        splitPos: Incomplete | None = None,
+        custSplit: Incomplete | None = None,
+        secondPieSize: int = 75,
+        serLines: Incomplete | None = None,
+        extLst: Incomplete | None = None,
         **kw,
     ) -> None: ...

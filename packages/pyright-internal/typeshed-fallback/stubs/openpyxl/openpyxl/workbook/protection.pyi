@@ -25,28 +25,28 @@ class WorkbookProtection(Serialisable):
     __attrs__: Incomplete
     def __init__(
         self,
-        workbookPassword: Incomplete | None = ...,
-        workbookPasswordCharacterSet: Incomplete | None = ...,
-        revisionsPassword: Incomplete | None = ...,
-        revisionsPasswordCharacterSet: Incomplete | None = ...,
-        lockStructure: Incomplete | None = ...,
-        lockWindows: Incomplete | None = ...,
-        lockRevision: Incomplete | None = ...,
-        revisionsAlgorithmName: Incomplete | None = ...,
-        revisionsHashValue: Incomplete | None = ...,
-        revisionsSaltValue: Incomplete | None = ...,
-        revisionsSpinCount: Incomplete | None = ...,
-        workbookAlgorithmName: Incomplete | None = ...,
-        workbookHashValue: Incomplete | None = ...,
-        workbookSaltValue: Incomplete | None = ...,
-        workbookSpinCount: Incomplete | None = ...,
+        workbookPassword: Incomplete | None = None,
+        workbookPasswordCharacterSet: Incomplete | None = None,
+        revisionsPassword: Incomplete | None = None,
+        revisionsPasswordCharacterSet: Incomplete | None = None,
+        lockStructure: Incomplete | None = None,
+        lockWindows: Incomplete | None = None,
+        lockRevision: Incomplete | None = None,
+        revisionsAlgorithmName: Incomplete | None = None,
+        revisionsHashValue: Incomplete | None = None,
+        revisionsSaltValue: Incomplete | None = None,
+        revisionsSpinCount: Incomplete | None = None,
+        workbookAlgorithmName: Incomplete | None = None,
+        workbookHashValue: Incomplete | None = None,
+        workbookSaltValue: Incomplete | None = None,
+        workbookSpinCount: Incomplete | None = None,
     ) -> None: ...
-    def set_workbook_password(self, value: str = ..., already_hashed: bool = ...) -> None: ...
+    def set_workbook_password(self, value: str = "", already_hashed: bool = False) -> None: ...
     @property
     def workbookPassword(self): ...
     @workbookPassword.setter
     def workbookPassword(self, value) -> None: ...
-    def set_revisions_password(self, value: str = ..., already_hashed: bool = ...) -> None: ...
+    def set_revisions_password(self, value: str = "", already_hashed: bool = False) -> None: ...
     @property
     def revisionsPassword(self): ...
     @revisionsPassword.setter
@@ -67,11 +67,11 @@ class FileSharing(Serialisable):
     spinCount: Incomplete
     def __init__(
         self,
-        readOnlyRecommended: Incomplete | None = ...,
-        userName: Incomplete | None = ...,
-        reservationPassword: Incomplete | None = ...,
-        algorithmName: Incomplete | None = ...,
-        hashValue: Incomplete | None = ...,
-        saltValue: Incomplete | None = ...,
-        spinCount: Incomplete | None = ...,
+        readOnlyRecommended: Incomplete | None = None,
+        userName: Incomplete | None = None,
+        reservationPassword: Incomplete | None = None,
+        algorithmName: Incomplete | None = None,
+        hashValue: Incomplete | None = None,
+        saltValue: Incomplete | None = None,
+        spinCount: Incomplete | None = None,
     ) -> None: ...

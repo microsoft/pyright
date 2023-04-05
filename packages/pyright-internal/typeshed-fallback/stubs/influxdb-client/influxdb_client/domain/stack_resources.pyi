@@ -6,12 +6,12 @@ class StackResources:
     discriminator: Incomplete
     def __init__(
         self,
-        api_version: Incomplete | None = ...,
-        resource_id: Incomplete | None = ...,
-        kind: Incomplete | None = ...,
-        template_meta_name: Incomplete | None = ...,
-        associations: Incomplete | None = ...,
-        links: Incomplete | None = ...,
+        api_version: Incomplete | None = None,
+        resource_id: Incomplete | None = None,
+        kind: Incomplete | None = None,
+        template_meta_name: Incomplete | None = None,
+        associations: Incomplete | None = None,
+        links: Incomplete | None = None,
     ) -> None: ...
     @property
     def api_version(self): ...

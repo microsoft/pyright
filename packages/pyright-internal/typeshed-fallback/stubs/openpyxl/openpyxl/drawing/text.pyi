@@ -4,7 +4,7 @@ from openpyxl.descriptors.serialisable import Serialisable
 
 class EmbeddedWAVAudioFile(Serialisable):  # type: ignore[misc]
     name: Incomplete
-    def __init__(self, name: Incomplete | None = ...) -> None: ...
+    def __init__(self, name: Incomplete | None = None) -> None: ...
 
 class Hyperlink(Serialisable):
     tagname: str
@@ -22,16 +22,16 @@ class Hyperlink(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        invalidUrl: Incomplete | None = ...,
-        action: Incomplete | None = ...,
-        tgtFrame: Incomplete | None = ...,
-        tooltip: Incomplete | None = ...,
-        history: Incomplete | None = ...,
-        highlightClick: Incomplete | None = ...,
-        endSnd: Incomplete | None = ...,
-        snd: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
-        id: Incomplete | None = ...,
+        invalidUrl: Incomplete | None = None,
+        action: Incomplete | None = None,
+        tgtFrame: Incomplete | None = None,
+        tooltip: Incomplete | None = None,
+        history: Incomplete | None = None,
+        highlightClick: Incomplete | None = None,
+        endSnd: Incomplete | None = None,
+        snd: Incomplete | None = None,
+        extLst: Incomplete | None = None,
+        id: Incomplete | None = None,
     ) -> None: ...
 
 class Font(Serialisable):
@@ -43,10 +43,10 @@ class Font(Serialisable):
     charset: Incomplete
     def __init__(
         self,
-        typeface: Incomplete | None = ...,
-        panose: Incomplete | None = ...,
-        pitchFamily: Incomplete | None = ...,
-        charset: Incomplete | None = ...,
+        typeface: Incomplete | None = None,
+        panose: Incomplete | None = None,
+        pitchFamily: Incomplete | None = None,
+        charset: Incomplete | None = None,
     ) -> None: ...
 
 class CharacterProperties(Serialisable):
@@ -96,68 +96,68 @@ class CharacterProperties(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        kumimoji: Incomplete | None = ...,
-        lang: Incomplete | None = ...,
-        altLang: Incomplete | None = ...,
-        sz: Incomplete | None = ...,
-        b: Incomplete | None = ...,
-        i: Incomplete | None = ...,
-        u: Incomplete | None = ...,
-        strike: Incomplete | None = ...,
-        kern: Incomplete | None = ...,
-        cap: Incomplete | None = ...,
-        spc: Incomplete | None = ...,
-        normalizeH: Incomplete | None = ...,
-        baseline: Incomplete | None = ...,
-        noProof: Incomplete | None = ...,
-        dirty: Incomplete | None = ...,
-        err: Incomplete | None = ...,
-        smtClean: Incomplete | None = ...,
-        smtId: Incomplete | None = ...,
-        bmk: Incomplete | None = ...,
-        ln: Incomplete | None = ...,
-        highlight: Incomplete | None = ...,
-        latin: Incomplete | None = ...,
-        ea: Incomplete | None = ...,
-        cs: Incomplete | None = ...,
-        sym: Incomplete | None = ...,
-        hlinkClick: Incomplete | None = ...,
-        hlinkMouseOver: Incomplete | None = ...,
-        rtl: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
-        noFill: Incomplete | None = ...,
-        solidFill: Incomplete | None = ...,
-        gradFill: Incomplete | None = ...,
-        blipFill: Incomplete | None = ...,
-        pattFill: Incomplete | None = ...,
-        grpFill: Incomplete | None = ...,
-        effectLst: Incomplete | None = ...,
-        effectDag: Incomplete | None = ...,
-        uLnTx: Incomplete | None = ...,
-        uLn: Incomplete | None = ...,
-        uFillTx: Incomplete | None = ...,
-        uFill: Incomplete | None = ...,
+        kumimoji: Incomplete | None = None,
+        lang: Incomplete | None = None,
+        altLang: Incomplete | None = None,
+        sz: Incomplete | None = None,
+        b: Incomplete | None = None,
+        i: Incomplete | None = None,
+        u: Incomplete | None = None,
+        strike: Incomplete | None = None,
+        kern: Incomplete | None = None,
+        cap: Incomplete | None = None,
+        spc: Incomplete | None = None,
+        normalizeH: Incomplete | None = None,
+        baseline: Incomplete | None = None,
+        noProof: Incomplete | None = None,
+        dirty: Incomplete | None = None,
+        err: Incomplete | None = None,
+        smtClean: Incomplete | None = None,
+        smtId: Incomplete | None = None,
+        bmk: Incomplete | None = None,
+        ln: Incomplete | None = None,
+        highlight: Incomplete | None = None,
+        latin: Incomplete | None = None,
+        ea: Incomplete | None = None,
+        cs: Incomplete | None = None,
+        sym: Incomplete | None = None,
+        hlinkClick: Incomplete | None = None,
+        hlinkMouseOver: Incomplete | None = None,
+        rtl: Incomplete | None = None,
+        extLst: Incomplete | None = None,
+        noFill: Incomplete | None = None,
+        solidFill: Incomplete | None = None,
+        gradFill: Incomplete | None = None,
+        blipFill: Incomplete | None = None,
+        pattFill: Incomplete | None = None,
+        grpFill: Incomplete | None = None,
+        effectLst: Incomplete | None = None,
+        effectDag: Incomplete | None = None,
+        uLnTx: Incomplete | None = None,
+        uLn: Incomplete | None = None,
+        uFillTx: Incomplete | None = None,
+        uFill: Incomplete | None = None,
     ) -> None: ...
 
 class TabStop(Serialisable):  # type: ignore[misc]
     pos: Incomplete
     algn: Incomplete
-    def __init__(self, pos: Incomplete | None = ..., algn: Incomplete | None = ...) -> None: ...
+    def __init__(self, pos: Incomplete | None = None, algn: Incomplete | None = None) -> None: ...
 
 class TabStopList(Serialisable):  # type: ignore[misc]
     tab: Incomplete
-    def __init__(self, tab: Incomplete | None = ...) -> None: ...
+    def __init__(self, tab: Incomplete | None = None) -> None: ...
 
 class Spacing(Serialisable):
     spcPct: Incomplete
     spcPts: Incomplete
     __elements__: Incomplete
-    def __init__(self, spcPct: Incomplete | None = ..., spcPts: Incomplete | None = ...) -> None: ...
+    def __init__(self, spcPct: Incomplete | None = None, spcPts: Incomplete | None = None) -> None: ...
 
 class AutonumberBullet(Serialisable):
     type: Incomplete
     startAt: Incomplete
-    def __init__(self, type: Incomplete | None = ..., startAt: Incomplete | None = ...) -> None: ...
+    def __init__(self, type: Incomplete | None = None, startAt: Incomplete | None = None) -> None: ...
 
 class ParagraphProperties(Serialisable):
     tagname: str
@@ -193,34 +193,34 @@ class ParagraphProperties(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        marL: Incomplete | None = ...,
-        marR: Incomplete | None = ...,
-        lvl: Incomplete | None = ...,
-        indent: Incomplete | None = ...,
-        algn: Incomplete | None = ...,
-        defTabSz: Incomplete | None = ...,
-        rtl: Incomplete | None = ...,
-        eaLnBrk: Incomplete | None = ...,
-        fontAlgn: Incomplete | None = ...,
-        latinLnBrk: Incomplete | None = ...,
-        hangingPunct: Incomplete | None = ...,
-        lnSpc: Incomplete | None = ...,
-        spcBef: Incomplete | None = ...,
-        spcAft: Incomplete | None = ...,
-        tabLst: Incomplete | None = ...,
-        defRPr: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
-        buClrTx: Incomplete | None = ...,
-        buClr: Incomplete | None = ...,
-        buSzTx: Incomplete | None = ...,
-        buSzPct: Incomplete | None = ...,
-        buSzPts: Incomplete | None = ...,
-        buFontTx: Incomplete | None = ...,
-        buFont: Incomplete | None = ...,
-        buNone: Incomplete | None = ...,
-        buAutoNum: Incomplete | None = ...,
-        buChar: Incomplete | None = ...,
-        buBlip: Incomplete | None = ...,
+        marL: Incomplete | None = None,
+        marR: Incomplete | None = None,
+        lvl: Incomplete | None = None,
+        indent: Incomplete | None = None,
+        algn: Incomplete | None = None,
+        defTabSz: Incomplete | None = None,
+        rtl: Incomplete | None = None,
+        eaLnBrk: Incomplete | None = None,
+        fontAlgn: Incomplete | None = None,
+        latinLnBrk: Incomplete | None = None,
+        hangingPunct: Incomplete | None = None,
+        lnSpc: Incomplete | None = None,
+        spcBef: Incomplete | None = None,
+        spcAft: Incomplete | None = None,
+        tabLst: Incomplete | None = None,
+        defRPr: Incomplete | None = None,
+        extLst: Incomplete | None = None,
+        buClrTx: Incomplete | None = None,
+        buClr: Incomplete | None = None,
+        buSzTx: Incomplete | None = None,
+        buSzPct: Incomplete | None = None,
+        buSzPts: Incomplete | None = None,
+        buFontTx: Incomplete | None = None,
+        buFont: Incomplete | None = None,
+        buNone: Incomplete | None = None,
+        buAutoNum: Incomplete | None = None,
+        buChar: Incomplete | None = None,
+        buBlip: Incomplete | None = None,
     ) -> None: ...
 
 class ListStyle(Serialisable):
@@ -240,17 +240,17 @@ class ListStyle(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        defPPr: Incomplete | None = ...,
-        lvl1pPr: Incomplete | None = ...,
-        lvl2pPr: Incomplete | None = ...,
-        lvl3pPr: Incomplete | None = ...,
-        lvl4pPr: Incomplete | None = ...,
-        lvl5pPr: Incomplete | None = ...,
-        lvl6pPr: Incomplete | None = ...,
-        lvl7pPr: Incomplete | None = ...,
-        lvl8pPr: Incomplete | None = ...,
-        lvl9pPr: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        defPPr: Incomplete | None = None,
+        lvl1pPr: Incomplete | None = None,
+        lvl2pPr: Incomplete | None = None,
+        lvl3pPr: Incomplete | None = None,
+        lvl4pPr: Incomplete | None = None,
+        lvl5pPr: Incomplete | None = None,
+        lvl6pPr: Incomplete | None = None,
+        lvl7pPr: Incomplete | None = None,
+        lvl8pPr: Incomplete | None = None,
+        lvl9pPr: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class RegularTextRun(Serialisable):
@@ -261,14 +261,14 @@ class RegularTextRun(Serialisable):
     t: Incomplete
     value: Incomplete
     __elements__: Incomplete
-    def __init__(self, rPr: Incomplete | None = ..., t: str = ...) -> None: ...
+    def __init__(self, rPr: Incomplete | None = None, t: str = "") -> None: ...
 
 class LineBreak(Serialisable):
     tagname: str
     namespace: Incomplete
     rPr: Incomplete
     __elements__: Incomplete
-    def __init__(self, rPr: Incomplete | None = ...) -> None: ...
+    def __init__(self, rPr: Incomplete | None = None) -> None: ...
 
 class TextField(Serialisable):
     id: Incomplete
@@ -279,11 +279,11 @@ class TextField(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        type: Incomplete | None = ...,
-        rPr: Incomplete | None = ...,
-        pPr: Incomplete | None = ...,
-        t: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        type: Incomplete | None = None,
+        rPr: Incomplete | None = None,
+        pPr: Incomplete | None = None,
+        t: Incomplete | None = None,
     ) -> None: ...
 
 class Paragraph(Serialisable):
@@ -299,31 +299,31 @@ class Paragraph(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        pPr: Incomplete | None = ...,
-        endParaRPr: Incomplete | None = ...,
-        r: Incomplete | None = ...,
-        br: Incomplete | None = ...,
-        fld: Incomplete | None = ...,
+        pPr: Incomplete | None = None,
+        endParaRPr: Incomplete | None = None,
+        r: Incomplete | None = None,
+        br: Incomplete | None = None,
+        fld: Incomplete | None = None,
     ) -> None: ...
 
 class GeomGuide(Serialisable):
     name: Incomplete
     fmla: Incomplete
-    def __init__(self, name: Incomplete | None = ..., fmla: Incomplete | None = ...) -> None: ...
+    def __init__(self, name: Incomplete | None = None, fmla: Incomplete | None = None) -> None: ...
 
 class GeomGuideList(Serialisable):
     gd: Incomplete
-    def __init__(self, gd: Incomplete | None = ...) -> None: ...
+    def __init__(self, gd: Incomplete | None = None) -> None: ...
 
 class PresetTextShape(Serialisable):
     prst: Incomplete
     avLst: Incomplete
-    def __init__(self, prst: Incomplete | None = ..., avLst: Incomplete | None = ...) -> None: ...
+    def __init__(self, prst: Incomplete | None = None, avLst: Incomplete | None = None) -> None: ...
 
 class TextNormalAutofit(Serialisable):
     fontScale: Incomplete
     lnSpcReduction: Incomplete
-    def __init__(self, fontScale: Incomplete | None = ..., lnSpcReduction: Incomplete | None = ...) -> None: ...
+    def __init__(self, fontScale: Incomplete | None = None, lnSpcReduction: Incomplete | None = None) -> None: ...
 
 class RichTextProperties(Serialisable):
     tagname: str
@@ -357,30 +357,30 @@ class RichTextProperties(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        rot: Incomplete | None = ...,
-        spcFirstLastPara: Incomplete | None = ...,
-        vertOverflow: Incomplete | None = ...,
-        horzOverflow: Incomplete | None = ...,
-        vert: Incomplete | None = ...,
-        wrap: Incomplete | None = ...,
-        lIns: Incomplete | None = ...,
-        tIns: Incomplete | None = ...,
-        rIns: Incomplete | None = ...,
-        bIns: Incomplete | None = ...,
-        numCol: Incomplete | None = ...,
-        spcCol: Incomplete | None = ...,
-        rtlCol: Incomplete | None = ...,
-        fromWordArt: Incomplete | None = ...,
-        anchor: Incomplete | None = ...,
-        anchorCtr: Incomplete | None = ...,
-        forceAA: Incomplete | None = ...,
-        upright: Incomplete | None = ...,
-        compatLnSpc: Incomplete | None = ...,
-        prstTxWarp: Incomplete | None = ...,
-        scene3d: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
-        noAutofit: Incomplete | None = ...,
-        normAutofit: Incomplete | None = ...,
-        spAutoFit: Incomplete | None = ...,
-        flatTx: Incomplete | None = ...,
+        rot: Incomplete | None = None,
+        spcFirstLastPara: Incomplete | None = None,
+        vertOverflow: Incomplete | None = None,
+        horzOverflow: Incomplete | None = None,
+        vert: Incomplete | None = None,
+        wrap: Incomplete | None = None,
+        lIns: Incomplete | None = None,
+        tIns: Incomplete | None = None,
+        rIns: Incomplete | None = None,
+        bIns: Incomplete | None = None,
+        numCol: Incomplete | None = None,
+        spcCol: Incomplete | None = None,
+        rtlCol: Incomplete | None = None,
+        fromWordArt: Incomplete | None = None,
+        anchor: Incomplete | None = None,
+        anchorCtr: Incomplete | None = None,
+        forceAA: Incomplete | None = None,
+        upright: Incomplete | None = None,
+        compatLnSpc: Incomplete | None = None,
+        prstTxWarp: Incomplete | None = None,
+        scene3d: Incomplete | None = None,
+        extLst: Incomplete | None = None,
+        noAutofit: Incomplete | None = None,
+        normAutofit: Incomplete | None = None,
+        spAutoFit: Incomplete | None = None,
+        flatTx: Incomplete | None = None,
     ) -> None: ...

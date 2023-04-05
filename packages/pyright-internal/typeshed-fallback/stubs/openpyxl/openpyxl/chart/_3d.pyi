@@ -18,13 +18,13 @@ class View3D(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        rotX: int = ...,
-        hPercent: Incomplete | None = ...,
-        rotY: int = ...,
-        depthPercent: Incomplete | None = ...,
-        rAngAx: bool = ...,
-        perspective: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        rotX: int = 15,
+        hPercent: Incomplete | None = None,
+        rotY: int = 20,
+        depthPercent: Incomplete | None = None,
+        rAngAx: bool = True,
+        perspective: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class Surface(Serialisable):
@@ -37,10 +37,10 @@ class Surface(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        thickness: Incomplete | None = ...,
-        spPr: Incomplete | None = ...,
-        pictureOptions: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        thickness: Incomplete | None = None,
+        spPr: Incomplete | None = None,
+        pictureOptions: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class _3DBase(Serialisable):
@@ -51,8 +51,8 @@ class _3DBase(Serialisable):
     backWall: Incomplete
     def __init__(
         self,
-        view3D: Incomplete | None = ...,
-        floor: Incomplete | None = ...,
-        sideWall: Incomplete | None = ...,
-        backWall: Incomplete | None = ...,
+        view3D: Incomplete | None = None,
+        floor: Incomplete | None = None,
+        sideWall: Incomplete | None = None,
+        backWall: Incomplete | None = None,
     ) -> None: ...

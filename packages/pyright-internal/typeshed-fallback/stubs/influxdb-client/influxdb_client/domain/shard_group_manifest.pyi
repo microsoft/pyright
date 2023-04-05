@@ -6,12 +6,12 @@ class ShardGroupManifest:
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        start_time: Incomplete | None = ...,
-        end_time: Incomplete | None = ...,
-        deleted_at: Incomplete | None = ...,
-        truncated_at: Incomplete | None = ...,
-        shards: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        start_time: Incomplete | None = None,
+        end_time: Incomplete | None = None,
+        deleted_at: Incomplete | None = None,
+        truncated_at: Incomplete | None = None,
+        shards: Incomplete | None = None,
     ) -> None: ...
     @property
     def id(self): ...

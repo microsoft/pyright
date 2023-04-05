@@ -18,20 +18,20 @@ class Tls:
     sni: Any
     def __init__(
         self,
-        local_private_key_file: Incomplete | None = ...,
-        local_certificate_file: Incomplete | None = ...,
+        local_private_key_file: Incomplete | None = None,
+        local_certificate_file: Incomplete | None = None,
         validate=...,
-        version: Incomplete | None = ...,
-        ssl_options: Incomplete | None = ...,
-        ca_certs_file: Incomplete | None = ...,
-        valid_names: Incomplete | None = ...,
-        ca_certs_path: Incomplete | None = ...,
-        ca_certs_data: Incomplete | None = ...,
-        local_private_key_password: Incomplete | None = ...,
-        ciphers: Incomplete | None = ...,
-        sni: Incomplete | None = ...,
+        version: Incomplete | None = None,
+        ssl_options: Incomplete | None = None,
+        ca_certs_file: Incomplete | None = None,
+        valid_names: Incomplete | None = None,
+        ca_certs_path: Incomplete | None = None,
+        ca_certs_data: Incomplete | None = None,
+        local_private_key_password: Incomplete | None = None,
+        ciphers: Incomplete | None = None,
+        sni: Incomplete | None = None,
     ) -> None: ...
-    def wrap_socket(self, connection, do_handshake: bool = ...) -> None: ...
+    def wrap_socket(self, connection, do_handshake: bool = False) -> None: ...
     def start_tls(self, connection): ...
 
 def check_hostname(sock, server_name, additional_names) -> None: ...

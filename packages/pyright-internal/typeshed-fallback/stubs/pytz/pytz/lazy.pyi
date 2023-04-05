@@ -10,8 +10,8 @@ class LazyDict(DictMixin[str, Incomplete]):
 
 class LazyList(list[Incomplete]):
     # does not return `Self` type:
-    def __new__(cls, fill_iter: Incomplete | None = ...) -> LazyList: ...  # noqa: Y034
+    def __new__(cls, fill_iter: Incomplete | None = None) -> LazyList: ...  # noqa: Y034
 
 class LazySet(set[Incomplete]):
     # does not return `Self` type:
-    def __new__(cls, fill_iter: Incomplete | None = ...) -> LazySet: ...  # noqa: Y034
+    def __new__(cls, fill_iter: Incomplete | None = None) -> LazySet: ...  # noqa: Y034

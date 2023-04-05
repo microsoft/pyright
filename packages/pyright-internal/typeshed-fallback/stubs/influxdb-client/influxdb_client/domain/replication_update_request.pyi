@@ -6,12 +6,12 @@ class ReplicationUpdateRequest:
     discriminator: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        remote_id: Incomplete | None = ...,
-        remote_bucket_id: Incomplete | None = ...,
-        max_queue_size_bytes: Incomplete | None = ...,
-        drop_non_retryable_data: Incomplete | None = ...,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        remote_id: Incomplete | None = None,
+        remote_bucket_id: Incomplete | None = None,
+        max_queue_size_bytes: Incomplete | None = None,
+        drop_non_retryable_data: Incomplete | None = None,
     ) -> None: ...
     @property
     def name(self): ...

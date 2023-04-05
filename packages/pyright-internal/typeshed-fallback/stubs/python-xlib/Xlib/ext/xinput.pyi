@@ -1,7 +1,7 @@
 from _typeshed import ReadableBuffer, SliceableBuffer
 from collections.abc import Iterable, Sequence
 from typing import SupportsFloat, TypeVar
-from typing_extensions import SupportsIndex, TypeAlias
+from typing_extensions import Final, SupportsIndex, TypeAlias
 
 from Xlib._typing import Unused
 from Xlib.display import Display
@@ -11,110 +11,110 @@ from Xlib.xobject import drawable, resource
 _T = TypeVar("_T")
 _Floatable: TypeAlias = SupportsFloat | SupportsIndex | str | ReadableBuffer
 
-extname: str
-PropertyDeleted: int
-PropertyCreated: int
-PropertyModified: int
-NotifyNormal: int
-NotifyGrab: int
-NotifyUngrab: int
-NotifyWhileGrabbed: int
-NotifyPassiveGrab: int
-NotifyPassiveUngrab: int
-NotifyAncestor: int
-NotifyVirtual: int
-NotifyInferior: int
-NotifyNonlinear: int
-NotifyNonlinearVirtual: int
-NotifyPointer: int
-NotifyPointerRoot: int
-NotifyDetailNone: int
-GrabtypeButton: int
-GrabtypeKeycode: int
-GrabtypeEnter: int
-GrabtypeFocusIn: int
-GrabtypeTouchBegin: int
-AnyModifier: int
-AnyButton: int
-AnyKeycode: int
-AsyncDevice: int
-SyncDevice: int
-ReplayDevice: int
-AsyncPairedDevice: int
-AsyncPair: int
-SyncPair: int
-SlaveSwitch: int
-DeviceChange: int
-MasterAdded: int
-MasterRemoved: int
-SlaveAdded: int
-SlaveRemoved: int
-SlaveAttached: int
-SlaveDetached: int
-DeviceEnabled: int
-DeviceDisabled: int
-AddMaster: int
-RemoveMaster: int
-AttachSlave: int
-DetachSlave: int
-AttachToMaster: int
-Floating: int
-ModeRelative: int
-ModeAbsolute: int
-MasterPointer: int
-MasterKeyboard: int
-SlavePointer: int
-SlaveKeyboard: int
-FloatingSlave: int
-KeyClass: int
-ButtonClass: int
-ValuatorClass: int
-ScrollClass: int
-TouchClass: int
-KeyRepeat: int
-AllDevices: int
-AllMasterDevices: int
-DeviceChanged: int
-KeyPress: int
-KeyRelease: int
-ButtonPress: int
-ButtonRelease: int
-Motion: int
-Enter: int
-Leave: int
-FocusIn: int
-FocusOut: int
-HierarchyChanged: int
-PropertyEvent: int
-RawKeyPress: int
-RawKeyRelease: int
-RawButtonPress: int
-RawButtonRelease: int
-RawMotion: int
-DeviceChangedMask: int
-KeyPressMask: int
-KeyReleaseMask: int
-ButtonPressMask: int
-ButtonReleaseMask: int
-MotionMask: int
-EnterMask: int
-LeaveMask: int
-FocusInMask: int
-FocusOutMask: int
-HierarchyChangedMask: int
-PropertyEventMask: int
-RawKeyPressMask: int
-RawKeyReleaseMask: int
-RawButtonPressMask: int
-RawButtonReleaseMask: int
-RawMotionMask: int
-GrabModeSync: int
-GrabModeAsync: int
-GrabModeTouch: int
+extname: Final = "XInputExtension"
+PropertyDeleted: Final = 0
+PropertyCreated: Final = 1
+PropertyModified: Final = 2
+NotifyNormal: Final = 0
+NotifyGrab: Final = 1
+NotifyUngrab: Final = 2
+NotifyWhileGrabbed: Final = 3
+NotifyPassiveGrab: Final = 4
+NotifyPassiveUngrab: Final = 5
+NotifyAncestor: Final = 0
+NotifyVirtual: Final = 1
+NotifyInferior: Final = 2
+NotifyNonlinear: Final = 3
+NotifyNonlinearVirtual: Final = 4
+NotifyPointer: Final = 5
+NotifyPointerRoot: Final = 6
+NotifyDetailNone: Final = 7
+GrabtypeButton: Final = 0
+GrabtypeKeycode: Final = 1
+GrabtypeEnter: Final = 2
+GrabtypeFocusIn: Final = 3
+GrabtypeTouchBegin: Final = 4
+AnyModifier: Final = 0x80000000
+AnyButton: Final = 0
+AnyKeycode: Final = 0
+AsyncDevice: Final = 0
+SyncDevice: Final = 1
+ReplayDevice: Final = 2
+AsyncPairedDevice: Final = 3
+AsyncPair: Final = 4
+SyncPair: Final = 5
+SlaveSwitch: Final = 1
+DeviceChange: Final = 2
+MasterAdded: Final = 0x01
+MasterRemoved: Final = 0x02
+SlaveAdded: Final = 0x04
+SlaveRemoved: Final = 0x08
+SlaveAttached: Final = 0x10
+SlaveDetached: Final = 0x20
+DeviceEnabled: Final = 0x40
+DeviceDisabled: Final = 0x80
+AddMaster: Final = 1
+RemoveMaster: Final = 2
+AttachSlave: Final = 3
+DetachSlave: Final = 4
+AttachToMaster: Final = 1
+Floating: Final = 2
+ModeRelative: Final = 0
+ModeAbsolute: Final = 1
+MasterPointer: Final = 1
+MasterKeyboard: Final = 2
+SlavePointer: Final = 3
+SlaveKeyboard: Final = 4
+FloatingSlave: Final = 5
+KeyClass: Final = 0
+ButtonClass: Final = 1
+ValuatorClass: Final = 2
+ScrollClass: Final = 3
+TouchClass: Final = 8
+KeyRepeat: Final = 0x10000
+AllDevices: Final = 0
+AllMasterDevices: Final = 1
+DeviceChanged: Final = 1
+KeyPress: Final = 2
+KeyRelease: Final = 3
+ButtonPress: Final = 4
+ButtonRelease: Final = 5
+Motion: Final = 6
+Enter: Final = 7
+Leave: Final = 8
+FocusIn: Final = 9
+FocusOut: Final = 10
+HierarchyChanged: Final = 11
+PropertyEvent: Final = 12
+RawKeyPress: Final = 13
+RawKeyRelease: Final = 14
+RawButtonPress: Final = 15
+RawButtonRelease: Final = 16
+RawMotion: Final = 17
+DeviceChangedMask: Final = 0x00002
+KeyPressMask: Final = 0x00004
+KeyReleaseMask: Final = 0x00008
+ButtonPressMask: Final = 0x00010
+ButtonReleaseMask: Final = 0x00020
+MotionMask: Final = 0x00040
+EnterMask: Final = 0x00080
+LeaveMask: Final = 0x00100
+FocusInMask: Final = 0x00200
+FocusOutMask: Final = 0x00400
+HierarchyChangedMask: Final = 0x00800
+PropertyEventMask: Final = 0x01000
+RawKeyPressMask: Final = 0x02000
+RawKeyReleaseMask: Final = 0x04000
+RawButtonPressMask: Final = 0x08000
+RawButtonReleaseMask: Final = 0x10000
+RawMotionMask: Final = 0x20000
+GrabModeSync: Final = 0
+GrabModeAsync: Final = 1
+GrabModeTouch: Final = 2
 DEVICEID = rq.Card16
 DEVICE = rq.Card16
 DEVICEUSE = rq.Card8
-PROPERTY_TYPE_FLOAT: str
+PROPERTY_TYPE_FLOAT: Final = "FLOAT"
 
 # ignore[override] because of Liskov substitution principle violations
 class FP1616(rq.Int32):
@@ -159,7 +159,7 @@ KeyInfo: rq.Struct
 ValuatorInfo: rq.Struct
 ScrollInfo: rq.Struct
 TouchInfo: rq.Struct
-INFO_CLASSES: dict[int, rq.Struct]
+INFO_CLASSES: Final[dict[int, rq.Struct]]
 
 class ClassInfoClass:
     structcode: None
@@ -179,7 +179,7 @@ def list_device_properties(self: Display | resource.Resource, deviceid: int) -> 
 class XIGetProperty(rq.ReplyRequest): ...
 
 def get_device_property(
-    self: Display | resource.Resource, deviceid: int, property: int, type: int, offset: int, length: int, delete: int = ...
+    self: Display | resource.Resource, deviceid: int, property: int, type: int, offset: int, length: int, delete: bool = False
 ) -> XIGetProperty: ...
 
 class XIChangeProperty(rq.Request): ...

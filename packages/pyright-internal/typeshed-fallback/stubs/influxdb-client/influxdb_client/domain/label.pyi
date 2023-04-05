@@ -6,10 +6,10 @@ class Label:
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        properties: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        name: Incomplete | None = None,
+        properties: Incomplete | None = None,
     ) -> None: ...
     @property
     def id(self): ...

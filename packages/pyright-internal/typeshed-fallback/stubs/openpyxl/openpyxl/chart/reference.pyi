@@ -16,12 +16,12 @@ class Reference(Strict):
     worksheet: Incomplete
     def __init__(
         self,
-        worksheet: Incomplete | None = ...,
-        min_col: Incomplete | None = ...,
-        min_row: Incomplete | None = ...,
-        max_col: Incomplete | None = ...,
-        max_row: Incomplete | None = ...,
-        range_string: Incomplete | None = ...,
+        worksheet: Incomplete | None = None,
+        min_col: Incomplete | None = None,
+        min_row: Incomplete | None = None,
+        max_col: Incomplete | None = None,
+        max_row: Incomplete | None = None,
+        range_string: Incomplete | None = None,
     ) -> None: ...
     def __len__(self) -> int: ...
     def __eq__(self, other): ...

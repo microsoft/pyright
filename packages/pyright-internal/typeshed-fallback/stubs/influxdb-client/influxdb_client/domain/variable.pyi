@@ -6,16 +6,16 @@ class Variable:
     discriminator: Incomplete
     def __init__(
         self,
-        links: Incomplete | None = ...,
-        id: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        selected: Incomplete | None = ...,
-        labels: Incomplete | None = ...,
-        arguments: Incomplete | None = ...,
-        created_at: Incomplete | None = ...,
-        updated_at: Incomplete | None = ...,
+        links: Incomplete | None = None,
+        id: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        selected: Incomplete | None = None,
+        labels: Incomplete | None = None,
+        arguments: Incomplete | None = None,
+        created_at: Incomplete | None = None,
+        updated_at: Incomplete | None = None,
     ) -> None: ...
     @property
     def links(self): ...

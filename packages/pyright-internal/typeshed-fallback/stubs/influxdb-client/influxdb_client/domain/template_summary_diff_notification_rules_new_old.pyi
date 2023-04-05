@@ -6,17 +6,17 @@ class TemplateSummaryDiffNotificationRulesNewOld:
     discriminator: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        endpoint_name: Incomplete | None = ...,
-        endpoint_id: Incomplete | None = ...,
-        endpoint_type: Incomplete | None = ...,
-        every: Incomplete | None = ...,
-        offset: Incomplete | None = ...,
-        message_template: Incomplete | None = ...,
-        status: Incomplete | None = ...,
-        status_rules: Incomplete | None = ...,
-        tag_rules: Incomplete | None = ...,
+        name: Incomplete | None = None,
+        description: Incomplete | None = None,
+        endpoint_name: Incomplete | None = None,
+        endpoint_id: Incomplete | None = None,
+        endpoint_type: Incomplete | None = None,
+        every: Incomplete | None = None,
+        offset: Incomplete | None = None,
+        message_template: Incomplete | None = None,
+        status: Incomplete | None = None,
+        status_rules: Incomplete | None = None,
+        tag_rules: Incomplete | None = None,
     ) -> None: ...
     @property
     def name(self): ...

@@ -1,4 +1,4 @@
-version = "305.*"
+version = "306.*"
 
 [tool.stubtest]
 platforms = ["win32"]

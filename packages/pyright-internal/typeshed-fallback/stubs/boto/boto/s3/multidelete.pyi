@@ -8,10 +8,10 @@ class Deleted:
     delete_marker_version_id: Any
     def __init__(
         self,
-        key: Incomplete | None = ...,
-        version_id: Incomplete | None = ...,
-        delete_marker: bool = ...,
-        delete_marker_version_id: Incomplete | None = ...,
+        key: Incomplete | None = None,
+        version_id: Incomplete | None = None,
+        delete_marker: bool = False,
+        delete_marker_version_id: Incomplete | None = None,
     ) -> None: ...
     def startElement(self, name, attrs, connection): ...
     def endElement(self, name, value, connection): ...
@@ -23,10 +23,10 @@ class Error:
     message: Any
     def __init__(
         self,
-        key: Incomplete | None = ...,
-        version_id: Incomplete | None = ...,
-        code: Incomplete | None = ...,
-        message: Incomplete | None = ...,
+        key: Incomplete | None = None,
+        version_id: Incomplete | None = None,
+        code: Incomplete | None = None,
+        message: Incomplete | None = None,
     ) -> None: ...
     def startElement(self, name, attrs, connection): ...
     def endElement(self, name, value, connection): ...
@@ -35,6 +35,6 @@ class MultiDeleteResult:
     bucket: Any
     deleted: Any
     errors: Any
-    def __init__(self, bucket: Incomplete | None = ...) -> None: ...
+    def __init__(self, bucket: Incomplete | None = None) -> None: ...
     def startElement(self, name, attrs, connection): ...
     def endElement(self, name, value, connection): ...

@@ -6,13 +6,13 @@ class MeasurementSchema:
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        bucket_id: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        columns: Incomplete | None = ...,
-        created_at: Incomplete | None = ...,
-        updated_at: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        bucket_id: Incomplete | None = None,
+        name: Incomplete | None = None,
+        columns: Incomplete | None = None,
+        created_at: Incomplete | None = None,
+        updated_at: Incomplete | None = None,
     ) -> None: ...
     @property
     def id(self): ...

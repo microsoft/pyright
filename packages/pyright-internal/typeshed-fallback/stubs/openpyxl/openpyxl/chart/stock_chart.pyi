@@ -16,11 +16,11 @@ class StockChart(ChartBase):
     __elements__: Incomplete
     def __init__(
         self,
-        ser=...,
-        dLbls: Incomplete | None = ...,
-        dropLines: Incomplete | None = ...,
-        hiLowLines: Incomplete | None = ...,
-        upDownBars: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        ser=(),
+        dLbls: Incomplete | None = None,
+        dropLines: Incomplete | None = None,
+        hiLowLines: Incomplete | None = None,
+        upDownBars: Incomplete | None = None,
+        extLst: Incomplete | None = None,
         **kw,
     ) -> None: ...

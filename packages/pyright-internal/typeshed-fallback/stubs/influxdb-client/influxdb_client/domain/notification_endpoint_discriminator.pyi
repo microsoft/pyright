@@ -8,17 +8,17 @@ class NotificationEndpointDiscriminator(NotificationEndpointBase):
     discriminator: Incomplete
     def __init__(
         self,
-        id: Incomplete | None = ...,
-        org_id: Incomplete | None = ...,
-        user_id: Incomplete | None = ...,
-        created_at: Incomplete | None = ...,
-        updated_at: Incomplete | None = ...,
-        description: Incomplete | None = ...,
-        name: Incomplete | None = ...,
-        status: str = ...,
-        labels: Incomplete | None = ...,
-        links: Incomplete | None = ...,
-        type: Incomplete | None = ...,
+        id: Incomplete | None = None,
+        org_id: Incomplete | None = None,
+        user_id: Incomplete | None = None,
+        created_at: Incomplete | None = None,
+        updated_at: Incomplete | None = None,
+        description: Incomplete | None = None,
+        name: Incomplete | None = None,
+        status: str = "active",
+        labels: Incomplete | None = None,
+        links: Incomplete | None = None,
+        type: Incomplete | None = None,
     ) -> None: ...
     def to_dict(self): ...
     def to_str(self): ...

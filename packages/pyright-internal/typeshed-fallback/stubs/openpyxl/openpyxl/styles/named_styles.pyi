@@ -16,16 +16,16 @@ class NamedStyle(Serialisable):  # type: ignore[misc]
     name: Incomplete
     def __init__(
         self,
-        name: str = ...,
-        font=...,
-        fill=...,
-        border=...,
-        alignment=...,
-        number_format: Incomplete | None = ...,
-        protection=...,
-        builtinId: Incomplete | None = ...,
-        hidden: bool = ...,
-        xfId: Incomplete | None = ...,
+        name: str = "Normal",
+        font=None,
+        fill=None,
+        border=None,
+        alignment=None,
+        number_format: Incomplete | None = None,
+        protection=None,
+        builtinId: Incomplete | None = None,
+        hidden: bool = False,
+        xfId: Incomplete | None = None,
     ) -> None: ...
     def __setattr__(self, attr: str, value) -> None: ...
     def __iter__(self): ...
@@ -54,13 +54,13 @@ class _NamedCellStyle(Serialisable):
     __elements__: Incomplete
     def __init__(
         self,
-        name: Incomplete | None = ...,
-        xfId: Incomplete | None = ...,
-        builtinId: Incomplete | None = ...,
-        iLevel: Incomplete | None = ...,
-        hidden: Incomplete | None = ...,
-        customBuiltin: Incomplete | None = ...,
-        extLst: Incomplete | None = ...,
+        name: Incomplete | None = None,
+        xfId: Incomplete | None = None,
+        builtinId: Incomplete | None = None,
+        iLevel: Incomplete | None = None,
+        hidden: Incomplete | None = None,
+        customBuiltin: Incomplete | None = None,
+        extLst: Incomplete | None = None,
     ) -> None: ...
 
 class _NamedCellStyleList(Serialisable):
@@ -69,7 +69,7 @@ class _NamedCellStyleList(Serialisable):
     # count: Integer
     cellStyle: Incomplete
     __attrs__: Incomplete
-    def __init__(self, count: Incomplete | None = ..., cellStyle=...) -> None: ...
+    def __init__(self, count: Incomplete | None = None, cellStyle=()) -> None: ...
     @property
     def count(self): ...
     @property

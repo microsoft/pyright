@@ -10,6 +10,6 @@ version = "7.45.2"
 # % pip install --compile --install-option="--with-openssl" pycurl
 # TODO: Test on Windows and/or MacOS once wheels are available.
 platforms = ["linux"]
-apt_dependencies = ["libcurl4-openssl-dev"]
+apt_dependencies = ["libcurl4-openssl-dev", "libssl-dev"]
 # No need to install on the CI. Leaving here as information for MacOS contributors.
 # brew_dependencies = ["openssl"]

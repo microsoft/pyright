@@ -46,33 +46,33 @@ class Mapper(ORMFromClauseRole, ORMEntityColumnsClauseRole, sql_base.MemoizedHas
     def __init__(
         self,
         class_,
-        local_table: Incomplete | None = ...,
-        properties: Incomplete | None = ...,
-        primary_key: Incomplete | None = ...,
-        non_primary: bool = ...,
-        inherits: Incomplete | None = ...,
-        inherit_condition: Incomplete | None = ...,
-        inherit_foreign_keys: Incomplete | None = ...,
-        always_refresh: bool = ...,
-        version_id_col: Incomplete | None = ...,
-        version_id_generator: Incomplete | None = ...,
-        polymorphic_on: Incomplete | None = ...,
-        _polymorphic_map: Incomplete | None = ...,
-        polymorphic_identity: Incomplete | None = ...,
-        concrete: bool = ...,
-        with_polymorphic: Incomplete | None = ...,
-        polymorphic_load: Incomplete | None = ...,
-        allow_partial_pks: bool = ...,
-        batch: bool = ...,
-        column_prefix: Incomplete | None = ...,
-        include_properties: Incomplete | None = ...,
-        exclude_properties: Incomplete | None = ...,
-        passive_updates: bool = ...,
-        passive_deletes: bool = ...,
-        confirm_deleted_rows: bool = ...,
-        eager_defaults: bool = ...,
-        legacy_is_orphan: bool = ...,
-        _compiled_cache_size: int = ...,
+        local_table: Incomplete | None = None,
+        properties: Incomplete | None = None,
+        primary_key: Incomplete | None = None,
+        non_primary: bool = False,
+        inherits: Incomplete | None = None,
+        inherit_condition: Incomplete | None = None,
+        inherit_foreign_keys: Incomplete | None = None,
+        always_refresh: bool = False,
+        version_id_col: Incomplete | None = None,
+        version_id_generator: Incomplete | None = None,
+        polymorphic_on: Incomplete | None = None,
+        _polymorphic_map: Incomplete | None = None,
+        polymorphic_identity: Incomplete | None = None,
+        concrete: bool = False,
+        with_polymorphic: Incomplete | None = None,
+        polymorphic_load: Incomplete | None = None,
+        allow_partial_pks: bool = True,
+        batch: bool = True,
+        column_prefix: Incomplete | None = None,
+        include_properties: Incomplete | None = None,
+        exclude_properties: Incomplete | None = None,
+        passive_updates: bool = True,
+        passive_deletes: bool = False,
+        confirm_deleted_rows: bool = True,
+        eager_defaults: bool = False,
+        legacy_is_orphan: bool = False,
+        _compiled_cache_size: int = 100,
     ): ...
     is_mapper: bool
     represents_outer_join: bool
@@ -92,7 +92,7 @@ class Mapper(ORMFromClauseRole, ORMEntityColumnsClauseRole, sql_base.MemoizedHas
     def add_properties(self, dict_of_properties) -> None: ...
     def add_property(self, key, prop) -> None: ...
     def has_property(self, key): ...
-    def get_property(self, key, _configure_mappers: bool = ...): ...
+    def get_property(self, key, _configure_mappers: bool = True): ...
     def get_property_by_column(self, column): ...
     @property
     def iterate_properties(self): ...
@@ -126,11 +126,11 @@ class Mapper(ORMFromClauseRole, ORMEntityColumnsClauseRole, sql_base.MemoizedHas
     def primary_mapper(self): ...
     @property
     def primary_base_mapper(self): ...
-    def identity_key_from_row(self, row, identity_token: Incomplete | None = ..., adapter: Incomplete | None = ...): ...
-    def identity_key_from_primary_key(self, primary_key, identity_token: Incomplete | None = ...): ...
+    def identity_key_from_row(self, row, identity_token: Incomplete | None = None, adapter: Incomplete | None = None): ...
+    def identity_key_from_primary_key(self, primary_key, identity_token: Incomplete | None = None): ...
     def identity_key_from_instance(self, instance): ...
     def primary_key_from_instance(self, instance): ...
-    def cascade_iterator(self, type_, state, halt_on: Incomplete | None = ...) -> None: ...
+    def cascade_iterator(self, type_, state, halt_on: Incomplete | None = None) -> None: ...
 
 class _OptGetColumnsNotAvailable(Exception): ...
 
