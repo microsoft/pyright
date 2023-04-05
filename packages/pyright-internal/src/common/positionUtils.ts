@@ -8,7 +8,7 @@
  * line/column positions.
  */
 
-import { TokenizerOutput } from '../parser/tokenizer';
+import { ParseResults } from '../parser/parser';
 import { assert } from './debug';
 import { Position, Range, TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
@@ -72,16 +72,25 @@ export function convertTextRangeToRange(range: TextRange, lines: TextRangeCollec
 }
 
 // Returns the position of the last character in a line (before the newline).
-export function getLineEndPosition(tokenizerOutput: TokenizerOutput, line: number): Position {
-    const lines = tokenizerOutput.lines;
-    const lineRange = lines.getItemAt(line);
+export function getLineEndPosition(parseResult: ParseResults, line: number): Position {
+    return convertOffsetToPosition(getLineEndOffset(parseResult, line), parseResult.tokenizerOutput.lines);
+}
+
+export function getLineEndOffset(parseResult: ParseResults, line: number): number {
+    const tokenizerOutput = parseResult.tokenizerOutput;
+    const lineRange = tokenizerOutput.lines.getItemAt(line);
+
+    const lineEndOffset = TextRange.getEnd(lineRange);
+    let newLineLength = 0;
+    for (let i = lineEndOffset - 1; i >= lineRange.start; i--) {
+        const char = parseResult.text[i];
+        if (char !== '\r' && char !== '\n') {
+            break;
+        }
+
+        newLineLength++;
+    }
+
     // Character should be at the end of the line but before the newline.
-    const char =
-        line < lines.count - 1
-            ? lineRange.length - tokenizerOutput.predominantEndOfLineSequence.length
-            : lineRange.length;
-    return {
-        line,
-        character: char,
-    };
+    return lineEndOffset - newLineLength;
 }

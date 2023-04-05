@@ -565,10 +565,13 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                         ?.filter((d) => isAliasDeclaration(d)) || [])
                 );
 
-                if (decls.length === 0) {
+                if (decls.length === 0 || moduleName.parent.nodeType !== ParseNodeType.ImportAs) {
                     return decls;
                 }
 
+                // If module name belong to "import xxx" not "from xxx", then see whether
+                // we can get regular decls (decls created from binder, not synthesized from type eval)
+                // from symbol as well.
                 // ex, import X as x
                 const isImportAsWithAlias =
                     moduleName.nameParts.length === 1 &&

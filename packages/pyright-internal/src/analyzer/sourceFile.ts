@@ -873,7 +873,7 @@ export class SourceFile {
                     diagSink.addError(`Source file could not be read`, getEmptyRange());
                     fileContents = '';
 
-                    if (!this.fileSystem.existsSync(this._filePath)) {
+                    if (!this.fileSystem.existsSync(this._realFilePath)) {
                         this._isFileDeleted = true;
                     }
                 }

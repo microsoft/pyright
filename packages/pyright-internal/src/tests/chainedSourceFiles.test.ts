@@ -164,6 +164,42 @@ test('modify chained files', async () => {
     assert.strictEqual(finalDiags.length, 1);
 });
 
+function generateChainedFiles(count: number, lastFile: string) {
+    let code = '';
+    for (let i = 0; i < count; i++) {
+        code += `
+// @filename: test${i + 1}.py
+//// def foo${i + 1}(): pass
+`;
+    }
+    code += lastFile;
+    return code;
+}
+
+test('chained files with 1000s of files', async () => {
+    const lastFile = `
+// @filename: testFinal.py
+//// [|/*marker*/foo1()|]
+    `;
+    const code = generateChainedFiles(1000, lastFile);
+    const basePath = normalizeSlashes('/');
+    const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
+    const marker = data.markerPositions.get('marker')!;
+    const range = data.ranges.find((r) => r.marker === marker)!;
+
+    const parseResults = service.getParseResult(marker.fileName)!;
+    analyze(service.test_program);
+
+    // There should be no error as it should find the foo1 in the first chained file.
+    const initialDiags = await service.getDiagnosticsForRange(
+        marker.fileName,
+        convertOffsetsToRange(range.pos, range.end, parseResults.tokenizerOutput.lines),
+        CancellationToken.None
+    );
+
+    assert.strictEqual(initialDiags.length, 0);
+});
+
 function createServiceWithChainedSourceFiles(basePath: string, code: string) {
     const service = new AnalyzerService(
         'test service',
