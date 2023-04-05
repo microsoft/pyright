@@ -834,6 +834,11 @@ export class AnalyzerService {
             reportDuplicateSetting('useLibraryCodeForTypes', configOptions.useLibraryCodeForTypes);
         }
 
+        // If useLibraryCodeForTypes is still unspecified, default it to true.
+        if (configOptions.useLibraryCodeForTypes === undefined) {
+            configOptions.useLibraryCodeForTypes = true;
+        }
+
         if (commandLineOptions.stubPath) {
             if (!configOptions.stubPath) {
                 configOptions.stubPath = commandLineOptions.stubPath;

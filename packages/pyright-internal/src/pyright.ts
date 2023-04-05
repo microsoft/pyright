@@ -268,7 +268,7 @@ async function processArgs(): Promise<ExitStatus> {
     }
 
     if (args.lib) {
-        options.useLibraryCodeForTypes = true;
+        console.warn(`The --lib option is deprecated. Pyright now defaults to using library code to infer types.`);
     }
 
     let minSeverityLevel: SeverityLevel = 'information';
@@ -688,7 +688,6 @@ function printUsage() {
             '  --dependencies                     Emit import dependency information\n' +
             '  -h,--help                          Show this help message\n' +
             '  --ignoreexternal                   Ignore external imports for --verifytypes\n' +
-            '  --lib                              Use library code to infer types when stubs are missing\n' +
             '  --level <LEVEL>                    Minimum diagnostic level (error or warning)\n' +
             '  --outputjson                       Output results in JSON format\n' +
             '  -p,--project <FILE OR DIRECTORY>   Use the configuration file at this location\n' +

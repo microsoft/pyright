@@ -93,7 +93,7 @@
       "$id": "#/properties/useLibraryCodeForTypes",
       "type": "boolean",
       "title": "Use library implementations to extract type information when type stub is not present",
-      "default": false
+      "default": true
     },
     "typeshedPath": {
       "$id": "#/properties/typeshedPath",
