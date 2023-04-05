@@ -903,7 +903,7 @@
                 },
                 "python.analysis.useLibraryCodeForTypes": {
                     "type": "boolean",
-                    "default": false,
+                    "default": true,
                     "description": "Use library implementations to extract type information when type stub is not present.",
                     "scope": "resource"
                 },

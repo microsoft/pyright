@@ -20,7 +20,7 @@ For absolute (non-relative) imports, Pyright employs the following resolution or
     * For a given package, try to resolve first using a **stub package**. Stub packages, as defined in [PEP 561](https://www.python.org/dev/peps/pep-0561/#type-checker-module-resolution-order), are named the same as the original package but with “-stubs” appended.
     * Try to resolve using an **inline stub**, a “.pyi” file that ships within the package.
     * If the package contains a “py.typed” file as described in [PEP 561](https://www.python.org/dev/peps/pep-0561/), use inlined type annotations provided in “.py” files within the package.
-    * If the `python.analysis.useLibraryCodeForTypes` setting is set to true (or the `--lib` command-line argument was specified), try to resolve using the **library implementation** (“.py” file). Some “.py” files may contain partial or complete type annotations. Pyright will use type annotations that are provided and do its best to infer any missing type information. If you are using Pyright, `python.analysis.useLibraryCodeForTypes` is false by default. If you are using Pylance, it is true.
+    * If the `python.analysis.useLibraryCodeForTypes` setting is set to true, try to resolve using the **library implementation** (“.py” file). Some “.py” files may contain partial or complete type annotations. Pyright will use type annotations that are provided and do its best to infer any missing type information.
 
 4. Try to resolve using a **stdlib typeshed stub**. If the `typeshedPath` is configured, use this instead of the typeshed stubs that are packaged with Pyright. This allows for the use of a newer or a patched version of the typeshed stdlib stubs.
 
