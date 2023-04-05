@@ -221,7 +221,7 @@ b = c
 reveal_type(b) # list[Any]
 ```
 
-### Constrained Type Variables and Conditional Types
+### Constrained Type Variables
 
 When a TypeVar is defined, it can be constrained to two or more types.
 
@@ -251,7 +251,9 @@ reveal_type(v2) # float
 v3 = add(1.3, "hi") # Error
 ```
 
-When checking the implementation of a function that uses constrained type variables in its signature, the type checker must verify that type consistency is guaranteed. Consider the following example, where the input parameter and return type are both annotated with a constrained type variable. The type checker must verify that if a caller passes an argument of type `str`, then all code paths must return a `str`. Likewise, if a caller passes an argument of type `float`, all code paths must return a `float`.
+### Conditional Types and Type Variables
+
+When checking the implementation of a function that uses type variables in its signature, the type checker must verify that type consistency is guaranteed. Consider the following example, where the input parameter and return type are both annotated with a type variable. The type checker must verify that if a caller passes an argument of type `str`, then all code paths must return a `str`. Likewise, if a caller passes an argument of type `float`, all code paths must return a `float`.
 
 ```python
 def add_one(value: _StrOrFloat) -> _StrOrFloat:
@@ -264,10 +266,10 @@ def add_one(value: _StrOrFloat) -> _StrOrFloat:
     return sum
 ```
 
-Notice that the type of variable `sum` is reported with asterisks (`*`). This indicates that internally the type checker is tracking the type as conditional. In this particular example, it indicates that `sum` is a `str` type if the parameter `value` is a `str` but is a `float` if `value` is a `float`. By tracking these conditional types, the type checker can verify that the return type is consistent with the return type `_StrOrFloat`.
+The type of variable `sum` is reported with a star (`*`). This indicates that internally the type checker is tracking the type as a “conditional” type. In this particular example, it indicates that `sum` is a `str` type if the parameter `value` is a `str` but is a `float` if `value` is a `float`. By tracking these conditional types, the type checker can verify that the return type is consistent with the return type `_StrOrFloat`. Conditional types are a form of _intersection_ type, and they are considered subtypes of both the concrete type and the type variable.
 
 
-### Inferred type of self and cls parameters
+### Inferred Type of “self” and “cls” Parameters
 
 When a type annotation for a method’s `self` or `cls` parameter is omitted, pyright will infer its type based on the class that contains the method. The inferred type is internally represented as a type variable that is bound to the class.
 
