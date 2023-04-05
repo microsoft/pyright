@@ -414,6 +414,31 @@ def myfunc(a, b):
     testIndentation(code, 0, expected);
 });
 
+test('handle comment after last token', () => {
+    const code = `
+//// [|/*marker*/def test():
+////     return # comment|]
+////
+    `;
+
+    const expected = `def test():
+    return # comment`;
+
+    testIndentation(code, 0, expected);
+});
+
+test('handle comment after last token at EOF', () => {
+    const code = `
+//// [|/*marker*/def test():
+////     return # comment|]
+    `;
+
+    const expected = `def test():
+    return # comment`;
+
+    testIndentation(code, 0, expected);
+});
+
 function testIndentation(code: string, indentation: number, expected: string, indentFirstToken = true) {
     const state = parseAndGetTestState(code).state;
     const range = state.getRangeByMarkerName('marker')!;

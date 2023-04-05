@@ -235,7 +235,7 @@ export class WorkspaceFactory {
                 const fileInfo = fromWorkspace.service.backgroundAnalysisProgram.program.getSourceFileInfo(f);
                 if (fileInfo) {
                     // Copy the source file data (closing can destroy the sourceFile)
-                    const version = fileInfo.sourceFile.getClientVersion() || null;
+                    const version = fileInfo.sourceFile.getClientVersion() ?? null;
                     const content = fileInfo.sourceFile.getFileContent() || '';
                     const ipythonMode = fileInfo.sourceFile.getIPythonMode();
                     const chainedSourceFile = fileInfo.chainedSourceFile?.sourceFile.getFilePath();
@@ -375,7 +375,7 @@ export class WorkspaceFactory {
         kinds: string[]
     ) {
         // Update the kind based of the uri is local or not
-        if (!this._uriParser.isLocal(rootUri)) {
+        if (!kinds.includes(WellKnownWorkspaceKinds.Default) && !this._uriParser.isLocal(rootUri)) {
             // Web based workspace should be limited.
             kinds = [...kinds, WellKnownWorkspaceKinds.Limited];
         }

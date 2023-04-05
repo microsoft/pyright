@@ -72,16 +72,24 @@ export function convertTextRangeToRange(range: TextRange, lines: TextRangeCollec
 }
 
 // Returns the position of the last character in a line (before the newline).
-export function getLineEndPosition(tokenizerOutput: TokenizerOutput, line: number): Position {
-    const lines = tokenizerOutput.lines;
-    const lineRange = lines.getItemAt(line);
+export function getLineEndPosition(tokenizerOutput: TokenizerOutput, text: string, line: number): Position {
+    return convertOffsetToPosition(getLineEndOffset(tokenizerOutput, text, line), tokenizerOutput.lines);
+}
+
+export function getLineEndOffset(tokenizerOutput: TokenizerOutput, text: string, line: number): number {
+    const lineRange = tokenizerOutput.lines.getItemAt(line);
+
+    const lineEndOffset = TextRange.getEnd(lineRange);
+    let newLineLength = 0;
+    for (let i = lineEndOffset - 1; i >= lineRange.start; i--) {
+        const char = text[i];
+        if (char !== '\r' && char !== '\n') {
+            break;
+        }
+
+        newLineLength++;
+    }
+
     // Character should be at the end of the line but before the newline.
-    const char =
-        line < lines.count - 1
-            ? lineRange.length - tokenizerOutput.predominantEndOfLineSequence.length
-            : lineRange.length;
-    return {
-        line,
-        character: char,
-    };
+    return lineEndOffset - newLineLength;
 }

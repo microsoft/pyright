@@ -716,6 +716,12 @@ function _convertTokenStreams(parseResults: ParseResults, span: TextRange) {
         endIndex--;
     }
 
+    // If the next token is a newline, we want to include it in the range
+    // so that we can include comments if there is any.
+    if (endIndex < tokens.length - 1 && _isWhitespaceToken(tokens.getItemAt(endIndex + 1)!.type)) {
+        endIndex++;
+    }
+
     const tokenInfoArray: TokenInfo[] = [];
     const lines = parseResults.tokenizerOutput.lines;
 

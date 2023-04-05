@@ -24,6 +24,7 @@ import { OperationCanceledException, throwIfCancellationRequested } from '../com
 import { appendArray, arrayEquals } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
+import * as debug from '../common/debug';
 import { assert, assertNever } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
@@ -988,6 +989,8 @@ export class Program {
             return;
         }
 
+        // sourceFile.parse should never be called directly. Otherwise, whole dependency graph maintained
+        // by program will be broken. Use _parseFile instead.
         if (fileToParse.sourceFile.parse(this._configOptions, this._importResolver, content)) {
             this._parsedFileCount++;
             this._updateSourceFileImports(fileToParse, this._configOptions);
@@ -1006,21 +1009,79 @@ export class Program {
         }
     }
 
+    private _getImplicitImports(file: SourceFileInfo) {
+        // If file is not parsed, then chainedSourceFile, ipythonDisplayImport,
+        // builtinsImport might not exist or incorrect.
+        // They will be added when _parseFile is called and _updateSourceFileImports ran.
+        if (file.builtinsImport === file) {
+            return undefined;
+        }
+
+        const tryReturn = (input: SourceFileInfo | undefined) => {
+            if (!input || input.sourceFile.isFileDeleted()) {
+                return undefined;
+            }
+
+            return input;
+        };
+
+        return tryReturn(file.chainedSourceFile) ?? tryReturn(file.ipythonDisplayImport) ?? file.builtinsImport;
+    }
+
+    private _bindImplicitImports(fileToAnalyze: SourceFileInfo) {
+        // Get all of the potential imports for this file.
+        const implicitImports: SourceFileInfo[] = [];
+        const implicitSet = new Set<string>();
+
+        let nextImplicitImport = this._getImplicitImports(fileToAnalyze);
+        while (nextImplicitImport) {
+            const implicitPath = nextImplicitImport.sourceFile.getFilePath();
+            if (implicitSet.has(implicitPath)) {
+                // We've found a cycle. Break out of the loop.
+                debug.fail(`Found a cycle in implicit imports files for ${implicitPath}`);
+            }
+
+            implicitSet.add(implicitPath);
+            implicitImports.push(nextImplicitImport);
+
+            this._parseFile(nextImplicitImport);
+            nextImplicitImport = this._getImplicitImports(nextImplicitImport);
+        }
+
+        if (implicitImports.length === 0) {
+            return;
+        }
+
+        // Go in reverse order (so top of chain is first).
+        let implicitImport = implicitImports.pop();
+        while (implicitImport) {
+            // Bind this file, but don't recurse into its imports.
+            this._bindFile(implicitImport, undefined, undefined, /*isImplicitImport*/ true);
+            implicitImport = implicitImports.pop();
+        }
+    }
+
     // Binds the specified file and all of its dependencies, recursively. If
     // it runs out of time, it returns true. If it completes, it returns false.
-    private _bindFile(fileToAnalyze: SourceFileInfo, content?: string, force?: boolean): void {
+    private _bindFile(
+        fileToAnalyze: SourceFileInfo,
+        content?: string,
+        force?: boolean,
+        isImplicitImport?: boolean
+    ): void {
         if (!force && (!this._isFileNeeded(fileToAnalyze) || !fileToAnalyze.sourceFile.isBindingRequired())) {
             return;
         }
 
         this._parseFile(fileToAnalyze, content, force);
 
+        // Create a function to get the scope info.
         const getScopeIfAvailable = (fileInfo: SourceFileInfo | undefined) => {
             if (!fileInfo || fileInfo === fileToAnalyze) {
                 return undefined;
             }
 
-            this._bindFile(fileInfo);
+            // If the file was deleted, there's no scope to return.
             if (fileInfo.sourceFile.isFileDeleted()) {
                 return undefined;
             }
@@ -1030,14 +1091,18 @@ export class Program {
                 return undefined;
             }
 
+            // File should already be bound because of the chained file binding above.
             const scope = AnalyzerNodeInfo.getScope(parseResults.parseTree);
-            assert(scope !== undefined);
-
             return scope;
         };
 
         let builtinsScope: Scope | undefined;
         if (fileToAnalyze.builtinsImport && fileToAnalyze.builtinsImport !== fileToAnalyze) {
+            // Bind all of the implicit imports first. So we don't recurse into them.
+            if (!isImplicitImport) {
+                this._bindImplicitImports(fileToAnalyze);
+            }
+
             // If it is not builtin module itself, we need to parse and bind
             // the ipython display import if required. Otherwise, get builtin module.
             builtinsScope =
