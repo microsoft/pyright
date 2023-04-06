@@ -6008,6 +6008,14 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // Don't enforce this for an overloaded method because the "self" param
+        // annotation can be used as a filter for the overload. This differs from
+        // mypy, which enforces this check for overloads, but there are legitimate
+        // uses for this in an overloaded method.
+        if (FunctionType.isOverloaded(functionType)) {
+            return;
+        }
+
         // If the declared type is LiteralString and the class is str, exempt this case.
         // It's used in the typeshed stubs.
         if (
