@@ -54,3 +54,28 @@ def test_2(f: Callable[[A], X]) -> Callable[[A, B, C], tuple[X, B, C]]:
     )
 
     return val
+
+
+class ClassA:
+    def identity(self, x: T) -> T:
+        return x
+
+    def test_1(self, f: Callable[[A], X]) -> Callable[[A, B, C], tuple[X, B, C]]:
+        val = triple_1(f, self.identity, self.identity)
+
+        reveal_type(
+            val,
+            expected_text="(A@test_1, T@identity, T(1)@identity) -> tuple[X@test_1, T@identity, T(1)@identity]",
+        )
+
+        return val
+
+    def test_2(self, f: Callable[[A], X]) -> Callable[[A, B, C], tuple[X, B, C]]:
+        val = triple_2((f, self.identity, self.identity))
+
+        reveal_type(
+            val,
+            expected_text="(A@test_2, T@identity, T(1)@identity) -> tuple[X@test_2, T@identity, T(1)@identity]",
+        )
+
+        return val

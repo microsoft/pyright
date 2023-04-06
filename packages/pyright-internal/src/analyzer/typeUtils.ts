@@ -3384,9 +3384,8 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
         sourceType: FunctionType,
         recursionCount: number
     ): FunctionType | OverloadedFunctionType {
-        // If this function has already been specialized or is not generic,
-        // there's no need to check for uniqueness.
-        if (sourceType.specializedTypes || sourceType.details.typeParameters.length === 0) {
+        // If this function is not generic, there's no need to check for uniqueness.
+        if (sourceType.details.typeParameters.length === 0) {
             return super.transformTypeVarsInFunctionType(sourceType, recursionCount);
         }
 
