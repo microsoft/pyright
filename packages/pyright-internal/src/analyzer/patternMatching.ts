@@ -66,6 +66,7 @@ import {
     preserveUnknown,
     specializeClassType,
     specializeTupleClass,
+    transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
@@ -328,6 +329,8 @@ function narrowTypeBasedOnMappingPattern(
     pattern: PatternMappingNode,
     isPositiveTest: boolean
 ): Type {
+    type = transformPossibleRecursiveTypeAlias(type);
+
     if (!isPositiveTest) {
         // Our ability to narrow in the negative case for mapping patterns is
         // limited, but we can do it if the type is a union that includes a
