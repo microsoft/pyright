@@ -22268,7 +22268,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum | undefined,
-        typeVarContext: TypeVarContext | undefined,
+        destTypeVarContext: TypeVarContext | undefined,
+        srcTypeVarContext: TypeVarContext | undefined,
         flags: AssignTypeFlags,
         recursionCount: number
     ) {
@@ -22340,8 +22341,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         destTypeArgs[argIndex].type,
                         srcTypeArgs[argIndex].type,
                         entryDiag?.createAddendum(),
-                        typeVarContext,
-                        /* srcTypeVarContext */ undefined,
+                        destTypeVarContext,
+                        srcTypeVarContext,
                         flags,
                         recursionCount
                     )
@@ -22427,7 +22428,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Handle built-in types that support arbitrary numbers
             // of type parameters like Tuple.
             if (ancestorIndex === 0 && destType.tupleTypeArguments && curSrcType.tupleTypeArguments) {
-                return assignTupleTypeArgs(destType, curSrcType, diag, curDestTypeVarContext, flags, recursionCount);
+                return assignTupleTypeArgs(
+                    destType,
+                    curSrcType,
+                    diag,
+                    destTypeVarContext,
+                    srcTypeVarContext,
+                    flags,
+                    recursionCount
+                );
             }
 
             // If there are no type parameters on this class, we're done.
