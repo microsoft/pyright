@@ -2633,6 +2633,14 @@ export class Binder extends ParseTreeWalker {
                         this._targetFunctionDeclaration.isGenerator = true;
                     }
                 }
+
+                // In case there are any class or function statements within this
+                // subtree, we need to create dummy scopes for them. The type analyzer
+                // depends on scopes being present.
+                if (!this._moduleSymbolOnly) {
+                    const dummyScopeGenerator = new DummyScopeGenerator(this._currentScope);
+                    dummyScopeGenerator.walk(statement);
+                }
             }
         }
 
@@ -4199,5 +4207,54 @@ export class ReturnFinder extends ParseTreeWalker {
     override visitReturn(node: ReturnNode): boolean {
         this._containsReturn = true;
         return false;
+    }
+}
+
+// Creates dummy scopes for classes or functions within a parse tree.
+// This is needed in cases where the parse tree has been determined
+// to be unreachable. There are code paths where the type evaluator
+// will still evaluate these types, and it depends on the presence
+// of a scope.
+export class DummyScopeGenerator extends ParseTreeWalker {
+    private _currentScope: Scope | undefined;
+
+    constructor(currentScope: Scope | undefined) {
+        super();
+        this._currentScope = currentScope;
+    }
+
+    override visitClass(node: ClassNode): boolean {
+        const newScope = this._createNewScope(ScopeType.Class, () => {
+            this.walk(node.suite);
+        });
+
+        if (!AnalyzerNodeInfo.getScope(node)) {
+            AnalyzerNodeInfo.setScope(node, newScope);
+        }
+
+        return false;
+    }
+
+    override visitFunction(node: FunctionNode): boolean {
+        const newScope = this._createNewScope(ScopeType.Function, () => {
+            this.walk(node.suite);
+        });
+
+        if (!AnalyzerNodeInfo.getScope(node)) {
+            AnalyzerNodeInfo.setScope(node, newScope);
+        }
+
+        return false;
+    }
+
+    private _createNewScope(scopeType: ScopeType, callback: () => void) {
+        const prevScope = this._currentScope;
+        const newScope = new Scope(scopeType, this._currentScope);
+        this._currentScope = newScope;
+
+        callback();
+
+        this._currentScope = prevScope;
+        return newScope;
     }
 }
