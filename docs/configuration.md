@@ -328,7 +328,6 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportDeprecated                          | "none"     | "none"     | "error"    |
 | reportDuplicateImport                     | "none"     | "none"     | "error"    |
 | reportFunctionMemberAccess                | "none"     | "none"     | "error"    |
-| reportImportCycles                        | "none"     | "none"     | "error"    |
 | reportIncompatibleMethodOverride          | "none"     | "none"     | "error"    |
 | reportIncompatibleVariableOverride        | "none"     | "none"     | "error"    |
 | reportIncompleteStub                      | "none"     | "none"     | "error"    |
@@ -360,6 +359,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportCallInDefaultInitializer            | "none"     | "none"     | "none"     |
 | reportImplicitOverride                    | "none"     | "none"     | "none"     |
 | reportImplicitStringConcatenation         | "none"     | "none"     | "none"     |
+| reportImportCycles                        | "none"     | "none"     | "none"     |
 | reportMissingSuperCall                    | "none"     | "none"     | "none"     |
 | reportPropertyTypeMismatch                | "none"     | "none"     | "none"     |
 | reportShadowedImports                     | "none"     | "none"     | "none"     |

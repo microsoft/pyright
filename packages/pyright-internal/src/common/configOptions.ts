@@ -601,7 +601,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportMissingImports: 'error',
         reportMissingModuleSource: 'warning', // Not overridden by strict mode
         reportMissingTypeStubs: 'error',
-        reportImportCycles: 'error',
+        reportImportCycles: 'none',
         reportUnusedImport: 'error',
         reportUnusedClass: 'error',
         reportUnusedFunction: 'error',
