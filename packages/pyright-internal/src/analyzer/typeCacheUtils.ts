@@ -118,13 +118,41 @@ export class SpeculativeTypeTracker {
             return;
         }
 
+        const maxCacheEntriesPerNode = 8;
         let cacheEntries = this._speculativeTypeCache.get(node.id);
-        const maxCacheEntriesPerNode = 16;
-        if (!cacheEntries || cacheEntries.length > maxCacheEntriesPerNode) {
+
+        if (!cacheEntries) {
             cacheEntries = [];
-            this._speculativeTypeCache.set(node.id, cacheEntries);
+        } else {
+            cacheEntries = cacheEntries.filter((entry) => {
+                // Filter out any incomplete entries that no longer match the generation count.
+                // These are obsolete and cannot be used.
+                if (entry.typeResult.isIncomplete && entry.incompleteGenerationCount !== incompleteGenerationCount) {
+                    return false;
+                }
+
+                // Filter out any entries that match the expected type of the
+                // new entry. The new entry replaces the old in this case.
+                if (expectedType) {
+                    if (!entry.expectedType) {
+                        return true;
+                    }
+                    return !isTypeSame(entry.expectedType, expectedType);
+                }
+
+                return !!entry.expectedType;
+            });
+
+            // Don't allow the cache to grow too large.
+            if (cacheEntries.length >= maxCacheEntriesPerNode) {
+                cacheEntries.slice(1);
+            }
         }
+
+        // Add the new entry.
         cacheEntries.push({ typeResult, expectedType, incompleteGenerationCount });
+
+        this._speculativeTypeCache.set(node.id, cacheEntries);
     }
 
     getSpeculativeType(node: ParseNode, expectedType: Type | undefined): SpeculativeTypeEntry | undefined {
