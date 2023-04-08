@@ -119,7 +119,8 @@ export class SpeculativeTypeTracker {
         }
 
         let cacheEntries = this._speculativeTypeCache.get(node.id);
-        if (!cacheEntries) {
+        const maxCacheEntriesPerNode = 16;
+        if (!cacheEntries || cacheEntries.length > maxCacheEntriesPerNode) {
             cacheEntries = [];
             this._speculativeTypeCache.set(node.id, cacheEntries);
         }
