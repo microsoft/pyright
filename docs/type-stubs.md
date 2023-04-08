@@ -30,6 +30,11 @@ Click on the menu item to create the type stub. Depending on the size of the lib
 
 ![Pyright](img/CreateTypeStub2.png)
 
+Add the full path of the `typings` folder in `settings.json`:
+```
+   "python.analysis.extraPaths": ["/path/to/typings"],
+```
+
 #### Generating Type Stubs from Command Line
 The command-line version of pyright can also be used to generate type stubs. As with the VS Code version, it must be run within the context of your configured project. Then type `pyright --createstub [import-name]`.
 
