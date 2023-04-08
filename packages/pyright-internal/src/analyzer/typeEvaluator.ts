@@ -652,6 +652,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let dictClassType: Type | undefined;
     let typedDictClassType: Type | undefined;
     let typedDictPrivateClassType: Type | undefined;
+    let mappingType: Type | undefined;
     let printExpressionSpaceCount = 0;
     let incompleteGenerationCount = 0;
 
@@ -959,6 +960,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             dictClassType = getBuiltInType(node, 'dict');
             typedDictClassType = getTypingType(node, 'TypedDict');
             typedDictPrivateClassType = getTypingType(node, '_TypedDict');
+
+            mappingType = getTypeshedType(node, 'SupportsKeysAndGetItem');
+            if (!mappingType) {
+                // Fall back on 'Mapping' if 'SupportsKeysAndGetItem' is not available.
+                mappingType = getTypingType(node, 'Mapping');
+            }
         }
     }
 
@@ -10303,10 +10310,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             });
                         }
                     } else {
-                        let mappingType = getTypeshedType(errorNode, 'SupportsKeysAndGetItem');
-                        if (!mappingType) {
-                            mappingType = getTypingType(errorNode, 'Mapping');
-                        }
                         const strObjType = getBuiltInObject(errorNode, 'str');
 
                         if (
@@ -13589,14 +13592,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 addUnknown = false;
             } else if (entryNode.nodeType === ParseNodeType.DictionaryExpandEntry) {
-                // Verify that the type supports the `keys` and `__getitem__` methods.
-                // This protocol is defined in the _typeshed stub. If we can't find
-                // it there, fall back on typing.Mapping.
-                let mappingType = getTypeshedType(node, 'SupportsKeysAndGetItem');
-                if (!mappingType) {
-                    mappingType = getTypingType(node, 'Mapping');
-                }
-
                 let expectedType: Type | undefined;
                 if (expectedKeyType && expectedValueType) {
                     if (mappingType && isInstantiableClass(mappingType)) {
@@ -13642,48 +13637,43 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         addUnknown = false;
                     }
-                } else {
-                    if (mappingType && isInstantiableClass(mappingType)) {
-                        const mappingTypeVarContext = new TypeVarContext(getTypeVarScopeId(mappingType));
+                } else if (mappingType && isInstantiableClass(mappingType)) {
+                    const mappingTypeVarContext = new TypeVarContext(getTypeVarScopeId(mappingType));
 
-                        // Self-specialize the class.
-                        mappingType = ClassType.cloneForSpecialization(
-                            mappingType,
-                            mappingType.details.typeParameters,
-                            /* isTypeArgumentExplicit */ true
-                        );
+                    // Self-specialize the class.
+                    mappingType = ClassType.cloneForSpecialization(
+                        mappingType,
+                        mappingType.details.typeParameters,
+                        /* isTypeArgumentExplicit */ true
+                    );
 
-                        if (
-                            assignType(
-                                ClassType.cloneAsInstance(mappingType),
-                                unexpandedType,
-                                /* diag */ undefined,
-                                mappingTypeVarContext,
-                                /* srcTypeVarContext */ undefined,
-                                AssignTypeFlags.RetainLiteralsForTypeVar
-                            )
-                        ) {
-                            const specializedMapping = applySolvedTypeVars(
-                                mappingType,
-                                mappingTypeVarContext
-                            ) as ClassType;
-                            const typeArgs = specializedMapping.typeArguments;
-                            if (typeArgs && typeArgs.length >= 2) {
-                                if (forceStrictInference || index < maxEntriesToUseForInference) {
-                                    keyTypes.push({ node: entryNode, type: typeArgs[0] });
-                                    valueTypes.push({ node: entryNode, type: typeArgs[1] });
-                                }
-                                addUnknown = false;
+                    if (
+                        assignType(
+                            ClassType.cloneAsInstance(mappingType),
+                            unexpandedType,
+                            /* diag */ undefined,
+                            mappingTypeVarContext,
+                            /* srcTypeVarContext */ undefined,
+                            AssignTypeFlags.RetainLiteralsForTypeVar
+                        )
+                    ) {
+                        const specializedMapping = applySolvedTypeVars(mappingType, mappingTypeVarContext) as ClassType;
+                        const typeArgs = specializedMapping.typeArguments;
+                        if (typeArgs && typeArgs.length >= 2) {
+                            if (forceStrictInference || index < maxEntriesToUseForInference) {
+                                keyTypes.push({ node: entryNode, type: typeArgs[0] });
+                                valueTypes.push({ node: entryNode, type: typeArgs[1] });
                             }
-                        } else {
-                            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-                            addDiagnostic(
-                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.dictUnpackIsNotMapping(),
-                                entryNode
-                            );
+                            addUnknown = false;
                         }
+                    } else {
+                        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.dictUnpackIsNotMapping(),
+                            entryNode
+                        );
                     }
                 }
             } else if (entryNode.nodeType === ParseNodeType.ListComprehension) {
