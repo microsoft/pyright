@@ -21492,38 +21492,36 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         });
 
-        if (typesToCombine.length > 0) {
-            // How many times have we already attempted to evaluate this declaration already?
-            const evaluationAttempts = (cacheEntries?.get(effectiveTypeCacheKey)?.evaluationAttempts ?? 0) + 1;
+        // How many times have we already attempted to evaluate this declaration already?
+        const evaluationAttempts = (cacheEntries?.get(effectiveTypeCacheKey)?.evaluationAttempts ?? 0) + 1;
 
+        let resultType: Type;
+
+        if (typesToCombine.length > 0) {
             // Ignore the pending evaluation flag if we've already attempted the
             // type evaluation many times because this probably means there's a
             // cyclical dependency that cannot be broken.
             isIncomplete = sawPendingEvaluation && evaluationAttempts < maxEffectiveTypeEvaluationAttempts;
 
-            const result: EffectiveTypeResult = {
-                type: combineTypes(typesToCombine),
-                isIncomplete,
-                includesVariableDecl,
-                includesIllegalTypeAliasDecl: !decls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
-                isRecursiveDefinition: false,
-                evaluationAttempts,
-            };
-
-            if (!includesSpeculativeResult) {
-                addToEffectiveTypeCache(result);
-            }
-
-            return result;
+            resultType = combineTypes(typesToCombine);
+        } else {
+            resultType = UnboundType.create();
         }
 
-        return {
-            type: UnboundType.create(),
+        const result: EffectiveTypeResult = {
+            type: resultType,
             isIncomplete,
             includesVariableDecl,
             includesIllegalTypeAliasDecl: !decls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
             isRecursiveDefinition: false,
+            evaluationAttempts,
         };
+
+        if (!includesSpeculativeResult) {
+            addToEffectiveTypeCache(result);
+        }
+
+        return result;
 
         function addToEffectiveTypeCache(result: EffectiveTypeResult) {
             // Add the entry to the cache so we don't need to compute it next time.
