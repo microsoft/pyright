@@ -243,18 +243,48 @@ export function synthesizeTypedDictClassMethods(
     FunctionType.addDefaultParameters(newType);
     newType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
 
-    // Synthesize an __init__ method.
-    const initType = FunctionType.createSynthesizedInstance('__init__');
-    FunctionType.addParameter(initType, {
+    // Synthesize an __init__ method with two overrides.
+    const initOverride1 = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.Overloaded);
+    FunctionType.addParameter(initOverride1, {
         category: ParameterCategory.Simple,
         name: 'self',
         type: ClassType.cloneAsInstance(classType),
         hasDeclaredType: true,
     });
-    initType.details.declaredReturnType = NoneType.createInstance();
+    initOverride1.details.declaredReturnType = NoneType.createInstance();
+
+    // The first parameter must be positional-only.
+    FunctionType.addParameter(initOverride1, {
+        category: ParameterCategory.Simple,
+        name: '__map',
+        type: ClassType.cloneAsInstance(classType),
+        hasDeclaredType: true,
+    });
+
+    FunctionType.addParameter(initOverride1, {
+        category: ParameterCategory.Simple,
+        name: '',
+        type: UnknownType.create(),
+    });
+
+    // All subsequent parameters must be named, so insert an empty "*".
+    FunctionType.addParameter(initOverride1, {
+        category: ParameterCategory.VarArgList,
+        type: AnyType.create(),
+        hasDeclaredType: true,
+    });
+
+    const initOverride2 = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.Overloaded);
+    FunctionType.addParameter(initOverride2, {
+        category: ParameterCategory.Simple,
+        name: 'self',
+        type: ClassType.cloneAsInstance(classType),
+        hasDeclaredType: true,
+    });
+    initOverride2.details.declaredReturnType = NoneType.createInstance();
 
     // All parameters must be named, so insert an empty "*".
-    FunctionType.addParameter(initType, {
+    FunctionType.addParameter(initOverride2, {
         category: ParameterCategory.VarArgList,
         type: AnyType.create(),
         hasDeclaredType: true,
@@ -263,7 +293,15 @@ export function synthesizeTypedDictClassMethods(
     const entries = getTypedDictMembersForClass(evaluator, classType);
     let allEntriesAreNotRequired = true;
     entries.forEach((entry, name) => {
-        FunctionType.addParameter(initType, {
+        FunctionType.addParameter(initOverride1, {
+            category: ParameterCategory.Simple,
+            name,
+            hasDefault: true,
+            type: entry.valueType,
+            hasDeclaredType: true,
+        });
+
+        FunctionType.addParameter(initOverride2, {
             category: ParameterCategory.Simple,
             name,
             hasDefault: !entry.isRequired,
@@ -277,6 +315,7 @@ export function synthesizeTypedDictClassMethods(
     });
 
     const symbolTable = classType.details.fields;
+    const initType = OverloadedFunctionType.create([initOverride1, initOverride2]);
     symbolTable.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
     symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
 

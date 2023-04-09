@@ -35,6 +35,9 @@ movie4: Movie = {
     "name2": "Blade Runner"
 }
 
+movie5: Movie = Movie(movie3)
+movie6: Movie = Movie(movie3, year=2030, name="New movie")
+
 book1: BookBasedMovie = {"name": "Moonraker", "year": 1979, "based_on": "Moonraker"}
 
 book2: BookBasedMovie = {"year": 1979, "based_on": "Moonraker"}
