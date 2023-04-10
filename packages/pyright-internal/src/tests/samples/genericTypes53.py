@@ -40,3 +40,11 @@ reveal_type(v6, expected_text="dict[str, str]")
 
 v7 = reduce(lambda x, y: {**x, **y}, dicts)
 reveal_type(v7, expected_text="dict[str, str]")
+
+
+def func3(func: Callable[[_T], bool], b: dict[_T, int]) -> _T:
+    return next(iter(b.keys()))
+
+
+def func4(func: Callable[[_T], bool]) -> _T:
+    return func3(func, {})

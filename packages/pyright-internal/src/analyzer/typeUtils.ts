@@ -3434,12 +3434,12 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             let replacement = signatureContext.getTypeVarType(typeVar, !!this._options.useNarrowBoundOnly);
 
             // If there was no narrow bound but there is a wide bound that
-            // contains literals, we'll use the wide bound even if "useNarrowBoundOnly"
-            // is specified.
-            if (!replacement && !!this._options.useNarrowBoundOnly) {
+            // contains literals or a TypeVar, we'll use the wide bound even if
+            // "useNarrowBoundOnly" is specified.
+            if (!replacement && this._options.useNarrowBoundOnly) {
                 const wideType = signatureContext.getTypeVarType(typeVar);
                 if (wideType) {
-                    if (containsLiteralType(wideType, /* includeTypeArgs */ true)) {
+                    if (isTypeVar(wideType) || containsLiteralType(wideType, /* includeTypeArgs */ true)) {
                         replacement = wideType;
                     }
                 }
@@ -3461,6 +3461,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                         replacement = convertToInstantiable(replacement);
                     }
                 }
+
                 return replacement;
             }
 
