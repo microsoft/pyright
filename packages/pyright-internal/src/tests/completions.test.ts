@@ -920,3 +920,90 @@ test('auto import sort text', async () => {
     assert(!items[0].labelDetails);
     assert.strictEqual(items[1].labelDetails!.description, 'vendored');
 });
+
+test('override generic', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Generic, TypeVar
+//// from typing_extensions import override
+//// 
+//// T = TypeVar('T')
+//// class A(Generic[T]):
+////     def foo(self, x: list[T]) -> T:
+////         return x
+////     
+//// class B(A[int]):
+////     @override
+////     def [|foo/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: 'foo',
+                    kind: CompletionItemKind.Method,
+                    textEdit: {
+                        range: state.getPositionRange('marker'),
+                        newText: 'foo(self, x: list[int]) -> int:\n    return super().foo(x)',
+                    },
+                },
+            ],
+        },
+    });
+});
+
+test('override generic nested', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Generic, TypeVar
+//// from typing_extensions import override
+//// 
+//// T = TypeVar('T')
+//// T2 = TypeVar('T2')
+//// class A(Generic[T, T2]):
+////     def foo(self, x: tuple[T, T2]) -> T:
+////         return x
+////     
+//// 
+//// T3 = TypeVar('T3')
+//// class B(A[int, T3]):
+////     @override
+////     def [|foo/*marker1*/|]
+////     
+//// class C(B[int]):
+////     @override
+////     def [|foo/*marker2*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker1']: {
+            completions: [
+                {
+                    label: 'foo',
+                    kind: CompletionItemKind.Method,
+                    textEdit: {
+                        range: state.getPositionRange('marker1'),
+                        newText: 'foo(self, x: tuple[int, T3]) -> int:\n    return super().foo(x)',
+                    },
+                },
+            ],
+        },
+        ['marker2']: {
+            completions: [
+                {
+                    label: 'foo',
+                    kind: CompletionItemKind.Method,
+                    textEdit: {
+                        range: state.getPositionRange('marker2'),
+                        newText: 'foo(self, x: tuple[int, int]) -> int:\n    return super().foo(x)',
+                    },
+                },
+            ],
+        },
+    });
+});

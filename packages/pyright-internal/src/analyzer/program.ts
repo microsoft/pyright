@@ -84,12 +84,13 @@ import { ReferenceCallback, ReferencesResult } from '../languageService/referenc
 import { RenameModuleProvider } from '../languageService/renameModuleProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ParseNodeType } from '../parser/parseNodes';
+import { StatementNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { AbsoluteModuleDescriptor, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CacheManager } from './cacheManager';
 import { CircularDependency } from './circularDependency';
-import { Declaration, DeclarationType } from './declaration';
+import { Declaration, DeclarationType, isVariableDeclaration } from './declaration';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import {
@@ -989,8 +990,10 @@ export class Program {
             return;
         }
 
-        // sourceFile.parse should never be called directly. Otherwise, whole dependency graph maintained
-        // by program will be broken. Use _parseFile instead.
+        // SourceFile.parse should only be called here in the program, as calling it
+        // elsewhere could break the entire dependency graph maintained by the program.
+        // Other parts of the program should use _parseFile to create ParseResults from
+        // the sourceFile. For standalone parseResults, use parseFile or the Parser directly.
         if (fileToParse.sourceFile.parse(this._configOptions, this._importResolver, content)) {
             this._parsedFileCount++;
             this._updateSourceFileImports(fileToParse, this._configOptions);
@@ -1202,14 +1205,36 @@ export class Program {
     // level scope that contains the symbol table for the module.
     private _buildModuleSymbolsMap(
         sourceFileToExclude: SourceFileInfo,
-        userFileOnly: boolean,
-        includeIndexUserSymbols: boolean,
+        libraryMap: Map<string, IndexResults> | undefined,
+        includeSymbolsFromIndices: boolean,
         token: CancellationToken
     ): ModuleSymbolMap {
+        // If we have library map, always use the map for library symbols.
+        const predicate = (s: SourceFileInfo) => {
+            if (!libraryMap) {
+                // We don't have any prebuilt indices, so we need to include
+                // all files.
+                return true;
+            }
+
+            if (!this._configOptions.indexing) {
+                // We have some prebuilt indices such as stdlib, but indexing is disabled.
+                // Include files we don't have prebuilt indices.
+                return libraryMap.get(s.sourceFile.getFilePath()) === undefined;
+            }
+
+            // We have prebuilt indices for third party libraries. Include only
+            // user files.
+            return isUserCode(s);
+        };
+
+        // Only include import alias from user files if indexing is off for now.
+        // Currently, when indexing is off, we don't do import alias deduplication, so
+        // adding import alias is cheap. But when indexing is on, we do deduplication, which
         // require resolveAliasDeclaration that can cause more files to be parsed and bound.
         return buildModuleSymbolsMap(
-            this._sourceFileList.filter((s) => s !== sourceFileToExclude && (userFileOnly ? isUserCode(s) : true)),
-            includeIndexUserSymbols,
+            this._sourceFileList.filter((s) => s !== sourceFileToExclude && predicate(s)),
+            includeSymbolsFromIndices,
             token
         );
     }
@@ -1546,8 +1571,8 @@ export class Program {
             const writtenWord = fileContents.substr(textRange.start, textRange.length);
             const map = this._buildModuleSymbolsMap(
                 sourceFileInfo,
-                !!options.libraryMap,
-                /* includeIndexUserSymbols */ true,
+                options.libraryMap,
+                /* includeSymbolsFromIndices */ true,
                 token
             );
 
@@ -1985,7 +2010,7 @@ export class Program {
                         () =>
                             this._buildModuleSymbolsMap(
                                 sourceFileInfo,
-                                !!libraryMap,
+                                libraryMap,
                                 options.includeUserSymbolsInAutoImport,
                                 token
                             ),
@@ -2058,7 +2083,7 @@ export class Program {
                 () =>
                     this._buildModuleSymbolsMap(
                         sourceFileInfo,
-                        !!libraryMap,
+                        libraryMap,
                         options.includeUserSymbolsInAutoImport,
                         token
                     ),
@@ -2242,7 +2267,7 @@ export class Program {
 
                 // If we are adding at the end of line (ex, end of a file),
                 // add new lines.
-                const newLinesToAdd = _getNumberOfBlankLinesToInsert(newFileParseResults, range.end);
+                const newLinesToAdd = _getNumberOfBlankLinesToInsert(newFileParseResults, sourceDecl, range.end);
                 codeSnippetToInsert = '\n'.repeat(newLinesToAdd) + codeSnippetToInsert;
 
                 renameModuleProvider.textEditTracker.addEdit(newFilePath, range, codeSnippetToInsert);
@@ -2466,21 +2491,58 @@ export class Program {
             });
         }
 
-        function _getNumberOfBlankLinesToInsert(parseResults: ParseResults, position: Position) {
-            // This basically try to add 2 blanks lines before previous line with text.
+        function _getNumberOfBlankLinesToInsert(parseResults: ParseResults, decl: Declaration, position: Position) {
             if (position.line === 0 && position.character === 0) {
                 return 0;
             }
 
-            const linesToAdd =
-                position.line > 0 && isBlankLine(parseResults, position.line - 1)
-                    ? position.line > 1 && isBlankLine(parseResults, position.line - 2)
-                        ? 0
-                        : 1
-                    : 2;
+            let previousStatement: StatementNode | undefined;
+            const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
+            if (offset && parseResults.parseTree.statements.length > 0) {
+                previousStatement = parseResults.parseTree.statements.reduce((prev, curr) =>
+                    offset < curr.start ? prev : curr
+                );
+            }
 
-            // Add one more line for the line that position is on if it is not blank.
-            return position.character !== 0 ? linesToAdd + 1 : linesToAdd;
+            // This basically try to add some blank lines after the last line with text.
+            let linesToAdd = 0;
+            if (previousStatement) {
+                if (isVariableDeclaration(decl)) {
+                    switch (previousStatement.nodeType) {
+                        case ParseNodeType.StatementList:
+                            // Small statement such as call, assignment, etc.
+                            linesToAdd = 0;
+                            break;
+                        case ParseNodeType.Class:
+                        case ParseNodeType.Function:
+                            linesToAdd = 2;
+                            break;
+                        default:
+                            // any other statement such as if, while, etc. we will add 1 blank line.
+                            linesToAdd = 1;
+                    }
+                } else {
+                    linesToAdd = 2;
+                }
+            }
+
+            // If the position is not at the beginning of the line, we need to add 1 more '\n'
+            // to start from blank line.
+            linesToAdd += position.character !== 0 ? 1 : 0;
+
+            // If there are already blank lines, we only add the difference.
+            const desiredBlankLines = linesToAdd;
+            const startingLine = position.character !== 0 ? position.line : position.line - 1;
+            for (let i = 0; i < desiredBlankLines; i++) {
+                const currentLine = startingLine - i;
+                if (currentLine < 0 || !isBlankLine(parseResults, currentLine)) {
+                    break;
+                }
+
+                linesToAdd--;
+            }
+
+            return linesToAdd;
         }
     }
 
