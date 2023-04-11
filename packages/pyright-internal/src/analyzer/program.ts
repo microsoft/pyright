@@ -870,8 +870,8 @@ export class Program {
             flags |= PrintTypeFlags.OmitConditionalConstraint;
         }
 
-        if (configOptions.diagnosticRuleSet.omitTypeArgsIfAny) {
-            flags |= PrintTypeFlags.OmitTypeArgumentsIfAny;
+        if (configOptions.diagnosticRuleSet.omitTypeArgsIfUnknown) {
+            flags |= PrintTypeFlags.OmitTypeArgumentsIfUnknown;
         }
 
         if (configOptions.diagnosticRuleSet.omitUnannotatedParamType) {

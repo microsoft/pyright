@@ -343,6 +343,8 @@ export interface PrintTypeOptions {
     expandTypeAlias?: boolean;
     enforcePythonSyntax?: boolean;
     useTypingUnpack?: boolean;
+    printUnknownWithAny?: boolean;
+    omitTypeArgumentsIfUnknown?: boolean;
 }
 
 export interface DeclaredSymbolTypeInfo {

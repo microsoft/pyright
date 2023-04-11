@@ -22,6 +22,7 @@ import {
     isParamSpec,
     isTypeSame,
     isTypeVar,
+    isUnknown,
     isUnpacked,
     isVariadicTypeVar,
     maxTypeRecursionCount,
@@ -43,8 +44,8 @@ export const enum PrintTypeFlags {
     // Avoid printing "Unknown" and always use "Any" instead.
     PrintUnknownWithAny = 1 << 0,
 
-    // Omit type arguments for generic classes if they are "Any".
-    OmitTypeArgumentsIfAny = 1 << 1,
+    // Omit type arguments for generic classes if they are "Unknown".
+    OmitTypeArgumentsIfUnknown = 1 << 1,
 
     // Omit printing type for param if type is not specified.
     OmitUnannotatedParamType = 1 << 2,
@@ -122,8 +123,8 @@ export function printType(
                     // If there is a type arguments array, it's a specialized type alias.
                     if (type.typeAliasInfo.typeArguments) {
                         if (
-                            (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
-                            type.typeAliasInfo.typeArguments.some((typeArg) => !isAnyOrUnknown(typeArg))
+                            (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfUnknown) === 0 ||
+                            type.typeAliasInfo.typeArguments.some((typeArg) => !isUnknown(typeArg))
                         ) {
                             argumentStrings = [];
                             type.typeAliasInfo.typeArguments.forEach((typeArg, index) => {
@@ -164,8 +165,8 @@ export function printType(
                         }
                     } else {
                         if (
-                            (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
-                            typeParams.some((typeParam) => !isAnyOrUnknown(typeParam))
+                            (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfUnknown) === 0 ||
+                            typeParams.some((typeParam) => !isUnknown(typeParam))
                         ) {
                             argumentStrings = [];
                             typeParams.forEach((typeParam) => {
@@ -745,7 +746,7 @@ export function printObjectTypeForClass(
             // Handle Tuple[()] as a special case.
             if (typeArgs.length > 0) {
                 const typeArgStrings: string[] = [];
-                let isAllAny = true;
+                let isAllUnknown = true;
 
                 typeArgs.forEach((typeArg, index) => {
                     const typeParam = index < typeParams.length ? typeParams[index] : undefined;
@@ -758,8 +759,8 @@ export function printObjectTypeForClass(
                     ) {
                         // Expand the tuple type that maps to the variadic type parameter.
                         if (typeArg.type.tupleTypeArguments.length === 0) {
-                            if (!isAnyOrUnknown(typeArg.type)) {
-                                isAllAny = false;
+                            if (!isUnknown(typeArg.type)) {
+                                isAllUnknown = false;
                             }
 
                             if (index === 0) {
@@ -768,8 +769,8 @@ export function printObjectTypeForClass(
                         } else {
                             typeArgStrings.push(
                                 ...typeArg.type.tupleTypeArguments.map((typeArg) => {
-                                    if (!isAnyOrUnknown(typeArg.type)) {
-                                        isAllAny = false;
+                                    if (!isUnknown(typeArg.type)) {
+                                        isAllUnknown = false;
                                     }
 
                                     const typeArgText = printType(
@@ -789,8 +790,8 @@ export function printObjectTypeForClass(
                             );
                         }
                     } else {
-                        if (!isAnyOrUnknown(typeArg.type)) {
-                            isAllAny = false;
+                        if (!isUnknown(typeArg.type)) {
+                            isAllUnknown = false;
                         }
 
                         const typeArgTypeText = printType(
@@ -817,7 +818,7 @@ export function printObjectTypeForClass(
                     objName = _printUnpack(objName, printTypeFlags);
                 }
 
-                if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 || !isAllAny) {
+                if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfUnknown) === 0 || !isAllUnknown) {
                     objName += '[' + typeArgStrings.join(', ') + ']';
                 }
             } else {
@@ -836,8 +837,8 @@ export function printObjectTypeForClass(
 
             if (typeParams.length > 0) {
                 if (
-                    (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
-                    typeParams.some((typeParam) => !isAnyOrUnknown(typeParam))
+                    (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfUnknown) === 0 ||
+                    typeParams.some((typeParam) => !isUnknown(typeParam))
                 ) {
                     objName +=
                         '[' +
@@ -979,7 +980,7 @@ export function printFunctionParts(
                 // PEP8 indicates that the "=" for the default value should have surrounding
                 // spaces when used with a type annotation.
                 defaultValueAssignment = ' = ';
-            } else if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0) {
+            } else if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfUnknown) === 0) {
                 if (!param.isNameSynthesized) {
                     paramString += ': ';
                 }

@@ -76,8 +76,8 @@ export interface DiagnosticRuleSet {
     printUnknownAsAny: boolean;
 
     // Should type arguments to a generic class be omitted
-    // when printed if all arguments are Unknown or Any?
-    omitTypeArgsIfAny: boolean;
+    // when printed if all arguments are Unknown?
+    omitTypeArgsIfUnknown: boolean;
 
     // Should parameter type be omitted if it is not annotated?
     omitUnannotatedParamType: boolean;
@@ -421,7 +421,7 @@ export function getStrictModeNotOverriddenRules() {
 export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
         printUnknownAsAny: true,
-        omitTypeArgsIfAny: true,
+        omitTypeArgsIfUnknown: true,
         omitUnannotatedParamType: true,
         omitConditionalConstraint: true,
         pep604Printing: true,
@@ -503,7 +503,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
 export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
         printUnknownAsAny: false,
-        omitTypeArgsIfAny: false,
+        omitTypeArgsIfUnknown: false,
         omitUnannotatedParamType: true,
         omitConditionalConstraint: false,
         pep604Printing: true,
@@ -585,7 +585,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
 export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
         printUnknownAsAny: false,
-        omitTypeArgsIfAny: false,
+        omitTypeArgsIfUnknown: false,
         omitUnannotatedParamType: false,
         omitConditionalConstraint: false,
         pep604Printing: true,

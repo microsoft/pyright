@@ -26206,6 +26206,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (options?.useTypingUnpack) {
             flags |= TypePrinter.PrintTypeFlags.UseTypingUnpack;
         }
+        if (options?.printUnknownWithAny) {
+            flags |= TypePrinter.PrintTypeFlags.PrintUnknownWithAny;
+        }
+        if (options?.omitTypeArgumentsIfUnknown) {
+            flags |= TypePrinter.PrintTypeFlags.OmitTypeArgumentsIfUnknown;
+        }
 
         return TypePrinter.printType(type, flags, getFunctionEffectiveReturnType);
     }
