@@ -200,4 +200,12 @@ test('FunctionTypes', () => {
         '(*args: Unpack[Ts]) -> Unknown'
     );
     assert.strictEqual(printType(funcTypeC, PrintTypeFlags.PythonSyntax, returnTypeCallback), 'Callable[..., Any]');
+
+    const funcTypeD = FunctionType.createInstance('D', '', '', FunctionTypeFlags.None);
+
+    funcTypeD.details.paramSpec = paramSpecP;
+    funcTypeD.details.declaredReturnType = NoneType.createInstance();
+
+    assert.strictEqual(printType(funcTypeD, PrintTypeFlags.None, returnTypeCallback), '(**P) -> None');
+    assert.strictEqual(printType(funcTypeD, PrintTypeFlags.PythonSyntax, returnTypeCallback), 'Callable[P, None]');
 });

@@ -621,9 +621,13 @@ function printFunctionType(
             });
 
             if (type.details.paramSpec) {
-                return `Callable[Concatenate[${paramTypes.join(', ')}, ${
-                    type.details.paramSpec.details.name
-                }], ${returnTypeString}]`;
+                if (paramTypes.length > 0) {
+                    return `Callable[Concatenate[${paramTypes.join(', ')}, ${
+                        type.details.paramSpec.details.name
+                    }], ${returnTypeString}]`;
+                }
+
+                return `Callable[${type.details.paramSpec.details.name}, ${returnTypeString}]`;
             }
 
             return `Callable[[${paramTypes.join(', ')}], ${returnTypeString}]`;
