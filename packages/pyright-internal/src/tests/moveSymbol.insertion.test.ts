@@ -118,7 +118,7 @@ test('insert to empty file with comments', () => {
 
 // @filename: moved.py
 //// # comment
-//// [|{|"r":"!n!!n!!n!def foo():!n!    pass", "name": "dest"|}|]
+//// [|{|"r":"!n!def foo():!n!    pass", "name": "dest"|}|]
         `;
 
     testFromCode(code);
@@ -132,7 +132,7 @@ test('insert to empty file with comments and blank lines', () => {
 
 // @filename: moved.py
 //// # comment
-//// [|{|"r":"!n!!n!def foo():!n!    pass", "name": "dest"|}|]
+//// [|{|"r":"def foo():!n!    pass", "name": "dest"|}|]
 //// 
         `;
 
@@ -317,7 +317,7 @@ test('insert to a file with same symbol imported with alias', () => {
 // @filename: moved.py
 //// [|{|"r":""|}from test import foo as aliasFoo
 //// |]
-//// aliasFoo()[|{|"r":"!n!!n!def foo():!n!    pass", "name": "dest"|}|]
+//// aliasFoo()[|{|"r":"!n!!n!!n!def foo():!n!    pass", "name": "dest"|}|]
         `;
 
     testFromCode(code);
@@ -569,7 +569,7 @@ test('insert after comment', () => {
 //// [|{|"r":""|}[|/*marker*/b|] = 3|]
 
 // @filename: moved.py
-//// a = 1 # type: ignore[|{|"r":"!n!!n!!n!b = 3", "name": "dest"|}|]
+//// a = 1 # type: ignore[|{|"r":"!n!b = 3", "name": "dest"|}|]
     `;
 
     testFromCode(code);
@@ -583,6 +583,31 @@ test('keep comments', () => {
 
 // @filename: moved.py
 //// [|{|"r":"def test():!n!    return # comment", "name": "dest"|}|]
+    `;
+
+    testFromCode(code);
+});
+
+test('statement list', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":""|}[|/*marker*/a|] = 1|]
+
+// @filename: moved.py
+//// print("hello")[|{|"r":"!n!a = 1", "name": "dest"|}|]
+    `;
+
+    testFromCode(code);
+});
+
+test('regular statement', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":""|}[|/*marker*/a|] = 1|]
+
+// @filename: moved.py
+//// if True:
+////     pass[|{|"r":"!n!!n!a = 1", "name": "dest"|}|]
     `;
 
     testFromCode(code);

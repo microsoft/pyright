@@ -62,8 +62,10 @@ import {
     TypeCategory,
 } from '../analyzer/types';
 import {
+    ClassMember,
     ClassMemberLookupFlags,
     doForEachSubtype,
+    getClassFieldsRecursive,
     getDeclaringModulesForType,
     getMembersForClass,
     getMembersForModule,
@@ -1200,90 +1202,107 @@ export class CompletionProvider {
             return undefined;
         }
 
-        const symbolTable = new Map<string, Symbol>();
-        for (let i = 1; i < classResults.classType.details.mro.length; i++) {
-            const mroClass = classResults.classType.details.mro[i];
-            if (isInstantiableClass(mroClass)) {
-                getMembersForClass(mroClass, symbolTable, /* includeInstanceVars */ false);
-            }
-        }
-
         const staticmethod = decorators?.some((d) => this._checkDecorator(d, 'staticmethod')) ?? false;
         const classmethod = decorators?.some((d) => this._checkDecorator(d, 'classmethod')) ?? false;
 
+        const appendMember = (map: CompletionMap, member: ClassMember, name: string) => {
+            if (
+                !isInstantiableClass(member.classType) ||
+                member.classType.details === classResults.classType.details ||
+                !StringUtils.isPatternInSymbol(partialName.value, name)
+            ) {
+                // Quick bail out if member is something we don't want to override.
+                return;
+            }
+
+            const symbol = member.symbol;
+            const decl = getLastTypedDeclaredForSymbol(symbol);
+            if (!decl || decl.type !== DeclarationType.Function) {
+                return;
+            }
+
+            const declaredType = this._evaluator.getTypeOfMember(member);
+            if (!declaredType) {
+                return;
+            }
+
+            const isDeclaredStaticMethod = isFunction(declaredType) && FunctionType.isStaticMethod(declaredType);
+
+            // Special-case the "__init__subclass__" method because it's an implicit
+            // classmethod that the type evaluator flags as a real classmethod.
+            const isDeclaredClassMethod =
+                isFunction(declaredType) && FunctionType.isClassMethod(declaredType) && name !== '__init_subclass__';
+
+            if (staticmethod !== isDeclaredStaticMethod || classmethod !== isDeclaredClassMethod) {
+                return;
+            }
+
+            let isProperty = isClassInstance(declaredType) && ClassType.isPropertyClass(declaredType);
+            if (SymbolNameUtils.isDunderName(name)) {
+                // Don't offer suggestions for built-in properties like "__class__", etc.
+                isProperty = false;
+            }
+
+            let funcType: FunctionType | undefined = undefined;
+            if (isFunction(declaredType)) {
+                funcType = declaredType;
+            } else if (isProperty) {
+                const getter = lookUpClassMember(declaredType, 'fget');
+                if (!getter) {
+                    return;
+                }
+
+                const member = this._evaluator.getTypeOfMember(getter);
+                if (!isFunction(member)) {
+                    return;
+                }
+
+                funcType = member;
+            }
+
+            if (!funcType || !funcType.details.declaration) {
+                return;
+            }
+
+            const methodSignature = this._printMethodSignature(classResults.classType, funcType);
+
+            let text: string;
+            if (isStubFile(this._filePath)) {
+                text = `${methodSignature}: ...`;
+            } else {
+                const methodBody = this._printOverriddenMethodBody(
+                    classResults.classType,
+                    isDeclaredStaticMethod,
+                    isProperty,
+                    decl
+                );
+                text = `${methodSignature}:\n${methodBody}`;
+            }
+
+            const textEdit = this._createReplaceEdits(priorWord, partialName, text);
+
+            this._addSymbol(name, symbol, partialName.value, map, {
+                // method signature already contains ()
+                funcParensDisabled: true,
+                edits: {
+                    format: this._options.snippet ? InsertTextFormat.Snippet : undefined,
+                    textEdit,
+                },
+            });
+        };
+
         const completionMap = new CompletionMap();
 
-        symbolTable.forEach((symbol, name) => {
-            let decl = getLastTypedDeclaredForSymbol(symbol);
-            if (decl && decl.type === DeclarationType.Function) {
-                if (StringUtils.isPatternInSymbol(partialName.value, name)) {
-                    const declaredType = this._evaluator.getTypeForDeclaration(decl)?.type;
-                    if (!declaredType) {
-                        return;
-                    }
+        const classMemberMap = getClassFieldsRecursive(classResults.classType);
+        classMemberMap.forEach((member, name) => appendMember(completionMap, member, name));
 
-                    let isProperty = isClassInstance(declaredType) && ClassType.isPropertyClass(declaredType);
-
-                    if (SymbolNameUtils.isDunderName(name)) {
-                        // Don't offer suggestions for built-in properties like "__class__", etc.
-                        isProperty = false;
-                    }
-
-                    if (!isFunction(declaredType) && !isProperty) {
-                        return;
-                    }
-
-                    if (isProperty) {
-                        // For properties, we should override the "getter", which is typically
-                        // the first declaration.
-                        const typedDecls = symbol.getTypedDeclarations();
-                        if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Function) {
-                            decl = typedDecls[0];
-                        }
-                    }
-
-                    const isDeclaredStaticMethod =
-                        isFunction(declaredType) && FunctionType.isStaticMethod(declaredType);
-
-                    // Special-case the "__init__subclass__" method because it's an implicit
-                    // classmethod that the type evaluator flags as a real classmethod.
-                    const isDeclaredClassMethod =
-                        isFunction(declaredType) &&
-                        FunctionType.isClassMethod(declaredType) &&
-                        name !== '__init_subclass__';
-
-                    if (staticmethod !== isDeclaredStaticMethod || classmethod !== isDeclaredClassMethod) {
-                        return;
-                    }
-
-                    const methodSignature = this._printMethodSignature(classResults.classType, decl);
-
-                    let text: string;
-                    if (isStubFile(this._filePath)) {
-                        text = `${methodSignature}: ...`;
-                    } else {
-                        const methodBody = this._printOverriddenMethodBody(
-                            classResults.classType,
-                            isDeclaredStaticMethod,
-                            isProperty,
-                            decl
-                        );
-                        text = `${methodSignature}:\n${methodBody}`;
-                    }
-
-                    const textEdit = this._createReplaceEdits(priorWord, partialName, text);
-
-                    this._addSymbol(name, symbol, partialName.value, completionMap, {
-                        // method signature already contains ()
-                        funcParensDisabled: true,
-                        edits: {
-                            format: this._options.snippet ? InsertTextFormat.Snippet : undefined,
-                            textEdit,
-                        },
-                    });
-                }
-            }
-        });
+        if (
+            classResults.classType.details.effectiveMetaclass &&
+            !isUnknown(classResults.classType.details.effectiveMetaclass)
+        ) {
+            const metaClassMemberMap = getClassFieldsRecursive(classResults.classType.details.effectiveMetaclass);
+            metaClassMemberMap.forEach((member, name) => appendMember(completionMap, member, name));
+        }
 
         return { completionMap };
     }
@@ -1302,8 +1321,8 @@ export class CompletionProvider {
         return TextEdit.replace(range, text);
     }
 
-    private _printMethodSignature(classType: ClassType, decl: FunctionDeclaration): string {
-        const node = decl.node;
+    private _printMethodSignature(classType: ClassType, funcType: FunctionType): string {
+        const decl = funcType.details.declaration!;
 
         let ellipsisForDefault: boolean | undefined;
         if (isStubFile(this._filePath)) {
@@ -1319,49 +1338,84 @@ export class CompletionProvider {
               ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength
             : ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength;
 
-        const paramList = node.parameters
-            .map((param, index) => {
-                let paramString = '';
-                if (param.category === ParameterCategory.VarArgList) {
-                    paramString += '*';
-                } else if (param.category === ParameterCategory.VarArgDictionary) {
-                    paramString += '**';
-                }
+        const getTypeToPrint = <T extends Type | undefined>(mainType: Type | undefined, fallbackType: T) => {
+            return mainType && (!isUnknown(mainType) || fallbackType?.category === TypeCategory.TypeVar)
+                ? mainType
+                : fallbackType;
+        };
 
-                if (param.name) {
-                    paramString += param.name.value;
-                }
+        const paramList = funcType.details.parameters.map((param, index) => {
+            let paramString = '';
+            if (param.category === ParameterCategory.VarArgList) {
+                paramString += '*';
+            } else if (param.category === ParameterCategory.VarArgDictionary) {
+                paramString += '**';
+            }
 
-                // Currently, we don't automatically add import if the type used in the annotation is not imported
-                // in current file.
-                const paramTypeAnnotation = ParseTreeUtils.getTypeAnnotationForParameter(node, index);
-                if (paramTypeAnnotation) {
-                    paramString += ': ' + ParseTreeUtils.printExpression(paramTypeAnnotation, printFlags);
-                }
+            if (param.name) {
+                paramString += param.name;
+            }
 
-                if (param.defaultValue) {
-                    paramString += paramTypeAnnotation ? ' = ' : '=';
+            // Currently, we don't automatically add import if the type used in the annotation is not imported
+            // in current file.
+            if (param.typeAnnotation) {
+                const typeToPrint = getTypeToPrint(
+                    FunctionType.getEffectiveParameterType(funcType, index),
+                    funcType.details.parameters[index].type
+                );
 
-                    const useEllipsis = ellipsisForDefault ?? !isSimpleDefault(param.defaultValue);
-                    paramString += useEllipsis ? '...' : ParseTreeUtils.printExpression(param.defaultValue, printFlags);
-                }
+                paramString +=
+                    ': ' +
+                    this._evaluator.printType(typeToPrint, {
+                        enforcePythonSyntax: true,
+                        expandTypeAlias: false,
+                    });
+            }
 
-                if (!paramString && !param.name && param.category === ParameterCategory.Simple) {
-                    return '/';
-                }
+            if (param.defaultValueExpression) {
+                paramString += param.typeAnnotation ? ' = ' : '=';
 
-                return paramString;
-            })
-            .join(', ');
+                const useEllipsis = ellipsisForDefault ?? !isSimpleDefault(param.defaultValueExpression);
+                paramString += useEllipsis
+                    ? '...'
+                    : ParseTreeUtils.printExpression(param.defaultValueExpression, printFlags);
+            }
 
-        let methodSignature = node.name.value + '(' + paramList + ')';
+            if (
+                !paramString &&
+                !param.name &&
+                param.category === ParameterCategory.Simple &&
+                index < funcType.details.parameters.length - 1
+            ) {
+                return '/';
+            }
 
-        if (node.returnTypeAnnotation) {
-            methodSignature += ' -> ' + ParseTreeUtils.printExpression(node.returnTypeAnnotation, printFlags);
-        } else if (node.functionAnnotationComment) {
+            return paramString;
+        });
+
+        // Remove empty parameters at the end.
+        for (let i = paramList.length - 1; i >= 0; i--) {
+            if (paramList[i] !== '') {
+                break;
+            }
+
+            paramList.pop();
+        }
+
+        let methodSignature = funcType.details.name + '(' + paramList.join(', ') + ')';
+
+        const typeToPrint = getTypeToPrint(
+            FunctionType.getSpecializedReturnType(funcType),
+            funcType.details.declaredReturnType
+        );
+
+        if (typeToPrint && (decl.node.returnTypeAnnotation || decl.node.functionAnnotationComment)) {
             methodSignature +=
                 ' -> ' +
-                ParseTreeUtils.printExpression(node.functionAnnotationComment.returnTypeAnnotation, printFlags);
+                this._evaluator.printType(typeToPrint, {
+                    enforcePythonSyntax: true,
+                    expandTypeAlias: false,
+                });
         }
 
         return methodSignature;
