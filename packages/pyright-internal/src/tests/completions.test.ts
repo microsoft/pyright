@@ -1007,3 +1007,181 @@ test('override generic nested', async () => {
         },
     });
 });
+
+test('override __call__', async () => {
+    const code = `
+// @filename: test.py
+//// from argparse import Action
+//// 
+//// class MyAction(Action):
+////     def [|__call__/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: '__call__',
+                    kind: CompletionItemKind.Method,
+                    textEdit: {
+                        range: state.getPositionRange('marker'),
+                        newText:
+                            '__call__(self, parser: ArgumentParser, namespace: Namespace, values: str | Sequence[Any] | None, option_string: str | None = None) -> None:\n    return super().__call__(parser, namespace, values, option_string)',
+                    },
+                },
+            ],
+        },
+    });
+});
+
+test('override ParamSpec', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Callable, ParamSpec
+////
+//// P = ParamSpec("P")
+////
+//// class A:
+////     def foo(self, func: Callable[P, None], *args: P.args, **kwargs: P.kwargs):
+////         pass
+//// 
+//// class B(A):
+////     def [|foo/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: 'foo',
+                    kind: CompletionItemKind.Method,
+                    textEdit: {
+                        range: state.getPositionRange('marker'),
+                        newText:
+                            'foo(self, func: Callable[P, None], *args: P.args, **kwargs: P.kwargs):\n    return super().foo(func, *args, **kwargs)',
+                    },
+                },
+            ],
+        },
+    });
+});
+
+test('fallback to syntax', async () => {
+    const code = `
+// @filename: test.py
+//// class A:
+////     def foo(self, a: MyType) -> NewMyType:
+////         pass
+//// 
+//// class B(A):
+////     def [|foo/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: 'foo',
+                    kind: CompletionItemKind.Method,
+                    textEdit: {
+                        range: state.getPositionRange('marker'),
+                        newText: 'foo(self, a: MyType) -> NewMyType:\n    return super().foo(a)',
+                    },
+                },
+            ],
+        },
+    });
+});
+
+test('omit Unknown', async () => {
+    const code = `
+// @filename: test.py
+//// class A:
+////     def foo(self, a: list) -> None:
+////         pass
+//// 
+//// class B(A):
+////     def [|foo/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: 'foo',
+                    kind: CompletionItemKind.Method,
+                    textEdit: {
+                        range: state.getPositionRange('marker'),
+                        newText: 'foo(self, a: list) -> None:\n    return super().foo(a)',
+                    },
+                },
+            ],
+        },
+    });
+});
+
+test('no annotation, no return type', async () => {
+    const code = `
+// @filename: test.py
+//// class A:
+////     def foo(self):
+////         pass
+//// 
+//// class B(A):
+////     def [|foo/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: 'foo',
+                    kind: CompletionItemKind.Method,
+                    textEdit: {
+                        range: state.getPositionRange('marker'),
+                        newText: 'foo(self):\n    return super().foo()',
+                    },
+                },
+            ],
+        },
+    });
+});
+
+test('annotation using comment', async () => {
+    const code = `
+// @filename: test.py
+//// class A:
+////     def foo(self, a): # type: (int) -> None
+////         pass
+//// 
+//// class B(A):
+////     def [|foo/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: 'foo',
+                    kind: CompletionItemKind.Method,
+                    textEdit: {
+                        range: state.getPositionRange('marker'),
+                        newText: 'foo(self, a: int) -> None:\n    return super().foo(a)',
+                    },
+                },
+            ],
+        },
+    });
+});
