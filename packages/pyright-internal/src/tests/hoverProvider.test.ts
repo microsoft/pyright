@@ -307,6 +307,7 @@ test('import symbol tooltip - useLibraryCodeForTypes false', async () => {
 
 // @filename: test.py
 //// from foo import [|/*marker1*/bar|]
+//// from bar.baz1 import [|/*marker2*/baz2|]
 
 // @filename: foo/__init__.py
 // @library: true
@@ -315,6 +316,10 @@ test('import symbol tooltip - useLibraryCodeForTypes false', async () => {
 // @filename: foo/bar.py
 // @library: true
 //// class bar: ...
+
+// @filename: bar/baz1/baz2/__init__.py
+// @library: true
+//// class baz: ...
     `;
 
     const state = parseAndGetTestState(code).state;
@@ -323,6 +328,7 @@ test('import symbol tooltip - useLibraryCodeForTypes false', async () => {
 
     state.verifyHover('markdown', {
         marker1: '```python\n(import) bar: Unknown\n```',
+        marker2: '```python\n(module) baz2\n```',
     });
 });
 

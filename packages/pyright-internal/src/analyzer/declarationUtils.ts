@@ -274,6 +274,7 @@ export function resolveAliasDeclaration(
                     // when useLibraryCodeForTypes is disabled), b should be evaluated as Unknown,
                     // not as a module.
                     if (
+                        curDeclaration.path &&
                         curDeclaration.submoduleFallback.type === DeclarationType.Alias &&
                         curDeclaration.submoduleFallback.path
                     ) {
