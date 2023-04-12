@@ -43,7 +43,7 @@ import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
 import { getTypedDictMembersForClass } from '../analyzer/typedDicts';
 import { getModuleDocStringFromPaths } from '../analyzer/typeDocStringUtils';
-import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
+import { CallSignatureInfo, PrintTypeOptions, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { printLiteralValue } from '../analyzer/typePrinter';
 import {
     ClassType,
@@ -1333,10 +1333,17 @@ export class CompletionProvider {
             ellipsisForDefault = false;
         }
 
-        const printFlags = isStubFile(this._filePath)
+        const printOptionsUsingSyntax = isStubFile(this._filePath)
             ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations |
               ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength
             : ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength;
+
+        const printOptionsUsingType: PrintTypeOptions = {
+            enforcePythonSyntax: true,
+            expandTypeAlias: false,
+            omitTypeArgumentsIfUnknown: true,
+            printUnknownWithAny: true,
+        };
 
         const getTypeToPrint = <T extends Type | undefined>(mainType: Type | undefined, fallbackType: T) => {
             return mainType && (!isUnknown(mainType) || fallbackType?.category === TypeCategory.TypeVar)
@@ -1359,17 +1366,18 @@ export class CompletionProvider {
             // Currently, we don't automatically add import if the type used in the annotation is not imported
             // in current file.
             if (param.typeAnnotation) {
+                const originalType = funcType.details.parameters[index].type;
                 const typeToPrint = getTypeToPrint(
                     FunctionType.getEffectiveParameterType(funcType, index),
-                    funcType.details.parameters[index].type
+                    originalType
                 );
 
-                paramString +=
-                    ': ' +
-                    this._evaluator.printType(typeToPrint, {
-                        enforcePythonSyntax: true,
-                        expandTypeAlias: false,
-                    });
+                // If we have actual type, then use type to generate string representation of the type, otherwise, use syntax (text).
+                const strType = isTypeUsableForPrint(typeToPrint, originalType)
+                    ? this._evaluator.printType(typeToPrint, printOptionsUsingType)
+                    : ParseTreeUtils.printExpression(param.typeAnnotation, printOptionsUsingSyntax);
+
+                paramString += ': ' + strType;
             }
 
             if (param.defaultValueExpression) {
@@ -1378,7 +1386,7 @@ export class CompletionProvider {
                 const useEllipsis = ellipsisForDefault ?? !isSimpleDefault(param.defaultValueExpression);
                 paramString += useEllipsis
                     ? '...'
-                    : ParseTreeUtils.printExpression(param.defaultValueExpression, printFlags);
+                    : ParseTreeUtils.printExpression(param.defaultValueExpression, printOptionsUsingSyntax);
             }
 
             if (
@@ -1404,21 +1412,49 @@ export class CompletionProvider {
 
         let methodSignature = funcType.details.name + '(' + paramList.join(', ') + ')';
 
-        const typeToPrint = getTypeToPrint(
-            FunctionType.getSpecializedReturnType(funcType),
-            funcType.details.declaredReturnType
-        );
-
-        if (typeToPrint && (decl.node.returnTypeAnnotation || decl.node.functionAnnotationComment)) {
-            methodSignature +=
-                ' -> ' +
-                this._evaluator.printType(typeToPrint, {
-                    enforcePythonSyntax: true,
-                    expandTypeAlias: false,
-                });
+        const strReturnType = getReturnTypeStr(this._evaluator, funcType, printOptionsUsingSyntax);
+        if (strReturnType) {
+            methodSignature += ' -> ' + strReturnType;
         }
 
         return methodSignature;
+
+        function getReturnTypeStr(
+            evaluator: TypeEvaluator,
+            funcType: FunctionType,
+            printFlags: ParseTreeUtils.PrintExpressionFlags
+        ) {
+            const originalType = funcType.details.declaredReturnType;
+            const typeToPrint = getTypeToPrint(FunctionType.getSpecializedReturnType(funcType), originalType);
+
+            const node = funcType.details.declaration!.node;
+            if (!node.returnTypeAnnotation && !node.functionAnnotationComment) {
+                return undefined;
+            }
+
+            if (typeToPrint && isTypeUsableForPrint(typeToPrint, originalType)) {
+                return evaluator.printType(typeToPrint, printOptionsUsingType);
+            }
+
+            if (node.returnTypeAnnotation) {
+                return ParseTreeUtils.printExpression(node.returnTypeAnnotation, printFlags);
+            }
+
+            if (node.functionAnnotationComment) {
+                return ParseTreeUtils.printExpression(node.functionAnnotationComment.returnTypeAnnotation, printFlags);
+            }
+
+            return undefined;
+        }
+
+        function isTypeUsableForPrint(effectiveType: Type | undefined, originalType: Type | undefined) {
+            if (!effectiveType) {
+                return false;
+            }
+
+            // If original type was `TypeVar`, we want to use `Unknown` as `Any`
+            return !isUnknown(effectiveType) || originalType?.category === TypeCategory.TypeVar;
+        }
 
         function isSimpleDefault(node: ExpressionNode): boolean {
             switch (node.nodeType) {
