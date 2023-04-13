@@ -182,6 +182,7 @@ function narrowTypeBasedOnSequencePattern(
     pattern: PatternSequenceNode,
     isPositiveTest: boolean
 ): Type {
+    type = transformPossibleRecursiveTypeAlias(type);
     let sequenceInfo = getSequencePatternInfo(evaluator, type, pattern.entries.length, pattern.starEntryIndex);
 
     // Further narrow based on pattern entry types.
