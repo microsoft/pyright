@@ -41,7 +41,7 @@
 
 helper.verifyHover('markdown', {
     marker1: '```python\n(variable) x: int\n```\n---\ntest x',
-    marker2: '```python\n(variable) func: (float) -> float\n```\n---\nA given function',
+    marker2: '```python\n(variable) def func(float) -> float\n```\n---\nA given function',
     marker3: '```python\n(variable) y: Literal[2]\n```\n---\ntest y',
     marker4: '```python\n(variable) z: int\n```\n---\ntest z',
     marker5:

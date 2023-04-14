@@ -75,7 +75,7 @@ await helper.verifyCompletion('includes', 'markdown', {
             {
                 label: 'func',
                 kind: Consts.CompletionItemKind.Variable,
-                documentation: '```python\nfunc: (float) -> float\n```\n---\nA given function',
+                documentation: '```python\ndef func(float) -> float\n```\n---\nA given function',
             },
         ],
     },
