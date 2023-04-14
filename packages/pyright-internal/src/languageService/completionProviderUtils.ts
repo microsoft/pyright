@@ -20,6 +20,7 @@ import {
     isOverloadedFunction,
     Type,
     TypeBase,
+    TypeCategory,
     UnknownType,
 } from '../analyzer/types';
 import { isProperty } from '../analyzer/typeUtils';
@@ -93,8 +94,19 @@ export function getTypeDetail(
                     }
                 }
             }
-
-            return name + ': ' + evaluator.printType(type, { expandTypeAlias });
+            // handle the case where the type is a function is assigned to a variable
+            if (type.category === TypeCategory.OverloadedFunction || type.category === TypeCategory.Function) {
+                return getToolTipForType(
+                    type,
+                    /*label*/ '',
+                    name,
+                    evaluator,
+                    /*isProperty*/ false,
+                    functionSignatureDisplay
+                );
+            } else {
+                return name + ': ' + evaluator.printType(type, { expandTypeAlias });
+            }
         }
 
         case DeclarationType.Function: {

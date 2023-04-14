@@ -30,6 +30,7 @@ import {
     isUnknown,
     OverloadedFunctionType,
     Type,
+    TypeCategory,
     UnknownType,
 } from '../analyzer/types';
 import {
@@ -287,8 +288,26 @@ export class HoverProvider {
                     }
                 }
 
-                const typeText = typeVarName || node.value + this._getTypeText(typeNode, evaluator, expandTypeAlias);
-                this._addResultsPart(parts, `(${label}) ${typeText}`, /* python */ true);
+                let typeText: string;
+                const varType = this._getType(evaluator, typeNode);
+                // handle the case where the type is a function is assigned to a variable
+                if (
+                    varType.category === TypeCategory.Function ||
+                    varType.category === TypeCategory.OverloadedFunction
+                ) {
+                    typeText = getToolTipForType(
+                        type,
+                        label,
+                        node.value,
+                        evaluator,
+                        /*isProperty*/ false,
+                        functionSignatureDisplay
+                    );
+                } else {
+                    typeText = typeVarName || node.value + this._getTypeText(typeNode, evaluator, expandTypeAlias);
+                    typeText = `(${label}) ` + typeText;
+                }
+                this._addResultsPart(parts, typeText, /* python */ true);
                 this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
