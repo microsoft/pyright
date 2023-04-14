@@ -1,7 +1,7 @@
 # This sample tests the reportUnnecessaryComparison check when applied
 # to match statements.
 
-from typing import Literal
+from typing import Literal, Mapping, Sequence
 
 Letters = Literal["A", "B", "C"]
 
@@ -43,3 +43,23 @@ def func2(subj: int | dict[str, str]):
         # This should generate an error if reportUnnecessaryComparison is enabled.
         case x:
             print(x)
+
+
+JsonValue = (
+    None | bool | int | float | str | Sequence["JsonValue"] | Mapping[str, "JsonValue"]
+)
+JsonObject = Mapping[str, JsonValue]
+
+
+def func3(json_object: JsonObject) -> None:
+    match json_object:
+        case {
+            "a": {
+                "b": [
+                    {
+                        "c": "d",
+                    }
+                ],
+            }
+        }:
+            pass
