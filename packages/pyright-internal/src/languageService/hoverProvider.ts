@@ -300,7 +300,7 @@ export class HoverProvider {
                         label,
                         node.value,
                         evaluator,
-                        /*isProperty*/ false,
+                        /* isProperty */ false,
                         functionSignatureDisplay
                     );
                 } else {

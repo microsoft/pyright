@@ -127,7 +127,7 @@ export function getTypeDetail(
 
             return getToolTipForType(
                 functionType,
-                /*label*/ '',
+                /* label */ '',
                 name,
                 evaluator,
                 /* isProperty */ false,
