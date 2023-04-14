@@ -10903,7 +10903,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             { type, isIncomplete: matchResults.isTypeIncomplete },
                             skipUnknownArgCheck,
                             /* skipOverloadArg */ i === 0,
-                            /* useNarrowBoundOnly */ passCount > 1 && i === 0,
+                            /* isFirstPass */ passCount > 1 && i === 0,
                             typeCondition
                         );
 
@@ -10941,7 +10941,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 { type, isIncomplete: matchResults.isTypeIncomplete },
                 skipUnknownArgCheck,
                 /* skipOverloadArg */ false,
-                /* useNarrowBoundOnly */ false,
+                /* isFirstPass */ false,
                 typeCondition
             );
 
@@ -11346,7 +11346,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* functionType */ undefined,
                         /* skipUnknownArgCheck */ false,
                         /* skipOverloadArg */ false,
-                        /* useNarrowBoundOnly */ false,
+                        /* isFirstPass */ false,
                         conditionFilter
                     );
 
@@ -11398,7 +11398,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeResult: TypeResult<FunctionType> | undefined,
         skipUnknownCheck: boolean,
         skipOverloadArg: boolean,
-        useNarrowBoundOnly: boolean,
+        isFirstPass: boolean,
         conditionFilter: TypeCondition[] | undefined
     ): ArgResult {
         let argType: Type | undefined;
@@ -11409,18 +11409,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (argParam.argument.valueExpression) {
             // If the param type is a "bare" TypeVar, don't use it as an expected
-            // type. This causes problems for cases where the the call expression
-            // result can influence the type of the TypeVar, such as in
+            // type during the first pass. This causes problems for cases where the the
+            // call expression result can influence the type of the TypeVar, such as in
             // the expression "min(1, max(2, 0.5))". We set useNarrowBoundOnly
             // to true if this is the first pass through the parameter list because
             // a wide bound on a TypeVar (if a narrow bound has not yet been established)
             // will unnecessarily constrain the expected type.
             let expectedType: Type | undefined;
             if (
+                !isFirstPass ||
                 !isTypeVar(argParam.paramType) ||
                 argParam.paramType.scopeId !== typeResult?.type.details.typeVarScopeId
             ) {
-                expectedType = applySolvedTypeVars(argParam.paramType, typeVarContext, { useNarrowBoundOnly });
+                expectedType = applySolvedTypeVars(argParam.paramType, typeVarContext, {
+                    useNarrowBoundOnly: isFirstPass,
+                });
             }
 
             // If the expected type is unknown, don't use an expected type. Instead,
