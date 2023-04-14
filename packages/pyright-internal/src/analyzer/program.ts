@@ -1059,7 +1059,7 @@ export class Program {
         let implicitImport = implicitImports.pop();
         while (implicitImport) {
             // Bind this file, but don't recurse into its imports.
-            this._bindFile(implicitImport, undefined, undefined, /*isImplicitImport*/ true);
+            this._bindFile(implicitImport, undefined, undefined, /* isImplicitImport */ true);
             implicitImport = implicitImports.pop();
         }
     }
@@ -2912,7 +2912,7 @@ export class Program {
     }
 
     test_createSourceMapper(execEnv: ExecutionEnvironment, from?: SourceFileInfo) {
-        return this._createSourceMapper(execEnv, CancellationToken.None, /*from*/ from, /* mapCompiled */ false);
+        return this._createSourceMapper(execEnv, CancellationToken.None, /* from */ from, /* mapCompiled */ false);
     }
 
     private _getRenameSymbolMode(

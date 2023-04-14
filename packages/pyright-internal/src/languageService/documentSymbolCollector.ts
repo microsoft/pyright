@@ -115,7 +115,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             useCase,
             evaluator,
             token,
-            /*skipUnreachableCode*/ false
+            /* skipUnreachableCode */ false
         );
 
         // Add declarations from chained source files

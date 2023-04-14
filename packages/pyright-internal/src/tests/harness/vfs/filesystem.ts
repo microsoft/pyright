@@ -69,7 +69,7 @@ export class TestFileSystem implements FileSystem {
         }
 
         if (files) {
-            this._applyFiles(files, /*dirname*/ '');
+            this._applyFiles(files, /* dirname */ '');
         }
 
         let cwd = options.cwd;
@@ -298,7 +298,7 @@ export class TestFileSystem implements FileSystem {
     scanSync(path: string, axis: Axis, traversal: Traversal) {
         path = this._resolve(path);
         const results: string[] = [];
-        this._scan(path, this._stat(this._walk(path)), axis, traversal, /*noFollow*/ false, results);
+        this._scan(path, this._stat(this._walk(path)), axis, traversal, /* noFollow */ false, results);
         return results;
     }
 
@@ -311,7 +311,14 @@ export class TestFileSystem implements FileSystem {
     lscanSync(path: string, axis: Axis, traversal: Traversal) {
         path = this._resolve(path);
         const results: string[] = [];
-        this._scan(path, this._stat(this._walk(path, /*noFollow*/ true)), axis, traversal, /*noFollow*/ true, results);
+        this._scan(
+            path,
+            this._stat(this._walk(path, /* noFollow */ true)),
+            axis,
+            traversal,
+            /* noFollow */ true,
+            results
+        );
         return results;
     }
 
@@ -379,7 +386,7 @@ export class TestFileSystem implements FileSystem {
                         this._scan(dirname, stats, 'ancestors-or-self', traversal, noFollow, results);
                     }
                 } catch {
-                    /*ignored*/
+                    /* ignored */
                 }
             }
         }
@@ -391,7 +398,7 @@ export class TestFileSystem implements FileSystem {
                         const stats = this._stat(this._walk(childpath, noFollow));
                         this._scan(childpath, stats, 'descendants-or-self', traversal, noFollow, results);
                     } catch {
-                        /*ignored*/
+                        /* ignored */
                     }
                 }
             }
@@ -412,13 +419,13 @@ export class TestFileSystem implements FileSystem {
 
         source = validate(source, ValidationFlags.Absolute);
 
-        const { parent, links, node: existingNode, basename } = this._walk(this._resolve(target), /*noFollow*/ true);
+        const { parent, links, node: existingNode, basename } = this._walk(this._resolve(target), /* noFollow */ true);
         if (existingNode) {
             throw createIOError('EEXIST');
         }
 
         const time = this.time();
-        const node = this._mknod(parent ? parent.dev : ++devCount, S_IFDIR, /*mode*/ 0o777, time);
+        const node = this._mknod(parent ? parent.dev : ++devCount, S_IFDIR, /* mode */ 0o777, time);
         node.source = source;
         node.resolver = resolver;
         this._addLink(parent, links, basename, node, time);
@@ -451,7 +458,7 @@ export class TestFileSystem implements FileSystem {
      */
     mkdirpSync(path: string) {
         path = this._resolve(path);
-        const result = this._walk(path, /*noFollow*/ true, (error, result) => {
+        const result = this._walk(path, /* noFollow */ true, (error, result) => {
             if (error.code === 'ENOENT') {
                 this._mkdir(result);
                 return 'retry';
@@ -490,7 +497,7 @@ export class TestFileSystem implements FileSystem {
                 closeIterator(iterator);
             }
         };
-        printLinks(/*dirname*/ undefined, this._getRootLinks());
+        printLinks(/* dirname */ undefined, this._getRootLinks());
         return result;
     }
 
@@ -507,7 +514,7 @@ export class TestFileSystem implements FileSystem {
      * Determines whether a path exists.
      */
     existsSync(path: string) {
-        const result = this._walk(this._resolve(path), /*noFollow*/ true, () => 'stop');
+        const result = this._walk(this._resolve(path), /* noFollow */ true, () => 'stop');
         return result !== undefined && result.node !== undefined;
     }
 
@@ -552,7 +559,7 @@ export class TestFileSystem implements FileSystem {
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
     lstatSync(path: string) {
-        return this._stat(this._walk(this._resolve(path), /*noFollow*/ true));
+        return this._stat(this._walk(this._resolve(path), /* noFollow */ true));
     }
 
     private _stat(entry: WalkResult) {
@@ -565,10 +572,10 @@ export class TestFileSystem implements FileSystem {
             node.ino,
             node.mode,
             node.nlink,
-            /*rdev*/ 0,
-            /*size*/ isFile(node) ? this._getSize(node) : isSymlink(node) ? node.symlink.length : 0,
-            /*blksize*/ 4096,
-            /*blocks*/ 0,
+            /* rdev */ 0,
+            /* size */ isFile(node) ? this._getSize(node) : isSymlink(node) ? node.symlink.length : 0,
+            /* blksize */ 4096,
+            /* blocks */ 0,
             node.atimeMs,
             node.mtimeMs,
             node.ctimeMs,
@@ -630,7 +637,7 @@ export class TestFileSystem implements FileSystem {
             return;
         }
 
-        this._mkdir(this._walk(this._resolve(path), /*noFollow*/ true));
+        this._mkdir(this._walk(this._resolve(path), /* noFollow */ true));
     }
 
     private _mkdir({ parent, links, node: existingNode, basename }: WalkResult) {
@@ -638,7 +645,7 @@ export class TestFileSystem implements FileSystem {
             throw createIOError('EEXIST');
         }
         const time = this.time();
-        const node = this._mknod(parent ? parent.dev : ++devCount, S_IFDIR, /*mode*/ 0o777, time);
+        const node = this._mknod(parent ? parent.dev : ++devCount, S_IFDIR, /* mode */ 0o777, time);
         this._addLink(parent, links, basename, node, time);
     }
 
@@ -655,7 +662,7 @@ export class TestFileSystem implements FileSystem {
         }
         path = this._resolve(path);
 
-        const { parent, links, node, basename } = this._walk(path, /*noFollow*/ true);
+        const { parent, links, node, basename } = this._walk(path, /* noFollow */ true);
         if (!parent) {
             throw createIOError('EPERM');
         }
@@ -689,7 +696,7 @@ export class TestFileSystem implements FileSystem {
             throw createIOError('EPERM');
         }
 
-        const { parent, links, basename, node: existingNode } = this._walk(this._resolve(newpath), /*noFollow*/ true);
+        const { parent, links, basename, node: existingNode } = this._walk(this._resolve(newpath), /* noFollow */ true);
         if (!parent) {
             throw createIOError('EPERM');
         }
@@ -712,7 +719,7 @@ export class TestFileSystem implements FileSystem {
             throw createIOError('EROFS');
         }
 
-        const { parent, links, node, basename } = this._walk(this._resolve(path), /*noFollow*/ true);
+        const { parent, links, node, basename } = this._walk(this._resolve(path), /* noFollow */ true);
         if (!parent) {
             throw createIOError('EPERM');
         }
@@ -743,7 +750,7 @@ export class TestFileSystem implements FileSystem {
             links: oldParentLinks,
             node,
             basename: oldBasename,
-        } = this._walk(this._resolve(oldpath), /*noFollow*/ true);
+        } = this._walk(this._resolve(oldpath), /* noFollow */ true);
 
         if (!oldParent) {
             throw createIOError('EPERM');
@@ -757,7 +764,7 @@ export class TestFileSystem implements FileSystem {
             links: newParentLinks,
             node: existingNode,
             basename: newBasename,
-        } = this._walk(this._resolve(newpath), /*noFollow*/ true);
+        } = this._walk(this._resolve(newpath), /* noFollow */ true);
 
         if (!newParent) {
             throw createIOError('EPERM');
@@ -795,7 +802,12 @@ export class TestFileSystem implements FileSystem {
             throw createIOError('EROFS');
         }
 
-        const { parent, links, node: existingNode, basename } = this._walk(this._resolve(linkpath), /*noFollow*/ true);
+        const {
+            parent,
+            links,
+            node: existingNode,
+            basename,
+        } = this._walk(this._resolve(linkpath), /* noFollow */ true);
         if (!parent) {
             throw createIOError('EPERM');
         }
@@ -804,7 +816,7 @@ export class TestFileSystem implements FileSystem {
         }
 
         const time = this.time();
-        const node = this._mknod(parent.dev, S_IFLNK, /*mode*/ 0o666, time);
+        const node = this._mknod(parent.dev, S_IFLNK, /* mode */ 0o666, time);
         node.symlink = validate(target, ValidationFlags.RelativeOrAbsolute);
         this._addLink(parent, links, basename, node, time);
     }
@@ -865,7 +877,7 @@ export class TestFileSystem implements FileSystem {
             throw createIOError('EROFS');
         }
 
-        const { parent, links, node: existingNode, basename } = this._walk(this._resolve(path), /*noFollow*/ false);
+        const { parent, links, node: existingNode, basename } = this._walk(this._resolve(path), /* noFollow */ false);
         if (!parent) {
             throw createIOError('EPERM');
         }

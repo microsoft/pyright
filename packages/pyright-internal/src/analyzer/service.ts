@@ -327,7 +327,7 @@ export class AnalyzerService {
 
     updateChainedFilePath(path: string, chainedFilePath: string | undefined) {
         this._backgroundAnalysisProgram.updateChainedFilePath(path, chainedFilePath);
-        this._scheduleReanalysis(/*requireTrackedFileUpdate*/ false);
+        this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
     updateOpenFileContents(

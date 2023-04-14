@@ -178,7 +178,7 @@ function _getIndentation(
     // but match does not.
     if (node.nodeType === ParseNodeType.Match) {
         const tabSize = _getTabSize(parseResults);
-        const outerContainer = getContainer(node, /*includeSelf*/ false);
+        const outerContainer = getContainer(node, /* includeSelf */ false);
         const result = _getIndentationForNode(parseResults, offset, outerContainer ?? parseResults.parseTree, node);
         result.indentation += tabSize;
         return result;
@@ -192,7 +192,7 @@ function _getIndentation(
     const suiteSpan = convertTextRangeToRange(suite, parseResults.tokenizerOutput.lines);
     if (preferDedent || (suiteSpan.start.line === suiteSpan.end.line && suite.statements.length > 0)) {
         // Go one more level up.
-        const outerContainer = getContainer(suite, /*includeSelf*/ false);
+        const outerContainer = getContainer(suite, /* includeSelf */ false);
         return _getIndentationForNode(parseResults, offset, outerContainer ?? parseResults.parseTree, suite);
     }
 
@@ -218,7 +218,7 @@ function _getIndentationForNode(
         _containsNoIndentBeforeFirstStatement(parseResults, offset, container)
     ) {
         const tabSize = _getTabSize(parseResults);
-        const outerContainer = getContainer(container, /*includeSelf*/ false);
+        const outerContainer = getContainer(container, /* includeSelf */ false);
         const result = _getIndentationForNode(
             parseResults,
             offset,
