@@ -94,14 +94,14 @@ export function getTypeDetail(
                     }
                 }
             }
-            // handle the case where the type is a function is assigned to a variable
+            // Handle the case where type is a function and was assigned to a variable.
             if (type.category === TypeCategory.OverloadedFunction || type.category === TypeCategory.Function) {
                 return getToolTipForType(
                     type,
-                    /*label*/ '',
+                    /* label */ '',
                     name,
                     evaluator,
-                    /*isProperty*/ false,
+                    /* isProperty */ false,
                     functionSignatureDisplay
                 );
             } else {
@@ -130,7 +130,7 @@ export function getTypeDetail(
                 /*label*/ '',
                 name,
                 evaluator,
-                /*isProperty*/ false,
+                /* isProperty */ false,
                 functionSignatureDisplay
             );
         }

@@ -290,7 +290,7 @@ export class HoverProvider {
 
                 let typeText: string;
                 const varType = this._getType(evaluator, typeNode);
-                // handle the case where the type is a function is assigned to a variable
+                // Handle the case where type is a function and was assigned to a variable.
                 if (
                     varType.category === TypeCategory.Function ||
                     varType.category === TypeCategory.OverloadedFunction
