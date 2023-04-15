@@ -315,11 +315,11 @@ export namespace UnknownType {
         return isIncomplete ? _incompleteInstance : _instance;
     }
 
-    export function createPossibleType(possibleType: Type) {
+    export function createPossibleType(possibleType: Type, isIncomplete: boolean) {
         const unknownWithPossibleType: UnknownType = {
             category: TypeCategory.Unknown,
             flags: TypeFlags.Instantiable | TypeFlags.Instance,
-            isIncomplete: false,
+            isIncomplete,
             possibleType,
         };
 

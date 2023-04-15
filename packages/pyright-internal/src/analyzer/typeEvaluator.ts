@@ -8105,6 +8105,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const argTypeOverride = expandedArgTypes[expandedTypesIndex];
             const hasArgTypeOverride = argTypeOverride.some((a) => a !== undefined);
             let possibleMatchResults: MatchedOverloadInfo[] = [];
+            let possibleMatchInvolvesIncompleteUnknown = false;
             isDefinitiveMatchFound = false;
 
             for (let overloadIndex = 0; overloadIndex < argParamMatches.length; overloadIndex++) {
@@ -8167,8 +8168,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     };
                     matchedOverloads.push(matchedOverloadInfo);
 
-                    if (callResult.isArgumentAnyOrUnknown) {
+                    if (callResult.anyOrUnknownArgument) {
                         possibleMatchResults.push(matchedOverloadInfo);
+                        if (isIncompleteUnknown(callResult.anyOrUnknownArgument)) {
+                            possibleMatchInvolvesIncompleteUnknown = true;
+                        }
                     } else {
                         returnTypes.push(callResult.returnType);
                         isDefinitiveMatchFound = true;
@@ -8215,7 +8219,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const combinedTypes = combineTypes(dedupedMatchResults);
 
                     returnTypes.push(
-                        dedupedMatchResults.length > 1 ? UnknownType.createPossibleType(combinedTypes) : combinedTypes
+                        dedupedMatchResults.length > 1
+                            ? UnknownType.createPossibleType(combinedTypes, possibleMatchInvolvesIncompleteUnknown)
+                            : combinedTypes
                     );
                 }
             }
@@ -8252,7 +8258,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         return {
             argumentErrors: finalCallResult.argumentErrors,
-            isArgumentAnyOrUnknown: finalCallResult.isArgumentAnyOrUnknown,
+            anyOrUnknownArgument: finalCallResult.anyOrUnknownArgument,
             returnType: combineTypes(returnTypes),
             isTypeIncomplete,
             specializedInitSelfType: finalCallResult.specializedInitSelfType,
@@ -10816,7 +10822,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isTypeIncomplete = matchResults.isTypeIncomplete;
         let argumentErrors = false;
         let specializedInitSelfType: Type | undefined;
-        let isArgumentAnyOrUnknown = false;
+        let anyOrUnknownArgument: UnknownType | AnyType | undefined;
         const typeCondition = getTypeCondition(type);
 
         if (type.boundTypeVarScopeId) {
@@ -10960,7 +10966,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (isAnyOrUnknown(argResult.argType)) {
-                isArgumentAnyOrUnknown = true;
+                anyOrUnknownArgument = anyOrUnknownArgument
+                    ? preserveUnknown(argResult.argType, anyOrUnknownArgument)
+                    : argResult.argType;
             }
 
             if (type.details.paramSpec) {
@@ -11124,7 +11132,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return {
             argumentErrors,
             argResults,
-            isArgumentAnyOrUnknown,
+            anyOrUnknownArgument,
             returnType: specializedReturnType,
             isTypeIncomplete,
             activeParam: matchResults.activeParam,

@@ -37,6 +37,7 @@ import { SymbolWithScope } from './scope';
 import { Symbol } from './symbol';
 import { PrintTypeFlags } from './typePrinter';
 import {
+    AnyType,
     ClassType,
     FunctionParameter,
     FunctionType,
@@ -318,7 +319,7 @@ export interface CallResult {
     argumentErrors: boolean;
 
     // Did one or more arguments evaluated to Any or Unknown?
-    isArgumentAnyOrUnknown?: boolean;
+    anyOrUnknownArgument?: UnknownType | AnyType;
 
     // The parameter associated with the "active" argument (used
     // for signature help provider)
