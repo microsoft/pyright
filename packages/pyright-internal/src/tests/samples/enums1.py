@@ -16,6 +16,14 @@ class TestEnum3(Enum):
 
 a = TestEnum1["A"]
 aa = TestEnum1.A
+reveal_type(aa.name, expected_text="Literal['A']")
+reveal_type(aa._name_, expected_text="Literal['A']")
+reveal_type(aa.value, expected_text="Literal[1]")
+reveal_type(aa._value_, expected_text="Literal[1]")
+reveal_type(TestEnum1.D.name, expected_text="Literal['D']")
+reveal_type(TestEnum1.D._name_, expected_text="Literal['D']")
+reveal_type(TestEnum1.D.value, expected_text="Literal[4]")
+reveal_type(TestEnum1.D._value_, expected_text="Literal[4]")
 
 # This should generate an error because "Z" isn't
 # a valid member.

@@ -9405,7 +9405,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 }
 
                                 if (isClass(unexpandedSubtype) && isKnownEnumType(className)) {
-                                    return createEnumType(errorNode, expandedSubtype, argList) ?? UnknownType.create();
+                                    return createEnumType(evaluatorInterface, errorNode, expandedSubtype, argList) ?? UnknownType.create();
                                 }
 
                                 if (className === 'TypedDict') {

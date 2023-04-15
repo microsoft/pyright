@@ -7,19 +7,9 @@
  * Provides special-case logic for the Enum class.
  */
 
-import { assert } from '../common/debug';
-import { convertOffsetsToRange } from '../common/positionUtils';
-import { TextRange } from '../common/textRange';
-import {
-    ArgumentCategory,
-    ExpressionNode,
-    NameNode,
-    ParseNode,
-    ParseNodeType,
-    StringListNode,
-} from '../parser/parseNodes';
+import { ArgumentCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
-import { DeclarationType, VariableDeclaration } from './declaration';
+import { VariableDeclaration } from './declaration';
 import { getClassFullName, getEnclosingClass, getTypeSourceId } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { isSingleDunderName } from './symbolNameUtils';
@@ -44,6 +34,7 @@ export function isKnownEnumType(className: string) {
 
 // Creates a new custom enum class with named values.
 export function createEnumType(
+    evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     enumClass: ClassType,
     argList: FunctionArgument[]
@@ -101,33 +92,30 @@ export function createEnumType(
             // recommend using the more standard class declaration syntax.
             return undefined;
         } else {
+            const classInstanceType = ClassType.cloneAsInstance(classType);
+            const intType = evaluator.getBuiltInType(errorNode, 'int');
             const entries = entriesArg.valueExpression.strings
                 .map((s) => s.value)
                 .join('')
                 .split(' ');
-            entries.forEach((entryName) => {
+            entries.forEach((entryName, index) => {
                 entryName = entryName.trim();
                 if (entryName) {
-                    const entryType = UnknownType.create();
-                    const newSymbol = Symbol.createWithType(SymbolFlags.ClassMember, entryType);
+                    const valueType =
+                        intType && isInstantiableClass(intType)
+                            ? ClassType.cloneWithLiteral(ClassType.cloneAsInstance(intType), index + 1)
+                            : UnknownType.create();
 
-                    // We need to associate the declaration with a parse node.
-                    // In this case it's just part of a string literal value.
-                    // The definition provider won't necessarily take the
-                    // user to the exact spot in the string, but it's close enough.
-                    const stringNode = entriesArg.valueExpression!;
-                    assert(stringNode.nodeType === ParseNodeType.StringList);
-                    const fileInfo = getFileInfo(errorNode);
-                    const declaration: VariableDeclaration = {
-                        type: DeclarationType.Variable,
-                        node: stringNode as StringListNode,
-                        isRuntimeTypeExpression: true,
-                        path: fileInfo.filePath,
-                        range: convertOffsetsToRange(stringNode.start, TextRange.getEnd(stringNode), fileInfo.lines),
-                        moduleName: fileInfo.moduleName,
-                        isInExceptSuite: false,
-                    };
-                    newSymbol.addDeclaration(declaration);
+                    const enumLiteral = new EnumLiteral(
+                        classType.details.fullName,
+                        classType.details.name,
+                        entryName,
+                        valueType
+                    );
+                    const newSymbol = Symbol.createWithType(
+                        SymbolFlags.ClassMember,
+                        ClassType.cloneWithLiteral(classInstanceType, enumLiteral)
+                    );
                     classFields.set(entryName, newSymbol);
                 }
             });
