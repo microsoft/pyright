@@ -11133,20 +11133,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         };
     }
 
-    function adjustCallableReturnType(type: Type): Type {
+    function adjustCallableReturnType(returnType: Type): Type {
         // If the return type includes a generic Callable type, set the type var
         // scope to a wildcard to allow these type vars to be solved. This won't
         // work with overloads or unions of callables. It's intended for a
         // specific use case. We may need to make this more sophisticated in
         // the future.
-        if (isFunction(type) && !type.details.name) {
-            type.details = {
-                ...type.details,
-                typeVarScopeId: WildcardTypeVarScopeId,
-            };
+        if (isFunction(returnType) && !returnType.details.name) {
+            return FunctionType.cloneWithNewTypeVarScopeId(returnType, WildcardTypeVarScopeId);
         }
 
-        return type;
+        return returnType;
     }
 
     // Tries to assign the call arguments to the function parameter

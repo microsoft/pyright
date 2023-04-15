@@ -1542,8 +1542,17 @@ export namespace FunctionType {
 
         // Make a shallow clone of the details.
         newFunction.details = { ...type.details };
-
         newFunction.details.flags = flags;
+
+        return newFunction;
+    }
+
+    export function cloneWithNewTypeVarScopeId(type: FunctionType, newScopeId: TypeVarScopeId): FunctionType {
+        const newFunction = TypeBase.cloneType(type);
+
+        // Make a shallow clone of the details.
+        newFunction.details = { ...type.details };
+        newFunction.details.typeVarScopeId = newScopeId;
 
         return newFunction;
     }
