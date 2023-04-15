@@ -3,7 +3,7 @@
 from enum import Enum, IntEnum
 
 
-TestEnum1 = Enum("TestEnum1", "   A   B,C , \t D\t")
+TestEnum1 = Enum("TestEnum1", "   A   B, , ,C , \t D\t")
 TestEnum2 = IntEnum("TestEnum2", "AA BB CC DD")
 
 
@@ -55,6 +55,52 @@ num_items_in_enum3 = len(TestEnum3)
 reveal_type(num_items_in_enum3, expected_text="int")
 
 reveal_type(TestEnum3.A.name, expected_text="Literal['A']")
-reveal_type(TestEnum3.A._name_, expected_text="Literal['A']")
-reveal_type(TestEnum3.A.value, expected_text="Literal[0]")
-reveal_type(TestEnum3.A._value_, expected_text="Literal[0]")
+reveal_type(TestEnum3.B._name_, expected_text="Literal['B']")
+reveal_type(TestEnum3.C.value, expected_text="Literal[2]")
+reveal_type(TestEnum3.D._value_, expected_text="Literal[3]")
+
+
+TestEnum4 = Enum("TestEnum4", ["A", "B", "C", "D"])
+reveal_type(TestEnum4.A, expected_text="Literal[TestEnum4.A]")
+reveal_type(TestEnum4.D, expected_text="Literal[TestEnum4.D]")
+reveal_type(TestEnum4.A.name, expected_text="Literal['A']")
+reveal_type(TestEnum4.B._name_, expected_text="Literal['B']")
+reveal_type(TestEnum4.C.value, expected_text="Literal[3]")
+reveal_type(TestEnum4.D._value_, expected_text="Literal[4]")
+
+TestEnum5 = Enum("TestEnum5", ("A", "B", "C", "D"))
+reveal_type(TestEnum5.A, expected_text="Literal[TestEnum5.A]")
+reveal_type(TestEnum5.D, expected_text="Literal[TestEnum5.D]")
+reveal_type(TestEnum5.A.name, expected_text="Literal['A']")
+reveal_type(TestEnum5.B._name_, expected_text="Literal['B']")
+reveal_type(TestEnum5.C.value, expected_text="Literal[3]")
+reveal_type(TestEnum5.D._value_, expected_text="Literal[4]")
+
+d_value = "d"
+
+TestEnum6 = Enum("TestEnum6", [("A", 1), ("B", [1, 2]), ("C", "c"), ("D", d_value)])
+reveal_type(TestEnum6.A, expected_text="Literal[TestEnum6.A]")
+reveal_type(TestEnum6.D, expected_text="Literal[TestEnum6.D]")
+reveal_type(TestEnum6.A.name, expected_text="Literal['A']")
+reveal_type(TestEnum6.B._name_, expected_text="Literal['B']")
+reveal_type(TestEnum6.A.value, expected_text="Literal[1]")
+reveal_type(TestEnum6.B.value, expected_text="list[int]")
+reveal_type(TestEnum6.C.value, expected_text="Literal['c']")
+reveal_type(TestEnum6.D._value_, expected_text="Literal['d']")
+
+TestEnum7 = Enum("TestEnum7", (("A", 1), ("D", "d")))
+reveal_type(TestEnum7.A, expected_text="Literal[TestEnum7.A]")
+reveal_type(TestEnum7.D, expected_text="Literal[TestEnum7.D]")
+reveal_type(TestEnum7.A.name, expected_text="Literal['A']")
+reveal_type(TestEnum7.A.value, expected_text="Literal[1]")
+reveal_type(TestEnum7.D._value_, expected_text="Literal['d']")
+
+TestEnum8 = Enum("TestEnum8", {"A": 1, "B": [1, 2], "C": "c", "D": d_value})
+reveal_type(TestEnum8.A, expected_text="Literal[TestEnum8.A]")
+reveal_type(TestEnum8.D, expected_text="Literal[TestEnum8.D]")
+reveal_type(TestEnum8.A.name, expected_text="Literal['A']")
+reveal_type(TestEnum8.B._name_, expected_text="Literal['B']")
+reveal_type(TestEnum8.A.value, expected_text="Literal[1]")
+reveal_type(TestEnum8.B.value, expected_text="list[int]")
+reveal_type(TestEnum8.C.value, expected_text="Literal['c']")
+reveal_type(TestEnum8.D._value_, expected_text="Literal['d']")

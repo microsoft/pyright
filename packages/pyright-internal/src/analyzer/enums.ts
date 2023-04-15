@@ -23,7 +23,6 @@ import {
     isFunction,
     isInstantiableClass,
     Type,
-    UnknownType,
 } from './types';
 import { computeMroLinearization } from './typeUtils';
 
@@ -85,7 +84,13 @@ export function createEnumType(
         return undefined;
     }
 
-    // The Enum factory call supports various forms of arguments:
+    const intClassType = evaluator.getBuiltInType(errorNode, 'int');
+    if (!intClassType || !isInstantiableClass(intClassType)) {
+        return undefined;
+    }
+    const classInstanceType = ClassType.cloneAsInstance(classType);
+
+    // The Enum functional form supports various forms of arguments:
     //   Enum('name', 'a b c')
     //   Enum('name', 'a,b,c')
     //   Enum('name', ['a', 'b', 'c'])
@@ -98,9 +103,6 @@ export function createEnumType(
         if (!initArg.valueExpression.strings.every((str) => str.nodeType === ParseNodeType.String)) {
             return undefined;
         }
-
-        const classInstanceType = ClassType.cloneAsInstance(classType);
-        const intClassType = evaluator.getBuiltInType(errorNode, 'int');
 
         const initStr = initArg.valueExpression.strings
             .map((s) => s.value)
@@ -115,10 +117,7 @@ export function createEnumType(
                 return undefined;
             }
 
-            const valueType =
-                intClassType && isInstantiableClass(intClassType)
-                    ? ClassType.cloneWithLiteral(ClassType.cloneAsInstance(intClassType), index + 1)
-                    : UnknownType.create();
+            const valueType = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(intClassType), index + 1);
 
             const enumLiteral = new EnumLiteral(
                 classType.details.fullName,
@@ -126,14 +125,127 @@ export function createEnumType(
                 entryName,
                 valueType
             );
+
             const newSymbol = Symbol.createWithType(
                 SymbolFlags.ClassMember,
                 ClassType.cloneWithLiteral(classInstanceType, enumLiteral)
             );
+
             classFields.set(entryName, newSymbol);
         }
 
         return classType;
+    }
+
+    if (
+        initArg.valueExpression.nodeType === ParseNodeType.List ||
+        initArg.valueExpression.nodeType === ParseNodeType.Tuple
+    ) {
+        const entries =
+            initArg.valueExpression.nodeType === ParseNodeType.List
+                ? initArg.valueExpression.entries
+                : initArg.valueExpression.expressions;
+
+        if (entries.length === 0) {
+            return undefined;
+        }
+
+        // Entries can be either string literals or tuples of a string
+        // literal and a value. All entries must follow the same pattern.
+        let isSimpleString = false;
+        for (const [index, entry] of entries.entries()) {
+            if (index === 0) {
+                isSimpleString = entry.nodeType === ParseNodeType.StringList;
+            }
+
+            let nameNode: ParseNode | undefined;
+            let valueType: Type | undefined;
+
+            if (entry.nodeType === ParseNodeType.StringList) {
+                if (!isSimpleString) {
+                    return undefined;
+                }
+
+                nameNode = entry;
+                valueType = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(intClassType), index + 1);
+            } else if (entry.nodeType === ParseNodeType.Tuple) {
+                if (isSimpleString) {
+                    return undefined;
+                }
+
+                if (entry.expressions.length !== 2) {
+                    return undefined;
+                }
+                nameNode = entry.expressions[0];
+                valueType = evaluator.getTypeOfExpression(entry.expressions[1]).type;
+            } else {
+                return undefined;
+            }
+
+            if (
+                nameNode.nodeType !== ParseNodeType.StringList ||
+                nameNode.strings.length !== 1 ||
+                nameNode.strings[0].nodeType !== ParseNodeType.String
+            ) {
+                return undefined;
+            }
+
+            const entryName = nameNode.strings[0].value;
+
+            const enumLiteral = new EnumLiteral(
+                classType.details.fullName,
+                classType.details.name,
+                entryName,
+                valueType
+            );
+
+            const newSymbol = Symbol.createWithType(
+                SymbolFlags.ClassMember,
+                ClassType.cloneWithLiteral(classInstanceType, enumLiteral)
+            );
+
+            classFields.set(entryName, newSymbol);
+        }
+    }
+
+    if (initArg.valueExpression.nodeType === ParseNodeType.Dictionary) {
+        const entries = initArg.valueExpression.entries;
+        if (entries.length === 0) {
+            return undefined;
+        }
+
+        for (const entry of entries) {
+            // Don't support dictionary expansion expressions.
+            if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry) {
+                return undefined;
+            }
+
+            const nameNode = entry.keyExpression;
+            const valueType = evaluator.getTypeOfExpression(entry.valueExpression).type;
+
+            if (
+                nameNode.nodeType !== ParseNodeType.StringList ||
+                nameNode.strings.length !== 1 ||
+                nameNode.strings[0].nodeType !== ParseNodeType.String
+            ) {
+                return undefined;
+            }
+
+            const entryName = nameNode.strings[0].value;
+            const enumLiteral = new EnumLiteral(
+                classType.details.fullName,
+                classType.details.name,
+                entryName,
+                valueType
+            );
+
+            const newSymbol = Symbol.createWithType(
+                SymbolFlags.ClassMember,
+                ClassType.cloneWithLiteral(classInstanceType, enumLiteral)
+            );
+
+            classFields.set(entryName, newSymbol);
+        }
     }
 
     return classType;
