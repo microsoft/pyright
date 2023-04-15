@@ -418,7 +418,7 @@ function parseFileContent(
     }
 
     // Add the remaining text
-    flush(/*lastSafeCharIndex*/ undefined);
+    flush(/* lastSafeCharIndex */ undefined);
 
     if (openRanges.length > 0) {
         const openRange = openRanges[0];

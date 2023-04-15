@@ -111,7 +111,7 @@ function createHost(): TestHost {
                         directories.push(entry);
                     }
                 } catch {
-                    /*ignore*/
+                    /* ignore */
                 }
             }
             return { files, directories };

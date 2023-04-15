@@ -137,7 +137,7 @@ function getBuiltLocal(
         const files: FileSet = {};
         mountPaths.forEach((v, k) => (files[k] = new Mount(v, resolver)));
 
-        localCIFSCache = new TestFileSystem(/*ignoreCase*/ true, {
+        localCIFSCache = new TestFileSystem(/* ignoreCase */ true, {
             files,
             cwd,
             meta: {},
@@ -150,7 +150,7 @@ function getBuiltLocal(
     }
 
     if (!localCSFSCache) {
-        localCSFSCache = localCIFSCache.shadow(/*ignoreCase*/ false);
+        localCSFSCache = localCIFSCache.shadow(/* ignoreCase */ false);
         localCSFSCache.makeReadonly();
     }
 

@@ -2768,7 +2768,7 @@ export class CompletionProvider {
     ) {
         const insideTypeAnnotation =
             ParseTreeUtils.isWithinAnnotationComment(node) ||
-            ParseTreeUtils.isWithinTypeAnnotation(node, /*requireQuotedAnnotation*/ false);
+            ParseTreeUtils.isWithinTypeAnnotation(node, /* requireQuotedAnnotation */ false);
         symbolTable.forEach((symbol, name) => {
             // If there are no declarations or the symbol is not
             // exported from this scope, don't include it in the

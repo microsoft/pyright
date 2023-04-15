@@ -110,8 +110,8 @@ function _getDeclarationsDefinedInCurrentModule(
     return declarations.filter((d) => {
         const resolved = evaluator.resolveAliasDeclaration(
             d,
-            /*resolveLocalNames*/ true,
-            /*allowExternallyHiddenAccess*/ true
+            /* resolveLocalNames */ true,
+            /* allowExternallyHiddenAccess */ true
         );
 
         if (!resolved) {

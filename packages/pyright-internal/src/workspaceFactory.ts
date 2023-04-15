@@ -242,7 +242,7 @@ export class WorkspaceFactory {
                     const realFilePath = fileInfo.sourceFile.getRealFilePath();
 
                     // Remove the file from the old workspace first (closing will propagate to the toWorkspace automatically).
-                    fromWorkspace.service.setFileClosed(f, /*isTracked*/ false);
+                    fromWorkspace.service.setFileClosed(f, /* isTracked */ false);
 
                     // Then open it in the toWorkspace so that it is marked tracked there.
                     toWorkspace.service.setFileOpened(
