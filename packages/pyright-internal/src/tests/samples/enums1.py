@@ -3,7 +3,7 @@
 from enum import Enum, IntEnum
 
 
-TestEnum1 = Enum("TestEnum1", "A B C D")
+TestEnum1 = Enum("TestEnum1", "   A   B,C , \t D\t")
 TestEnum2 = IntEnum("TestEnum2", "AA BB CC DD")
 
 
