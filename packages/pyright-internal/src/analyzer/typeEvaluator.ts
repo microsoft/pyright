@@ -1303,8 +1303,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeOfEllipsis(flags: EvaluatorFlags, typeResult: TypeResult | undefined, node: ExpressionNode) {
         if ((flags & EvaluatorFlags.ConvertEllipsisToAny) !== 0) {
             typeResult = { type: AnyType.create(/* isEllipsis */ true) };
-        } else if ((flags & EvaluatorFlags.ConvertEllipsisToUnknown) !== 0) {
-            typeResult = { type: UnknownType.create() };
         } else {
             const ellipsisType = getBuiltInObject(node, 'ellipsis') || AnyType.create();
             typeResult = { type: ellipsisType };
@@ -15776,7 +15774,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let flags: EvaluatorFlags = EvaluatorFlags.None;
         if (fileInfo.isStubFile) {
             // An assignment of ellipsis means "Any" within a type stub file.
-            flags |= EvaluatorFlags.ConvertEllipsisToUnknown;
+            flags |= EvaluatorFlags.ConvertEllipsisToAny;
         }
 
         if (

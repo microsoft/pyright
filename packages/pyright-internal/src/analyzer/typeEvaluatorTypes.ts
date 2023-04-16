@@ -89,9 +89,6 @@ export const enum EvaluatorFlags {
     // flagged as errors.
     ExpectingTypeAnnotation = 1 << 8,
 
-    // Interpret an ellipsis type annotation to mean "Unknown".
-    ConvertEllipsisToUnknown = 1 << 9,
-
     // The Generic class type is allowed in this context. It is
     // normally not allowed if ExpectingType is set.
     AllowGenericClassType = 1 << 10,
