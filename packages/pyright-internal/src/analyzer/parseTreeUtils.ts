@@ -189,12 +189,19 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Call: {
-            return (
-                printExpression(node.leftExpression, flags) +
-                '(' +
-                node.arguments.map((arg) => printArgument(arg, flags)).join(', ') +
-                ')'
-            );
+            let lhs = printExpression(node.leftExpression, flags);
+
+            // Some left-hand expressions must be parenthesized.
+            if (
+                node.leftExpression.nodeType !== ParseNodeType.MemberAccess &&
+                node.leftExpression.nodeType !== ParseNodeType.Name &&
+                node.leftExpression.nodeType !== ParseNodeType.Index &&
+                node.leftExpression.nodeType !== ParseNodeType.Call
+            ) {
+                lhs = `(${lhs})`;
+            }
+
+            return lhs + '(' + node.arguments.map((arg) => printArgument(arg, flags)).join(', ') + ')';
         }
 
         case ParseNodeType.Index: {
