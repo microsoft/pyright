@@ -1374,6 +1374,12 @@ export function getCodeFlowEngine(
             return false;
         }
 
+        // Don't attempt to evaluate a lambda call. We need to evaluate these in the
+        // context of its arguments.
+        if (node.leftExpression.nodeType === ParseNodeType.Lambda) {
+            return false;
+        }
+
         // Initially set to false to avoid recursion.
         callIsNoReturnCache.set(node.id, false);
 

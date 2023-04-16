@@ -7628,7 +7628,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         inferenceContext: InferenceContext | undefined,
         flags: EvaluatorFlags
     ): TypeResult {
-        const baseTypeResult = getTypeOfExpression(node.leftExpression, EvaluatorFlags.DoNotSpecialize);
+        let baseTypeResult: TypeResult | undefined;
+
+        // Handle immediate calls of lambdas specially.
+        if (node.leftExpression.nodeType === ParseNodeType.Lambda) {
+            baseTypeResult = getTypeOfLambdaForCall(node, inferenceContext);
+        } else {
+            baseTypeResult = getTypeOfExpression(node.leftExpression, EvaluatorFlags.DoNotSpecialize);
+        }
 
         const argList = node.arguments.map((arg) => {
             const functionArg: FunctionArgument = {
@@ -7736,6 +7743,71 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
 
             typeResult = { type: UnknownType.create() };
+        }
+
+        return typeResult;
+    }
+
+    // This function is used in cases where a lambda is defined and immediately
+    // called. In this case, we can't use normal bidirectional type inference
+    // to determine the lambda's type. It needs to be inferred from the argument
+    // types instead.
+    function getTypeOfLambdaForCall(node: CallNode, inferenceContext: InferenceContext | undefined): TypeResult {
+        assert(node.leftExpression.nodeType === ParseNodeType.Lambda);
+
+        const expectedType = FunctionType.createSynthesizedInstance('');
+        expectedType.details.declaredReturnType = inferenceContext
+            ? inferenceContext.expectedType
+            : UnknownType.create();
+
+        let isArgTypeIncomplete = false;
+        node.arguments.forEach((arg, index) => {
+            const argTypeResult = getTypeOfExpression(arg.valueExpression);
+            if (argTypeResult.isIncomplete) {
+                isArgTypeIncomplete = true;
+            }
+
+            FunctionType.addParameter(expectedType, {
+                category: ParameterCategory.Simple,
+                name: `p${index.toString()}`,
+                type: argTypeResult.type,
+                hasDeclaredType: true,
+            });
+        });
+
+        // If the lambda's param list ends with a "/" positional parameter separator,
+        // add a corresponding separator to the expected type.
+        const lambdaParams = node.leftExpression.parameters;
+        if (lambdaParams.length > 0) {
+            const lastParam = lambdaParams[lambdaParams.length - 1];
+            if (lastParam.category === ParameterCategory.Simple && !lastParam.name) {
+                FunctionType.addParameter(expectedType, {
+                    category: ParameterCategory.Simple,
+                    name: '',
+                    type: UnknownType.create(),
+                });
+            }
+        }
+
+        function getLambdaType() {
+            return getTypeOfExpression(
+                node.leftExpression,
+                EvaluatorFlags.DoNotSpecialize,
+                makeInferenceContext(expectedType)
+            );
+        }
+
+        // If one or more of the arguments are incomplete, use speculative mode
+        // for the lambda evaluation because it may need to be reevaluated once
+        // the arg types are complete.
+        let typeResult =
+            isArgTypeIncomplete || speculativeTypeTracker.isSpeculative(node) || inferenceContext?.isTypeIncomplete
+                ? useSpeculativeMode(node.leftExpression, getLambdaType)
+                : getLambdaType();
+
+        // If bidirectional type inference failed, use normal type inference instead.
+        if (typeResult.typeErrors) {
+            typeResult = getTypeOfExpression(node.leftExpression, EvaluatorFlags.DoNotSpecialize);
         }
 
         return typeResult;
@@ -14175,10 +14247,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Determine the minimum number of parameters that are required to
             // satisfy the lambda.
             const minLambdaParamCount = node.parameters.filter(
-                (param) => param.category === ParameterCategory.Simple && param.defaultValue === undefined
+                (param) =>
+                    param.category === ParameterCategory.Simple && !!param.name && param.defaultValue === undefined
             ).length;
             const maxLambdaParamCount = node.parameters.filter(
-                (param) => param.category === ParameterCategory.Simple
+                (param) => param.category === ParameterCategory.Simple && !!param.name
             ).length;
 
             // Remove any expected subtypes that don't satisfy the minimum
@@ -19273,7 +19346,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 continue;
             }
 
-            // The left expression of a call or member access expression is not contextual.
+            // The left expression of a call or member access expression is not generally contextual.
             if (parent.nodeType === ParseNodeType.Call || parent.nodeType === ParseNodeType.MemberAccess) {
                 if (nodeToEvaluate === parent.leftExpression) {
                     // Handle the special case where the LHS is a call to super().
@@ -19282,6 +19355,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         nodeToEvaluate.leftExpression.nodeType === ParseNodeType.Name &&
                         nodeToEvaluate.leftExpression.value === 'super'
                     ) {
+                        nodeToEvaluate = parent;
+                        continue;
+                    }
+
+                    // Handle the special case where the LHS is a call to a lambda.
+                    if (parent.nodeType === ParseNodeType.Call && nodeToEvaluate.nodeType === ParseNodeType.Lambda) {
                         nodeToEvaluate = parent;
                         continue;
                     }
