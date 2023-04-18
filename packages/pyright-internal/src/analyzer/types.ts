@@ -1580,6 +1580,13 @@ export namespace FunctionType {
             newFunction.details.parameters.length - 2
         );
 
+        if (newFunction.specializedTypes) {
+            newFunction.specializedTypes.parameterTypes = newFunction.specializedTypes.parameterTypes.slice(
+                0,
+                newFunction.specializedTypes.parameterTypes.length - 2
+            );
+        }
+
         // Update the flags of the function.
         newFunction.details.flags &= ~FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
         if (paramSpecValue.details.flags & FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck) {
