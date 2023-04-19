@@ -8714,8 +8714,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (expectedCallResult.isTypeIncomplete) {
                         isTypeIncomplete = true;
                     }
-
-                    overloadsUsedForCall.push(...expectedCallResult.overloadsUsedForCall);
                 }
             }
 
@@ -8873,6 +8871,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     reportedErrors = true;
                 } else if (!newReturnType) {
                     newReturnType = callResult.returnType;
+
+                    if (overloadsUsedForCall.length === 0) {
+                        overloadsUsedForCall.push(...callResult.overloadsUsedForCall);
+                    }
 
                     // If the constructor returned an object whose type matches the class of
                     // the original type being constructed, use the return type in case it was
