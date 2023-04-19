@@ -130,7 +130,7 @@ test('list with spaces', () => {
 ////
     `;
 
-    testIndentation(code, 8);
+    testIndentation(code, 17);
 });
 
 test('list with nested', () => {
@@ -259,7 +259,7 @@ test('dict first key with list', () => {
 ////
     `;
 
-    testIndentation(code, 4);
+    testIndentation(code, 10);
 });
 
 test('dict key list element on its own line', () => {

@@ -453,13 +453,18 @@ function _getIndentationForNextLine(parseResults: ParseResults, prevToken: Token
                 //     var_three, var_four)
                 return baseIndentation + tabSize;
             } else if (whitespaceOnly) {
-                return _getIndentation(parseResults, token.start, false).indentation + tabSize;
+                // This is the case where the user put a newline right after a (, [, or {. We want
+                // to be one tab over from the [.
+                const line = convertOffsetToPosition(token.start, lines).line;
+                return getIndentationFromText(parseResults, line).indentation + tabSize;
             } else {
                 // In PEP 8, this should be this case here:
                 // # Aligned with opening delimiter.
                 // def long_function_name(var_one, var_two,
                 //                        var_three, var_four)
                 // + 1 is to accommodate for the parenthesis.
+                //
+                // This same indentation applies for function calls or just dictionary or list assignments.
                 return token.start - line.start + 1;
             }
         } else if (_isOpenToken(token) && closeCount > 0) {

@@ -64,7 +64,7 @@ test('InlineLiterals', () => {
         'This paragraph talks about ``foo``\n' +
         'which is related to :something:`bar`, and probably `qux`:something_else:.\n';
 
-    const markdown = 'This paragraph talks about `foo`\n' + 'which is related to `bar`, and probably `qux`.\n';
+    const markdown = 'This paragraph talks about `foo`  \n' + 'which is related to `bar`, and probably `qux`.\n';
 
     _testConvertToMarkdown(docstring, markdown);
 });
@@ -855,6 +855,18 @@ dtype : str, np.dtype, or ExtensionDtype, optional
 |    :class:\`pandas.Period\`     |  :class:\`pandas.arrays.PeriodArray\`|
 
 <br/>`;
+
+    _testConvertToMarkdown(docstring, markdown);
+});
+
+test(`OddnumberOfColons`, () => {
+    const docstring = `
+    @param 'original:str' or 'original:list': original string to compare
+    @param 'new:str': the new string to compare
+    @return 'int': levenshtein difference
+    @return 'list': levenshtein difference if list
+    `;
+    const markdown = `@param 'original:str' or 'original:list': original string to compare\n\n@param 'new:str': the new string to compare\n\n@return 'int': levenshtein difference\n\n@return 'list': levenshtein difference if list`;
 
     _testConvertToMarkdown(docstring, markdown);
 });

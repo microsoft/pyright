@@ -2,22 +2,20 @@
 
 // @filename: declare.py
 //// def /*marker1*/func():
-////    return 1
+////     func2()
+////     return func3()
+////
+//// def [|func2|]():
+////     print(1)
+////
+//// def [|func3|]():
+////     return 1
 
 // @filename: consume.py
-//// from declare import func
-//// from declare import /*marker2*/func as foobar
+//// from declare import /*marker2*/func
 ////
-//// def [|callByName|]():
+//// def callByName():
 ////    /*marker3*/func()
-//// def callByAlias():
-////    foobar()
-
-// @filename: consume2.py
-//// from declare import func
-////
-//// def [|callByName2|]():
-////    func()
 
 {
     const ranges = helper.getRanges();
@@ -25,11 +23,11 @@
         return { path: range.fileName, range: helper.convertPositionRange(range) };
     });
     const itemList = [
-        { filePath: references[0].path, range: references[0].range, name: 'callByName' },
-        { filePath: references[1].path, range: references[1].range, name: 'callByName2' },
+        { filePath: references[0].path, range: references[0].range, name: 'func2' },
+        { filePath: references[1].path, range: references[1].range, name: 'func3' },
     ];
 
-    helper.verifyShowCallHierarchyGetIncomingCalls({
+    helper.verifyShowCallHierarchyGetOutgoingCalls({
         marker1: {
             items: itemList,
         },

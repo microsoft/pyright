@@ -46,22 +46,24 @@ import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { ScopeType } from '../analyzer/scope';
 import { getScopeForNode } from '../analyzer/scopeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
+import { TypeCategory } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { addIfUnique, appendArray, createMapFromItems, getOrAdd, removeArrayElements } from '../common/collectionUtils';
-import { ConfigOptions } from '../common/configOptions';
+import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { isArray } from '../common/core';
 import { TextEditAction } from '../common/editAction';
 import { getDirectoryPath } from '../common/pathUtils';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextEditTracker } from '../common/textEditTracker';
 import { TextRange } from '../common/textRange';
-import { ModuleNameNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ExpressionNode, ModuleNameNode, ModuleNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { ImportFormat } from './autoImporter';
 
 export interface ImportData {
     containsUnreferenceableSymbols: boolean;
     declarations: Map<Declaration, NameNode[]>;
+    importInfos?: { filePath: string; nameInfo: ImportNameInfo }[];
 }
 
 export class ImportAdder {
@@ -71,14 +73,45 @@ export class ImportAdder {
         private _evaluator: TypeEvaluator
     ) {}
 
-    collectImportsForSymbolsUsed(parseResults: ParseResults, range: TextRange, token: CancellationToken): ImportData {
-        const collector = new NameCollector(this._evaluator, parseResults, range, token);
-        collector.walk(parseResults.parseTree);
+    collectImportsForSymbolsUsed(
+        root: ParseResults | ModuleNode,
+        ranges: TextRange | TextRange[],
+        token: CancellationToken
+    ): ImportData {
+        root = isParseResults(root) ? root.parseTree : root;
+        ranges = isArray(ranges) ? ranges : [ranges];
+        const collector = new NameCollector(this._evaluator, root, ranges, token);
+        collector.walk(root);
 
         return {
             containsUnreferenceableSymbols: collector.containsUnreferenceableSymbols,
             declarations: collector.declsForSymbols,
         };
+    }
+
+    addImportInfo(importInfo: { filePath: string; nameInfo: ImportNameInfo }, importData: ImportData) {
+        importData.importInfos = importData.importInfos ?? [];
+        importData.importInfos.push(importInfo);
+    }
+
+    addDeclaration(declaration: Declaration, node: ExpressionNode, importData: ImportData) {
+        // We don't need import statement if decl is from builtins or synthesized.
+        if (declaration.moduleName === 'builtins' || declaration.moduleName === '') {
+            return false;
+        }
+
+        const name =
+            node.nodeType === ParseNodeType.Name
+                ? node
+                : node.nodeType === ParseNodeType.MemberAccess
+                ? node.memberName
+                : undefined;
+        if (!name) {
+            return false;
+        }
+
+        getOrAdd(importData.declarations, declaration, () => []).push(name);
+        return true;
     }
 
     applyImports(
@@ -150,31 +183,48 @@ export class ImportAdder {
                 continue;
             }
 
-            const relativePath = getRelativeModuleName(this._importResolver.fileSystem, filePath, importInfo.filePath);
-            const moduleAndType = this._importResolver.getModuleNameForImport(importInfo.filePath, execEnv);
-            if (!moduleAndType.moduleName) {
-                if (!importInfo.nameInfo.name) {
-                    continue;
-                }
+            this._appendImportNameInfo(filePath, execEnv, importFormat, importInfo, importNameInfo);
+        }
 
-                // module can't be addressed by absolute path in "from import" statement.
-                // ex) namespace package at [workspace root] or [workspace root]\__init__.py(i)
-                // use relative path
-                importFormat = ImportFormat.Relative;
+        if (result.importInfos) {
+            for (const importInfo of result.importInfos) {
+                this._appendImportNameInfo(filePath, execEnv, importFormat, importInfo, importNameInfo);
+            }
+        }
+
+        return importNameInfo;
+    }
+
+    private _appendImportNameInfo(
+        filePath: string,
+        execEnv: ExecutionEnvironment,
+        importFormat: ImportFormat,
+        importInfo: { filePath: string; nameInfo: ImportNameInfo },
+        importNameInfo: ImportNameWithModuleInfo[]
+    ) {
+        const relativePath = getRelativeModuleName(this._importResolver.fileSystem, filePath, importInfo.filePath);
+        const moduleAndType = this._importResolver.getModuleNameForImport(importInfo.filePath, execEnv);
+        if (!moduleAndType.moduleName) {
+            if (!importInfo.nameInfo.name) {
+                return;
             }
 
-            addIfUnique(
-                importNameInfo,
-                {
-                    name: importInfo.nameInfo.name,
-                    alias: importInfo.nameInfo.alias,
-                    module: moduleAndType,
-                    nameForImportFrom: importFormat === ImportFormat.Relative ? relativePath : undefined,
-                },
-                (a, b) => this._areSame(a, b)
-            );
+            // module can't be addressed by absolute path in "from import" statement.
+            // ex) namespace package at [workspace root] or [workspace root]\__init__.py(i)
+            // use relative path
+            importFormat = ImportFormat.Relative;
         }
-        return importNameInfo;
+
+        addIfUnique(
+            importNameInfo,
+            {
+                name: importInfo.nameInfo.name,
+                alias: importInfo.nameInfo.alias,
+                module: moduleAndType,
+                nameForImportFrom: importFormat === ImportFormat.Relative ? relativePath : undefined,
+            },
+            (a, b) => this._areSame(a, b)
+        );
     }
 
     private _tryProcessExistingImports(
@@ -353,20 +403,20 @@ class NameCollector extends ParseTreeWalker {
 
     constructor(
         private _evaluator: TypeEvaluator,
-        private _parseResults: ParseResults,
-        private _range: TextRange,
+        private _root: ModuleNode,
+        private _ranges: TextRange[],
         private _token: CancellationToken
     ) {
         super();
 
-        this._filePath = getFileInfo(this._parseResults.parseTree).filePath;
+        this._filePath = getFileInfo(this._root).filePath;
 
         // For now, we assume the given range is at right boundary such as statement, statements, expression or expressions.
         // In future, we might consider validating the range and adjusting it to the right boundary if needed.
     }
 
     override walk(node: ParseNode) {
-        if (!TextRange.overlapsRange(this._range, node)) {
+        if (!this._ranges.some((r) => TextRange.overlapsRange(r, node))) {
             return;
         }
 
@@ -379,7 +429,7 @@ class NameCollector extends ParseTreeWalker {
     }
 
     override visitName(name: NameNode) {
-        if (!TextRange.containsRange(this._range, name)) {
+        if (!this._ranges.some((r) => TextRange.containsRange(r, name))) {
             return false;
         }
 
@@ -388,6 +438,13 @@ class NameCollector extends ParseTreeWalker {
         // We process dotted name as a whole rather than
         // process each part of dotted name.
         if (!isLastNameOfDottedName(name)) {
+            return false;
+        }
+
+        const type = this._evaluator.getType(name);
+        if (type?.category === TypeCategory.TypeVar) {
+            // Currently, we don't add import statement for type variables
+            // such as TypeVar, TypeVarTuple, ParamSpec, etc.
             return false;
         }
 
@@ -467,7 +524,7 @@ class NameCollector extends ParseTreeWalker {
 
     private _handleName(name: NameNode, decls: Declaration[]) {
         for (const decl of decls) {
-            if (decl.node && TextRange.containsRange(this._range, decl.node)) {
+            if (decl.node && this._ranges.some((r) => TextRange.containsRange(r, decl.node))) {
                 // Make sure our range doesn't already contain them.
                 continue;
             }
@@ -503,4 +560,17 @@ class NameCollector extends ParseTreeWalker {
     private _addName(decl: Declaration, name: NameNode) {
         getOrAdd(this.declsForSymbols, decl, () => []).push(name);
     }
+}
+
+function isParseResults(obj: any): obj is ParseResults {
+    return (
+        obj &&
+        obj.text !== undefined &&
+        obj.parseTree &&
+        obj.importedModules &&
+        obj.futureImports &&
+        obj.tokenizerOutput &&
+        obj.containsWildcardImport !== undefined &&
+        obj.typingSymbolAliases
+    );
 }

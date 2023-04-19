@@ -583,13 +583,12 @@ class DocStringConverter {
         }
 
         // catch-all for styles except reST
-        const hasOddNumColons =
-            !line?.endsWith(':') && !line?.endsWith('::') && (line.match(/:/g)?.length ?? 0) % 2 === 1; // odd number of colons
+        const hasArguments = !line?.endsWith(':') && !line?.endsWith('::') && !!line.match(/^\s*.*?\w+\s*:\s*\w+/g);
 
         // reSt params. Attempt to put directives lines into their own paragraphs.
         const restDirective = DirectivesExtraNewlineRegExp.test(line); //line.match(/^\s*:param/);
 
-        if (hasOddNumColons || restDirective) {
+        if (hasArguments || restDirective) {
             const prev = this._lineAt(this._lineNum - 1);
             // Force a line break, if previous line doesn't already have a break or is blank
             if (!this._builder.endsWith(MarkdownLineBreak) && !this._builder.endsWith(`\n\n`) && !_isHeader(prev)) {

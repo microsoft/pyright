@@ -9,13 +9,9 @@
 //// print(greeting)
 
 {
-    const ranges = helper.getRanges();
-
     helper.verifyShowCallHierarchyGetIncomingCalls({
         marker: {
-            references: ranges.map((r) => {
-                return { path: r.fileName, range: helper.convertPositionRange(r) };
-            }),
+            items: [],
         },
     });
 }

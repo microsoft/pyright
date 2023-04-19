@@ -21,17 +21,16 @@
 
 {
     const ranges = helper.getRanges();
+    const itemList = ranges.map((range) => {
+        return { filePath: range.fileName, range: helper.convertPositionRange(range), name: 'callByAlias' };
+    });
 
     helper.verifyShowCallHierarchyGetIncomingCalls({
         marker1: {
-            references: ranges.map((r) => {
-                return { path: r.fileName, range: helper.convertPositionRange(r) };
-            }),
+            items: itemList,
         },
         marker2: {
-            references: ranges.map((r) => {
-                return { path: r.fileName, range: helper.convertPositionRange(r) };
-            }),
+            items: itemList,
         },
     });
 }

@@ -1183,7 +1183,7 @@ export class TestState {
 
     verifyShowCallHierarchyGetIncomingCalls(map: {
         [marker: string]: {
-            references: DocumentRange[];
+            items: _.FourSlashCallHierarchyItem[];
         };
     }) {
         this.analyze();
@@ -1196,17 +1196,59 @@ export class TestState {
                 continue;
             }
 
-            const expected = map[name].references;
+            const expectedFilePath = map[name].items.map((x) => x.filePath);
+            const expectedRange = map[name].items.map((x) => x.range);
+            const expectedName = map[name].items.map((x) => x.name);
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
 
             const actual = this.program.getIncomingCallsForPosition(fileName, position, CancellationToken.None);
 
-            assert.strictEqual(actual?.length ?? 0, expected.length, `${name} has failed`);
+            assert.strictEqual(actual?.length ?? 0, expectedFilePath.length, `${name} has failed`);
+            assert.strictEqual(actual?.length ?? 0, expectedRange.length, `${name} has failed`);
+            assert.strictEqual(actual?.length ?? 0, expectedName.length, `${name} has failed`);
+
             if (actual) {
                 for (const a of actual) {
-                    assert.equal(expected?.filter((e) => this._deepEqual(a.from.range, e.range)).length, 1);
-                    assert.equal(expected?.filter((e) => this._deepEqual(a.from.uri, e.path)).length, 1);
+                    assert.strictEqual(expectedRange?.filter((e) => this._deepEqual(a.from.range, e)).length, 1);
+                    assert.strictEqual(expectedName?.filter((e) => this._deepEqual(a.from.name, e)).length, 1);
+                    assert.ok(expectedFilePath?.filter((e) => this._deepEqual(a.from.uri, e)).length >= 1);
+                }
+            }
+        }
+    }
+
+    verifyShowCallHierarchyGetOutgoingCalls(map: {
+        [marker: string]: {
+            items: _.FourSlashCallHierarchyItem[];
+        };
+    }) {
+        this.analyze();
+
+        for (const marker of this.getMarkers()) {
+            const fileName = marker.fileName;
+            const name = this.getMarkerName(marker);
+
+            if (!(name in map)) {
+                continue;
+            }
+
+            const expectedFilePath = map[name].items.map((x) => x.filePath);
+            const expectedRange = map[name].items.map((x) => x.range);
+            const expectedName = map[name].items.map((x) => x.name);
+
+            const position = this.convertOffsetToPosition(fileName, marker.position);
+
+            const actual = this.program.getOutgoingCallsForPosition(fileName, position, CancellationToken.None);
+
+            assert.strictEqual(actual?.length ?? 0, expectedFilePath.length, `${name} has failed`);
+            assert.strictEqual(actual?.length ?? 0, expectedRange.length, `${name} has failed`);
+            assert.strictEqual(actual?.length ?? 0, expectedName.length, `${name} has failed`);
+            if (actual) {
+                for (const a of actual) {
+                    assert.strictEqual(expectedRange?.filter((e) => this._deepEqual(a.to.range, e)).length, 1);
+                    assert.strictEqual(expectedName?.filter((e) => this._deepEqual(a.to.name, e)).length, 1);
+                    assert.ok(expectedFilePath?.filter((e) => this._deepEqual(a.to.uri, e)).length >= 1);
                 }
             }
         }

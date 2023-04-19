@@ -36,6 +36,7 @@ import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importReso
 import { isTypedKwargs } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
+import { getTypeShedFallbackPath } from '../analyzer/pythonPathUtils';
 import { getScopeForNode } from '../analyzer/scopeUtils';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
@@ -48,6 +49,7 @@ import { printLiteralValue } from '../analyzer/typePrinter';
 import {
     ClassType,
     FunctionType,
+    isAny,
     isClass,
     isClassInstance,
     isFunction,
@@ -55,6 +57,7 @@ import {
     isModule,
     isNoneInstance,
     isOverloadedFunction,
+    isTypeVar,
     isUnbound,
     isUnknown,
     Type,
@@ -76,11 +79,12 @@ import {
     lookUpObjectMember,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { appendArray } from '../common/collectionUtils';
+import { addIfNotNull, appendArray } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import * as debug from '../common/debug';
 import { fail } from '../common/debug';
 import { fromLSPAny, toLSPAny } from '../common/lspUtils';
+import { combinePaths } from '../common/pathUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import * as StringUtils from '../common/stringUtils';
@@ -121,6 +125,7 @@ import {
 } from './completionProviderUtils';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { IndexResults } from './documentSymbolProvider';
+import { ImportAdder, ImportData } from './importAdder';
 import { getAutoImportText, getDocumentationPartsForTypeAndDecl } from './tooltipUtils';
 
 namespace Keywords {
@@ -1205,6 +1210,9 @@ export class CompletionProvider {
         const staticmethod = decorators?.some((d) => this._checkDecorator(d, 'staticmethod')) ?? false;
         const classmethod = decorators?.some((d) => this._checkDecorator(d, 'classmethod')) ?? false;
 
+        const fallbackPath = getTypeShedFallbackPath(this._importResolver.fileSystem);
+        const typingFilePath = fallbackPath ? combinePaths(fallbackPath, 'stdlib/typing.pyi') : undefined;
+
         const appendMember = (map: CompletionMap, member: ClassMember, name: string) => {
             if (
                 !isInstantiableClass(member.classType) ||
@@ -1264,11 +1272,12 @@ export class CompletionProvider {
                 return;
             }
 
-            const methodSignature = this._printMethodSignature(classResults.classType, funcType);
+            const importAdder = new ImportAdder(this._configOptions, this._importResolver, this._evaluator);
+            const result = this._printMethodSignature(importAdder, classResults.classType, funcType, typingFilePath);
 
             let text: string;
             if (isStubFile(this._filePath)) {
-                text = `${methodSignature}: ...`;
+                text = `${result.methodSignature}: ...`;
             } else {
                 const methodBody = this._printOverriddenMethodBody(
                     classResults.classType,
@@ -1276,10 +1285,22 @@ export class CompletionProvider {
                     isProperty,
                     decl
                 );
-                text = `${methodSignature}:\n${methodBody}`;
+                text = `${result.methodSignature}:\n${methodBody}`;
             }
 
             const textEdit = this._createReplaceEdits(priorWord, partialName, text);
+
+            // This will add new import statements, but for now, it won't add new
+            // `TypeVar` statement such as TypeVar, TypeVarTuple, ParamSpec even if
+            // the overridden method uses them.
+            const additionalTextEdits = importAdder.applyImports(
+                result.importData,
+                this._filePath,
+                this._parseResults,
+                this._parseResults.parseTree.length,
+                ImportFormat.Absolute,
+                this._cancellationToken
+            );
 
             this._addSymbol(name, symbol, partialName.value, map, {
                 // method signature already contains ()
@@ -1287,6 +1308,7 @@ export class CompletionProvider {
                 edits: {
                     format: this._options.snippet ? InsertTextFormat.Snippet : undefined,
                     textEdit,
+                    additionalTextEdits,
                 },
             });
         };
@@ -1321,14 +1343,19 @@ export class CompletionProvider {
         return TextEdit.replace(range, text);
     }
 
-    private _printMethodSignature(classType: ClassType, funcType: FunctionType): string {
-        const decl = funcType.details.declaration!;
+    private _printMethodSignature(
+        importAdder: ImportAdder,
+        classType: ClassType,
+        funcType: FunctionType,
+        typingFilePath: string | undefined
+    ): { methodSignature: string; importData: ImportData } {
+        const declaration = funcType.details.declaration!;
 
         let ellipsisForDefault: boolean | undefined;
         if (isStubFile(this._filePath)) {
             // In stubs, always use "...".
             ellipsisForDefault = true;
-        } else if (classType.details.moduleName === decl.moduleName) {
+        } else if (classType.details.moduleName === declaration.moduleName) {
             // In the same file, always print the full default.
             ellipsisForDefault = false;
         }
@@ -1351,6 +1378,15 @@ export class CompletionProvider {
                 : fallbackType;
         };
 
+        const importData = createImportData(
+            importAdder,
+            funcType,
+            declaration,
+            typingFilePath,
+            (t) => this._sourceMapper.findClassDeclarationsByType(this._filePath, t),
+            this._cancellationToken
+        );
+
         const paramList = funcType.details.parameters.map((param, index) => {
             let paramString = '';
             if (param.category === ParameterCategory.VarArgList) {
@@ -1363,8 +1399,6 @@ export class CompletionProvider {
                 paramString += param.name;
             }
 
-            // Currently, we don't automatically add import if the type used in the annotation is not imported
-            // in current file.
             if (param.typeAnnotation) {
                 const originalType = funcType.details.parameters[index].type;
                 const typeToPrint = getTypeToPrint(
@@ -1417,7 +1451,133 @@ export class CompletionProvider {
             methodSignature += ' -> ' + strReturnType;
         }
 
-        return methodSignature;
+        return { methodSignature, importData };
+
+        function createImportData(
+            importAdder: ImportAdder,
+            funcType: FunctionType,
+            declaration: FunctionDeclaration,
+            typingFilePath: string | undefined,
+            declarationGetter: (t: ClassType) => Declaration[],
+            token: CancellationToken
+        ) {
+            // Handle regular case. In this case, we can get import info from
+            // import used in the file where the function is declared.
+            const ranges: TextRange[] = [];
+
+            addIfNotNull(ranges, TextRange.combine(declaration.node.parameters));
+            addIfNotNull(ranges, declaration.node.returnTypeAnnotation);
+            addIfNotNull(ranges, declaration.node.functionAnnotationComment);
+
+            const moduleNode = ParseTreeUtils.getModuleNode(declaration.node);
+            const importData = importAdder.collectImportsForSymbolsUsed(moduleNode!, ranges, token);
+
+            // Handle special case where function has type arguments. In this case,
+            // we can't use the file the function is declared in because it doesn't
+            // have those type arguments. It just has the type vars.
+            // We could walk the mro to discover imports for the type arguments, but
+            // for now, instead, this creates import statement out of type arguments itself.
+            const effectiveTypes: [t: Type, n: ExpressionNode][] = [];
+            funcType.details.parameters.forEach((param, index) => {
+                if (!param.typeAnnotation) {
+                    return;
+                }
+
+                const originalType = funcType.details.parameters[index].type;
+                if (!isTypeVar(originalType)) {
+                    return;
+                }
+
+                const effectiveType = FunctionType.getEffectiveParameterType(funcType, index);
+                effectiveTypes.push([effectiveType, param.typeAnnotation]);
+            });
+
+            const node = declaration.node;
+            const originalType = funcType.details.declaredReturnType;
+            if (
+                originalType &&
+                isTypeVar(originalType) &&
+                (node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation)
+            ) {
+                effectiveTypes.push([
+                    FunctionType.getSpecializedReturnType(funcType)!,
+                    node.returnTypeAnnotation ?? node.functionAnnotationComment!.returnTypeAnnotation,
+                ]);
+            }
+
+            const visited = new Set<Type>();
+            const addImport = (t: Type, n: ExpressionNode) => {
+                if (visited.has(t)) {
+                    return;
+                }
+
+                visited.add(t);
+
+                // We need to special case `Any` since we can't get decl from `Any`.
+                if (isAny(t)) {
+                    if (!typingFilePath) {
+                        return;
+                    }
+
+                    importAdder.addImportInfo({ filePath: typingFilePath, nameInfo: { name: 'Any' } }, importData);
+                }
+
+                if (!isClass(t)) {
+                    return;
+                }
+
+                // We need to special case `List`, `Dict` and `Tuple` since user might have
+                // used typing.List or typing.Dict in the code, but we internally already
+                // converted them to built-in `list` and `dict`.
+                // We could avoid doing this if class type holds onto decl it was created from
+                // if it is not synthesized like func type.
+                if (typingFilePath && ClassType.isBuiltIn(t)) {
+                    const name = t.aliasName ?? t.details.name;
+                    if (t.details.moduleName === 'typing' && name) {
+                        importAdder.addImportInfo(
+                            {
+                                filePath: typingFilePath,
+                                nameInfo: { name },
+                            },
+                            importData
+                        );
+                    } else if (t.details.moduleName === 'builtins' && t.aliasName) {
+                        importAdder.addImportInfo(
+                            {
+                                filePath: typingFilePath,
+                                nameInfo: { name },
+                            },
+                            importData
+                        );
+                    }
+                } else {
+                    const decls = declarationGetter(t);
+                    if (decls.length === 0) {
+                        return;
+                    }
+
+                    importAdder.addDeclaration(decls[0], n, importData);
+                }
+
+                if (t.isTypeArgumentExplicit) {
+                    t.typeArguments?.forEach((ta) => {
+                        addImport(ta, n);
+                        doForEachSubtype(ta, (subtype) => {
+                            addImport(subtype, n);
+                        });
+                    });
+                }
+            };
+
+            effectiveTypes.forEach(([t, n]) => {
+                addImport(t, n);
+                doForEachSubtype(t, (subtype) => {
+                    addImport(subtype, n);
+                });
+            });
+
+            return importData;
+        }
 
         function getReturnTypeStr(
             evaluator: TypeEvaluator,
@@ -1428,7 +1588,7 @@ export class CompletionProvider {
             const typeToPrint = getTypeToPrint(FunctionType.getSpecializedReturnType(funcType), originalType);
 
             const node = funcType.details.declaration!.node;
-            if (!node.returnTypeAnnotation && !node.functionAnnotationComment) {
+            if (!node.returnTypeAnnotation && !node.functionAnnotationComment?.returnTypeAnnotation) {
                 return undefined;
             }
 
