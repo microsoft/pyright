@@ -15,6 +15,7 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
 import {
+    ArgumentCategory,
     ExpressionNode,
     ParseNode,
     ParseNodeType,
@@ -28,10 +29,16 @@ import {
     PatternValueNode,
 } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
+import { CodeFlowReferenceExpressionNode } from './codeFlowTypes';
 import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
+import { isMatchingExpression } from './parseTreeUtils';
 import { getTypedDictMembersForClass } from './typedDicts';
-import { EvaluatorFlags, TypeEvaluator } from './typeEvaluatorTypes';
-import { enumerateLiteralsForType } from './typeGuards';
+import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import {
+    enumerateLiteralsForType,
+    narrowTypeForDiscriminatedDictEntryComparison,
+    narrowTypeForDiscriminatedTupleComparison,
+} from './typeGuards';
 import {
     AnyType,
     ClassType,
@@ -103,6 +110,8 @@ interface MappingPatternInfo {
         value: Type;
     };
 }
+
+type PatternSubtypeNarrowingCallback = (type: Type) => TypeResult | undefined;
 
 export function narrowTypeBasedOnPattern(
     evaluator: TypeEvaluator,
@@ -1521,6 +1530,77 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
             }
         }
     }
+}
+
+// Determines whether the reference expression has a relationship to the subject expression
+// in such a way that the type of the reference expression can be narrowed based
+// on the narrowed type of the subject expression.
+export function getPatternSubtypeNarrowingCallback(
+    evaluator: TypeEvaluator,
+    reference: CodeFlowReferenceExpressionNode,
+    subjectExpression: ExpressionNode
+): PatternSubtypeNarrowingCallback | undefined {
+    // Look for a subject expression of the form <reference>[<literal>] where
+    // <literal> is either a str (for TypedDict discrimination) or an int
+    // (for tuple discrimination).
+    if (
+        subjectExpression.nodeType === ParseNodeType.Index &&
+        subjectExpression.items.length === 1 &&
+        !subjectExpression.trailingComma &&
+        subjectExpression.items[0].argumentCategory === ArgumentCategory.Simple &&
+        isMatchingExpression(reference, subjectExpression.baseExpression)
+    ) {
+        const indexTypeResult = evaluator.getTypeOfExpression(subjectExpression.items[0].valueExpression);
+        const indexType = indexTypeResult.type;
+
+        if (isClassInstance(indexType) && isLiteralType(indexType)) {
+            if (ClassType.isBuiltIn(indexType, ['int', 'str'])) {
+                const unnarrowedReferenceTypeResult = evaluator.getTypeOfExpression(
+                    subjectExpression.baseExpression,
+                    EvaluatorFlags.DoNotSpecialize
+                );
+                const unnarrowedReferenceType = unnarrowedReferenceTypeResult.type;
+
+                return (narrowedSubjectType: Type) => {
+                    let narrowedType: Type | undefined;
+
+                    if (isNever(narrowedSubjectType)) {
+                        narrowedType = NeverType.createNever();
+                    } else if (isClassInstance(narrowedSubjectType) && narrowedSubjectType.literalValue !== undefined) {
+                        if (ClassType.isBuiltIn(indexType, 'str')) {
+                            narrowedType = narrowTypeForDiscriminatedDictEntryComparison(
+                                evaluator,
+                                unnarrowedReferenceType,
+                                indexType,
+                                narrowedSubjectType,
+                                /* isPositiveTest */ true
+                            );
+                        } else {
+                            narrowedType = narrowTypeForDiscriminatedTupleComparison(
+                                evaluator,
+                                unnarrowedReferenceType,
+                                indexType,
+                                narrowedSubjectType,
+                                /* isPositiveTest */ true
+                            );
+                        }
+                    }
+
+                    if (!narrowedType) {
+                        return undefined;
+                    }
+
+                    return {
+                        type: narrowedType,
+                        isIncomplete: indexTypeResult.isIncomplete || unnarrowedReferenceTypeResult.isIncomplete,
+                    };
+                };
+            }
+        }
+    }
+
+    // TODO - need to implement
+    return undefined;
 }
 
 function reportUnnecessaryPattern(evaluator: TypeEvaluator, pattern: PatternAtomNode, subjectType: Type): void {

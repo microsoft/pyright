@@ -29,11 +29,11 @@ import { getScopeForNode } from './scopeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { getTypedDictMembersForClass } from './typedDicts';
 import { EvaluatorFlags, TypeEvaluator } from './typeEvaluatorTypes';
-import { EnumLiteral } from './types';
 import {
     ClassType,
     ClassTypeFlags,
     combineTypes,
+    EnumLiteral,
     FunctionParameter,
     FunctionType,
     isAnyOrUnknown,
@@ -350,37 +350,35 @@ export function getTypeNarrowingCallback(
                     const indexType = indexTypeResult.type;
 
                     if (isClassInstance(indexType) && isLiteralType(indexType)) {
-                        if (ClassType.isBuiltIn(indexType, 'str')) {
-                            const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
-                            if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
-                                return (type: Type) => {
-                                    return {
-                                        type: narrowTypeForDiscriminatedDictEntryComparison(
-                                            evaluator,
-                                            type,
-                                            indexType,
-                                            rightType,
-                                            adjIsPositiveTest
-                                        ),
-                                        isIncomplete: !!indexTypeResult.isIncomplete,
-                                    };
-                                };
-                            }
-                        } else if (ClassType.isBuiltIn(indexType, 'int')) {
+                        if (ClassType.isBuiltIn(indexType, ['str', 'int'])) {
                             const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
                             const rightType = rightTypeResult.type;
 
                             if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
                                 return (type: Type) => {
-                                    return {
-                                        type: narrowTypeForDiscriminatedTupleComparison(
+                                    let narrowedType: Type;
+
+                                    if (ClassType.isBuiltIn(indexType, 'str')) {
+                                        narrowedType = narrowTypeForDiscriminatedDictEntryComparison(
                                             evaluator,
                                             type,
                                             indexType,
                                             rightType,
                                             adjIsPositiveTest
-                                        ),
-                                        isIncomplete: !!rightTypeResult.isIncomplete,
+                                        );
+                                    } else {
+                                        narrowedType = narrowTypeForDiscriminatedTupleComparison(
+                                            evaluator,
+                                            type,
+                                            indexType,
+                                            rightType,
+                                            adjIsPositiveTest
+                                        );
+                                    }
+
+                                    return {
+                                        type: narrowedType,
+                                        isIncomplete: !!indexTypeResult.isIncomplete || !!rightTypeResult.isIncomplete,
                                     };
                                 };
                             }
@@ -1845,7 +1843,7 @@ function narrowTypeForTypedDictKey(
 // Attempts to narrow a TypedDict type based on a comparison (equal or not
 // equal) between a discriminating entry type that has a declared literal
 // type to a literal value.
-function narrowTypeForDiscriminatedDictEntryComparison(
+export function narrowTypeForDiscriminatedDictEntryComparison(
     evaluator: TypeEvaluator,
     referenceType: Type,
     indexLiteralType: ClassType,
@@ -1875,7 +1873,7 @@ function narrowTypeForDiscriminatedDictEntryComparison(
     return canNarrow ? narrowedType : referenceType;
 }
 
-function narrowTypeForDiscriminatedTupleComparison(
+export function narrowTypeForDiscriminatedTupleComparison(
     evaluator: TypeEvaluator,
     referenceType: Type,
     indexLiteralType: ClassType,

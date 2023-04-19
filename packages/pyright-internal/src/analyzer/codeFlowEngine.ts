@@ -37,6 +37,7 @@ import {
 } from './codeFlowTypes';
 import { formatControlFlowGraph } from './codeFlowUtils';
 import { isMatchingExpression, isPartialMatchingExpression, printExpression } from './parseTreeUtils';
+import { getPatternSubtypeNarrowingCallback } from './patternMatching';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
 import { narrowForKeyAssignment } from './typedDicts';
 import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
@@ -735,6 +736,33 @@ export function getCodeFlowEngine(
                                     }
                                 } else {
                                     return setCacheEntry(curFlowNode, typeResult.type, !!typeResult.isIncomplete);
+                                }
+                            }
+                        } else if (patternFlowNode.statement.nodeType === ParseNodeType.Case) {
+                            const caseStatement = patternFlowNode.statement;
+
+                            // See if the reference is a subexpression within the subject expression.
+                            const typeNarrowingCallback = getPatternSubtypeNarrowingCallback(
+                                evaluator,
+                                reference,
+                                patternFlowNode.subjectExpression
+                            );
+
+                            if (typeNarrowingCallback) {
+                                const typeResult = evaluator.evaluateTypeForSubnode(caseStatement, () => {
+                                    evaluator.evaluateTypesForCaseStatement(caseStatement);
+                                });
+
+                                if (typeResult) {
+                                    const narrowedTypeResult = typeNarrowingCallback(typeResult.type);
+
+                                    if (narrowedTypeResult) {
+                                        return setCacheEntry(
+                                            curFlowNode,
+                                            narrowedTypeResult.type,
+                                            !!typeResult.isIncomplete || !!narrowedTypeResult.isIncomplete
+                                        );
+                                    }
                                 }
                             }
                         }
