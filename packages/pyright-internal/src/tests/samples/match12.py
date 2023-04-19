@@ -33,3 +33,32 @@ def func2(item: T1 | T2):
             reveal_type(item, expected_text="tuple[Literal[0], int]")
         case 1:
             reveal_type(item, expected_text="tuple[Literal[1], str]")
+
+
+def func3(a: object, b: int) -> None:
+    match a, b:
+        case (complex(), 3):
+            reveal_type(a, expected_text="complex")
+            reveal_type(b, expected_text="Literal[3]")
+
+
+Token = (
+    str
+    | tuple[Literal["define"], str, str]
+    | tuple[Literal["include"], str]
+    | tuple[Literal["use"], str, int, int]
+)
+
+
+def func4(token: Token):
+    match token:
+        case str(x):
+            reveal_type(token, expected_text="str")
+        case "define", _, _:
+            reveal_type(token, expected_text="tuple[Literal['define'], str, str]")
+        case "include", _:
+            reveal_type(token, expected_text="tuple[Literal['include'], str]")
+        case "use", _, _, _:
+            reveal_type(token, expected_text="tuple[Literal['use'], str, int, int]")
+        case _:
+            reveal_type(token, expected_text="Never")

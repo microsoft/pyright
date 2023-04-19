@@ -24,8 +24,7 @@ import { CreateTypeStubFileAction, Diagnostic } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { getFileName, stripFileExtension } from '../common/pathUtils';
 import { convertTextRangeToRange } from '../common/positionUtils';
-import { getEmptyRange } from '../common/textRange';
-import { TextRange } from '../common/textRange';
+import { TextRange, getEmptyRange } from '../common/textRange';
 import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
@@ -85,7 +84,6 @@ import { AnalyzerFileInfo, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
-    createKeyForReference,
     FlowAssignment,
     FlowBranchLabel,
     FlowCall,
@@ -100,6 +98,7 @@ import {
     FlowPreFinallyGate,
     FlowVariableAnnotation,
     FlowWildcardImport,
+    createKeyForReference,
     getUniqueFlowNodeId,
     isCodeFlowSupportedForReference,
     wildcardImportReferenceKey,
@@ -123,7 +122,7 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { NameBindingType, Scope, ScopeType } from './scope';
 import * as StaticExpressions from './staticExpressions';
-import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
+import { Symbol, SymbolFlags, indeterminateSymbolId } from './symbol';
 import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
 
 interface MemberAccessInfo {
@@ -2200,9 +2199,7 @@ export class Binder extends ParseTreeWalker {
             // Bind the pattern.
             this.walk(caseStatement.pattern);
 
-            if (isSubjectNarrowable) {
-                this._createFlowNarrowForPattern(node.subjectExpression, caseStatement);
-            }
+            this._createFlowNarrowForPattern(node.subjectExpression, caseStatement);
 
             // Apply the guard expression.
             if (caseStatement.guardExpression) {

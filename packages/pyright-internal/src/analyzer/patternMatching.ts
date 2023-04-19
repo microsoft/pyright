@@ -1639,7 +1639,40 @@ export function getPatternSubtypeNarrowingCallback(
         }
     }
 
-    // TODO - need to implement
+    // Look for a subject expression that contains the reference
+    // expression as an entry in a tuple.
+    if (subjectExpression.nodeType === ParseNodeType.Tuple) {
+        const matchingEntryIndex = subjectExpression.expressions.findIndex((expr) =>
+            isMatchingExpression(reference, expr)
+        );
+        if (matchingEntryIndex >= 0) {
+            const typeResult = evaluator.getTypeOfExpression(subjectExpression.expressions[matchingEntryIndex]);
+
+            return (narrowedSubjectType: Type) => {
+                let canNarrow = true;
+                const narrowedSubtypes: Type[] = [];
+
+                doForEachSubtype(narrowedSubjectType, (subtype) => {
+                    if (
+                        isClassInstance(subtype) &&
+                        ClassType.isBuiltIn(subtype, 'tuple') &&
+                        subtype.tupleTypeArguments &&
+                        matchingEntryIndex < subtype.tupleTypeArguments.length &&
+                        subtype.tupleTypeArguments.every((e) => !e.isUnbounded)
+                    ) {
+                        narrowedSubtypes.push(subtype.tupleTypeArguments[matchingEntryIndex].type);
+                    } else {
+                        canNarrow = false;
+                    }
+                });
+
+                return canNarrow
+                    ? { type: combineTypes(narrowedSubtypes), isIncomplete: typeResult.isIncomplete }
+                    : undefined;
+            };
+        }
+    }
+
     return undefined;
 }
 
