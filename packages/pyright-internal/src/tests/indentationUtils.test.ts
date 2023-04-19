@@ -442,6 +442,28 @@ test('empty multiline list', () => {
     testIndentation(code, 4);
 });
 
+test('empty multiline list 2', () => {
+    const code = `
+//// [
+////        [|/*marker*/|]
+//// ]
+    `;
+
+    testIndentation(code, 4);
+});
+
+test('nested empty multiline list', () => {
+    const code = `
+//// [
+////     [
+////                 [|/*marker*/|]
+////     ]
+//// ]
+    `;
+
+    testIndentation(code, 8);
+});
+
 test('unfinished block', () => {
     const code = `
 //// def foo(a: Union[int, str]):

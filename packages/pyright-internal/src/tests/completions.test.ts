@@ -1030,6 +1030,34 @@ test('override __call__', async () => {
                         newText:
                             '__call__(self, parser: ArgumentParser, namespace: Namespace, values: str | Sequence[Any] | None, option_string: str | None = None) -> None:\n    return super().__call__(parser, namespace, values, option_string)',
                     },
+                    additionalTextEdits: [
+                        {
+                            range: {
+                                start: {
+                                    line: 0,
+                                    character: 27,
+                                },
+                                end: {
+                                    line: 0,
+                                    character: 27,
+                                },
+                            },
+                            newText: ', ArgumentParser, Namespace',
+                        },
+                        {
+                            range: {
+                                start: {
+                                    line: 0,
+                                    character: 27,
+                                },
+                                end: {
+                                    line: 0,
+                                    character: 27,
+                                },
+                            },
+                            newText: '\nfrom collections.abc import Sequence\nfrom typing import Any',
+                        },
+                    ],
                 },
             ],
         },
@@ -1180,6 +1208,160 @@ test('annotation using comment', async () => {
                         range: state.getPositionRange('marker'),
                         newText: 'foo(self, a: int) -> None:\n    return super().foo(a)',
                     },
+                },
+            ],
+        },
+    });
+});
+
+test('adding import for type arguments', async () => {
+    const code = `
+// @filename: __builtins__.pyi
+//// class MyBuiltIns: ...
+
+// @filename: test.py
+//// from typing import Generic, TypeVar
+//// 
+//// T = TypeVar("T")
+//// 
+//// class A(Generic[T]):
+////     def foo(self, a: T) -> T:
+////         return a
+//// 
+//// class Action:
+////     pass
+////
+//// class B(A[Action]):
+////     pass
+//// 
+//// class C(A[MyBuiltIns]):
+////     pass
+
+// @filename: test1.py
+//// from test import B
+//// 
+//// class U(B):
+////     def [|foo/*marker1*/|]
+
+// @filename: test2.py
+//// from test import C
+//// 
+//// class U(C):
+////     def [|foo/*marker2*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    state.openFiles(state.testData.files.map((f) => f.fileName));
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker1: {
+            completions: [
+                {
+                    label: 'foo',
+                    kind: CompletionItemKind.Method,
+                    textEdit: {
+                        range: state.getPositionRange('marker1'),
+                        newText: 'foo(self, a: Action) -> Action:\n    return super().foo(a)',
+                    },
+                    additionalTextEdits: [
+                        {
+                            range: {
+                                start: {
+                                    line: 0,
+                                    character: 18,
+                                },
+                                end: {
+                                    line: 0,
+                                    character: 18,
+                                },
+                            },
+                            newText: ', Action',
+                        },
+                    ],
+                },
+            ],
+        },
+        marker2: {
+            completions: [
+                {
+                    label: 'foo',
+                    kind: CompletionItemKind.Method,
+                    textEdit: {
+                        range: state.getPositionRange('marker2'),
+                        newText: 'foo(self, a: MyBuiltIns) -> MyBuiltIns:\n    return super().foo(a)',
+                    },
+                    additionalTextEdits: [],
+                },
+            ],
+        },
+    });
+});
+
+test('Complex type arguments', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Generic, TypeVar, Any, List, Dict, Tuple, Mapping, Union
+//// 
+//// T = TypeVar("T")
+//// 
+//// class A(Generic[T]):
+////     def foo(self, a: T) -> T:
+////         return a
+////
+//// class B(A[Union[Tuple[list, dict], tuple[Mapping[List[A[int]], Dict[str, Any]], float]]]):
+////     pass
+
+// @filename: test1.py
+//// from test import B
+//// 
+//// class U(B):
+////     def [|foo/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    state.openFiles(state.testData.files.map((f) => f.fileName));
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    label: 'foo',
+                    kind: CompletionItemKind.Method,
+                    textEdit: {
+                        range: state.getPositionRange('marker'),
+                        newText:
+                            'foo(self, a: Tuple[list, dict] | tuple[Mapping[List[A[int]], Dict[str, Any]], float]) -> Tuple[list, dict] | tuple[Mapping[List[A[int]], Dict[str, Any]], float]:\n    return super().foo(a)',
+                    },
+                    additionalTextEdits: [
+                        {
+                            range: {
+                                start: {
+                                    line: 0,
+                                    character: 17,
+                                },
+                                end: {
+                                    line: 0,
+                                    character: 17,
+                                },
+                            },
+                            newText: 'A, ',
+                        },
+                        {
+                            range: {
+                                start: {
+                                    line: 0,
+                                    character: 0,
+                                },
+                                end: {
+                                    line: 0,
+                                    character: 0,
+                                },
+                            },
+                            newText: 'from typing import Any, Dict, List, Mapping, Tuple\n',
+                        },
+                    ],
                 },
             ],
         },

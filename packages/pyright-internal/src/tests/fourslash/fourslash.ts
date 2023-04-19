@@ -63,6 +63,12 @@ declare namespace _ {
         commitCharacters?: string[];
     }
 
+    interface FourSlashCallHierarchyItem {
+        filePath: string;
+        name: string;
+        range: PositionRange;
+    }
+
     interface TextRange {
         start: number;
         length: number;
@@ -305,7 +311,12 @@ declare namespace _ {
         }): void;
         verifyShowCallHierarchyGetIncomingCalls(map: {
             [marker: string]: {
-                references: DocumentRange[];
+                items: FourSlashCallHierarchyItem[];
+            };
+        }): void;
+        verifyShowCallHierarchyGetOutgoingCalls(map: {
+            [marker: string]: {
+                items: FourSlashCallHierarchyItem[];
             };
         }): void;
         verifyHighlightReferences(map: {

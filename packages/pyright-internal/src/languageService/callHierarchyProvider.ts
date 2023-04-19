@@ -109,11 +109,15 @@ export class CallHierarchyProvider {
 
         // Find the parse node root corresponding to the function or class.
         let parseRoot: ParseNode | undefined;
-        if (declaration.type === DeclarationType.Function) {
-            parseRoot = declaration.node;
-        } else if (declaration.type === DeclarationType.Class) {
+        const resolvedDecl = evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
+        if (!resolvedDecl) {
+            return undefined;
+        }
+        if (resolvedDecl.type === DeclarationType.Function) {
+            parseRoot = resolvedDecl.node;
+        } else if (resolvedDecl.type === DeclarationType.Class) {
             // Look up the __init__ method for this class.
-            const classType = evaluator.getTypeForDeclaration(declaration)?.type;
+            const classType = evaluator.getTypeForDeclaration(resolvedDecl)?.type;
             if (classType && isInstantiableClass(classType)) {
                 // Don't perform a recursive search of parent classes in this
                 // case because we don't want to find an inherited __init__
@@ -175,6 +179,10 @@ export class CallHierarchyProvider {
             }
         }
         let symbolName;
+
+        // Although the LSP specification requires a URI, we are using a file path
+        // here because it is converted to the proper URI in LanguageServerBase.
+        // This simplifies our code and ensures compatibility with the LSP specification.
         let callItemUri;
         if (targetDecl.type === DeclarationType.Alias) {
             symbolName = (referencesResult.nodeAtOffset as NameNode).value;
@@ -302,6 +310,12 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
                 fromRanges: [],
             };
             this._outgoingCalls.push(outgoingCall);
+        }
+
+        if (outgoingCall && outgoingCall.to.name !== nameNode.value) {
+            // If both the function and its alias are called in the same function,
+            // the name of the call item will be the resolved declaration name, not the alias.
+            outgoingCall.to.name = DeclarationUtils.getNameFromDeclaration(resolvedDecl) ?? nameNode.value;
         }
 
         const fromRange: Range = convertOffsetsToRange(

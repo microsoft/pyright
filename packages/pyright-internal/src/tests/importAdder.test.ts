@@ -9,11 +9,14 @@
 import assert from 'assert';
 import { CancellationToken } from 'vscode-languageserver';
 
+import { Declaration } from '../analyzer/declaration';
+import { findNodeByOffset } from '../analyzer/parseTreeUtils';
 import { TextEditAction } from '../common/editAction';
 import { TextEditTracker } from '../common/textEditTracker';
 import { rangesAreEqual, TextRange } from '../common/textRange';
 import { ImportFormat } from '../languageService/autoImporter';
 import { ImportAdder } from '../languageService/importAdder';
+import { NameNode } from '../parser/parseNodes';
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
 import { convertFileEditActionToString, convertRangeToFileEditAction } from './testStateUtils';
 
@@ -1369,6 +1372,94 @@ test('dont include token not contained in the span', () => {
     testImportMove(code, ImportFormat.Absolute);
 });
 
+test('multiple ranges', () => {
+    const code = `
+// @filename: test1.py
+//// class A:
+////     pass
+////
+//// class B:
+////     pass
+////
+//// class N:
+////     pass
+//// 
+//// a = [|/*src*/A()|]
+//// n = N()
+//// b = [|B()|]
+
+// @filename: nested/__init__.py
+//// [|{|"r":"from test1 import A, B!n!!n!!n!"|}|][|/*dest*/|]
+        `;
+    testImportMove(code, ImportFormat.Absolute);
+});
+
+test('adding decl manually', () => {
+    const code = `
+// @filename: test1.py
+//// class A:
+////     pass
+////
+//// a  = [|/*src*/A|]()
+
+// @filename: test2.py
+//// [|{|"r":"from test1 import A!n!!n!!n!"|}|][|/*dest*/|]
+        `;
+
+    const state = parseAndGetTestState(code).state;
+    const src = state.getMarkerByName('src');
+    const dest = state.getMarkerByName('dest');
+
+    const parseResults = state.workspace.service.test_program.getBoundSourceFile(src.fileName)!.getParseResults()!;
+    const node = findNodeByOffset(parseResults.parseTree, src.position) as NameNode;
+    const decl = state.workspace.service.test_program.evaluator?.getDeclarationsForNameNode(node)![0];
+
+    const importAdder = new ImportAdder(state.configOptions, state.importResolver, state.program.evaluator!);
+    const importData = { containsUnreferenceableSymbols: false, declarations: new Map<Declaration, NameNode[]>() };
+    importAdder.addDeclaration(decl!, node, importData);
+
+    const edits = importAdder.applyImports(
+        importData,
+        dest.fileName,
+        state.program.getBoundSourceFile(dest.fileName)!.getParseResults()!,
+        dest.position,
+        ImportFormat.Absolute,
+        CancellationToken.None
+    );
+
+    verifyEdits(edits, state);
+});
+
+test('adding import info manually', () => {
+    const code = `
+// @filename: test1.py
+//// class [|/*src*/A|]:
+////     pass
+
+// @filename: test2.py
+//// [|{|"r":"from test1 import A!n!!n!!n!"|}|][|/*dest*/|]
+        `;
+
+    const state = parseAndGetTestState(code).state;
+    const src = state.getMarkerByName('src');
+    const dest = state.getMarkerByName('dest');
+
+    const importAdder = new ImportAdder(state.configOptions, state.importResolver, state.program.evaluator!);
+    const importData = { containsUnreferenceableSymbols: false, declarations: new Map<Declaration, NameNode[]>() };
+    importAdder.addImportInfo({ filePath: src.fileName, nameInfo: { name: 'A' } }, importData);
+
+    const edits = importAdder.applyImports(
+        importData,
+        dest.fileName,
+        state.program.getBoundSourceFile(dest.fileName)!.getParseResults()!,
+        dest.position,
+        ImportFormat.Absolute,
+        CancellationToken.None
+    );
+
+    verifyEdits(edits, state);
+});
+
 function testImportMoveWithTracker(code: string, importFormat = ImportFormat.Absolute) {
     const state = parseAndGetTestState(code).state;
 
@@ -1400,10 +1491,15 @@ function testImportMove(code: string, importFormat = ImportFormat.Absolute) {
     const src = state.getRangeByMarkerName('src')!;
     const dest = state.getMarkerByName('dest');
 
+    const ranges = state
+        .getRanges()
+        .filter((r) => r.fileName === src.fileName)
+        .map((r) => TextRange.fromBounds(r.pos, r.end));
+
     const importMover = new ImportAdder(state.configOptions, state.importResolver, state.program.evaluator!);
     const importData = importMover.collectImportsForSymbolsUsed(
         state.program.getBoundSourceFile(src.fileName)!.getParseResults()!,
-        TextRange.fromBounds(src.pos, src.end),
+        ranges.length === 1 ? ranges[0] : ranges,
         CancellationToken.None
     );
 
