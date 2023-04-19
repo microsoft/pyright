@@ -23,29 +23,6 @@
         "no-inner-declarations": 0,
         "no-unused-vars": "off",
         "no-undef": 0,
-        "simple-import-sort/imports": [
-            "error",
-            {
-                "groups": [
-                    // Defaults from simple-import-sort, but with local packages between third-party and relative imports.
-                    [
-                        "^\\u0000"
-                    ],
-                    [
-                        "^@?\\w"
-                    ],
-                    [
-                        "^[^.]"
-                    ],
-                    [
-                        "^pyright"
-                    ],
-                    [
-                        "^\\."
-                    ]
-                ]
-            }
-        ],
         "simple-import-sort/exports": "error",
         "@typescript-eslint/explicit-function-return-type": 0,
         "@typescript-eslint/explicit-module-boundary-types": 0,
