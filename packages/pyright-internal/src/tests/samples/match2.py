@@ -179,7 +179,7 @@ def test_union(value_to_match: Union[Tuple[complex, complex], Tuple[int, str, fl
        
         case *g1, 3j:
             reveal_type(g1, expected_text="list[complex] | list[int | str | float] | list[Any]")
-            reveal_type(value_to_match, expected_text="Tuple[complex, complex] | Tuple[int, str, float, complex] | Any")
+            reveal_type(value_to_match, expected_text="tuple[complex, complex] | Tuple[int, str, float, complex] | Any")
        
         case *h1, "hi":
             reveal_type(h1, expected_text="list[str] | list[Any]")
@@ -348,3 +348,31 @@ def test_negative_narrowing3(subj: tuple[Any, Any]):
 
         case x:
             reveal_type(x, expected_text="Never")
+
+
+def test_negative_narrowing4(a: str | None, b: str | None):
+    match (a, b):
+        case (None, _) as x:
+            reveal_type(x, expected_text="tuple[None, str | None]")
+        case (_, None) as x:
+            reveal_type(x, expected_text="tuple[str, None]")
+        case (a, b) as x:
+            reveal_type(x, expected_text="tuple[str, str]")
+
+
+def test_negative_narrowing5(a: str | None, b: str | None):
+    match (a, b):
+        case (None, _) | (_, None) as x:
+            reveal_type(x, expected_text="tuple[None, str | None] | tuple[str, None]")
+        case (a, b) as x:
+            reveal_type(x, expected_text="tuple[str, str]")
+
+
+def test_negative_narrowing6(a: str | None, b: str | None):
+    match (a, b):
+        case (None, None) as x:
+            reveal_type(x, expected_text="tuple[None, None]")
+        case (None, _) as x if 2 > 1:
+            reveal_type(x, expected_text="tuple[None, str | None]")
+        case (a, b) as x:
+            reveal_type(x, expected_text="tuple[str | None, str | None]")

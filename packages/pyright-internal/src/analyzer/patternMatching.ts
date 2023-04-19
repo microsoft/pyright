@@ -209,6 +209,12 @@ function narrowTypeBasedOnSequencePattern(
         const narrowedEntryTypes: Type[] = [];
         let canNarrowTuple = entry.isTuple;
 
+        // Don't attempt to narrow tuples in the negative case if the subject
+        // contains indeterminate-length entries.
+        if (!isPositiveTest && entry.isIndeterminateLength) {
+            canNarrowTuple = false;
+        }
+
         // If the subject has an indeterminate length but the pattern does not accept
         // an arbitrary number of entries or accepts at least one non-star entry,
         // we can't prove that it's a definite match.
@@ -218,6 +224,7 @@ function narrowTypeBasedOnSequencePattern(
             }
         }
 
+        let negativeEntriesNarrowed = 0;
         pattern.entries.forEach((sequenceEntry, index) => {
             const entryType = getTypeOfPatternSequenceEntry(
                 evaluator,
@@ -258,12 +265,45 @@ function narrowTypeBasedOnSequencePattern(
             } else {
                 if (!isNever(narrowedEntryType)) {
                     isDefiniteMatch = false;
+
+                    // Record the number of entries that were narrowed in the negative
+                    // case. We can apply the tuple narrowing only if exactly one entry
+                    // is narrowed.
+                    negativeEntriesNarrowed++;
+                    narrowedEntryTypes.push(narrowedEntryType);
+                } else {
+                    narrowedEntryTypes.push(entryType);
+                }
+
+                if (index === pattern.starEntryIndex) {
+                    canNarrowTuple = false;
                 }
             }
         });
 
         if (!isPositiveTest) {
-            return !isDefiniteMatch;
+            // If the positive case is a definite match, the negative case can
+            // eliminate this subtype entirely.
+            if (isDefiniteMatch) {
+                return false;
+            }
+
+            // Can we narrow a tuple?
+            if (canNarrowTuple && negativeEntriesNarrowed === 1) {
+                const tupleClassType = evaluator.getBuiltInType(pattern, 'tuple');
+                if (tupleClassType && isInstantiableClass(tupleClassType)) {
+                    entry.subtype = ClassType.cloneAsInstance(
+                        specializeTupleClass(
+                            tupleClassType,
+                            narrowedEntryTypes.map((t) => {
+                                return { type: t, isUnbounded: false };
+                            })
+                        )
+                    );
+                }
+            }
+
+            return true;
         }
 
         if (isPlausibleMatch) {
