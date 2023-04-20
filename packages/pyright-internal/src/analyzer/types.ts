@@ -2534,8 +2534,14 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
         return false;
     }
 
-    if (!options.ignoreTypeFlags && type1.flags !== type2.flags) {
-        return false;
+    if (!options.ignoreTypeFlags) {
+        // The Annotated flag should never be considered for type compatibility.
+        const type1Flags = type1.flags & ~TypeFlags.Annotated;
+        const type2Flags = type2.flags & ~TypeFlags.Annotated;
+
+        if (type1Flags !== type2Flags) {
+            return false;
+        }
     }
 
     if (recursionCount > maxTypeRecursionCount) {
