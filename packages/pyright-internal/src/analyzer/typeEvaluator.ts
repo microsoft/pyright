@@ -11366,6 +11366,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const signatureTracker = new UniqueSignatureTracker();
         let sawUnpackedListArgument = false;
+        let sawUnpackedDictArgument = false;
 
         argList.forEach((arg) => {
             if (arg.argumentCategory === ArgumentCategory.Simple) {
@@ -11447,6 +11448,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     paramMap.delete(argsParam.name!);
                 }
             } else {
+                sawUnpackedDictArgument = true;
                 assert(arg.argumentCategory === ArgumentCategory.UnpackedDictionary);
 
                 // See if there is an *kwargs parameter.
@@ -11470,7 +11472,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return paramInfo.category === ParameterCategory.Simple && !paramInfo.hasDefault;
             });
 
-            if (unassignedParams.length > 0 && !paramSpecType.details.paramSpec && !sawUnpackedListArgument) {
+            if (
+                unassignedParams.length > 0 &&
+                !paramSpecType.details.paramSpec &&
+                !sawUnpackedListArgument &&
+                !sawUnpackedDictArgument
+            ) {
                 const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
                 addDiagnostic(
                     AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
