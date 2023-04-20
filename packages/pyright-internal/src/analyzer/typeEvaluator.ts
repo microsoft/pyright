@@ -151,7 +151,7 @@ import { getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
 import {
     assignToTypedDict,
-    assignTypedDictToTypedDict as assignTypedDictToTypedDict,
+    assignTypedDictToTypedDict,
     createTypedDictType,
     createTypedDictTypeInlined,
     getTypedDictMembersForClass,
@@ -11365,6 +11365,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
 
         const signatureTracker = new UniqueSignatureTracker();
+        let sawUnpackedListArgument = false;
 
         argList.forEach((arg) => {
             if (arg.argumentCategory === ArgumentCategory.Simple) {
@@ -11434,9 +11435,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         reportedArgError = true;
                     }
                 }
+            } else if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
+                sawUnpackedListArgument = true;
+
+                // See if there is an *args parameter.
+                const argsParam = paramSpecParams.find(
+                    (param) => param.category === ParameterCategory.VarArgList && param.name
+                );
+                if (argsParam && paramMap.has(argsParam.name!)) {
+                    // TODO - validate args type
+                    paramMap.delete(argsParam.name!);
+                }
             } else {
-                // TODO - handle *args and **kwargs
-                paramMap.clear();
+                assert(arg.argumentCategory === ArgumentCategory.UnpackedDictionary);
+
+                // See if there is an *kwargs parameter.
+                const kwargsParam = paramSpecParams.find(
+                    (param) => param.category === ParameterCategory.VarArgDictionary
+                );
+                if (kwargsParam && paramMap.has(kwargsParam.name!)) {
+                    // TODO - validate kwargs type
+                    paramMap.delete(kwargsParam.name!);
+                }
             }
         });
 
@@ -11450,7 +11470,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return paramInfo.category === ParameterCategory.Simple && !paramInfo.hasDefault;
             });
 
-            if (unassignedParams.length > 0 && !paramSpecType.details.paramSpec) {
+            if (unassignedParams.length > 0 && !paramSpecType.details.paramSpec && !sawUnpackedListArgument) {
                 const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
                 addDiagnostic(
                     AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,

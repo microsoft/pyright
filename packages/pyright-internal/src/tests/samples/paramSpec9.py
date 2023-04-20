@@ -55,3 +55,24 @@ def func1(func: Callable[P, Any], *args: P.args, **kwargs: P.kwargs):
 
 def func2(func: Callable[P, Any], *args: P.args, **kwargs: P.kwargs):
     func1(func, *args, **kwargs)
+
+
+def args_b(*args: int, b: str) -> int:
+    return 1
+
+
+some_args = (1, 2, 3)
+
+# This should generate an error because of too few arguments.
+twice(args_b)
+
+# This should generate an error because of too few arguments.
+twice(args_b, 3)
+
+# This should generate an error because it's missing a keyword argument.
+twice(args_b, *some_args, 3)
+
+twice(args_b, *some_args, b="3")
+
+# This should generate an error because the keyword argument type is incorrect.
+twice(args_b, *some_args, b=3)

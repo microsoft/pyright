@@ -830,7 +830,7 @@ test('ParamSpec8', () => {
 
 test('ParamSpec9', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec9.py']);
-    TestUtils.validateResults(results, 9);
+    TestUtils.validateResults(results, 13);
 });
 
 test('ParamSpec10', () => {
