@@ -1,8 +1,9 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain value patterns.
 
+from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Tuple, TypeVar, Union
+from typing import Annotated, Tuple, TypeVar, Union
 from http import HTTPStatus
 
 
@@ -92,6 +93,21 @@ def test_enum_narrowing(m: Union[Medal, Color, int]):
             reveal_type(m, expected_text="int | Literal[Medal.bronze]")
 
 
+@dataclass
+class DC1:
+    a: Annotated[Color, str]
+
+
+def test_enum_narrowing_with_annotated(subj: DC1) -> None:
+    match subj.a:
+        case Color.red:
+            pass
+        case Color.blue:
+            pass
+        case x:
+            reveal_type(x, expected_text="Literal[Color.green]")
+
+
 class Foo(Enum):
     bar = auto()
 
@@ -110,7 +126,7 @@ class Numbers:
     INFINITY = float("inf")
 
 
-def parse_float(subj: float):
+def test_enum_narrowing_with_inf(subj: float):
     match subj:
         case Numbers.ONE:
             reveal_type(subj, expected_text="Literal[1]")
