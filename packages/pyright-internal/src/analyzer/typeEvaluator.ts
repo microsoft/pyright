@@ -18575,11 +18575,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (functionDecl?.isGenerator) {
                         const inferredYieldTypes: Type[] = [];
                         let useAwaitableGenerator = false;
+                        let isYieldResultUsed = false;
 
                         if (functionDecl.yieldStatements) {
                             functionDecl.yieldStatements.forEach((yieldNode) => {
                                 if (isNodeReachable(yieldNode)) {
                                     if (yieldNode.nodeType === ParseNodeType.YieldFrom) {
+                                        isYieldResultUsed = true;
                                         const iteratorTypeResult = getTypeOfExpression(yieldNode.expression);
                                         if (
                                             isClassInstance(iteratorTypeResult.type) &&
@@ -18597,6 +18599,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                             inferredYieldTypes.push(yieldType ?? UnknownType.create());
                                         }
                                     } else {
+                                        // If the yield expression is not by itself in a statement list,
+                                        // assume that its result is consumed.
+                                        if (yieldNode?.parent?.nodeType !== ParseNodeType.StatementList) {
+                                            isYieldResultUsed = true;
+                                        }
+
                                         if (yieldNode.expression) {
                                             const yieldType = getTypeOfExpression(yieldNode.expression).type;
                                             inferredYieldTypes.push(yieldType ?? UnknownType.create());
@@ -18623,9 +18631,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (generatorType && isInstantiableClass(generatorType)) {
                             const typeArgs: Type[] = [];
 
+                            // The "send type" for the generator (the second type argument) is
+                            // not generally inferrable, but we can assume that it's Any
+                            // if the function never uses the value and Unknown if it does.
+                            // This eliminates any "partially unknown" errors in strict mode
+                            // in the common case.
+                            const sendType = isYieldResultUsed ? UnknownType.create() : AnyType.create();
+
                             typeArgs.push(
                                 inferredYieldType,
-                                UnknownType.create(),
+                                sendType,
                                 isNever(inferredReturnType) ? NoneType.createInstance() : inferredReturnType
                             );
 

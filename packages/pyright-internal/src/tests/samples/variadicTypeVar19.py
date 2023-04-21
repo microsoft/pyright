@@ -19,7 +19,7 @@ def func1(a: Iterable[T], b: Iterable[T]):
 
 reveal_type(
     func1,
-    expected_text="(a: Iterable[T@func1], b: Iterable[T@func1]) -> Generator[tuple[T@func1, T@func1], Unknown, None]",
+    expected_text="(a: Iterable[T@func1], b: Iterable[T@func1]) -> Generator[tuple[T@func1, T@func1], Any, None]",
 )
 
 
@@ -30,15 +30,13 @@ def func2(a: tuple[*Ts], b: tuple[*Ts]):
 
 reveal_type(
     func2,
-    expected_text="(a: tuple[*Ts@func2], b: tuple[*Ts@func2]) -> Generator[tuple[Union[*Ts@func2], Union[*Ts@func2]], Unknown, None]",
+    expected_text="(a: tuple[*Ts@func2], b: tuple[*Ts@func2]) -> Generator[tuple[Union[*Ts@func2], Union[*Ts@func2]], Any, None]",
 )
 
 
 def func3():
     v1 = func2((1, "foo"), (2, "bar"))
-    reveal_type(
-        v1, expected_text="Generator[tuple[int | str, int | str], Unknown, None]"
-    )
+    reveal_type(v1, expected_text="Generator[tuple[int | str, int | str], Any, None]")
 
     for i in v1:
         reveal_type(i, expected_text="tuple[int | str, int | str]")

@@ -16,10 +16,26 @@ def generator1():
     yield ClassB()
 
 
+reveal_type(generator1(), expected_text="Generator[ClassB, Any, None]")
+
+
 def generator2():
     yield "Hello"
     yield ClassA()
     return 3
+
+
+reveal_type(
+    generator2(), expected_text="Generator[ClassA | Literal['Hello'], Any, Literal[3]]"
+)
+
+
+def generator3():
+    x = yield 3
+    return 0
+
+
+reveal_type(generator3(), expected_text="Generator[Literal[3], Unknown, Literal[0]]")
 
 
 def consumer1() -> ClassB:
