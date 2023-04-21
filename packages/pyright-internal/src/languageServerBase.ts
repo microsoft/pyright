@@ -73,7 +73,7 @@ import {
     WorkspaceSymbol,
     WorkspaceSymbolParams,
 } from 'vscode-languageserver';
-import { attachWorkDone, ResultProgressReporter } from 'vscode-languageserver/lib/common/progress';
+import { ResultProgressReporter, attachWorkDone } from 'vscode-languageserver/lib/common/progress';
 
 import { AnalysisResults } from './analyzer/analysis';
 import { BackgroundAnalysisProgram } from './analyzer/backgroundAnalysisProgram';
@@ -91,7 +91,7 @@ import {
     DiagnosticSeverityOverridesMap,
     getDiagnosticSeverityOverrides,
 } from './common/commandLineOptions';
-import { ConfigOptions, getDiagLevelDiagnosticRules, SignatureDisplayType } from './common/configOptions';
+import { ConfigOptions, SignatureDisplayType, getDiagLevelDiagnosticRules } from './common/configOptions';
 import { ConsoleInterface, ConsoleWithLogLevel, LogLevel } from './common/console';
 import {
     Diagnostic as AnalyzerDiagnostic,
@@ -106,7 +106,7 @@ import { FileSystem, FileWatcherEventType, FileWatcherHandler } from './common/f
 import { Host } from './common/host';
 import { fromLSPAny } from './common/lspUtils';
 import { convertPathToUri, deduplicateFolders, getDirectoryPath, getFileName, isFile } from './common/pathUtils';
-import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
+import { ProgressReportTracker, ProgressReporter } from './common/progressReporter';
 import { hashString } from './common/stringUtils';
 import { DocumentRange, Position, Range } from './common/textRange';
 import { UriParser } from './common/uriParser';
@@ -115,8 +115,8 @@ import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecut
 import { ImportFormat } from './languageService/autoImporter';
 import { CompletionItemData, CompletionOptions, CompletionResultsList } from './languageService/completionProvider';
 import { DefinitionFilter } from './languageService/definitionProvider';
-import { convertToFlatSymbols, WorkspaceSymbolCallback } from './languageService/documentSymbolProvider';
-import { convertHoverResults } from './languageService/hoverProvider';
+import { WorkspaceSymbolCallback, convertToFlatSymbols } from './languageService/documentSymbolProvider';
+import { HoverProvider, convertHoverResults } from './languageService/hoverProvider';
 import { ReferenceCallback } from './languageService/referencesProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
 import { PyrightFileSystem } from './pyrightFileSystem';
@@ -950,19 +950,31 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     protected async onHover(params: HoverParams, token: CancellationToken) {
         const { filePath, position } = this._uriParser.decodeTextDocumentPosition(params.textDocument, params.position);
-
         const workspace = await this.getWorkspaceForFile(filePath);
-        const hoverResults = workspace.service.getHoverForPosition(
-            filePath,
-            position,
-            this.client.hoverContentFormat,
-            token
-        );
-        return convertHoverResults(
-            this.client.hoverContentFormat,
-            hoverResults,
-            !!this._serverOptions.supportsTelemetry
-        );
+
+        return workspace.service.run((program) => {
+            const parseResult = program.getParseResults(filePath);
+            if (!parseResult) {
+                return undefined;
+            }
+
+            const sourceMapper = program.createSourceMapper(filePath, token, /* mapCompiled */ true);
+            const hoverResults = HoverProvider.getHoverForPosition(
+                sourceMapper,
+                parseResult,
+                position,
+                this.client.hoverContentFormat,
+                program.evaluator!,
+                program.configOptions.functionSignatureDisplay,
+                token
+            );
+
+            return convertHoverResults(
+                this.client.hoverContentFormat,
+                hoverResults,
+                !!this._serverOptions.supportsTelemetry
+            );
+        }, token);
     }
 
     protected async onDocumentHighlight(

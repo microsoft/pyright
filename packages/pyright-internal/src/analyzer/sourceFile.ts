@@ -19,15 +19,10 @@ import { isMainThread } from 'worker_threads';
 
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { OperationCanceledException } from '../common/cancellationUtils';
-import {
-    ConfigOptions,
-    ExecutionEnvironment,
-    getBasicDiagnosticRuleSet,
-    SignatureDisplayType,
-} from '../common/configOptions';
+import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
-import { convertLevelToCategory, Diagnostic, DiagnosticCategory, TaskListToken } from '../common/diagnostic';
+import { Diagnostic, DiagnosticCategory, TaskListToken, convertLevelToCategory } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextEditAction } from '../common/editAction';
@@ -38,7 +33,7 @@ import { fromLSPAny } from '../common/lspUtils';
 import { getFileName, normalizeSlashes, stripFileExtension } from '../common/pathUtils';
 import { convertOffsetsToRange, convertTextRangeToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
-import { DocumentRange, getEmptyRange, Position, Range, TextRange } from '../common/textRange';
+import { DocumentRange, Position, Range, TextRange, getEmptyRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/autoImporter';
@@ -53,13 +48,12 @@ import { DefinitionFilter, DefinitionProvider } from '../languageService/definit
 import { DocumentHighlightProvider } from '../languageService/documentHighlightProvider';
 import { DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
 import { DocumentSymbolProvider, IndexOptions, IndexResults } from '../languageService/documentSymbolProvider';
-import { HoverProvider, HoverResults } from '../languageService/hoverProvider';
 import { performQuickAction } from '../languageService/quickActions';
 import { ReferenceCallback, ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { SignatureHelpProvider, SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { Localizer } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
-import { ModuleImport, ParseOptions, Parser, ParseResults } from '../parser/parser';
+import { ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
 import { IgnoreComment } from '../parser/tokenizer';
 import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
@@ -1138,30 +1132,6 @@ export class SourceFile {
             this._parseResults,
             this._filePath,
             query,
-            token
-        );
-    }
-
-    getHoverForPosition(
-        sourceMapper: SourceMapper,
-        position: Position,
-        format: MarkupKind,
-        evaluator: TypeEvaluator,
-        functionSignatureDisplay: SignatureDisplayType,
-        token: CancellationToken
-    ): HoverResults | undefined {
-        // If this file hasn't been bound, no hover info is available.
-        if (this._isBindingNeeded || !this._parseResults) {
-            return undefined;
-        }
-
-        return HoverProvider.getHoverForPosition(
-            sourceMapper,
-            this._parseResults,
-            position,
-            format,
-            evaluator,
-            functionSignatureDisplay,
             token
         );
     }

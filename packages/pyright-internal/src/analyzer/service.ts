@@ -29,16 +29,16 @@ import { BackgroundAnalysisBase, IndexOptions, RefreshOptions } from '../backgro
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, matchFileSpecs } from '../common/configOptions';
-import { ConsoleInterface, log, LogLevel, StandardConsole } from '../common/console';
+import { ConsoleInterface, LogLevel, StandardConsole, log } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditActions, TextEditAction } from '../common/editAction';
-import { Extensions } from '../common/extensibility';
+import { Extensions, ProgramView } from '../common/extensibility';
 import { FileSystem, FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileSystem';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
 import { defaultStubsDirectory } from '../common/pathConsts';
 import {
-    combinePaths,
     FileSpec,
+    combinePaths,
     forEachAncestorDirectory,
     getDirectoryPath,
     getFileExtension,
@@ -61,16 +61,15 @@ import { AutoImportOptions, ImportFormat } from '../languageService/autoImporter
 import { AbbreviationMap, CompletionOptions, CompletionResultsList } from '../languageService/completionProvider';
 import { DefinitionFilter } from '../languageService/definitionProvider';
 import { WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
-import { HoverResults } from '../languageService/hoverProvider';
 import { ReferenceCallback } from '../languageService/referencesProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { AnalysisCompleteCallback } from './analysis';
 import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './backgroundAnalysisProgram';
 import { CacheManager } from './cacheManager';
 import {
-    createImportedModuleDescriptor,
     ImportResolver,
     ImportResolverFactory,
+    createImportedModuleDescriptor,
     supportedSourceFileExtensions,
 } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
@@ -414,15 +413,6 @@ export class AnalyzerService {
         this._program.reportSymbolsForWorkspace(query, reporter, token);
     }
 
-    getHoverForPosition(
-        filePath: string,
-        position: Position,
-        format: MarkupKind,
-        token: CancellationToken
-    ): HoverResults | undefined {
-        return this._program.getHoverForPosition(filePath, position, format, token);
-    }
-
     getDocumentHighlight(
         filePath: string,
         position: Position,
@@ -461,6 +451,10 @@ export class AnalyzerService {
 
     getEvaluator(): TypeEvaluator | undefined {
         return this._program.evaluator;
+    }
+
+    run<T>(callback: (p: ProgramView) => T, token: CancellationToken): T {
+        return this._program.run(callback, token);
     }
 
     resolveCompletionItem(
@@ -1151,7 +1145,7 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.program
             .getOpened()
             .map((o) => o.sourceFile.getFilePath())
-            .filter((f) => matchFileSpecs(this._program.getConfigOptions(), f))
+            .filter((f) => matchFileSpecs(this._program.configOptions, f))
             .forEach((f) => fileMap.set(f, f));
 
         return [...fileMap.values()];
@@ -1507,7 +1501,7 @@ export class AnalyzerService {
         }
 
         // The fs change is on a folder.
-        if (!matchFileSpecs(this._program.getConfigOptions(), path, /* isFile */ false)) {
+        if (!matchFileSpecs(this._program.configOptions, path, /* isFile */ false)) {
             // First, make sure the folder is included. By default, we exclude any folder whose name starts with '.'
             return false;
         }

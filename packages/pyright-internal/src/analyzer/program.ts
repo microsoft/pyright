@@ -29,7 +29,7 @@ import { assert, assertNever } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, FileEditActions, FileOperations, TextEditAction } from '../common/editAction';
-import { Extensions } from '../common/extensibility';
+import { Extensions, ProgramView } from '../common/extensibility';
 import { LogTracker } from '../common/logTracker';
 import {
     combinePaths,
@@ -76,15 +76,13 @@ import {
 import { DefinitionFilter } from '../languageService/definitionProvider';
 import { DocumentSymbolCollector, DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
 import { IndexOptions, IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
-import { HoverResults } from '../languageService/hoverProvider';
 import { ImportAdder, ImportData } from '../languageService/importAdder';
 import { getModuleStatementIndentation, reindentSpan } from '../languageService/indentationUtils';
 import { getInsertionPointForSymbolUnderModule } from '../languageService/insertionPointUtils';
 import { ReferenceCallback, ReferencesResult } from '../languageService/referencesProvider';
 import { RenameModuleProvider } from '../languageService/renameModuleProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
-import { ParseNodeType } from '../parser/parseNodes';
-import { StatementNode } from '../parser/parseNodes';
+import { ParseNodeType, StatementNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { AbsoluteModuleDescriptor, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -233,16 +231,28 @@ export class Program {
         this._cacheManager.unregisterCacheOwner(this);
     }
 
-    get evaluator(): TypeEvaluator | undefined {
-        return this._evaluator;
+    get id() {
+        return this._id;
     }
 
     get console(): ConsoleInterface {
         return this._console;
     }
 
-    get id() {
-        return this._id;
+    get rootPath(): string {
+        return this._configOptions.projectRoot;
+    }
+
+    get evaluator(): TypeEvaluator | undefined {
+        return this._evaluator;
+    }
+
+    get configOptions(): ConfigOptions {
+        return this._configOptions;
+    }
+
+    get importResolver(): ImportResolver {
+        return this._importResolver;
     }
 
     setConfigOptions(configOptions: ConfigOptions) {
@@ -253,14 +263,6 @@ export class Program {
         this._createNewEvaluator();
     }
 
-    get rootPath(): string {
-        return this._configOptions.projectRoot;
-    }
-
-    getConfigOptions(): ConfigOptions {
-        return this._configOptions;
-    }
-
     setImportResolver(importResolver: ImportResolver) {
         this._importResolver = importResolver;
 
@@ -268,10 +270,6 @@ export class Program {
         // Otherwise, lookup import passed to type evaluator might use
         // older import resolver when resolving imports after parsing.
         this._createNewEvaluator();
-    }
-
-    getImportResolver() {
-        return this._importResolver;
     }
 
     // Sets the list of tracked files that make up the program.
@@ -723,6 +721,28 @@ export class Program {
                 sourceFileInfo.sourceFile.dropParseAndBindInfo();
             }
         }
+    }
+
+    // This will allow the callback to execute a type evaluator with an associated
+    // cancellation token and provide a read-only program.
+    run<T>(callback: (p: ProgramView) => T, token: CancellationToken): T {
+        const evaluator = this._evaluator ?? this._createNewEvaluator();
+        return evaluator.runWithCancellationToken(token, () => callback(this));
+    }
+
+    createSourceMapper(
+        filePath: string,
+        token: CancellationToken,
+        mapCompiled?: boolean,
+        preferStubs?: boolean
+    ): SourceMapper {
+        const sourceFileInfo = this.getSourceFileInfo(filePath);
+        const execEnv = this._configOptions.findExecEnvironment(filePath);
+        return this._createSourceMapper(execEnv, token, sourceFileInfo, mapCompiled, preferStubs);
+    }
+
+    getParseResults(filePath: string): ParseResults | undefined {
+        return this.getBoundSourceFile(filePath)?.getParseResults();
     }
 
     // Prints a detailed list of files that have been checked and the times associated
@@ -1897,32 +1917,6 @@ export class Program {
                 // for situations where we need to discard the type cache.
                 this._handleMemoryHighUsage();
             }
-        });
-    }
-
-    getHoverForPosition(
-        filePath: string,
-        position: Position,
-        format: MarkupKind,
-        token: CancellationToken
-    ): HoverResults | undefined {
-        return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this.getSourceFileInfo(filePath);
-            if (!sourceFileInfo) {
-                return undefined;
-            }
-
-            this._bindFile(sourceFileInfo);
-
-            const execEnv = this._configOptions.findExecEnvironment(filePath);
-            return sourceFileInfo.sourceFile.getHoverForPosition(
-                this._createSourceMapper(execEnv, token, sourceFileInfo, /* mapCompiled */ true),
-                position,
-                format,
-                this._evaluator!,
-                this.functionSignatureDisplay(),
-                token
-            );
         });
     }
 
