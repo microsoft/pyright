@@ -21512,8 +21512,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* allowExternallyHiddenAccess */ AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile
                     ) ?? decl;
 
-                const isExplicitTypeAlias = isExplicitTypeAliasDeclaration(decl);
-                const isTypeAlias = isExplicitTypeAlias || isPossibleTypeAliasOrTypedDict(decl);
+                const isExplicitTypeAlias = isExplicitTypeAliasDeclaration(resolvedDecl);
+                const isTypeAlias = isExplicitTypeAlias || isPossibleTypeAliasOrTypedDict(resolvedDecl);
 
                 if (isExplicitTypeAlias) {
                     sawExplicitTypeAlias = true;
