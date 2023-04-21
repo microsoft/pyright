@@ -17,3 +17,12 @@
 
 # This should generate two errors because the rule is invalid.
 # pyright: reportBlahBlah = true
+
+# This should generate an error because it's not on its own line.
+a = 1  # pyright: reportGeneralTypeIssues=false
+
+
+def foo():
+    # This should generate an error because it's not on its own line.
+    # pyright: reportGeneralTypeIssues=false
+    pass

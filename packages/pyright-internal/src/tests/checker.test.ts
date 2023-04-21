@@ -350,7 +350,7 @@ test('PyrightComment1', () => {
     const configOptions = new ConfigOptions('.');
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['pyrightComment1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 9);
 });
 
 test('DuplicateImports1', () => {

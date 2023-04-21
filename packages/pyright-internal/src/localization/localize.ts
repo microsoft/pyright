@@ -729,6 +729,7 @@ export namespace Localizer {
         export const pyrightCommentInvalidDiagnosticSeverityValue = () =>
             getRawString('Diagnostic.pyrightCommentInvalidDiagnosticSeverityValue');
         export const pyrightCommentMissingDirective = () => getRawString('Diagnostic.pyrightCommentMissingDirective');
+        export const pyrightCommentNotOnOwnLine = () => getRawString('Diagnostic.pyrightCommentNotOnOwnLine');
         export const pyrightCommentUnknownDirective = () =>
             new ParameterizedString<{ directive: string }>(getRawString('Diagnostic.pyrightCommentUnknownDirective'));
         export const pyrightCommentUnknownDiagnosticRule = () =>
@@ -1240,6 +1241,7 @@ export namespace Localizer {
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.protocolSourceIsNotConcrete')
             );
+        export const pyrightCommentIgnoreTip = () => getRawString('DiagnosticAddendum.pyrightCommentIgnoreTip');
         export const readOnlyAttribute = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.readOnlyAttribute'));
         export const seeDeclaration = () => getRawString('DiagnosticAddendum.seeDeclaration');

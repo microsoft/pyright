@@ -19,7 +19,9 @@ import {
     getStrictModeNotOverriddenRules,
 } from '../common/configOptions';
 import { assert } from '../common/debug';
+import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
+import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Localizer } from '../localization/localize';
@@ -35,6 +37,7 @@ export interface CommentDiagnostic {
 
 export function getFileLevelDirectives(
     tokens: TextRangeCollection<Token>,
+    lines: TextRangeCollection<TextRange>,
     defaultRuleSet: DiagnosticRuleSet,
     useStrict: boolean,
     diagnostics: CommentDiagnostic[]
@@ -52,7 +55,12 @@ export function getFileLevelDirectives(
                 const textRange: TextRange = { start: comment.start, length: comment.length };
                 const value = _trimTextWithRange(comment.value, textRange);
 
-                ruleSet = _parsePyrightComment(value, textRange, ruleSet, diagnostics);
+                const isCommentOnOwnLine = (): boolean => {
+                    const curTokenLineOffset = convertOffsetToPosition(comment.start, lines).character;
+                    return curTokenLineOffset <= 1;
+                };
+
+                ruleSet = _parsePyrightComment(value, textRange, isCommentOnOwnLine, ruleSet, diagnostics);
             }
         }
     }
@@ -122,6 +130,7 @@ function _overwriteRules(ruleSet: DiagnosticRuleSet, overrideRuleSet: Diagnostic
 function _parsePyrightComment(
     commentValue: string,
     commentRange: TextRange,
+    isCommentOnOwnLine: () => boolean,
     ruleSet: DiagnosticRuleSet,
     diagnostics: CommentDiagnostic[]
 ) {
@@ -133,6 +142,17 @@ function _parsePyrightComment(
         // Handle (actual ignore) "ignore" directives.
         if (operands.trim().startsWith('ignore')) {
             return ruleSet;
+        }
+
+        if (!isCommentOnOwnLine()) {
+            const diagAddendum = new DiagnosticAddendum();
+            diagAddendum.addMessage(Localizer.DiagnosticAddendum.pyrightCommentIgnoreTip());
+            const diag: CommentDiagnostic = {
+                message: Localizer.Diagnostic.pyrightCommentNotOnOwnLine() + diagAddendum.getString(),
+                range: commentRange,
+            };
+
+            diagnostics.push(diag);
         }
 
         const operandList = operands.split(',');

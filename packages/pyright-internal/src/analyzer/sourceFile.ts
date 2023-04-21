@@ -27,8 +27,7 @@ import {
 } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
-import { TaskListToken } from '../common/diagnostic';
-import { convertLevelToCategory, Diagnostic, DiagnosticCategory } from '../common/diagnostic';
+import { convertLevelToCategory, Diagnostic, DiagnosticCategory, TaskListToken } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextEditAction } from '../common/editAction';
@@ -43,8 +42,13 @@ import { DocumentRange, getEmptyRange, Position, Range, TextRange } from '../com
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/autoImporter';
-import { AbbreviationMap, CompletionOptions, CompletionResults } from '../languageService/completionProvider';
-import { CompletionItemData, CompletionProvider } from '../languageService/completionProvider';
+import {
+    AbbreviationMap,
+    CompletionItemData,
+    CompletionOptions,
+    CompletionProvider,
+    CompletionResults,
+} from '../languageService/completionProvider';
 import { DefinitionFilter, DefinitionProvider } from '../languageService/definitionProvider';
 import { DocumentHighlightProvider } from '../languageService/documentHighlightProvider';
 import { DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
@@ -919,6 +923,7 @@ export class SourceFile {
                 const commentDiags: CommentUtils.CommentDiagnostic[] = [];
                 this._diagnosticRuleSet = CommentUtils.getFileLevelDirectives(
                     this._parseResults.tokenizerOutput.tokens,
+                    this._parseResults.tokenizerOutput.lines,
                     configOptions.diagnosticRuleSet,
                     useStrict,
                     commentDiags
