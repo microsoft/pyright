@@ -958,7 +958,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 return undefined;
             }
 
-            const sourceMapper = program.createSourceMapper(filePath, token, /* mapCompiled */ true);
+            const sourceMapper = program.getSourceMapper(filePath, token, /* mapCompiled */ true);
             const hoverResults = HoverProvider.getHoverForPosition(
                 sourceMapper,
                 parseResult,
