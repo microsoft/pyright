@@ -18623,15 +18623,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (generatorType && isInstantiableClass(generatorType)) {
                             const typeArgs: Type[] = [];
 
+                            typeArgs.push(
+                                inferredYieldType,
+                                UnknownType.create(),
+                                isNever(inferredReturnType) ? NoneType.createInstance() : inferredReturnType
+                            );
+
                             if (useAwaitableGenerator) {
                                 typeArgs.push(AnyType.create());
                             }
-
-                            typeArgs.push(
-                                inferredYieldType,
-                                NoneType.createInstance(),
-                                isNever(inferredReturnType) ? NoneType.createInstance() : inferredReturnType
-                            );
 
                             inferredReturnType = ClassType.cloneAsInstance(
                                 ClassType.cloneForSpecialization(

@@ -2281,9 +2281,9 @@ export function getGeneratorTypeArgs(returnType: Type): Type[] | undefined {
         if (ClassType.isBuiltIn(returnType, ['Generator', 'AsyncGenerator'])) {
             return returnType.typeArguments;
         } else if (ClassType.isBuiltIn(returnType, 'AwaitableGenerator')) {
-            // AwaitableGenerator has four type arguments, and the last 3
+            // AwaitableGenerator has four type arguments, and the first 3
             // correspond to the generator.
-            return returnType.typeArguments?.slice(1);
+            return returnType.typeArguments?.slice(0, 3);
         }
     }
 

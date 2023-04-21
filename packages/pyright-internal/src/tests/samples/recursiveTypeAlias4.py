@@ -2,7 +2,7 @@
 
 # pyright: strict, reportUnusedVariable=false
 
-from typing import Dict, List, Optional, Union
+from typing import Dict, Generator, List, Optional, Union
 
 
 JSONArray = List["JSONType"]
@@ -48,7 +48,7 @@ def f3(args: JSONStructured):
 LinkedList = Optional[tuple[int, "LinkedList"]]
 
 
-def g(xs: LinkedList):
+def g(xs: LinkedList) -> Generator[int, None, None]:
     while xs is not None:
         x, rest = xs
         yield x
