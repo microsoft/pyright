@@ -827,7 +827,7 @@ export class TestState {
             const rangePos = this.convertOffsetsToRange(range.fileName, range.pos, range.end);
 
             const parseResult = this.program.getParseResults(range.fileName)!;
-            const sourceMapper = this.program.createSourceMapper(
+            const sourceMapper = this.program.getSourceMapper(
                 range.fileName,
                 CancellationToken.None,
                 /* mapCompiled */ true

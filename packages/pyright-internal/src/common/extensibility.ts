@@ -48,8 +48,7 @@ export interface ProgramView {
     owns(file: string): boolean;
     getParseResults(filePath: string): ParseResults | undefined;
     getBoundSourceFileInfo(file: string, content?: string, force?: boolean): SourceFileInfo | undefined;
-
-    createSourceMapper(
+    getSourceMapper(
         filePath: string,
         token: CancellationToken,
         mapCompiled?: boolean,

@@ -730,7 +730,7 @@ export class Program {
         return evaluator.runWithCancellationToken(token, () => callback(this));
     }
 
-    createSourceMapper(
+    getSourceMapper(
         filePath: string,
         token: CancellationToken,
         mapCompiled?: boolean,
