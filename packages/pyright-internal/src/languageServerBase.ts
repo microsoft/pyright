@@ -116,7 +116,7 @@ import { ImportFormat } from './languageService/autoImporter';
 import { CompletionItemData, CompletionOptions, CompletionResultsList } from './languageService/completionProvider';
 import { DefinitionFilter } from './languageService/definitionProvider';
 import { WorkspaceSymbolCallback, convertToFlatSymbols } from './languageService/documentSymbolProvider';
-import { HoverProvider, convertHoverResults } from './languageService/hoverProvider';
+import { HoverProvider } from './languageService/hoverProvider';
 import { ReferenceCallback } from './languageService/referencesProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
 import { PyrightFileSystem } from './pyrightFileSystem';
@@ -953,27 +953,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         const workspace = await this.getWorkspaceForFile(filePath);
 
         return workspace.service.run((program) => {
-            const parseResult = program.getParseResults(filePath);
-            if (!parseResult) {
-                return undefined;
-            }
-
-            const sourceMapper = program.getSourceMapper(filePath, token, /* mapCompiled */ true);
-            const hoverResults = HoverProvider.getHoverForPosition(
-                sourceMapper,
-                parseResult,
+            return new HoverProvider(
+                program,
+                filePath,
                 position,
                 this.client.hoverContentFormat,
-                program.evaluator!,
-                program.configOptions.functionSignatureDisplay,
+                !!this._serverOptions.supportsTelemetry,
                 token
-            );
-
-            return convertHoverResults(
-                this.client.hoverContentFormat,
-                hoverResults,
-                !!this._serverOptions.supportsTelemetry
-            );
+            ).getHover();
         }, token);
     }
 
