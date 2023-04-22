@@ -48,22 +48,22 @@ import {
     normalizeSlashes,
 } from '../../../common/pathUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../../../common/positionUtils';
-import { DocumentRange, Position, Range as PositionRange, rangesAreEqual, TextRange } from '../../../common/textRange';
+import { DocumentRange, Position, Range as PositionRange, TextRange, rangesAreEqual } from '../../../common/textRange';
 import { TextRangeCollection } from '../../../common/textRangeCollection';
 import { LanguageServerInterface } from '../../../languageServerBase';
 import { AbbreviationInfo, ImportFormat } from '../../../languageService/autoImporter';
 import { CompletionOptions } from '../../../languageService/completionProvider';
 import { DefinitionFilter } from '../../../languageService/definitionProvider';
-import { convertHoverResults } from '../../../languageService/hoverProvider';
+import { HoverProvider, convertHoverResults } from '../../../languageService/hoverProvider';
 import { ParseNode } from '../../../parser/parseNodes';
 import { ParseResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
 import { PyrightFileSystem } from '../../../pyrightFileSystem';
 import {
-    createInitStatus,
     WellKnownWorkspaceKinds,
     Workspace,
     WorkspacePythonPathKind,
+    createInitStatus,
 } from '../../../workspaceFactory';
 import { TestAccessHost } from '../testAccessHost';
 import * as host from '../testHost';
@@ -826,10 +826,24 @@ export class TestState {
 
             const rangePos = this.convertOffsetsToRange(range.fileName, range.pos, range.end);
 
-            const actual = convertHoverResults(
-                kind,
-                this.program.getHoverForPosition(range.fileName, rangePos.start, kind, CancellationToken.None)
+            const parseResult = this.program.getParseResults(range.fileName)!;
+            const sourceMapper = this.program.getSourceMapper(
+                range.fileName,
+                CancellationToken.None,
+                /* mapCompiled */ true
             );
+
+            const hoverResults = HoverProvider.getHoverForPosition(
+                sourceMapper,
+                parseResult,
+                rangePos.start,
+                kind,
+                this.program.evaluator!,
+                this.program.configOptions.functionSignatureDisplay,
+                CancellationToken.None
+            );
+
+            const actual = convertHoverResults(kind, hoverResults);
 
             // if expected is null then there should be nothing shown on hover
             if (expected === null) {

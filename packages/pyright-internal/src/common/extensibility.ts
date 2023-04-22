@@ -39,12 +39,21 @@ export interface ProgramExtension {
 // Readonly wrapper around a Program. Makes sure it doesn't mutate the program.
 export interface ProgramView {
     readonly id: number;
-    rootPath: string;
-    getImportResolver(): ImportResolver;
-    console: ConsoleInterface;
-    getConfigOptions(): ConfigOptions;
+    readonly rootPath: string;
+    readonly console: ConsoleInterface;
+    readonly evaluator: TypeEvaluator | undefined;
+    readonly configOptions: ConfigOptions;
+    readonly importResolver: ImportResolver;
+
     owns(file: string): boolean;
+    getParseResults(filePath: string): ParseResults | undefined;
     getBoundSourceFileInfo(file: string, content?: string, force?: boolean): SourceFileInfo | undefined;
+    getSourceMapper(
+        filePath: string,
+        token: CancellationToken,
+        mapCompiled?: boolean,
+        preferStubs?: boolean
+    ): SourceMapper;
 }
 
 // Mutable wrapper around a program. Allows the FG thread to forward this request to the BG thread
