@@ -54,7 +54,7 @@ import { LanguageServerInterface } from '../../../languageServerBase';
 import { AbbreviationInfo, ImportFormat } from '../../../languageService/autoImporter';
 import { CompletionOptions } from '../../../languageService/completionProvider';
 import { DefinitionFilter } from '../../../languageService/definitionProvider';
-import { HoverProvider, convertHoverResults } from '../../../languageService/hoverProvider';
+import { HoverProvider } from '../../../languageService/hoverProvider';
 import { ParseNode } from '../../../parser/parseNodes';
 import { ParseResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
@@ -825,25 +825,15 @@ export class TestState {
             }
 
             const rangePos = this.convertOffsetsToRange(range.fileName, range.pos, range.end);
-
-            const parseResult = this.program.getParseResults(range.fileName)!;
-            const sourceMapper = this.program.getSourceMapper(
+            const provider = new HoverProvider(
+                this.program,
                 range.fileName,
-                CancellationToken.None,
-                /* mapCompiled */ true
-            );
-
-            const hoverResults = HoverProvider.getHoverForPosition(
-                sourceMapper,
-                parseResult,
                 rangePos.start,
                 kind,
-                this.program.evaluator!,
-                this.program.configOptions.functionSignatureDisplay,
+                false,
                 CancellationToken.None
             );
-
-            const actual = convertHoverResults(kind, hoverResults);
+            const actual = provider.getHover();
 
             // if expected is null then there should be nothing shown on hover
             if (expected === null) {
