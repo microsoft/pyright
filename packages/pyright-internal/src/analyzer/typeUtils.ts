@@ -1589,19 +1589,19 @@ export function setTypeArgumentsRecursive(
                         recursionCount
                     );
                 }
+            }
 
-                if (destType.details.paramSpec) {
-                    // Fill in an empty signature for a ParamSpec.
-                    if (!typeVarContext.getPrimarySignature().getTypeVar(destType.details.paramSpec)) {
-                        const newFunction = FunctionType.createInstance(
-                            '',
-                            '',
-                            '',
-                            FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck | FunctionTypeFlags.ParamSpecValue
-                        );
-                        FunctionType.addDefaultParameters(newFunction);
-                        typeVarContext.setTypeVarType(destType.details.paramSpec, newFunction);
-                    }
+            if (destType.details.paramSpec) {
+                // Fill in an empty signature for a ParamSpec.
+                if (!typeVarContext.getPrimarySignature().getTypeVar(destType.details.paramSpec)) {
+                    const newFunction = FunctionType.createInstance(
+                        '',
+                        '',
+                        '',
+                        FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck | FunctionTypeFlags.ParamSpecValue
+                    );
+                    FunctionType.addDefaultParameters(newFunction);
+                    typeVarContext.setTypeVarType(destType.details.paramSpec, newFunction);
                 }
             }
             break;
