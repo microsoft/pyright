@@ -10818,8 +10818,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // We may or may not be able to make use of the expected type. We'll evaluate
         // speculatively to see if using the expected type works.
         if (isUnion(inferenceContext.expectedType)) {
-            let speculativeResults: CallResult | undefined;
-
             useSpeculativeMode(errorNode, () => {
                 const typeVarContextCopy = typeVarContext.clone();
                 assignType(
@@ -10830,17 +10828,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* srcTypeVarContext */ undefined,
                     effectiveFlags | AssignTypeFlags.PopulatingExpectedType
                 );
-                speculativeResults = validateFunctionArgumentTypes(
+
+                const speculativeResults = validateFunctionArgumentTypes(
                     errorNode,
                     matchResults,
                     typeVarContextCopy,
                     skipUnknownArgCheck
                 );
-            });
 
-            if (speculativeResults && speculativeResults.argumentErrors) {
-                effectiveExpectedType = undefined;
-            }
+                if (speculativeResults?.argumentErrors) {
+                    effectiveExpectedType = undefined;
+                }
+            });
         }
 
         if (effectiveExpectedType) {
