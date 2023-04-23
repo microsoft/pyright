@@ -25,7 +25,7 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | --warnings                              | Use exit code of 1 if warnings are reported          |
 | -w, --watch                             | Continue to run and watch for changes (4)            |
 
-(1) If specific files are specified on the command line, the pyrightconfig.json file is ignored.
+(1) If specific files are specified on the command line, it overrides the files or directories specified in the pyrightconfig.json or pyproject.toml file.
 
 (2) Pyright has built-in typeshed type stubs for Python stdlib functionality. To use a different version of typeshed type stubs, specify the directory with this option.
 
