@@ -888,6 +888,31 @@ export function isProperty(type: Type) {
     return isClassInstance(type) && ClassType.isPropertyClass(type);
 }
 
+export function isCallableType(type: Type): boolean {
+    if (isFunction(type) || isOverloadedFunction(type) || isAnyOrUnknown(type)) {
+        return true;
+    }
+
+    if (isEffectivelyInstantiable(type)) {
+        return true;
+    }
+
+    if (isClass(type)) {
+        if (TypeBase.isInstantiable(type)) {
+            return true;
+        }
+
+        const callMember = lookUpObjectMember(type, '__call__');
+        return !!callMember;
+    }
+
+    if (isUnion(type)) {
+        return type.subtypes.every((subtype) => isCallableType(subtype));
+    }
+
+    return false;
+}
+
 export function isDescriptorInstance(type: Type, requireSetter = false): boolean {
     if (isUnion(type)) {
         return type.subtypes.every((subtype) => isMaybeDescriptorInstance(subtype, requireSetter));

@@ -271,6 +271,7 @@ import {
     getTypeVarScopeId,
     getUnionSubtypeCount,
     InferenceContext,
+    isCallableType,
     isDescriptorInstance,
     isEffectivelyInstantiable,
     isEllipsisType,
@@ -10871,6 +10872,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
 
                 effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext);
+            } else if (isFunction(effectiveReturnType)) {
+                // If the return type is a callable and the expected type is a union that
+                // includes one or more non-callables, filter those out.
+                if (isUnion(effectiveExpectedType)) {
+                    effectiveExpectedType = mapSubtypes(effectiveExpectedType, (subtype) => {
+                        return isCallableType(subtype) ? subtype : undefined;
+                    });
+                }
             }
 
             assignType(
