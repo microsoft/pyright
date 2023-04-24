@@ -55,11 +55,10 @@ import {
     tryRealpath,
     tryStat,
 } from '../common/pathUtils';
-import { DocumentRange, Position, Range } from '../common/textRange';
+import { Position, Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
 import { AutoImportOptions, ImportFormat } from '../languageService/autoImporter';
 import { AbbreviationMap, CompletionOptions, CompletionResultsList } from '../languageService/completionProvider';
-import { DefinitionFilter } from '../languageService/definitionProvider';
 import { WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { ReferenceCallback } from '../languageService/referencesProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
@@ -376,23 +375,6 @@ export class AnalyzerService {
     ) {
         options.libraryMap = options.libraryMap ?? this._backgroundAnalysisProgram.getIndexing(filePath);
         return this._program.getAutoImports(filePath, range, similarityLimit, nameMap, options, token);
-    }
-
-    getDefinitionForPosition(
-        filePath: string,
-        position: Position,
-        filter: DefinitionFilter,
-        token: CancellationToken
-    ): DocumentRange[] | undefined {
-        return this._program.getDefinitionsForPosition(filePath, position, filter, token);
-    }
-
-    getTypeDefinitionForPosition(
-        filePath: string,
-        position: Position,
-        token: CancellationToken
-    ): DocumentRange[] | undefined {
-        return this._program.getTypeDefinitionsForPosition(filePath, position, token);
     }
 
     reportReferencesForPosition(

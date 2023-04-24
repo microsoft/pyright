@@ -15,17 +15,17 @@ import { CancellationToken } from 'vscode-languageserver';
 import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType, isFunctionDeclaration } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
+import { SourceMapper, isStubFile } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { isOverloadedFunction, TypeCategory } from '../analyzer/types';
 import { doForEachSubtype } from '../analyzer/typeUtils';
+import { TypeCategory, isOverloadedFunction } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
-import { DeclarationUseCase, Extensions } from '../common/extensibility';
+import { DeclarationUseCase, Extensions, ProgramView } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
-import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export enum DefinitionFilter {
@@ -34,60 +34,41 @@ export enum DefinitionFilter {
     PreferStubs = 'preferStubs',
 }
 
-export class DefinitionProvider {
-    static getDefinitionsForPosition(
-        sourceMapper: SourceMapper,
-        parseResults: ParseResults,
-        position: Position,
-        filter: DefinitionFilter,
-        evaluator: TypeEvaluator,
-        token: CancellationToken
-    ): DocumentRange[] | undefined {
-        throwIfCancellationRequested(token);
+class DefinitionProviderBase {
+    protected constructor(
+        protected readonly _sourceMapper: SourceMapper,
+        protected readonly _evaluator: TypeEvaluator,
+        protected readonly _node: ParseNode | undefined,
+        private readonly _filter: DefinitionFilter,
+        protected readonly _token: CancellationToken
+    ) {}
 
-        const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
-        if (offset === undefined) {
-            return undefined;
-        }
+    getDefinitionsForNode(node: ParseNode) {
+        throwIfCancellationRequested(this._token);
 
-        const node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
-        if (node === undefined) {
-            return undefined;
-        }
-
-        return DefinitionProvider.getDefinitionsForNode(sourceMapper, node, filter, evaluator, token);
-    }
-
-    static getDefinitionsForNode(
-        sourceMapper: SourceMapper,
-        node: ParseNode,
-        filter: DefinitionFilter,
-        evaluator: TypeEvaluator,
-        token: CancellationToken
-    ) {
         const definitions: DocumentRange[] = [];
 
         // Let extensions have a try first.
         Extensions.getProgramExtensions(node).forEach((e) => {
             if (e.declarationProviderExtension) {
                 const declarations = e.declarationProviderExtension.tryGetDeclarations(
-                    evaluator,
+                    this._evaluator,
                     node,
                     DeclarationUseCase.Definition,
-                    token
+                    this._token
                 );
-                DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
+                this._resolveDeclarations(declarations, definitions);
             }
         });
 
         // There should be only one 'definition', so only if extensions failed should we try again.
         if (definitions.length === 0) {
             if (node.nodeType === ParseNodeType.Name) {
-                const declarations = evaluator.getDeclarationsForNameNode(node);
-                DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
+                const declarations = this._evaluator.getDeclarationsForNameNode(node);
+                this._resolveDeclarations(declarations, definitions);
             } else if (node.nodeType === ParseNodeType.String) {
-                const declarations = evaluator.getDeclarationsForStringNode(node);
-                DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
+                const declarations = this._evaluator.getDeclarationsForStringNode(node);
+                this._resolveDeclarations(declarations, definitions);
             }
         }
 
@@ -95,13 +76,13 @@ export class DefinitionProvider {
             return undefined;
         }
 
-        if (filter === DefinitionFilter.All) {
+        if (this._filter === DefinitionFilter.All) {
             return definitions;
         }
 
         // If go-to-declaration is supported, attempt to only show only pyi files in go-to-declaration
         // and none in go-to-definition, unless filtering would produce an empty list.
-        const preferStubs = filter === DefinitionFilter.PreferStubs;
+        const preferStubs = this._filter === DefinitionFilter.PreferStubs;
         const wantedFile = (v: DocumentRange) => preferStubs === isStubFile(v.path);
         if (definitions.find(wantedFile)) {
             return definitions.filter(wantedFile);
@@ -110,74 +91,10 @@ export class DefinitionProvider {
         return definitions;
     }
 
-    static getTypeDefinitionsForPosition(
-        sourceMapper: SourceMapper,
-        parseResults: ParseResults,
-        position: Position,
-        evaluator: TypeEvaluator,
-        filePath: string,
-        token: CancellationToken
-    ): DocumentRange[] | undefined {
-        throwIfCancellationRequested(token);
-
-        const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
-        if (offset === undefined) {
-            return undefined;
-        }
-
-        const node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
-        if (node === undefined) {
-            return undefined;
-        }
-
-        const definitions: DocumentRange[] = [];
-
-        if (node.nodeType === ParseNodeType.Name) {
-            const type = evaluator.getType(node);
-
-            if (type) {
-                let declarations: Declaration[] = [];
-
-                doForEachSubtype(type, (subtype) => {
-                    if (subtype?.category === TypeCategory.Class) {
-                        appendArray(declarations, sourceMapper.findClassDeclarationsByType(filePath, subtype));
-                    }
-                });
-
-                // Fall back to Go To Definition if the type can't be found (ex. Go To Type Definition
-                // was executed on a type name)
-                if (declarations.length === 0) {
-                    declarations = evaluator.getDeclarationsForNameNode(node) ?? [];
-                }
-
-                DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
-            }
-        } else if (node.nodeType === ParseNodeType.String) {
-            const declarations = evaluator.getDeclarationsForStringNode(node);
-            DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
-        }
-
-        if (definitions.length === 0) {
-            return undefined;
-        }
-
-        return definitions;
-    }
-
-    private static _getDeclarationsForNameNode(node: NameNode, evaluator: TypeEvaluator) {
-        // Fall back to the evaluator if no extension handled it.
-        return evaluator.getDeclarationsForNameNode(node) ?? [];
-    }
-
-    private static _resolveDeclarations(
-        declarations: Declaration[] | undefined,
-        evaluator: TypeEvaluator,
-        definitions: DocumentRange[],
-        sourceMapper: SourceMapper
-    ) {
+    protected _resolveDeclarations(declarations: Declaration[] | undefined, definitions: DocumentRange[]) {
         if (declarations) {
             declarations.forEach((decl) => {
-                let resolvedDecl = evaluator.resolveAliasDeclaration(
+                let resolvedDecl = this._evaluator.resolveAliasDeclaration(
                     decl,
                     /* resolveLocalNames */ true,
                     /* allowExternallyHiddenAccess */ true
@@ -200,19 +117,19 @@ export class DefinitionProvider {
                         resolvedDecl = resolvedDecl.submoduleFallback;
                     }
 
-                    this._addIfUnique(definitions, {
+                    _addIfUnique(definitions, {
                         path: resolvedDecl.path,
                         range: resolvedDecl.range,
                     });
 
                     if (isFunctionDeclaration(resolvedDecl)) {
                         // Handle overloaded function case
-                        const functionType = evaluator.getTypeForDeclaration(resolvedDecl)?.type;
+                        const functionType = this._evaluator.getTypeForDeclaration(resolvedDecl)?.type;
                         if (functionType && isOverloadedFunction(functionType)) {
                             for (const overloadDecl of functionType.overloads
                                 .map((o) => o.details.declaration)
                                 .filter(isDefined)) {
-                                this._addIfUnique(definitions, {
+                                _addIfUnique(definitions, {
                                     path: overloadDecl.path,
                                     range: overloadDecl.range,
                                 });
@@ -223,16 +140,16 @@ export class DefinitionProvider {
                     if (isStubFile(resolvedDecl.path)) {
                         if (resolvedDecl.type === DeclarationType.Alias) {
                             // Add matching source module
-                            sourceMapper
+                            this._sourceMapper
                                 .findModules(resolvedDecl.path)
                                 .map((m) => getFileInfo(m)?.filePath)
                                 .filter(isDefined)
-                                .forEach((f) => this._addIfUnique(definitions, this._createModuleEntry(f)));
+                                .forEach((f) => _addIfUnique(definitions, _createModuleEntry(f)));
                         } else {
-                            const implDecls = sourceMapper.findDeclarations(resolvedDecl);
+                            const implDecls = this._sourceMapper.findDeclarations(resolvedDecl);
                             for (const implDecl of implDecls) {
                                 if (implDecl && implDecl.path) {
-                                    this._addIfUnique(definitions, {
+                                    _addIfUnique(definitions, {
                                         path: implDecl.path,
                                         range: implDecl.range,
                                     });
@@ -244,24 +161,127 @@ export class DefinitionProvider {
             });
         }
     }
+}
 
-    private static _createModuleEntry(filePath: string): DocumentRange {
-        return {
-            path: filePath,
-            range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 0 },
-            },
-        };
+export class DefinitionProvider extends DefinitionProviderBase {
+    constructor(
+        program: ProgramView,
+        filePath: string,
+        position: Position,
+        filter: DefinitionFilter,
+        token: CancellationToken
+    ) {
+        const sourceMapper = program.getSourceMapper(filePath, token);
+        const parseResults = program.getParseResults(filePath);
+        const node = _tryGetNode(parseResults, position);
+
+        super(sourceMapper, program.evaluator!, node, filter, token);
     }
 
-    private static _addIfUnique(definitions: DocumentRange[], itemToAdd: DocumentRange) {
-        for (const def of definitions) {
-            if (def.path === itemToAdd.path && rangesAreEqual(def.range, itemToAdd.range)) {
-                return;
-            }
+    static getDefinitionsForNode(
+        sourceMapper: SourceMapper,
+        evaluator: TypeEvaluator,
+        node: ParseNode,
+        token: CancellationToken
+    ) {
+        const provider = new DefinitionProviderBase(sourceMapper, evaluator, node, DefinitionFilter.All, token);
+        return provider.getDefinitionsForNode(node);
+    }
+
+    getDefinitions(): DocumentRange[] | undefined {
+        if (this._node === undefined) {
+            return undefined;
         }
 
-        definitions.push(itemToAdd);
+        return this.getDefinitionsForNode(this._node);
     }
+}
+
+export class TypeDefinitionProvider extends DefinitionProviderBase {
+    private readonly _filePath: string;
+
+    constructor(program: ProgramView, filePath: string, position: Position, token: CancellationToken) {
+        const sourceMapper = program.getSourceMapper(filePath, token, /*mapCompiled*/ false, /*preferStubs*/ true);
+        const parseResults = program.getParseResults(filePath);
+        const node = _tryGetNode(parseResults, position);
+
+        super(sourceMapper, program.evaluator!, node, DefinitionFilter.All, token);
+        this._filePath = filePath;
+    }
+
+    getDefinitions(): DocumentRange[] | undefined {
+        throwIfCancellationRequested(this._token);
+        if (this._node === undefined) {
+            return undefined;
+        }
+
+        const definitions: DocumentRange[] = [];
+
+        if (this._node.nodeType === ParseNodeType.Name) {
+            const type = this._evaluator.getType(this._node);
+
+            if (type) {
+                let declarations: Declaration[] = [];
+
+                doForEachSubtype(type, (subtype) => {
+                    if (subtype?.category === TypeCategory.Class) {
+                        appendArray(
+                            declarations,
+                            this._sourceMapper.findClassDeclarationsByType(this._filePath, subtype)
+                        );
+                    }
+                });
+
+                // Fall back to Go To Definition if the type can't be found (ex. Go To Type Definition
+                // was executed on a type name)
+                if (declarations.length === 0) {
+                    declarations = this._evaluator.getDeclarationsForNameNode(this._node) ?? [];
+                }
+
+                this._resolveDeclarations(declarations, definitions);
+            }
+        } else if (this._node.nodeType === ParseNodeType.String) {
+            const declarations = this._evaluator.getDeclarationsForStringNode(this._node);
+            this._resolveDeclarations(declarations, definitions);
+        }
+
+        if (definitions.length === 0) {
+            return undefined;
+        }
+
+        return definitions;
+    }
+}
+
+function _tryGetNode(parseResults: ParseResults | undefined, position: Position) {
+    if (!parseResults) {
+        return undefined;
+    }
+
+    const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
+    if (offset === undefined) {
+        return undefined;
+    }
+
+    return ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
+}
+
+function _createModuleEntry(filePath: string): DocumentRange {
+    return {
+        path: filePath,
+        range: {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 0 },
+        },
+    };
+}
+
+function _addIfUnique(definitions: DocumentRange[], itemToAdd: DocumentRange) {
+    for (const def of definitions) {
+        if (def.path === itemToAdd.path && rangesAreEqual(def.range, itemToAdd.range)) {
+            return;
+        }
+    }
+
+    definitions.push(itemToAdd);
 }

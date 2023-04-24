@@ -53,7 +53,11 @@ import { TextRangeCollection } from '../../../common/textRangeCollection';
 import { LanguageServerInterface } from '../../../languageServerBase';
 import { AbbreviationInfo, ImportFormat } from '../../../languageService/autoImporter';
 import { CompletionOptions } from '../../../languageService/completionProvider';
-import { DefinitionFilter } from '../../../languageService/definitionProvider';
+import {
+    DefinitionFilter,
+    DefinitionProvider,
+    TypeDefinitionProvider,
+} from '../../../languageService/definitionProvider';
 import { HoverProvider } from '../../../languageService/hoverProvider';
 import { ParseNode } from '../../../parser/parseNodes';
 import { ParseResults } from '../../../parser/parser';
@@ -1330,7 +1334,13 @@ export class TestState {
             }
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
-            const actual = this.program.getDefinitionsForPosition(fileName, position, filter, CancellationToken.None);
+            const actual = new DefinitionProvider(
+                this.program,
+                fileName,
+                position,
+                filter,
+                CancellationToken.None
+            ).getDefinitions();
 
             assert.equal(actual?.length ?? 0, expected.length, `No definitions found for marker "${name}"`);
 
@@ -1362,7 +1372,12 @@ export class TestState {
             const expected = map[name].definitions;
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
-            const actual = this.program.getTypeDefinitionsForPosition(fileName, position, CancellationToken.None);
+            const actual = new TypeDefinitionProvider(
+                this.program,
+                fileName,
+                position,
+                CancellationToken.None
+            ).getDefinitions();
 
             assert.strictEqual(actual?.length ?? 0, expected.length, name);
 

@@ -33,7 +33,7 @@ import { fromLSPAny } from '../common/lspUtils';
 import { getFileName, normalizeSlashes, stripFileExtension } from '../common/pathUtils';
 import { convertOffsetsToRange, convertTextRangeToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
-import { DocumentRange, Position, Range, TextRange, getEmptyRange } from '../common/textRange';
+import { Position, Range, TextRange, getEmptyRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/autoImporter';
@@ -44,7 +44,6 @@ import {
     CompletionProvider,
     CompletionResults,
 } from '../languageService/completionProvider';
-import { DefinitionFilter, DefinitionProvider } from '../languageService/definitionProvider';
 import { DocumentHighlightProvider } from '../languageService/documentHighlightProvider';
 import { DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
 import { DocumentSymbolProvider, IndexOptions, IndexResults } from '../languageService/documentSymbolProvider';
@@ -1011,50 +1010,6 @@ export class SourceFile {
             const privateOrProtected = SymbolNameUtils.isPrivateOrProtectedName(name);
             return { privateOrProtected, symbols };
         });
-    }
-
-    getDefinitionsForPosition(
-        sourceMapper: SourceMapper,
-        position: Position,
-        filter: DefinitionFilter,
-        evaluator: TypeEvaluator,
-        token: CancellationToken
-    ): DocumentRange[] | undefined {
-        // If we have no completed analysis job, there's nothing to do.
-        if (!this._parseResults) {
-            return undefined;
-        }
-
-        return DefinitionProvider.getDefinitionsForPosition(
-            sourceMapper,
-            this._parseResults,
-            position,
-            filter,
-            evaluator,
-            token
-        );
-    }
-
-    getTypeDefinitionsForPosition(
-        sourceMapper: SourceMapper,
-        position: Position,
-        evaluator: TypeEvaluator,
-        filePath: string,
-        token: CancellationToken
-    ): DocumentRange[] | undefined {
-        // If we have no completed analysis job, there's nothing to do.
-        if (!this._parseResults) {
-            return undefined;
-        }
-
-        return DefinitionProvider.getTypeDefinitionsForPosition(
-            sourceMapper,
-            this._parseResults,
-            position,
-            evaluator,
-            filePath,
-            token
-        );
     }
 
     getDeclarationForPosition(

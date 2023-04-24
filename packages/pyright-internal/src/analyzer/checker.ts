@@ -22,7 +22,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { getFileExtension } from '../common/pathUtils';
 import { PythonVersion, versionToString } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { DefinitionFilter, DefinitionProvider } from '../languageService/definitionProvider';
+import { DefinitionProvider } from '../languageService/definitionProvider';
 import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
@@ -3883,9 +3883,8 @@ export class Checker extends ParseTreeWalker {
             // If the definition for this name is in 'user' module, it is overwriting the stdlib module.
             const definitions = DefinitionProvider.getDefinitionsForNode(
                 this._sourceMapper,
-                namePartNodes[namePartNodes.length - 1],
-                DefinitionFilter.All,
                 this._evaluator,
+                namePartNodes[namePartNodes.length - 1],
                 CancellationToken.None
             );
             const paths = definitions ? definitions.map((d) => d.path) : [];
