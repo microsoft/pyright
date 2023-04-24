@@ -46,15 +46,7 @@ import {
 import { convertPositionToOffset, convertRangeToTextRange, convertTextRangeToRange } from '../common/positionUtils';
 import { computeCompletionSimilarity } from '../common/stringUtils';
 import { TextEditTracker } from '../common/textEditTracker';
-import {
-    DocumentRange,
-    doesRangeContain,
-    doRangesIntersect,
-    getEmptyRange,
-    Position,
-    Range,
-    TextRange,
-} from '../common/textRange';
+import { doesRangeContain, doRangesIntersect, getEmptyRange, Position, Range, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
 import { applyTextEditsToString } from '../common/workspaceEditUtils';
@@ -73,7 +65,6 @@ import {
     CompletionOptions,
     CompletionResultsList,
 } from '../languageService/completionProvider';
-import { DefinitionFilter } from '../languageService/definitionProvider';
 import { DocumentSymbolCollector, DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
 import { IndexOptions, IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { ImportAdder, ImportData } from '../languageService/importAdder';
@@ -1683,61 +1674,6 @@ export class Program {
 
         return unfilteredDiagnostics.filter((diag) => {
             return doRangesIntersect(diag.range, range);
-        });
-    }
-
-    getDefinitionsForPosition(
-        filePath: string,
-        position: Position,
-        filter: DefinitionFilter,
-        token: CancellationToken
-    ): DocumentRange[] | undefined {
-        return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this.getSourceFileInfo(filePath);
-            if (!sourceFileInfo) {
-                return undefined;
-            }
-
-            this._bindFile(sourceFileInfo);
-
-            const execEnv = this._configOptions.findExecEnvironment(filePath);
-            return sourceFileInfo.sourceFile.getDefinitionsForPosition(
-                this._createSourceMapper(execEnv, token, sourceFileInfo),
-                position,
-                filter,
-                this._evaluator!,
-                token
-            );
-        });
-    }
-
-    getTypeDefinitionsForPosition(
-        filePath: string,
-        position: Position,
-        token: CancellationToken
-    ): DocumentRange[] | undefined {
-        return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this.getSourceFileInfo(filePath);
-            if (!sourceFileInfo) {
-                return undefined;
-            }
-
-            this._bindFile(sourceFileInfo);
-
-            const execEnv = this._configOptions.findExecEnvironment(filePath);
-            return sourceFileInfo.sourceFile.getTypeDefinitionsForPosition(
-                this._createSourceMapper(
-                    execEnv,
-                    token,
-                    sourceFileInfo,
-                    /* mapCompiled */ false,
-                    /* preferStubs */ true
-                ),
-                position,
-                this._evaluator!,
-                filePath,
-                token
-            );
         });
     }
 

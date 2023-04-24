@@ -114,7 +114,7 @@ import { convertToWorkspaceEdit } from './common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { ImportFormat } from './languageService/autoImporter';
 import { CompletionItemData, CompletionOptions, CompletionResultsList } from './languageService/completionProvider';
-import { DefinitionFilter } from './languageService/definitionProvider';
+import { DefinitionFilter, DefinitionProvider, TypeDefinitionProvider } from './languageService/definitionProvider';
 import { WorkspaceSymbolCallback, convertToFlatSymbols } from './languageService/documentSymbolProvider';
 import { HoverProvider } from './languageService/hoverProvider';
 import { ReferenceCallback } from './languageService/referencesProvider';
@@ -789,7 +789,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             token,
             this.client.hasGoToDeclarationCapability ? DefinitionFilter.PreferSource : DefinitionFilter.All,
             (workspace, filePath, position, filter, token) =>
-                workspace.service.getDefinitionForPosition(filePath, position, filter, token)
+                workspace.service.run((program) => {
+                    return new DefinitionProvider(program, filePath, position, filter, token).getDefinitions();
+                }, token)
         );
     }
 
@@ -802,7 +804,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             token,
             this.client.hasGoToDeclarationCapability ? DefinitionFilter.PreferStubs : DefinitionFilter.All,
             (workspace, filePath, position, filter, token) =>
-                workspace.service.getDefinitionForPosition(filePath, position, filter, token)
+                workspace.service.run((program) => {
+                    return new DefinitionProvider(program, filePath, position, filter, token).getDefinitions();
+                }, token)
         );
     }
 
@@ -811,7 +815,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         token: CancellationToken
     ): Promise<Definition | DefinitionLink[] | undefined | null> {
         return this.getDefinitions(params, token, DefinitionFilter.All, (workspace, filePath, position, _, token) =>
-            workspace.service.getTypeDefinitionForPosition(filePath, position, token)
+            workspace.service.run((program) => {
+                return new TypeDefinitionProvider(program, filePath, position, token).getDefinitions();
+            }, token)
         );
     }
 
