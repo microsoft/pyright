@@ -60,6 +60,7 @@ import {
 } from '../../../languageService/definitionProvider';
 import { DocumentHighlightProvider } from '../../../languageService/documentHighlightProvider';
 import { HoverProvider } from '../../../languageService/hoverProvider';
+import { SignatureHelpProvider } from '../../../languageService/signatureHelpProvider';
 import { ParseNode } from '../../../parser/parseNodes';
 import { ParseResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
@@ -1103,12 +1104,16 @@ export class TestState {
             const expected = map[name];
             const position = this.convertOffsetToPosition(fileName, marker.position);
 
-            const actual = this.program.getSignatureHelpForPosition(
+            const actual = new SignatureHelpProvider(
+                this.program,
                 fileName,
                 position,
                 docFormat,
+                /*hasSignatureLabelOffsetCapability*/ true,
+                /*hasActiveParameterCapability*/ true,
+                /*context*/ undefined,
                 CancellationToken.None
-            );
+            ).getSignatureHelp();
 
             if (expected.noSig) {
                 assert.equal(actual, undefined);
@@ -1128,7 +1133,7 @@ export class TestState {
                 const actualParameters: string[] = [];
 
                 sig.parameters!.forEach((p) => {
-                    actualParameters.push(sig.label.substring(p.startOffset, p.endOffset));
+                    actualParameters.push(isString(p.label) ? p.label : sig.label.substring(p.label[0], p.label[1]));
                 });
 
                 assert.deepEqual(actualParameters, expectedSig.parameters);
@@ -1149,7 +1154,11 @@ export class TestState {
             );
 
             if (expected.callHasParameters !== undefined) {
-                assert.equal(actual.callHasParameters, expected.callHasParameters);
+                const isActive = (sig: { parameters: string[] }) =>
+                    !expected.callHasParameters && !sig.parameters?.length;
+
+                const activeSignature = expected.signatures?.findIndex(isActive) ?? undefined;
+                assert.equal(actual.activeSignature, activeSignature);
             }
         }
     }

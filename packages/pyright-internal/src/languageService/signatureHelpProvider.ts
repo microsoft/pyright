@@ -9,7 +9,16 @@
  * arguments for the call.
  */
 
-import { CancellationToken, MarkupContent, MarkupKind } from 'vscode-languageserver';
+import {
+    CancellationToken,
+    MarkupContent,
+    MarkupKind,
+    ParameterInformation,
+    SignatureHelp,
+    SignatureHelpContext,
+    SignatureHelpTriggerKind,
+    SignatureInformation,
+} from 'vscode-languageserver';
 
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
@@ -21,6 +30,7 @@ import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { PrintTypeFlags } from '../analyzer/typePrinter';
 import { isClassInstance } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { ProgramView } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
 import { CallNode, NameNode, ParseNodeType } from '../parser/parseNodes';
@@ -47,22 +57,39 @@ export interface SignatureHelpResults {
 }
 
 export class SignatureHelpProvider {
-    static getSignatureHelpForPosition(
-        parseResults: ParseResults,
-        position: Position,
-        sourceMapper: SourceMapper,
-        evaluator: TypeEvaluator,
-        format: MarkupKind,
-        token: CancellationToken
-    ): SignatureHelpResults | undefined {
-        throwIfCancellationRequested(token);
+    private readonly _parseResults: ParseResults | undefined;
+    private readonly _sourceMapper: SourceMapper;
 
-        const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
+    constructor(
+        private _program: ProgramView,
+        private _filePath: string,
+        private _position: Position,
+        private _format: MarkupKind,
+        private _hasSignatureLabelOffsetCapability: boolean,
+        private _hasActiveParameterCapability: boolean,
+        private _context: SignatureHelpContext | undefined,
+        private _token: CancellationToken
+    ) {
+        this._parseResults = this._program.getParseResults(this._filePath);
+        this._sourceMapper = this._program.getSourceMapper(this._filePath, this._token, /* mapCompiled */ true);
+    }
+
+    getSignatureHelp(): SignatureHelp | undefined {
+        return this._convert(this._getSignatureHelp());
+    }
+
+    private _getSignatureHelp(): SignatureHelpResults | undefined {
+        throwIfCancellationRequested(this._token);
+        if (!this._parseResults) {
+            return undefined;
+        }
+
+        const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
             return undefined;
         }
 
-        let node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
+        let node = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, offset);
 
         // See if we can get to a "better" node by backing up a few columns.
         // A "better" node is defined as one that's deeper than the current
@@ -75,11 +102,11 @@ export class SignatureHelpProvider {
             // arguments, and we don't want to mistakenly think that we're
             // pointing to a previous argument. Don't scan across open parenthesis so that
             // we don't go into the wrong function call
-            const ch = parseResults.text.substr(curOffset, 1);
+            const ch = this._parseResults.text.substr(curOffset, 1);
             if (ch === ',' || ch === '(') {
                 break;
             }
-            const curNode = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, curOffset);
+            const curNode = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, curOffset);
             if (curNode && curNode !== initialNode) {
                 if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
                     node = curNode;
@@ -94,12 +121,12 @@ export class SignatureHelpProvider {
             return undefined;
         }
 
-        const callInfo = getCallNodeAndActiveParameterIndex(node, offset, parseResults.tokenizerOutput.tokens);
+        const callInfo = getCallNodeAndActiveParameterIndex(node, offset, this._parseResults.tokenizerOutput.tokens);
         if (!callInfo) {
             return;
         }
 
-        const callSignatureInfo = evaluator.getCallSignatureInfo(
+        const callSignatureInfo = this._evaluator.getCallSignatureInfo(
             callInfo.callNode,
             callInfo.activeIndex,
             callInfo.activeOrFake
@@ -109,29 +136,114 @@ export class SignatureHelpProvider {
         }
 
         const signatures = callSignatureInfo.signatures.map((sig) =>
-            this._makeSignature(callSignatureInfo.callNode, sig, sourceMapper, evaluator, format)
+            this._makeSignature(callSignatureInfo.callNode, sig)
         );
-        const callHasParameters = !!callSignatureInfo.callNode.arguments?.length;
 
+        const callHasParameters = !!callSignatureInfo.callNode.arguments?.length;
         return {
             signatures,
             callHasParameters,
         };
     }
 
-    private static _makeSignature(
-        callNode: CallNode,
-        signature: CallSignature,
-        sourceMapper: SourceMapper,
-        evaluator: TypeEvaluator,
-        format: MarkupKind
-    ): SignatureInfo {
+    private _convert(signatureHelpResults: SignatureHelpResults | undefined) {
+        if (!signatureHelpResults) {
+            return undefined;
+        }
+
+        const signatures = signatureHelpResults.signatures.map((sig) => {
+            let paramInfo: ParameterInformation[] = [];
+            if (sig.parameters) {
+                paramInfo = sig.parameters.map((param) =>
+                    ParameterInformation.create(
+                        this._hasSignatureLabelOffsetCapability ? [param.startOffset, param.endOffset] : param.text,
+                        param.documentation
+                    )
+                );
+            }
+
+            const sigInfo = SignatureInformation.create(sig.label, /* documentation */ undefined, ...paramInfo);
+            if (sig.documentation !== undefined) {
+                sigInfo.documentation = sig.documentation;
+            }
+
+            if (sig.activeParameter !== undefined) {
+                sigInfo.activeParameter = sig.activeParameter;
+            }
+            return sigInfo;
+        });
+
+        // A signature is active if it contains an active parameter,
+        // or if both the signature and its invocation have no parameters.
+        const isActive = (sig: SignatureInformation) =>
+            sig.activeParameter !== undefined || (!signatureHelpResults.callHasParameters && !sig.parameters?.length);
+
+        let activeSignature: number | undefined = signatures.findIndex(isActive);
+        if (activeSignature === -1) {
+            activeSignature = undefined;
+        }
+
+        let activeParameter = activeSignature !== undefined ? signatures[activeSignature].activeParameter! : undefined;
+
+        // Check if we should reuse the user's signature selection. If the retrigger was not "invoked"
+        // (i.e., the signature help call was automatically generated by the client due to some navigation
+        // or text change), check to see if the previous signature is still "active". If so, we mark it as
+        // active in our response.
+        //
+        // This isn't a perfect method. For nested calls, we can't tell when we are moving between them.
+        // Ideally, we would include a token in the signature help responses to compare later, allowing us
+        // to know when the user's navigated to a nested call (and therefore the old signature's info does
+        // not apply), but for now manually retriggering the signature help will work around the issue.
+        if (this._context?.isRetrigger && this._context.triggerKind !== SignatureHelpTriggerKind.Invoked) {
+            const prevActiveSignature = this._context.activeSignatureHelp?.activeSignature;
+            if (prevActiveSignature !== undefined && prevActiveSignature < signatures.length) {
+                const sig = signatures[prevActiveSignature];
+                if (isActive(sig)) {
+                    activeSignature = prevActiveSignature;
+                    activeParameter = sig.activeParameter;
+                }
+            }
+        }
+
+        if (this._hasActiveParameterCapability || activeSignature === undefined) {
+            // If there is no active parameter, then we want the client to not highlight anything.
+            // Unfortunately, the LSP spec says that "undefined" or "out of bounds" values should be
+            // treated as 0, which is the first parameter. That's not what we want, but thankfully
+            // VS Code (and potentially other clients) choose to handle out of bounds values by
+            // not highlighting them, which is what we want.
+            //
+            // The spec defines activeParameter as uinteger, so use the maximum length of any
+            // signature's parameter list to ensure that the value is always out of range.
+            //
+            // We always set this even if some signature has an active parameter, as this
+            // value is used as the fallback for signatures that don't explicitly specify an
+            // active parameter (and we use "undefined" to mean "no active parameter").
+            //
+            // We could apply this hack to each individual signature such that they all specify
+            // activeParameter, but that would make it more difficult to determine which actually
+            // are active when comparing, and we already have to set this for clients which don't
+            // support per-signature activeParameter.
+            //
+            // See:
+            //   - https://github.com/microsoft/language-server-protocol/issues/1271
+            //   - https://github.com/microsoft/pyright/pull/1783
+            activeParameter = Math.max(...signatures.map((s) => s.parameters?.length ?? 0));
+        }
+
+        return { signatures, activeSignature, activeParameter };
+    }
+
+    private get _evaluator(): TypeEvaluator {
+        return this._program.evaluator!;
+    }
+
+    private _makeSignature(callNode: CallNode, signature: CallSignature): SignatureInfo {
         const functionType = signature.type;
-        const stringParts = evaluator.printFunctionParts(functionType, PrintTypeFlags.ExpandTypedDictArgs);
+        const stringParts = this._evaluator.printFunctionParts(functionType, PrintTypeFlags.ExpandTypedDictArgs);
         const parameters: ParamInfo[] = [];
         const functionDocString =
-            getFunctionDocStringFromType(functionType, sourceMapper, evaluator) ??
-            this._getDocStringFromCallNode(callNode, sourceMapper, evaluator);
+            getFunctionDocStringFromType(functionType, this._sourceMapper, this._evaluator) ??
+            this._getDocStringFromCallNode(callNode);
 
         let label = '(';
         let activeParameter: number | undefined;
@@ -195,7 +307,7 @@ export class SignatureHelpProvider {
         };
 
         if (functionDocString) {
-            if (format === MarkupKind.Markdown) {
+            if (this._format === MarkupKind.Markdown) {
                 sigInfo.documentation = {
                     kind: MarkupKind.Markdown,
                     value: convertDocStringToMarkdown(functionDocString),
@@ -211,11 +323,7 @@ export class SignatureHelpProvider {
         return sigInfo;
     }
 
-    private static _getDocStringFromCallNode(
-        callNode: CallNode,
-        sourceMapper: SourceMapper,
-        evaluator: TypeEvaluator
-    ): string | undefined {
+    private _getDocStringFromCallNode(callNode: CallNode): string | undefined {
         // This is a heuristic to see whether we can get some docstring
         // from call node when all other methods failed.
         // It only works if call is off a name node.
@@ -231,18 +339,18 @@ export class SignatureHelpProvider {
             return undefined;
         }
 
-        for (const decl of evaluator.getDeclarationsForNameNode(name) ?? []) {
-            const resolveDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+        for (const decl of this._evaluator.getDeclarationsForNameNode(name) ?? []) {
+            const resolveDecl = this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
             if (!resolveDecl) {
                 continue;
             }
 
-            const type = evaluator.getType(name);
+            const type = this._evaluator.getType(name);
             if (!type) {
                 continue;
             }
 
-            const part = getDocumentationPartsForTypeAndDecl(sourceMapper, type, resolveDecl, evaluator);
+            const part = getDocumentationPartsForTypeAndDecl(this._sourceMapper, type, resolveDecl, this._evaluator);
             if (part) {
                 return part;
             }

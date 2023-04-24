@@ -15,7 +15,6 @@ import {
     CallHierarchyItem,
     CallHierarchyOutgoingCall,
     CompletionList,
-    MarkupKind,
 } from 'vscode-languageserver-types';
 
 import { Commands } from '../commands/commands';
@@ -71,7 +70,6 @@ import { getModuleStatementIndentation, reindentSpan } from '../languageService/
 import { getInsertionPointForSymbolUnderModule } from '../languageService/insertionPointUtils';
 import { ReferenceCallback, ReferencesResult } from '../languageService/referencesProvider';
 import { RenameModuleProvider } from '../languageService/renameModuleProvider';
-import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ParseNodeType, StatementNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { AbsoluteModuleDescriptor, ImportLookupResult } from './analyzerFileInfo';
@@ -1852,31 +1850,6 @@ export class Program {
                 // for situations where we need to discard the type cache.
                 this._handleMemoryHighUsage();
             }
-        });
-    }
-
-    getSignatureHelpForPosition(
-        filePath: string,
-        position: Position,
-        format: MarkupKind,
-        token: CancellationToken
-    ): SignatureHelpResults | undefined {
-        return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this.getSourceFileInfo(filePath);
-            if (!sourceFileInfo) {
-                return undefined;
-            }
-
-            this._bindFile(sourceFileInfo);
-
-            const execEnv = this._configOptions.findExecEnvironment(filePath);
-            return sourceFileInfo.sourceFile.getSignatureHelpForPosition(
-                position,
-                this._createSourceMapper(execEnv, token, sourceFileInfo, /* mapCompiled */ true),
-                this._evaluator!,
-                format,
-                token
-            );
         });
     }
 

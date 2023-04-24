@@ -17,12 +17,7 @@ import {
     DocumentSymbol,
 } from 'vscode-languageserver';
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
-import {
-    CallHierarchyIncomingCall,
-    CallHierarchyItem,
-    CallHierarchyOutgoingCall,
-    MarkupKind,
-} from 'vscode-languageserver-types';
+import { CallHierarchyIncomingCall, CallHierarchyItem, CallHierarchyOutgoingCall } from 'vscode-languageserver-types';
 
 import { BackgroundAnalysisBase, IndexOptions, RefreshOptions } from '../backgroundAnalysisBase';
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
@@ -60,7 +55,6 @@ import { AutoImportOptions, ImportFormat } from '../languageService/autoImporter
 import { AbbreviationMap, CompletionOptions, CompletionResultsList } from '../languageService/completionProvider';
 import { WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { ReferenceCallback } from '../languageService/referencesProvider';
-import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { AnalysisCompleteCallback } from './analysis';
 import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './backgroundAnalysisProgram';
 import { CacheManager } from './cacheManager';
@@ -392,15 +386,6 @@ export class AnalyzerService {
 
     reportSymbolsForWorkspace(query: string, reporter: WorkspaceSymbolCallback, token: CancellationToken) {
         this._program.reportSymbolsForWorkspace(query, reporter, token);
-    }
-
-    getSignatureHelpForPosition(
-        filePath: string,
-        position: Position,
-        format: MarkupKind,
-        token: CancellationToken
-    ): SignatureHelpResults | undefined {
-        return this._program.getSignatureHelpForPosition(filePath, position, format, token);
     }
 
     getCompletionsForPosition(
