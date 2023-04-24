@@ -12670,7 +12670,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // this as a reportOptionalOperand diagnostic rather than a
                     // reportGeneralTypeIssues diagnostic.
                     addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportOptionalOperand,
+                        fileInfo.diagnosticRuleSet.reportOptionalOperand,
                         DiagnosticRule.reportOptionalOperand,
                         Localizer.Diagnostic.noneOperator().format({
                             operator: ParseTreeUtils.printOperator(node.operator),
@@ -12678,6 +12678,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         node.leftExpression
                     );
                 } else {
+                    // If neither the LHS or RHS are unions, don't include a diagnostic addendum
+                    // because it will be redundant with the main diagnostic message. The addenda
+                    // are useful only if union expansion was used for one or both operands.
+                    let diagString = '';
+                    if (
+                        isUnion(makeTopLevelTypeVarsConcrete(leftType)) ||
+                        isUnion(makeTopLevelTypeVarsConcrete(rightType))
+                    ) {
+                        diagString = diag.getString();
+                    }
+
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -12685,7 +12696,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             operator: ParseTreeUtils.printOperator(node.operator),
                             leftType: printType(leftType),
                             rightType: printType(rightType),
-                        }) + diag.getString(),
+                        }) + diagString,
                         node
                     );
                 }
