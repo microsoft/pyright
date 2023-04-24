@@ -58,6 +58,7 @@ import {
     DefinitionProvider,
     TypeDefinitionProvider,
 } from '../../../languageService/definitionProvider';
+import { DocumentHighlightProvider } from '../../../languageService/documentHighlightProvider';
 import { HoverProvider } from '../../../languageService/hoverProvider';
 import { ParseNode } from '../../../parser/parseNodes';
 import { ParseResults } from '../../../parser/parser';
@@ -1290,7 +1291,12 @@ export class TestState {
             const expected = map[name].references;
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
-            const actual = this.program.getDocumentHighlight(fileName, position, CancellationToken.None);
+            const actual = new DocumentHighlightProvider(
+                this.program,
+                fileName,
+                position,
+                CancellationToken.None
+            ).getDocumentHighlight();
 
             assert.equal(actual?.length ?? 0, expected.length);
 

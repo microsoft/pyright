@@ -115,6 +115,7 @@ import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecut
 import { ImportFormat } from './languageService/autoImporter';
 import { CompletionItemData, CompletionOptions, CompletionResultsList } from './languageService/completionProvider';
 import { DefinitionFilter, DefinitionProvider, TypeDefinitionProvider } from './languageService/definitionProvider';
+import { DocumentHighlightProvider } from './languageService/documentHighlightProvider';
 import { WorkspaceSymbolCallback, convertToFlatSymbols } from './languageService/documentSymbolProvider';
 import { HoverProvider } from './languageService/hoverProvider';
 import { ReferenceCallback } from './languageService/referencesProvider';
@@ -976,7 +977,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     ): Promise<DocumentHighlight[] | null | undefined> {
         const { filePath, position } = this._uriParser.decodeTextDocumentPosition(params.textDocument, params.position);
         const workspace = await this.getWorkspaceForFile(filePath);
-        return workspace.service.getDocumentHighlight(filePath, position, token);
+
+        return workspace.service.run((program) => {
+            return new DocumentHighlightProvider(program, filePath, position, token).getDocumentHighlight();
+        }, token);
     }
 
     protected async onSignatureHelp(

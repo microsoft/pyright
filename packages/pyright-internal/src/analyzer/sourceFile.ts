@@ -7,13 +7,7 @@
  * Class that represents a single Python source or stub file.
  */
 
-import {
-    CancellationToken,
-    CompletionItem,
-    DocumentHighlight,
-    DocumentSymbol,
-    MarkupKind,
-} from 'vscode-languageserver';
+import { CancellationToken, CompletionItem, DocumentSymbol, MarkupKind } from 'vscode-languageserver';
 import { TextDocument, TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import { isMainThread } from 'worker_threads';
 
@@ -44,7 +38,6 @@ import {
     CompletionProvider,
     CompletionResults,
 } from '../languageService/completionProvider';
-import { DocumentHighlightProvider } from '../languageService/documentHighlightProvider';
 import { DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
 import { DocumentSymbolProvider, IndexOptions, IndexResults } from '../languageService/documentSymbolProvider';
 import { performQuickAction } from '../languageService/quickActions';
@@ -1089,20 +1082,6 @@ export class SourceFile {
             query,
             token
         );
-    }
-
-    getDocumentHighlight(
-        sourceMapper: SourceMapper,
-        position: Position,
-        evaluator: TypeEvaluator,
-        token: CancellationToken
-    ): DocumentHighlight[] | undefined {
-        // If this file hasn't been bound, no hover info is available.
-        if (this._isBindingNeeded || !this._parseResults) {
-            return undefined;
-        }
-
-        return DocumentHighlightProvider.getDocumentHighlight(this._parseResults, position, evaluator, token);
     }
 
     getSignatureHelpForPosition(

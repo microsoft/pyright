@@ -15,7 +15,6 @@ import {
     CallHierarchyItem,
     CallHierarchyOutgoingCall,
     CompletionList,
-    DocumentHighlight,
     MarkupKind,
 } from 'vscode-languageserver-types';
 
@@ -1853,29 +1852,6 @@ export class Program {
                 // for situations where we need to discard the type cache.
                 this._handleMemoryHighUsage();
             }
-        });
-    }
-
-    getDocumentHighlight(
-        filePath: string,
-        position: Position,
-        token: CancellationToken
-    ): DocumentHighlight[] | undefined {
-        return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this.getSourceFileInfo(filePath);
-            if (!sourceFileInfo) {
-                return undefined;
-            }
-
-            this._bindFile(sourceFileInfo);
-
-            const execEnv = this._configOptions.findExecEnvironment(filePath);
-            return sourceFileInfo.sourceFile.getDocumentHighlight(
-                this._createSourceMapper(execEnv, token, sourceFileInfo),
-                position,
-                this._evaluator!,
-                token
-            );
         });
     }
 

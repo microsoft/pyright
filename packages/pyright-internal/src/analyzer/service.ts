@@ -21,7 +21,6 @@ import {
     CallHierarchyIncomingCall,
     CallHierarchyItem,
     CallHierarchyOutgoingCall,
-    DocumentHighlight,
     MarkupKind,
 } from 'vscode-languageserver-types';
 
@@ -393,14 +392,6 @@ export class AnalyzerService {
 
     reportSymbolsForWorkspace(query: string, reporter: WorkspaceSymbolCallback, token: CancellationToken) {
         this._program.reportSymbolsForWorkspace(query, reporter, token);
-    }
-
-    getDocumentHighlight(
-        filePath: string,
-        position: Position,
-        token: CancellationToken
-    ): DocumentHighlight[] | undefined {
-        return this._program.getDocumentHighlight(filePath, position, token);
     }
 
     getSignatureHelpForPosition(
