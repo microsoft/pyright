@@ -80,6 +80,7 @@ def proc_username(*args, **kwargs): ...  # incomplete
 def proc_wait(*args, **kwargs): ...  # incomplete
 def sensors_battery(*args, **kwargs): ...  # incomplete
 def set_debug(*args, **kwargs): ...  # incomplete
+def swap_percent(*args, **kwargs): ...  # incomplete
 def users(*args, **kwargs): ...  # incomplete
 def virtual_mem(*args, **kwargs): ...  # incomplete
 def winservice_enumerate(*args, **kwargs): ...  # incomplete

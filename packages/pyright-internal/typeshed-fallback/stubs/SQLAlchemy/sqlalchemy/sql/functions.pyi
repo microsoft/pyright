@@ -87,7 +87,7 @@ class Function(FunctionElement):
 class _GenericMeta(TraversibleType):
     def __init__(cls, clsname, bases, clsdict) -> None: ...
 
-class GenericFunction:
+class GenericFunction(Function, metaclass=_GenericMeta):
     name: Incomplete
     identifier: Incomplete
     coerce_arguments: bool

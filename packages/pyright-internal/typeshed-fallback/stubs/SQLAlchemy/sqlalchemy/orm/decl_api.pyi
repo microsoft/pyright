@@ -13,7 +13,7 @@ _DeclT = TypeVar("_DeclT", bound=type[_DeclarativeBase])
 
 # Dynamic class as created by registry.generate_base() via DeclarativeMeta
 # or another metaclass. This class does not exist at runtime.
-class _DeclarativeBase(Any):  # super classes are dynamic
+class _DeclarativeBase(Any):  # type: ignore[misc]  # super classes are dynamic
     registry: ClassVar[registry]
     metadata: ClassVar[MetaData]
     __abstract__: ClassVar[bool]

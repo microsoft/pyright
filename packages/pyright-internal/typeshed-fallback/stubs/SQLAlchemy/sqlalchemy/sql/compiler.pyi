@@ -1,6 +1,8 @@
 from _typeshed import Incomplete
 from typing import NamedTuple
 
+from sqlalchemy.util.langhelpers import EnsureKWArgType
+
 from ..util import memoized_property
 from . import elements
 
@@ -67,7 +69,7 @@ class Compiled:
     @property
     def params(self): ...
 
-class TypeCompiler:
+class TypeCompiler(metaclass=EnsureKWArgType):
     ensure_kwarg: str
     dialect: Incomplete
     def __init__(self, dialect) -> None: ...

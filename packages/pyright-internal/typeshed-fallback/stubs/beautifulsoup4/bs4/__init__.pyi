@@ -1,5 +1,5 @@
 from _typeshed import Incomplete, SupportsRead
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from typing import Any
 from typing_extensions import Self
 
@@ -32,7 +32,7 @@ class BeautifulSoup(Tag):
     element_classes: Any
     builder: TreeBuilder
     is_xml: bool
-    known_xml: bool
+    known_xml: bool | None
     parse_only: SoupStrainer | None
     markup: str
     def __init__(
@@ -86,7 +86,11 @@ class BeautifulSoup(Tag):
     def handle_endtag(self, name, nsprefix: Incomplete | None = None) -> None: ...
     def handle_data(self, data) -> None: ...
     def decode(  # type: ignore[override]
-        self, pretty_print: bool = False, eventual_encoding: str = "utf-8", formatter: str | Formatter = "minimal"
+        self,
+        pretty_print: bool = False,
+        eventual_encoding: str = "utf-8",
+        formatter: str | Formatter = "minimal",
+        iterator: Iterator[PageElement] | None = None,
     ): ...  # missing some arguments
 
 class BeautifulStoneSoup(BeautifulSoup): ...

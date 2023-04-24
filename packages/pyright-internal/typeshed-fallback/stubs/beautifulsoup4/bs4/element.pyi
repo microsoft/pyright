@@ -299,7 +299,11 @@ class Tag(PageElement):
         errors: str = "xmlcharrefreplace",
     ) -> bytes: ...
     def decode(
-        self, indent_level: int | None = None, eventual_encoding: str = "utf-8", formatter: str | Formatter = "minimal"
+        self,
+        indent_level: int | None = None,
+        eventual_encoding: str = "utf-8",
+        formatter: str | Formatter = "minimal",
+        iterator: Iterator[PageElement] | None = None,
     ) -> str: ...
     @overload
     def prettify(self, encoding: str, formatter: str | Formatter = "minimal") -> bytes: ...

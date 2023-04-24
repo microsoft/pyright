@@ -43,38 +43,40 @@ class KeymapNotify(rq.Event): ...
 
 _EventClass: TypeAlias = dict[
     int,
-    type[KeyPress]
-    | type[KeyRelease]
-    | type[ButtonPress]
-    | type[ButtonRelease]
-    | type[MotionNotify]
-    | type[EnterNotify]
-    | type[LeaveNotify]
-    | type[FocusIn]
-    | type[FocusOut]
-    | type[KeymapNotify]
-    | type[Expose]
-    | type[GraphicsExpose]
-    | type[NoExpose]
-    | type[VisibilityNotify]
-    | type[CreateNotify]
-    | type[DestroyNotify]
-    | type[UnmapNotify]
-    | type[MapNotify]
-    | type[MapRequest]
-    | type[ReparentNotify]
-    | type[ConfigureNotify]
-    | type[ConfigureRequest]
-    | type[GravityNotify]
-    | type[ResizeRequest]
-    | type[CirculateNotify]
-    | type[CirculateRequest]
-    | type[PropertyNotify]
-    | type[SelectionClear]
-    | type[SelectionRequest]
-    | type[SelectionNotify]
-    | type[ColormapNotify]
-    | type[ClientMessage]
-    | type[MappingNotify],
+    type[
+        KeyPress
+        | KeyRelease
+        | ButtonPress
+        | ButtonRelease
+        | MotionNotify
+        | EnterNotify
+        | LeaveNotify
+        | FocusIn
+        | FocusOut
+        | KeymapNotify
+        | Expose
+        | GraphicsExpose
+        | NoExpose
+        | VisibilityNotify
+        | CreateNotify
+        | DestroyNotify
+        | UnmapNotify
+        | MapNotify
+        | MapRequest
+        | ReparentNotify
+        | ConfigureNotify
+        | ConfigureRequest
+        | GravityNotify
+        | ResizeRequest
+        | CirculateNotify
+        | CirculateRequest
+        | PropertyNotify
+        | SelectionClear
+        | SelectionRequest
+        | SelectionNotify
+        | ColormapNotify
+        | ClientMessage
+        | MappingNotify
+    ],
 ]
 event_class: Final[_EventClass]

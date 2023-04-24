@@ -18,7 +18,7 @@ class Connection:
         self,
         address: str,
         port: int,
-        username: str,
+        user: str,
         password: str,
         autocommit: bool = ...,
         packetsize: int | None = ...,
@@ -129,8 +129,8 @@ def Binary(data: ReadableBuffer) -> memoryview: ...
 
 Decimal = decimal.Decimal
 
-NUMBER: type[int] | type[float] | type[complex]
-DATETIME: type[date] | type[time] | type[datetime]
+NUMBER: type[int | float | complex]
+DATETIME: type[date | time | datetime]
 STRING = str
 BINARY = memoryview
 ROWID = int

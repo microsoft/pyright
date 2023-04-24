@@ -55,7 +55,7 @@ class VisitableCheckKWArg(util.EnsureKWArgType, TraversibleType): ...
 class ExternalType:
     cache_ok: Any
 
-class UserDefinedType:
+class UserDefinedType(ExternalType, TypeEngine, metaclass=VisitableCheckKWArg):
     __visit_name__: str
     ensure_kwarg: str
     def coerce_compared_value(self, op, value): ...

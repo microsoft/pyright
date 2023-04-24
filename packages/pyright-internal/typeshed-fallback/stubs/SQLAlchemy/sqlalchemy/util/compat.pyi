@@ -1,19 +1,20 @@
-import builtins
-import collections
-import contextlib
 import itertools
 import operator
 import pickle as pickle
+import sys
 import threading as threading
 from _typeshed import Incomplete, Unused
 from abc import ABC as ABC
+from builtins import callable as callable, next as next
+from collections import namedtuple as namedtuple  # noqa: Y024  # Actual import
+from contextlib import contextmanager as contextmanager
 from datetime import timezone as timezone
 from functools import reduce as reduce
-from io import BytesIO as BytesIO, StringIO as StringIO
+from io import BytesIO, StringIO as StringIO
 from itertools import zip_longest as zip_longest
 from time import perf_counter as perf_counter
 from typing import TYPE_CHECKING as TYPE_CHECKING, Any, NamedTuple
-from typing_extensions import Literal
+from typing_extensions import Final
 from urllib.parse import (
     parse_qsl as parse_qsl,
     quote as quote,
@@ -24,21 +25,28 @@ from urllib.parse import (
 
 byte_buffer = BytesIO
 
+py312: bool
+py311: bool
+py310: bool
 py39: bool
 py38: bool
 py37: bool
-py3k: Literal[True]
-py2k: Literal[False]
+py3k: Final = True
+py2k: Final = False
 pypy: bool
 cpython: bool
-win32: bool
-osx: bool
+if sys.platform == "win32":
+    win32: Final = True
+else:
+    win32: Final = False
+if sys.platform == "darwin":
+    osx: Final = True
+else:
+    osx: Final = False
 arm: bool
+is64bit: bool
 has_refcount_gc: bool
-contextmanager = contextlib.contextmanager
 dottedgetter = operator.attrgetter
-namedtuple = collections.namedtuple  # noqa: Y024
-next = builtins.next
 
 class FullArgSpec(NamedTuple):
     args: Any
@@ -82,10 +90,6 @@ def raise_(
 ) -> None: ...
 def u(s): ...
 def ue(s): ...
-
-callable = builtins.callable
-
-def safe_bytestring(text): ...
 def inspect_formatargspec(
     args,
     varargs: Incomplete | None = None,

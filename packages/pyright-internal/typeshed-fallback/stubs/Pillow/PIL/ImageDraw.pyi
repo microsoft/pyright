@@ -54,6 +54,8 @@ class ImageDraw:
         fill: _Ink | None = None,
         outline: _Ink | None = None,
         width: float = 1,
+        *,
+        corners: tuple[bool, bool, bool, bool] | None = None,
     ) -> None: ...
     def text(
         self,

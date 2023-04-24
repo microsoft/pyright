@@ -1,4 +1,6 @@
 from _typeshed import Incomplete
+from _typeshed.dbapi import DBAPIConnection
+from collections.abc import Callable
 from typing import Any
 
 from .. import log
@@ -24,7 +26,7 @@ class Pool(log.Identified):
     echo: Any
     def __init__(
         self,
-        creator,
+        creator: Callable[[], DBAPIConnection],
         recycle: int = -1,
         echo: Incomplete | None = None,
         logging_name: Incomplete | None = None,

@@ -12,7 +12,7 @@ class _Dispatch:
 class _EventMeta(type):
     def __init__(cls, classname, bases, dict_) -> None: ...
 
-class Events:
+class Events(metaclass=_EventMeta):
     dispatch: Any
 
 class _JoinedDispatcher:

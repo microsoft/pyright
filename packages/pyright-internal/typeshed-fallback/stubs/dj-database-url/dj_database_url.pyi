@@ -9,7 +9,7 @@ SCHEMES: dict[str, str]
 class DBConfig(TypedDict, total=False):
     ATOMIC_REQUESTS: bool
     AUTOCOMMIT: bool
-    CONN_MAX_AGE: int
+    CONN_MAX_AGE: int | None
     DISABLE_SERVER_SIDE_CURSORS: bool
     ENGINE: str
     HOST: str
@@ -33,7 +33,7 @@ def config(
     env: str = ...,
     default: str | None = ...,
     engine: str | None = ...,
-    conn_max_age: int = ...,
+    conn_max_age: int | None = ...,
     conn_health_checks: bool = ...,
     ssl_require: bool = ...,
     test_options: dict[Incomplete, Incomplete] | None = ...,
