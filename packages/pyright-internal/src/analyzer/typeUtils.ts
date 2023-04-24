@@ -3084,6 +3084,12 @@ class TypeVarTransformer {
                 newTupleTypeArgs = this.transformTupleTypeVar(typeParams[0], recursionCount);
                 if (newTupleTypeArgs) {
                     specializationNeeded = true;
+                } else {
+                    const newTypeArgType = this.apply(typeParams[0], recursionCount);
+                    if (typeParams[0] !== newTypeArgType) {
+                        newTupleTypeArgs = [{ type: newTypeArgType, isUnbounded: true }];
+                        specializationNeeded = true;
+                    }
                 }
             }
 

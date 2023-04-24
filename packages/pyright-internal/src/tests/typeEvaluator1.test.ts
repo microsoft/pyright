@@ -1260,6 +1260,12 @@ test('Tuples17', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Tuples18', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuples18.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('NamedTuples1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuples1.py']);
 
