@@ -37,25 +37,6 @@ import { CallNode, NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { getDocumentationPartsForTypeAndDecl, getFunctionDocStringFromType } from './tooltipUtils';
 
-export interface ParamInfo {
-    startOffset: number;
-    endOffset: number;
-    text: string;
-    documentation?: string | undefined;
-}
-
-export interface SignatureInfo {
-    label: string;
-    documentation?: MarkupContent | undefined;
-    parameters?: ParamInfo[] | undefined;
-    activeParameter?: number | undefined;
-}
-
-export interface SignatureHelpResults {
-    signatures: SignatureInfo[];
-    callHasParameters: boolean;
-}
-
 export class SignatureHelpProvider {
     private readonly _parseResults: ParseResults | undefined;
     private readonly _sourceMapper: SourceMapper;
@@ -358,4 +339,23 @@ export class SignatureHelpProvider {
 
         return undefined;
     }
+}
+
+interface ParamInfo {
+    startOffset: number;
+    endOffset: number;
+    text: string;
+    documentation?: string | undefined;
+}
+
+interface SignatureInfo {
+    label: string;
+    documentation?: MarkupContent | undefined;
+    parameters?: ParamInfo[] | undefined;
+    activeParameter?: number | undefined;
+}
+
+interface SignatureHelpResults {
+    signatures: SignatureInfo[];
+    callHasParameters: boolean;
 }
