@@ -4627,8 +4627,12 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        // Protocol classes and ABCs are exempted from this check.
-        if (ClassType.isProtocolClass(classType) || ClassType.supportsAbstractMethods(classType)) {
+        // Protocol classes and ABCs are exempted from this check unless they are
+        // marked @final.
+        if (
+            ClassType.isProtocolClass(classType) ||
+            (ClassType.supportsAbstractMethods(classType) && !ClassType.isFinal(classType))
+        ) {
             return;
         }
 

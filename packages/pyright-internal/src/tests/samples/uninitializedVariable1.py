@@ -2,7 +2,7 @@
 
 from abc import ABC
 from dataclasses import dataclass
-from typing import Protocol, TypedDict
+from typing import Protocol, TypedDict, final
 
 
 class A:
@@ -38,3 +38,9 @@ class D(Protocol):
 class E(ABC):
     x: str
     y: str
+
+
+# Unless they are final.
+@final
+class ESub(E):
+    z: str
