@@ -17,7 +17,6 @@ import {
     DocumentSymbol,
 } from 'vscode-languageserver';
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
-import { CallHierarchyIncomingCall, CallHierarchyItem, CallHierarchyOutgoingCall } from 'vscode-languageserver-types';
 
 import { BackgroundAnalysisBase, IndexOptions, RefreshOptions } from '../backgroundAnalysisBase';
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
@@ -487,26 +486,6 @@ export class AnalyzerService {
             allowModuleRename,
             token
         );
-    }
-
-    getCallForPosition(filePath: string, position: Position, token: CancellationToken): CallHierarchyItem | undefined {
-        return this._program.getCallForPosition(filePath, position, token);
-    }
-
-    getIncomingCallsForPosition(
-        filePath: string,
-        position: Position,
-        token: CancellationToken
-    ): CallHierarchyIncomingCall[] | undefined {
-        return this._program.getIncomingCallsForPosition(filePath, position, token);
-    }
-
-    getOutgoingCallsForPosition(
-        filePath: string,
-        position: Position,
-        token: CancellationToken
-    ): CallHierarchyOutgoingCall[] | undefined {
-        return this._program.getOutgoingCallsForPosition(filePath, position, token);
     }
 
     printStats() {

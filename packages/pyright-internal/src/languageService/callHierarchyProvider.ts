@@ -20,8 +20,9 @@ import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
+import { isUserCode } from '../analyzer/sourceFileInfoUtils';
+import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { ClassType, isClassInstance, isFunction, isInstantiableClass } from '../analyzer/types';
 import {
     ClassMemberLookupFlags,
     doForEachSubtype,
@@ -29,95 +30,159 @@ import {
     lookUpClassMember,
     lookUpObjectMember,
 } from '../analyzer/typeUtils';
+import { ClassType, isClassInstance, isFunction, isInstantiableClass } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { getFileName } from '../common/pathUtils';
+import { ProgramView } from '../common/extensibility';
+import { convertPathToUri, getFileName } from '../common/pathUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
-import { rangesAreEqual } from '../common/textRange';
-import { ReferencesResult } from '../languageService/referencesProvider';
+import { Position, rangesAreEqual } from '../common/textRange';
+import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { CallNode, MemberAccessNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { DocumentSymbolCollectorUseCase } from './documentSymbolCollector';
+import { canNavigateToFile } from './navigationUtils';
 
 export class CallHierarchyProvider {
-    static getCallForDeclaration(
-        symbolName: string,
-        declaration: Declaration,
-        evaluator: TypeEvaluator,
-        token: CancellationToken,
-        callItemUri: string
-    ): CallHierarchyItem | undefined {
-        throwIfCancellationRequested(token);
+    private readonly _parseResults: ParseResults | undefined;
+    private readonly _sourceMapper: SourceMapper;
 
-        if (
-            declaration.type === DeclarationType.Function ||
-            declaration.type === DeclarationType.Class ||
-            declaration.type === DeclarationType.Alias
-        ) {
-            // make sure the alias is resolved to class or function
-            if (declaration.type === DeclarationType.Alias) {
-                const resolvedDecl = evaluator.resolveAliasDeclaration(declaration, true);
-                if (!resolvedDecl) {
-                    return undefined;
-                }
-                if (resolvedDecl.type !== DeclarationType.Function && resolvedDecl.type !== DeclarationType.Class) {
-                    return undefined;
-                }
-            }
-            const callItem: CallHierarchyItem = {
-                name: symbolName,
-                kind: getSymbolKind(declaration, evaluator),
-                uri: callItemUri,
-                range: declaration.range,
-                selectionRange: declaration.range,
-            };
-            return callItem;
+    constructor(
+        private _program: ProgramView,
+        private _filePath: string,
+        private _position: Position,
+        private _token: CancellationToken
+    ) {
+        this._parseResults = this._program.getParseResults(this._filePath);
+        this._sourceMapper = this._program.getSourceMapper(this._filePath, this._token);
+    }
+
+    onPrepare(): CallHierarchyItem[] | null {
+        throwIfCancellationRequested(this._token);
+        if (!this._parseResults) {
+            return null;
         }
 
-        return undefined;
+        const referencesResult = this._getDeclarationForPosition();
+        if (!referencesResult || referencesResult.declarations.length === 0) {
+            return null;
+        }
+
+        const { targetDecl, callItemUri, symbolName } = this._getTargetDeclaration(referencesResult);
+        if (
+            targetDecl.type !== DeclarationType.Function &&
+            targetDecl.type !== DeclarationType.Class &&
+            targetDecl.type !== DeclarationType.Alias
+        ) {
+            return null;
+        }
+
+        // make sure the alias is resolved to class or function
+        if (targetDecl.type === DeclarationType.Alias) {
+            const resolvedDecl = this._evaluator.resolveAliasDeclaration(targetDecl, true);
+            if (!resolvedDecl) {
+                return null;
+            }
+
+            if (resolvedDecl.type !== DeclarationType.Function && resolvedDecl.type !== DeclarationType.Class) {
+                return null;
+            }
+        }
+
+        const callItem: CallHierarchyItem = {
+            name: symbolName,
+            kind: getSymbolKind(targetDecl, this._evaluator),
+            uri: callItemUri,
+            range: targetDecl.range,
+            selectionRange: targetDecl.range,
+        };
+
+        if (!canNavigateToFile(this._program.fileSystem, callItem.uri)) {
+            return null;
+        }
+
+        // Convert the file path in the item to proper URI.
+        callItem.uri = convertPathToUri(this._program.fileSystem, callItem.uri);
+
+        return [callItem];
     }
 
-    static getIncomingCallsForDeclaration(
-        filePath: string,
-        symbolName: string,
-        declaration: Declaration,
-        parseResults: ParseResults,
-        evaluator: TypeEvaluator,
-        token: CancellationToken
-    ): CallHierarchyIncomingCall[] | undefined {
-        throwIfCancellationRequested(token);
+    getIncomingCalls(): CallHierarchyIncomingCall[] | null {
+        throwIfCancellationRequested(this._token);
+        if (!this._parseResults) {
+            return null;
+        }
 
-        const callFinder = new FindIncomingCallTreeWalker(
-            filePath,
-            symbolName,
-            declaration,
-            parseResults,
-            evaluator,
-            token
-        );
+        const referencesResult = this._getDeclarationForPosition();
+        if (!referencesResult || referencesResult.declarations.length === 0) {
+            return null;
+        }
 
-        const incomingCalls = callFinder.findCalls();
+        const { targetDecl, symbolName } = this._getTargetDeclaration(referencesResult);
 
-        return incomingCalls.length > 0 ? incomingCalls : undefined;
+        const items: CallHierarchyIncomingCall[] = [];
+        const sourceFiles =
+            targetDecl.type === DeclarationType.Alias
+                ? [this._program.getSourceFileInfo(this._filePath)!]
+                : this._program.getSourceFileInfoList();
+        for (const curSourceFileInfo of sourceFiles) {
+            if (isUserCode(curSourceFileInfo) || curSourceFileInfo.isOpenByClient) {
+                const filePath = curSourceFileInfo.sourceFile.getFilePath();
+                const itemsToAdd = this._getIncomingCallsForDeclaration(
+                    this._program.getParseResults(filePath)!,
+                    filePath,
+                    symbolName,
+                    targetDecl
+                );
+
+                if (itemsToAdd) {
+                    items.push(...itemsToAdd);
+                }
+
+                // This operation can consume significant memory, so check
+                // for situations where we need to discard the type cache.
+                this._program.handleMemoryHighUsage();
+            }
+        }
+
+        if (items.length === 0) {
+            return null;
+        }
+
+        const callItems = items.filter((item) => canNavigateToFile(this._program.fileSystem, item.from.uri));
+
+        // Convert the file paths in the items to proper URIs.
+        callItems.forEach((item) => {
+            item.from.uri = convertPathToUri(this._program.fileSystem, item.from.uri);
+        });
+
+        return callItems;
     }
 
-    static getOutgoingCallsForDeclaration(
-        declaration: Declaration,
-        parseResults: ParseResults,
-        evaluator: TypeEvaluator,
-        token: CancellationToken
-    ): CallHierarchyOutgoingCall[] | undefined {
-        throwIfCancellationRequested(token);
+    getOutgoingCalls(): CallHierarchyOutgoingCall[] | null {
+        throwIfCancellationRequested(this._token);
+        if (!this._parseResults) {
+            return null;
+        }
+
+        const referencesResult = this._getDeclarationForPosition();
+        if (!referencesResult || referencesResult.declarations.length === 0) {
+            return null;
+        }
+
+        const { targetDecl } = this._getTargetDeclaration(referencesResult);
 
         // Find the parse node root corresponding to the function or class.
         let parseRoot: ParseNode | undefined;
-        const resolvedDecl = evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
+        const resolvedDecl = this._evaluator.resolveAliasDeclaration(targetDecl, /* resolveLocalNames */ true);
         if (!resolvedDecl) {
-            return undefined;
+            return null;
         }
+
         if (resolvedDecl.type === DeclarationType.Function) {
             parseRoot = resolvedDecl.node;
         } else if (resolvedDecl.type === DeclarationType.Class) {
             // Look up the __init__ method for this class.
-            const classType = evaluator.getTypeForDeclaration(resolvedDecl)?.type;
+            const classType = this._evaluator.getTypeForDeclaration(resolvedDecl)?.type;
             if (classType && isInstantiableClass(classType)) {
                 // Don't perform a recursive search of parent classes in this
                 // case because we don't want to find an inherited __init__
@@ -130,7 +195,7 @@ export class CallHierarchyProvider {
                         ClassMemberLookupFlags.SkipBaseClasses
                 );
                 if (initMethodMember) {
-                    const initMethodType = evaluator.getTypeOfMember(initMethodMember);
+                    const initMethodType = this._evaluator.getTypeOfMember(initMethodMember);
                     if (initMethodType && isFunction(initMethodType)) {
                         const initDecls = initMethodMember.symbol.getDeclarations();
                         if (initDecls && initDecls.length > 0) {
@@ -145,20 +210,30 @@ export class CallHierarchyProvider {
         }
 
         if (!parseRoot) {
-            return undefined;
+            return null;
         }
 
-        const callFinder = new FindOutgoingCallTreeWalker(parseRoot, parseResults, evaluator, token);
-
+        const callFinder = new FindOutgoingCallTreeWalker(parseRoot, this._parseResults, this._evaluator, this._token);
         const outgoingCalls = callFinder.findCalls();
+        if (outgoingCalls.length === 0) {
+            return null;
+        }
 
-        return outgoingCalls.length > 0 ? outgoingCalls : undefined;
+        const callItems = outgoingCalls.filter((item) => canNavigateToFile(this._program.fileSystem, item.to.uri));
+
+        // Convert the file paths in the items to proper URIs.
+        callItems.forEach((item) => {
+            item.to.uri = convertPathToUri(this._program.fileSystem, item.to.uri);
+        });
+
+        return callItems;
     }
 
-    static getTargetDeclaration(
-        referencesResult: ReferencesResult,
-        filePath: string
-    ): { targetDecl: Declaration; callItemUri: string; symbolName: string } {
+    private _getTargetDeclaration(referencesResult: ReferencesResult): {
+        targetDecl: Declaration;
+        callItemUri: string;
+        symbolName: string;
+    } {
         // If there's more than one declaration, pick the target one.
         // We'll always prefer one with a declared type, and we'll always
         // prefer later declarations.
@@ -178,20 +253,60 @@ export class CallHierarchyProvider {
                 }
             }
         }
+
         let symbolName;
 
         // Although the LSP specification requires a URI, we are using a file path
-        // here because it is converted to the proper URI in LanguageServerBase.
+        // here because it is converted to the proper URI by the caller.
         // This simplifies our code and ensures compatibility with the LSP specification.
         let callItemUri;
         if (targetDecl.type === DeclarationType.Alias) {
             symbolName = (referencesResult.nodeAtOffset as NameNode).value;
-            callItemUri = filePath;
+            callItemUri = this._filePath;
         } else {
             symbolName = DeclarationUtils.getNameFromDeclaration(targetDecl) || referencesResult.symbolNames[0];
             callItemUri = targetDecl.path;
         }
+
         return { targetDecl, callItemUri, symbolName };
+    }
+
+    private get _evaluator(): TypeEvaluator {
+        return this._program.evaluator!;
+    }
+
+    private _getIncomingCallsForDeclaration(
+        parseResults: ParseResults,
+        filePath: string,
+        symbolName: string,
+        declaration: Declaration
+    ): CallHierarchyIncomingCall[] | undefined {
+        throwIfCancellationRequested(this._token);
+
+        const callFinder = new FindIncomingCallTreeWalker(
+            filePath,
+            symbolName,
+            declaration,
+            parseResults,
+            this._evaluator,
+            this._token
+        );
+
+        const incomingCalls = callFinder.findCalls();
+        return incomingCalls.length > 0 ? incomingCalls : undefined;
+    }
+
+    private _getDeclarationForPosition(): ReferencesResult | undefined {
+        return ReferencesProvider.getDeclarationForPosition(
+            this._sourceMapper,
+            this._parseResults!,
+            this._filePath,
+            this._position,
+            this._evaluator,
+            /* reporter */ undefined,
+            DocumentSymbolCollectorUseCase.Reference,
+            this._token
+        );
     }
 }
 

@@ -38,10 +38,9 @@ import {
     CompletionProvider,
     CompletionResults,
 } from '../languageService/completionProvider';
-import { DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
 import { DocumentSymbolProvider, IndexOptions, IndexResults } from '../languageService/documentSymbolProvider';
 import { performQuickAction } from '../languageService/quickActions';
-import { ReferenceCallback, ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
+import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { Localizer } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
 import { ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
@@ -1002,33 +1001,6 @@ export class SourceFile {
             const privateOrProtected = SymbolNameUtils.isPrivateOrProtectedName(name);
             return { privateOrProtected, symbols };
         });
-    }
-
-    getDeclarationForPosition(
-        sourceMapper: SourceMapper,
-        position: Position,
-        evaluator: TypeEvaluator,
-        reporter: ReferenceCallback | undefined,
-        useCase: DocumentSymbolCollectorUseCase,
-        token: CancellationToken,
-        implicitlyImportedBy?: SourceFile[]
-    ): ReferencesResult | undefined {
-        // If we have no completed analysis job, there's nothing to do.
-        if (!this._parseResults) {
-            return undefined;
-        }
-
-        return ReferencesProvider.getDeclarationForPosition(
-            sourceMapper,
-            this._parseResults,
-            this._filePath,
-            position,
-            evaluator,
-            reporter,
-            useCase,
-            token,
-            implicitlyImportedBy
-        );
     }
 
     addReferences(

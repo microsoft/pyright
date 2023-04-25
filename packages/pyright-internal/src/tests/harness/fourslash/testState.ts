@@ -52,6 +52,7 @@ import { DocumentRange, Position, Range as PositionRange, TextRange, rangesAreEq
 import { TextRangeCollection } from '../../../common/textRangeCollection';
 import { LanguageServerInterface } from '../../../languageServerBase';
 import { AbbreviationInfo, ImportFormat } from '../../../languageService/autoImporter';
+import { CallHierarchyProvider } from '../../../languageService/callHierarchyProvider';
 import { CompletionOptions } from '../../../languageService/completionProvider';
 import {
     DefinitionFilter,
@@ -1219,8 +1220,12 @@ export class TestState {
             const expectedName = map[name].items.map((x) => x.name);
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
-
-            const actual = this.program.getIncomingCallsForPosition(fileName, position, CancellationToken.None);
+            const actual = new CallHierarchyProvider(
+                this.program,
+                fileName,
+                position,
+                CancellationToken.None
+            ).getIncomingCalls();
 
             assert.strictEqual(actual?.length ?? 0, expectedFilePath.length, `${name} has failed`);
             assert.strictEqual(actual?.length ?? 0, expectedRange.length, `${name} has failed`);
@@ -1230,7 +1235,11 @@ export class TestState {
                 for (const a of actual) {
                     assert.strictEqual(expectedRange?.filter((e) => this._deepEqual(a.from.range, e)).length, 1);
                     assert.strictEqual(expectedName?.filter((e) => this._deepEqual(a.from.name, e)).length, 1);
-                    assert.ok(expectedFilePath?.filter((e) => this._deepEqual(a.from.uri, e)).length >= 1);
+                    assert.ok(
+                        expectedFilePath?.filter((e) =>
+                            this._deepEqual(a.from.uri, convertPathToUri(this.program.fileSystem, e))
+                        ).length >= 1
+                    );
                 }
             }
         }
@@ -1256,8 +1265,12 @@ export class TestState {
             const expectedName = map[name].items.map((x) => x.name);
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
-
-            const actual = this.program.getOutgoingCallsForPosition(fileName, position, CancellationToken.None);
+            const actual = new CallHierarchyProvider(
+                this.program,
+                fileName,
+                position,
+                CancellationToken.None
+            ).getOutgoingCalls();
 
             assert.strictEqual(actual?.length ?? 0, expectedFilePath.length, `${name} has failed`);
             assert.strictEqual(actual?.length ?? 0, expectedRange.length, `${name} has failed`);
@@ -1266,7 +1279,11 @@ export class TestState {
                 for (const a of actual) {
                     assert.strictEqual(expectedRange?.filter((e) => this._deepEqual(a.to.range, e)).length, 1);
                     assert.strictEqual(expectedName?.filter((e) => this._deepEqual(a.to.name, e)).length, 1);
-                    assert.ok(expectedFilePath?.filter((e) => this._deepEqual(a.to.uri, e)).length >= 1);
+                    assert.ok(
+                        expectedFilePath?.filter((e) =>
+                            this._deepEqual(a.to.uri, convertPathToUri(this.program.fileSystem, e))
+                        ).length >= 1
+                    );
                 }
             }
         }

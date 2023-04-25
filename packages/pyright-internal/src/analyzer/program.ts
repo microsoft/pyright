@@ -10,12 +10,7 @@
 
 import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
-import {
-    CallHierarchyIncomingCall,
-    CallHierarchyItem,
-    CallHierarchyOutgoingCall,
-    CompletionList,
-} from 'vscode-languageserver-types';
+import { CompletionList } from 'vscode-languageserver-types';
 
 import { Commands } from '../commands/commands';
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -56,7 +51,6 @@ import {
     ImportFormat,
     ModuleSymbolMap,
 } from '../languageService/autoImporter';
-import { CallHierarchyProvider } from '../languageService/callHierarchyProvider';
 import {
     AbbreviationMap,
     CompletionMap,
@@ -68,7 +62,7 @@ import { IndexOptions, IndexResults, WorkspaceSymbolCallback } from '../language
 import { ImportAdder, ImportData } from '../languageService/importAdder';
 import { getModuleStatementIndentation, reindentSpan } from '../languageService/indentationUtils';
 import { getInsertionPointForSymbolUnderModule } from '../languageService/insertionPointUtils';
-import { ReferenceCallback, ReferencesResult } from '../languageService/referencesProvider';
+import { ReferenceCallback, ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { RenameModuleProvider } from '../languageService/renameModuleProvider';
 import { ParseNodeType, StatementNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
@@ -76,7 +70,7 @@ import { AbsoluteModuleDescriptor, ImportLookupResult } from './analyzerFileInfo
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CacheManager } from './cacheManager';
 import { CircularDependency } from './circularDependency';
-import { Declaration, DeclarationType, isVariableDeclaration } from './declaration';
+import { Declaration, isVariableDeclaration } from './declaration';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import {
@@ -243,6 +237,10 @@ export class Program {
         return this._importResolver;
     }
 
+    get fileSystem() {
+        return this._importResolver.fileSystem;
+    }
+
     setConfigOptions(configOptions: ConfigOptions) {
         this._configOptions = configOptions;
         this._importResolver.setConfigOptions(configOptions);
@@ -266,13 +264,13 @@ export class Program {
             // We need to determine which files to remove from the existing file list.
             const newFileMap = new Map<string, string>();
             filePaths.forEach((path) => {
-                newFileMap.set(normalizePathCase(this._fs, path), path);
+                newFileMap.set(normalizePathCase(this.fileSystem, path), path);
             });
 
             // Files that are not in the tracked file list are
             // marked as no longer tracked.
             this._sourceFileList.forEach((oldFile) => {
-                const filePath = normalizePathCase(this._fs, oldFile.sourceFile.getFilePath());
+                const filePath = normalizePathCase(this.fileSystem, oldFile.sourceFile.getFilePath());
                 if (!newFileMap.has(filePath)) {
                     oldFile.isTracked = false;
                 }
@@ -329,7 +327,7 @@ export class Program {
         }
 
         const sourceFile = new SourceFile(
-            this._fs,
+            this.fileSystem,
             filePath,
             importName,
             isThirdPartyImport,
@@ -364,7 +362,7 @@ export class Program {
         if (!sourceFileInfo) {
             const importName = this._getImportNameForFile(filePath);
             const sourceFile = new SourceFile(
-                this._fs,
+                this.fileSystem,
                 filePath,
                 importName,
                 /* isThirdPartyImport */ false,
@@ -543,7 +541,7 @@ export class Program {
     }
 
     containsSourceFileIn(folder: string): boolean {
-        const normalized = normalizePathCase(this._fs, folder);
+        const normalized = normalizePathCase(this.fileSystem, folder);
         return this._sourceFileList.some((i) => i.sourceFile.getFilePath().startsWith(normalized));
     }
 
@@ -571,8 +569,12 @@ export class Program {
         return this.getBoundSourceFileInfo(filePath)?.sourceFile;
     }
 
+    getSourceFileInfoList(): SourceFileInfo[] {
+        return this._sourceFileList;
+    }
+
     getSourceFileInfo(filePath: string): SourceFileInfo | undefined {
-        return this._sourceFileMap.get(normalizePathCase(this._fs, filePath));
+        return this._sourceFileMap.get(normalizePathCase(this.fileSystem, filePath));
     }
 
     getBoundSourceFileInfo(filePath: string, content?: string, force?: boolean): SourceFileInfo | undefined {
@@ -733,6 +735,10 @@ export class Program {
         return this.getBoundSourceFile(filePath)?.getParseResults();
     }
 
+    handleMemoryHighUsage() {
+        this._handleMemoryHighUsage();
+    }
+
     // Prints a detailed list of files that have been checked and the times associated
     // with each of them, sorted greatest to least.
     printDetailedAnalysisTimes() {
@@ -834,7 +840,7 @@ export class Program {
                 const typeStubDir = getDirectoryPath(typeStubPath);
 
                 try {
-                    makeDirectories(this._fs, typeStubDir, stubPath);
+                    makeDirectories(this.fileSystem, typeStubDir, stubPath);
                 } catch (e: any) {
                     const errMsg = `Could not create directory for '${typeStubDir}'`;
                     throw new Error(errMsg);
@@ -894,10 +900,6 @@ export class Program {
         return flags;
     }
 
-    private get _fs() {
-        return this._importResolver.fileSystem;
-    }
-
     private _getImportNameForFile(filePath: string) {
         // We allow illegal module names (e.g. names that include "-" in them)
         // because we want a unique name for each module even if it cannot be
@@ -938,7 +940,7 @@ export class Program {
     private _createInterimFileInfo(filePath: string) {
         const importName = this._getImportNameForFile(filePath);
         const sourceFile = new SourceFile(
-            this._fs,
+            this.fileSystem,
             filePath,
             importName,
             /* isThirdPartyImport */ false,
@@ -1165,7 +1167,7 @@ export class Program {
                     sourceFileInfo = this.getSourceFileInfo(resolvedPath);
 
                     if (!sourceFileInfo) {
-                        resolvedPath = normalizePathCase(this._fs, resolvedPath);
+                        resolvedPath = normalizePathCase(this.fileSystem, resolvedPath);
 
                         // Start tracking the source file.
                         this.addTrackedFile(resolvedPath);
@@ -1376,7 +1378,7 @@ export class Program {
     ) {
         // If the file is already in the closure map, we found a cyclical
         // dependency. Don't recur further.
-        const filePath = normalizePathCase(this._fs, file.sourceFile.getFilePath());
+        const filePath = normalizePathCase(this.fileSystem, file.sourceFile.getFilePath());
         if (closureMap.has(filePath)) {
             return;
         }
@@ -1422,7 +1424,7 @@ export class Program {
             return false;
         }
 
-        const filePath = normalizePathCase(this._fs, sourceFileInfo.sourceFile.getFilePath());
+        const filePath = normalizePathCase(this.fileSystem, sourceFileInfo.sourceFile.getFilePath());
 
         filesVisited.set(filePath, sourceFileInfo);
 
@@ -1485,7 +1487,7 @@ export class Program {
     }
 
     private _markFileDirtyRecursive(sourceFileInfo: SourceFileInfo, markSet: Set<string>, forceRebinding = false) {
-        const filePath = normalizePathCase(this._fs, sourceFileInfo.sourceFile.getFilePath());
+        const filePath = normalizePathCase(this.fileSystem, sourceFileInfo.sourceFile.getFilePath());
 
         // Don't mark it again if it's already been visited.
         if (markSet.has(filePath)) {
@@ -1974,7 +1976,7 @@ export class Program {
 
     renameModule(path: string, newPath: string, token: CancellationToken): FileEditActions | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
-            if (isFile(this._fs, path)) {
+            if (isFile(this.fileSystem, path)) {
                 const fileInfo = this.getSourceFileInfo(path);
                 if (!fileInfo) {
                     return undefined;
@@ -2630,130 +2632,6 @@ export class Program {
         });
     }
 
-    getCallForPosition(filePath: string, position: Position, token: CancellationToken): CallHierarchyItem | undefined {
-        const sourceFileInfo = this.getSourceFileInfo(filePath);
-        if (!sourceFileInfo) {
-            return undefined;
-        }
-        this._bindFile(sourceFileInfo);
-
-        const execEnv = this._configOptions.findExecEnvironment(filePath);
-        const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-            this._createSourceMapper(execEnv, token, sourceFileInfo),
-            position,
-            this._evaluator!,
-            undefined,
-            DocumentSymbolCollectorUseCase.Reference,
-            token
-        );
-
-        if (!referencesResult || referencesResult.declarations.length === 0) {
-            return undefined;
-        }
-
-        const { targetDecl, callItemUri, symbolName } = CallHierarchyProvider.getTargetDeclaration(
-            referencesResult,
-            filePath
-        );
-
-        return CallHierarchyProvider.getCallForDeclaration(
-            symbolName,
-            targetDecl,
-            this._evaluator!,
-            token,
-            callItemUri
-        );
-    }
-
-    getIncomingCallsForPosition(
-        filePath: string,
-        position: Position,
-        token: CancellationToken
-    ): CallHierarchyIncomingCall[] | undefined {
-        const sourceFileInfo = this.getSourceFileInfo(filePath);
-        if (!sourceFileInfo) {
-            return undefined;
-        }
-        this._bindFile(sourceFileInfo);
-
-        const execEnv = this._configOptions.findExecEnvironment(filePath);
-        const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-            this._createSourceMapper(execEnv, token, sourceFileInfo),
-            position,
-            this._evaluator!,
-            undefined,
-            DocumentSymbolCollectorUseCase.Reference,
-            token
-        );
-
-        if (!referencesResult || referencesResult.declarations.length === 0) {
-            return undefined;
-        }
-
-        const { targetDecl, symbolName } = CallHierarchyProvider.getTargetDeclaration(referencesResult, filePath);
-        let items: CallHierarchyIncomingCall[] = [];
-
-        const sourceFiles = targetDecl.type === DeclarationType.Alias ? [sourceFileInfo] : this._sourceFileList;
-        for (const curSourceFileInfo of sourceFiles) {
-            if (isUserCode(curSourceFileInfo) || curSourceFileInfo.isOpenByClient) {
-                this._bindFile(curSourceFileInfo);
-
-                const itemsToAdd = CallHierarchyProvider.getIncomingCallsForDeclaration(
-                    curSourceFileInfo.sourceFile.getFilePath(),
-                    symbolName,
-                    targetDecl,
-                    curSourceFileInfo.sourceFile.getParseResults()!,
-                    this._evaluator!,
-                    token
-                );
-
-                if (itemsToAdd) {
-                    items = items.concat(...itemsToAdd);
-                }
-
-                // This operation can consume significant memory, so check
-                // for situations where we need to discard the type cache.
-                this._handleMemoryHighUsage();
-            }
-        }
-
-        return items;
-    }
-
-    getOutgoingCallsForPosition(
-        filePath: string,
-        position: Position,
-        token: CancellationToken
-    ): CallHierarchyOutgoingCall[] | undefined {
-        const sourceFileInfo = this.getSourceFileInfo(filePath);
-        if (!sourceFileInfo) {
-            return undefined;
-        }
-        this._bindFile(sourceFileInfo);
-
-        const execEnv = this._configOptions.findExecEnvironment(filePath);
-        const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-            this._createSourceMapper(execEnv, token, sourceFileInfo),
-            position,
-            this._evaluator!,
-            undefined,
-            DocumentSymbolCollectorUseCase.Reference,
-            token
-        );
-
-        if (!referencesResult || referencesResult.declarations.length === 0) {
-            return undefined;
-        }
-        const { targetDecl } = CallHierarchyProvider.getTargetDeclaration(referencesResult, filePath);
-
-        return CallHierarchyProvider.getOutgoingCallsForDeclaration(
-            targetDecl,
-            sourceFileInfo.sourceFile.getParseResults()!,
-            this._evaluator!,
-            token
-        );
-    }
-
     performQuickAction(
         filePath: string,
         command: string,
@@ -2879,8 +2757,16 @@ export class Program {
         token: CancellationToken,
         reporter?: ReferenceCallback
     ) {
-        return sourceFileInfo.sourceFile.getDeclarationForPosition(
+        // If we have no completed analysis job, there's nothing to do.
+        const parseResults = sourceFileInfo.sourceFile.getParseResults();
+        if (!parseResults) {
+            return undefined;
+        }
+
+        return ReferencesProvider.getDeclarationForPosition(
             sourceMapper,
+            parseResults,
+            sourceFileInfo.sourceFile.getFilePath(),
             position,
             this._evaluator!,
             reporter,
@@ -3081,7 +2967,7 @@ export class Program {
             return true;
         }
 
-        const filePath = normalizePathCase(this._fs, fileInfo.sourceFile.getFilePath());
+        const filePath = normalizePathCase(this.fileSystem, fileInfo.sourceFile.getFilePath());
 
         // Avoid infinite recursion.
         if (recursionSet.has(filePath)) {
@@ -3253,7 +3139,7 @@ export class Program {
                 sourceFileInfo.chainedSourceFile = undefined;
             } else {
                 const filePath = sourceFileInfo.chainedSourceFile.sourceFile.getFilePath();
-                newImportPathMap.set(normalizePathCase(this._fs, filePath), {
+                newImportPathMap.set(normalizePathCase(this.fileSystem, filePath), {
                     path: filePath,
                     isTypeshedFile: false,
                     isThirdPartyImport: false,
@@ -3269,7 +3155,7 @@ export class Program {
                         const filePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
                         if (filePath) {
                             const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
-                            newImportPathMap.set(normalizePathCase(this._fs, filePath), {
+                            newImportPathMap.set(normalizePathCase(this.fileSystem, filePath), {
                                 path: filePath,
                                 isTypeshedFile:
                                     !!importResult.isStdlibTypeshedFile || !!importResult.isThirdPartyTypeshedFile,
@@ -3284,7 +3170,7 @@ export class Program {
                     if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
                         if (!implicitImport.isNativeLib) {
                             const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
-                            newImportPathMap.set(normalizePathCase(this._fs, implicitImport.path), {
+                            newImportPathMap.set(normalizePathCase(this.fileSystem, implicitImport.path), {
                                 path: implicitImport.path,
                                 isTypeshedFile:
                                     !!importResult.isStdlibTypeshedFile || !!importResult.isThirdPartyTypeshedFile,
@@ -3331,14 +3217,14 @@ export class Program {
 
         const updatedImportMap = new Map<string, SourceFileInfo>();
         sourceFileInfo.imports.forEach((importInfo) => {
-            const oldFilePath = normalizePathCase(this._fs, importInfo.sourceFile.getFilePath());
+            const oldFilePath = normalizePathCase(this.fileSystem, importInfo.sourceFile.getFilePath());
 
             // A previous import was removed.
             if (!newImportPathMap.has(oldFilePath)) {
                 importInfo.importedBy = importInfo.importedBy.filter(
                     (fi) =>
-                        normalizePathCase(this._fs, fi.sourceFile.getFilePath()) !==
-                        normalizePathCase(this._fs, sourceFileInfo.sourceFile.getFilePath())
+                        normalizePathCase(this.fileSystem, fi.sourceFile.getFilePath()) !==
+                        normalizePathCase(this.fileSystem, sourceFileInfo.sourceFile.getFilePath())
                 );
             } else {
                 updatedImportMap.set(oldFilePath, importInfo);
@@ -3354,7 +3240,7 @@ export class Program {
                 if (!importedFileInfo) {
                     const importName = this._getImportNameForFile(importInfo.path);
                     const sourceFile = new SourceFile(
-                        this._fs,
+                        this.fileSystem,
                         importInfo.path,
                         importName,
                         importInfo.isThirdPartyImport,
@@ -3417,12 +3303,12 @@ export class Program {
     }
 
     private _removeSourceFileFromListAndMap(filePath: string, indexToRemove: number) {
-        this._sourceFileMap.delete(normalizePathCase(this._fs, filePath));
+        this._sourceFileMap.delete(normalizePathCase(this.fileSystem, filePath));
         this._sourceFileList.splice(indexToRemove, 1);
     }
 
     private _addToSourceFileListAndMap(fileInfo: SourceFileInfo) {
-        const filePath = normalizePathCase(this._fs, fileInfo.sourceFile.getFilePath());
+        const filePath = normalizePathCase(this.fileSystem, fileInfo.sourceFile.getFilePath());
 
         // We should never add a file with the same path twice.
         assert(!this._sourceFileMap.has(filePath));
