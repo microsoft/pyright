@@ -2103,8 +2103,8 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
 
     // See if a function has an unknown type.
     if (isOverloadedFunction(type)) {
-        return type.overloads.some((overload) => {
-            return isPartlyUnknown(overload, false, recursionCount);
+        return OverloadedFunctionType.getOverloads(type).some((overload) => {
+            return isPartlyUnknown(overload, /* allowUnknownTypeArgsForClasses */ false, recursionCount);
         });
     }
 
