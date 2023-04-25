@@ -21,7 +21,7 @@ import * as debug from '../common/debug';
 import { assert, assertNever } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
-import { FileEditAction, FileEditActions, FileOperations, TextEditAction } from '../common/editAction';
+import { FileEditAction, FileEditActions, FileOperations } from '../common/editAction';
 import { Extensions, ProgramView } from '../common/extensibility';
 import { LogTracker } from '../common/logTracker';
 import {
@@ -2630,22 +2630,6 @@ export class Program {
 
             return { edits, fileOperations: [] };
         });
-    }
-
-    performQuickAction(
-        filePath: string,
-        command: string,
-        args: any[],
-        token: CancellationToken
-    ): TextEditAction[] | undefined {
-        const sourceFileInfo = this.getSourceFileInfo(filePath);
-        if (!sourceFileInfo) {
-            return undefined;
-        }
-
-        this._bindFile(sourceFileInfo);
-
-        return sourceFileInfo.sourceFile.performQuickAction(command, args, token);
     }
 
     // Returns a value from 0 to 1 (or more) indicating how "full" the cache is

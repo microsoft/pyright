@@ -19,7 +19,6 @@ import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticCategory, TaskListToken, convertLevelToCategory } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
-import { TextEditAction } from '../common/editAction';
 import { Extensions } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { LogTracker } from '../common/logTracker';
@@ -39,7 +38,6 @@ import {
     CompletionResults,
 } from '../languageService/completionProvider';
 import { DocumentSymbolProvider, IndexOptions, IndexResults } from '../languageService/documentSymbolProvider';
-import { performQuickAction } from '../languageService/quickActions';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { Localizer } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
@@ -1144,21 +1142,6 @@ export class SourceFile {
         );
 
         completionProvider.resolveCompletionItem(completionItem);
-    }
-
-    performQuickAction(command: string, args: any[], token: CancellationToken): TextEditAction[] | undefined {
-        // If we have no completed analysis job, there's nothing to do.
-        if (!this._parseResults) {
-            return undefined;
-        }
-
-        // This command should be called only for open files, in which
-        // case we should have the file contents already loaded.
-        if (this.getClientVersion() === undefined) {
-            return undefined;
-        }
-
-        return performQuickAction(command, args, this._parseResults, token);
     }
 
     bind(

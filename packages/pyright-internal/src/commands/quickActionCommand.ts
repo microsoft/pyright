@@ -10,6 +10,7 @@ import { CancellationToken, ExecuteCommandParams } from 'vscode-languageserver';
 
 import { convertToFileTextEdits, convertToWorkspaceEdit } from '../common/workspaceEditUtils';
 import { LanguageServerInterface } from '../languageServerBase';
+import { performQuickAction } from '../languageService/quickActions';
 import { ServerCommand } from './commandController';
 import { Commands } from './commands';
 
@@ -27,7 +28,9 @@ export class QuickActionCommand implements ServerCommand {
                 return [];
             }
 
-            const editActions = workspace.service.performQuickAction(filePath, params.command, otherArgs, token);
+            const editActions = workspace.service.run((p) => {
+                return performQuickAction(filePath, params.command, otherArgs, p, token);
+            }, token);
 
             return convertToWorkspaceEdit(workspace.service.fs, convertToFileTextEdits(filePath, editActions ?? []));
         }
