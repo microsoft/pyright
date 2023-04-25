@@ -8,7 +8,13 @@
 
 import { SourceFileInfo } from './program';
 
-export function isUserCode(fileInfo: SourceFileInfo | undefined) {
+interface FileInfo {
+    isTypeshedFile: boolean;
+    isThirdPartyImport: boolean;
+    isTracked: boolean;
+}
+
+export function isUserCode(fileInfo: FileInfo | undefined) {
     return !!fileInfo && fileInfo.isTracked && !fileInfo.isThirdPartyImport && !fileInfo.isTypeshedFile;
 }
 

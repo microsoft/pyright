@@ -16,7 +16,7 @@ import { some } from './collectionUtils';
 import { compareValues, Comparison, GetCanonicalFileName, identity } from './core';
 import { randomBytesHex } from './crypto';
 import * as debug from './debug';
-import { FileSystem, Stats } from './fileSystem';
+import { FileSystem, ReadOnlyFileSystem, Stats } from './fileSystem';
 import {
     compareStringsCaseInsensitive,
     compareStringsCaseSensitive,
@@ -960,7 +960,7 @@ export function extractPathFromUri(uriString: string) {
     return convertedPath;
 }
 
-export function convertPathToUri(fs: FileSystem, path: string): string {
+export function convertPathToUri(fs: ReadOnlyFileSystem, path: string): string {
     return fs.getUri(fs.getOriginalFilePath(path));
 }
 

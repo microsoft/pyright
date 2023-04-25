@@ -110,11 +110,13 @@ import { UriParser } from './common/uriParser';
 import { convertToWorkspaceEdit } from './common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { ImportFormat } from './languageService/autoImporter';
+import { CallHierarchyProvider } from './languageService/callHierarchyProvider';
 import { CompletionItemData, CompletionOptions, CompletionResultsList } from './languageService/completionProvider';
 import { DefinitionFilter, DefinitionProvider, TypeDefinitionProvider } from './languageService/definitionProvider';
 import { DocumentHighlightProvider } from './languageService/documentHighlightProvider';
 import { WorkspaceSymbolCallback, convertToFlatSymbols } from './languageService/documentSymbolProvider';
 import { HoverProvider } from './languageService/hoverProvider';
+import { canNavigateToFile } from './languageService/navigationUtils';
 import { ReferenceCallback } from './languageService/referencesProvider';
 import { SignatureHelpProvider } from './languageService/signatureHelpProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
@@ -1137,19 +1139,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return null;
         }
 
-        const callItem = workspace.service.getCallForPosition(filePath, position, token) || null;
-        if (!callItem) {
-            return null;
-        }
-
-        if (!this.canNavigateToFile(callItem.uri, workspace.service.fs)) {
-            return null;
-        }
-
-        // Convert the file path in the item to proper URI.
-        callItem.uri = convertPathToUri(workspace.service.fs, callItem.uri);
-
-        return [callItem];
+        return workspace.service.run((program) => {
+            return new CallHierarchyProvider(program, filePath, position, token).onPrepare();
+        }, token);
     }
 
     protected async onIncomingCalls(params: CallHierarchyIncomingCallsParams, token: CancellationToken) {
@@ -1160,19 +1152,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return null;
         }
 
-        let callItems = workspace.service.getIncomingCallsForPosition(filePath, position, token) || null;
-        if (!callItems || callItems.length === 0) {
-            return null;
-        }
-
-        callItems = callItems.filter((item) => this.canNavigateToFile(item.from.uri, workspace.service.fs));
-
-        // Convert the file paths in the items to proper URIs.
-        callItems.forEach((item) => {
-            item.from.uri = convertPathToUri(workspace.service.fs, item.from.uri);
-        });
-
-        return callItems;
+        return workspace.service.run((program) => {
+            return new CallHierarchyProvider(program, filePath, position, token).getIncomingCalls();
+        }, token);
     }
 
     protected async onOutgoingCalls(
@@ -1186,19 +1168,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return null;
         }
 
-        let callItems = workspace.service.getOutgoingCallsForPosition(filePath, position, token) || null;
-        if (!callItems || callItems.length === 0) {
-            return null;
-        }
-
-        callItems = callItems.filter((item) => this.canNavigateToFile(item.to.uri, workspace.service.fs));
-
-        // Convert the file paths in the items to proper URIs.
-        callItems.forEach((item) => {
-            item.to.uri = convertPathToUri(workspace.service.fs, item.to.uri);
-        });
-
-        return callItems;
+        return workspace.service.run((program) => {
+            return new CallHierarchyProvider(program, filePath, position, token).getOutgoingCalls();
+        }, token);
     }
 
     protected async onDidOpenTextDocument(params: DidOpenTextDocumentParams, ipythonMode = IPythonMode.None) {
@@ -1642,6 +1614,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected abstract createProgressReporter(): ProgressReporter;
 
     protected canNavigateToFile(path: string, fs: FileSystem): boolean {
-        return !fs.isInZipOrEgg(path);
+        return canNavigateToFile(fs, path);
     }
 }

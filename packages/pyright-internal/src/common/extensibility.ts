@@ -11,7 +11,7 @@ import { CancellationToken, CodeAction, ExecuteCommandParams } from 'vscode-lang
 import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { Declaration } from '../analyzer/declaration';
 import { ImportResolver } from '../analyzer/importResolver';
-import { SourceFileInfo } from '../analyzer/program';
+import * as prog from '../analyzer/program';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { Type } from '../analyzer/types';
@@ -21,6 +21,7 @@ import { FunctionNode, ParameterNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { ConfigOptions, SignatureDisplayType } from './configOptions';
 import { ConsoleInterface } from './console';
+import { ReadOnlyFileSystem } from './fileSystem';
 import { Range } from './textRange';
 
 export interface LanguageServiceExtension {
@@ -36,6 +37,33 @@ export interface ProgramExtension {
     clearCache?: () => void;
 }
 
+export interface SourceFile {
+    // See whether we can convert these to regular properties.
+    getFilePath(): string;
+    isStubFile(): boolean;
+}
+
+export interface SourceFileInfo {
+    // We don't want to expose the real SourceFile since
+    // one can mess up program state by calling some methods on it directly.
+    // For example, calling sourceFile.parse() directly will mess up
+    // dependency graph maintained by the program.
+    readonly sourceFile: SourceFile;
+
+    // Information about the source file
+    readonly isTypeshedFile: boolean;
+    readonly isThirdPartyImport: boolean;
+    readonly isThirdPartyPyTypedPresent: boolean;
+
+    readonly chainedSourceFile?: SourceFileInfo | undefined;
+
+    readonly isTracked: boolean;
+    readonly isOpenByClient: boolean;
+
+    readonly imports: readonly SourceFileInfo[];
+    readonly importedBy: readonly SourceFileInfo[];
+}
+
 // Readonly wrapper around a Program. Makes sure it doesn't mutate the program.
 export interface ProgramView {
     readonly id: number;
@@ -44,16 +72,22 @@ export interface ProgramView {
     readonly evaluator: TypeEvaluator | undefined;
     readonly configOptions: ConfigOptions;
     readonly importResolver: ImportResolver;
+    readonly fileSystem: ReadOnlyFileSystem;
 
     owns(file: string): boolean;
+    getSourceFileInfoList(): readonly SourceFileInfo[];
     getParseResults(filePath: string): ParseResults | undefined;
-    getBoundSourceFileInfo(file: string, content?: string, force?: boolean): SourceFileInfo | undefined;
+    getSourceFileInfo(filePath: string): SourceFileInfo | undefined;
     getSourceMapper(
         filePath: string,
         token: CancellationToken,
         mapCompiled?: boolean,
         preferStubs?: boolean
     ): SourceMapper;
+
+    // See whether we can get rid of these 2 methods
+    getBoundSourceFileInfo(file: string, content?: string, force?: boolean): prog.SourceFileInfo | undefined;
+    handleMemoryHighUsage(): void;
 }
 
 // Mutable wrapper around a program. Allows the FG thread to forward this request to the BG thread
@@ -75,6 +109,7 @@ export interface CommandExtension {
     // Extension executes command
     executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<void>;
 }
+
 export interface CompletionListExtension {
     // Extension updates completion list provided by the application.
     updateCompletionResults(

@@ -51,31 +51,21 @@ export interface TmpfileOptions {
     prefix?: string;
 }
 
-export interface FileSystem {
+export interface ReadOnlyFileSystem {
     existsSync(path: string): boolean;
-    mkdirSync(path: string, options?: MkDirOptions): void;
     chdir(path: string): void;
     readdirEntriesSync(path: string): fs.Dirent[];
     readdirSync(path: string): string[];
     readFileSync(path: string, encoding?: null): Buffer;
     readFileSync(path: string, encoding: BufferEncoding): string;
     readFileSync(path: string, encoding?: BufferEncoding | null): string | Buffer;
-    writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null): void;
+
     statSync(path: string): Stats;
-    unlinkSync(path: string): void;
     realpathSync(path: string): string;
     getModulePath(): string;
-    createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher;
-    createReadStream(path: string): fs.ReadStream;
-    createWriteStream(path: string): fs.WriteStream;
-    copyFileSync(src: string, dst: string): void;
     // Async I/O
     readFile(path: string): Promise<Buffer>;
     readFileText(path: string, encoding?: BufferEncoding): Promise<string>;
-    // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
-    tmpdir(): string;
-    tmpfile(options?: TmpfileOptions): string;
-
     // Return path in casing on OS.
     realCasePath(path: string): string;
 
@@ -91,6 +81,20 @@ export interface FileSystem {
     getUri(path: string): string;
 
     isInZipOrEgg(path: string): boolean;
+}
+
+export interface FileSystem extends ReadOnlyFileSystem {
+    mkdirSync(path: string, options?: MkDirOptions): void;
+    writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null): void;
+    unlinkSync(path: string): void;
+    createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher;
+    createReadStream(path: string): fs.ReadStream;
+    createWriteStream(path: string): fs.WriteStream;
+    copyFileSync(src: string, dst: string): void;
+
+    // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
+    tmpdir(): string;
+    tmpfile(options?: TmpfileOptions): string;
 
     dispose(): void;
 }
