@@ -10,6 +10,7 @@ import assert from 'assert';
 import { CancellationToken, MarkupKind } from 'vscode-languageserver';
 
 import { convertOffsetToPosition } from '../common/positionUtils';
+import { SignatureHelpProvider } from '../languageService/signatureHelpProvider';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 
 test('invalid position in format string segment', () => {
@@ -79,12 +80,16 @@ function checkSignatureHelp(code: string, expects: boolean) {
     const parseResults = state.workspace.service.getParseResult(marker.fileName)!;
     const position = convertOffsetToPosition(marker.position, parseResults.tokenizerOutput.lines);
 
-    const actual = state.workspace.service.getSignatureHelpForPosition(
+    const actual = new SignatureHelpProvider(
+        state.workspace.service.test_program,
         marker.fileName,
         position,
         MarkupKind.Markdown,
+        /*hasSignatureLabelOffsetCapability*/ true,
+        /*hasActiveParameterCapability*/ true,
+        /*context*/ undefined,
         CancellationToken.None
-    );
+    ).getSignatureHelp();
 
     assert.strictEqual(!!actual, expects);
 }

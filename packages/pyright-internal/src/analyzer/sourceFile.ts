@@ -7,7 +7,7 @@
  * Class that represents a single Python source or stub file.
  */
 
-import { CancellationToken, CompletionItem, DocumentSymbol, MarkupKind } from 'vscode-languageserver';
+import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
 import { TextDocument, TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import { isMainThread } from 'worker_threads';
 
@@ -42,7 +42,6 @@ import { DocumentSymbolCollectorUseCase } from '../languageService/documentSymbo
 import { DocumentSymbolProvider, IndexOptions, IndexResults } from '../languageService/documentSymbolProvider';
 import { performQuickAction } from '../languageService/quickActions';
 import { ReferenceCallback, ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
-import { SignatureHelpProvider, SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { Localizer } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
 import { ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
@@ -1080,28 +1079,6 @@ export class SourceFile {
             this._parseResults,
             this._filePath,
             query,
-            token
-        );
-    }
-
-    getSignatureHelpForPosition(
-        position: Position,
-        sourceMapper: SourceMapper,
-        evaluator: TypeEvaluator,
-        format: MarkupKind,
-        token: CancellationToken
-    ): SignatureHelpResults | undefined {
-        // If we have no completed analysis job, there's nothing to do.
-        if (!this._parseResults) {
-            return undefined;
-        }
-
-        return SignatureHelpProvider.getSignatureHelpForPosition(
-            this._parseResults,
-            position,
-            sourceMapper,
-            evaluator,
-            format,
             token
         );
     }
