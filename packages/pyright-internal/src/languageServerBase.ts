@@ -117,7 +117,7 @@ import { DocumentHighlightProvider } from './languageService/documentHighlightPr
 import { WorkspaceSymbolCallback, convertToFlatSymbols } from './languageService/documentSymbolProvider';
 import { HoverProvider } from './languageService/hoverProvider';
 import { canNavigateToFile } from './languageService/navigationUtils';
-import { ReferenceCallback } from './languageService/referencesProvider';
+import { ReferencesProvider } from './languageService/referencesProvider';
 import { SignatureHelpProvider } from './languageService/signatureHelpProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
 import { PyrightFileSystem } from './pyrightFileSystem';
@@ -895,26 +895,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 return;
             }
 
-            const convert = (locs: DocumentRange[]): Location[] => {
-                return locs
-                    .filter((loc) => this.canNavigateToFile(loc.path, workspace.service.fs))
-                    .map((loc) => Location.create(convertPathToUri(workspace.service.fs, loc.path), loc.range));
-            };
-
-            const locations: Location[] = [];
-            const reporter: ReferenceCallback = resultReporter
-                ? (locs) => resultReporter.report(convert(locs))
-                : (locs) => appendArray(locations, convert(locs));
-
-            workspace.service.reportReferencesForPosition(
-                filePath,
-                position,
-                params.context.includeDeclaration,
-                reporter,
-                source.token
-            );
-
-            return locations;
+            return workspace.service.run((program) => {
+                return new ReferencesProvider(program, source.token).reportReferences(
+                    filePath,
+                    position,
+                    params.context.includeDeclaration,
+                    resultReporter
+                );
+            }, token);
         } finally {
             progress.reporter.done();
             source.dispose();

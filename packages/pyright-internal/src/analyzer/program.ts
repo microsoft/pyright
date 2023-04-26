@@ -39,7 +39,7 @@ import {
 import { convertPositionToOffset, convertRangeToTextRange, convertTextRangeToRange } from '../common/positionUtils';
 import { computeCompletionSimilarity } from '../common/stringUtils';
 import { TextEditTracker } from '../common/textEditTracker';
-import { doesRangeContain, doRangesIntersect, getEmptyRange, Position, Range, TextRange } from '../common/textRange';
+import { doRangesIntersect, getEmptyRange, Position, Range, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
 import { applyTextEditsToString } from '../common/workspaceEditUtils';
@@ -1041,103 +1041,6 @@ export class Program {
         });
     }
 
-    reportReferencesForPosition(
-        filePath: string,
-        position: Position,
-        includeDeclaration: boolean,
-        reporter: ReferenceCallback,
-        token: CancellationToken
-    ) {
-        this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this.getSourceFileInfo(filePath);
-            if (!sourceFileInfo) {
-                return;
-            }
-
-            const invokedFromUserFile = isUserCode(sourceFileInfo);
-            this._bindFile(sourceFileInfo);
-
-            const execEnv = this._configOptions.findExecEnvironment(filePath);
-            const referencesResult = this._getDeclarationForPosition(
-                sourceFileInfo,
-                position,
-                DocumentSymbolCollectorUseCase.Reference,
-                this._createSourceMapper(execEnv, token, sourceFileInfo),
-                token,
-                reporter
-            );
-            if (!referencesResult) {
-                return;
-            }
-
-            // Do we need to do a global search as well?
-            if (referencesResult.requiresGlobalSearch) {
-                for (const curSourceFileInfo of this._sourceFileList) {
-                    throwIfCancellationRequested(token);
-
-                    // "Find all references" will only include references from user code
-                    // unless the file is explicitly opened in the editor or it is invoked from non user files.
-                    if (curSourceFileInfo.isOpenByClient || !invokedFromUserFile || isUserCode(curSourceFileInfo)) {
-                        // See if the reference symbol's string is located somewhere within the file.
-                        // If not, we can skip additional processing for the file.
-                        const fileContents = curSourceFileInfo.sourceFile.getFileContent();
-                        if (!fileContents || referencesResult.symbolNames.some((s) => fileContents.search(s) >= 0)) {
-                            this._bindFile(curSourceFileInfo);
-
-                            curSourceFileInfo.sourceFile.addReferences(
-                                referencesResult,
-                                includeDeclaration,
-                                this._evaluator!,
-                                token
-                            );
-                        }
-
-                        // This operation can consume significant memory, so check
-                        // for situations where we need to discard the type cache.
-                        this._handleMemoryHighUsage();
-                    }
-                }
-
-                // Make sure to include declarations regardless where they are defined
-                // if includeDeclaration is set.
-                if (includeDeclaration) {
-                    for (const decl of referencesResult.declarations) {
-                        throwIfCancellationRequested(token);
-
-                        if (referencesResult.locations.some((l) => l.path === decl.path)) {
-                            // Already included.
-                            continue;
-                        }
-
-                        const declFileInfo = this.getSourceFileInfo(decl.path);
-                        if (!declFileInfo) {
-                            // The file the declaration belongs to doesn't belong to the program.
-                            continue;
-                        }
-
-                        const tempResult = new ReferencesResult(
-                            referencesResult.requiresGlobalSearch,
-                            referencesResult.nodeAtOffset,
-                            referencesResult.symbolNames,
-                            referencesResult.declarations,
-                            referencesResult.useCase
-                        );
-
-                        declFileInfo.sourceFile.addReferences(tempResult, includeDeclaration, this._evaluator!, token);
-                        for (const loc of tempResult.locations) {
-                            // Include declarations only. And throw away any references
-                            if (loc.path === decl.path && doesRangeContain(decl.range, loc.range)) {
-                                referencesResult.addLocations(loc);
-                            }
-                        }
-                    }
-                }
-            } else {
-                sourceFileInfo.sourceFile.addReferences(referencesResult, includeDeclaration, this._evaluator!, token);
-            }
-        });
-    }
-
     getFileIndex(filePath: string, options: IndexOptions, token: CancellationToken): IndexResults | undefined {
         if (options.indexingForAutoImportMode) {
             // Memory optimization. We only want to hold onto symbols
@@ -1947,10 +1850,15 @@ export class Program {
                 return editActions;
             }
 
+            const referenceProvider = new ReferencesProvider(this, token);
             const renameMode = this._getRenameSymbolMode(sourceFileInfo, referencesResult, isDefaultWorkspace);
             switch (renameMode) {
                 case 'singleFileMode':
-                    sourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator!, token);
+                    referenceProvider.addReferencesToResult(
+                        sourceFileInfo.sourceFile.getFilePath(),
+                        /*includeDeclaration*/ true,
+                        referencesResult
+                    );
                     break;
 
                 case 'multiFileMode': {
@@ -1965,7 +1873,12 @@ export class Program {
                             }
 
                             this._bindFile(curSourceFileInfo, content);
-                            curSourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator!, token);
+
+                            referenceProvider.addReferencesToResult(
+                                curSourceFileInfo.sourceFile.getFilePath(),
+                                /*includeDeclaration*/ true,
+                                referencesResult
+                            );
                         }
 
                         // This operation can consume significant memory, so check

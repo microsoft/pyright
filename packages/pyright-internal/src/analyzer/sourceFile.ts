@@ -38,7 +38,6 @@ import {
     CompletionResults,
 } from '../languageService/completionProvider';
 import { DocumentSymbolProvider, IndexOptions, IndexResults } from '../languageService/documentSymbolProvider';
-import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { Localizer } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
 import { ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
@@ -941,27 +940,6 @@ export class SourceFile {
             const privateOrProtected = SymbolNameUtils.isPrivateOrProtectedName(name);
             return { privateOrProtected, symbols };
         });
-    }
-
-    addReferences(
-        referencesResult: ReferencesResult,
-        includeDeclaration: boolean,
-        evaluator: TypeEvaluator,
-        token: CancellationToken
-    ): void {
-        // If we have no completed analysis job, there's nothing to do.
-        if (!this._parseResults) {
-            return;
-        }
-
-        ReferencesProvider.addReferences(
-            this._parseResults,
-            this._filePath,
-            referencesResult,
-            includeDeclaration,
-            evaluator,
-            token
-        );
     }
 
     addHierarchicalSymbolsForDocument(symbolList: DocumentSymbol[], token: CancellationToken) {
