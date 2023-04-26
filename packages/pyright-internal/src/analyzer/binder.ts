@@ -1898,15 +1898,17 @@ export class Binder extends ParseTreeWalker {
                             isInExceptSuite: this._isInExceptSuite,
                         };
 
-                        // Handle the case of "from . import X" within an __init__ file.
-                        // In this case, we want to always resolve to the submodule rather
-                        // than the resolved path.
-                        if (
-                            fileName === '__init__' &&
-                            node.module.leadingDots === 1 &&
-                            node.module.nameParts.length === 0
-                        ) {
-                            loadSymbolsFromPath = false;
+                        // Handle the case where this is an __init__.py file and the imported
+                        // module name refers to itself. The most common situation where this occurs
+                        // is with a "from . import X" form, but it can also occur with
+                        // an absolute import (e.g. "from A.B.C import X"). In this case, we want to
+                        // always resolve to the submodule rather than the resolved path.
+                        if (fileName === '__init__') {
+                            if (node.module.leadingDots === 1 && node.module.nameParts.length === 0) {
+                                loadSymbolsFromPath = false;
+                            } else if (resolvedPath === this._fileInfo.filePath) {
+                                loadSymbolsFromPath = false;
+                            }
                         }
                     }
 
