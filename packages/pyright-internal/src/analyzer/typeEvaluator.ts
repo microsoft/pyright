@@ -10823,7 +10823,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !inferenceContext ||
             isAnyOrUnknown(inferenceContext.expectedType) ||
             isNever(inferenceContext.expectedType) ||
-            requiresSpecialization(inferenceContext.expectedType) ||
             !type.details.declaredReturnType ||
             !requiresSpecialization(FunctionType.getSpecializedReturnType(type) ?? UnknownType.create())
         ) {
@@ -11022,7 +11021,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             {
                                 skipUnknownArgCheck,
                                 skipOverloadArg: i === 0,
-                                skipBareTypeVarExpectedType: passCount > 1 && i === 0,
+                                skipBareTypeVarExpectedType: i === 0,
                                 useNarrowBoundOnly: passCount > 1 && i === 0,
                                 conditionFilter: typeCondition,
                             }
@@ -14382,9 +14381,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        const expectedReturnType = expectedFunctionType
+        let expectedReturnType = expectedFunctionType
             ? getFunctionEffectiveReturnType(expectedFunctionType)
             : undefined;
+
+        if (expectedReturnType && inferenceContext?.typeVarContext) {
+            expectedReturnType = applySolvedTypeVars(expectedReturnType, inferenceContext.typeVarContext);
+        }
 
         // If we're speculatively evaluating the lambda, create another speculative
         // evaluation scope for the return expression and do not allow retention
@@ -14393,7 +14396,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const returnTypeResult = getTypeOfExpression(
                 node.expression,
                 /* flags */ undefined,
-                makeInferenceContext(expectedReturnType)
+                makeInferenceContext(expectedReturnType, inferenceContext?.typeVarContext)
             );
 
             functionType.inferredReturnType = returnTypeResult.type;
