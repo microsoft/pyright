@@ -60,7 +60,7 @@ export class LimitedAccessHost extends NoAccessHost {
 }
 
 export class FullAccessHost extends LimitedAccessHost {
-    constructor(protected _fs: FileSystem) {
+    constructor(protected fs: FileSystem) {
         super();
     }
 
@@ -84,7 +84,7 @@ export class FullAccessHost extends LimitedAccessHost {
     override getPythonSearchPaths(pythonPath?: string, logInfo?: string[]): PythonPathResult {
         const importFailureInfo = logInfo ?? [];
         let result = this._executePythonInterpreter(pythonPath, (p) =>
-            this._getSearchPathResultFromInterpreter(this._fs, p, importFailureInfo)
+            this._getSearchPathResultFromInterpreter(this.fs, p, importFailureInfo)
         );
 
         if (!result) {

@@ -77,7 +77,7 @@
                     "accessor"
                 ],
                 "modifiers": ["protected"],
-                "leadingUnderscore": "allow",
+                "leadingUnderscore": "forbid",
                 "format": ["camelCase"],
                 "filter": {
                     "regex": "^(test_| )",

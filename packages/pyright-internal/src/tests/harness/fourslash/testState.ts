@@ -385,7 +385,7 @@ export class TestState {
         if (this.testData.rangesByText) {
             return this.testData.rangesByText;
         }
-        const result = this.createMultiMap<Range>(this.getRanges(), (r) => this._rangeText(r));
+        const result = this.createMultiMap<Range>(this.getRanges(), (r) => this.rangeText(r));
         this.testData.rangesByText = result;
 
         return result;
@@ -394,7 +394,7 @@ export class TestState {
     getFilteredRanges<T extends {}>(
         predicate: (m: Marker | undefined, d: T | undefined, text: string) => boolean
     ): Range[] {
-        return this.getRanges().filter((r) => predicate(r.marker, r.marker?.data as T | undefined, this._rangeText(r)));
+        return this.getRanges().filter((r) => predicate(r.marker, r.marker?.data as T | undefined, this.rangeText(r)));
     }
 
     getRangeByMarkerName(markerName: string): Range | undefined {
@@ -904,7 +904,7 @@ export class TestState {
     }
 
     verifyRangeIs(expectedText: string, includeWhiteSpace?: boolean) {
-        this._verifyTextMatches(this._rangeText(this._getOnlyRange()), !!includeWhiteSpace, expectedText);
+        this._verifyTextMatches(this.rangeText(this._getOnlyRange()), !!includeWhiteSpace, expectedText);
     }
 
     async verifyCompletion(
@@ -1536,7 +1536,7 @@ export class TestState {
         }
     }
 
-    protected _rangeText({ fileName, pos, end }: Range): string {
+    protected rangeText({ fileName, pos, end }: Range): string {
         return this.getFileContent(fileName).slice(pos, end);
     }
 

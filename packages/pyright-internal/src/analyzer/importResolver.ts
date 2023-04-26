@@ -121,7 +121,7 @@ export class ImportResolver {
     private _stdlibModules: Set<string> | undefined;
     protected cachedParentImportResults: ParentDirectoryCache;
 
-    constructor(readonly fileSystem: FileSystem, protected _configOptions: ConfigOptions, readonly host: Host) {
+    constructor(readonly fileSystem: FileSystem, private _configOptions: ConfigOptions, readonly host: Host) {
         this.cachedParentImportResults = new ParentDirectoryCache(() => this.getPythonSearchPaths([]));
     }
 
@@ -145,9 +145,9 @@ export class ImportResolver {
         execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor
     ): ImportResult {
-        // Wrap internal call to _resolveImport() to prevent calling any
+        // Wrap internal call to resolveImportInternal() to prevent calling any
         // child class version of resolveImport().
-        return this._resolveImport(sourceFilePath, execEnv, moduleDescriptor);
+        return this.resolveImportInternal(sourceFilePath, execEnv, moduleDescriptor);
     }
 
     getCompletionSuggestions(
@@ -445,7 +445,7 @@ export class ImportResolver {
 
     // Resolves the import and returns the path if it exists, otherwise
     // returns undefined.
-    protected _resolveImport(
+    protected resolveImportInternal(
         sourceFilePath: string,
         execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor
@@ -2297,7 +2297,7 @@ export class ImportResolver {
                 .isImportFound;
         }
 
-        return this._resolveImport(sourceFilePath, execEnv, moduleDescriptor).isImportFound;
+        return this.resolveImportInternal(sourceFilePath, execEnv, moduleDescriptor).isImportFound;
     }
 
     private _isUniqueValidSuggestion(suggestionToAdd: string, suggestions: Map<string, string>) {

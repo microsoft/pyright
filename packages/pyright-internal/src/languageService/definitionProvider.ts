@@ -36,16 +36,16 @@ export enum DefinitionFilter {
 
 class DefinitionProviderBase {
     protected constructor(
-        protected readonly _sourceMapper: SourceMapper,
-        protected readonly _evaluator: TypeEvaluator,
-        protected readonly _node: ParseNode | undefined,
-        protected readonly _offset: number,
+        protected readonly sourceMapper: SourceMapper,
+        protected readonly evaluator: TypeEvaluator,
+        protected readonly node: ParseNode | undefined,
+        protected readonly offset: number,
         private readonly _filter: DefinitionFilter,
-        protected readonly _token: CancellationToken
+        protected readonly token: CancellationToken
     ) {}
 
     getDefinitionsForNode(node: ParseNode, offset: number) {
-        throwIfCancellationRequested(this._token);
+        throwIfCancellationRequested(this.token);
 
         const definitions: DocumentRange[] = [];
 
@@ -53,24 +53,24 @@ class DefinitionProviderBase {
         Extensions.getProgramExtensions(node).forEach((e) => {
             if (e.declarationProviderExtension) {
                 const declarations = e.declarationProviderExtension.tryGetDeclarations(
-                    this._evaluator,
+                    this.evaluator,
                     node,
                     offset,
                     DeclarationUseCase.Definition,
-                    this._token
+                    this.token
                 );
-                this._resolveDeclarations(declarations, definitions);
+                this.resolveDeclarations(declarations, definitions);
             }
         });
 
         // There should be only one 'definition', so only if extensions failed should we try again.
         if (definitions.length === 0) {
             if (node.nodeType === ParseNodeType.Name) {
-                const declarations = this._evaluator.getDeclarationsForNameNode(node);
-                this._resolveDeclarations(declarations, definitions);
+                const declarations = this.evaluator.getDeclarationsForNameNode(node);
+                this.resolveDeclarations(declarations, definitions);
             } else if (node.nodeType === ParseNodeType.String) {
-                const declarations = this._evaluator.getDeclarationsForStringNode(node);
-                this._resolveDeclarations(declarations, definitions);
+                const declarations = this.evaluator.getDeclarationsForStringNode(node);
+                this.resolveDeclarations(declarations, definitions);
             }
         }
 
@@ -93,10 +93,10 @@ class DefinitionProviderBase {
         return definitions;
     }
 
-    protected _resolveDeclarations(declarations: Declaration[] | undefined, definitions: DocumentRange[]) {
+    protected resolveDeclarations(declarations: Declaration[] | undefined, definitions: DocumentRange[]) {
         if (declarations) {
             declarations.forEach((decl) => {
-                let resolvedDecl = this._evaluator.resolveAliasDeclaration(
+                let resolvedDecl = this.evaluator.resolveAliasDeclaration(
                     decl,
                     /* resolveLocalNames */ true,
                     /* allowExternallyHiddenAccess */ true
@@ -126,7 +126,7 @@ class DefinitionProviderBase {
 
                     if (isFunctionDeclaration(resolvedDecl)) {
                         // Handle overloaded function case
-                        const functionType = this._evaluator.getTypeForDeclaration(resolvedDecl)?.type;
+                        const functionType = this.evaluator.getTypeForDeclaration(resolvedDecl)?.type;
                         if (functionType && isOverloadedFunction(functionType)) {
                             for (const overloadDecl of functionType.overloads
                                 .map((o) => o.details.declaration)
@@ -142,13 +142,13 @@ class DefinitionProviderBase {
                     if (isStubFile(resolvedDecl.path)) {
                         if (resolvedDecl.type === DeclarationType.Alias) {
                             // Add matching source module
-                            this._sourceMapper
+                            this.sourceMapper
                                 .findModules(resolvedDecl.path)
                                 .map((m) => getFileInfo(m)?.filePath)
                                 .filter(isDefined)
                                 .forEach((f) => _addIfUnique(definitions, _createModuleEntry(f)));
                         } else {
-                            const implDecls = this._sourceMapper.findDeclarations(resolvedDecl);
+                            const implDecls = this.sourceMapper.findDeclarations(resolvedDecl);
                             for (const implDecl of implDecls) {
                                 if (implDecl && implDecl.path) {
                                     _addIfUnique(definitions, {
@@ -192,11 +192,11 @@ export class DefinitionProvider extends DefinitionProviderBase {
     }
 
     getDefinitions(): DocumentRange[] | undefined {
-        if (this._node === undefined) {
+        if (this.node === undefined) {
             return undefined;
         }
 
-        return this.getDefinitionsForNode(this._node, this._offset);
+        return this.getDefinitionsForNode(this.node, this.offset);
     }
 }
 
@@ -213,15 +213,15 @@ export class TypeDefinitionProvider extends DefinitionProviderBase {
     }
 
     getDefinitions(): DocumentRange[] | undefined {
-        throwIfCancellationRequested(this._token);
-        if (this._node === undefined) {
+        throwIfCancellationRequested(this.token);
+        if (this.node === undefined) {
             return undefined;
         }
 
         const definitions: DocumentRange[] = [];
 
-        if (this._node.nodeType === ParseNodeType.Name) {
-            const type = this._evaluator.getType(this._node);
+        if (this.node.nodeType === ParseNodeType.Name) {
+            const type = this.evaluator.getType(this.node);
 
             if (type) {
                 let declarations: Declaration[] = [];
@@ -230,7 +230,7 @@ export class TypeDefinitionProvider extends DefinitionProviderBase {
                     if (subtype?.category === TypeCategory.Class) {
                         appendArray(
                             declarations,
-                            this._sourceMapper.findClassDeclarationsByType(this._filePath, subtype)
+                            this.sourceMapper.findClassDeclarationsByType(this._filePath, subtype)
                         );
                     }
                 });
@@ -238,14 +238,14 @@ export class TypeDefinitionProvider extends DefinitionProviderBase {
                 // Fall back to Go To Definition if the type can't be found (ex. Go To Type Definition
                 // was executed on a type name)
                 if (declarations.length === 0) {
-                    declarations = this._evaluator.getDeclarationsForNameNode(this._node) ?? [];
+                    declarations = this.evaluator.getDeclarationsForNameNode(this.node) ?? [];
                 }
 
-                this._resolveDeclarations(declarations, definitions);
+                this.resolveDeclarations(declarations, definitions);
             }
-        } else if (this._node.nodeType === ParseNodeType.String) {
-            const declarations = this._evaluator.getDeclarationsForStringNode(this._node);
-            this._resolveDeclarations(declarations, definitions);
+        } else if (this.node.nodeType === ParseNodeType.String) {
+            const declarations = this.evaluator.getDeclarationsForStringNode(this.node);
+            this.resolveDeclarations(declarations, definitions);
         }
 
         if (definitions.length === 0) {

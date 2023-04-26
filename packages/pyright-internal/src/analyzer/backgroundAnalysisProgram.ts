@@ -30,7 +30,7 @@ export class BackgroundAnalysisProgram {
         private _console: ConsoleInterface,
         private _configOptions: ConfigOptions,
         private _importResolver: ImportResolver,
-        protected _backgroundAnalysis?: BackgroundAnalysisBase,
+        private _backgroundAnalysis?: BackgroundAnalysisBase,
         private _maxAnalysisTime?: MaxAnalysisTime,
         private _disableChecker?: boolean,
         cacheManager?: CacheManager
@@ -63,6 +63,10 @@ export class BackgroundAnalysisProgram {
 
     get backgroundAnalysis() {
         return this._backgroundAnalysis;
+    }
+
+    set backgroundAnalysis(value: BackgroundAnalysisBase | undefined) {
+        this._backgroundAnalysis = value;
     }
 
     hasSourceFile(filePath: string): boolean {
@@ -147,7 +151,7 @@ export class BackgroundAnalysisProgram {
 
     startAnalysis(token: CancellationToken): boolean {
         if (this._backgroundAnalysis) {
-            this._backgroundAnalysis.startAnalysis(this._getIndices(), token);
+            this._backgroundAnalysis.startAnalysis(this.getIndices(), token);
             return false;
         }
 
@@ -183,7 +187,7 @@ export class BackgroundAnalysisProgram {
     }
 
     getIndexing(filePath: string) {
-        return this._getIndices()?.getIndex(this._configOptions.findExecEnvironment(filePath).root);
+        return this.getIndices()?.getIndex(this._configOptions.findExecEnvironment(filePath).root);
     }
 
     async getDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
@@ -244,7 +248,7 @@ export class BackgroundAnalysisProgram {
         this._backgroundAnalysis?.shutdown();
     }
 
-    protected _getIndices(): Indices | undefined {
+    protected getIndices(): Indices | undefined {
         return undefined;
     }
 

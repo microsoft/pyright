@@ -31,15 +31,15 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
     // Mapped files per a containing folder map
     private readonly _folderMap = new Map<string, { name: string; isFile: boolean }[]>();
 
-    constructor(protected _realFS: FileSystem) {}
+    constructor(protected realFS: FileSystem) {}
 
     existsSync(path: string): boolean {
-        if (this._isMovedEntry(path)) {
+        if (this.isMovedEntry(path)) {
             // Pretend partial stub folder and its files not exist
             return false;
         }
 
-        return this._realFS.existsSync(this._getOriginalPath(path));
+        return this.realFS.existsSync(this.getOriginalPath(path));
     }
 
     mkdirSync(path: string, options?: MkDirOptions): void {
@@ -55,14 +55,14 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
 
         const entries: fs.Dirent[] = [];
         const movedEntries = this._folderMap.get(maybeDirectory);
-        if (!movedEntries || this._realFS.existsSync(path)) {
+        if (!movedEntries || this.realFS.existsSync(path)) {
             entries.push(
-                ...this._realFS.readdirEntriesSync(path).filter((item) => {
+                ...this.realFS.readdirEntriesSync(path).filter((item) => {
                     // Filter out the stub package directory and any
                     // entries that will be overwritten by stub package
                     // virtual items.
                     return (
-                        !this._isMovedEntry(combinePaths(path, item.name)) &&
+                        !this.isMovedEntry(combinePaths(path, item.name)) &&
                         !movedEntries?.some((movedEntry) => movedEntry.name === item.name)
                     );
                 })
@@ -83,7 +83,7 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
     readFileSync(path: string, encoding?: null): Buffer;
     readFileSync(path: string, encoding: BufferEncoding): string;
     readFileSync(path: string, encoding?: BufferEncoding | null): string | Buffer {
-        return this._realFS.readFileSync(this._getOriginalPath(path), encoding);
+        return this.realFS.readFileSync(this.getOriginalPath(path), encoding);
     }
 
     writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null): void {
@@ -91,7 +91,7 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
     }
 
     statSync(path: string): Stats {
-        return this._realFS.statSync(this._getOriginalPath(path));
+        return this.realFS.statSync(this.getOriginalPath(path));
     }
 
     unlinkSync(path: string): void {
@@ -103,19 +103,19 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
             return path;
         }
 
-        return this._realFS.realpathSync(path);
+        return this.realFS.realpathSync(path);
     }
 
     getModulePath(): string {
-        return this._realFS.getModulePath();
+        return this.realFS.getModulePath();
     }
 
     createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
-        return this._realFS.createFileSystemWatcher(paths, listener);
+        return this.realFS.createFileSystemWatcher(paths, listener);
     }
 
     createReadStream(path: string): fs.ReadStream {
-        return this._realFS.createReadStream(this._getOriginalPath(path));
+        return this.realFS.createReadStream(this.getOriginalPath(path));
     }
 
     createWriteStream(path: string): fs.WriteStream {
@@ -128,55 +128,55 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
 
     // Async I/O
     readFile(path: string): Promise<Buffer> {
-        return this._realFS.readFile(this._getOriginalPath(path));
+        return this.realFS.readFile(this.getOriginalPath(path));
     }
 
     readFileText(path: string, encoding?: BufferEncoding): Promise<string> {
-        return this._realFS.readFileText(this._getOriginalPath(path), encoding);
+        return this.realFS.readFileText(this.getOriginalPath(path), encoding);
     }
 
     // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
     tmpdir(): string {
-        return this._realFS.tmpdir();
+        return this.realFS.tmpdir();
     }
 
     tmpfile(options?: TmpfileOptions): string {
-        return this._realFS.tmpfile(options);
+        return this.realFS.tmpfile(options);
     }
 
     realCasePath(path: string): string {
-        return this._realFS.realCasePath(path);
+        return this.realFS.realCasePath(path);
     }
 
     getUri(originalPath: string): string {
-        return this._realFS.getUri(originalPath);
+        return this.realFS.getUri(originalPath);
     }
 
     // See whether the file is mapped to another location.
     isMappedFilePath(filepath: string): boolean {
-        return this._entryMap.has(filepath) || this._realFS.isMappedFilePath(filepath);
+        return this._entryMap.has(filepath) || this.realFS.isMappedFilePath(filepath);
     }
 
     // Get original filepath if the given filepath is mapped.
     getOriginalFilePath(mappedFilePath: string) {
-        return this._realFS.getOriginalFilePath(this._getOriginalPath(mappedFilePath));
+        return this.realFS.getOriginalFilePath(this.getOriginalPath(mappedFilePath));
     }
 
     // Get mapped filepath if the given filepath is mapped.
     getMappedFilePath(originalFilepath: string) {
-        const mappedFilePath = this._realFS.getMappedFilePath(originalFilepath);
+        const mappedFilePath = this.realFS.getMappedFilePath(originalFilepath);
         return this._reverseEntryMap.get(mappedFilePath) ?? mappedFilePath;
     }
 
     isInZipOrEgg(path: string): boolean {
-        return this._realFS.isInZipOrEgg(path);
+        return this.realFS.isInZipOrEgg(path);
     }
 
     dispose(): void {
-        this._realFS.dispose();
+        this.realFS.dispose();
     }
 
-    protected _recordMovedEntry(mappedPath: string, originalPath: string, reversible = true, isFile = true) {
+    protected recordMovedEntry(mappedPath: string, originalPath: string, reversible = true, isFile = true) {
         this._entryMap.set(mappedPath, originalPath);
 
         if (reversible) {
@@ -192,15 +192,15 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
         }
     }
 
-    protected _getOriginalPath(mappedFilePath: string) {
+    protected getOriginalPath(mappedFilePath: string) {
         return this._entryMap.get(mappedFilePath) ?? mappedFilePath;
     }
 
-    protected _isMovedEntry(path: string) {
+    protected isMovedEntry(path: string) {
         return this._reverseEntryMap.has(path);
     }
 
-    protected _clear() {
+    protected clear() {
         this._entryMap.clear();
         this._reverseEntryMap.clear();
         this._folderMap.clear();

@@ -15,7 +15,7 @@ import { FileSystem } from './fileSystem';
 import { convertUriToPath } from './pathUtils';
 
 export class UriParser {
-    constructor(protected readonly _fs: FileSystem) {}
+    constructor(protected readonly fs: FileSystem) {}
 
     decodeTextDocumentPosition(textDocument: TextDocumentIdentifier, position: Position) {
         const filePath = this.decodeTextDocumentUri(textDocument.uri);
@@ -23,7 +23,7 @@ export class UriParser {
     }
 
     decodeTextDocumentUri(uriString: string) {
-        return convertUriToPath(this._fs, uriString);
+        return convertUriToPath(this.fs, uriString);
     }
 
     isLocal(uri: URI | string | undefined) {
