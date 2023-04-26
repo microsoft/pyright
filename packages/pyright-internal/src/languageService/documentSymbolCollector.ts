@@ -455,7 +455,13 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 useCase === DocumentSymbolCollectorUseCase.Rename
                     ? DeclarationUseCase.Rename
                     : DeclarationUseCase.References;
-            const extras = e.declarationProviderExtension?.tryGetDeclarations(evaluator, node, declUseCase, token);
+            const extras = e.declarationProviderExtension?.tryGetDeclarations(
+                evaluator,
+                node,
+                node.start,
+                declUseCase,
+                token
+            );
             if (extras && extras.length > 0) {
                 result.push(...extras);
             }

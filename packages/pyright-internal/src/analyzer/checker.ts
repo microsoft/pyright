@@ -3885,6 +3885,7 @@ export class Checker extends ParseTreeWalker {
                 this._sourceMapper,
                 this._evaluator,
                 namePartNodes[namePartNodes.length - 1],
+                namePartNodes[namePartNodes.length - 1].start,
                 CancellationToken.None
             );
             const paths = definitions ? definitions.map((d) => d.path) : [];

@@ -1182,6 +1182,22 @@ test('handle wildcard import in destination file', () => {
     testFromCode(code);
 });
 
+test('move symbol whose decl is after reference', () => {
+    const code = `
+// @filename: test.py
+//// [|{|"r":"from moved import mysum!n!!n!!n!"|}|]def myfunc():
+////     z = mysum()
+//// 
+//// [|{|"r":""|}def [|/*marker*/mysum|]():
+////     return 1|]
+
+// @filename: moved.py
+//// [|{|"r":"def mysum():!n!    return 1", "name": "dest"|}|]
+    `;
+
+    testFromCode(code);
+});
+
 function testFromCode(code: string) {
     const state = parseAndGetTestState(code).state;
 

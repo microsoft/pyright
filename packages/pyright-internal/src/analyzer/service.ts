@@ -349,6 +349,10 @@ export class AnalyzerService {
         return this._program.getBoundSourceFile(path)?.getParseResults();
     }
 
+    getSourceFile(path: string) {
+        return this._program.getBoundSourceFile(path);
+    }
+
     getTextOnRange(filePath: string, range: Range, token: CancellationToken) {
         return this._program.getTextOnRange(filePath, range, token);
     }
