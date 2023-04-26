@@ -665,14 +665,23 @@ export class Program {
             // _handleMemoryHighUsage will make sure we don't OOM and
             // at the end of this method, we will drop all trees and symbol tables
             // created due to indexing.
+            let count = 0;
             const initiallyParsedSet = new Set<SourceFileInfo>();
             for (const sourceFileInfo of this._sourceFileList) {
                 if (!sourceFileInfo.sourceFile.isParseRequired()) {
                     initiallyParsedSet.add(sourceFileInfo);
                 }
+
+                if (isUserCode(sourceFileInfo) && !sourceFileInfo.sourceFile.isIndexingRequired()) {
+                    count++;
+                }
             }
 
-            let count = 0;
+            if (count >= MaxWorkspaceIndexFileCount) {
+                // Already processed max files.
+                return 0;
+            }
+
             for (const sourceFileInfo of this._sourceFileList) {
                 if (!isUserCode(sourceFileInfo) || !sourceFileInfo.sourceFile.isIndexingRequired()) {
                     continue;

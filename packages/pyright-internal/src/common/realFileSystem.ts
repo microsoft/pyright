@@ -9,6 +9,7 @@ import { getLibzipSync } from '@yarnpkg/libzip';
 import * as fs from 'fs';
 import * as tmp from 'tmp';
 import { URI } from 'vscode-uri';
+import { isMainThread } from 'worker_threads';
 
 import { ConsoleInterface, NullConsole } from './console';
 import {
@@ -223,7 +224,11 @@ class RealFileSystem implements FileSystem {
     }
 
     chdir(path: string) {
-        process.chdir(path);
+        // If this file system happens to be running in a worker thread,
+        // then we can't call 'chdir'.
+        if (isMainThread) {
+            process.chdir(path);
+        }
     }
 
     readdirSync(path: string): string[] {
