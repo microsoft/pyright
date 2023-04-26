@@ -116,13 +116,6 @@ class EggZipOpenFS extends ZipOpenFS {
     private override isZip!: Set<PortablePath>;
     private override notZip!: Set<PortablePath>;
 
-    // Hack to provide typed access to this private method.
-    private override getZipSync<T>(p: PortablePath, accept: (zipFs: ZipFS) => T): T {
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        //@ts-expect-error
-        return super.getZipSync(p, accept);
-    }
-
     override findZip(p: PortablePath) {
         if (this.filter && !this.filter.test(p)) return null;
 
@@ -172,6 +165,13 @@ class EggZipOpenFS extends ZipOpenFS {
                 subPath: this.pathUtils.join(PortablePath.root, p.substr(filePath.length) as PortablePath),
             };
         }
+    }
+
+    // Hack to provide typed access to this private method.
+    private override getZipSync<T>(p: PortablePath, accept: (zipFs: ZipFS) => T): T {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        //@ts-expect-error
+        return super.getZipSync(p, accept);
     }
 }
 

@@ -209,7 +209,7 @@ export interface SignatureWithCount {
 }
 
 export class UniqueSignatureTracker {
-    public signaturesSeen: SignatureWithCount[];
+    signaturesSeen: SignatureWithCount[];
 
     constructor() {
         this.signaturesSeen = [];
@@ -3693,10 +3693,6 @@ class ExpectedConstructorTypeTransformer extends TypeVarTransformer {
         super();
     }
 
-    private _isTypeVarLive(typeVar: TypeVarType) {
-        return this._liveTypeVarScopes.some((scopeId) => typeVar.scopeId === scopeId);
-    }
-
     override transformTypeVar(typeVar: TypeVarType) {
         // If the type variable is unrelated to the scopes we're solving,
         // don't transform that type variable.
@@ -3705,5 +3701,9 @@ class ExpectedConstructorTypeTransformer extends TypeVarTransformer {
         }
 
         return AnyType.create();
+    }
+
+    private _isTypeVarLive(typeVar: TypeVarType) {
+        return this._liveTypeVarScopes.some((scopeId) => typeVar.scopeId === scopeId);
     }
 }

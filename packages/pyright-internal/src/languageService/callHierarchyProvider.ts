@@ -229,6 +229,10 @@ export class CallHierarchyProvider {
         return callItems;
     }
 
+    private get _evaluator(): TypeEvaluator {
+        return this._program.evaluator!;
+    }
+
     private _getTargetDeclaration(referencesResult: ReferencesResult): {
         targetDecl: Declaration;
         callItemUri: string;
@@ -269,10 +273,6 @@ export class CallHierarchyProvider {
         }
 
         return { targetDecl, callItemUri, symbolName };
-    }
-
-    private get _evaluator(): TypeEvaluator {
-        return this._program.evaluator!;
     }
 
     private _getIncomingCallsForDeclaration(

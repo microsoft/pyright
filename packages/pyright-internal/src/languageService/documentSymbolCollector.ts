@@ -24,8 +24,8 @@ import {
     createSynthesizedAliasDeclaration,
     getDeclarationsWithUsesLocalNameRemoved,
 } from '../analyzer/declarationUtils';
-import { getModuleNode, getStringNodeValueRange } from '../analyzer/parseTreeUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { getModuleNode, getStringNodeValueRange } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { ScopeType } from '../analyzer/scope';
 import * as ScopeUtils from '../analyzer/scopeUtils';
@@ -63,6 +63,45 @@ export enum DocumentSymbolCollectorUseCase {
 // This walker looks for symbols that are semantically equivalent
 // to the requested symbol.
 export class DocumentSymbolCollector extends ParseTreeWalker {
+    private _results: CollectionResult[] = [];
+    private _dunderAllNameNodes = new Set<StringNode>();
+    private _initFunction: FunctionNode | undefined;
+    private _symbolNames: Set<string> = new Set<string>();
+
+    constructor(
+        symbolNames: string[],
+        private _declarations: Declaration[],
+        private _evaluator: TypeEvaluator,
+        private _cancellationToken: CancellationToken,
+        private _startingNode: ParseNode,
+        private _treatModuleInImportAndFromImportSame = false,
+        private _skipUnreachableCode = true,
+        private _useCase = DocumentSymbolCollectorUseCase.Reference
+    ) {
+        super();
+
+        // Start with the symbols passed in
+        symbolNames.forEach((s) => this._symbolNames.add(s));
+
+        // Don't report strings in __all__ right away, that will
+        // break the assumption on the result ordering.
+        this._setDunderAllNodes(this._startingNode);
+
+        // Check if one of our symbols is __init__ and we
+        // have a class declaration in the list and we are
+        // computing symbols for references and not rename.
+        const initDeclaration = _declarations.find(
+            (d) => d.type === DeclarationType.Function && d.node.name.value === '__init__'
+        );
+        if (initDeclaration && _useCase === DocumentSymbolCollectorUseCase.Reference) {
+            const classDeclaration = _declarations.find((d) => d.type === DeclarationType.Class);
+            if (classDeclaration) {
+                this._initFunction = initDeclaration.node as FunctionNode;
+                this._symbolNames.add((classDeclaration.node as ClassNode).name.value);
+            }
+        }
+    }
+
     static collectFromNode(
         node: NameNode,
         evaluator: TypeEvaluator,
@@ -161,45 +200,6 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         return resolvedDeclarations;
     }
 
-    private _results: CollectionResult[] = [];
-    private _dunderAllNameNodes = new Set<StringNode>();
-    private _initFunction: FunctionNode | undefined;
-    private _symbolNames: Set<string> = new Set<string>();
-
-    constructor(
-        symbolNames: string[],
-        private _declarations: Declaration[],
-        private _evaluator: TypeEvaluator,
-        private _cancellationToken: CancellationToken,
-        private _startingNode: ParseNode,
-        private _treatModuleInImportAndFromImportSame = false,
-        private _skipUnreachableCode = true,
-        private _useCase = DocumentSymbolCollectorUseCase.Reference
-    ) {
-        super();
-
-        // Start with the symbols passed in
-        symbolNames.forEach((s) => this._symbolNames.add(s));
-
-        // Don't report strings in __all__ right away, that will
-        // break the assumption on the result ordering.
-        this._setDunderAllNodes(this._startingNode);
-
-        // Check if one of our symbols is __init__ and we
-        // have a class declaration in the list and we are
-        // computing symbols for references and not rename.
-        const initDeclaration = _declarations.find(
-            (d) => d.type === DeclarationType.Function && d.node.name.value === '__init__'
-        );
-        if (initDeclaration && _useCase === DocumentSymbolCollectorUseCase.Reference) {
-            const classDeclaration = _declarations.find((d) => d.type === DeclarationType.Class);
-            if (classDeclaration) {
-                this._initFunction = initDeclaration.node as FunctionNode;
-                this._symbolNames.add((classDeclaration.node as ClassNode).name.value);
-            }
-        }
-    }
-
     collect() {
         this.walk(this._startingNode);
         return this._results;
@@ -283,7 +283,8 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             )
         );
         if (match) {
-            // Special case for __init__ being one of our symbol names and we have a classname as the other.
+            // Special case for __init__ being one of our symbol names and we
+            // have a class name as the other.
             if (this._initFunction) {
                 // If this is a method, must be an __init__ reference.
                 if (match.type === DeclarationType.Function) {

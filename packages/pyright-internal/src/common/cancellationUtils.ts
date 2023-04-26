@@ -82,16 +82,6 @@ export class FileBasedToken implements CancellationToken {
         // empty
     }
 
-    cancel() {
-        if (!this.isCancelled) {
-            this.isCancelled = true;
-            if (this._emitter) {
-                this._emitter.fire(undefined);
-                this._disposeEmitter();
-            }
-        }
-    }
-
     get isCancellationRequested(): boolean {
         if (this.isCancelled) {
             return true;
@@ -113,6 +103,16 @@ export class FileBasedToken implements CancellationToken {
             this._emitter = new Emitter<any>();
         }
         return this._emitter.event;
+    }
+
+    cancel() {
+        if (!this.isCancelled) {
+            this.isCancelled = true;
+            if (this._emitter) {
+                this._emitter.fire(undefined);
+                this._disposeEmitter();
+            }
+        }
     }
 
     dispose(): void {

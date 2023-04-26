@@ -168,17 +168,17 @@ export interface WindowInterface {
 }
 
 export interface LanguageServerInterface {
+    readonly rootPath: string;
+    readonly console: ConsoleInterface;
+    readonly window: WindowInterface;
+    readonly supportAdvancedEdits: boolean;
+
     getWorkspaceForFile(filePath: string): Promise<Workspace>;
     getSettings(workspace: Workspace): Promise<ServerSettings>;
     createBackgroundAnalysis(serviceId: string): BackgroundAnalysisBase | undefined;
     reanalyze(): void;
     restart(): void;
     decodeTextDocumentUri(uriString: string): string;
-
-    readonly rootPath: string;
-    readonly console: ConsoleInterface;
-    readonly window: WindowInterface;
-    readonly supportAdvancedEdits: boolean;
 }
 
 export interface ServerOptions {
@@ -394,99 +394,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         Extensions.createLanguageServiceExtensions(this);
     }
 
-    // Convert uri to path
-    decodeTextDocumentUri(uriString: string): string {
-        return this._uriParser.decodeTextDocumentUri(uriString);
-    }
-
-    abstract createBackgroundAnalysis(serviceId: string): BackgroundAnalysisBase | undefined;
-
-    protected abstract executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
-
-    protected abstract isLongRunningCommand(command: string): boolean;
-
-    protected abstract executeCodeAction(
-        params: CodeActionParams,
-        token: CancellationToken
-    ): Promise<(Command | CodeAction)[] | undefined | null>;
-
-    abstract getSettings(workspace: Workspace): Promise<ServerSettings>;
-
-    protected isPythonPathImmutable(filePath: string): boolean {
-        // This function is called to determine if the file is using
-        // a special pythonPath separate from a workspace or not.
-        // The default is no.
-        return false;
-    }
-
-    protected async getConfiguration(scopeUri: string | undefined, section: string) {
-        if (this.client.hasConfigurationCapability) {
-            const item: ConfigurationItem = {};
-            if (scopeUri !== undefined) {
-                item.scopeUri = scopeUri;
-            }
-            if (section !== undefined) {
-                item.section = section;
-            }
-            return this._connection.workspace.getConfiguration(item);
-        }
-
-        if (this._defaultClientConfig) {
-            return getNestedProperty(this._defaultClientConfig, section);
-        }
-
-        return undefined;
-    }
-
-    protected isOpenFilesOnly(diagnosticMode: string): boolean {
-        return diagnosticMode !== 'workspace';
-    }
-
-    protected get allowModuleRename() {
-        return false;
-    }
-
-    protected getSeverityOverrides(value: string): DiagnosticSeverityOverrides | undefined {
-        const enumValue = value as DiagnosticSeverityOverrides;
-        if (getDiagnosticSeverityOverrides().includes(enumValue)) {
-            return enumValue;
-        }
-
-        return undefined;
-    }
-
-    protected getDiagnosticRuleName(value: string): DiagnosticRule | undefined {
-        const enumValue = value as DiagnosticRule;
-        if (getDiagLevelDiagnosticRules().includes(enumValue)) {
-            return enumValue;
-        }
-
-        return undefined;
-    }
-
-    protected abstract createHost(): Host;
-    protected abstract createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver;
-
-    protected createBackgroundAnalysisProgram(
-        serviceId: string,
-        console: ConsoleInterface,
-        configOptions: ConfigOptions,
-        importResolver: ImportResolver,
-        backgroundAnalysis?: BackgroundAnalysisBase,
-        maxAnalysisTime?: MaxAnalysisTime,
-        cacheManager?: CacheManager
-    ): BackgroundAnalysisProgram {
-        return new BackgroundAnalysisProgram(
-            console,
-            configOptions,
-            importResolver,
-            backgroundAnalysis,
-            maxAnalysisTime,
-            /* disableChecker */ undefined,
-            cacheManager
-        );
-    }
-
     // Provides access to the client's window.
     get window(): RemoteWindow {
         return this._connection.window;
@@ -495,6 +402,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     get supportAdvancedEdits(): boolean {
         return this.client.hasDocumentChangeCapability && this.client.hasDocumentAnnotationCapability;
     }
+
+    // Convert uri to path
+    decodeTextDocumentUri(uriString: string): string {
+        return this._uriParser.decodeTextDocumentUri(uriString);
+    }
+
+    abstract createBackgroundAnalysis(serviceId: string): BackgroundAnalysisBase | undefined;
+
+    abstract getSettings(workspace: Workspace): Promise<ServerSettings>;
 
     // Creates a service instance that's used for analyzing a
     // program within a workspace.
@@ -550,6 +466,142 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._workspaceFactory.items().forEach((workspace) => {
             workspace.service.restart();
         });
+    }
+
+    updateSettingsForAllWorkspaces(): void {
+        const tasks: Promise<void>[] = [];
+        this._workspaceFactory.items().forEach((workspace) => {
+            // Updating settings can change workspace's file ownership. Make workspace uninitialized so that
+            // features can wait until workspace gets new settings.
+            // the file's ownership can also changed by `pyrightconfig.json` changes, but those are synchronous
+            // operation, so it won't affect this.
+            workspace.isInitialized = workspace.isInitialized.reset();
+            tasks.push(this.updateSettingsForWorkspace(workspace, workspace.isInitialized));
+        });
+
+        Promise.all(tasks).then(() => {
+            this._setupFileWatcher();
+        });
+    }
+
+    async updateSettingsForWorkspace(
+        workspace: Workspace,
+        status: InitStatus | undefined,
+        serverSettings?: ServerSettings
+    ): Promise<void> {
+        status?.markCalled();
+
+        serverSettings = serverSettings ?? (await this.getSettings(workspace));
+
+        // Set logging level first.
+        (this.console as ConsoleWithLogLevel).level = serverSettings.logLevel ?? LogLevel.Info;
+
+        // Apply the new path to the workspace (before restarting the service).
+        serverSettings.pythonPath = this._workspaceFactory.applyPythonPath(workspace, serverSettings.pythonPath);
+
+        // Then use the updated settings to restart the service.
+        this.updateOptionsAndRestartService(workspace, serverSettings);
+
+        workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
+        workspace.disableOrganizeImports = !!serverSettings.disableOrganizeImports;
+
+        // Don't use workspace.isInitialized directly since it might have been
+        // reset due to pending config change event.
+        // The workspace is now open for business.
+        status?.resolve();
+    }
+
+    updateOptionsAndRestartService(
+        workspace: Workspace,
+        serverSettings: ServerSettings,
+        typeStubTargetImportName?: string
+    ) {
+        AnalyzerServiceExecutor.runWithOptions(this.rootPath, workspace, serverSettings, typeStubTargetImportName);
+        workspace.searchPathsToWatch = workspace.service.librarySearchPathsToWatch ?? [];
+    }
+
+    protected get allowModuleRename() {
+        return false;
+    }
+
+    protected abstract executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
+
+    protected abstract isLongRunningCommand(command: string): boolean;
+
+    protected abstract executeCodeAction(
+        params: CodeActionParams,
+        token: CancellationToken
+    ): Promise<(Command | CodeAction)[] | undefined | null>;
+
+    protected isPythonPathImmutable(filePath: string): boolean {
+        // This function is called to determine if the file is using
+        // a special pythonPath separate from a workspace or not.
+        // The default is no.
+        return false;
+    }
+
+    protected async getConfiguration(scopeUri: string | undefined, section: string) {
+        if (this.client.hasConfigurationCapability) {
+            const item: ConfigurationItem = {};
+            if (scopeUri !== undefined) {
+                item.scopeUri = scopeUri;
+            }
+            if (section !== undefined) {
+                item.section = section;
+            }
+            return this._connection.workspace.getConfiguration(item);
+        }
+
+        if (this._defaultClientConfig) {
+            return getNestedProperty(this._defaultClientConfig, section);
+        }
+
+        return undefined;
+    }
+
+    protected isOpenFilesOnly(diagnosticMode: string): boolean {
+        return diagnosticMode !== 'workspace';
+    }
+
+    protected getSeverityOverrides(value: string): DiagnosticSeverityOverrides | undefined {
+        const enumValue = value as DiagnosticSeverityOverrides;
+        if (getDiagnosticSeverityOverrides().includes(enumValue)) {
+            return enumValue;
+        }
+
+        return undefined;
+    }
+
+    protected getDiagnosticRuleName(value: string): DiagnosticRule | undefined {
+        const enumValue = value as DiagnosticRule;
+        if (getDiagLevelDiagnosticRules().includes(enumValue)) {
+            return enumValue;
+        }
+
+        return undefined;
+    }
+
+    protected abstract createHost(): Host;
+    protected abstract createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver;
+
+    protected createBackgroundAnalysisProgram(
+        serviceId: string,
+        console: ConsoleInterface,
+        configOptions: ConfigOptions,
+        importResolver: ImportResolver,
+        backgroundAnalysis?: BackgroundAnalysisBase,
+        maxAnalysisTime?: MaxAnalysisTime,
+        cacheManager?: CacheManager
+    ): BackgroundAnalysisProgram {
+        return new BackgroundAnalysisProgram(
+            console,
+            configOptions,
+            importResolver,
+            backgroundAnalysis,
+            maxAnalysisTime,
+            /* disableChecker */ undefined,
+            cacheManager
+        );
     }
 
     protected setupConnection(supportedCommands: string[], supportedCodeActions: string[]): void {
@@ -728,49 +780,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         });
 
         this._setupFileWatcher();
-    }
-
-    private _setupFileWatcher() {
-        if (!this.client.hasWatchFileCapability) {
-            return;
-        }
-
-        const watchKind = WatchKind.Create | WatchKind.Change | WatchKind.Delete;
-
-        // Set default (config files and all workspace files) first.
-        const watchers: FileSystemWatcher[] = [
-            ...configFileNames.map((fileName) => ({ globPattern: `**/${fileName}`, kind: watchKind })),
-            { globPattern: '**', kind: watchKind },
-        ];
-
-        // Add all python search paths to watch list
-        if (this.client.hasWatchFileRelativePathCapability) {
-            // Dedup search paths from all workspaces.
-            // Get rid of any search path under workspace root since it is already watched by
-            // "**" above.
-            const foldersToWatch = deduplicateFolders(
-                this._workspaceFactory
-                    .getNonDefaultWorkspaces()
-                    .map((w) => w.searchPathsToWatch.filter((p) => !p.startsWith(w.rootPath)))
-            );
-
-            foldersToWatch.forEach((p) => {
-                const globPattern = isFile(this._serviceFS, p, /* treatZipDirectoryAsFile */ true)
-                    ? { baseUri: convertPathToUri(this._serviceFS, getDirectoryPath(p)), pattern: getFileName(p) }
-                    : { baseUri: convertPathToUri(this._serviceFS, p), pattern: '**' };
-
-                watchers.push({ globPattern, kind: watchKind });
-            });
-        }
-
-        // File watcher is pylance wide service. Dispose all existing file watchers and create new ones.
-        this._connection.client.register(DidChangeWatchedFilesNotification.type, { watchers }).then((d) => {
-            if (this._lastFileWatcherRegistration) {
-                this._lastFileWatcherRegistration.dispose();
-            }
-
-            this._lastFileWatcherRegistration = d;
-        });
     }
 
     protected onDidChangeConfiguration(params: DidChangeConfigurationParams) {
@@ -1312,22 +1321,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         );
     }
 
-    updateSettingsForAllWorkspaces(): void {
-        const tasks: Promise<void>[] = [];
-        this._workspaceFactory.items().forEach((workspace) => {
-            // Updating settings can change workspace's file ownership. Make workspace uninitialized so that
-            // features can wait until workspace gets new settings.
-            // the file's ownership can also changed by `pyrightconfig.json` changes, but those are synchronous
-            // operation, so it won't affect this.
-            workspace.isInitialized = workspace.isInitialized.reset();
-            tasks.push(this.updateSettingsForWorkspace(workspace, workspace.isInitialized));
-        });
-
-        Promise.all(tasks).then(() => {
-            this._setupFileWatcher();
-        });
-    }
-
     protected getCompletionOptions(workspace: Workspace, params?: CompletionParams): CompletionOptions {
         return {
             format: this.client.completionDocFormat,
@@ -1387,42 +1380,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         }
     }
 
-    async updateSettingsForWorkspace(
-        workspace: Workspace,
-        status: InitStatus | undefined,
-        serverSettings?: ServerSettings
-    ): Promise<void> {
-        status?.markCalled();
-
-        serverSettings = serverSettings ?? (await this.getSettings(workspace));
-
-        // Set logging level first.
-        (this.console as ConsoleWithLogLevel).level = serverSettings.logLevel ?? LogLevel.Info;
-
-        // Apply the new path to the workspace (before restarting the service).
-        serverSettings.pythonPath = this._workspaceFactory.applyPythonPath(workspace, serverSettings.pythonPath);
-
-        // Then use the updated settings to restart the service.
-        this.updateOptionsAndRestartService(workspace, serverSettings);
-
-        workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
-        workspace.disableOrganizeImports = !!serverSettings.disableOrganizeImports;
-
-        // Don't use workspace.isInitialized directly since it might have been
-        // reset due to pending config change event.
-        // The workspace is now open for business.
-        status?.resolve();
-    }
-
-    updateOptionsAndRestartService(
-        workspace: Workspace,
-        serverSettings: ServerSettings,
-        typeStubTargetImportName?: string
-    ) {
-        AnalyzerServiceExecutor.runWithOptions(this.rootPath, workspace, serverSettings, typeStubTargetImportName);
-        workspace.searchPathsToWatch = workspace.service.librarySearchPathsToWatch ?? [];
-    }
-
     protected onWorkspaceCreated(workspace: Workspace) {
         // Update settings on this workspace (but only if initialize has happened)
         if (this._initialized) {
@@ -1454,6 +1411,69 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 : () => defaultBackOffTime;
 
         return this.createAnalyzerService(name, services, libraryReanalysisTimeProvider);
+    }
+
+    protected recordUserInteractionTime() {
+        // Tell all of the services that the user is actively
+        // interacting with one or more editors, so they should
+        // back off from performing any work.
+        this._workspaceFactory.items().forEach((workspace: { service: { recordUserInteractionTime: () => void } }) => {
+            workspace.service.recordUserInteractionTime();
+        });
+    }
+
+    protected getDocumentationUrlForDiagnosticRule(rule: string): string | undefined {
+        // Configuration.md is configured to have a link for every rule name.
+        return `https://github.com/microsoft/pyright/blob/main/docs/configuration.md#${rule}`;
+    }
+
+    protected abstract createProgressReporter(): ProgressReporter;
+
+    protected canNavigateToFile(path: string, fs: FileSystem): boolean {
+        return canNavigateToFile(fs, path);
+    }
+
+    private _setupFileWatcher() {
+        if (!this.client.hasWatchFileCapability) {
+            return;
+        }
+
+        const watchKind = WatchKind.Create | WatchKind.Change | WatchKind.Delete;
+
+        // Set default (config files and all workspace files) first.
+        const watchers: FileSystemWatcher[] = [
+            ...configFileNames.map((fileName) => ({ globPattern: `**/${fileName}`, kind: watchKind })),
+            { globPattern: '**', kind: watchKind },
+        ];
+
+        // Add all python search paths to watch list
+        if (this.client.hasWatchFileRelativePathCapability) {
+            // Dedup search paths from all workspaces.
+            // Get rid of any search path under workspace root since it is already watched by
+            // "**" above.
+            const foldersToWatch = deduplicateFolders(
+                this._workspaceFactory
+                    .getNonDefaultWorkspaces()
+                    .map((w) => w.searchPathsToWatch.filter((p) => !p.startsWith(w.rootPath)))
+            );
+
+            foldersToWatch.forEach((p) => {
+                const globPattern = isFile(this._serviceFS, p, /* treatZipDirectoryAsFile */ true)
+                    ? { baseUri: convertPathToUri(this._serviceFS, getDirectoryPath(p)), pattern: getFileName(p) }
+                    : { baseUri: convertPathToUri(this._serviceFS, p), pattern: '**' };
+
+                watchers.push({ globPattern, kind: watchKind });
+            });
+        }
+
+        // File watcher is pylance wide service. Dispose all existing file watchers and create new ones.
+        this._connection.client.register(DidChangeWatchedFilesNotification.type, { watchers }).then((d) => {
+            if (this._lastFileWatcherRegistration) {
+                this._lastFileWatcherRegistration.dispose();
+            }
+
+            this._lastFileWatcherRegistration = d;
+        });
     }
 
     private _sendDiagnostics(params: PublishDiagnosticsParams[]) {
@@ -1595,25 +1615,5 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         }
 
         return convertedDiags;
-    }
-
-    protected recordUserInteractionTime() {
-        // Tell all of the services that the user is actively
-        // interacting with one or more editors, so they should
-        // back off from performing any work.
-        this._workspaceFactory.items().forEach((workspace: { service: { recordUserInteractionTime: () => void } }) => {
-            workspace.service.recordUserInteractionTime();
-        });
-    }
-
-    protected getDocumentationUrlForDiagnosticRule(rule: string): string | undefined {
-        // Configuration.md is configured to have a link for every rule name.
-        return `https://github.com/microsoft/pyright/blob/main/docs/configuration.md#${rule}`;
-    }
-
-    protected abstract createProgressReporter(): ProgressReporter;
-
-    protected canNavigateToFile(path: string, fs: FileSystem): boolean {
-        return canNavigateToFile(fs, path);
     }
 }

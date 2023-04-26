@@ -17,16 +17,16 @@ import { convertUriToPath } from './pathUtils';
 export class UriParser {
     constructor(protected readonly _fs: FileSystem) {}
 
-    public decodeTextDocumentPosition(textDocument: TextDocumentIdentifier, position: Position) {
+    decodeTextDocumentPosition(textDocument: TextDocumentIdentifier, position: Position) {
         const filePath = this.decodeTextDocumentUri(textDocument.uri);
         return { filePath, position };
     }
 
-    public decodeTextDocumentUri(uriString: string) {
+    decodeTextDocumentUri(uriString: string) {
         return convertUriToPath(this._fs, uriString);
     }
 
-    public isLocal(uri: URI | string | undefined) {
+    isLocal(uri: URI | string | undefined) {
         if (!uri) {
             return false;
         }

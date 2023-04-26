@@ -245,6 +245,10 @@ export class PyrightFileSystem
         this._partialStubPackagePaths.clear();
     }
 
+    protected override _isMovedEntry(path: string) {
+        return this._partialStubPackagePaths.has(path) || super._isMovedEntry(path);
+    }
+
     private _getRelativePathPartialStubs(path: string) {
         const paths: string[] = [];
 
@@ -278,9 +282,5 @@ export class PyrightFileSystem
 
         searchAllStubs(path);
         return paths;
-    }
-
-    protected override _isMovedEntry(path: string) {
-        return this._partialStubPackagePaths.has(path) || super._isMovedEntry(path);
     }
 }

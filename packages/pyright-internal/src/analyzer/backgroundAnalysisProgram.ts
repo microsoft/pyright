@@ -244,6 +244,10 @@ export class BackgroundAnalysisProgram {
         this._backgroundAnalysis?.shutdown();
     }
 
+    protected _getIndices(): Indices | undefined {
+        return undefined;
+    }
+
     private _ensurePartialStubPackages(execEnv: ExecutionEnvironment) {
         this._backgroundAnalysis?.ensurePartialStubPackages(execEnv.root);
         return this._importResolver.ensurePartialStubPackages(execEnv);
@@ -266,10 +270,6 @@ export class BackgroundAnalysisProgram {
                 });
             }
         }
-    }
-
-    protected _getIndices(): Indices | undefined {
-        return undefined;
     }
 }
 

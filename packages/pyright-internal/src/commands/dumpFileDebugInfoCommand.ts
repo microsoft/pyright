@@ -26,7 +26,7 @@ import {
 } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { isNumber, isString } from '../common/core';
-import { convertOffsetsToRange, convertOffsetToPosition } from '../common/positionUtils';
+import { convertOffsetToPosition, convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { LanguageServerInterface } from '../languageServerBase';
@@ -55,8 +55,8 @@ import {
     ErrorNode,
     ExceptNode,
     ExpressionNode,
-    FormatStringNode,
     ForNode,
+    FormatStringNode,
     FunctionAnnotationNode,
     FunctionNode,
     GlobalNode,
@@ -66,7 +66,6 @@ import {
     ImportFromNode,
     ImportNode,
     IndexNode,
-    isExpressionNode,
     LambdaNode,
     ListComprehensionForNode,
     ListComprehensionIfNode,
@@ -117,6 +116,7 @@ import {
     WithNode,
     YieldFromNode,
     YieldNode,
+    isExpressionNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { KeywordType, NewLineType, OperatorType, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
@@ -570,18 +570,6 @@ class TreeDumper extends ParseTreeWalker {
         }
     }
 
-    private _log(value: string) {
-        this._output += `${this._indentation}${value}\r\n`;
-    }
-
-    private _getPrefix(node: ParseNode) {
-        const pos = convertOffsetToPosition(node.start, this._lines);
-        // VS code's output window expects 1 based values, print the line/char with 1 based.
-        return `[${node.id}] '${this._file}:${pos.line + 1}:${pos.character + 1}' => ${printParseNodeType(
-            node.nodeType
-        )} ${getTextSpanString(node, this._lines)} =>`;
-    }
-
     reset() {
         this._indentation = '';
         this._output = '';
@@ -1003,6 +991,18 @@ class TreeDumper extends ParseTreeWalker {
     override visitTypeParameterList(node: TypeParameterListNode): boolean {
         this._log(`${this._getPrefix(node)}`);
         return true;
+    }
+
+    private _log(value: string) {
+        this._output += `${this._indentation}${value}\r\n`;
+    }
+
+    private _getPrefix(node: ParseNode) {
+        const pos = convertOffsetToPosition(node.start, this._lines);
+        // VS code's output window expects 1 based values, print the line/char with 1 based.
+        return `[${node.id}] '${this._file}:${pos.line + 1}:${pos.character + 1}' => ${printParseNodeType(
+            node.nodeType
+        )} ${getTextSpanString(node, this._lines)} =>`;
     }
 }
 

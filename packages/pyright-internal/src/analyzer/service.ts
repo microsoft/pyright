@@ -168,6 +168,26 @@ export class AnalyzerService {
         Extensions.createProgramExtensions(this._program, { addInterimFile: this.addInterimFile.bind(this) });
     }
 
+    get fs() {
+        return this._backgroundAnalysisProgram.importResolver.fileSystem;
+    }
+
+    get cancellationProvider() {
+        return this._options.cancellationProvider!;
+    }
+
+    get librarySearchPathsToWatch() {
+        return this._librarySearchPathsToWatch;
+    }
+
+    get backgroundAnalysisProgram(): BackgroundAnalysisProgram {
+        return this._backgroundAnalysisProgram;
+    }
+
+    get test_program() {
+        return this._program;
+    }
+
     clone(
         instanceName: string,
         serviceId: string,
@@ -219,30 +239,6 @@ export class AnalyzerService {
         this._clearReloadConfigTimer();
         this._clearReanalysisTimer();
         this._clearLibraryReanalysisTimer();
-    }
-
-    private get _console() {
-        return this._options.console!;
-    }
-
-    private get _hostFactory() {
-        return this._options.hostFactory!;
-    }
-
-    private get _importResolverFactory() {
-        return this._options.importResolverFactory!;
-    }
-
-    get cancellationProvider() {
-        return this._options.cancellationProvider!;
-    }
-
-    get librarySearchPathsToWatch() {
-        return this._librarySearchPathsToWatch;
-    }
-
-    get backgroundAnalysisProgram(): BackgroundAnalysisProgram {
-        return this._backgroundAnalysisProgram;
     }
 
     static createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver {
@@ -520,11 +516,6 @@ export class AnalyzerService {
         }
     }
 
-    // test only APIs
-    get test_program() {
-        return this._program;
-    }
-
     test_getConfigOptions(commandLineOptions: CommandLineOptions): ConfigOptions {
         return this._getConfigOptions(this._backgroundAnalysisProgram.host, commandLineOptions);
     }
@@ -535,6 +526,92 @@ export class AnalyzerService {
 
     test_shouldHandleSourceFileWatchChanges(path: string, isFile: boolean) {
         return this._shouldHandleSourceFileWatchChanges(path, isFile);
+    }
+
+    writeTypeStub(token: CancellationToken): void {
+        const typingsSubdirPath = this._getTypeStubFolder();
+
+        this._program.writeTypeStub(
+            this._typeStubTargetPath ?? '',
+            this._typeStubTargetIsSingleFile,
+            typingsSubdirPath,
+            token
+        );
+    }
+
+    writeTypeStubInBackground(token: CancellationToken): Promise<any> {
+        const typingsSubdirPath = this._getTypeStubFolder();
+
+        return this._backgroundAnalysisProgram.writeTypeStub(
+            this._typeStubTargetPath ?? '',
+            this._typeStubTargetIsSingleFile,
+            typingsSubdirPath,
+            token
+        );
+    }
+
+    invalidateAndForceReanalysis(
+        rebuildUserFileIndexing = true,
+        rebuildLibraryIndexing = true,
+        refreshOptions?: RefreshOptions
+    ) {
+        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(
+            rebuildUserFileIndexing,
+            rebuildLibraryIndexing,
+            refreshOptions
+        );
+    }
+
+    // Forces the service to stop all analysis, discard all its caches,
+    // and research for files.
+    restart() {
+        this._applyConfigOptions(this._hostFactory());
+
+        this._backgroundAnalysisProgram.restart();
+    }
+
+    private get _console() {
+        return this._options.console!;
+    }
+
+    private get _hostFactory() {
+        return this._options.hostFactory!;
+    }
+
+    private get _importResolverFactory() {
+        return this._options.importResolverFactory!;
+    }
+
+    private get _program() {
+        return this._backgroundAnalysisProgram.program;
+    }
+
+    private get _configOptions() {
+        return this._backgroundAnalysisProgram.configOptions;
+    }
+
+    private get _watchForSourceChanges() {
+        return !!this._commandLineOptions?.watchForSourceChanges;
+    }
+
+    private get _watchForLibraryChanges() {
+        return !!this._commandLineOptions?.watchForLibraryChanges && !!this._options.libraryReanalysisTimeProvider;
+    }
+
+    private get _watchForConfigChanges() {
+        return !!this._commandLineOptions?.watchForConfigChanges;
+    }
+
+    private get _typeCheckingMode() {
+        return this._commandLineOptions?.typeCheckingMode;
+    }
+
+    private get _verboseOutput(): boolean {
+        return !!this._configOptions.verboseOutput;
+    }
+
+    private get _typeStubTargetImportName() {
+        return this._commandLineOptions?.typeStubTargetImportName;
     }
 
     // Calculates the effective options based on the command-line options,
@@ -829,84 +906,6 @@ export class AnalyzerService {
         }
 
         return configOptions;
-    }
-
-    writeTypeStub(token: CancellationToken): void {
-        const typingsSubdirPath = this._getTypeStubFolder();
-
-        this._program.writeTypeStub(
-            this._typeStubTargetPath ?? '',
-            this._typeStubTargetIsSingleFile,
-            typingsSubdirPath,
-            token
-        );
-    }
-
-    writeTypeStubInBackground(token: CancellationToken): Promise<any> {
-        const typingsSubdirPath = this._getTypeStubFolder();
-
-        return this._backgroundAnalysisProgram.writeTypeStub(
-            this._typeStubTargetPath ?? '',
-            this._typeStubTargetIsSingleFile,
-            typingsSubdirPath,
-            token
-        );
-    }
-
-    invalidateAndForceReanalysis(
-        rebuildUserFileIndexing = true,
-        rebuildLibraryIndexing = true,
-        refreshOptions?: RefreshOptions
-    ) {
-        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(
-            rebuildUserFileIndexing,
-            rebuildLibraryIndexing,
-            refreshOptions
-        );
-    }
-
-    // Forces the service to stop all analysis, discard all its caches,
-    // and research for files.
-    restart() {
-        this._applyConfigOptions(this._hostFactory());
-
-        this._backgroundAnalysisProgram.restart();
-    }
-
-    get fs() {
-        return this._backgroundAnalysisProgram.importResolver.fileSystem;
-    }
-
-    private get _program() {
-        return this._backgroundAnalysisProgram.program;
-    }
-
-    private get _configOptions() {
-        return this._backgroundAnalysisProgram.configOptions;
-    }
-
-    private get _watchForSourceChanges() {
-        return !!this._commandLineOptions?.watchForSourceChanges;
-    }
-
-    private get _watchForLibraryChanges() {
-        return !!this._commandLineOptions?.watchForLibraryChanges && !!this._options.libraryReanalysisTimeProvider;
-    }
-
-    private get _watchForConfigChanges() {
-        return !!this._commandLineOptions?.watchForConfigChanges;
-    }
-
-    private get _typeCheckingMode() {
-        return this._commandLineOptions?.typeCheckingMode;
-    }
-
-    private get _verboseOutput(): boolean {
-        return !!this._configOptions.verboseOutput;
-    }
-
-    private get _typeStubTargetImportName() {
-        return this._commandLineOptions?.typeStubTargetImportName;
     }
 
     private _getTypeStubFolder() {

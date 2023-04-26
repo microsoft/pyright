@@ -59,6 +59,10 @@ export class SignatureHelpProvider {
         return this._convert(this._getSignatureHelp());
     }
 
+    private get _evaluator(): TypeEvaluator {
+        return this._program.evaluator!;
+    }
+
     private _getSignatureHelp(): SignatureHelpResults | undefined {
         throwIfCancellationRequested(this._token);
         if (!this._parseResults) {
@@ -212,10 +216,6 @@ export class SignatureHelpProvider {
         }
 
         return { signatures, activeSignature, activeParameter };
-    }
-
-    private get _evaluator(): TypeEvaluator {
-        return this._program.evaluator!;
     }
 
     private _makeSignature(callNode: CallNode, signature: CallSignature): SignatureInfo {

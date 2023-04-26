@@ -28,11 +28,19 @@
         "@typescript-eslint/explicit-module-boundary-types": 0,
         "@typescript-eslint/ban-types": 0,
         "@typescript-eslint/camelcase": 0,
+        "@typescript-eslint/member-ordering": [
+            "error",
+            {
+                "classes": ["field", "constructor", ["public-get", "public-set"], "public-method", ["protected-get", "protected-set"], "protected-method", ["private-get", "private-set"], "private-method"],
+                "interfaces": []
+            }
+        ],
         "@typescript-eslint/no-empty-interface": 0,
         "@typescript-eslint/no-explicit-any": 0,
         "@typescript-eslint/no-namespace": 0,
         "@typescript-eslint/no-non-null-assertion": 0,
         "@typescript-eslint/no-this-alias": 0,
+        "@typescript-eslint/explicit-member-accessibility": ["error", { "accessibility": "no-public" }],
         "@typescript-eslint/no-unused-vars": [
             "error",
             {

@@ -27,10 +27,6 @@ export class CharacterStream {
         this._isEndOfStream = text.length === 0;
     }
 
-    getText(): string {
-        return this._text;
-    }
-
     get position(): number {
         return this._position;
     }
@@ -44,6 +40,22 @@ export class CharacterStream {
         return this._currentChar;
     }
 
+    get nextChar(): number {
+        return this.position + 1 < this._text.length ? this._text.charCodeAt(this.position + 1) : 0;
+    }
+
+    get prevChar(): number {
+        return this.position - 1 >= 0 ? this._text.charCodeAt(this.position - 1) : 0;
+    }
+
+    get length(): number {
+        return this._text.length;
+    }
+
+    getText(): string {
+        return this._text;
+    }
+
     // We also expose a (non-property) method that is
     // the equivalent of currentChar above. This allows
     // us to work around assumptions in the TypeScript
@@ -51,14 +63,6 @@ export class CharacterStream {
     // modify properties.
     getCurrentChar(): number {
         return this._currentChar;
-    }
-
-    get nextChar(): number {
-        return this.position + 1 < this._text.length ? this._text.charCodeAt(this.position + 1) : 0;
-    }
-
-    get prevChar(): number {
-        return this.position - 1 >= 0 ? this._text.charCodeAt(this.position - 1) : 0;
     }
 
     isEndOfStream(): boolean {
@@ -124,10 +128,6 @@ export class CharacterStream {
 
     charCodeAt(index: number): number {
         return this._text.charCodeAt(index);
-    }
-
-    get length(): number {
-        return this._text.length;
     }
 
     private _checkBounds(): void {
