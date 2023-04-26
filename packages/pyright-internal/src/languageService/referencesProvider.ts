@@ -8,12 +8,13 @@
  * by a location within a file.
  */
 
-import { CancellationToken } from 'vscode-languageserver';
+import { CancellationToken, Location, ResultProgressReporter } from 'vscode-languageserver';
 
 import { Declaration, DeclarationType, isAliasDeclaration } from '../analyzer/declaration';
 import { getNameFromDeclaration } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceFile } from '../analyzer/sourceFile';
+import { isUserCode } from '../analyzer/sourceFileInfoUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol } from '../analyzer/symbol';
 import { isVisibleExternally } from '../analyzer/symbolUtils';
@@ -22,12 +23,13 @@ import { maxTypeRecursionCount } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { assertNever } from '../common/debug';
+import { ProgramView } from '../common/extensibility';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
-import { DocumentRange, Position } from '../common/textRange';
-import { TextRange } from '../common/textRange';
+import { DocumentRange, Position, TextRange, doesRangeContain } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { DocumentSymbolCollector, DocumentSymbolCollectorUseCase } from './documentSymbolCollector';
+import { convertDocumentRangesToLocation } from './navigationUtils';
 
 export type ReferenceCallback = (locations: DocumentRange[]) => void;
 
@@ -138,6 +140,130 @@ export class FindReferencesTreeWalker {
 }
 
 export class ReferencesProvider {
+    constructor(private _program: ProgramView, private _token: CancellationToken) {
+        // empty
+    }
+
+    reportReferences(
+        filePath: string,
+        position: Position,
+        includeDeclaration: boolean,
+        resultReporter?: ResultProgressReporter<Location[]>
+    ) {
+        const sourceFileInfo = this._program.getSourceFileInfo(filePath);
+        if (!sourceFileInfo) {
+            return;
+        }
+
+        const parseResults = this._program.getParseResults(filePath);
+        if (!parseResults) {
+            return;
+        }
+
+        const locations: Location[] = [];
+        const reporter: ReferenceCallback = resultReporter
+            ? (range) => resultReporter.report(convertDocumentRangesToLocation(this._program.fileSystem, range))
+            : (range) => appendArray(locations, convertDocumentRangesToLocation(this._program.fileSystem, range));
+
+        const invokedFromUserFile = isUserCode(sourceFileInfo);
+        const referencesResult = ReferencesProvider.getDeclarationForPosition(
+            this._program.getSourceMapper(filePath, this._token),
+            parseResults,
+            filePath,
+            position,
+            this._evaluator,
+            reporter,
+            DocumentSymbolCollectorUseCase.Reference,
+            this._token
+        );
+        if (!referencesResult) {
+            return;
+        }
+
+        // Do we need to do a global search as well?
+        if (!referencesResult.requiresGlobalSearch) {
+            this.addReferencesToResult(sourceFileInfo.sourceFile.getFilePath(), includeDeclaration, referencesResult);
+        }
+
+        for (const curSourceFileInfo of this._program.getSourceFileInfoList()) {
+            throwIfCancellationRequested(this._token);
+
+            // "Find all references" will only include references from user code
+            // unless the file is explicitly opened in the editor or it is invoked from non user files.
+            if (curSourceFileInfo.isOpenByClient || !invokedFromUserFile || isUserCode(curSourceFileInfo)) {
+                // See if the reference symbol's string is located somewhere within the file.
+                // If not, we can skip additional processing for the file.
+                const fileContents = curSourceFileInfo.sourceFile.getFileContent();
+                if (!fileContents || referencesResult.symbolNames.some((s) => fileContents.search(s) >= 0)) {
+                    this.addReferencesToResult(
+                        curSourceFileInfo.sourceFile.getFilePath(),
+                        includeDeclaration,
+                        referencesResult
+                    );
+                }
+
+                // This operation can consume significant memory, so check
+                // for situations where we need to discard the type cache.
+                this._program.handleMemoryHighUsage();
+            }
+        }
+
+        // Make sure to include declarations regardless where they are defined
+        // if includeDeclaration is set.
+        if (includeDeclaration) {
+            for (const decl of referencesResult.declarations) {
+                throwIfCancellationRequested(this._token);
+
+                if (referencesResult.locations.some((l) => l.path === decl.path)) {
+                    // Already included.
+                    continue;
+                }
+
+                const declFileInfo = this._program.getSourceFileInfo(decl.path);
+                if (!declFileInfo) {
+                    // The file the declaration belongs to doesn't belong to the program.
+                    continue;
+                }
+
+                const tempResult = new ReferencesResult(
+                    referencesResult.requiresGlobalSearch,
+                    referencesResult.nodeAtOffset,
+                    referencesResult.symbolNames,
+                    referencesResult.declarations,
+                    referencesResult.useCase
+                );
+
+                this.addReferencesToResult(declFileInfo.sourceFile.getFilePath(), includeDeclaration, tempResult);
+                for (const loc of tempResult.locations) {
+                    // Include declarations only. And throw away any references
+                    if (loc.path === decl.path && doesRangeContain(decl.range, loc.range)) {
+                        referencesResult.addLocations(loc);
+                    }
+                }
+            }
+        }
+
+        return locations;
+    }
+
+    addReferencesToResult(filePath: string, includeDeclaration: boolean, referencesResult: ReferencesResult): void {
+        const parseResults = this._program.getParseResults(filePath);
+        if (!parseResults) {
+            return;
+        }
+
+        const refTreeWalker = new FindReferencesTreeWalker(
+            parseResults,
+            filePath,
+            referencesResult,
+            includeDeclaration,
+            this._evaluator,
+            this._token
+        );
+
+        referencesResult.addLocations(...refTreeWalker.findReferences());
+    }
+
     static getDeclarationForNode(
         sourceMapper: SourceMapper,
         filePath: string,
@@ -219,24 +345,8 @@ export class ReferencesProvider {
         );
     }
 
-    static addReferences(
-        parseResults: ParseResults,
-        filePath: string,
-        referencesResult: ReferencesResult,
-        includeDeclaration: boolean,
-        evaluator: TypeEvaluator,
-        token: CancellationToken
-    ): void {
-        const refTreeWalker = new FindReferencesTreeWalker(
-            parseResults,
-            filePath,
-            referencesResult,
-            includeDeclaration,
-            evaluator,
-            token
-        );
-
-        referencesResult.addLocations(...refTreeWalker.findReferences());
+    private get _evaluator(): TypeEvaluator {
+        return this._program.evaluator!;
     }
 }
 

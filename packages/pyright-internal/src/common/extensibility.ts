@@ -41,6 +41,7 @@ export interface SourceFile {
     // See whether we can convert these to regular properties.
     getFilePath(): string;
     isStubFile(): boolean;
+    getFileContent(): string | undefined;
 }
 
 export interface SourceFileInfo {

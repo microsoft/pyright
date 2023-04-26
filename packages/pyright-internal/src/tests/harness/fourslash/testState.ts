@@ -30,7 +30,6 @@ import { findNodeByOffset } from '../../../analyzer/parseTreeUtils';
 import { Program } from '../../../analyzer/program';
 import { AnalyzerService } from '../../../analyzer/service';
 import { CommandResult } from '../../../commands/commandResult';
-import { appendArray } from '../../../common/collectionUtils';
 import { ConfigOptions, SignatureDisplayType } from '../../../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../../../common/console';
 import { Comparison, isNumber, isString, toBoolean } from '../../../common/core';
@@ -61,6 +60,8 @@ import {
 } from '../../../languageService/definitionProvider';
 import { DocumentHighlightProvider } from '../../../languageService/documentHighlightProvider';
 import { HoverProvider } from '../../../languageService/hoverProvider';
+import { convertDocumentRangesToLocation } from '../../../languageService/navigationUtils';
+import { ReferencesProvider } from '../../../languageService/referencesProvider';
 import { SignatureHelpProvider } from '../../../languageService/signatureHelpProvider';
 import { ParseNode } from '../../../parser/parseNodes';
 import { ParseResults } from '../../../parser/parser';
@@ -1183,18 +1184,14 @@ export class TestState {
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
 
-            const actual: DocumentRange[] = [];
-            this.program.reportReferencesForPosition(
+            const actual = new ReferencesProvider(this.program, CancellationToken.None).reportReferences(
                 fileName,
                 position,
-                true,
-                (locs) => appendArray(actual, locs),
-                CancellationToken.None
+                /* includeDeclaration */ true
             );
-
             assert.strictEqual(actual?.length ?? 0, expected.length, `${name} has failed`);
 
-            for (const r of expected) {
+            for (const r of convertDocumentRangesToLocation(this.program.fileSystem, expected)) {
                 assert.equal(actual?.filter((d) => this._deepEqual(d, r)).length, 1);
             }
         }

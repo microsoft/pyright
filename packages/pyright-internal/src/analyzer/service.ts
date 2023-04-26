@@ -53,7 +53,6 @@ import { timingStats } from '../common/timing';
 import { AutoImportOptions, ImportFormat } from '../languageService/autoImporter';
 import { AbbreviationMap, CompletionOptions, CompletionResultsList } from '../languageService/completionProvider';
 import { WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
-import { ReferenceCallback } from '../languageService/referencesProvider';
 import { AnalysisCompleteCallback } from './analysis';
 import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './backgroundAnalysisProgram';
 import { CacheManager } from './cacheManager';
@@ -367,16 +366,6 @@ export class AnalyzerService {
     ) {
         options.libraryMap = options.libraryMap ?? this._backgroundAnalysisProgram.getIndexing(filePath);
         return this._program.getAutoImports(filePath, range, similarityLimit, nameMap, options, token);
-    }
-
-    reportReferencesForPosition(
-        filePath: string,
-        position: Position,
-        includeDeclaration: boolean,
-        reporter: ReferenceCallback,
-        token: CancellationToken
-    ) {
-        this._program.reportReferencesForPosition(filePath, position, includeDeclaration, reporter, token);
     }
 
     addSymbolsForDocument(filePath: string, symbolList: DocumentSymbol[], token: CancellationToken) {
