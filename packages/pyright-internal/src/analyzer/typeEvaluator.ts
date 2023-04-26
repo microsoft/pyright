@@ -437,6 +437,14 @@ interface MatchedOverloadInfo {
     returnType: Type;
 }
 
+interface ValidateArgTypeOptions {
+    skipUnknownArgCheck?: boolean;
+    skipOverloadArg?: boolean;
+    skipBareTypeVarExpectedType?: boolean;
+    useNarrowBoundOnly?: boolean;
+    conditionFilter?: TypeCondition[];
+}
+
 // Maps binary operators to the magic methods that implement them.
 const binaryOperatorMap: { [operator: number]: [string, string] } = {
     [OperatorType.Add]: ['__add__', '__radd__'],
@@ -10996,18 +11004,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // is an overload function, skip it during the first pass
                         // because the selection of the proper overload may depend
                         // on type arguments supplied by other function arguments.
-                        // Set useNarrowBoundOnly to true the first time through
-                        // the loop if we're going to go through the loop multiple
-                        // times.
+                        
+                        // We set useNarrowBoundOnly to true if this is the first
+                        // (but not only) pass through the parameter list because a wide
+                        // bound on a TypeVar (if a narrow bound has not yet been
+                        // established) will unnecessarily constrain the expected type.
+
+                        // If the param type is a "bare" TypeVar, don't use it as an
+                        // expected type during the first pass. This causes problems for
+                        // cases where the the call expression result can influence the
+                        // type of the TypeVar, such as in the expression "min(1, max(2, 0.5))".
                         const argResult = validateArgType(
                             argParam,
                             typeVarContext,
                             signatureTracker,
                             { type, isIncomplete: matchResults.isTypeIncomplete },
-                            skipUnknownArgCheck,
-                            /* skipOverloadArg */ i === 0,
-                            /* isFirstPass */ passCount > 1 && i === 0,
-                            typeCondition
+                            {
+                                skipUnknownArgCheck,
+                                skipOverloadArg: i === 0,
+                                skipBareTypeVarExpectedType: passCount > 1 && i === 0,
+                                useNarrowBoundOnly: passCount > 1 && i === 0,
+                                conditionFilter: typeCondition,
+                            }
                         );
 
                         if (argResult.isTypeIncomplete) {
@@ -11042,10 +11060,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeVarContext,
                 signatureTracker,
                 { type, isIncomplete: matchResults.isTypeIncomplete },
-                skipUnknownArgCheck,
-                /* skipOverloadArg */ false,
-                /* isFirstPass */ false,
-                typeCondition
+                {
+                    skipUnknownArgCheck,
+                    conditionFilter: typeCondition,
+                }
             );
 
             argResults.push(argResult);
@@ -11448,10 +11466,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         srcTypeVarContext,
                         signatureTracker,
                         /* functionType */ undefined,
-                        /* skipUnknownArgCheck */ false,
-                        /* skipOverloadArg */ false,
-                        /* isFirstPass */ false,
-                        conditionFilter
+                        { conditionFilter }
                     );
 
                     if (!argResult.isCompatible) {
@@ -11525,10 +11540,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeVarContext: TypeVarContext,
         signatureTracker: UniqueSignatureTracker,
         typeResult: TypeResult<FunctionType> | undefined,
-        skipUnknownCheck: boolean,
-        skipOverloadArg: boolean,
-        isFirstPass: boolean,
-        conditionFilter: TypeCondition[] | undefined
+        options: ValidateArgTypeOptions
     ): ArgResult {
         let argType: Type | undefined;
         let expectedTypeDiag: DiagnosticAddendum | undefined;
@@ -11537,21 +11549,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const functionName = typeResult?.type.details.name;
 
         if (argParam.argument.valueExpression) {
-            // If the param type is a "bare" TypeVar, don't use it as an expected
-            // type during the first pass. This causes problems for cases where the the
-            // call expression result can influence the type of the TypeVar, such as in
-            // the expression "min(1, max(2, 0.5))". We set useNarrowBoundOnly
-            // to true if this is the first pass through the parameter list because
-            // a wide bound on a TypeVar (if a narrow bound has not yet been established)
-            // will unnecessarily constrain the expected type.
             let expectedType: Type | undefined;
             if (
-                !isFirstPass ||
+                !options.skipBareTypeVarExpectedType ||
                 !isTypeVar(argParam.paramType) ||
                 argParam.paramType.scopeId !== typeResult?.type.details.typeVarScopeId
             ) {
                 expectedType = applySolvedTypeVars(argParam.paramType, typeVarContext, {
-                    useNarrowBoundOnly: isFirstPass,
+                    useNarrowBoundOnly: !!options.useNarrowBoundOnly,
                 });
             }
 
@@ -11641,8 +11646,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If there's a constraint filter, apply it to top-level type variables
         // if appropriate. This doesn't properly handle non-top-level constrained
         // type variables.
-        if (conditionFilter) {
-            argType = mapSubtypesExpandTypeVars(argType, conditionFilter, (expandedSubtype) => {
+        if (options.conditionFilter) {
+            argType = mapSubtypesExpandTypeVars(argType, options.conditionFilter, (expandedSubtype) => {
                 return expandedSubtype;
             });
         }
@@ -11666,7 +11671,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If we are asked to skip overload arguments, determine whether the argument
         // is an explicit overload type, an overloaded class constructor, or a
         // an overloaded callback protocol.
-        if (skipOverloadArg) {
+        if (options.skipOverloadArg) {
             if (isOverloadedFunction(argType)) {
                 return { isCompatible, argType, isTypeIncomplete, skippedOverloadArg: true, condition };
             }
@@ -11755,7 +11760,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { isCompatible: false, argType, isTypeIncomplete, condition };
         }
 
-        if (!skipUnknownCheck) {
+        if (!options.skipUnknownArgCheck) {
             const simplifiedType = removeUnbound(argType);
             const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
 
@@ -17315,10 +17320,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         new TypeVarContext(),
                                         signatureTracker,
                                         { type: newMethodType },
-                                        /* skipUnknownCheck */ true,
-                                        /* skipOverloadArg */ true,
-                                        /* useNarrowBoundOnly */ false,
-                                        /* conditionFilter */ undefined
+                                        { skipUnknownArgCheck: true, skipOverloadArg: true }
                                     );
                                     paramMap.delete(arg.name.value);
                                 } else {
