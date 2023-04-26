@@ -28,22 +28,22 @@ import { ParseResults } from '../parser/parser';
 import { ImportSorter } from './importSorter';
 
 export function performQuickAction(
+    programView: ProgramView,
     filePath: string,
     command: string,
     args: any[],
-    programView: ProgramView,
     token: CancellationToken
 ) {
-    const sourceFileInfo = programView.getBoundSourceFileInfo(filePath);
+    const sourceFileInfo = programView.getSourceFileInfo(filePath);
 
     // This command should be called only for open files, in which
     // case we should have the file contents already loaded.
-    if (!sourceFileInfo || sourceFileInfo.sourceFile.getClientVersion() === undefined) {
+    if (!sourceFileInfo || !sourceFileInfo.isOpenByClient) {
         return [];
     }
 
-    const parseResults = sourceFileInfo.sourceFile.getParseResults();
     // If we have no completed analysis job, there's nothing to do.
+    const parseResults = programView.getParseResults(filePath);
     if (!parseResults) {
         return [];
     }

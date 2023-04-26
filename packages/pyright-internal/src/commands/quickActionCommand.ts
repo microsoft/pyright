@@ -29,7 +29,7 @@ export class QuickActionCommand implements ServerCommand {
             }
 
             const editActions = workspace.service.run((p) => {
-                return performQuickAction(filePath, params.command, otherArgs, p, token);
+                return performQuickAction(p, filePath, params.command, otherArgs, token);
             }, token);
 
             return convertToWorkspaceEdit(workspace.service.fs, convertToFileTextEdits(filePath, editActions ?? []));
