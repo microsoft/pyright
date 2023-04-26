@@ -8213,7 +8213,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Use speculative mode so we don't output any diagnostics or
                 // record any final types in the type cache.
                 const callResult = useSpeculativeMode(errorNode, () => {
-                    return validateFunctionArgumentTypesWithExpectedType(
+                    return validateFunctionArgumentTypesWithContext(
                         errorNode,
                         matchResults,
                         effectiveTypeVarContext,
@@ -8315,7 +8315,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const finalTypeVarContext = typeVarContext ?? matchedOverloads[0].typeVarContext;
         finalTypeVarContext.unlock();
         finalTypeVarContext.addSolveForScope(getTypeVarScopeId(matchedOverloads[0].overload));
-        const finalCallResult = validateFunctionArgumentTypesWithExpectedType(
+        const finalCallResult = validateFunctionArgumentTypesWithContext(
             errorNode,
             matchedOverloads[0].matchResults,
             finalTypeVarContext,
@@ -8516,7 +8516,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
             effectiveTypeVarContext.unlock();
 
-            return validateFunctionArgumentTypesWithExpectedType(
+            return validateFunctionArgumentTypesWithContext(
                 errorNode,
                 lastMatch,
                 effectiveTypeVarContext,
@@ -8700,7 +8700,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // for each of the subtypes that comprise the expected type. If
             // one or more analyzes with no errors, use those results.
             if (inferenceContext) {
-                const expectedCallResult = validateConstructorMethodWithExpectedType(
+                const expectedCallResult = validateConstructorMethodWithContext(
                     errorNode,
                     argList,
                     type,
@@ -8812,7 +8812,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // If there is an expected type that was not applied above when
                 // handling the __init__ method, try to apply it with the __new__ method.
                 if (inferenceContext && !returnType) {
-                    const expectedCallResult = validateConstructorMethodWithExpectedType(
+                    const expectedCallResult = validateConstructorMethodWithContext(
                         errorNode,
                         argList,
                         type,
@@ -9011,7 +9011,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // For a constructor call that targets a generic class and an "expected type"
     // (i.e. bidirectional inference), this function attempts to infer the correct
     // specialized return type for the constructor.
-    function validateConstructorMethodWithExpectedType(
+    function validateConstructorMethodWithContext(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
         type: ClassType,
@@ -10802,7 +10802,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // After having matched arguments with parameters, this function evaluates the
     // types of each argument expression and validates that the resulting type is
     // compatible with the declared type of the corresponding parameter.
-    function validateFunctionArgumentTypesWithExpectedType(
+    function validateFunctionArgumentTypesWithContext(
         errorNode: ExpressionNode,
         matchResults: MatchArgsToParamsResult,
         typeVarContext: TypeVarContext,
@@ -11280,7 +11280,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             };
         }
 
-        return validateFunctionArgumentTypesWithExpectedType(
+        return validateFunctionArgumentTypesWithContext(
             errorNode,
             matchResults,
             typeVarContext,
