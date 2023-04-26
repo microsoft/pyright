@@ -121,11 +121,7 @@ export class ImportResolver {
     private _stdlibModules: Set<string> | undefined;
     protected cachedParentImportResults: ParentDirectoryCache;
 
-    constructor(
-        public readonly fileSystem: FileSystem,
-        protected _configOptions: ConfigOptions,
-        public readonly host: Host
-    ) {
+    constructor(readonly fileSystem: FileSystem, protected _configOptions: ConfigOptions, readonly host: Host) {
         this.cachedParentImportResults = new ParentDirectoryCache(() => this.getPythonSearchPaths([]));
     }
 

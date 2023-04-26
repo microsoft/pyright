@@ -1396,7 +1396,7 @@ class ModuleNameCollector extends ParseTreeWalker {
         return false;
     }
 
-    public static collect(root: ModuleNode) {
+    static collect(root: ModuleNode) {
         const collector = new ModuleNameCollector();
         collector.walk(root);
 

@@ -209,7 +209,7 @@ export interface SignatureWithCount {
 }
 
 export class UniqueSignatureTracker {
-    public signaturesSeen: SignatureWithCount[];
+    signaturesSeen: SignatureWithCount[];
 
     constructor() {
         this.signaturesSeen = [];
