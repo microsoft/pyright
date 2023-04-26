@@ -1856,7 +1856,7 @@ export class Program {
                 case 'singleFileMode':
                     referenceProvider.addReferencesToResult(
                         sourceFileInfo.sourceFile.getFilePath(),
-                        /*includeDeclaration*/ true,
+                        /* includeDeclaration */ true,
                         referencesResult
                     );
                     break;
@@ -1876,7 +1876,7 @@ export class Program {
 
                             referenceProvider.addReferencesToResult(
                                 curSourceFileInfo.sourceFile.getFilePath(),
-                                /*includeDeclaration*/ true,
+                                /* includeDeclaration */ true,
                                 referencesResult
                             );
                         }

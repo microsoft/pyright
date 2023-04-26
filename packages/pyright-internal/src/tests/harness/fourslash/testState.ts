@@ -1187,7 +1187,7 @@ export class TestState {
             const actual = new ReferencesProvider(this.program, CancellationToken.None).reportReferences(
                 fileName,
                 position,
-                /*includeDeclaration*/ true
+                /* includeDeclaration */ true
             );
             assert.strictEqual(actual?.length ?? 0, expected.length, `${name} has failed`);
 
