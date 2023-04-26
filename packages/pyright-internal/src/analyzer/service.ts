@@ -24,7 +24,7 @@ import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, LogLevel, StandardConsole, log } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
-import { FileEditActions, TextEditAction } from '../common/editAction';
+import { FileEditActions } from '../common/editAction';
 import { Extensions, ProgramView } from '../common/extensibility';
 import { FileSystem, FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileSystem';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
@@ -425,15 +425,6 @@ export class AnalyzerService {
             this._backgroundAnalysisProgram.getIndexing(filePath),
             token
         );
-    }
-
-    performQuickAction(
-        filePath: string,
-        command: string,
-        args: any[],
-        token: CancellationToken
-    ): TextEditAction[] | undefined {
-        return this._program.performQuickAction(filePath, command, args, token);
     }
 
     moveSymbolAtPosition(
