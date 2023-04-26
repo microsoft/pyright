@@ -39,11 +39,12 @@ class DefinitionProviderBase {
         protected readonly _sourceMapper: SourceMapper,
         protected readonly _evaluator: TypeEvaluator,
         protected readonly _node: ParseNode | undefined,
+        protected readonly _offset: number,
         private readonly _filter: DefinitionFilter,
         protected readonly _token: CancellationToken
     ) {}
 
-    getDefinitionsForNode(node: ParseNode) {
+    getDefinitionsForNode(node: ParseNode, offset: number) {
         throwIfCancellationRequested(this._token);
 
         const definitions: DocumentRange[] = [];
@@ -54,6 +55,7 @@ class DefinitionProviderBase {
                 const declarations = e.declarationProviderExtension.tryGetDeclarations(
                     this._evaluator,
                     node,
+                    offset,
                     DeclarationUseCase.Definition,
                     this._token
                 );
@@ -173,19 +175,20 @@ export class DefinitionProvider extends DefinitionProviderBase {
     ) {
         const sourceMapper = program.getSourceMapper(filePath, token);
         const parseResults = program.getParseResults(filePath);
-        const node = _tryGetNode(parseResults, position);
+        const { node, offset } = _tryGetNode(parseResults, position);
 
-        super(sourceMapper, program.evaluator!, node, filter, token);
+        super(sourceMapper, program.evaluator!, node, offset, filter, token);
     }
 
     static getDefinitionsForNode(
         sourceMapper: SourceMapper,
         evaluator: TypeEvaluator,
         node: ParseNode,
+        offset: number,
         token: CancellationToken
     ) {
-        const provider = new DefinitionProviderBase(sourceMapper, evaluator, node, DefinitionFilter.All, token);
-        return provider.getDefinitionsForNode(node);
+        const provider = new DefinitionProviderBase(sourceMapper, evaluator, node, offset, DefinitionFilter.All, token);
+        return provider.getDefinitionsForNode(node, offset);
     }
 
     getDefinitions(): DocumentRange[] | undefined {
@@ -193,7 +196,7 @@ export class DefinitionProvider extends DefinitionProviderBase {
             return undefined;
         }
 
-        return this.getDefinitionsForNode(this._node);
+        return this.getDefinitionsForNode(this._node, this._offset);
     }
 }
 
@@ -203,9 +206,9 @@ export class TypeDefinitionProvider extends DefinitionProviderBase {
     constructor(program: ProgramView, filePath: string, position: Position, token: CancellationToken) {
         const sourceMapper = program.getSourceMapper(filePath, token, /*mapCompiled*/ false, /*preferStubs*/ true);
         const parseResults = program.getParseResults(filePath);
-        const node = _tryGetNode(parseResults, position);
+        const { node, offset } = _tryGetNode(parseResults, position);
 
-        super(sourceMapper, program.evaluator!, node, DefinitionFilter.All, token);
+        super(sourceMapper, program.evaluator!, node, offset, DefinitionFilter.All, token);
         this._filePath = filePath;
     }
 
@@ -255,15 +258,15 @@ export class TypeDefinitionProvider extends DefinitionProviderBase {
 
 function _tryGetNode(parseResults: ParseResults | undefined, position: Position) {
     if (!parseResults) {
-        return undefined;
+        return { node: undefined, offset: 0 };
     }
 
     const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
     if (offset === undefined) {
-        return undefined;
+        return { node: undefined, offset: 0 };
     }
 
-    return ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
+    return { node: ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset), offset };
 }
 
 function _createModuleEntry(filePath: string): DocumentRange {

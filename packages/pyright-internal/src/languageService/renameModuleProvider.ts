@@ -494,7 +494,7 @@ export class RenameModuleProvider {
             }
 
             // Exclude symbol decl itself.
-            hasSymbolUsage = isSource
+            hasSymbolUsage ||= isSource
                 ? !this.declarations.some((d) => TextRange.containsRange(d.node, nodeFound))
                 : true;
 

@@ -96,8 +96,8 @@ export interface ProgramMutator {
 }
 
 export interface ExtensionFactory {
-    createProgramExtension: (view: ProgramView, mutator: ProgramMutator) => ProgramExtension;
-    createLanguageServiceExtension: (languageserver: LanguageServerBase) => LanguageServiceExtension;
+    createProgramExtension?: (view: ProgramView, mutator: ProgramMutator) => ProgramExtension;
+    createLanguageServiceExtension?: (languageserver: LanguageServerBase) => LanguageServiceExtension;
 }
 
 export interface CommandExtension {
@@ -134,6 +134,7 @@ export interface DeclarationProviderExtension {
     tryGetDeclarations(
         evaluator: TypeEvaluator,
         node: ParseNode,
+        offset: number,
         useCase: DeclarationUseCase,
         token: CancellationToken
     ): Declaration[];
@@ -202,7 +203,7 @@ export namespace Extensions {
                     let result = s.createLanguageServiceExtension
                         ? s.createLanguageServiceExtension(languageServer)
                         : undefined;
-                    if (result) {
+                    if (result && !(result as any).owner) {
                         // Add the extra parameter that we use for finding later.
                         result = Object.defineProperty(result, 'owner', { value: languageServer });
                     }

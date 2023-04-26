@@ -115,6 +115,7 @@ export class HoverProvider {
                         e.declarationProviderExtension?.tryGetDeclarations(
                             this._evaluator,
                             node,
+                            offset,
                             DeclarationUseCase.Definition,
                             this._token
                         ) || []
