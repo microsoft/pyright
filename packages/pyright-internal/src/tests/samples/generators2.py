@@ -1,7 +1,9 @@
 # This sample tests various type checking operations relating to
 # generator functions that use the "yield from" clause.
 
-from typing import Iterator
+from typing import Generator, Iterator, TypeVar
+
+T = TypeVar("T")
 
 
 class ClassA:
@@ -29,3 +31,19 @@ def generator2() -> Iterator[ClassB]:
     # This should also generate an error because it
     # yields the wrong type.
     yield from [1]
+
+
+def generator3(
+    arg: Generator[int, None, T] | Generator[str, None, T]
+) -> Generator[int | str, None, T]:
+    x = yield from arg
+    reveal_type(x, expected_text="T@generator3")
+    return x
+
+
+def generator4(
+    arg: Generator[int, None, int] | Generator[str, None, str]
+) -> Generator[int | str, None, int | str]:
+    x = yield from arg
+    reveal_type(x, expected_text="int | str")
+    return x
