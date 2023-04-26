@@ -14226,28 +14226,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeOfYieldFrom(node: YieldFromNode): TypeResult {
         const yieldFromTypeResult = getTypeOfExpression(node.expression);
         const yieldFromType = yieldFromTypeResult.type;
-        let generatorTypeArgs = getGeneratorTypeArgs(yieldFromType);
 
-        let returnedType: Type | undefined;
+        const returnedType = mapSubtypes(yieldFromType, (yieldFromSubtype) => {
+            // Is the expression a Generator type?
+            let generatorTypeArgs = getGeneratorTypeArgs(yieldFromSubtype);
+            if (generatorTypeArgs) {
+                return generatorTypeArgs.length >= 2 ? generatorTypeArgs[2] : UnknownType.create();
+            }
 
-        // Is the expression a Generator type?
-        if (generatorTypeArgs) {
-            returnedType = generatorTypeArgs.length >= 2 ? generatorTypeArgs[2] : UnknownType.create();
-        } else if (isClassInstance(yieldFromType) && ClassType.isBuiltIn(yieldFromType, 'Coroutine')) {
             // Handle old-style (pre-await) Coroutines as a special case.
-            returnedType = UnknownType.create();
-        } else {
+            if (isClassInstance(yieldFromSubtype) && ClassType.isBuiltIn(yieldFromSubtype, 'Coroutine')) {
+                return UnknownType.create();
+            }
+
+            // Handle simple iterables.
             const iterableType =
                 getTypeOfIterable(yieldFromTypeResult, /* isAsync */ false, node)?.type ?? UnknownType.create();
 
             // Does the iterable return a Generator?
             generatorTypeArgs = getGeneratorTypeArgs(iterableType);
-            if (generatorTypeArgs) {
-                returnedType = generatorTypeArgs.length >= 2 ? generatorTypeArgs[2] : UnknownType.create();
-            }
-        }
+            return generatorTypeArgs && generatorTypeArgs.length >= 2 ? generatorTypeArgs[2] : UnknownType.create();
+        });
 
-        return { type: returnedType || UnknownType.create() };
+        return { type: returnedType };
     }
 
     function getTypeOfLambda(node: LambdaNode, inferenceContext: InferenceContext | undefined): TypeResult {
