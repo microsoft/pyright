@@ -32,17 +32,17 @@ class OwningFileToken extends FileBasedToken {
         super(cancellationFilePath, fs);
     }
 
+    override get isCancellationRequested(): boolean {
+        // Since this object owns the file and it gets created when the
+        // token is cancelled, there's no point in checking the pipe.
+        return this.isCancelled;
+    }
+
     override cancel() {
         if (!this._disposed && !this.isCancelled) {
             this._createPipe();
             super.cancel();
         }
-    }
-
-    override get isCancellationRequested(): boolean {
-        // Since this object owns the file and it gets created when the
-        // token is cancelled, there's no point in checking the pipe.
-        return this.isCancelled;
     }
 
     override dispose(): void {

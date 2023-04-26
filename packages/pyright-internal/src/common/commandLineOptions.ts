@@ -35,11 +35,6 @@ export type DiagnosticSeverityOverridesMap = { [ruleName: string]: DiagnosticSev
 // that provided through a language client like the VS Code editor. These options
 // are later combined with those from the config file to produce the final configuration.
 export class CommandLineOptions {
-    constructor(executionRoot: string, fromVsCodeExtension: boolean) {
-        this.executionRoot = executionRoot;
-        this.fromVsCodeExtension = fromVsCodeExtension;
-    }
-
     // A list of file specs to include in the analysis. Can contain
     // directories, in which case all "*.py" files within those directories
     // are included.
@@ -142,4 +137,9 @@ export class CommandLineOptions {
 
     // Analyze functions and methods that have no type annotations?
     analyzeUnannotatedFunctions?: boolean;
+
+    constructor(executionRoot: string, fromVsCodeExtension: boolean) {
+        this.executionRoot = executionRoot;
+        this.fromVsCodeExtension = fromVsCodeExtension;
+    }
 }

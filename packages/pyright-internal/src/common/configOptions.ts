@@ -36,19 +36,6 @@ export enum PythonPlatform {
 }
 
 export class ExecutionEnvironment {
-    // Default to "." which indicates every file in the project.
-    constructor(
-        root: string,
-        defaultPythonVersion: PythonVersion | undefined,
-        defaultPythonPlatform: string | undefined,
-        defaultExtraPaths: string[] | undefined
-    ) {
-        this.root = root || undefined;
-        this.pythonVersion = defaultPythonVersion || latestStablePythonVersion;
-        this.pythonPlatform = defaultPythonPlatform;
-        this.extraPaths = [...(defaultExtraPaths ?? [])];
-    }
-
     // Root directory for execution - absolute or relative to the
     // project root.
     // Undefined if this is a rootless environment (e.g., open file mode).
@@ -62,6 +49,19 @@ export class ExecutionEnvironment {
 
     // Default to no extra paths.
     extraPaths: string[] = [];
+
+    // Default to "." which indicates every file in the project.
+    constructor(
+        root: string,
+        defaultPythonVersion: PythonVersion | undefined,
+        defaultPythonPlatform: string | undefined,
+        defaultExtraPaths: string[] | undefined
+    ) {
+        this.root = root || undefined;
+        this.pythonVersion = defaultPythonVersion || latestStablePythonVersion;
+        this.pythonPlatform = defaultPythonPlatform;
+        this.extraPaths = [...(defaultExtraPaths ?? [])];
+    }
 }
 
 export type DiagnosticLevel = 'none' | 'information' | 'warning' | 'error';
@@ -677,13 +677,6 @@ export function matchFileSpecs(configOptions: ConfigOptions, filePath: string, i
 // Internal configuration options. These are derived from a combination
 // of the command line and from a JSON-based config file.
 export class ConfigOptions {
-    constructor(projectRoot: string, typeCheckingMode?: string) {
-        this.projectRoot = projectRoot;
-        this.typeCheckingMode = typeCheckingMode;
-        this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
-        this.functionSignatureDisplay = SignatureDisplayType.formatted;
-    }
-
     // Absolute directory of project. All relative paths in the config
     // are based on this path.
     projectRoot: string;
@@ -804,6 +797,13 @@ export class ConfigOptions {
 
     // Controls how hover and completion function signatures are displayed.
     functionSignatureDisplay: SignatureDisplayType;
+
+    constructor(projectRoot: string, typeCheckingMode?: string) {
+        this.projectRoot = projectRoot;
+        this.typeCheckingMode = typeCheckingMode;
+        this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
+        this.functionSignatureDisplay = SignatureDisplayType.formatted;
+    }
 
     static getDiagnosticRuleSet(typeCheckingMode?: string): DiagnosticRuleSet {
         if (typeCheckingMode === 'strict') {

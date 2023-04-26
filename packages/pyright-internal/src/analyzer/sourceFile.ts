@@ -538,64 +538,6 @@ export class SourceFile {
         return diagList;
     }
 
-    // Get all task list diagnostics for the current file and add them
-    // to the specified diagnostic list
-    private _addTaskListDiagnostics(taskListTokens: TaskListToken[] | undefined, diagList: Diagnostic[]) {
-        // input validation
-        if (!taskListTokens || taskListTokens.length === 0 || !diagList) {
-            return;
-        }
-
-        // if we have no tokens, we're done
-        if (!this._parseResults?.tokenizerOutput?.tokens) {
-            return;
-        }
-
-        const tokenizerOutput = this._parseResults.tokenizerOutput;
-        for (let i = 0; i < tokenizerOutput.tokens.count; i++) {
-            const token = tokenizerOutput.tokens.getItemAt(i);
-
-            // if there are no comments, skip this token
-            if (!token.comments || token.comments.length === 0) {
-                continue;
-            }
-
-            for (const comment of token.comments) {
-                for (const token of taskListTokens) {
-                    // Check if the comment matches the task list token.
-                    // The comment must start with zero or more whitespace characters,
-                    // followed by the taskListToken (case insensitive),
-                    // followed by (0+ whitespace + EOL) OR (1+ NON-alphanumeric characters)
-                    const regexStr = '^[\\s]*' + token.text + '([\\s]*$|[\\W]+)';
-                    const regex = RegExp(regexStr, 'i'); // case insensitive
-
-                    // if the comment doesn't match, skip it
-                    if (!regex.test(comment.value)) {
-                        continue;
-                    }
-
-                    // Calculate the range for the diagnostic
-                    // This allows navigation to the comment via double clicking the item in the task list pane
-                    let rangeStart = comment.start;
-
-                    // The comment technically starts right after the comment identifier (#), but we want the caret right
-                    // before the task list token (since there might be whitespace before it)
-                    const indexOfToken = comment.value.toLowerCase().indexOf(token.text.toLowerCase());
-                    rangeStart += indexOfToken;
-
-                    const rangeEnd = TextRange.getEnd(comment);
-                    const range = convertOffsetsToRange(rangeStart, rangeEnd, tokenizerOutput.lines!);
-
-                    // Add the diagnostic to the list to send to VS,
-                    // and trim whitespace from the comment so it's easier to read in the task list
-                    diagList.push(
-                        new Diagnostic(DiagnosticCategory.TaskItem, comment.value.trim(), range, token.priority)
-                    );
-                }
-            }
-        }
-    }
-
     getImports(): ImportResult[] {
         return this._imports || [];
     }
@@ -1298,6 +1240,64 @@ export class SourceFile {
 
     test_enableIPythonMode(enable: boolean) {
         this._ipythonMode = enable ? IPythonMode.CellDocs : IPythonMode.None;
+    }
+
+    // Get all task list diagnostics for the current file and add them
+    // to the specified diagnostic list
+    private _addTaskListDiagnostics(taskListTokens: TaskListToken[] | undefined, diagList: Diagnostic[]) {
+        // input validation
+        if (!taskListTokens || taskListTokens.length === 0 || !diagList) {
+            return;
+        }
+
+        // if we have no tokens, we're done
+        if (!this._parseResults?.tokenizerOutput?.tokens) {
+            return;
+        }
+
+        const tokenizerOutput = this._parseResults.tokenizerOutput;
+        for (let i = 0; i < tokenizerOutput.tokens.count; i++) {
+            const token = tokenizerOutput.tokens.getItemAt(i);
+
+            // if there are no comments, skip this token
+            if (!token.comments || token.comments.length === 0) {
+                continue;
+            }
+
+            for (const comment of token.comments) {
+                for (const token of taskListTokens) {
+                    // Check if the comment matches the task list token.
+                    // The comment must start with zero or more whitespace characters,
+                    // followed by the taskListToken (case insensitive),
+                    // followed by (0+ whitespace + EOL) OR (1+ NON-alphanumeric characters)
+                    const regexStr = '^[\\s]*' + token.text + '([\\s]*$|[\\W]+)';
+                    const regex = RegExp(regexStr, 'i'); // case insensitive
+
+                    // if the comment doesn't match, skip it
+                    if (!regex.test(comment.value)) {
+                        continue;
+                    }
+
+                    // Calculate the range for the diagnostic
+                    // This allows navigation to the comment via double clicking the item in the task list pane
+                    let rangeStart = comment.start;
+
+                    // The comment technically starts right after the comment identifier (#), but we want the caret right
+                    // before the task list token (since there might be whitespace before it)
+                    const indexOfToken = comment.value.toLowerCase().indexOf(token.text.toLowerCase());
+                    rangeStart += indexOfToken;
+
+                    const rangeEnd = TextRange.getEnd(comment);
+                    const range = convertOffsetsToRange(rangeStart, rangeEnd, tokenizerOutput.lines!);
+
+                    // Add the diagnostic to the list to send to VS,
+                    // and trim whitespace from the comment so it's easier to read in the task list
+                    diagList.push(
+                        new Diagnostic(DiagnosticCategory.TaskItem, comment.value.trim(), range, token.priority)
+                    );
+                }
+            }
+        }
     }
 
     private _buildFileInfo(

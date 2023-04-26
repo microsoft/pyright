@@ -50,9 +50,9 @@ import { TypeEvaluator } from './typeEvaluatorTypes';
 import { ClassType, isFunction, isInstantiableClass, isNever, isUnknown, removeUnknownFromUnion } from './types';
 
 class TrackedImport {
-    constructor(public importName: string) {}
-
     isAccessed = false;
+
+    constructor(public importName: string) {}
 }
 
 class TrackedImportAs extends TrackedImport {

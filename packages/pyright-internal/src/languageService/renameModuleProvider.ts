@@ -18,15 +18,15 @@ import {
     isVariableDeclaration,
 } from '../analyzer/declaration';
 import { createSynthesizedAliasDeclaration, getNameFromDeclaration } from '../analyzer/declarationUtils';
-import { createImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
+import { ImportResolver, ModuleNameAndType, createImportedModuleDescriptor } from '../analyzer/importResolver';
 import {
+    ImportStatement,
+    ImportStatements,
     getDirectoryLeadingDotsPointsTo,
     getImportGroupFromModuleNameAndType,
     getRelativeModuleName,
     getTopLevelImports,
     haveSameParentModule,
-    ImportStatement,
-    ImportStatements,
 } from '../analyzer/importStatementUtils';
 import {
     getDottedNameWithGivenNodeAsLastName,
@@ -69,13 +69,13 @@ import {
     ImportAsNode,
     ImportFromAsNode,
     ImportFromNode,
-    isExpressionNode,
     MemberAccessNode,
     ModuleNameNode,
     ModuleNode,
     NameNode,
     ParseNode,
     ParseNodeType,
+    isExpressionNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { CollectionResult, DocumentSymbolCollector, DocumentSymbolCollectorUseCase } from './documentSymbolCollector';
@@ -87,6 +87,42 @@ enum UpdateType {
 }
 
 export class RenameModuleProvider {
+    private readonly _newModuleFilePath: string;
+    private readonly _moduleNames: string[];
+    private readonly _newModuleNames: string[];
+    private readonly _onlyNameChanged: boolean;
+    private readonly _aliasIntroduced = new Set<ImportAsNode>();
+    private readonly _textEditTracker = new TextEditTracker();
+
+    private constructor(
+        private _fs: FileSystem,
+        private _evaluator: TypeEvaluator,
+        private _moduleFilePath: string,
+        newModuleFilePath: string,
+        private _moduleNameAndType: ModuleNameAndType,
+        private _newModuleNameAndType: ModuleNameAndType,
+        private _type: UpdateType,
+        public declarations: Declaration[],
+        private _token: CancellationToken
+    ) {
+        // moduleName and newModuleName are always in the absolute path form.
+        this._newModuleFilePath = resolvePaths(newModuleFilePath);
+
+        this._moduleNames = this._moduleName.split('.');
+        this._newModuleNames = this._newModuleName.split('.');
+
+        this._onlyNameChanged = haveSameParentModule(this._moduleNames, this._newModuleNames);
+        assert(this._type !== UpdateType.Folder || this._onlyNameChanged, 'We only support simple rename for folder');
+    }
+
+    get lastModuleName() {
+        return this._moduleNames[this._moduleNames.length - 1];
+    }
+
+    get textEditTracker(): TextEditTracker {
+        return this._textEditTracker;
+    }
+
     static createForModule(
         importResolver: ImportResolver,
         configOptions: ConfigOptions,
@@ -302,6 +338,65 @@ export class RenameModuleProvider {
         }
     }
 
+    getEdits(): FileEditAction[] {
+        return this._textEditTracker.getEdits(this._token);
+    }
+
+    renameReferences(parseResults: ParseResults) {
+        switch (this._type) {
+            case UpdateType.Folder:
+                return this._renameFolderReferences(parseResults);
+            case UpdateType.File:
+                return this._renameModuleReferences(parseResults);
+            case UpdateType.Symbol:
+                return this._updateSymbolReferences(parseResults);
+            default:
+                return assertNever(this._type, `${this._type} is unknown`);
+        }
+    }
+
+    tryGetFirstSymbolUsage(parseResults: ParseResults, symbol?: { name: string; decls: Declaration[] }) {
+        const name = symbol?.name ?? getNameFromDeclaration(this.declarations[0]) ?? '';
+        const collector = new DocumentSymbolCollector(
+            [name],
+            symbol?.decls ?? this.declarations,
+            this._evaluator!,
+            this._token,
+            parseResults.parseTree,
+            /* treatModuleImportAndFromImportSame */ true,
+            /* skipUnreachableCode */ false
+        );
+
+        for (const result of collector.collect().sort((r1, r2) => r1.range.start - r2.range.start)) {
+            // We only care about symbol usages, not alias decl of the symbol.
+            if (
+                isImportModuleName(result.node) ||
+                isImportAlias(result.node) ||
+                isFromImportModuleName(result.node) ||
+                isFromImportName(result.node) ||
+                isFromImportAlias(result.node)
+            ) {
+                continue;
+            }
+
+            return result.range.start;
+        }
+
+        return undefined;
+    }
+
+    private get _moduleName() {
+        return this._moduleNameAndType.moduleName;
+    }
+
+    private get _newLastModuleName() {
+        return this._newModuleNames[this._newModuleNames.length - 1];
+    }
+
+    private get _newModuleName() {
+        return this._newModuleNameAndType.moduleName;
+    }
+
     private static _create(
         importResolver: ImportResolver,
         configOptions: ConfigOptions,
@@ -354,89 +449,6 @@ export class RenameModuleProvider {
             declarations,
             token!
         );
-    }
-
-    private readonly _newModuleFilePath: string;
-    private readonly _moduleNames: string[];
-    private readonly _newModuleNames: string[];
-    private readonly _onlyNameChanged: boolean;
-    private readonly _aliasIntroduced = new Set<ImportAsNode>();
-    private readonly _textEditTracker = new TextEditTracker();
-
-    private constructor(
-        private _fs: FileSystem,
-        private _evaluator: TypeEvaluator,
-        private _moduleFilePath: string,
-        newModuleFilePath: string,
-        private _moduleNameAndType: ModuleNameAndType,
-        private _newModuleNameAndType: ModuleNameAndType,
-        private _type: UpdateType,
-        public declarations: Declaration[],
-        private _token: CancellationToken
-    ) {
-        // moduleName and newModuleName are always in the absolute path form.
-        this._newModuleFilePath = resolvePaths(newModuleFilePath);
-
-        this._moduleNames = this._moduleName.split('.');
-        this._newModuleNames = this._newModuleName.split('.');
-
-        this._onlyNameChanged = haveSameParentModule(this._moduleNames, this._newModuleNames);
-        assert(this._type !== UpdateType.Folder || this._onlyNameChanged, 'We only support simple rename for folder');
-    }
-
-    get lastModuleName() {
-        return this._moduleNames[this._moduleNames.length - 1];
-    }
-
-    get textEditTracker(): TextEditTracker {
-        return this._textEditTracker;
-    }
-
-    getEdits(): FileEditAction[] {
-        return this._textEditTracker.getEdits(this._token);
-    }
-
-    renameReferences(parseResults: ParseResults) {
-        switch (this._type) {
-            case UpdateType.Folder:
-                return this._renameFolderReferences(parseResults);
-            case UpdateType.File:
-                return this._renameModuleReferences(parseResults);
-            case UpdateType.Symbol:
-                return this._updateSymbolReferences(parseResults);
-            default:
-                return assertNever(this._type, `${this._type} is unknown`);
-        }
-    }
-
-    tryGetFirstSymbolUsage(parseResults: ParseResults, symbol?: { name: string; decls: Declaration[] }) {
-        const name = symbol?.name ?? getNameFromDeclaration(this.declarations[0]) ?? '';
-        const collector = new DocumentSymbolCollector(
-            [name],
-            symbol?.decls ?? this.declarations,
-            this._evaluator!,
-            this._token,
-            parseResults.parseTree,
-            /* treatModuleImportAndFromImportSame */ true,
-            /* skipUnreachableCode */ false
-        );
-
-        for (const result of collector.collect().sort((r1, r2) => r1.range.start - r2.range.start)) {
-            // We only care about symbol usages, not alias decl of the symbol.
-            if (
-                isImportModuleName(result.node) ||
-                isImportAlias(result.node) ||
-                isFromImportModuleName(result.node) ||
-                isFromImportName(result.node) ||
-                isFromImportAlias(result.node)
-            ) {
-                continue;
-            }
-
-            return result.range.start;
-        }
-
-        return undefined;
     }
 
     private _updateSymbolReferences(parseResults: ParseResults) {
@@ -1365,18 +1377,6 @@ export class RenameModuleProvider {
 
         // ex) x.y.z used in "from x.y.z import ..."
         return moduleName;
-    }
-
-    private get _moduleName() {
-        return this._moduleNameAndType.moduleName;
-    }
-
-    private get _newLastModuleName() {
-        return this._newModuleNames[this._newModuleNames.length - 1];
-    }
-
-    private get _newModuleName() {
-        return this._newModuleNameAndType.moduleName;
     }
 }
 

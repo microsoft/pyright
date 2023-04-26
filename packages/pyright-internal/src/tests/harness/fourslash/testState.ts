@@ -1463,55 +1463,6 @@ export class TestState {
         this._cancellationToken.resetCancelled();
     }
 
-    private _convertGlobalOptionsToConfigOptions(projectRoot: string, mountPaths?: Map<string, string>): ConfigOptions {
-        const configOptions = new ConfigOptions(projectRoot);
-
-        // add more global options as we need them
-        const newConfigOptions = this._applyTestConfigOptions(configOptions, mountPaths);
-
-        // default tests to run use compact signatures.
-        newConfigOptions.functionSignatureDisplay = SignatureDisplayType.compact;
-
-        return newConfigOptions;
-    }
-
-    private _applyTestConfigOptions(configOptions: ConfigOptions, mountPaths?: Map<string, string>) {
-        // Always enable "test mode".
-        configOptions.internalTestMode = true;
-
-        // Always analyze all files
-        configOptions.checkOnlyOpenFiles = false;
-
-        // make sure we set typing path
-        if (configOptions.stubPath === undefined) {
-            configOptions.stubPath = normalizePath(combinePaths(vfs.MODULE_PATH, 'typings'));
-        }
-
-        configOptions.include.push(getFileSpec(this.fs, configOptions.projectRoot, '.'));
-        configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, typeshedFolder));
-        configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, distlibFolder));
-        configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, libFolder));
-
-        if (mountPaths) {
-            for (const mountPath of mountPaths.keys()) {
-                configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, mountPath));
-            }
-        }
-
-        if (configOptions.functionSignatureDisplay === undefined) {
-            configOptions.functionSignatureDisplay === SignatureDisplayType.compact;
-        }
-
-        return configOptions;
-    }
-
-    protected getFileContent(fileName: string): string {
-        const files = this.testData.files.filter(
-            (f) => comparePaths(f.fileName, fileName, this.testFS.ignoreCase) === Comparison.EqualTo
-        );
-        return files[0].content;
-    }
-
     convertPositionToOffset(fileName: string, position: Position): number {
         const lines = this._getTextRangeCollection(fileName);
         return convertPositionToOffset(position, lines)!;
@@ -1523,6 +1474,20 @@ export class TestState {
         return convertOffsetToPosition(offset, lines);
     }
 
+    analyze() {
+        while (this.program.analyze()) {
+            // Continue to call analyze until it completes. Since we're not
+            // specifying a timeout, it should complete the first time.
+        }
+    }
+
+    protected getFileContent(fileName: string): string {
+        const files = this.testData.files.filter(
+            (f) => comparePaths(f.fileName, fileName, this.testFS.ignoreCase) === Comparison.EqualTo
+        );
+        return files[0].content;
+    }
+
     protected convertOffsetsToRange(fileName: string, startOffset: number, endOffset: number): PositionRange {
         const lines = this._getTextRangeCollection(fileName);
 
@@ -1532,56 +1497,8 @@ export class TestState {
         };
     }
 
-    private _getParseResult(fileName: string) {
-        const file = this.program.getBoundSourceFile(fileName)!;
-        return file.getParseResults()!;
-    }
-
-    private _getTextRangeCollection(fileName: string): TextRangeCollection<TextRange> {
-        if (fileName in this._files) {
-            return this._getParseResult(fileName).tokenizerOutput.lines;
-        }
-
-        // slow path
-        const fileContents = this.fs.readFileSync(fileName, 'utf8');
-        const tokenizer = new Tokenizer();
-        return tokenizer.tokenize(fileContents).lines;
-    }
-
     protected raiseError(message: string): never {
         throw new Error(this._messageAtLastKnownMarker(message));
-    }
-
-    private _messageAtLastKnownMarker(message: string) {
-        const locationDescription = this.lastKnownMarker
-            ? this.lastKnownMarker
-            : this._getLineColStringAtPosition(this.currentCaretPosition);
-        return `At ${locationDescription}: ${message}`;
-    }
-
-    private _checkPostEditInvariants() {
-        // blank for now
-    }
-
-    private _editScriptAndUpdateMarkers(fileName: string, editStart: number, editEnd: number, newText: string) {
-        // this.languageServiceAdapterHost.editScript(fileName, editStart, editEnd, newText);
-        for (const marker of this.testData.markers) {
-            if (marker.fileName === fileName) {
-                marker.position = this._updatePosition(marker.position, editStart, editEnd, newText);
-            }
-        }
-
-        for (const range of this.testData.ranges) {
-            if (range.fileName === fileName) {
-                range.pos = this._updatePosition(range.pos, editStart, editEnd, newText);
-                range.end = this._updatePosition(range.end, editStart, editEnd, newText);
-            }
-        }
-        this.testData.rangesByText = undefined;
-    }
-
-    private _removeWhitespace(text: string): string {
-        return text.replace(/\s/g, '');
     }
 
     protected createMultiMap<T>(values?: T[], getKey?: (t: T) => string): MultiMap<T> {
@@ -1624,6 +1541,114 @@ export class TestState {
 
     protected _rangeText({ fileName, pos, end }: Range): string {
         return this.getFileContent(fileName).slice(pos, end);
+    }
+
+    protected verifyCompletionItem(expected: _.FourSlashCompletionItem, actual: CompletionItem) {
+        assert.strictEqual(actual.label, expected.label);
+        assert.strictEqual(actual.detail, expected.detail);
+        assert.strictEqual(actual.kind, expected.kind);
+
+        assert.strictEqual(actual.insertText, expected.insertionText);
+        this._verifyEdit(actual.textEdit as TextEdit, expected.textEdit);
+        this._verifyEdits(actual.additionalTextEdits, expected.additionalTextEdits);
+
+        if (expected.detailDescription !== undefined) {
+            assert.strictEqual(actual.labelDetails?.description, expected.detailDescription);
+        }
+
+        if (expected.commitCharacters !== undefined) {
+            expect(expected.commitCharacters.sort()).toEqual(actual.commitCharacters?.sort() ?? []);
+        }
+    }
+
+    private _convertGlobalOptionsToConfigOptions(projectRoot: string, mountPaths?: Map<string, string>): ConfigOptions {
+        const configOptions = new ConfigOptions(projectRoot);
+
+        // add more global options as we need them
+        const newConfigOptions = this._applyTestConfigOptions(configOptions, mountPaths);
+
+        // default tests to run use compact signatures.
+        newConfigOptions.functionSignatureDisplay = SignatureDisplayType.compact;
+
+        return newConfigOptions;
+    }
+
+    private _applyTestConfigOptions(configOptions: ConfigOptions, mountPaths?: Map<string, string>) {
+        // Always enable "test mode".
+        configOptions.internalTestMode = true;
+
+        // Always analyze all files
+        configOptions.checkOnlyOpenFiles = false;
+
+        // make sure we set typing path
+        if (configOptions.stubPath === undefined) {
+            configOptions.stubPath = normalizePath(combinePaths(vfs.MODULE_PATH, 'typings'));
+        }
+
+        configOptions.include.push(getFileSpec(this.fs, configOptions.projectRoot, '.'));
+        configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, typeshedFolder));
+        configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, distlibFolder));
+        configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, libFolder));
+
+        if (mountPaths) {
+            for (const mountPath of mountPaths.keys()) {
+                configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, mountPath));
+            }
+        }
+
+        if (configOptions.functionSignatureDisplay === undefined) {
+            configOptions.functionSignatureDisplay === SignatureDisplayType.compact;
+        }
+
+        return configOptions;
+    }
+
+    private _getParseResult(fileName: string) {
+        const file = this.program.getBoundSourceFile(fileName)!;
+        return file.getParseResults()!;
+    }
+
+    private _getTextRangeCollection(fileName: string): TextRangeCollection<TextRange> {
+        if (fileName in this._files) {
+            return this._getParseResult(fileName).tokenizerOutput.lines;
+        }
+
+        // slow path
+        const fileContents = this.fs.readFileSync(fileName, 'utf8');
+        const tokenizer = new Tokenizer();
+        return tokenizer.tokenize(fileContents).lines;
+    }
+
+    private _messageAtLastKnownMarker(message: string) {
+        const locationDescription = this.lastKnownMarker
+            ? this.lastKnownMarker
+            : this._getLineColStringAtPosition(this.currentCaretPosition);
+        return `At ${locationDescription}: ${message}`;
+    }
+
+    private _checkPostEditInvariants() {
+        // blank for now
+    }
+
+    private _editScriptAndUpdateMarkers(fileName: string, editStart: number, editEnd: number, newText: string) {
+        // this.languageServiceAdapterHost.editScript(fileName, editStart, editEnd, newText);
+        for (const marker of this.testData.markers) {
+            if (marker.fileName === fileName) {
+                marker.position = this._updatePosition(marker.position, editStart, editEnd, newText);
+            }
+        }
+
+        for (const range of this.testData.ranges) {
+            if (range.fileName === fileName) {
+                range.pos = this._updatePosition(range.pos, editStart, editEnd, newText);
+                range.end = this._updatePosition(range.end, editStart, editEnd, newText);
+            }
+        }
+        this.testData.rangesByText = undefined;
+    }
+
+    private _removeWhitespace(text: string): string {
+        return text.replace(/\s/g, '');
     }
 
     private _getOnlyRange() {
@@ -1778,13 +1803,6 @@ export class TestState {
         return position <= editStart ? position : position < editEnd ? -1 : position + length - +(editEnd - editStart);
     }
 
-    public analyze() {
-        while (this.program.analyze()) {
-            // Continue to call analyze until it completes. Since we're not
-            // specifying a timeout, it should complete the first time.
-        }
-    }
-
     private _getDiagnosticsPerFile() {
         const sourceFiles = this._files.map((f) => this.program.getSourceFile(f));
         const results = sourceFiles.map((sourceFile, index) => {
@@ -1925,24 +1943,6 @@ export class TestState {
 
         if (extra.length > 0 || left.length > 0) {
             this.raiseError(`doesn't contain expected result: ${stringify(extra)}, actual: ${stringify(left)}`);
-        }
-    }
-
-    protected verifyCompletionItem(expected: _.FourSlashCompletionItem, actual: CompletionItem) {
-        assert.strictEqual(actual.label, expected.label);
-        assert.strictEqual(actual.detail, expected.detail);
-        assert.strictEqual(actual.kind, expected.kind);
-
-        assert.strictEqual(actual.insertText, expected.insertionText);
-        this._verifyEdit(actual.textEdit as TextEdit, expected.textEdit);
-        this._verifyEdits(actual.additionalTextEdits, expected.additionalTextEdits);
-
-        if (expected.detailDescription !== undefined) {
-            assert.strictEqual(actual.labelDetails?.description, expected.detailDescription);
-        }
-
-        if (expected.commitCharacters !== undefined) {
-            expect(expected.commitCharacters.sort()).toEqual(actual.commitCharacters?.sort() ?? []);
         }
     }
 }

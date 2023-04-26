@@ -19,7 +19,7 @@ import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange, convertPositionToOffset } from '../common/positionUtils';
-import { latestStablePythonVersion, PythonVersion } from '../common/pythonVersion';
+import { PythonVersion, latestStablePythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
@@ -50,12 +50,10 @@ import {
     ErrorNode,
     ExceptNode,
     ExpressionNode,
-    extendRange,
-    FormatStringNode,
     ForNode,
+    FormatStringNode,
     FunctionAnnotationNode,
     FunctionNode,
-    getNextNodeId,
     GlobalNode,
     IfNode,
     ImportAsNode,
@@ -117,6 +115,8 @@ import {
     WithNode,
     YieldFromNode,
     YieldNode,
+    extendRange,
+    getNextNodeId,
 } from './parseNodes';
 import * as StringTokenUtils from './stringTokenUtils';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
@@ -129,11 +129,11 @@ import {
     NumberToken,
     OperatorToken,
     OperatorType,
-    softKeywords,
     StringToken,
     StringTokenFlags,
     Token,
     TokenType,
+    softKeywords,
 } from './tokenizerTypes';
 
 interface ListResult<T> {
@@ -148,6 +148,13 @@ interface SubscriptListResult {
 }
 
 export class ParseOptions {
+    isStubFile: boolean;
+    pythonVersion: PythonVersion;
+    reportInvalidStringEscapeSequence: boolean;
+    skipFunctionAndClassBody: boolean;
+    ipythonMode: IPythonMode;
+    reportErrorsForParsedStringContents: boolean;
+
     constructor() {
         this.isStubFile = false;
         this.pythonVersion = latestStablePythonVersion;
@@ -156,13 +163,6 @@ export class ParseOptions {
         this.ipythonMode = IPythonMode.None;
         this.reportErrorsForParsedStringContents = false;
     }
-
-    isStubFile: boolean;
-    pythonVersion: PythonVersion;
-    reportInvalidStringEscapeSequence: boolean;
-    skipFunctionAndClassBody: boolean;
-    ipythonMode: IPythonMode;
-    reportErrorsForParsedStringContents: boolean;
 }
 
 export interface ParseResults {
