@@ -1027,7 +1027,7 @@ export function validateTypeVarDefault(
     }
 }
 
-// During bidirectional type inference for constructors, an "executed type"
+// During bidirectional type inference for constructors, an "expected type"
 // is used to prepopulate the type var map. This is problematic when the
 // expected type uses TypeVars that are not part of the context of the
 // class we are constructing. We'll replace these type variables with dummy
