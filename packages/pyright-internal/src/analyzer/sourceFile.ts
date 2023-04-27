@@ -8,7 +8,6 @@
  */
 
 import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
-import { TextDocument, TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import { isMainThread } from 'worker_threads';
 
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
@@ -136,7 +135,8 @@ export class SourceFile {
 
     // Client's version of the file. Undefined implies that contents
     // need to be read from disk.
-    private _clientDocument: TextDocument | undefined;
+    private _clientDocumentContents: string | undefined;
+    private _clientDocumentVersion: number | undefined;
 
     // Version of file contents that have been analyzed.
     private _analyzedFileContentsVersion = -1;
@@ -561,7 +561,7 @@ export class SourceFile {
         // If this is an open file any content changes will be
         // provided through the editor. We can assume contents
         // didn't change without us knowing about them.
-        if (this._clientDocument) {
+        if (this._clientDocumentContents) {
             return false;
         }
 
@@ -635,11 +635,11 @@ export class SourceFile {
     }
 
     getClientVersion() {
-        return this._clientDocument?.version;
+        return this._clientDocumentVersion;
     }
 
     getOpenFileContents() {
-        return this._clientDocument?.getText();
+        return this._clientDocumentContents;
     }
 
     getFileContent(): string | undefined {
@@ -667,24 +667,22 @@ export class SourceFile {
         }
     }
 
-    setClientVersion(version: number | null, contents: TextDocumentContentChangeEvent[]): void {
+    setClientVersion(version: number | null, contents: string): void {
         if (version === null) {
-            this._clientDocument = undefined;
+            this._clientDocumentVersion = undefined;
+            this._clientDocumentContents = undefined;
         } else {
-            if (!this._clientDocument) {
-                this._clientDocument = TextDocument.create(this._filePath, 'python', version, '');
-            }
-            this._clientDocument = TextDocument.update(this._clientDocument, contents, version);
+            this._clientDocumentVersion = version;
+            this._clientDocumentContents = contents;
 
-            const fileContents = this._clientDocument.getText();
-            const contentsHash = StringUtils.hashString(fileContents);
+            const contentsHash = StringUtils.hashString(contents);
 
             // Have the contents of the file changed?
-            if (fileContents.length !== this._lastFileContentLength || contentsHash !== this._lastFileContentHash) {
+            if (contents.length !== this._lastFileContentLength || contentsHash !== this._lastFileContentHash) {
                 this.markDirty();
             }
 
-            this._lastFileContentLength = fileContents.length;
+            this._lastFileContentLength = contents.length;
             this._lastFileContentHash = contentsHash;
             this._isFileDeleted = false;
         }

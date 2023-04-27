@@ -8,7 +8,6 @@
  */
 
 import { CancellationToken } from 'vscode-languageserver';
-import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 
 import { BackgroundAnalysisBase, IndexOptions, RefreshOptions } from '../backgroundAnalysisBase';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
@@ -99,8 +98,8 @@ export class BackgroundAnalysisProgram {
     }
 
     setFileOpened(filePath: string, version: number | null, contents: string, options: OpenFileOptions) {
-        this._backgroundAnalysis?.setFileOpened(filePath, version, [{ text: contents }], options);
-        this._program.setFileOpened(filePath, version, [{ text: contents }], options);
+        this._backgroundAnalysis?.setFileOpened(filePath, version, contents, options);
+        this._program.setFileOpened(filePath, version, contents, options);
     }
 
     getChainedFilePath(filePath: string): string | undefined {
@@ -112,12 +111,7 @@ export class BackgroundAnalysisProgram {
         this._program.updateChainedFilePath(filePath, chainedFilePath);
     }
 
-    updateOpenFileContents(
-        path: string,
-        version: number | null,
-        contents: TextDocumentContentChangeEvent[],
-        options: OpenFileOptions
-    ) {
+    updateOpenFileContents(path: string, version: number | null, contents: string, options: OpenFileOptions) {
         this._backgroundAnalysis?.setFileOpened(path, version, contents, options);
         this._program.setFileOpened(path, version, contents, options);
         this.markFilesDirty([path], /* evenIfContentsAreSame */ true);

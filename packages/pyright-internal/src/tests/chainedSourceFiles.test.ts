@@ -152,7 +152,7 @@ test('modify chained files', async () => {
     assert.strictEqual(initialDiags.length, 0);
 
     // Change test1 content
-    service.updateOpenFileContents(data.markerPositions.get('changed')!.fileName, 2, [{ text: 'def foo5(): pass' }]);
+    service.updateOpenFileContents(data.markerPositions.get('changed')!.fileName, 2, 'def foo5(): pass');
     analyze(service.test_program);
 
     const finalDiags = await service.getDiagnosticsForRange(
