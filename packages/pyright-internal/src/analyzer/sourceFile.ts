@@ -272,6 +272,10 @@ export class SourceFile {
         return this._isStubFile;
     }
 
+    isThirdPartyImport() {
+        return this._isThirdPartyImport;
+    }
+
     isThirdPartyPyTypedPresent() {
         return this._isThirdPartyPyTypedPresent;
     }
