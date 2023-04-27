@@ -11003,7 +11003,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // is an overload function, skip it during the first pass
                         // because the selection of the proper overload may depend
                         // on type arguments supplied by other function arguments.
-                        
+
                         // We set useNarrowBoundOnly to true if this is the first
                         // (but not only) pass through the parameter list because a wide
                         // bound on a TypeVar (if a narrow bound has not yet been
