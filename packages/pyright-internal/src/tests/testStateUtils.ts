@@ -77,7 +77,7 @@ export function applyFileOperations(state: TestState, fileEditActions: FileEditA
                 state.program.setFileClosed(renamed.oldFilePath);
             }
 
-            state.program.setFileOpened(openedFilePath, result.version + 1, [{ text: result.text }]);
+            state.program.setFileOpened(openedFilePath, result.version + 1, result.text);
         }
     }
 
