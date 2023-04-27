@@ -8740,26 +8740,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     skipUnknownArgCheck
                 );
 
+                let adjustedClassType = type;
+                if (
+                    callResult.specializedInitSelfType &&
+                    isClassInstance(callResult.specializedInitSelfType) &&
+                    ClassType.isSameGenericClass(callResult.specializedInitSelfType, type)
+                ) {
+                    adjustedClassType = ClassType.cloneAsInstantiable(callResult.specializedInitSelfType);
+                }
+
+                returnType = applyExpectedTypeForConstructor(
+                    adjustedClassType,
+                    /* inferenceContext */ undefined,
+                    typeVarContext
+                );
+
+                if (callResult.isTypeIncomplete) {
+                    isTypeIncomplete = true;
+                }
+
                 if (!callResult.argumentErrors) {
-                    let adjustedClassType = type;
-                    if (
-                        callResult.specializedInitSelfType &&
-                        isClassInstance(callResult.specializedInitSelfType) &&
-                        ClassType.isSameGenericClass(callResult.specializedInitSelfType, type)
-                    ) {
-                        adjustedClassType = ClassType.cloneAsInstantiable(callResult.specializedInitSelfType);
-                    }
-
-                    returnType = applyExpectedTypeForConstructor(
-                        adjustedClassType,
-                        /* inferenceContext */ undefined,
-                        typeVarContext
-                    );
-
-                    if (callResult.isTypeIncomplete) {
-                        isTypeIncomplete = true;
-                    }
-
                     overloadsUsedForCall.push(...callResult.overloadsUsedForCall);
                 } else {
                     reportedErrors = true;
