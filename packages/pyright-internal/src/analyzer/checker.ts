@@ -3594,6 +3594,7 @@ export class Checker extends ParseTreeWalker {
 
         doForEachSubtype(type, (subtype) => {
             subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
+            subtype = transformPossibleRecursiveTypeAlias(subtype);
 
             switch (subtype.category) {
                 case TypeCategory.Any:

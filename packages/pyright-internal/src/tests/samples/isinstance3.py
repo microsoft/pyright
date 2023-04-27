@@ -4,7 +4,7 @@
 
 
 from abc import abstractmethod
-from typing import Any, Generic, Tuple, Type, TypeVar, Union
+from typing import Any, Generic, Sequence, Tuple, Type, TypeVar, Union
 
 
 _T = TypeVar("_T", int, str)
@@ -57,3 +57,7 @@ class ClassA(Generic[_T]):
 
         if isinstance(var, self.v2):
             pass
+
+
+def func1(exceptions: Sequence[type[BaseException]], exception: Exception):
+    return isinstance(exception, tuple(exceptions))
