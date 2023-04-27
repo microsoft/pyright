@@ -2,7 +2,7 @@
 # narrowing in the case where there is no overlap between the
 # value type and the test type.
 
-from typing import Type, TypeVar
+from typing import Type, TypeVar, final
 
 
 class A:
@@ -15,6 +15,11 @@ class B:
 
 class C:
     c_val: int
+
+
+@final
+class D:
+    d_val: int
 
 
 def func1(val: A):
@@ -76,3 +81,8 @@ def func3(val: _T1) -> _T1:
     if isinstance(val, B):
         return val
     return val
+
+
+def func4(val: D):
+    if isinstance(val, A):
+        reveal_type(val, expected_text="Never")

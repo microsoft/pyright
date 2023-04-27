@@ -1296,7 +1296,11 @@ function narrowTypeForIsInstance(
                         }
 
                         filteredTypes.push(addConditionToType(specializedFilterType, constraints));
-                    } else if (allowIntersections) {
+                    } else if (
+                        allowIntersections &&
+                        !ClassType.isFinal(varType) &&
+                        !ClassType.isFinal(concreteFilterType)
+                    ) {
                         // The two types appear to have no relation. It's possible that the
                         // two types are protocols or the program is expecting one type to
                         // be a mix-in class used with the other. In this case, we'll
