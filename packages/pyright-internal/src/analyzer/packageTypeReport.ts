@@ -59,6 +59,7 @@ export interface PackageTypeReport {
     ignoreExternal: boolean;
     packageRootDirectory: string | undefined;
     moduleRootDirectory: string | undefined;
+    isModuleSingleFile: boolean;
     pyTypedPath: string | undefined;
     missingFunctionDocStringCount: number;
     missingClassDocStringCount: number;
@@ -87,6 +88,7 @@ export function getEmptyReport(
     packageRootDirectory: string,
     moduleName: string,
     moduleRootDirectory: string,
+    isModuleSingleFile: boolean,
     ignoreExternal: boolean
 ) {
     const report: PackageTypeReport = {
@@ -95,6 +97,7 @@ export function getEmptyReport(
         packageRootDirectory,
         moduleName,
         moduleRootDirectory,
+        isModuleSingleFile,
         pyTypedPath: undefined,
         missingFunctionDocStringCount: 0,
         missingClassDocStringCount: 0,

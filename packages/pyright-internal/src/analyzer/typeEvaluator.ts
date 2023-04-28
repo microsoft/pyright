@@ -24987,7 +24987,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                             if (!destParamInfo) {
                                 if (destParamDetails.kwargsIndex === undefined && !srcParamInfo.param.hasDefault) {
-                                    if (paramDiag) {
+                                    if (paramDiag && srcParamDetails.firstKeywordOnlyIndex !== undefined) {
                                         paramDiag.addMessage(
                                             Localizer.DiagnosticAddendum.namedParamMissingInDest().format({
                                                 name: srcParamInfo.param.name,

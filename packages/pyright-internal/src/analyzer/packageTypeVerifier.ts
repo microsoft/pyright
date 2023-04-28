@@ -15,7 +15,14 @@ import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum, DiagnosticCategory } from '../common/diagnostic';
 import { FileSystem } from '../common/fileSystem';
 import { FullAccessHost } from '../common/fullAccessHost';
-import { combinePaths, getDirectoryPath, getFileExtension, stripFileExtension, tryStat } from '../common/pathUtils';
+import {
+    combinePaths,
+    getDirectoryPath,
+    getFileExtension,
+    getFileName,
+    stripFileExtension,
+    tryStat,
+} from '../common/pathUtils';
 import { getEmptyRange, Range } from '../common/textRange';
 import { DeclarationType, FunctionDeclaration, VariableDeclaration } from './declaration';
 import { createImportedModuleDescriptor, ImportResolver } from './importResolver';
@@ -59,6 +66,11 @@ import {
 
 type PublicSymbolSet = Set<string>;
 
+interface ModuleDirectoryInfo {
+    moduleDirectory: string;
+    isModuleSingleFile: boolean;
+}
+
 export class PackageTypeVerifier {
     private _configOptions: ConfigOptions;
     private _execEnv: ExecutionEnvironment;
@@ -100,11 +112,15 @@ export class PackageTypeVerifier {
         const trimmedModuleName = this._packageName.trim();
         const moduleNameParts = trimmedModuleName.split('.');
 
+        const packageDirectoryInfo = this._getDirectoryInfoForModule(moduleNameParts[0]);
+        const moduleDirectoryInfo = this._getDirectoryInfoForModule(trimmedModuleName);
+
         const report = getEmptyReport(
             moduleNameParts[0],
-            this._getDirectoryForModule(moduleNameParts[0]) ?? '',
+            packageDirectoryInfo?.moduleDirectory ?? '',
             trimmedModuleName,
-            this._getDirectoryForModule(trimmedModuleName) ?? '',
+            moduleDirectoryInfo?.moduleDirectory ?? '',
+            moduleDirectoryInfo?.isModuleSingleFile ?? false,
             this._ignoreExternal
         );
         const commonDiagnostics = report.generalDiagnostics;
@@ -145,7 +161,11 @@ export class PackageTypeVerifier {
                 } else {
                     report.pyTypedPath = pyTypedInfo.pyTypedPath;
 
-                    const publicModules = this._getListOfPublicModules(report.moduleRootDirectory, trimmedModuleName);
+                    const publicModules = this._getListOfPublicModules(
+                        report.moduleRootDirectory,
+                        report.isModuleSingleFile,
+                        trimmedModuleName
+                    );
 
                     // If the filter eliminated all modules, report an error.
                     if (publicModules.length === 0) {
@@ -393,9 +413,9 @@ export class PackageTypeVerifier {
 
     // Scans the directory structure for a list of public modules
     // within the package.
-    private _getListOfPublicModules(moduleRootPath: string, moduleName: string): string[] {
+    private _getListOfPublicModules(moduleRootPath: string, isModuleSingleFile: boolean, moduleName: string): string[] {
         const publicModules: string[] = [];
-        this._addPublicModulesRecursive(moduleRootPath, moduleName, publicModules);
+        this._addPublicModulesRecursive(moduleRootPath, isModuleSingleFile, moduleName, publicModules);
 
         // Make sure modules are unique. There may be duplicates if a ".py" and ".pyi"
         // exist for some modules.
@@ -412,7 +432,12 @@ export class PackageTypeVerifier {
         return uniqueModules;
     }
 
-    private _addPublicModulesRecursive(dirPath: string, modulePath: string, publicModules: string[]) {
+    private _addPublicModulesRecursive(
+        dirPath: string,
+        isModuleSingleFile: boolean,
+        modulePath: string,
+        publicModules: string[]
+    ) {
         const dirEntries = this._fileSystem.readdirEntriesSync(dirPath);
 
         dirEntries.forEach((entry) => {
@@ -439,7 +464,13 @@ export class PackageTypeVerifier {
                             !isPrivateOrProtectedName(nameWithoutExtension) &&
                             this._isLegalModulePartName(nameWithoutExtension)
                         ) {
-                            publicModules.push(`${modulePath}.${nameWithoutExtension}`);
+                            if (isModuleSingleFile) {
+                                if (modulePath.endsWith(`.${nameWithoutExtension}`)) {
+                                    publicModules.push(modulePath);
+                                }
+                            } else {
+                                publicModules.push(`${modulePath}.${nameWithoutExtension}`);
+                            }
                         }
                     }
                 }
@@ -447,6 +478,7 @@ export class PackageTypeVerifier {
                 if (!isPrivateOrProtectedName(entry.name) && this._isLegalModulePartName(entry.name)) {
                     this._addPublicModulesRecursive(
                         combinePaths(dirPath, entry.name),
+                        isModuleSingleFile,
                         `${modulePath}.${entry.name}`,
                         publicModules
                     );
@@ -1411,7 +1443,7 @@ export class PackageTypeVerifier {
         }
     }
 
-    private _getDirectoryForModule(moduleName: string): string | undefined {
+    private _getDirectoryInfoForModule(moduleName: string): ModuleDirectoryInfo | undefined {
         const importResult = this._importResolver.resolveImport(
             '',
             this._execEnv,
@@ -1420,13 +1452,19 @@ export class PackageTypeVerifier {
 
         if (importResult.isImportFound) {
             const resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
-            if (resolvedPath) {
-                return getDirectoryPath(resolvedPath);
-            }
 
             // If it's a namespace package with no __init__.py(i), use the package
             // directory instead.
-            return importResult.packageDirectory ?? '';
+            const moduleDirectory = resolvedPath ? getDirectoryPath(resolvedPath) : importResult.packageDirectory ?? '';
+            let isModuleSingleFile = false;
+            if (resolvedPath && stripFileExtension(getFileName(resolvedPath)) !== '__init__') {
+                isModuleSingleFile = true;
+            }
+
+            return {
+                moduleDirectory,
+                isModuleSingleFile,
+            };
         }
 
         return undefined;
