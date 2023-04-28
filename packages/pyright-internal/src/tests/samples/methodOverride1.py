@@ -165,6 +165,11 @@ class ParentClass:
     def my_method42(self, a: int, b: int, c: str) -> None:
         ...
 
+    my_method43: Callable[..., None]
+
+    def my_method44(self, *args: Any, **kwargs: Any) -> None:
+        ...
+
 
 T_ChildClass = TypeVar("T_ChildClass", bound="ChildClass")
 
@@ -341,6 +346,14 @@ class ChildClass(ParentClass):
     # This should generate an error because args doesn't have the right type.
     def my_method42(self, a: int, *args: int) -> None:
         ...
+
+    def my_method43(self, a: int, b: str, c: str) -> None:
+        ...
+
+    # This should generate an error because kwargs is missing.
+    def my_method44(self, *args) -> None:
+        ...
+
 
 class A:
     def test(self, t: Sequence[int]) -> Sequence[str]:
