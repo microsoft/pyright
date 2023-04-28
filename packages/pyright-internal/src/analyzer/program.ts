@@ -190,7 +190,7 @@ export class Program {
     private _id: number;
     private static _nextId = 0;
     private _editMode = false;
-    private _copiedOnWriteFiles = new Map<string, SourceFileInfo>();
+    private _copiedOnWriteFiles = new Map<string, SourceFileInfo | undefined>();
     private _copiedOnWriteChanges = new Map<string, FileEditAction[]>();
 
     constructor(
@@ -258,10 +258,17 @@ export class Program {
                 edits.push(...changes);
             }
             const changedFile = this._sourceFileMap.get(path);
-            this._sourceFileMap.set(path, fileInfo);
             const index = changedFile ? this._sourceFileList.indexOf(changedFile) : -1;
-            if (index >= 0) {
-                this._sourceFileList[index] = fileInfo;
+            if (fileInfo) {
+                this._sourceFileMap.set(path, fileInfo);
+                if (index >= 0) {
+                    this._sourceFileList[index] = fileInfo;
+                }
+            } else {
+                this._sourceFileMap.delete(path);
+                if (index >= 0) {
+                    this._sourceFileList.splice(index, 1);
+                }
             }
         });
         this._copiedOnWriteChanges.clear();
@@ -391,20 +398,25 @@ export class Program {
         let sourceFileInfo = this.getSourceFileInfo(filePath);
 
         // If in edit mode, we need to start over if this is the first edit.
-        if (this._editMode && sourceFileInfo && !this._copiedOnWriteFiles.has(filePathKey)) {
-            // File was already in map but hasn't been written to yet. Make a new one.
+        if (this._editMode && !this._copiedOnWriteFiles.has(filePathKey)) {
+            // Save the old state of the file.
             this._copiedOnWriteFiles.set(filePathKey, sourceFileInfo);
-            this._copiedOnWriteChanges.set(filePathKey, createFileEditActions(filePath, contents));
+
+            // Only save the changes if these are actually changes to a file. Otherwise
+            // initial creation of a file shouldn't count as a change.
+            if (sourceFileInfo) {
+                this._copiedOnWriteChanges.set(filePathKey, createFileEditActions(filePath, contents));
+            }
             this._sourceFileMap.delete(filePathKey);
             this._sourceFileList = this._sourceFileList.filter((f) => f !== sourceFileInfo);
 
             // Chained file path needs to be maintained.
-            chainedFilePath = sourceFileInfo.chainedSourceFile?.sourceFile.getFilePath();
+            chainedFilePath = sourceFileInfo?.chainedSourceFile?.sourceFile.getFilePath();
 
             // Add a new change that is the full text. This prefills the new source file.
             contents = [
                 {
-                    text: sourceFileInfo.sourceFile.getFileContent() || '',
+                    text: sourceFileInfo?.sourceFile.getFileContent() || '',
                 },
                 ...contents,
             ];
@@ -412,9 +424,10 @@ export class Program {
             // Mark as not existing so we start over.
             sourceFileInfo = undefined;
         } else if (this._editMode && this._copiedOnWriteFiles.has(filePathKey)) {
+            const currentChanges = this._copiedOnWriteChanges.get(filePathKey) || [];
             // File has already had changes applied. Apply more
             this._copiedOnWriteChanges.set(filePathKey, [
-                ...this._copiedOnWriteChanges.get(filePathKey)!,
+                ...currentChanges,
                 ...createFileEditActions(filePath, contents),
             ]);
         }

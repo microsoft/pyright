@@ -10,7 +10,8 @@ import * as assert from 'assert';
 import { TextDocumentEdit } from 'vscode-languageserver-types';
 
 import { CancellationToken } from 'vscode-languageserver';
-import { convertPathToUri } from '../common/pathUtils';
+import { IPythonMode } from '../analyzer/sourceFile';
+import { combinePaths, convertPathToUri, getDirectoryPath } from '../common/pathUtils';
 import { applyWorkspaceEdit, generateWorkspaceEdit } from '../common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from '../languageService/analyzerServiceExecutor';
 import { TestLanguageService } from './harness/fourslash/testLanguageService';
@@ -85,6 +86,44 @@ test('test edit mode for workspace', async () => {
     assert.strictEqual(newSourceFile?.getFileContent(), 'import sys');
     assert.strictEqual(newSourceFile.getImports().length, 2);
 
+    // Add a new file.
+    const addedFilePath = combinePaths(getDirectoryPath(range.fileName), 'test2.py');
+    state.workspace.service.backgroundAnalysisProgram.program.setFileOpened(addedFilePath, 0, [{ text: '' }], {
+        isTracked: true,
+        ipythonMode: IPythonMode.None,
+        chainedFilePath: undefined,
+        realFilePath: addedFilePath,
+    });
+
+    applyWorkspaceEdit(
+        state.workspace.service,
+        {
+            documentChanges: [
+                TextDocumentEdit.create(
+                    {
+                        uri: convertPathToUri(state.workspace.service.fs, addedFilePath),
+                        version: null,
+                    },
+                    [
+                        {
+                            range: state.convertPositionRange(range),
+                            newText: 'import sys',
+                        },
+                    ]
+                ),
+            ],
+        },
+        fileChanged
+    );
+
+    let addedSourceFile = state.workspace.service.test_program.getSourceFile(addedFilePath);
+    state.workspace.service.backgroundAnalysisProgram.analyzeFile(
+        addedSourceFile!.getFilePath(),
+        CancellationToken.None
+    );
+    assert.strictEqual(addedSourceFile?.getFileContent(), 'import sys');
+    assert.strictEqual(addedSourceFile.getImports().length, 2);
+
     const edits = state.workspace.service.leaveEditMode();
 
     // After leaving edit mode, we should be back to where we were.
@@ -92,8 +131,10 @@ test('test edit mode for workspace', async () => {
     state.workspace.service.backgroundAnalysisProgram.analyzeFile(oldSourceFile!.getFilePath(), CancellationToken.None);
     assert.strictEqual(oldSourceFile?.getFileContent(), '');
     assert.strictEqual(oldSourceFile.getImports().length, 1);
-    assert.strictEqual(edits.length, 1);
+    assert.strictEqual(edits.length, 2);
     assert.deepStrictEqual(edits[0].replacementText, 'import sys');
+    addedSourceFile = state.workspace.service.test_program.getSourceFile(addedFilePath);
+    assert.strictEqual(addedSourceFile, undefined);
 });
 
 test('test applyWorkspaceEdits documentChanges', async () => {
