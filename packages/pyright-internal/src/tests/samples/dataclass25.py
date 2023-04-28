@@ -20,6 +20,8 @@ def converter_with_extra_defaulted_params(s: str, extra: int = 1, *, extraKwarg:
 def converter_with_default_for_first_param(s: str = "1") -> int:
     return int(s)
 
+def converter_with_more_specialized_return_type(s: str) -> int:
+    return int(s)
 
 @dataclass
 class Foo:
@@ -28,9 +30,10 @@ class Foo:
     field2: int = field(converter=converter_with_args)
     field3: int = field(converter=converter_with_extra_defaulted_params)
     field4: int = field(converter=converter_with_default_for_first_param)
+    field5: int | str = field(converter=converter_with_more_specialized_return_type)
 
 
-reveal_type(Foo.__init__, expected_text="(self: Foo, field0: str, field1: str, field2: str, field3: str, field4: str) -> None")
+reveal_type(Foo.__init__, expected_text="(self: Foo, field0: str, field1: str, field2: str, field3: str, field4: str, field5: str) -> None")
 
 
 # This overload will be ignored because it has too many arguments.
