@@ -10,7 +10,7 @@
 import { getEmptyRange } from '../common/textRange';
 import { NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ImportLookup, ImportLookupResult } from './analyzerFileInfo';
-import { AliasDeclaration, Declaration, DeclarationType, isAliasDeclaration, ModuleLoaderActions } from './declaration';
+import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions, isAliasDeclaration } from './declaration';
 import { getFileInfoFromNode } from './parseTreeUtils';
 import { Symbol } from './symbol';
 
@@ -211,7 +211,7 @@ export function createSynthesizedAliasDeclaration(path: string): AliasDeclaratio
 }
 
 // If the specified declaration is an alias declaration that points to a symbol,
-// it resolves the alias and looks up the symbol, then returns the a declaration
+// it resolves the alias and looks up the symbol, then returns a declaration
 // (typically the last) associated with that symbol. It does this recursively if
 // necessary. If a symbol lookup fails, undefined is returned. If resolveLocalNames
 // is true, the method resolves aliases through local renames ("as" clauses found
