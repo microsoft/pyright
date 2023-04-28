@@ -13,6 +13,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
+    ArgumentNode,
     CallNode,
     ClassNode,
     ExpressionNode,
@@ -34,6 +35,7 @@ import {
     AnyType,
     ClassType,
     ClassTypeFlags,
+    combineTypes,
     DataClassBehaviors,
     DataClassEntry,
     FunctionParameter,
@@ -45,8 +47,10 @@ import {
     isInstantiableClass,
     isOverloadedFunction,
     NoneType,
+    OverloadedFunctionType,
     TupleTypeArgument,
     Type,
+    TypeVarType,
     UnknownType,
 } from './types';
 import {
@@ -162,6 +166,7 @@ export function synthesizeDataClassMethods(
                 let isKeywordOnly = ClassType.isDataClassKeywordOnlyParams(classType) || sawKeywordOnlySeparator;
                 let defaultValueExpression: ExpressionNode | undefined;
                 let includeInInit = true;
+                let converter: ArgumentNode | undefined;
 
                 if (statement.nodeType === ParseNodeType.Assignment) {
                     if (
@@ -297,6 +302,13 @@ export function synthesizeDataClassMethods(
                                     aliasName = valueType.literalValue as string;
                                 }
                             }
+
+                            const converterArg = statement.rightExpression.arguments.find(
+                                (arg) => arg.name?.value === 'converter'
+                            );
+                            if (converterArg && converterArg.valueExpression) {
+                                converter = converterArg;
+                            }
                         }
                     }
                 } else if (statement.nodeType === ParseNodeType.TypeAnnotation) {
@@ -353,6 +365,7 @@ export function synthesizeDataClassMethods(
                             nameNode: variableNameNode,
                             type: UnknownType.create(),
                             isClassVar: true,
+                            converter,
                         };
                         localDataClassEntries.push(dataClassEntry);
                     } else {
@@ -370,6 +383,7 @@ export function synthesizeDataClassMethods(
                             nameNode: variableNameNode,
                             type: UnknownType.create(),
                             isClassVar: false,
+                            converter,
                         };
                         localEntryTypeEvaluator.push({ entry: dataClassEntry, evaluator: variableTypeEvaluator });
 
@@ -491,6 +505,10 @@ export function synthesizeDataClassMethods(
                     // Is the field type a descriptor object? If so, we need to extract the corresponding
                     // type of the __init__ method parameter from the __set__ method.
                     effectiveType = transformDescriptorType(evaluator, effectiveType);
+
+                    if (entry.converter) {
+                        effectiveType = getConverterType(evaluator, entry.converter, effectiveType);
+                    }
 
                     const effectiveName = entry.alias || entry.name;
 
@@ -652,6 +670,74 @@ export function synthesizeDataClassMethods(
         fullDataClassEntries.map((entry) => entry.type),
         /* isTypeArgumentExplicit */ true
     );
+}
+
+function getConverterType(evaluator: TypeEvaluator, converter: ArgumentNode, fieldType: Type): Type {
+    const valueType = evaluator.getTypeOfExpression(converter.valueExpression).type;
+
+    const typeVar = TypeVarType.createInstance('__converterInput');
+    typeVar.scopeId = evaluator.getScopeIdForNode(converter);
+    const targetFunction = FunctionType.createSynthesizedInstance('');
+    targetFunction.details.declaredReturnType = fieldType;
+    FunctionType.addParameter(targetFunction, {
+        category: ParameterCategory.Simple,
+        name: '__input',
+        type: typeVar,
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(targetFunction, {
+        category: ParameterCategory.Simple,
+        name: '',
+        type: UnknownType.create(),
+    });
+
+    if (isFunction(valueType)) {
+        const typeVarContext = new TypeVarContext(typeVar.scopeId);
+        if (evaluator.assignType(targetFunction, valueType, /* diag */ undefined, typeVarContext)) {
+            const solution = applySolvedTypeVars(typeVar, typeVarContext, { unknownIfNotFound: true });
+            return solution;
+        }
+
+        // TODO: Add new diag message
+        evaluator.addDiagnostic(
+            AnalyzerNodeInfo.getFileInfo(converter).diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.dataClassFieldWithDefault(),
+            converter
+        );
+    } else if (isOverloadedFunction(valueType)) {
+        const acceptedTypes: Type[] = [];
+
+        OverloadedFunctionType.getOverloads(valueType).forEach((overload) => {
+            const typeVarContext = new TypeVarContext(typeVar.scopeId);
+            if (evaluator.assignType(targetFunction, overload, /* diag */ undefined, typeVarContext)) {
+                const solution = applySolvedTypeVars(typeVar, typeVarContext, { unknownIfNotFound: true });
+                acceptedTypes.push(solution);
+            }
+        });
+
+        if (acceptedTypes.length > 0) {
+            return combineTypes(acceptedTypes);
+        }
+
+        // TODO: Add new diag message
+        evaluator.addDiagnostic(
+            AnalyzerNodeInfo.getFileInfo(converter).diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.dataClassFieldWithDefault(),
+            converter
+        );
+    } else {
+        // TODO: Add new diag message
+        evaluator.addDiagnostic(
+            AnalyzerNodeInfo.getFileInfo(converter).diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.dataClassFieldWithDefault(),
+            converter
+        );
+    }
+
+    return fieldType;
 }
 
 // If the specified type is a descriptor — in particular, if it implements a
