@@ -5,10 +5,6 @@ from dataclasses import dataclass, field
 from typing import overload
 
 
-# class Errors:
-#     not_a_function: int = field(converter=1)
-
-
 def converter_simple(s: str) -> int:
     return int(s)
 

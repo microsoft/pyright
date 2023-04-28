@@ -508,7 +508,7 @@ export function synthesizeDataClassMethods(
                     effectiveType = transformDescriptorType(evaluator, effectiveType);
 
                     if (entry.converter) {
-                        effectiveType = getConverterType(evaluator, entry.converter, effectiveType, entry.name);
+                        effectiveType = getConverterInputType(evaluator, entry.converter, effectiveType, entry.name);
                     }
 
                     const effectiveName = entry.alias || entry.name;
@@ -673,8 +673,17 @@ export function synthesizeDataClassMethods(
     );
 }
 
-function getConverterType(evaluator: TypeEvaluator, converter: ArgumentNode, fieldType: Type, fieldName: string): Type {
-    const valueType = evaluator.getTypeOfExpression(converter.valueExpression).type;
+function getConverterInputType(
+    evaluator: TypeEvaluator,
+    converter: ArgumentNode,
+    fieldType: Type,
+    fieldName: string
+): Type {
+    const converterType = evaluator.getTypeOfExpression(converter.valueExpression).type;
+
+    if (!isFunction(converterType) && !isOverloadedFunction(converterType)) {
+        return fieldType;
+    }
 
     // Create synthesized function of the form Callable[[T], fieldType] which
     // will be used to check compatibility of the provided converter.
@@ -694,11 +703,11 @@ function getConverterType(evaluator: TypeEvaluator, converter: ArgumentNode, fie
         type: UnknownType.create(),
     });
 
-    if (isFunction(valueType)) {
+    if (isFunction(converterType)) {
         const typeVarContext = new TypeVarContext(typeVar.scopeId);
         const diagAddendum = new DiagnosticAddendum();
 
-        if (evaluator.assignType(targetFunction, valueType, diagAddendum, typeVarContext)) {
+        if (evaluator.assignType(targetFunction, converterType, diagAddendum, typeVarContext)) {
             const solution = applySolvedTypeVars(typeVar, typeVarContext, { unknownIfNotFound: true });
             return solution;
         }
@@ -707,18 +716,18 @@ function getConverterType(evaluator: TypeEvaluator, converter: ArgumentNode, fie
             AnalyzerNodeInfo.getFileInfo(converter).diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
             Localizer.Diagnostic.dataClassConverterFunction().format({
-                argType: evaluator.printType(valueType),
+                argType: evaluator.printType(converterType),
                 fieldType: evaluator.printType(fieldType),
                 fieldName: fieldName,
             }) + diagAddendum.getString(),
             converter,
             diagAddendum.getEffectiveTextRange() ?? converter
         );
-    } else if (isOverloadedFunction(valueType)) {
+    } else {
         const acceptedTypes: Type[] = [];
         const diagAddendums: DiagnosticAddendum[] = [];
 
-        OverloadedFunctionType.getOverloads(valueType).forEach((overload) => {
+        OverloadedFunctionType.getOverloads(converterType).forEach((overload) => {
             const typeVarContext = new TypeVarContext(typeVar.scopeId);
             const diagAddendum = new DiagnosticAddendum();
 
@@ -738,7 +747,7 @@ function getConverterType(evaluator: TypeEvaluator, converter: ArgumentNode, fie
             AnalyzerNodeInfo.getFileInfo(converter).diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
             Localizer.Diagnostic.dataClassConverterOverloads().format({
-                funcName: valueType.overloads[0].details.name || '<anonymous function>',
+                funcName: converterType.overloads[0].details.name || '<anonymous function>',
                 fieldType: evaluator.printType(fieldType),
                 fieldName: fieldName,
             }) + diagAddendums.map((diag) => diag.getString()).join('\n'),
