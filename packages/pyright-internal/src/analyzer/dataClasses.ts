@@ -673,13 +673,15 @@ export function synthesizeDataClassMethods(
     );
 }
 
+// Validates converter and, if valid, returns its input type. If invalid,
+// fieldType is returned.
 function getConverterInputType(
     evaluator: TypeEvaluator,
-    converter: ArgumentNode,
+    converterNode: ArgumentNode,
     fieldType: Type,
     fieldName: string
 ): Type {
-    const converterType = evaluator.getTypeOfExpression(converter.valueExpression).type;
+    const converterType = evaluator.getTypeOfExpression(converterNode.valueExpression).type;
 
     if (!isFunction(converterType) && !isOverloadedFunction(converterType)) {
         return fieldType;
@@ -688,7 +690,7 @@ function getConverterInputType(
     // Create synthesized function of the form Callable[[T], fieldType] which
     // will be used to check compatibility of the provided converter.
     const typeVar = TypeVarType.createInstance('__converterInput');
-    typeVar.scopeId = evaluator.getScopeIdForNode(converter);
+    typeVar.scopeId = evaluator.getScopeIdForNode(converterNode);
     const targetFunction = FunctionType.createSynthesizedInstance('');
     targetFunction.details.declaredReturnType = fieldType;
     FunctionType.addParameter(targetFunction, {
@@ -713,15 +715,15 @@ function getConverterInputType(
         }
 
         evaluator.addDiagnostic(
-            AnalyzerNodeInfo.getFileInfo(converter).diagnosticRuleSet.reportGeneralTypeIssues,
+            AnalyzerNodeInfo.getFileInfo(converterNode).diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
             Localizer.Diagnostic.dataClassConverterFunction().format({
                 argType: evaluator.printType(converterType),
                 fieldType: evaluator.printType(fieldType),
                 fieldName: fieldName,
             }) + diagAddendum.getString(),
-            converter,
-            diagAddendum.getEffectiveTextRange() ?? converter
+            converterNode,
+            diagAddendum.getEffectiveTextRange() ?? converterNode
         );
     } else {
         const acceptedTypes: Type[] = [];
@@ -732,9 +734,9 @@ function getConverterInputType(
             const diagAddendum = new DiagnosticAddendum();
 
             if (evaluator.assignType(targetFunction, overload, diagAddendum, typeVarContext)) {
-                const solution = applySolvedTypeVars(typeVar, typeVarContext, { unknownIfNotFound: true });
-                acceptedTypes.push(solution);
-            } else {
+                const overloadSolution = applySolvedTypeVars(typeVar, typeVarContext, { unknownIfNotFound: true });
+                acceptedTypes.push(overloadSolution);
+            } else if (!diagAddendum.isEmpty()) {
                 diagAddendums.push(diagAddendum);
             }
         });
@@ -744,14 +746,14 @@ function getConverterInputType(
         }
 
         evaluator.addDiagnostic(
-            AnalyzerNodeInfo.getFileInfo(converter).diagnosticRuleSet.reportGeneralTypeIssues,
+            AnalyzerNodeInfo.getFileInfo(converterNode).diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
             Localizer.Diagnostic.dataClassConverterOverloads().format({
                 funcName: converterType.overloads[0].details.name || '<anonymous function>',
                 fieldType: evaluator.printType(fieldType),
                 fieldName: fieldName,
             }) + diagAddendums.map((diag) => diag.getString()).join('\n'),
-            converter
+            converterNode
         );
     }
 
