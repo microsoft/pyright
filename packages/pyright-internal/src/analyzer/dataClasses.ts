@@ -675,6 +675,8 @@ export function synthesizeDataClassMethods(
 function getConverterType(evaluator: TypeEvaluator, converter: ArgumentNode, fieldType: Type): Type {
     const valueType = evaluator.getTypeOfExpression(converter.valueExpression).type;
 
+    // Create synthesized function of the form Callable[[T], fieldType] which
+    // will be used to check compatibility of the provided converter.
     const typeVar = TypeVarType.createInstance('__converterInput');
     typeVar.scopeId = evaluator.getScopeIdForNode(converter);
     const targetFunction = FunctionType.createSynthesizedInstance('');
@@ -698,11 +700,13 @@ function getConverterType(evaluator: TypeEvaluator, converter: ArgumentNode, fie
             return solution;
         }
 
-        // TODO: Add new diag message
         evaluator.addDiagnostic(
             AnalyzerNodeInfo.getFileInfo(converter).diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.dataClassFieldWithDefault(),
+            Localizer.Diagnostic.argAssignment().format({
+                argType: evaluator.printType(valueType),
+                paramType: evaluator.printType(targetFunction),
+            }),
             converter
         );
     } else if (isOverloadedFunction(valueType)) {
@@ -720,19 +724,22 @@ function getConverterType(evaluator: TypeEvaluator, converter: ArgumentNode, fie
             return combineTypes(acceptedTypes);
         }
 
-        // TODO: Add new diag message
         evaluator.addDiagnostic(
             AnalyzerNodeInfo.getFileInfo(converter).diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.dataClassFieldWithDefault(),
+            Localizer.DiagnosticAddendum.noOverloadAssignable().format({
+                type: evaluator.printType(targetFunction),
+            }),
             converter
         );
     } else {
-        // TODO: Add new diag message
         evaluator.addDiagnostic(
             AnalyzerNodeInfo.getFileInfo(converter).diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.dataClassFieldWithDefault(),
+            Localizer.Diagnostic.argAssignment().format({
+                argType: evaluator.printType(valueType),
+                paramType: evaluator.printType(targetFunction),
+            }),
             converter
         );
     }

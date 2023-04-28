@@ -1,4 +1,4 @@
-# This sample tests the use of the converter field specifier
+# This sample tests the use of field's coverter parameter
 # described in PEP 712.
 
 from dataclasses import dataclass, field
