@@ -1213,7 +1213,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         doc = TextDocument.update(doc, params.contentChanges, params.textDocument.version);
         this.openFileMap.set(filePath, doc);
 
-
         // Send this change to all the workspaces that might contain this file.
         const workspaces = await this.getContainingWorkspacesForFile(filePath);
         workspaces.forEach((w) => {
