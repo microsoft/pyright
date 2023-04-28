@@ -16,7 +16,6 @@ import {
     WorkspaceEdit,
 } from 'vscode-languageserver';
 
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import { SourceFileInfo } from '../analyzer/program';
 import { AnalyzerService } from '../analyzer/service';
 import { FileEditAction, FileEditActions, TextEditAction } from '../common/editAction';
@@ -151,12 +150,11 @@ export function applyDocumentChanges(clonedService: AnalyzerService, fileInfo: S
 
     const version = fileInfo.sourceFile.getClientVersion() ?? 0;
     const filePath = fileInfo.sourceFile.getFilePath();
-    const sourceDoc = TextDocument.create(filePath, 'python', version, fileInfo.sourceFile.getOpenFileContents() ?? '');
 
     clonedService.updateOpenFileContents(
         filePath,
         version + 1,
-        TextDocument.applyEdits(sourceDoc, edits),
+        edits.map((t) => ({ range: t.range, text: t.newText })),
         fileInfo.sourceFile.getIPythonMode(),
         fileInfo.sourceFile.getRealFilePath()
     );

@@ -16,6 +16,7 @@ import {
     CompletionItem,
     DocumentSymbol,
 } from 'vscode-languageserver';
+import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 
 import { BackgroundAnalysisBase, IndexOptions, RefreshOptions } from '../backgroundAnalysisBase';
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
@@ -23,7 +24,7 @@ import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, LogLevel, StandardConsole, log } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
-import { FileEditActions } from '../common/editAction';
+import { FileEditAction, FileEditActions } from '../common/editAction';
 import { Extensions, ProgramView } from '../common/extensibility';
 import { FileSystem, FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileSystem';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
@@ -222,6 +223,14 @@ export class AnalyzerService {
         return service;
     }
 
+    enterEditMode() {
+        this._backgroundAnalysisProgram.enterEditMode();
+    }
+
+    leaveEditMode(): FileEditAction[] {
+        return this._backgroundAnalysisProgram.leaveEditMode();
+    }
+
     dispose() {
         if (!this._disposed) {
             // Make sure we dispose program, otherwise, entire program
@@ -317,7 +326,7 @@ export class AnalyzerService {
     updateOpenFileContents(
         path: string,
         version: number | null,
-        contents: string,
+        contents: TextDocumentContentChangeEvent[],
         ipythonMode = IPythonMode.None,
         realFilePath?: string
     ) {

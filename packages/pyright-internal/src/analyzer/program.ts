@@ -9,6 +9,7 @@
  */
 
 import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
+import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import { CompletionList } from 'vscode-languageserver-types';
 
 import { Commands } from '../commands/commands';
@@ -38,17 +39,17 @@ import {
 import { convertPositionToOffset, convertRangeToTextRange, convertTextRangeToRange } from '../common/positionUtils';
 import { computeCompletionSimilarity } from '../common/stringUtils';
 import { TextEditTracker } from '../common/textEditTracker';
-import { doRangesIntersect, getEmptyRange, Position, Range, TextRange } from '../common/textRange';
+import { Position, Range, TextRange, doRangesIntersect, getEmptyRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
 import { applyTextEditsToString } from '../common/workspaceEditUtils';
 import {
-    AutoImporter,
     AutoImportOptions,
     AutoImportResult,
-    buildModuleSymbolsMap,
+    AutoImporter,
     ImportFormat,
     ModuleSymbolMap,
+    buildModuleSymbolsMap,
 } from '../languageService/autoImporter';
 import {
     AbbreviationMap,
@@ -84,15 +85,16 @@ import { Scope } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode, SourceFile } from './sourceFile';
 import { collectImportedByFiles, isUserCode } from './sourceFileInfoUtils';
-import { isStubFile, SourceMapper } from './sourceMapper';
+import { SourceMapper, isStubFile } from './sourceMapper';
 import { Symbol } from './symbol';
 import { isPrivateOrProtectedName } from './symbolNameUtils';
+import { createFileEditActions } from './textEditUtils';
 import { createTracePrinter } from './tracePrinter';
 import { PrintTypeOptions, TypeEvaluator } from './typeEvaluatorTypes';
 import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { PrintTypeFlags } from './typePrinter';
-import { Type } from './types';
 import { TypeStubWriter } from './typeStubWriter';
+import { Type } from './types';
 
 const _maxImportDepth = 256;
 
@@ -187,6 +189,9 @@ export class Program {
     private _cacheManager: CacheManager;
     private _id: number;
     private static _nextId = 0;
+    private _editMode = false;
+    private _copiedOnWriteFiles = new Map<string, SourceFileInfo>();
+    private _copiedOnWriteChanges = new Map<string, FileEditAction[]>();
 
     constructor(
         initialImportResolver: ImportResolver,
@@ -238,6 +243,30 @@ export class Program {
 
     dispose() {
         this._cacheManager.unregisterCacheOwner(this);
+    }
+
+    enterEditMode() {
+        this._editMode = true;
+    }
+
+    leaveEditMode() {
+        this._editMode = false;
+        const edits: FileEditAction[] = [];
+        this._copiedOnWriteFiles.forEach((fileInfo, path) => {
+            const changes = this._copiedOnWriteChanges.get(path);
+            if (changes) {
+                edits.push(...changes);
+            }
+            const changedFile = this._sourceFileMap.get(path);
+            this._sourceFileMap.set(path, fileInfo);
+            const index = changedFile ? this._sourceFileList.indexOf(changedFile) : -1;
+            if (index >= 0) {
+                this._sourceFileList[index] = fileInfo;
+            }
+        });
+        this._copiedOnWriteChanges.clear();
+        this._copiedOnWriteFiles.clear();
+        return edits;
     }
 
     setConfigOptions(configOptions: ConfigOptions) {
@@ -351,8 +380,44 @@ export class Program {
         return sourceFile;
     }
 
-    setFileOpened(filePath: string, version: number | null, contents: string, options?: OpenFileOptions) {
+    setFileOpened(
+        filePath: string,
+        version: number | null,
+        contents: TextDocumentContentChangeEvent[],
+        options?: OpenFileOptions
+    ) {
+        let chainedFilePath: string | undefined = options?.chainedFilePath;
+        const filePathKey = normalizePathCase(this.fileSystem, filePath);
         let sourceFileInfo = this.getSourceFileInfo(filePath);
+
+        // If in edit mode, we need to start over if this is the first edit.
+        if (this._editMode && sourceFileInfo && !this._copiedOnWriteFiles.has(filePathKey)) {
+            // File was already in map but hasn't been written to yet. Make a new one.
+            this._copiedOnWriteFiles.set(filePathKey, sourceFileInfo);
+            this._copiedOnWriteChanges.set(filePathKey, createFileEditActions(filePath, contents));
+            this._sourceFileMap.delete(filePathKey);
+            this._sourceFileList = this._sourceFileList.filter((f) => f !== sourceFileInfo);
+
+            // Chained file path needs to be maintained.
+            chainedFilePath = sourceFileInfo.chainedSourceFile?.sourceFile.getFilePath();
+
+            // Add a new change that is the full text. This prefills the new source file.
+            contents = [
+                {
+                    text: sourceFileInfo.sourceFile.getFileContent() || '',
+                },
+                ...contents,
+            ];
+
+            // Mark as not existing so we start over.
+            sourceFileInfo = undefined;
+        } else if (this._editMode && this._copiedOnWriteFiles.has(filePathKey)) {
+            // File has already had changes applied. Apply more
+            this._copiedOnWriteChanges.set(filePathKey, [
+                ...this._copiedOnWriteChanges.get(filePathKey)!,
+                ...createFileEditActions(filePath, contents),
+            ]);
+        }
         if (!sourceFileInfo) {
             const importName = this._getImportNameForFile(filePath);
             const sourceFile = new SourceFile(
@@ -367,7 +432,6 @@ export class Program {
                 options?.ipythonMode ?? IPythonMode.None
             );
 
-            const chainedFilePath = options?.chainedFilePath;
             sourceFileInfo = {
                 sourceFile,
                 isTracked: options?.isTracked ?? false,
@@ -416,7 +480,7 @@ export class Program {
         if (sourceFileInfo) {
             sourceFileInfo.isOpenByClient = false;
             sourceFileInfo.isTracked = isTracked ?? sourceFileInfo.isTracked;
-            sourceFileInfo.sourceFile.setClientVersion(null, '');
+            sourceFileInfo.sourceFile.setClientVersion(null, []);
 
             // There is no guarantee that content is saved before the file is closed.
             // We need to mark the file dirty so we can re-analyze next time.
@@ -1626,7 +1690,7 @@ export class Program {
             const isTracked = info ? info.isTracked : true;
             const realFilePath = info ? info.sourceFile.getRealFilePath() : filePath;
 
-            cloned.setFileOpened(filePath, version, text, {
+            cloned.setFileOpened(filePath, version, [{ text: text }], {
                 chainedFilePath,
                 ipythonMode,
                 isTracked,
@@ -1712,7 +1776,7 @@ export class Program {
             program.setFileOpened(
                 fileInfo.sourceFile.getFilePath(),
                 version,
-                fileInfo.sourceFile.getOpenFileContents() ?? '',
+                [{ text: fileInfo.sourceFile.getOpenFileContents() ?? '' }],
                 {
                     chainedFilePath: fileInfo.chainedSourceFile?.sourceFile.getFilePath(),
                     ipythonMode: fileInfo.sourceFile.getIPythonMode(),
