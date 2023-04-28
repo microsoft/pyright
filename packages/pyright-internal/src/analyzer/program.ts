@@ -88,7 +88,6 @@ import { collectImportedByFiles, isUserCode } from './sourceFileInfoUtils';
 import { SourceMapper, isStubFile } from './sourceMapper';
 import { Symbol } from './symbol';
 import { isPrivateOrProtectedName } from './symbolNameUtils';
-import { createFileEditActions } from './textEditUtils';
 import { createTracePrinter } from './tracePrinter';
 import { PrintTypeOptions, TypeEvaluator } from './typeEvaluatorTypes';
 import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
@@ -190,8 +189,6 @@ export class Program {
     private _id: number;
     private static _nextId = 0;
     private _editMode = false;
-    private _copiedOnWriteFiles = new Map<string, SourceFileInfo | undefined>();
-    private _copiedOnWriteChanges = new Map<string, FileEditAction[]>();
 
     constructor(
         initialImportResolver: ImportResolver,
@@ -246,33 +243,32 @@ export class Program {
     }
 
     enterEditMode() {
+        // Keep track of edit mode so we can apply it to new source files.
         this._editMode = true;
+
+        // Tell all source files we're in edit mode.
+        this._sourceFileList.forEach((sourceFile) => {
+            sourceFile.sourceFile.enterEditMode();
+        });
     }
 
-    leaveEditMode() {
-        this._editMode = false;
+    exitEditMode() {
+        // Tell all source files we're no longer in edit mode. Gather
+        // up all of their edits.
         const edits: FileEditAction[] = [];
-        this._copiedOnWriteFiles.forEach((fileInfo, path) => {
-            const changes = this._copiedOnWriteChanges.get(path);
-            if (changes) {
-                edits.push(...changes);
+        this._sourceFileList.forEach((sourceFile) => {
+            const sourceFileEdits = sourceFile.sourceFile.exitEditMode();
+            if (sourceFileEdits.length > 0) {
+                // This means this source file was modified. We need to recompute its imports after
+                // we put it back to how it was.
+                this._updateSourceFileImports(sourceFile, this.configOptions);
             }
-            const changedFile = this._sourceFileMap.get(path);
-            const index = changedFile ? this._sourceFileList.indexOf(changedFile) : -1;
-            if (fileInfo) {
-                this._sourceFileMap.set(path, fileInfo);
-                if (index >= 0) {
-                    this._sourceFileList[index] = fileInfo;
-                }
-            } else {
-                this._sourceFileMap.delete(path);
-                if (index >= 0) {
-                    this._sourceFileList.splice(index, 1);
-                }
-            }
+            edits.push(...sourceFileEdits);
         });
-        this._copiedOnWriteChanges.clear();
-        this._copiedOnWriteFiles.clear();
+
+        // Stop applying edit mode to new source files.
+        this._editMode = false;
+
         return edits;
     }
 
@@ -367,6 +363,7 @@ export class Program {
             importName,
             isThirdPartyImport,
             isInPyTypedPackage,
+            this._editMode,
             this._console,
             this._logTracker
         );
@@ -393,44 +390,7 @@ export class Program {
         contents: TextDocumentContentChangeEvent[],
         options?: OpenFileOptions
     ) {
-        let chainedFilePath: string | undefined = options?.chainedFilePath;
-        const filePathKey = normalizePathCase(this.fileSystem, filePath);
         let sourceFileInfo = this.getSourceFileInfo(filePath);
-
-        // If in edit mode, we need to start over if this is the first edit.
-        if (this._editMode && !this._copiedOnWriteFiles.has(filePathKey)) {
-            // Save the old state of the file.
-            this._copiedOnWriteFiles.set(filePathKey, sourceFileInfo);
-
-            // Only save the changes if these are actually changes to a file. Otherwise
-            // initial creation of a file shouldn't count as a change.
-            if (sourceFileInfo) {
-                this._copiedOnWriteChanges.set(filePathKey, createFileEditActions(filePath, contents));
-            }
-            this._sourceFileMap.delete(filePathKey);
-            this._sourceFileList = this._sourceFileList.filter((f) => f !== sourceFileInfo);
-
-            // Chained file path needs to be maintained.
-            chainedFilePath = sourceFileInfo?.chainedSourceFile?.sourceFile.getFilePath();
-
-            // Add a new change that is the full text. This prefills the new source file.
-            contents = [
-                {
-                    text: sourceFileInfo?.sourceFile.getFileContent() || '',
-                },
-                ...contents,
-            ];
-
-            // Mark as not existing so we start over.
-            sourceFileInfo = undefined;
-        } else if (this._editMode && this._copiedOnWriteFiles.has(filePathKey)) {
-            const currentChanges = this._copiedOnWriteChanges.get(filePathKey) || [];
-            // File has already had changes applied. Apply more
-            this._copiedOnWriteChanges.set(filePathKey, [
-                ...currentChanges,
-                ...createFileEditActions(filePath, contents),
-            ]);
-        }
         if (!sourceFileInfo) {
             const importName = this._getImportNameForFile(filePath);
             const sourceFile = new SourceFile(
@@ -439,12 +399,13 @@ export class Program {
                 importName,
                 /* isThirdPartyImport */ false,
                 /* isInPyTypedPackage */ false,
+                this._editMode,
                 this._console,
                 this._logTracker,
                 options?.realFilePath,
                 options?.ipythonMode ?? IPythonMode.None
             );
-
+            const chainedFilePath = options?.chainedFilePath;
             sourceFileInfo = {
                 sourceFile,
                 isTracked: options?.isTracked ?? false,
@@ -2578,6 +2539,7 @@ export class Program {
                         importName,
                         importInfo.isThirdPartyImport,
                         importInfo.isPyTypedPresent,
+                        this._editMode,
                         this._console,
                         this._logTracker
                     );
@@ -2721,6 +2683,7 @@ export class Program {
             importName,
             /* isThirdPartyImport */ false,
             /* isInPyTypedPackage */ false,
+            this._editMode,
             this._console,
             this._logTracker
         );

@@ -223,12 +223,20 @@ export class AnalyzerService {
         return service;
     }
 
-    enterEditMode() {
+    async useEditMode(callback: () => Promise<void>, token: CancellationToken) {
+        let edits: FileEditAction[] = [];
+        const disposable = token.onCancellationRequested(() => {
+            edits = [];
+            this._backgroundAnalysisProgram.exitEditMode();
+        });
         this._backgroundAnalysisProgram.enterEditMode();
-    }
-
-    leaveEditMode(): FileEditAction[] {
-        return this._backgroundAnalysisProgram.leaveEditMode();
+        try {
+            await callback();
+        } finally {
+            disposable.dispose();
+            edits = this._backgroundAnalysisProgram.exitEditMode();
+        }
+        return edits;
     }
 
     dispose() {

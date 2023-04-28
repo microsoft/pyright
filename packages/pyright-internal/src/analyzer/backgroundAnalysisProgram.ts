@@ -258,10 +258,10 @@ export class BackgroundAnalysisProgram {
         this._program.enterEditMode();
     }
 
-    leaveEditMode() {
+    exitEditMode() {
         this._backgroundAnalysis = this._preEditAnalysis;
         this._preEditAnalysis = undefined;
-        return this._program.leaveEditMode();
+        return this._program.exitEditMode();
     }
     protected getIndices(): Indices | undefined {
         return undefined;
