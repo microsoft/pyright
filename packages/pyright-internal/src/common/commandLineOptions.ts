@@ -92,10 +92,6 @@ export class CommandLineOptions {
     // Indicates that only open files should be checked.
     checkOnlyOpenFiles?: boolean | undefined;
 
-    // In the absence of type stubs, use library implementations
-    // to extract type information?
-    useLibraryCodeForTypes?: boolean | undefined;
-
     // Look for a common root folders such as 'src' and automatically
     // add them as extra paths if the user has not explicitly defined
     // execution environments.
