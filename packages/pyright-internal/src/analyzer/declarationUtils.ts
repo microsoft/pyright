@@ -10,7 +10,7 @@
 import { getEmptyRange } from '../common/textRange';
 import { NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ImportLookup, ImportLookupResult } from './analyzerFileInfo';
-import { AliasDeclaration, Declaration, DeclarationType, isAliasDeclaration, ModuleLoaderActions } from './declaration';
+import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions, isAliasDeclaration } from './declaration';
 import { getFileInfoFromNode } from './parseTreeUtils';
 import { Symbol } from './symbol';
 
@@ -210,6 +210,12 @@ export function createSynthesizedAliasDeclaration(path: string): AliasDeclaratio
     };
 }
 
+export interface ResolveAliasOptions {
+    resolveLocalNames: boolean;
+    allowExternallyHiddenAccess: boolean;
+    skipFileNeededCheck: boolean;
+}
+
 // If the specified declaration is an alias declaration that points to a symbol,
 // it resolves the alias and looks up the symbol, then returns the a declaration
 // (typically the last) associated with that symbol. It does this recursively if
@@ -219,8 +225,7 @@ export function createSynthesizedAliasDeclaration(path: string): AliasDeclaratio
 export function resolveAliasDeclaration(
     importLookup: ImportLookup,
     declaration: Declaration,
-    resolveLocalNames: boolean,
-    allowExternallyHiddenAccess: boolean
+    options: ResolveAliasOptions
 ): ResolvedAliasInfo | undefined {
     let curDeclaration: Declaration | undefined = declaration;
     const alreadyVisited: Declaration[] = [];
@@ -247,7 +252,7 @@ export function resolveAliasDeclaration(
 
         // If we are not supposed to follow local alias names and this
         // is a local name, don't continue to follow the alias.
-        if (!resolveLocalNames && curDeclaration.usesLocalName) {
+        if (!options.resolveLocalNames && curDeclaration.usesLocalName) {
             return {
                 declaration: curDeclaration,
                 isPrivate,
@@ -258,7 +263,7 @@ export function resolveAliasDeclaration(
 
         let lookupResult: ImportLookupResult | undefined;
         if (curDeclaration.path && curDeclaration.loadSymbolsFromPath) {
-            lookupResult = importLookup(curDeclaration.path);
+            lookupResult = importLookup(curDeclaration.path, { skipFileNeededCheck: options.skipFileNeededCheck });
         }
 
         const symbol: Symbol | undefined = lookupResult
@@ -278,19 +283,16 @@ export function resolveAliasDeclaration(
                         curDeclaration.submoduleFallback.type === DeclarationType.Alias &&
                         curDeclaration.submoduleFallback.path
                     ) {
-                        const lookupResult = importLookup(curDeclaration.submoduleFallback.path);
+                        const lookupResult = importLookup(curDeclaration.submoduleFallback.path, {
+                            skipFileNeededCheck: options.skipFileNeededCheck,
+                        });
                         if (!lookupResult) {
                             return undefined;
                         }
                     }
                 }
 
-                return resolveAliasDeclaration(
-                    importLookup,
-                    curDeclaration.submoduleFallback,
-                    resolveLocalNames,
-                    allowExternallyHiddenAccess
-                );
+                return resolveAliasDeclaration(importLookup, curDeclaration.submoduleFallback, options);
             }
 
             // If the symbol comes from a native library, we won't
@@ -309,13 +311,13 @@ export function resolveAliasDeclaration(
             isPrivate = true;
         }
 
-        if (symbol.isExternallyHidden() && !allowExternallyHiddenAccess) {
+        if (symbol.isExternallyHidden() && !options.allowExternallyHiddenAccess) {
             return undefined;
         }
 
         // Prefer declarations with specified types. If we don't have any of those,
         // fall back on declarations with inferred types.
-        let declarations = symbol.getTypedDeclarations();
+        let declarations: Declaration[] = symbol.getTypedDeclarations();
 
         // Try not to use declarations within an except suite even if it's a typed
         // declaration. These are typically used for fallback exception handling.
@@ -375,12 +377,7 @@ export function resolveAliasDeclaration(
                 curDeclaration.type === DeclarationType.Alias &&
                 curDeclaration.submoduleFallback
             ) {
-                return resolveAliasDeclaration(
-                    importLookup,
-                    curDeclaration.submoduleFallback,
-                    resolveLocalNames,
-                    allowExternallyHiddenAccess
-                );
+                return resolveAliasDeclaration(importLookup, curDeclaration.submoduleFallback, options);
             }
             return {
                 declaration,
