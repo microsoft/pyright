@@ -22,7 +22,15 @@ export interface AbsoluteModuleDescriptor {
     importingFilePath: string;
     nameParts: string[];
 }
-export type ImportLookup = (filePathOrModule: string | AbsoluteModuleDescriptor) => ImportLookupResult | undefined;
+
+export interface LookupImportOptions {
+    skipFileNeededCheck: boolean;
+}
+
+export type ImportLookup = (
+    filePathOrModule: string | AbsoluteModuleDescriptor,
+    options?: LookupImportOptions
+) => ImportLookupResult | undefined;
 
 export interface ImportLookupResult {
     symbolTable: SymbolTable;

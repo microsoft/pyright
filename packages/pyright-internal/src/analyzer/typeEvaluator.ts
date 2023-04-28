@@ -176,6 +176,7 @@ import {
     FunctionTypeResult,
     maxSubtypesForInferredType,
     PrintTypeOptions,
+    ResolveAliasOptions,
     TypeEvaluator,
     TypeResult,
     TypeResultWithNode,
@@ -19201,11 +19202,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
         // Try to resolve the alias while honoring external visibility.
-        const resolvedAliasInfo = resolveAliasDeclarationWithInfo(
-            aliasDecl,
-            /* resolveLocalNames */ true,
-            /* allowExternallyHiddenAccess */ fileInfo.isStubFile
-        );
+        const resolvedAliasInfo = resolveAliasDeclarationWithInfo(aliasDecl, /* resolveLocalNames */ true, {
+            allowExternallyHiddenAccess: fileInfo.isStubFile,
+        });
 
         if (!resolvedAliasInfo) {
             return undefined;
@@ -21080,11 +21079,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getInferredTypeOfDeclaration(symbol: Symbol, decl: Declaration): Type | undefined {
-        const resolvedDecl = resolveAliasDeclaration(
-            decl,
-            /* resolveLocalNames */ true,
-            /* allowExternallyHiddenAccess */ AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile
-        );
+        const resolvedDecl = resolveAliasDeclaration(decl, /* resolveLocalNames */ true, {
+            allowExternallyHiddenAccess: AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile,
+        });
 
         // We couldn't resolve the alias. Substitute an unknown
         // type in this case.
@@ -21373,18 +21370,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function resolveAliasDeclaration(
         declaration: Declaration,
         resolveLocalNames: boolean,
-        allowExternallyHiddenAccess = false
+        options?: ResolveAliasOptions
     ): Declaration | undefined {
-        return resolveAliasDeclarationUtil(importLookup, declaration, resolveLocalNames, allowExternallyHiddenAccess)
-            ?.declaration;
+        return resolveAliasDeclarationUtil(importLookup, declaration, {
+            resolveLocalNames,
+            allowExternallyHiddenAccess: options?.allowExternallyHiddenAccess ?? false,
+            skipFileNeededCheck: options?.skipFileNeededCheck ?? false,
+        })?.declaration;
     }
 
     function resolveAliasDeclarationWithInfo(
         declaration: Declaration,
         resolveLocalNames: boolean,
-        allowExternallyHiddenAccess = false
+        options?: ResolveAliasOptions
     ): ResolvedAliasInfo | undefined {
-        return resolveAliasDeclarationUtil(importLookup, declaration, resolveLocalNames, allowExternallyHiddenAccess);
+        return resolveAliasDeclarationUtil(importLookup, declaration, {
+            resolveLocalNames,
+            allowExternallyHiddenAccess: options?.allowExternallyHiddenAccess ?? false,
+            skipFileNeededCheck: options?.skipFileNeededCheck ?? false,
+        });
     }
 
     // Returns the type of the symbol. If the type is explicitly declared, that type
@@ -21532,11 +21536,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (considerDecl) {
                 const resolvedDecl =
-                    resolveAliasDeclaration(
-                        decl,
-                        /* resolveLocalNames */ true,
-                        /* allowExternallyHiddenAccess */ AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile
-                    ) ?? decl;
+                    resolveAliasDeclaration(decl, /* resolveLocalNames */ true, {
+                        allowExternallyHiddenAccess: AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile,
+                    }) ?? decl;
 
                 const isExplicitTypeAlias = isExplicitTypeAliasDeclaration(resolvedDecl);
                 const isTypeAlias = isExplicitTypeAlias || isPossibleTypeAliasOrTypedDict(resolvedDecl);

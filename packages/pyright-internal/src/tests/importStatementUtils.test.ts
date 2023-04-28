@@ -8,6 +8,7 @@
 
 import assert from 'assert';
 
+import { isFunctionDeclaration } from '../analyzer/declaration';
 import { ImportType } from '../analyzer/importResult';
 import {
     getRelativeModuleName,
@@ -17,11 +18,13 @@ import {
     ImportNameInfo,
     ImportNameWithModuleInfo,
 } from '../analyzer/importStatementUtils';
+import { findNodeByOffset } from '../analyzer/parseTreeUtils';
 import { isArray } from '../common/core';
 import { TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath } from '../common/pathUtils';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { rangesAreEqual } from '../common/textRange';
+import { NameNode } from '../parser/parseNodes';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
 
@@ -426,6 +429,46 @@ test('getRelativeModuleName over fake file', () => {
         ),
         '.target'
     );
+});
+
+test('resolve alias of not needed file', () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "useLibraryCodeForTypes": true
+//// }
+
+// @filename: myLib/__init__.py
+// @library: true
+//// from myLib.foo import [|/*marker*/foo|]
+
+// @filename: myLib/foo.py
+// @library: true
+//// def foo(): pass
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker')!;
+
+    const evaluator = state.workspace.service.getEvaluator()!;
+    state.openFile(marker.fileName);
+
+    const parseResults = state.workspace.service.getParseResult(marker.fileName)!;
+    const nameNode = findNodeByOffset(parseResults.parseTree, marker.position) as NameNode;
+    const aliasDecls = evaluator.getDeclarationsForNameNode(nameNode)!;
+
+    // Unroot the file. we can't explicitly close the file since it will unload the file from test program.
+    state.workspace.service.test_program.getSourceFileInfo(marker.fileName)!.isOpenByClient = false;
+
+    const unresolved = evaluator.resolveAliasDeclaration(aliasDecls[0], /*resolveLocalNames*/ false);
+    assert(!unresolved);
+
+    const resolved = evaluator.resolveAliasDeclaration(aliasDecls[0], /*resolveLocalNames*/ false, {
+        skipFileNeededCheck: true,
+    });
+
+    assert(resolved);
+    assert(isFunctionDeclaration(resolved));
 });
 
 function testRelativeModuleName(code: string, expected: string, ignoreFolderStructure = false) {

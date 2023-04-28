@@ -350,6 +350,11 @@ export interface DeclaredSymbolTypeInfo {
     isTypeAlias?: boolean;
 }
 
+export interface ResolveAliasOptions {
+    allowExternallyHiddenAccess?: boolean;
+    skipFileNeededCheck?: boolean;
+}
+
 export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
@@ -396,12 +401,12 @@ export interface TypeEvaluator {
     resolveAliasDeclaration: (
         declaration: Declaration,
         resolveLocalNames: boolean,
-        allowExternallyHiddenAccess?: boolean
+        options?: ResolveAliasOptions
     ) => Declaration | undefined;
     resolveAliasDeclarationWithInfo: (
         declaration: Declaration,
         resolveLocalNames: boolean,
-        allowExternallyHiddenAccess?: boolean
+        options?: ResolveAliasOptions
     ) => DeclarationUtils.ResolvedAliasInfo | undefined;
     getTypeOfIterable: (
         typeResult: TypeResult,
