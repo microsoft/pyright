@@ -305,6 +305,14 @@ export namespace Localizer {
         export const continueOutsideLoop = () => getRawString('Diagnostic.continueOutsideLoop');
         export const dataClassBaseClassFrozen = () => getRawString('Diagnostic.dataClassBaseClassFrozen');
         export const dataClassBaseClassNotFrozen = () => getRawString('Diagnostic.dataClassBaseClassNotFrozen');
+        export const dataClassConverterFunction = () =>
+            new ParameterizedString<{ argType: string; fieldType: string; fieldName: string }>(
+                getRawString('Diagnostic.dataClassConverterFunction')
+            );
+        export const dataClassConverterOverloads = () =>
+            new ParameterizedString<{ funcName: string; fieldType: string; fieldName: string }>(
+                getRawString('Diagnostic.dataClassConverterOverloads')
+            );
         export const dataClassFieldWithDefault = () => getRawString('Diagnostic.dataClassFieldWithDefault');
         export const dataClassFieldWithoutAnnotation = () => getRawString('Diagnostic.dataClassFieldWithoutAnnotation');
         export const dataClassFieldWithPrivateName = () => getRawString('Diagnostic.dataClassFieldWithPrivateName');
