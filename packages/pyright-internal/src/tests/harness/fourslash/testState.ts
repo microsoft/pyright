@@ -426,7 +426,7 @@ export class TestState {
         fileToOpen.fileName = normalizeSlashes(fileToOpen.fileName);
         this.activeFile = fileToOpen;
 
-        this.program.setFileOpened(this.activeFile.fileName, 1, [{ text: fileToOpen.content }]);
+        this.program.setFileOpened(this.activeFile.fileName, 1, fileToOpen.content);
     }
 
     openFiles(indexOrNames: (number | string)[]): void {
@@ -1358,7 +1358,7 @@ export class TestState {
             if (!this.program.getSourceFileInfo(fileName)) {
                 const file = this.testData.files.find((v) => v.fileName === fileName);
                 if (file) {
-                    this.program.setFileOpened(fileName, file.version, [{ text: file.content }]);
+                    this.program.setFileOpened(fileName, file.version, file.content);
                 }
             }
 

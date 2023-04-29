@@ -8,9 +8,9 @@
  */
 
 import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
-import { TextDocument, TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import { isMainThread } from 'worker_threads';
 
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { OperationCanceledException } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
@@ -57,7 +57,6 @@ import { Scope } from './scope';
 import { SourceMapper } from './sourceMapper';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
-import { createFileEditActions } from './textEditUtils';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 
 // Limit the number of import cycles tracked per source file.
@@ -98,7 +97,8 @@ class WriteableData {
 
     // Client's version of the file. Undefined implies that contents
     // need to be read from disk.
-    clientDocument: TextDocument | undefined;
+    clientDocumentContents: string | undefined;
+    clientDocumentVersion: number | undefined;
 
     // Version of file contents that have been analyzed.
     analyzedFileContentsVersion = -1;
@@ -145,6 +145,9 @@ class WriteableData {
     imports: ImportResult[] | undefined;
     builtinsImport: ImportResult | undefined;
     ipythonDisplayImport: ImportResult | undefined;
+
+    // True if the file appears to have been deleted.
+    isFileDeleted = false;
 }
 
 export class SourceFile {
@@ -187,9 +190,6 @@ export class SourceFile {
     // True if the file is part of a package that contains a
     // "py.typed" file.
     private readonly _isThirdPartyPyTypedPresent: boolean;
-
-    // True if the file appears to have been deleted.
-    private _isFileDeleted = false;
 
     // Settings that control which diagnostics should be output. The rules
     // are initialized to the basic set. They should be updated after the
@@ -576,19 +576,36 @@ export class SourceFile {
         this._editMode = true;
     }
 
-    exitEditMode() {
+    exitEditMode(): FileEditAction | undefined {
         this._editMode = false;
 
-        // Get the list of changes that were made and save them off.
-        const result = this._editModeChanges;
-        this._editModeChanges = [];
-
-        // Then recreate our original state when the first edit came in.
+        // If we had an edit, return it
         if (this._preEditData) {
+            const textDocument = TextDocument.create(
+                this._filePath,
+                'python',
+                1,
+                this._preEditData.clientDocumentContents!
+            );
+            const edit: FileEditAction = {
+                filePath: this._filePath,
+                range: {
+                    start: {
+                        line: 0,
+                        character: 0,
+                    },
+                    end: {
+                        line: textDocument.lineCount,
+                        character: 0,
+                    },
+                },
+                replacementText: this._writableData.clientDocumentContents!,
+            };
             this._writableData = this._preEditData;
             this._preEditData = undefined;
+            return edit;
         }
-        return result;
+        return undefined;
     }
 
     // Indicates whether the contents of the file have changed since
@@ -597,7 +614,7 @@ export class SourceFile {
         // If this is an open file any content changes will be
         // provided through the editor. We can assume contents
         // didn't change without us knowing about them.
-        if (this._writableData.clientDocument) {
+        if (this._writableData.clientDocumentContents) {
             return false;
         }
 
@@ -671,11 +688,11 @@ export class SourceFile {
     }
 
     getClientVersion() {
-        return this._writableData.clientDocument?.version;
+        return this._writableData.clientDocumentVersion;
     }
 
     getOpenFileContents() {
-        return this._writableData.clientDocument?.getText();
+        return this._writableData.clientDocumentContents;
     }
 
     getFileContent(): string | undefined {
@@ -703,38 +720,30 @@ export class SourceFile {
         }
     }
 
-    setClientVersion(version: number | null, contents: TextDocumentContentChangeEvent[]): void {
-        // Save edits if in edit mode.
-        this._saveEdits(contents);
+    setClientVersion(version: number | null, contents: string): void {
+        // Save pre edit state if in edit mode.
+        this._cachePreEditState();
 
         if (version === null) {
-            this._writableData.clientDocument = undefined;
+            this._writableData.clientDocumentVersion = undefined;
+            this._writableData.clientDocumentContents = undefined;
         } else {
-            if (!this._writableData.clientDocument) {
-                this._writableData.clientDocument = TextDocument.create(this._filePath, 'python', version, '');
-            }
+            this._writableData.clientDocumentVersion = version;
+            this._writableData.clientDocumentContents = contents;
 
-            // Update the document.
-            this._writableData.clientDocument = TextDocument.update(
-                this._writableData.clientDocument,
-                contents,
-                version
-            );
-            const fileContents = this._writableData.clientDocument.getText();
-
-            const contentsHash = StringUtils.hashString(fileContents);
+            const contentsHash = StringUtils.hashString(contents);
 
             // Have the contents of the file changed?
             if (
-                fileContents.length !== this._writableData.lastFileContentLength ||
+                contents.length !== this._writableData.lastFileContentLength ||
                 contentsHash !== this._writableData.lastFileContentHash
             ) {
                 this.markDirty();
             }
 
-            this._writableData.lastFileContentLength = fileContents.length;
+            this._writableData.lastFileContentLength = contents.length;
             this._writableData.lastFileContentHash = contentsHash;
-            this._isFileDeleted = false;
+            this._writableData.isFileDeleted = false;
         }
     }
 
@@ -743,7 +752,7 @@ export class SourceFile {
     }
 
     isFileDeleted() {
-        return this._isFileDeleted;
+        return this._writableData.isFileDeleted;
     }
 
     isParseRequired() {
@@ -852,7 +861,7 @@ export class SourceFile {
                     fileContents = '';
 
                     if (!this.fileSystem.existsSync(this._realFilePath)) {
-                        this._isFileDeleted = true;
+                        this._writableData.isFileDeleted = true;
                     }
                 }
             }
@@ -1262,9 +1271,9 @@ export class SourceFile {
         this._ipythonMode = enable ? IPythonMode.CellDocs : IPythonMode.None;
     }
 
-    private _saveEdits(changes: TextDocumentContentChangeEvent[]) {
+    private _cachePreEditState() {
         // If there's no document yet, this change doesn't count as a write yet.
-        if (this._writableData.clientDocument) {
+        if (this._writableData.clientDocumentContents !== undefined) {
             // If this is our first write, then make a copy of the writable data.
             if (this._editMode && !this._preEditData) {
                 // Copy over the writable data.
@@ -1273,9 +1282,6 @@ export class SourceFile {
                 // Recreate all the writable data from scratch.
                 this._writableData = new WriteableData();
             }
-
-            // Save the changes so we can replay them later.
-            this._editModeChanges.push(...createFileEditActions(this._filePath, changes));
         }
     }
 

@@ -90,7 +90,7 @@ test('test edit mode for workspace', async () => {
         assert.strictEqual(newSourceFile.getImports().length, 2);
 
         // Add a new file.
-        state.workspace.service.backgroundAnalysisProgram.program.setFileOpened(addedFilePath, 0, [{ text: '' }], {
+        state.workspace.service.backgroundAnalysisProgram.program.setFileOpened(addedFilePath, 0, '', {
             isTracked: true,
             ipythonMode: IPythonMode.None,
             chainedFilePath: undefined,
@@ -118,12 +118,36 @@ test('test edit mode for workspace', async () => {
             fileChanged
         );
 
+        applyWorkspaceEdit(
+            state.workspace.service,
+            {
+                documentChanges: [
+                    TextDocumentEdit.create(
+                        {
+                            uri: convertPathToUri(state.workspace.service.fs, addedFilePath),
+                            version: null,
+                        },
+                        [
+                            {
+                                range: {
+                                    start: { line: 0, character: 7 },
+                                    end: { line: 0, character: 10 },
+                                },
+                                newText: 'os',
+                            },
+                        ]
+                    ),
+                ],
+            },
+            fileChanged
+        );
+
         const addedSourceFile = state.workspace.service.test_program.getSourceFile(addedFilePath);
         state.workspace.service.backgroundAnalysisProgram.analyzeFile(
             addedSourceFile!.getFilePath(),
             CancellationToken.None
         );
-        assert.strictEqual(addedSourceFile?.getFileContent(), 'import sys');
+        assert.strictEqual(addedSourceFile?.getFileContent(), 'import os');
         assert.strictEqual(addedSourceFile.getImports().length, 2);
     }, CancellationToken.None);
 
@@ -134,6 +158,7 @@ test('test edit mode for workspace', async () => {
     assert.strictEqual(oldSourceFile.getImports().length, 1);
     assert.strictEqual(edits.length, 2);
     assert.deepStrictEqual(edits[0].replacementText, 'import sys');
+    assert.deepStrictEqual(edits[1].replacementText, 'import os');
     const addedSourceFile = state.workspace.service.test_program.getSourceFile(addedFilePath);
 
     // The added file should be there, but be empty.

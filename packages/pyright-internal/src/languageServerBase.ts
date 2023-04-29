@@ -1212,11 +1212,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         doc = TextDocument.update(doc, params.contentChanges, params.textDocument.version);
         this.openFileMap.set(filePath, doc);
+        const newContents = doc.getText();
 
         // Send this change to all the workspaces that might contain this file.
         const workspaces = await this.getContainingWorkspacesForFile(filePath);
         workspaces.forEach((w) => {
-            w.service.updateOpenFileContents(filePath, params.textDocument.version, params.contentChanges, ipythonMode);
+            w.service.updateOpenFileContents(filePath, params.textDocument.version, newContents, ipythonMode);
         });
     }
 

@@ -9,7 +9,6 @@
  */
 
 import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
-import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import { CompletionList } from 'vscode-languageserver-types';
 
 import { Commands } from '../commands/commands';
@@ -257,13 +256,13 @@ export class Program {
         // up all of their edits.
         const edits: FileEditAction[] = [];
         this._sourceFileList.forEach((sourceFile) => {
-            const sourceFileEdits = sourceFile.sourceFile.exitEditMode();
-            if (sourceFileEdits.length > 0) {
+            const sourceFileEdit = sourceFile.sourceFile.exitEditMode();
+            if (sourceFileEdit) {
                 // This means this source file was modified. We need to recompute its imports after
                 // we put it back to how it was.
                 this._updateSourceFileImports(sourceFile, this.configOptions);
+                edits.push(sourceFileEdit);
             }
-            edits.push(...sourceFileEdits);
         });
 
         // Stop applying edit mode to new source files.
@@ -384,12 +383,7 @@ export class Program {
         return sourceFile;
     }
 
-    setFileOpened(
-        filePath: string,
-        version: number | null,
-        contents: TextDocumentContentChangeEvent[],
-        options?: OpenFileOptions
-    ) {
+    setFileOpened(filePath: string, version: number | null, contents: string, options?: OpenFileOptions) {
         let sourceFileInfo = this.getSourceFileInfo(filePath);
         if (!sourceFileInfo) {
             const importName = this._getImportNameForFile(filePath);
@@ -454,7 +448,7 @@ export class Program {
         if (sourceFileInfo) {
             sourceFileInfo.isOpenByClient = false;
             sourceFileInfo.isTracked = isTracked ?? sourceFileInfo.isTracked;
-            sourceFileInfo.sourceFile.setClientVersion(null, []);
+            sourceFileInfo.sourceFile.setClientVersion(null, '');
 
             // There is no guarantee that content is saved before the file is closed.
             // We need to mark the file dirty so we can re-analyze next time.
@@ -1664,7 +1658,7 @@ export class Program {
             const isTracked = info ? info.isTracked : true;
             const realFilePath = info ? info.sourceFile.getRealFilePath() : filePath;
 
-            cloned.setFileOpened(filePath, version, [{ text: text }], {
+            cloned.setFileOpened(filePath, version, text, {
                 chainedFilePath,
                 ipythonMode,
                 isTracked,
@@ -1750,7 +1744,7 @@ export class Program {
             program.setFileOpened(
                 fileInfo.sourceFile.getFilePath(),
                 version,
-                [{ text: fileInfo.sourceFile.getOpenFileContents() ?? '' }],
+                fileInfo.sourceFile.getOpenFileContents() ?? '',
                 {
                     chainedFilePath: fileInfo.chainedSourceFile?.sourceFile.getFilePath(),
                     ipythonMode: fileInfo.sourceFile.getIPythonMode(),

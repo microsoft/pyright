@@ -6,7 +6,7 @@
  * run analyzer from background thread
  */
 
-import { CancellationToken, TextDocumentContentChangeEvent } from 'vscode-languageserver';
+import { CancellationToken } from 'vscode-languageserver';
 import { MessageChannel, MessagePort, Worker, parentPort, threadId, workerData } from 'worker_threads';
 
 import { AnalysisCompleteCallback, AnalysisResults, analyzeProgram, nullCallback } from './analyzer/analysis';
@@ -70,12 +70,7 @@ export class BackgroundAnalysisBase {
         this.enqueueRequest({ requestType: 'ensurePartialStubPackages', data: { executionRoot } });
     }
 
-    setFileOpened(
-        filePath: string,
-        version: number | null,
-        contents: TextDocumentContentChangeEvent[],
-        options: OpenFileOptions
-    ) {
+    setFileOpened(filePath: string, version: number | null, contents: string, options: OpenFileOptions) {
         this.enqueueRequest({
             requestType: 'setFileOpened',
             data: { filePath, version, contents, options },

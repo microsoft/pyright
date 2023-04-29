@@ -40,6 +40,6 @@ test('Empty Open file', () => {
         '# Content'
     );
 
-    state.workspace.service.updateOpenFileContents(marker.fileName, 1, [{ text: '' }]);
+    state.workspace.service.updateOpenFileContents(marker.fileName, 1, '');
     assert.strictEqual(state.workspace.service.test_program.getSourceFile(marker.fileName)?.getFileContent(), '');
 });

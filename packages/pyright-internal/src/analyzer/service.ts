@@ -16,7 +16,6 @@ import {
     CompletionItem,
     DocumentSymbol,
 } from 'vscode-languageserver';
-import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 
 import { BackgroundAnalysisBase, IndexOptions, RefreshOptions } from '../backgroundAnalysisBase';
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
@@ -334,7 +333,7 @@ export class AnalyzerService {
     updateOpenFileContents(
         path: string,
         version: number | null,
-        contents: TextDocumentContentChangeEvent[],
+        contents: string,
         ipythonMode = IPythonMode.None,
         realFilePath?: string
     ) {
