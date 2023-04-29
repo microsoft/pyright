@@ -692,6 +692,7 @@ function getConverterInputType(
     const typeVar = TypeVarType.createInstance('__converterInput');
     typeVar.scopeId = evaluator.getScopeIdForNode(converterNode);
     const targetFunction = FunctionType.createSynthesizedInstance('');
+    targetFunction.details.typeVarScopeId = typeVar.scopeId;
     targetFunction.details.declaredReturnType = fieldType;
     FunctionType.addParameter(targetFunction, {
         category: ParameterCategory.Simple,
@@ -727,17 +728,14 @@ function getConverterInputType(
         );
     } else {
         const acceptedTypes: Type[] = [];
-        const diagAddendums: DiagnosticAddendum[] = [];
+        const diagAddendum = new DiagnosticAddendum();
 
         OverloadedFunctionType.getOverloads(converterType).forEach((overload) => {
             const typeVarContext = new TypeVarContext(typeVar.scopeId);
-            const diagAddendum = new DiagnosticAddendum();
 
             if (evaluator.assignType(targetFunction, overload, diagAddendum, typeVarContext)) {
                 const overloadSolution = applySolvedTypeVars(typeVar, typeVarContext, { unknownIfNotFound: true });
                 acceptedTypes.push(overloadSolution);
-            } else if (!diagAddendum.isEmpty()) {
-                diagAddendums.push(diagAddendum);
             }
         });
 
@@ -752,7 +750,7 @@ function getConverterInputType(
                 funcName: converterType.overloads[0].details.name || '<anonymous function>',
                 fieldType: evaluator.printType(fieldType),
                 fieldName: fieldName,
-            }) + diagAddendums.map((diag) => diag.getString()).join('\n'),
+            }) + diagAddendum.getString(),
             converterNode
         );
     }

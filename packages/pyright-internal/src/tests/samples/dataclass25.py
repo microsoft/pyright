@@ -25,11 +25,17 @@ def converter_with_more_specialized_return_type(s: str) -> int:
 
 @dataclass
 class Foo:
+    # This should generate an error because "converter" is not an official property yet.
     field0: int = field(converter=converter_simple)
+    # This should generate an error because "converter" is not an official property yet.
     field1: int = field(converter=converter_with_param_before_args)
+    # This should generate an error because "converter" is not an official property yet.
     field2: int = field(converter=converter_with_args)
+    # This should generate an error because "converter" is not an official property yet.
     field3: int = field(converter=converter_with_extra_defaulted_params)
+    # This should generate an error because "converter" is not an official property yet.
     field4: int = field(converter=converter_with_default_for_first_param)
+    # This should generate an error because "converter" is not an official property yet.
     field5: int | str = field(converter=converter_with_more_specialized_return_type)
 
 
@@ -56,6 +62,7 @@ def overloaded_converter(s: float | str | list[str], *args: str) -> int | float 
 
 @dataclass
 class Overloads:
+    # This should generate an error because "converter" is not an official property yet.
     field0: int = field(converter=overloaded_converter)
 
 
@@ -79,6 +86,12 @@ def wrong_converter_overload(s: float | str) -> int | str:
 
 @dataclass
 class Errors:
+    # This should generate an error because "converter" is not an official property yet
+    # and a second error because the return type doesn't match the field type.
     field0: int = field(converter=wrong_return_type)
+    # This should generate an error because "converter" is not an official property yet
+    # and a second error because the converter has the wrong number of parameters.
     field1: int = field(converter=wrong_number_of_params)
+    # This should generate an error because "converter" is not an official property yet
+    # and a second error because none of the overloads match the field type.
     field2: int = field(converter=wrong_converter_overload)
