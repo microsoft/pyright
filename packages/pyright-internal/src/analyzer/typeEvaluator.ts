@@ -270,6 +270,7 @@ import {
     getTypeCondition,
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
+    getTypeVarScopeIds,
     getUnionSubtypeCount,
     InferenceContext,
     isCallableType,
@@ -8213,10 +8214,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         : typeVarContext;
                 const effectiveTypeVarContext =
                     typeVarContextToClone?.clone() ?? new TypeVarContext(getTypeVarScopeId(overload));
-                effectiveTypeVarContext.addSolveForScope(getTypeVarScopeId(overload));
-                if (overload.details.constructorTypeVarScopeId) {
-                    effectiveTypeVarContext.addSolveForScope(overload.details.constructorTypeVarScopeId);
-                }
+                effectiveTypeVarContext.addSolveForScope(getTypeVarScopeIds(overload));
                 effectiveTypeVarContext.unlock();
 
                 // Use speculative mode so we don't output any diagnostics or
@@ -8519,10 +8517,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             const effectiveTypeVarContext = typeVarContext ?? new TypeVarContext();
-            effectiveTypeVarContext.addSolveForScope(getTypeVarScopeId(lastMatch.overload));
-            if (lastMatch.overload.details.constructorTypeVarScopeId) {
-                effectiveTypeVarContext.addSolveForScope(lastMatch.overload.details.constructorTypeVarScopeId);
-            }
+            effectiveTypeVarContext.addSolveForScope(getTypeVarScopeIds(lastMatch.overload));
             effectiveTypeVarContext.unlock();
 
             return validateFunctionArgumentTypesWithContext(
@@ -9269,7 +9264,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         let effectiveTypeVarContext = typeVarContext;
                         if (!effectiveTypeVarContext) {
                             // If a typeVarContext wasn't provided by the caller, allocate one here.
-                            effectiveTypeVarContext = new TypeVarContext(getTypeVarScopeId(expandedSubtype));
+                            effectiveTypeVarContext = new TypeVarContext(getTypeVarScopeIds(expandedSubtype));
 
                             // There are certain cases, such as with super().__new__(cls) calls where
                             // the call is a constructor but the proper TypeVar scope has been lost.
@@ -22519,6 +22514,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         recursionCount: number
     ): boolean {
         let curSrcType = srcType;
+        let prevSrcType: ClassType | undefined;
         let curDestTypeVarContext = destTypeVarContext;
         let effectiveFlags = flags;
 
@@ -22555,7 +22551,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If this isn't the first time through the loop, specialize
             // for the next ancestor in the chain.
             if (ancestorIndex < inheritanceChain.length - 1) {
-                curSrcType = specializeForBaseClass(curSrcType, ancestorType);
+                // If the curSrcType is a NamedTuple and the ancestorType is a tuple,
+                // we need to handle this as a special case because the NamedTuple may
+                // include typeParams from its parent class.
+                let effectiveCurSrcType = curSrcType;
+                if (
+                    ClassType.isBuiltIn(curSrcType, 'NamedTuple') &&
+                    ClassType.isBuiltIn(ancestorType, 'tuple') &&
+                    prevSrcType
+                ) {
+                    effectiveCurSrcType = prevSrcType;
+                }
+
+                curSrcType = specializeForBaseClass(effectiveCurSrcType, ancestorType);
             }
 
             // Handle built-in types that support arbitrary numbers
@@ -22601,6 +22609,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Allocate a new type var map for the next time through the loop.
             curDestTypeVarContext = new TypeVarContext(getTypeVarScopeId(ancestorType));
             effectiveFlags &= ~AssignTypeFlags.SkipSolveTypeVars;
+            prevSrcType = curSrcType;
         }
 
         if (destType.typeArguments) {

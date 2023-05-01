@@ -52,6 +52,7 @@ import {
 import {
     applySolvedTypeVars,
     buildTypeVarContextFromSpecializedClass,
+    computeMroLinearization,
     convertToInstance,
     getTypeVarScopeId,
     isLiteralType,
@@ -647,11 +648,16 @@ export function synthesizeDataClassMethods(
 
     // If this dataclass derived from a NamedTuple, update the NamedTuple with
     // the specialized entry types.
-    updateNamedTupleBaseClass(
-        classType,
-        fullDataClassEntries.map((entry) => entry.type),
-        /* isTypeArgumentExplicit */ true
-    );
+    if (
+        updateNamedTupleBaseClass(
+            classType,
+            fullDataClassEntries.map((entry) => entry.type),
+            /* isTypeArgumentExplicit */ true
+        )
+    ) {
+        // Recompute the MRO based on the updated NamedTuple base class.
+        computeMroLinearization(classType);
+    }
 }
 
 // If the specified type is a descriptor — in particular, if it implements a

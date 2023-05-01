@@ -1241,7 +1241,6 @@ interface FunctionDetails {
     declaredReturnType?: Type | undefined;
     declaration?: FunctionDeclaration | undefined;
     typeVarScopeId?: TypeVarScopeId | undefined;
-    constructorTypeVarScopeId?: TypeVarScopeId | undefined;
     builtInName?: string | undefined;
     docString?: string | undefined;
     deprecatedMessage?: string | undefined;
@@ -1258,6 +1257,15 @@ interface FunctionDetails {
     // one or more of these appear only within the return type and within
     // a callable, they are rescoped to that callable.
     rescopedTypeParameters?: TypeVarType[];
+
+    // For __new__ and __init__ methods, the TypeVar scope ID of the
+    // associated class.
+    constructorTypeVarScopeId?: TypeVarScopeId | undefined;
+
+    // For functions whose parameter lists derive from a solved
+    // ParamSpec, this is the TypeVar scope ID of the signature
+    // captured by that ParamSpec.
+    paramSpecTypeVarScopeId?: TypeVarScopeId | undefined;
 }
 
 export interface SpecializedFunctionTypes {
@@ -1568,6 +1576,9 @@ export namespace FunctionType {
         return newFunction;
     }
 
+    // Creates a new function based on a solved ParamSpec. The input type is assumed to
+    // have a signature that ends in "*args: P.args, **kwargs: P.kwargs". These will be
+    // replaced by the parameters in the ParamSpec.
     export function cloneForParamSpecApplication(type: FunctionType, paramSpecValue: FunctionType): FunctionType {
         const newFunction = TypeBase.cloneType(type);
 
@@ -1625,6 +1636,11 @@ export namespace FunctionType {
         if (!newFunction.details.docString) {
             newFunction.details.docString = paramSpecValue.details.docString;
         }
+
+        // Note the TypeVar scope ID of the original captured function. This
+        // allows any unsolved TypeVars within that scope to be solved when the
+        // resulting function is called.
+        newFunction.details.paramSpecTypeVarScopeId = paramSpecValue.details.typeVarScopeId;
 
         return newFunction;
     }

@@ -193,7 +193,7 @@ export class TypeVarSignatureContext {
         return undefined;
     }
 
-    addSourceTypeVarScopeId(scopeId: string) {
+    addSourceTypeVarScopeId(scopeId: TypeVarScopeId) {
         if (!this._sourceTypeVarScopeId) {
             this._sourceTypeVarScopeId = new Set<string>();
         }
@@ -201,7 +201,7 @@ export class TypeVarSignatureContext {
         this._sourceTypeVarScopeId.add(scopeId);
     }
 
-    hasSourceTypeVarScopeId(scopeId: string) {
+    hasSourceTypeVarScopeId(scopeId: TypeVarScopeId) {
         if (!this._sourceTypeVarScopeId) {
             return false;
         }
@@ -319,7 +319,7 @@ export class TypeVarContext {
         return newTypeVarMap;
     }
 
-    cloneWithSignatureSource(typeVarScopeId: string): TypeVarContext {
+    cloneWithSignatureSource(typeVarScopeId: TypeVarScopeId): TypeVarContext {
         const clonedContext = this.clone();
 
         if (typeVarScopeId) {
@@ -357,7 +357,11 @@ export class TypeVarContext {
         return this._solveForScopes;
     }
 
-    hasSolveForScope(scopeId: TypeVarScopeId | undefined) {
+    hasSolveForScope(scopeId: TypeVarScopeId | TypeVarScopeId[] | undefined): boolean {
+        if (Array.isArray(scopeId)) {
+            return scopeId.some((s) => this.hasSolveForScope(s));
+        }
+
         return (
             scopeId !== undefined &&
             this._solveForScopes !== undefined &&
@@ -369,7 +373,12 @@ export class TypeVarContext {
         this._solveForScopes = scopeIds;
     }
 
-    addSolveForScope(scopeId?: TypeVarScopeId) {
+    addSolveForScope(scopeId?: TypeVarScopeId | TypeVarScopeId[]) {
+        if (Array.isArray(scopeId)) {
+            scopeId.forEach((s) => this.addSolveForScope(s));
+            return;
+        }
+
         if (scopeId !== undefined && !this.hasSolveForScope(scopeId)) {
             if (!this._solveForScopes) {
                 this._solveForScopes = [];
