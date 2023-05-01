@@ -193,7 +193,7 @@ export class TypeVarSignatureContext {
         return undefined;
     }
 
-    addSourceTypeVarScopeId(scopeId: string) {
+    addSourceTypeVarScopeId(scopeId: TypeVarScopeId) {
         if (!this._sourceTypeVarScopeId) {
             this._sourceTypeVarScopeId = new Set<string>();
         }
@@ -201,7 +201,7 @@ export class TypeVarSignatureContext {
         this._sourceTypeVarScopeId.add(scopeId);
     }
 
-    hasSourceTypeVarScopeId(scopeId: string) {
+    hasSourceTypeVarScopeId(scopeId: TypeVarScopeId) {
         if (!this._sourceTypeVarScopeId) {
             return false;
         }
@@ -319,7 +319,7 @@ export class TypeVarContext {
         return newTypeVarMap;
     }
 
-    cloneWithSignatureSource(typeVarScopeId: string): TypeVarContext {
+    cloneWithSignatureSource(typeVarScopeId: TypeVarScopeId): TypeVarContext {
         const clonedContext = this.clone();
 
         if (typeVarScopeId) {
