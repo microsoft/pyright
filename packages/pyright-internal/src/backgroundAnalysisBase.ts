@@ -7,26 +7,26 @@
  */
 
 import { CancellationToken } from 'vscode-languageserver';
-import { MessageChannel, MessagePort, parentPort, threadId, Worker, workerData } from 'worker_threads';
+import { MessageChannel, MessagePort, Worker, parentPort, threadId, workerData } from 'worker_threads';
 
 import { AnalysisCompleteCallback, AnalysisResults, analyzeProgram, nullCallback } from './analyzer/analysis';
 import { ImportResolver } from './analyzer/importResolver';
 import { Indices, OpenFileOptions, Program } from './analyzer/program';
 import {
     BackgroundThreadBase,
-    createConfigOptionsFrom,
-    getBackgroundWaiter,
     InitializationData,
     LogData,
+    createConfigOptionsFrom,
+    getBackgroundWaiter,
     run,
 } from './backgroundThreadBase';
 import {
-    getCancellationTokenId,
     OperationCanceledException,
+    getCancellationTokenId,
     throwIfCancellationRequested,
 } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
-import { ConsoleInterface, log, LogLevel } from './common/console';
+import { ConsoleInterface, LogLevel, log } from './common/console';
 import * as debug from './common/debug';
 import { Diagnostic } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
