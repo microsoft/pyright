@@ -72,6 +72,7 @@ import {
 } from 'vscode-languageserver';
 import { ResultProgressReporter, attachWorkDone } from 'vscode-languageserver/lib/common/progress';
 
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AnalysisResults } from './analyzer/analysis';
 import { BackgroundAnalysisProgram } from './analyzer/backgroundAnalysisProgram';
 import { CacheManager } from './analyzer/cacheManager';
@@ -336,6 +337,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     protected defaultClientConfig: any;
     protected workspaceFactory: WorkspaceFactory;
+    protected openFileMap = new Map<string, TextDocument>();
     protected cacheManager: CacheManager;
     protected fs: PyrightFileSystem;
     protected uriParser: UriParser;
@@ -1175,6 +1177,16 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return;
         }
 
+        let doc = this.openFileMap.get(filePath);
+        if (doc) {
+            // We shouldn't get an open text document request for an already-opened doc.
+            this.console.error(`Received redundant open text document command for ${filePath}`);
+            doc = TextDocument.update(doc, [{ text: params.textDocument.text }], params.textDocument.version);
+        } else {
+            doc = TextDocument.create(filePath, 'python', params.textDocument.version, params.textDocument.text);
+        }
+        this.openFileMap.set(filePath, doc);
+
         // Send this open to all the workspaces that might contain this file.
         const workspaces = await this.getContainingWorkspacesForFile(filePath);
         workspaces.forEach((w) => {
@@ -1191,10 +1203,21 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return;
         }
 
+        let doc = this.openFileMap.get(filePath);
+        if (!doc) {
+            // We shouldn't get a change text request for a closed doc.
+            this.console.error(`Received change text document command for closed file ${filePath}`);
+            return;
+        }
+
+        doc = TextDocument.update(doc, params.contentChanges, params.textDocument.version);
+        this.openFileMap.set(filePath, doc);
+        const newContents = doc.getText();
+
         // Send this change to all the workspaces that might contain this file.
         const workspaces = await this.getContainingWorkspacesForFile(filePath);
         workspaces.forEach((w) => {
-            w.service.updateOpenFileContents(filePath, params.textDocument.version, params.contentChanges, ipythonMode);
+            w.service.updateOpenFileContents(filePath, params.textDocument.version, newContents, ipythonMode);
         });
     }
 
@@ -1210,6 +1233,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         workspaces.forEach((w) => {
             w.service.setFileClosed(filePath);
         });
+
+        this.openFileMap.delete(filePath);
     }
 
     protected onDidChangeWatchedFiles(params: DidChangeWatchedFilesParams) {
@@ -1271,6 +1296,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected onShutdown(token: CancellationToken) {
         // Shutdown remaining workspaces.
         this.workspaceFactory.clear();
+
+        // Stop tracking all open files.
+        this.openFileMap.clear();
+
         return Promise.resolve();
     }
 

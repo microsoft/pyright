@@ -16,7 +16,6 @@ import {
     CompletionItem,
     DocumentSymbol,
 } from 'vscode-languageserver';
-import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 
 import { BackgroundAnalysisBase, IndexOptions, RefreshOptions } from '../backgroundAnalysisBase';
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
@@ -318,7 +317,7 @@ export class AnalyzerService {
     updateOpenFileContents(
         path: string,
         version: number | null,
-        contents: TextDocumentContentChangeEvent[],
+        contents: string,
         ipythonMode = IPythonMode.None,
         realFilePath?: string
     ) {
@@ -818,15 +817,7 @@ export class AnalyzerService {
         configOptions.logTypeEvaluationTime = !!commandLineOptions.logTypeEvaluationTime;
         configOptions.typeEvaluationTimeThreshold = commandLineOptions.typeEvaluationTimeThreshold;
 
-        // If useLibraryCodeForTypes was not specified in the config, allow the settings
-        // or command line to override it.
-        if (configOptions.useLibraryCodeForTypes === undefined) {
-            configOptions.useLibraryCodeForTypes = !!commandLineOptions.useLibraryCodeForTypes;
-        } else if (commandLineOptions.useLibraryCodeForTypes !== undefined) {
-            reportDuplicateSetting('useLibraryCodeForTypes', configOptions.useLibraryCodeForTypes);
-        }
-
-        // If useLibraryCodeForTypes is still unspecified, default it to true.
+        // If useLibraryCodeForTypes is unspecified, default it to true.
         if (configOptions.useLibraryCodeForTypes === undefined) {
             configOptions.useLibraryCodeForTypes = true;
         }

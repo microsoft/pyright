@@ -9,7 +9,6 @@
  */
 
 import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
-import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import { CompletionList } from 'vscode-languageserver-types';
 
 import { Commands } from '../commands/commands';
@@ -66,7 +65,7 @@ import { ReferenceCallback, ReferencesProvider, ReferencesResult } from '../lang
 import { RenameModuleProvider } from '../languageService/renameModuleProvider';
 import { ParseNodeType, StatementNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { AbsoluteModuleDescriptor, ImportLookupResult } from './analyzerFileInfo';
+import { AbsoluteModuleDescriptor, ImportLookupResult, LookupImportOptions } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CacheManager } from './cacheManager';
 import { CircularDependency } from './circularDependency';
@@ -352,12 +351,7 @@ export class Program {
         return sourceFile;
     }
 
-    setFileOpened(
-        filePath: string,
-        version: number | null,
-        contents: TextDocumentContentChangeEvent[],
-        options?: OpenFileOptions
-    ) {
+    setFileOpened(filePath: string, version: number | null, contents: string, options?: OpenFileOptions) {
         let sourceFileInfo = this.getSourceFileInfo(filePath);
         if (!sourceFileInfo) {
             const importName = this._getImportNameForFile(filePath);
@@ -422,7 +416,7 @@ export class Program {
         if (sourceFileInfo) {
             sourceFileInfo.isOpenByClient = false;
             sourceFileInfo.isTracked = isTracked ?? sourceFileInfo.isTracked;
-            sourceFileInfo.sourceFile.setClientVersion(null, []);
+            sourceFileInfo.sourceFile.setClientVersion(null, '');
 
             // There is no guarantee that content is saved before the file is closed.
             // We need to mark the file dirty so we can re-analyze next time.
@@ -1632,7 +1626,7 @@ export class Program {
             const isTracked = info ? info.isTracked : true;
             const realFilePath = info ? info.sourceFile.getRealFilePath() : filePath;
 
-            cloned.setFileOpened(filePath, version, [{ text }], {
+            cloned.setFileOpened(filePath, version, text, {
                 chainedFilePath,
                 ipythonMode,
                 isTracked,
@@ -1718,7 +1712,7 @@ export class Program {
             program.setFileOpened(
                 fileInfo.sourceFile.getFilePath(),
                 version,
-                [{ text: fileInfo.sourceFile.getOpenFileContents()! }],
+                fileInfo.sourceFile.getOpenFileContents() ?? '',
                 {
                     chainedFilePath: fileInfo.chainedSourceFile?.sourceFile.getFilePath(),
                     ipythonMode: fileInfo.sourceFile.getIPythonMode(),
@@ -2200,12 +2194,12 @@ export class Program {
         return fileDiagnostics;
     }
 
-    private _isFileNeeded(fileInfo: SourceFileInfo) {
+    private _isFileNeeded(fileInfo: SourceFileInfo, skipFileNeededCheck?: boolean) {
         if (fileInfo.sourceFile.isFileDeleted()) {
             return false;
         }
 
-        if (fileInfo.isTracked || fileInfo.isOpenByClient) {
+        if (!!skipFileNeededCheck || fileInfo.isTracked || fileInfo.isOpenByClient) {
             return true;
         }
 
@@ -2700,8 +2694,8 @@ export class Program {
         return this._evaluator;
     }
 
-    private _parseFile(fileToParse: SourceFileInfo, content?: string, force?: boolean) {
-        if (!force && (!this._isFileNeeded(fileToParse) || !fileToParse.sourceFile.isParseRequired())) {
+    private _parseFile(fileToParse: SourceFileInfo, content?: string, skipFileNeededCheck?: boolean) {
+        if (!this._isFileNeeded(fileToParse, skipFileNeededCheck) || !fileToParse.sourceFile.isParseRequired()) {
             return;
         }
 
@@ -2746,7 +2740,7 @@ export class Program {
         return tryReturn(file.chainedSourceFile) ?? tryReturn(file.ipythonDisplayImport) ?? file.builtinsImport;
     }
 
-    private _bindImplicitImports(fileToAnalyze: SourceFileInfo) {
+    private _bindImplicitImports(fileToAnalyze: SourceFileInfo, skipFileNeededCheck?: boolean) {
         // Get all of the potential imports for this file.
         const implicitImports: SourceFileInfo[] = [];
         const implicitSet = new Set<string>();
@@ -2762,7 +2756,7 @@ export class Program {
             implicitSet.add(implicitPath);
             implicitImports.push(nextImplicitImport);
 
-            this._parseFile(nextImplicitImport);
+            this._parseFile(nextImplicitImport, /* content */ undefined, skipFileNeededCheck);
             nextImplicitImport = this._getImplicitImports(nextImplicitImport);
         }
 
@@ -2774,7 +2768,7 @@ export class Program {
         let implicitImport = implicitImports.pop();
         while (implicitImport) {
             // Bind this file, but don't recurse into its imports.
-            this._bindFile(implicitImport, undefined, undefined, /* isImplicitImport */ true);
+            this._bindFile(implicitImport, undefined, skipFileNeededCheck, /* isImplicitImport */ true);
             implicitImport = implicitImports.pop();
         }
     }
@@ -2784,14 +2778,14 @@ export class Program {
     private _bindFile(
         fileToAnalyze: SourceFileInfo,
         content?: string,
-        force?: boolean,
+        skipFileNeededCheck?: boolean,
         isImplicitImport?: boolean
     ): void {
-        if (!force && (!this._isFileNeeded(fileToAnalyze) || !fileToAnalyze.sourceFile.isBindingRequired())) {
+        if (!this._isFileNeeded(fileToAnalyze, skipFileNeededCheck) || !fileToAnalyze.sourceFile.isBindingRequired()) {
             return;
         }
 
-        this._parseFile(fileToAnalyze, content, force);
+        this._parseFile(fileToAnalyze, content, skipFileNeededCheck);
 
         // Create a function to get the scope info.
         const getScopeIfAvailable = (fileInfo: SourceFileInfo | undefined) => {
@@ -2848,7 +2842,10 @@ export class Program {
         return effectiveFutureImports;
     }
 
-    private _lookUpImport = (filePathOrModule: string | AbsoluteModuleDescriptor): ImportLookupResult | undefined => {
+    private _lookUpImport = (
+        filePathOrModule: string | AbsoluteModuleDescriptor,
+        options?: LookupImportOptions
+    ): ImportLookupResult | undefined => {
         let sourceFileInfo: SourceFileInfo | undefined;
 
         if (typeof filePathOrModule === 'string') {
@@ -2890,7 +2887,7 @@ export class Program {
             // Bind the file if it's not already bound. Don't count this time
             // against the type checker.
             timingStats.typeCheckerTime.subtractFromTime(() => {
-                this._bindFile(sourceFileInfo!);
+                this._bindFile(sourceFileInfo!, /* content */ undefined, options?.skipFileNeededCheck);
             });
         }
 

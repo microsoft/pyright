@@ -96,11 +96,9 @@ class DefinitionProviderBase {
     protected resolveDeclarations(declarations: Declaration[] | undefined, definitions: DocumentRange[]) {
         if (declarations) {
             declarations.forEach((decl) => {
-                let resolvedDecl = this.evaluator.resolveAliasDeclaration(
-                    decl,
-                    /* resolveLocalNames */ true,
-                    /* allowExternallyHiddenAccess */ true
-                );
+                let resolvedDecl = this.evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true, {
+                    allowExternallyHiddenAccess: true,
+                });
                 if (resolvedDecl && resolvedDecl.path) {
                     // If the decl is an unresolved import, skip it.
                     if (resolvedDecl.type === DeclarationType.Alias && resolvedDecl.isUnresolved) {

@@ -16,6 +16,7 @@ import {
     WorkspaceEdit,
 } from 'vscode-languageserver';
 
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { SourceFileInfo } from '../analyzer/program';
 import { AnalyzerService } from '../analyzer/service';
 import { FileEditAction, FileEditActions, TextEditAction } from '../common/editAction';
@@ -148,11 +149,14 @@ export function applyDocumentChanges(clonedService: AnalyzerService, fileInfo: S
         );
     }
 
-    const version = (fileInfo.sourceFile.getClientVersion() ?? 0) + 1;
+    const version = fileInfo.sourceFile.getClientVersion() ?? 0;
+    const filePath = fileInfo.sourceFile.getFilePath();
+    const sourceDoc = TextDocument.create(filePath, 'python', version, fileInfo.sourceFile.getOpenFileContents() ?? '');
+
     clonedService.updateOpenFileContents(
-        fileInfo.sourceFile.getFilePath(),
-        version,
-        edits.map((t) => ({ range: t.range, text: t.newText })),
+        filePath,
+        version + 1,
+        TextDocument.applyEdits(sourceDoc, edits),
         fileInfo.sourceFile.getIPythonMode(),
         fileInfo.sourceFile.getRealFilePath()
     );
@@ -216,7 +220,7 @@ function _convertToWorkspaceEditWithDocumentChanges(
     };
 
     // Ordering of documentChanges are important.
-    // Make sure create operaiton happens before edits
+    // Make sure create operation happens before edits.
     for (const operation of editActions.fileOperations) {
         switch (operation.kind) {
             case 'create':

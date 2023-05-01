@@ -287,6 +287,8 @@ export namespace Localizer {
         export const comprehensionInSet = () => getRawString('Diagnostic.comprehensionInSet');
         export const concatenateParamSpecMissing = () => getRawString('Diagnostic.concatenateParamSpecMissing');
         export const concatenateTypeArgsMissing = () => getRawString('Diagnostic.concatenateTypeArgsMissing');
+        export const conditionalOperandInvalid = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.conditionalOperandInvalid'));
         export const constantRedefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.constantRedefinition'));
         export const constructorNoArgs = () =>
@@ -1079,6 +1081,10 @@ export namespace Localizer {
         export const baseClassOverridesType = () =>
             new ParameterizedString<{ baseClass: string; type: string }>(
                 getRawString('DiagnosticAddendum.baseClassOverridesType')
+            );
+        export const conditionalRequiresBool = () =>
+            new ParameterizedString<{ operandType: string; boolReturnType: string }>(
+                getRawString('DiagnosticAddendum.conditionalRequiresBool')
             );
         export const dataClassFrozen = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.dataClassFrozen'));
