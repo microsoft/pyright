@@ -270,6 +270,7 @@ import {
     getTypeCondition,
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
+    getTypeVarScopeIds,
     getUnionSubtypeCount,
     InferenceContext,
     isCallableType,
@@ -8213,10 +8214,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         : typeVarContext;
                 const effectiveTypeVarContext =
                     typeVarContextToClone?.clone() ?? new TypeVarContext(getTypeVarScopeId(overload));
-                effectiveTypeVarContext.addSolveForScope(getTypeVarScopeId(overload));
-                if (overload.details.constructorTypeVarScopeId) {
-                    effectiveTypeVarContext.addSolveForScope(overload.details.constructorTypeVarScopeId);
-                }
+                effectiveTypeVarContext.addSolveForScope(getTypeVarScopeIds(overload));
                 effectiveTypeVarContext.unlock();
 
                 // Use speculative mode so we don't output any diagnostics or
@@ -8519,10 +8517,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             const effectiveTypeVarContext = typeVarContext ?? new TypeVarContext();
-            effectiveTypeVarContext.addSolveForScope(getTypeVarScopeId(lastMatch.overload));
-            if (lastMatch.overload.details.constructorTypeVarScopeId) {
-                effectiveTypeVarContext.addSolveForScope(lastMatch.overload.details.constructorTypeVarScopeId);
-            }
+            effectiveTypeVarContext.addSolveForScope(getTypeVarScopeIds(lastMatch.overload));
             effectiveTypeVarContext.unlock();
 
             return validateFunctionArgumentTypesWithContext(
@@ -9269,7 +9264,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         let effectiveTypeVarContext = typeVarContext;
                         if (!effectiveTypeVarContext) {
                             // If a typeVarContext wasn't provided by the caller, allocate one here.
-                            effectiveTypeVarContext = new TypeVarContext(getTypeVarScopeId(expandedSubtype));
+                            effectiveTypeVarContext = new TypeVarContext(getTypeVarScopeIds(expandedSubtype));
 
                             // There are certain cases, such as with super().__new__(cls) calls where
                             // the call is a constructor but the proper TypeVar scope has been lost.

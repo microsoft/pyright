@@ -731,6 +731,28 @@ export function getTypeVarScopeId(type: Type): TypeVarScopeId | undefined {
     return undefined;
 }
 
+// This is similar to getTypeVarScopeId except that it includes
+// the secondary scope IDs for functions.
+export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] | TypeVarScopeId | undefined {
+    const scopeId = getTypeVarScopeId(type);
+
+    if (scopeId && isFunction(type)) {
+        const scopeIds: TypeVarScopeId[] = [scopeId];
+
+        if (type.details.constructorTypeVarScopeId) {
+            scopeIds.push(type.details.constructorTypeVarScopeId);
+        }
+
+        if (type.details.paramSpecTypeVarScopeId) {
+            scopeIds.push(type.details.paramSpecTypeVarScopeId);
+        }
+
+        return scopeIds;
+    }
+
+    return scopeId;
+}
+
 // Determines whether the type derives from tuple. If so, it returns
 // the specialized tuple type.
 export function getSpecializedTupleType(type: Type): ClassType | undefined {
@@ -2754,7 +2776,7 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
                 type: FunctionType.getEffectiveParameterType(type, index),
             });
         });
-        newFunction.details.typeVarScopeId = getTypeVarScopeId(type);
+        newFunction.details.typeVarScopeId = type.details.paramSpecTypeVarScopeId;
         newFunction.details.paramSpec = type.details.paramSpec;
         return newFunction;
     }
@@ -2789,6 +2811,7 @@ export function convertParamSpecValueToType(paramSpecValue: FunctionType, omitPa
             '',
             FunctionTypeFlags.ParamSpecValue | paramSpecValue.details.flags
         );
+        functionType.details.paramSpecTypeVarScopeId = paramSpecValue.details.typeVarScopeId;
 
         paramSpecValue.details.parameters.forEach((entry) => {
             FunctionType.addParameter(functionType, {
