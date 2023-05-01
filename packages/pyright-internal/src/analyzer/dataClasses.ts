@@ -681,9 +681,12 @@ function getConverterInputType(
     fieldType: Type,
     fieldName: string
 ): Type {
-    const converterType = evaluator.getTypeOfExpression(converterNode.valueExpression).type;
+    const converterType = getConverterAsFunction(
+        evaluator,
+        evaluator.getTypeOfExpression(converterNode.valueExpression).type
+    );
 
-    if (!isFunction(converterType) && !isOverloadedFunction(converterType)) {
+    if (!converterType) {
         return fieldType;
     }
 
@@ -756,6 +759,21 @@ function getConverterInputType(
     }
 
     return fieldType;
+}
+
+function getConverterAsFunction(
+    evaluator: TypeEvaluator,
+    converterType: Type
+): FunctionType | OverloadedFunctionType | undefined {
+    if (isFunction(converterType) || isOverloadedFunction(converterType)) {
+        return converterType;
+    }
+
+    if (isClassInstance(converterType)) {
+        return evaluator.getBoundMethod(converterType, '__call__');
+    }
+
+    return undefined;
 }
 
 // If the specified type is a descriptor — in particular, if it implements a

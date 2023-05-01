@@ -2,7 +2,7 @@
 # described in PEP 712.
 
 from dataclasses import dataclass, field
-from typing import overload
+from typing import Callable, overload
 
 
 def converter_simple(s: str) -> int:
@@ -67,6 +67,31 @@ class Overloads:
 
 
 reveal_type(Overloads.__init__, expected_text="(self: Overloads, field0: str | list[str]) -> None")
+
+
+class CallableObject():
+    @overload
+    def __call__(self, arg1: int) -> str: ...
+    @overload
+    def __call__(self, arg1: str) -> int: ...
+
+    def __call__(self, arg1: str | int | list[str]) -> int | str:
+        return 1
+
+callable: Callable[[str], int] = converter_simple
+callable_union: Callable[[str], int] | Callable[[int], str] = converter_simple
+
+@dataclass
+class Callables:
+    # This should generate an error because "converter" is not an official property yet.
+    field0: int = field(converter=CallableObject())
+    # This should generate an error because "converter" is not an official property yet.
+    field1: int = field(converter=callable)
+    # This should generate an error because "converter" is not an official property yet.
+    field2: int = field(converter=callable_union)
+
+
+reveal_type(Callables.__init__, expected_text="(self: Callables, field0: str, field1: str, field2: str) -> None")
 
 
 def wrong_return_type(s: str) -> str:
