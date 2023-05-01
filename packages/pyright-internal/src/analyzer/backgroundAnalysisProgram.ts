@@ -24,6 +24,7 @@ export class BackgroundAnalysisProgram {
     private _program: Program;
     private _disposed = false;
     private _onAnalysisCompletion: AnalysisCompleteCallback | undefined;
+    private _preEditAnalysis: BackgroundAnalysisBase | undefined;
 
     constructor(
         private _console: ConsoleInterface,
@@ -240,6 +241,21 @@ export class BackgroundAnalysisProgram {
         this._disposed = true;
         this._program.dispose();
         this._backgroundAnalysis?.shutdown();
+    }
+
+    enterEditMode() {
+        // Turn off analysis while in edit mode.
+        this._preEditAnalysis = this._backgroundAnalysis;
+        this._backgroundAnalysis = undefined;
+
+        // Forward this request to the program.
+        this._program.enterEditMode();
+    }
+
+    exitEditMode() {
+        this._backgroundAnalysis = this._preEditAnalysis;
+        this._preEditAnalysis = undefined;
+        return this._program.exitEditMode();
     }
 
     protected getIndices(): Indices | undefined {

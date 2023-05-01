@@ -11,6 +11,7 @@
 import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
 import { CompletionList } from 'vscode-languageserver-types';
 
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Commands } from '../commands/commands';
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray, arrayEquals } from '../common/collectionUtils';
@@ -38,17 +39,17 @@ import {
 import { convertPositionToOffset, convertRangeToTextRange, convertTextRangeToRange } from '../common/positionUtils';
 import { computeCompletionSimilarity } from '../common/stringUtils';
 import { TextEditTracker } from '../common/textEditTracker';
-import { doRangesIntersect, getEmptyRange, Position, Range, TextRange } from '../common/textRange';
+import { Position, Range, TextRange, doRangesIntersect, getEmptyRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
 import { applyTextEditsToString } from '../common/workspaceEditUtils';
 import {
-    AutoImporter,
     AutoImportOptions,
     AutoImportResult,
-    buildModuleSymbolsMap,
+    AutoImporter,
     ImportFormat,
     ModuleSymbolMap,
+    buildModuleSymbolsMap,
 } from '../languageService/autoImporter';
 import {
     AbbreviationMap,
@@ -84,15 +85,15 @@ import { Scope } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode, SourceFile } from './sourceFile';
 import { collectImportedByFiles, isUserCode } from './sourceFileInfoUtils';
-import { isStubFile, SourceMapper } from './sourceMapper';
+import { SourceMapper, isStubFile } from './sourceMapper';
 import { Symbol } from './symbol';
 import { isPrivateOrProtectedName } from './symbolNameUtils';
 import { createTracePrinter } from './tracePrinter';
 import { PrintTypeOptions, TypeEvaluator } from './typeEvaluatorTypes';
 import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { PrintTypeFlags } from './typePrinter';
-import { Type } from './types';
 import { TypeStubWriter } from './typeStubWriter';
+import { Type } from './types';
 
 const _maxImportDepth = 256;
 
@@ -187,6 +188,7 @@ export class Program {
     private _cacheManager: CacheManager;
     private _id: number;
     private static _nextId = 0;
+    private _isEditMode = false;
 
     constructor(
         initialImportResolver: ImportResolver,
@@ -238,6 +240,53 @@ export class Program {
 
     dispose() {
         this._cacheManager.unregisterCacheOwner(this);
+    }
+
+    enterEditMode() {
+        // Keep track of edit mode so we can apply it to new source files.
+        this._isEditMode = true;
+
+        // Tell all source files we're in edit mode.
+        this._sourceFileList.forEach((sourceFile) => {
+            sourceFile.sourceFile.enterEditMode();
+        });
+    }
+
+    exitEditMode() {
+        // Tell all source files we're no longer in edit mode. Gather
+        // up all of their edits.
+        const edits: FileEditAction[] = [];
+        this._sourceFileList.forEach((sourceFile) => {
+            const newContents = sourceFile.sourceFile.exitEditMode();
+            if (newContents) {
+                // This means this source file was modified. We need to recompute its imports after
+                // we put it back to how it was.
+                this._updateSourceFileImports(sourceFile, this.configOptions);
+
+                // Create a text document so we can compute the edits.
+                const textDocument = TextDocument.create(
+                    sourceFile.sourceFile.getFilePath(),
+                    'python',
+                    1,
+                    sourceFile.sourceFile.getFileContent() || ''
+                );
+
+                // Add an edit action to the list.
+                edits.push({
+                    filePath: sourceFile.sourceFile.getFilePath(),
+                    range: {
+                        start: { line: 0, character: 0 },
+                        end: { line: textDocument.lineCount, character: 0 },
+                    },
+                    replacementText: newContents,
+                });
+            }
+        });
+
+        // Stop applying edit mode to new source files.
+        this._isEditMode = false;
+
+        return edits;
     }
 
     setConfigOptions(configOptions: ConfigOptions) {
@@ -331,6 +380,7 @@ export class Program {
             importName,
             isThirdPartyImport,
             isInPyTypedPackage,
+            this._isEditMode,
             this._console,
             this._logTracker
         );
@@ -361,12 +411,12 @@ export class Program {
                 importName,
                 /* isThirdPartyImport */ false,
                 /* isInPyTypedPackage */ false,
+                this._isEditMode,
                 this._console,
                 this._logTracker,
                 options?.realFilePath,
                 options?.ipythonMode ?? IPythonMode.None
             );
-
             const chainedFilePath = options?.chainedFilePath;
             sourceFileInfo = {
                 sourceFile,
@@ -2501,6 +2551,7 @@ export class Program {
                         importName,
                         importInfo.isThirdPartyImport,
                         importInfo.isPyTypedPresent,
+                        this._isEditMode,
                         this._console,
                         this._logTracker
                     );
@@ -2644,6 +2695,7 @@ export class Program {
             importName,
             /* isThirdPartyImport */ false,
             /* isInPyTypedPackage */ false,
+            this._isEditMode,
             this._console,
             this._logTracker
         );

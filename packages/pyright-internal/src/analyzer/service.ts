@@ -23,7 +23,7 @@ import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, LogLevel, StandardConsole, log } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
-import { FileEditActions } from '../common/editAction';
+import { FileEditAction, FileEditActions } from '../common/editAction';
 import { Extensions, ProgramView } from '../common/extensibility';
 import { FileSystem, FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileSystem';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
@@ -220,6 +220,22 @@ export class AnalyzerService {
         }
 
         return service;
+    }
+
+    useEditMode(callback: () => void, token: CancellationToken) {
+        let edits: FileEditAction[] = [];
+        const disposable = token.onCancellationRequested(() => {
+            edits = [];
+            this._backgroundAnalysisProgram.exitEditMode();
+        });
+        this._backgroundAnalysisProgram.enterEditMode();
+        try {
+            callback();
+        } finally {
+            disposable.dispose();
+            edits = this._backgroundAnalysisProgram.exitEditMode();
+        }
+        return edits;
     }
 
     dispose() {
