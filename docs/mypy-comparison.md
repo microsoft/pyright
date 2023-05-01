@@ -352,7 +352,7 @@ def func(a: AnyStr, b: T):
     return a + b # Mypy reports 4 errors
 ```
 
-Pyright cannot use the same multi-pass technique as mypy in this case. It needs to produce a single type for any given identifier to support language server features. Pyright instead uses a mechanism called [conditional types](type-concepts-advanced.md#constrained-type-variables-and-conditional-types). This approach allows pyright to handle some constrained TypeVar use cases that mypy cannot, but there are conversely other use cases that mypy can handle and pyright cannot.
+Pyright cannot use the same multi-pass technique as mypy in this case. It needs to produce a single type for any given identifier to support language server features. Pyright instead uses a mechanism called [conditional types](type-concepts-advanced.md#conditional-types-and-type-variables). This approach allows pyright to handle some constrained TypeVar use cases that mypy cannot, but there are conversely other use cases that mypy can handle and pyright cannot.
 
 
 ### “Unknown” Type and Strict Mode
