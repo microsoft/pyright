@@ -859,18 +859,19 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitListComprehensionIf(node: ListComprehensionIfNode): boolean {
+        this._validateConditionalIsBool(node.testExpression);
         this._reportUnnecessaryConditionExpression(node.testExpression);
         return true;
     }
 
     override visitIf(node: IfNode): boolean {
-        this._evaluator.getType(node.testExpression);
+        this._validateConditionalIsBool(node.testExpression);
         this._reportUnnecessaryConditionExpression(node.testExpression);
         return true;
     }
 
     override visitWhile(node: WhileNode): boolean {
-        this._evaluator.getType(node.testExpression);
+        this._validateConditionalIsBool(node.testExpression);
         this._reportUnnecessaryConditionExpression(node.testExpression);
         return true;
     }
@@ -1124,6 +1125,8 @@ export class Checker extends ParseTreeWalker {
             this._evaluator.getType(node.exceptionExpression);
         }
 
+        this._validateConditionalIsBool(node.testExpression);
+
         // Specifically look for a common programming error where the two arguments
         // to an assert are enclosed in parens and interpreted as a two-element tuple.
         //   assert (x > 3, "bad value x")
@@ -1249,6 +1252,11 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitBinaryOperation(node: BinaryOperationNode): boolean {
+        if (node.operator === OperatorType.And || node.operator === OperatorType.Or) {
+            this._validateConditionalIsBool(node.leftExpression);
+            this._validateConditionalIsBool(node.rightExpression);
+        }
+
         if (node.operator === OperatorType.Equals || node.operator === OperatorType.NotEquals) {
             // Don't apply this rule if it's within an assert.
             if (!ParseTreeUtils.isWithinAssertExpression(node)) {
@@ -1286,12 +1294,17 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitUnaryOperation(node: UnaryOperationNode): boolean {
+        if (node.operator === OperatorType.Not) {
+            this._validateConditionalIsBool(node.expression);
+        }
+
         this._evaluator.getType(node);
         return true;
     }
 
     override visitTernary(node: TernaryNode): boolean {
         this._evaluator.getType(node);
+        this._validateConditionalIsBool(node.testExpression);
         this._reportUnnecessaryConditionExpression(node.testExpression);
         return true;
     }
@@ -1547,7 +1560,7 @@ export class Checker extends ParseTreeWalker {
 
     override visitCase(node: CaseNode): boolean {
         if (node.guardExpression) {
-            this._evaluator.getType(node.guardExpression);
+            this._validateConditionalIsBool(node.guardExpression);
         }
 
         this._evaluator.evaluateTypesForStatement(node.pattern);
@@ -1616,6 +1629,66 @@ export class Checker extends ParseTreeWalker {
             }),
             node
         );
+    }
+
+    private _validateConditionalIsBool(node: ExpressionNode) {
+        const operandType = this._evaluator.getType(node);
+        if (!operandType) {
+            return;
+        }
+
+        let isTypeBool = true;
+        const diag = new DiagnosticAddendum();
+        this._evaluator.mapSubtypesExpandTypeVars(operandType, /* conditionFilter */ undefined, (expandedSubtype) => {
+            if (isAnyOrUnknown(expandedSubtype)) {
+                return undefined;
+            }
+
+            // If it's a bool (the common case), we're good.
+            if (isClassInstance(expandedSubtype) && ClassType.isBuiltIn(expandedSubtype, 'bool')) {
+                return undefined;
+            }
+
+            // Invoke the __bool__ method on the type.
+            const boolReturnType = this._evaluator.getTypeOfMagicMethodReturn(
+                expandedSubtype,
+                [],
+                '__bool__',
+                node,
+                /* inferenceContext */ undefined
+            );
+
+            if (!boolReturnType || isAnyOrUnknown(boolReturnType)) {
+                return undefined;
+            }
+
+            if (isClassInstance(boolReturnType) && ClassType.isBuiltIn(boolReturnType, 'bool')) {
+                return undefined;
+            }
+
+            // All other types are problematic.
+            isTypeBool = false;
+
+            diag.addMessage(
+                Localizer.DiagnosticAddendum.conditionalRequiresBool().format({
+                    operandType: this._evaluator.printType(expandedSubtype),
+                    boolReturnType: this._evaluator.printType(boolReturnType),
+                })
+            );
+
+            return undefined;
+        });
+
+        if (!isTypeBool) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.conditionalOperandInvalid().format({
+                    type: this._evaluator.printType(operandType),
+                }) + diag.getString(),
+                node
+            );
+        }
     }
 
     private _reportUnnecessaryConditionExpression(expression: ExpressionNode) {
