@@ -266,3 +266,8 @@ test('FutureImport3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['futureImport3.py']);
     TestUtils.validateResults(analysisResults, 1);
 });
+
+test('Conditional1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['conditional1.py']);
+    TestUtils.validateResults(analysisResults, 15);
+});
