@@ -430,7 +430,7 @@ Pyright honors class decorators. Mypy largely ignores them. See [this issue](htt
 
 Versions of Python prior to 3.0 did not have a dedicated syntax for supplying type annotations. Annotations therefore needed to be supplied using “type comments” of the form `# type: <annotation>`. Python 3.6 added the ability to supply type annotations for variables. 
 
-Mypy has full support for type comments. Pyright supports type comments only in locations where there is a way to provide an annotation using modern syntax. Pyright was written to assume Python 3.5 and newer, so support for older versions was not a priority.
+Mypy has full support for type comments. Pyright supports type comments only in locations where there is no way to provide an annotation using modern syntax. Pyright was written to assume Python 3.5 and newer, so support for older versions was not a priority.
 
 ```python
 # The following type comment is supported by
