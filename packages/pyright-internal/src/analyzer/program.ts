@@ -187,7 +187,7 @@ export class Program {
     private _cacheManager: CacheManager;
     private _id: number;
     private static _nextId = 0;
-    private _editMode = false;
+    private _isEditMode = false;
 
     constructor(
         initialImportResolver: ImportResolver,
@@ -243,7 +243,7 @@ export class Program {
 
     enterEditMode() {
         // Keep track of edit mode so we can apply it to new source files.
-        this._editMode = true;
+        this._isEditMode = true;
 
         // Tell all source files we're in edit mode.
         this._sourceFileList.forEach((sourceFile) => {
@@ -266,7 +266,7 @@ export class Program {
         });
 
         // Stop applying edit mode to new source files.
-        this._editMode = false;
+        this._isEditMode = false;
 
         return edits;
     }
@@ -362,7 +362,7 @@ export class Program {
             importName,
             isThirdPartyImport,
             isInPyTypedPackage,
-            this._editMode,
+            this._isEditMode,
             this._console,
             this._logTracker
         );
@@ -393,7 +393,7 @@ export class Program {
                 importName,
                 /* isThirdPartyImport */ false,
                 /* isInPyTypedPackage */ false,
-                this._editMode,
+                this._isEditMode,
                 this._console,
                 this._logTracker,
                 options?.realFilePath,
@@ -2533,7 +2533,7 @@ export class Program {
                         importName,
                         importInfo.isThirdPartyImport,
                         importInfo.isPyTypedPresent,
-                        this._editMode,
+                        this._isEditMode,
                         this._console,
                         this._logTracker
                     );
@@ -2677,7 +2677,7 @@ export class Program {
             importName,
             /* isThirdPartyImport */ false,
             /* isInPyTypedPackage */ false,
-            this._editMode,
+            this._isEditMode,
             this._console,
             this._logTracker
         );

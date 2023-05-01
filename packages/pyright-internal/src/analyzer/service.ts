@@ -222,7 +222,7 @@ export class AnalyzerService {
         return service;
     }
 
-    async useEditMode(callback: () => Promise<void>, token: CancellationToken) {
+    useEditMode(callback: () => void, token: CancellationToken) {
         let edits: FileEditAction[] = [];
         const disposable = token.onCancellationRequested(() => {
             edits = [];
@@ -230,7 +230,7 @@ export class AnalyzerService {
         });
         this._backgroundAnalysisProgram.enterEditMode();
         try {
-            await callback();
+            callback();
         } finally {
             disposable.dispose();
             edits = this._backgroundAnalysisProgram.exitEditMode();

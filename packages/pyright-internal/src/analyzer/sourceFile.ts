@@ -199,8 +199,7 @@ export class SourceFile {
     // Indicate whether this file is for ipython or not.
     private _ipythonMode = IPythonMode.None;
     private _logTracker: LogTracker;
-    private _editMode = false;
-    private _editModeChanges: FileEditAction[] = [];
+    private _isEditMode = false;
     private _preEditData: WriteableData | undefined;
     readonly fileSystem: FileSystem;
 
@@ -218,7 +217,7 @@ export class SourceFile {
     ) {
         this.fileSystem = fs;
         this._console = console || new StandardConsole();
-        this._editMode = editMode;
+        this._isEditMode = editMode;
         this._filePath = filePath;
         this._realFilePath = realFilePath ?? filePath;
         this._moduleName = moduleName;
@@ -573,11 +572,11 @@ export class SourceFile {
     }
 
     enterEditMode() {
-        this._editMode = true;
+        this._isEditMode = true;
     }
 
     exitEditMode(): FileEditAction | undefined {
-        this._editMode = false;
+        this._isEditMode = false;
 
         // If we had an edit, return it
         if (this._preEditData) {
@@ -1275,7 +1274,7 @@ export class SourceFile {
         // If there's no document yet, this change doesn't count as a write yet.
         if (this._writableData.clientDocumentContents !== undefined) {
             // If this is our first write, then make a copy of the writable data.
-            if (this._editMode && !this._preEditData) {
+            if (this._isEditMode && !this._preEditData) {
                 // Copy over the writable data.
                 this._preEditData = this._writableData;
 
