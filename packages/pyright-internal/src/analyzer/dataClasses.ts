@@ -9,10 +9,12 @@
  */
 
 import { assert } from '../common/debug';
+import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
+    ArgumentNode,
     CallNode,
     ClassNode,
     ExpressionNode,
@@ -34,6 +36,7 @@ import {
     AnyType,
     ClassType,
     ClassTypeFlags,
+    combineTypes,
     DataClassBehaviors,
     DataClassEntry,
     FunctionParameter,
@@ -45,8 +48,10 @@ import {
     isInstantiableClass,
     isOverloadedFunction,
     NoneType,
+    OverloadedFunctionType,
     TupleTypeArgument,
     Type,
+    TypeVarType,
     UnknownType,
 } from './types';
 import {
@@ -163,6 +168,7 @@ export function synthesizeDataClassMethods(
                 let isKeywordOnly = ClassType.isDataClassKeywordOnlyParams(classType) || sawKeywordOnlySeparator;
                 let defaultValueExpression: ExpressionNode | undefined;
                 let includeInInit = true;
+                let converter: ArgumentNode | undefined;
 
                 if (statement.nodeType === ParseNodeType.Assignment) {
                     if (
@@ -298,6 +304,13 @@ export function synthesizeDataClassMethods(
                                     aliasName = valueType.literalValue as string;
                                 }
                             }
+
+                            const converterArg = statement.rightExpression.arguments.find(
+                                (arg) => arg.name?.value === 'converter'
+                            );
+                            if (converterArg && converterArg.valueExpression) {
+                                converter = converterArg;
+                            }
                         }
                     }
                 } else if (statement.nodeType === ParseNodeType.TypeAnnotation) {
@@ -354,6 +367,7 @@ export function synthesizeDataClassMethods(
                             nameNode: variableNameNode,
                             type: UnknownType.create(),
                             isClassVar: true,
+                            converter,
                         };
                         localDataClassEntries.push(dataClassEntry);
                     } else {
@@ -371,6 +385,7 @@ export function synthesizeDataClassMethods(
                             nameNode: variableNameNode,
                             type: UnknownType.create(),
                             isClassVar: false,
+                            converter,
                         };
                         localEntryTypeEvaluator.push({ entry: dataClassEntry, evaluator: variableTypeEvaluator });
 
@@ -492,6 +507,10 @@ export function synthesizeDataClassMethods(
                     // Is the field type a descriptor object? If so, we need to extract the corresponding
                     // type of the __init__ method parameter from the __set__ method.
                     effectiveType = transformDescriptorType(evaluator, effectiveType);
+
+                    if (entry.converter) {
+                        effectiveType = getConverterInputType(evaluator, entry.converter, effectiveType, entry.name);
+                    }
 
                     const effectiveName = entry.alias || entry.name;
 
@@ -658,6 +677,109 @@ export function synthesizeDataClassMethods(
         // Recompute the MRO based on the updated NamedTuple base class.
         computeMroLinearization(classType);
     }
+}
+
+// Validates converter and, if valid, returns its input type. If invalid,
+// fieldType is returned.
+function getConverterInputType(
+    evaluator: TypeEvaluator,
+    converterNode: ArgumentNode,
+    fieldType: Type,
+    fieldName: string
+): Type {
+    const converterType = getConverterAsFunction(
+        evaluator,
+        evaluator.getTypeOfExpression(converterNode.valueExpression).type
+    );
+
+    if (!converterType) {
+        return fieldType;
+    }
+
+    // Create synthesized function of the form Callable[[T], fieldType] which
+    // will be used to check compatibility of the provided converter.
+    const typeVar = TypeVarType.createInstance('__converterInput');
+    typeVar.scopeId = evaluator.getScopeIdForNode(converterNode);
+    const targetFunction = FunctionType.createSynthesizedInstance('');
+    targetFunction.details.typeVarScopeId = typeVar.scopeId;
+    targetFunction.details.declaredReturnType = fieldType;
+    FunctionType.addParameter(targetFunction, {
+        category: ParameterCategory.Simple,
+        name: '__input',
+        type: typeVar,
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(targetFunction, {
+        category: ParameterCategory.Simple,
+        name: '',
+        type: UnknownType.create(),
+    });
+
+    if (isFunction(converterType)) {
+        const typeVarContext = new TypeVarContext(typeVar.scopeId);
+        const diagAddendum = new DiagnosticAddendum();
+
+        if (evaluator.assignType(targetFunction, converterType, diagAddendum, typeVarContext)) {
+            const solution = applySolvedTypeVars(typeVar, typeVarContext, { unknownIfNotFound: true });
+            return solution;
+        }
+
+        evaluator.addDiagnostic(
+            AnalyzerNodeInfo.getFileInfo(converterNode).diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.dataClassConverterFunction().format({
+                argType: evaluator.printType(converterType),
+                fieldType: evaluator.printType(fieldType),
+                fieldName: fieldName,
+            }) + diagAddendum.getString(),
+            converterNode,
+            diagAddendum.getEffectiveTextRange() ?? converterNode
+        );
+    } else {
+        const acceptedTypes: Type[] = [];
+        const diagAddendum = new DiagnosticAddendum();
+
+        OverloadedFunctionType.getOverloads(converterType).forEach((overload) => {
+            const typeVarContext = new TypeVarContext(typeVar.scopeId);
+
+            if (evaluator.assignType(targetFunction, overload, diagAddendum, typeVarContext)) {
+                const overloadSolution = applySolvedTypeVars(typeVar, typeVarContext, { unknownIfNotFound: true });
+                acceptedTypes.push(overloadSolution);
+            }
+        });
+
+        if (acceptedTypes.length > 0) {
+            return combineTypes(acceptedTypes);
+        }
+
+        evaluator.addDiagnostic(
+            AnalyzerNodeInfo.getFileInfo(converterNode).diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.dataClassConverterOverloads().format({
+                funcName: converterType.overloads[0].details.name || '<anonymous function>',
+                fieldType: evaluator.printType(fieldType),
+                fieldName: fieldName,
+            }) + diagAddendum.getString(),
+            converterNode
+        );
+    }
+
+    return fieldType;
+}
+
+function getConverterAsFunction(
+    evaluator: TypeEvaluator,
+    converterType: Type
+): FunctionType | OverloadedFunctionType | undefined {
+    if (isFunction(converterType) || isOverloadedFunction(converterType)) {
+        return converterType;
+    }
+
+    if (isClassInstance(converterType)) {
+        return evaluator.getBoundMethod(converterType, '__call__');
+    }
+
+    return undefined;
 }
 
 // If the specified type is a descriptor — in particular, if it implements a

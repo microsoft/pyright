@@ -78,6 +78,8 @@
         "constructorNoArgs": "Expected no arguments to \"{type}\" constructor",
         "dataClassBaseClassFrozen": "A non-frozen class cannot inherit from a class that is frozen",
         "dataClassBaseClassNotFrozen": "A frozen class cannot inherit from a class that is not frozen",
+        "dataClassConverterFunction": "Argument of type \"{argType}\" is not a valid converter for field \"{fieldName}\" of type \"{fieldType}\"",
+        "dataClassConverterOverloads": "No overloads of \"{funcName}\" are valid converters for field \"{fieldName}\" of type \"{fieldType}\"",
         "dataClassFieldWithDefault": "Fields without default values cannot appear after fields with default values",
         "dataClassFieldWithoutAnnotation": "Dataclass field without type annotation will cause runtime exception",
         "dataClassFieldWithPrivateName": "Dataclass field cannot use private name",
