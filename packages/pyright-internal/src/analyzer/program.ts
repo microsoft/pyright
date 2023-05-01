@@ -11,6 +11,7 @@
 import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
 import { CompletionList } from 'vscode-languageserver-types';
 
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Commands } from '../commands/commands';
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray, arrayEquals } from '../common/collectionUtils';
@@ -256,12 +257,29 @@ export class Program {
         // up all of their edits.
         const edits: FileEditAction[] = [];
         this._sourceFileList.forEach((sourceFile) => {
-            const sourceFileEdit = sourceFile.sourceFile.exitEditMode();
-            if (sourceFileEdit) {
+            const newContents = sourceFile.sourceFile.exitEditMode();
+            if (newContents) {
                 // This means this source file was modified. We need to recompute its imports after
                 // we put it back to how it was.
                 this._updateSourceFileImports(sourceFile, this.configOptions);
-                edits.push(sourceFileEdit);
+
+                // Create a text document so we can compute the edits.
+                const textDocument = TextDocument.create(
+                    sourceFile.sourceFile.getFilePath(),
+                    'python',
+                    1,
+                    sourceFile.sourceFile.getFileContent() || ''
+                );
+
+                // Add an edit action to the list.
+                edits.push({
+                    filePath: sourceFile.sourceFile.getFilePath(),
+                    range: {
+                        start: { line: 0, character: 0 },
+                        end: { line: textDocument.lineCount, character: 0 },
+                    },
+                    replacementText: newContents,
+                });
             }
         });
 

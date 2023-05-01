@@ -10,7 +10,6 @@
 import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
 import { isMainThread } from 'worker_threads';
 
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { OperationCanceledException } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
@@ -19,7 +18,6 @@ import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticCategory, TaskListToken, convertLevelToCategory } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
-import { FileEditAction } from '../common/editAction';
 import { Extensions } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { LogTracker } from '../common/logTracker';
@@ -575,34 +573,15 @@ export class SourceFile {
         this._isEditMode = true;
     }
 
-    exitEditMode(): FileEditAction | undefined {
+    exitEditMode(): string | undefined {
         this._isEditMode = false;
 
-        // If we had an edit, return it
+        // If we had an edit, return our text.
         if (this._preEditData) {
-            const textDocument = TextDocument.create(
-                this._filePath,
-                'python',
-                1,
-                this._preEditData.clientDocumentContents!
-            );
-            const edit: FileEditAction = {
-                filePath: this._filePath,
-                range: {
-                    start: {
-                        line: 0,
-                        character: 0,
-                    },
-                    end: {
-                        line: textDocument.lineCount,
-                        character: 0,
-                    },
-                },
-                replacementText: this._writableData.clientDocumentContents!,
-            };
+            const text = this._writableData.clientDocumentContents!;
             this._writableData = this._preEditData;
             this._preEditData = undefined;
-            return edit;
+            return text;
         }
         return undefined;
     }
