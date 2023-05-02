@@ -12,16 +12,20 @@ class Bar:
     a: int
 
 
-# This should generate an error
 a1: type[Foo] | type[Bar] = Foo | Bar
 
+# This should generate an error
 print(a1.a)
-a1()
 
 # This should generate an error
+a1()
+
 a2: type[Foo] | type[Bar] = Union[Foo, Bar]
 
+# This should generate an error
 print(a2.a)
+
+# This should generate an error
 a2()
 
 

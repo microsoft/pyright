@@ -652,7 +652,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let cancellationToken: CancellationToken | undefined;
     let isBasicTypesInitialized = false;
     let noneType: Type | undefined;
-    let unionType: Type | undefined;
     let objectType: Type | undefined;
     let typeClassType: Type | undefined;
     let functionObj: Type | undefined;
@@ -16809,12 +16808,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Update the decorated class type.
         writeTypeCache(node, { type: decoratedType }, EvaluatorFlags.None);
 
-        // Stash away a reference to the UnionType class if we encounter it.
-        // There's no easy way to otherwise reference it.
-        if (ClassType.isBuiltIn(classType, 'UnionType')) {
-            unionType = ClassType.cloneAsInstance(classType);
-        }
-
         // Validate that arguments passed to `__init_subclass__` are of the correct type.
         // Defer this if the metaclass calculation is deferred.
         if (!isMetaclassDeferred) {
@@ -23125,12 +23118,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 setTypeArgumentsRecursive(destType, UnknownType.create(), targetTypeVarContext, recursionCount);
             }
             return true;
-        }
-
-        // Handle the special case where the expression is an actual
-        // UnionType special form.
-        if (isUnion(srcType) && TypeBase.isSpecialForm(srcType)) {
-            srcType = unionType || objectType || AnyType.create();
         }
 
         if (isUnion(destType)) {
