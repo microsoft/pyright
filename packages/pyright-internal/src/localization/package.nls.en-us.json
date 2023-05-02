@@ -514,7 +514,7 @@
         "unnecessaryTypeIgnore": "Unnecessary \"# type: ignore\" comment",
         "unpackArgCount": "Expected a single type argument after \"Unpack\"",
         "unpackedArgInTypeArgument": "Unpacked arguments cannot be used in type argument lists",
-        "unpackedArgWithVariadicParam": "Unpacked argument cannot be used for TupleTypeVar parameter",
+        "unpackedArgWithVariadicParam": "Unpacked argument cannot be used for TypeVarTuple parameter",
         "unpackedDictArgumentNotMapping": "Argument expression after ** must be a mapping with a \"str\" key type",
         "unpackedSubscriptIllegal": "Unpack operator in subscript requires Python 3.11 or newer",
         "unpackedTypedDictArgument": "Unable to match unpacked TypedDict argument to parameters",
