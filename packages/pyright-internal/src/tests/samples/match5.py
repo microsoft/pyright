@@ -111,3 +111,25 @@ def test_negative_narrowing2(value: StrValue | ComplexValue) -> None:
             reveal_type(value, expected_text="ComplexValue")
         case _:
             reveal_type(value, expected_text="Never")
+
+
+class TD1(TypedDict):
+    v1: NotRequired[int]
+    v2: NotRequired[int]
+    v3: NotRequired[int]
+
+
+def test_not_required_narrowing(subj: TD1) -> None:
+    match subj:
+        case {"v1": _}:
+            print(subj["v1"])
+
+            # This should generate an error.
+            print(subj["v2"])
+
+        case {"v2": 1, "v3": 2}:
+            # This should generate an error.
+            print(subj["v1"])
+
+            print(subj["v2"])
+            print(subj["v3"])

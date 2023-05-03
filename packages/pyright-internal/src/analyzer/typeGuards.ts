@@ -1810,14 +1810,7 @@ function narrowTypeForTypedDictKey(
                     return subtype;
                 }
 
-                const oldNarrowedEntriesMap = subtype.typedDictNarrowedEntries;
-                const newNarrowedEntriesMap = new Map<string, TypedDictEntry>();
-                if (oldNarrowedEntriesMap) {
-                    // Copy the old entries.
-                    oldNarrowedEntriesMap.forEach((value, key) => {
-                        newNarrowedEntriesMap.set(key, value);
-                    });
-                }
+                const newNarrowedEntriesMap = new Map<string, TypedDictEntry>(subtype.typedDictNarrowedEntries ?? []);
 
                 // Add the new entry.
                 newNarrowedEntriesMap.set(literalKey.literalValue as string, {
