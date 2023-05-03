@@ -149,7 +149,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     ): Declaration[] {
         throwIfCancellationRequested(token);
 
-        const declarations = this._getDeclarationsForNode(
+        const initialDeclarations = this._getDeclarationsForNode(
             node,
             useCase,
             evaluator,
@@ -157,8 +157,20 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             /* skipUnreachableCode */ false
         );
 
-        // Add declarations from chained source files
-        let builtinsScope = AnalyzerNodeInfo.getFileInfo(node).builtinsScope;
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const sourceMapper = program.getSourceMapper(fileInfo.filePath, token);
+        // Resolve the first set of declarations. It provides the basis for which declarations
+        // are a match.
+        const resolvedInitials = DocumentSymbolCollector._resolveDeclarations(
+            evaluator,
+            initialDeclarations,
+            resolveLocalName,
+            sourceMapper,
+            token
+        );
+        // Add declarations from chained source files.
+        const declarations: Declaration[] = [];
+        let builtinsScope = fileInfo.builtinsScope;
         while (builtinsScope && builtinsScope.type === ScopeType.Module) {
             const symbol = builtinsScope?.lookUpSymbol(node.value);
             if (symbol) {
@@ -180,24 +192,20 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             }
         });
 
-        const resolvedDeclarations: Declaration[] = [];
-        declarations.forEach((decl) => {
-            const resolvedDecl = evaluator.resolveAliasDeclaration(decl, resolveLocalName);
-            if (resolvedDecl) {
-                resolvedDeclarations.push(resolvedDecl);
-
-                if (sourceMapper && isStubFile(resolvedDecl.path)) {
-                    const implDecls = sourceMapper.findDeclarations(resolvedDecl);
-                    for (const implDecl of implDecls) {
-                        if (implDecl && implDecl.path) {
-                            this._addIfUnique(resolvedDeclarations, implDecl);
-                        }
-                    }
-                }
-            }
-        });
-
-        return resolvedDeclarations;
+        // Combine the initial resolved list with the declarations from the chained source files but filtering on only those declarations that
+        // are from one of the initial modules.
+        return [
+            ...resolvedInitials,
+            ...DocumentSymbolCollector._resolveDeclarations(
+                evaluator,
+                declarations,
+                resolveLocalName,
+                sourceMapper,
+                token
+            ).filter(
+                (f) => resolvedInitials.length === 0 || resolvedInitials.some((d) => d.moduleName === f.moduleName)
+            ),
+        ];
     }
 
     collect() {
@@ -262,6 +270,32 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         }
 
         return false;
+    }
+    private static _resolveDeclarations(
+        evaluator: TypeEvaluator,
+        declarations: Declaration[],
+        resolveLocalName: boolean,
+        sourceMapper: SourceMapper | undefined,
+        cancellationToken: CancellationToken
+    ): Declaration[] {
+        throwIfCancellationRequested(cancellationToken);
+        const resolvedDeclarations: Declaration[] = [];
+        declarations.forEach((decl) => {
+            const resolvedDecl = evaluator.resolveAliasDeclaration(decl, resolveLocalName);
+            if (resolvedDecl) {
+                resolvedDeclarations.push(resolvedDecl);
+                if (sourceMapper && isStubFile(resolvedDecl.path)) {
+                    const implDecls = sourceMapper.findDeclarations(resolvedDecl);
+                    for (const implDecl of implDecls) {
+                        if (implDecl && implDecl.path) {
+                            this._addIfUnique(resolvedDeclarations, implDecl);
+                        }
+                    }
+                }
+            }
+        });
+
+        return resolvedDeclarations;
     }
 
     private _addResult(node: NameNode | StringNode) {

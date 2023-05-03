@@ -806,6 +806,28 @@ test('variable overridden test 2', () => {
     }
 });
 
+test('duplicate symbols from reference', () => {
+    const code = `
+// @filename: a.py
+//// class Test:
+////     foo = 1
+////
+// @filename: b.py
+//// class [|T/*marker*/est|]:
+////     foo = 2
+////
+// @filename: ref.py
+//// from .a import *
+//// from .b import *
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    const ranges = state.getRangesByText().get('Test')!;
+
+    verifyReferencesAtPosition(state.program, state.configOptions, 'Test', marker.fileName, marker.position, ranges);
+});
+
 function verifyReferencesAtPosition(
     program: Program,
     configOption: ConfigOptions,
