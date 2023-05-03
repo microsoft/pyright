@@ -50,7 +50,7 @@ declare namespace _ {
         | 24
         | 25;
 
-    type FourSlashCompletionVerificationMode = 'exact' | 'included' | 'excluded';
+    type FourSlashVerificationMode = 'exact' | 'included' | 'excluded';
     interface FourSlashCompletionItem {
         label: string;
         kind: CompletionItemKind | undefined;
@@ -259,12 +259,12 @@ declare namespace _ {
 
         verifyDiagnostics(map?: { [marker: string]: { category: string; message: string | undefined } }): void;
         verifyCodeActions(
+            verifyMode: FourSlashVerificationMode,
             map: {
                 [marker: string]: {
                     codeActions: { title: string; kind: string; command?: Command; edit?: WorkspaceEdit }[];
                 };
-            },
-            verifyCodeActionCount?: boolean
+            }
         ): Promise<any>;
         verifyCommand(command: Command, files: { [filePath: string]: string }): Promise<any>;
         verifyInvokeCodeAction(
@@ -275,7 +275,7 @@ declare namespace _ {
         ): Promise<any>;
         verifyHover(kind: string, map: { [marker: string]: string | null }): void;
         verifyCompletion(
-            verifyMode: FourSlashCompletionVerificationMode,
+            verifyMode: FourSlashVerificationMode,
             docFormat: MarkupKind,
             map: {
                 [marker: string]: {

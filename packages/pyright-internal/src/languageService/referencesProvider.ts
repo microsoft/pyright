@@ -13,9 +13,7 @@ import { CancellationToken, Location, ResultProgressReporter } from 'vscode-lang
 import { Declaration, DeclarationType, isAliasDeclaration } from '../analyzer/declaration';
 import { getNameFromDeclaration } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { SourceFile } from '../analyzer/sourceFile';
-import { isUserCode } from '../analyzer/sourceFileInfoUtils';
-import { SourceMapper } from '../analyzer/sourceMapper';
+import { collectImportedByFiles, isUserCode } from '../analyzer/sourceFileInfoUtils';
 import { Symbol } from '../analyzer/symbol';
 import { isVisibleExternally } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
@@ -23,7 +21,7 @@ import { maxTypeRecursionCount } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { assertNever } from '../common/debug';
-import { ProgramView } from '../common/extensibility';
+import { ProgramView, SourceFile } from '../common/extensibility';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position, TextRange, doesRangeContain } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
@@ -97,28 +95,35 @@ export class ReferencesResult {
 }
 
 export class FindReferencesTreeWalker {
+    private _parseResults: ParseResults | undefined;
+
     constructor(
-        private _parseResults: ParseResults,
+        private _program: ProgramView,
         private _filePath: string,
         private _referencesResult: ReferencesResult,
         private _includeDeclaration: boolean,
-        private _evaluator: TypeEvaluator,
         private _cancellationToken: CancellationToken
-    ) {}
+    ) {
+        this._parseResults = this._program.getParseResults(this._filePath);
+    }
 
-    findReferences(rootNode = this._parseResults.parseTree) {
+    findReferences(rootNode = this._parseResults?.parseTree) {
+        const results: DocumentRange[] = [];
+        if (!this._parseResults) {
+            return results;
+        }
+
         const collector = new DocumentSymbolCollector(
+            this._program,
             this._referencesResult.symbolNames,
             this._referencesResult.declarations,
-            this._evaluator,
             this._cancellationToken,
-            rootNode,
+            rootNode!,
             /* treatModuleInImportAndFromImportSame */ true,
             /* skipUnreachableCode */ false,
             this._referencesResult.useCase
         );
 
-        const results: DocumentRange[] = [];
         for (const result of collector.collect()) {
             // Is it the same symbol?
             if (this._includeDeclaration || result.node !== this._referencesResult.nodeAtOffset) {
@@ -167,14 +172,14 @@ export class ReferencesProvider {
 
         const invokedFromUserFile = isUserCode(sourceFileInfo);
         const referencesResult = ReferencesProvider.getDeclarationForPosition(
-            this._program.getSourceMapper(filePath, this._token),
-            parseResults,
+            this._program,
             filePath,
             position,
-            this._evaluator,
             reporter,
             DocumentSymbolCollectorUseCase.Reference,
-            this._token
+            this._token,
+            // It is temporary fix for release.
+            Array.from(collectImportedByFiles(sourceFileInfo)).map((fileInfo) => fileInfo.sourceFile)
         );
         if (!referencesResult) {
             return;
@@ -253,11 +258,10 @@ export class ReferencesProvider {
         }
 
         const refTreeWalker = new FindReferencesTreeWalker(
-            parseResults,
+            this._program,
             filePath,
             referencesResult,
             includeDeclaration,
-            this._evaluator,
             this._token
         );
 
@@ -265,10 +269,9 @@ export class ReferencesProvider {
     }
 
     static getDeclarationForNode(
-        sourceMapper: SourceMapper,
+        program: ProgramView,
         filePath: string,
         node: NameNode,
-        evaluator: TypeEvaluator,
         reporter: ReferenceCallback | undefined,
         useCase: DocumentSymbolCollectorUseCase,
         token: CancellationToken,
@@ -277,12 +280,11 @@ export class ReferencesProvider {
         throwIfCancellationRequested(token);
 
         const declarations = DocumentSymbolCollector.getDeclarationsForNode(
+            program,
             node,
-            evaluator,
             /* resolveLocalNames */ false,
             useCase,
             token,
-            sourceMapper,
             implicitlyImportedBy
         );
 
@@ -290,8 +292,7 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        const requiresGlobalSearch = isVisibleOutside(evaluator, filePath, node, declarations);
-
+        const requiresGlobalSearch = isVisibleOutside(program.evaluator!, filePath, node, declarations);
         const symbolNames = new Set(declarations.map((d) => getNameFromDeclaration(d)!).filter((n) => !!n));
         symbolNames.add(node.value);
 
@@ -306,17 +307,19 @@ export class ReferencesProvider {
     }
 
     static getDeclarationForPosition(
-        sourceMapper: SourceMapper,
-        parseResults: ParseResults,
+        program: ProgramView,
         filePath: string,
         position: Position,
-        evaluator: TypeEvaluator,
         reporter: ReferenceCallback | undefined,
         useCase: DocumentSymbolCollectorUseCase,
         token: CancellationToken,
         implicitlyImportedBy?: SourceFile[]
     ): ReferencesResult | undefined {
         throwIfCancellationRequested(token);
+        const parseResults = program.getParseResults(filePath);
+        if (!parseResults) {
+            return undefined;
+        }
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
@@ -333,20 +336,7 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        return this.getDeclarationForNode(
-            sourceMapper,
-            filePath,
-            node,
-            evaluator,
-            reporter,
-            useCase,
-            token,
-            implicitlyImportedBy
-        );
-    }
-
-    private get _evaluator(): TypeEvaluator {
-        return this._program.evaluator!;
+        return this.getDeclarationForNode(program, filePath, node, reporter, useCase, token, implicitlyImportedBy);
     }
 }
 

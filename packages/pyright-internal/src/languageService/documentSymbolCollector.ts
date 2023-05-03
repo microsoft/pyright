@@ -29,15 +29,14 @@ import { getModuleNode, getStringNodeValueRange } from '../analyzer/parseTreeUti
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { ScopeType } from '../analyzer/scope';
 import * as ScopeUtils from '../analyzer/scopeUtils';
-import { SourceFile } from '../analyzer/sourceFile';
-import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
+import { isStubFile } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { isInstantiableClass, TypeCategory } from '../analyzer/types';
 import { ClassMemberLookupFlags, lookUpClassMember } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
-import { DeclarationUseCase, Extensions } from '../common/extensibility';
+import { DeclarationUseCase, Extensions, ProgramView, SourceFile } from '../common/extensibility';
 import { TextRange } from '../common/textRange';
 import {
     ClassNode,
@@ -69,9 +68,9 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     private _symbolNames: Set<string> = new Set<string>();
 
     constructor(
+        private _program: ProgramView,
         symbolNames: string[],
         private _declarations: Declaration[],
-        private _evaluator: TypeEvaluator,
         private _cancellationToken: CancellationToken,
         private _startingNode: ParseNode,
         private _treatModuleInImportAndFromImportSame = false,
@@ -103,8 +102,8 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     }
 
     static collectFromNode(
+        program: ProgramView,
         node: NameNode,
-        evaluator: TypeEvaluator,
         cancellationToken: CancellationToken,
         startingNode?: ParseNode,
         treatModuleInImportAndFromImportSame = false,
@@ -112,8 +111,8 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         useCase = DocumentSymbolCollectorUseCase.Reference
     ): CollectionResult[] {
         const declarations = this.getDeclarationsForNode(
+            program,
             node,
-            evaluator,
             /* resolveLocalName */ true,
             useCase,
             cancellationToken
@@ -125,9 +124,9 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         }
 
         const collector = new DocumentSymbolCollector(
+            program,
             [node.value],
             declarations,
-            evaluator,
             cancellationToken,
             startingNode,
             treatModuleInImportAndFromImportSame,
@@ -139,15 +138,19 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     }
 
     static getDeclarationsForNode(
+        program: ProgramView,
         node: NameNode,
-        evaluator: TypeEvaluator,
         resolveLocalName: boolean,
         useCase: DocumentSymbolCollectorUseCase,
         token: CancellationToken,
-        sourceMapper?: SourceMapper,
         implicitlyImportedBy?: SourceFile[]
     ): Declaration[] {
         throwIfCancellationRequested(token);
+
+        const evaluator = program.evaluator;
+        if (!evaluator) {
+            return [];
+        }
 
         const declarations = this._getDeclarationsForNode(
             node,
@@ -158,7 +161,8 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         );
 
         // Add declarations from chained source files
-        let builtinsScope = AnalyzerNodeInfo.getFileInfo(node).builtinsScope;
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        let builtinsScope = fileInfo.builtinsScope;
         while (builtinsScope && builtinsScope.type === ScopeType.Module) {
             const symbol = builtinsScope?.lookUpSymbol(node.value);
             if (symbol) {
@@ -170,7 +174,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
 
         // Add declarations from files that implicitly import the target file.
         implicitlyImportedBy?.forEach((implicitImport) => {
-            const parseTree = implicitImport.getParseResults()?.parseTree;
+            const parseTree = program.getParseResults(implicitImport.getFilePath())?.parseTree;
             if (parseTree) {
                 const scope = AnalyzerNodeInfo.getScope(parseTree);
                 const symbol = scope?.lookUpSymbol(node.value);
@@ -181,6 +185,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         });
 
         const resolvedDeclarations: Declaration[] = [];
+        const sourceMapper = program.getSourceMapper(fileInfo.filePath, token);
         declarations.forEach((decl) => {
             const resolvedDecl = evaluator.resolveAliasDeclaration(decl, resolveLocalName);
             if (resolvedDecl) {
@@ -262,6 +267,10 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         }
 
         return false;
+    }
+
+    private get _evaluator(): TypeEvaluator {
+        return this._program.evaluator!;
     }
 
     private _addResult(node: NameNode | StringNode) {

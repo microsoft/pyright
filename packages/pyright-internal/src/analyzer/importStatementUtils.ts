@@ -13,7 +13,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { addIfUnique, createMapFromItems } from '../common/collectionUtils';
 import { TextEditAction } from '../common/editAction';
-import { FileSystem } from '../common/fileSystem';
+import { ReadOnlyFileSystem } from '../common/fileSystem';
 import {
     getDirectoryPath,
     getFileName,
@@ -808,7 +808,7 @@ function getConsecutiveNumberPairs(indices: number[]) {
 }
 
 export function getRelativeModuleName(
-    fs: FileSystem,
+    fs: ReadOnlyFileSystem,
     sourcePath: string,
     targetPath: string,
     ignoreFolderStructure = false,

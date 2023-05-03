@@ -39,8 +39,8 @@ export interface ProgramExtension {
 
 export interface SourceFile {
     // See whether we can convert these to regular properties.
-    getFilePath(): string;
     isStubFile(): boolean;
+    getFilePath(): string;
     getFileContent(): string | undefined;
 }
 
@@ -89,6 +89,7 @@ export interface ProgramView {
     // See whether we can get rid of these 2 methods
     getBoundSourceFileInfo(file: string, content?: string, force?: boolean): prog.SourceFileInfo | undefined;
     handleMemoryHighUsage(): void;
+    clone(): prog.Program;
 }
 
 // Mutable wrapper around a program. Allows the FG thread to forward this request to the BG thread

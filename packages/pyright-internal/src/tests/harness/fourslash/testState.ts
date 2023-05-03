@@ -92,6 +92,8 @@ import {
 import { TestFeatures, TestLanguageService } from './testLanguageService';
 import { createVfsInfoFromFourSlashData, getMarkerByName, getMarkerName, getMarkerNames } from './testStateUtils';
 import { verifyWorkspaceEdit } from './workspaceEditTestUtils';
+import { RenameProvider } from '../../../languageService/renameProvider';
+import { convertToWorkspaceEdit } from '../../../common/workspaceEditUtils';
 
 export interface TextChange {
     span: TextRange;
@@ -652,12 +654,12 @@ export class TestState {
     }
 
     async verifyCodeActions(
+        verifyMode: _.FourSlashVerificationMode,
         map: {
             [marker: string]: {
                 codeActions: { title: string; kind: string; command?: Command; edit?: WorkspaceEdit[] }[];
             };
-        },
-        verifyCodeActionCount?: boolean
+        }
     ): Promise<any> {
         // make sure we don't use cache built from other tests
         this.workspace.service.invalidateAndForceReanalysis();
@@ -670,7 +672,7 @@ export class TestState {
             }
 
             const codeActions = await this._getCodeActions(range);
-            if (verifyCodeActionCount) {
+            if (verifyMode === 'exact') {
                 if (codeActions.length !== map[name].codeActions.length) {
                     this.raiseError(
                         `doesn't contain expected result: ${stringify(map[name])}, actual: ${stringify(codeActions)}`
@@ -702,12 +704,14 @@ export class TestState {
                     return (
                         a.title === expected.title &&
                         a.kind! === expected.kind &&
-                        this._deepEqual(actualCommand, expectedCommand) &&
-                        this._deepEqual(actualEdit, expected.edit)
+                        (expectedCommand ? this._deepEqual(actualCommand, expectedCommand) : true) &&
+                        (expected.edit ? this._deepEqual(actualEdit, expected.edit) : true)
                     );
                 });
 
-                if (matches.length !== 1) {
+                if (verifyMode === 'excluded' && matches.length > 0) {
+                    this.raiseError(`unexpected result: ${stringify(map[name])}`);
+                } else if (verifyMode !== 'excluded' && matches.length !== 1) {
                     this.raiseError(
                         `doesn't contain expected result: ${stringify(expected)}, actual: ${stringify(codeActions)}`
                     );
@@ -838,7 +842,6 @@ export class TestState {
                 range.fileName,
                 rangePos.start,
                 kind,
-                false,
                 CancellationToken.None
             );
             const actual = provider.getHover();
@@ -908,7 +911,7 @@ export class TestState {
     }
 
     async verifyCompletion(
-        verifyMode: _.FourSlashCompletionVerificationMode,
+        verifyMode: _.FourSlashVerificationMode,
         docFormat: MarkupKind,
         map: {
             [marker: string]: {
@@ -1435,20 +1438,15 @@ export class TestState {
             const expected = map[name];
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
-            const actual = this.program.renameSymbolAtPosition(
-                fileName,
-                position,
+            const actual = new RenameProvider(this.program, fileName, position, CancellationToken.None).renameSymbol(
                 expected.newName,
-                /* isDefaultWorkspace */ false,
-                /* allowModuleRename */ false,
-                CancellationToken.None
+                /* isDefaultWorkspace */ false
             );
 
-            assert.equal(actual?.edits.length ?? 0, expected.changes.length);
-
-            for (const c of expected.changes) {
-                assert.equal(actual?.edits.filter((e) => this._deepEqual(e, c)).length, 1);
-            }
+            verifyWorkspaceEdit(
+                convertToWorkspaceEdit(this.program.fileSystem, { edits: expected.changes, fileOperations: [] }),
+                actual ?? { documentChanges: [] }
+            );
         }
     }
 

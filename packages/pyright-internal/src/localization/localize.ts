@@ -1379,19 +1379,4 @@ export namespace Localizer {
                 getRawString('CodeAction.renameShadowedFile')
             );
     }
-
-    export namespace Refactoring {
-        export const moveFile = () =>
-            new ParameterizedString<{ oldModuleName: string; newModuleName: string }>(
-                getRawString('Refactoring.moveFile')
-            );
-        export const moveFileLabel = () =>
-            new ParameterizedString<{ oldModuleName: string; newModuleName: string }>(
-                getRawString('Refactoring.moveFileLabel')
-            );
-        export const moveFileDescription = () =>
-            new ParameterizedString<{ oldModuleName: string; newModuleName: string }>(
-                getRawString('Refactoring.moveFileDescription')
-            );
-    }
 }

@@ -62,7 +62,7 @@ export class CallHierarchyProvider {
             return null;
         }
 
-        const referencesResult = this._getDeclarationForPosition();
+        const referencesResult = this._getDeclaration();
         if (!referencesResult || referencesResult.declarations.length === 0) {
             return null;
         }
@@ -112,7 +112,7 @@ export class CallHierarchyProvider {
             return null;
         }
 
-        const referencesResult = this._getDeclarationForPosition();
+        const referencesResult = this._getDeclaration();
         if (!referencesResult || referencesResult.declarations.length === 0) {
             return null;
         }
@@ -164,7 +164,7 @@ export class CallHierarchyProvider {
             return null;
         }
 
-        const referencesResult = this._getDeclarationForPosition();
+        const referencesResult = this._getDeclaration();
         if (!referencesResult || referencesResult.declarations.length === 0) {
             return null;
         }
@@ -296,13 +296,11 @@ export class CallHierarchyProvider {
         return incomingCalls.length > 0 ? incomingCalls : undefined;
     }
 
-    private _getDeclarationForPosition(): ReferencesResult | undefined {
+    private _getDeclaration(): ReferencesResult | undefined {
         return ReferencesProvider.getDeclarationForPosition(
-            this._sourceMapper,
-            this._parseResults!,
+            this._program,
             this._filePath,
             this._position,
-            this._evaluator,
             /* reporter */ undefined,
             DocumentSymbolCollectorUseCase.Reference,
             this._token

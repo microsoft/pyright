@@ -16,8 +16,8 @@
     },
     "dependencies": {
         "@iarna/toml": "2.2.5",
-        "@yarnpkg/fslib": "2.10.1",
-        "@yarnpkg/libzip": "2.2.4",
+        "@yarnpkg/fslib": "2.10.3",
+        "@yarnpkg/libzip": "2.3.0",
         "chalk": "^4.1.2",
         "chokidar": "^3.5.3",
         "command-line-args": "^5.2.1",
@@ -28,7 +28,7 @@
         "typescript-char": "^0.0.0",
         "vscode-jsonrpc": "8.1.0",
         "vscode-languageserver": "8.1.0",
-        "vscode-languageserver-textdocument": "^1.0.9",
+        "vscode-languageserver-textdocument": "^1.0.10",
         "vscode-languageserver-types": "3.17.3",
         "vscode-uri": "^3.0.7"
     },
