@@ -251,6 +251,7 @@ import {
     combineSameSizedTuples,
     combineVariances,
     computeMroLinearization,
+    containsAnyOrUnknown,
     containsLiteralType,
     containsUnknown,
     convertParamSpecValueToType,
@@ -8279,10 +8280,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         for (let dedupedIndex = 0; dedupedIndex < dedupedMatchResults.length; dedupedIndex++) {
                             if (assignType(dedupedMatchResults[dedupedIndex], result.returnType)) {
-                                isSubtypeSubsumed = true;
+                                if (!containsAnyOrUnknown(dedupedMatchResults[dedupedIndex])) {
+                                    isSubtypeSubsumed = true;
+                                }
                                 break;
                             } else if (assignType(result.returnType, dedupedMatchResults[dedupedIndex])) {
-                                dedupedMatchResults[dedupedIndex] = NeverType.createNever();
+                                if (!containsAnyOrUnknown(result.returnType)) {
+                                    dedupedMatchResults[dedupedIndex] = NeverType.createNever();
+                                }
                                 break;
                             }
                         }

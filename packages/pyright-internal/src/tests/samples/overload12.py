@@ -55,7 +55,7 @@ def func2(a: Any):
     reveal_type(v2, expected_text="Any")
 
     v3 = overload2(a)
-    reveal_type(v3, expected_text="Any")
+    reveal_type(v3, expected_text="Unknown")
 
 
 @overload

@@ -2058,6 +2058,20 @@ export function getMembersForModule(moduleType: ModuleType, symbolTable: SymbolT
     });
 }
 
+// Determines if the type is an Any or Unknown or a union that
+// contains one of these. It does not look at type arguments.
+export function containsAnyOrUnknown(type: Type) {
+    let foundAnyOrUnknown = false;
+
+    doForEachSubtype(type, (subtype) => {
+        if (isAnyOrUnknown(subtype)) {
+            foundAnyOrUnknown = true;
+        }
+    });
+
+    return foundAnyOrUnknown;
+}
+
 // Determines if the type is an Unknown or a union that contains an Unknown.
 // It does not look at type arguments.
 export function containsUnknown(type: Type) {
