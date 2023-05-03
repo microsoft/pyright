@@ -11,13 +11,14 @@ import { WorkspaceEdit } from 'vscode-languageserver-protocol';
 
 import { createMapFromItems } from '../common/collectionUtils';
 import { assertNever } from '../common/debug';
-import { FileEditAction, FileEditActions } from '../common/editAction';
+import { FileEditAction, FileEditActions, FileOperations } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
 import { convertUriToPath, getDirectoryPath, isFile } from '../common/pathUtils';
 import { rangesAreEqual } from '../common/textRange';
 import { applyTextEditsToString } from '../common/workspaceEditUtils';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { TestState } from './harness/fourslash/testState';
+import { CreateFile, DeleteFile, RenameFile, TextDocumentEdit } from 'vscode-languageserver';
 
 export function convertFileEditActionToString(edit: FileEditAction): string {
     return `'${edit.replacementText.replace(/\n/g, '!n!')}'@'${edit.filePath}:(${edit.range.start.line},${
@@ -57,7 +58,7 @@ export function verifyEdits(
     }
 }
 
-export function applyFileOperations(state: TestState, fileEditActions: FileEditActions) {
+export function applyFileEditActions(state: TestState, fileEditActions: FileEditActions) {
     // Apply changes
     // First, apply text changes
     const editsPerFileMap = createMapFromItems(fileEditActions.edits, (e) => e.filePath);
@@ -128,13 +129,39 @@ function _applyEdits(state: TestState, filePath: string, edits: FileEditAction[]
     return { version: sourceFile.getClientVersion(), text: current };
 }
 
-export function convertWorkspaceEditToFileEditActions(fs: FileSystem, edit: WorkspaceEdit): FileEditAction[] {
-    const actions: FileEditAction[] = [];
+export function convertWorkspaceEditToFileEditActions(fs: FileSystem, edit: WorkspaceEdit): FileEditActions {
+    const edits: FileEditAction[] = [];
+    const fileOperations: FileOperations[] = [];
 
-    for (const kv of Object.entries(edit.changes!)) {
-        const filePath = convertUriToPath(fs, kv[0]);
-        kv[1].forEach((e) => actions.push({ filePath, range: e.range, replacementText: e.newText }));
+    if (edit.changes) {
+        for (const kv of Object.entries(edit.changes)) {
+            const filePath = convertUriToPath(fs, kv[0]);
+            kv[1].forEach((e) => edits.push({ filePath, range: e.range, replacementText: e.newText }));
+        }
     }
 
-    return actions;
+    if (edit.documentChanges) {
+        for (const change of edit.documentChanges) {
+            if (TextDocumentEdit.is(change)) {
+                for (const e of change.edits) {
+                    edits.push({
+                        filePath: convertUriToPath(fs, change.textDocument.uri),
+                        range: e.range,
+                        replacementText: e.newText,
+                    });
+                }
+            } else if (CreateFile.is(change)) {
+                fileOperations.push({ kind: 'create', filePath: convertUriToPath(fs, change.uri) });
+            } else if (RenameFile.is(change)) {
+                fileOperations.push({
+                    kind: 'rename',
+                    oldFilePath: convertUriToPath(fs, change.oldUri),
+                    newFilePath: convertUriToPath(fs, change.newUri),
+                });
+            } else if (DeleteFile.is(change)) {
+                fileOperations.push({ kind: 'delete', filePath: convertUriToPath(fs, change.uri) });
+            }
+        }
+    }
+    return { edits, fileOperations: fileOperations };
 }

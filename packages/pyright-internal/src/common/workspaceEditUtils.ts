@@ -24,7 +24,7 @@ import { convertPathToUri, convertUriToPath } from '../common/pathUtils';
 import { createMapFromItems } from './collectionUtils';
 import { isArray } from './core';
 import { assertNever } from './debug';
-import { FileSystem } from './fileSystem';
+import { ReadOnlyFileSystem } from './fileSystem';
 import { convertRangeToTextRange, convertTextRangeToRange } from './positionUtils';
 import { TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
@@ -40,10 +40,10 @@ export function convertToFileTextEdits(filePath: string, editActions: TextEditAc
     return editActions.map((a) => ({ filePath, ...a }));
 }
 
-export function convertToWorkspaceEdit(fs: FileSystem, edits: FileEditAction[]): WorkspaceEdit;
-export function convertToWorkspaceEdit(fs: FileSystem, edits: FileEditActions): WorkspaceEdit;
+export function convertToWorkspaceEdit(fs: ReadOnlyFileSystem, edits: FileEditAction[]): WorkspaceEdit;
+export function convertToWorkspaceEdit(fs: ReadOnlyFileSystem, edits: FileEditActions): WorkspaceEdit;
 export function convertToWorkspaceEdit(
-    fs: FileSystem,
+    fs: ReadOnlyFileSystem,
     edits: FileEditActions,
     changeAnnotations: {
         [id: string]: ChangeAnnotation;
@@ -51,7 +51,7 @@ export function convertToWorkspaceEdit(
     defaultAnnotationId: string
 ): WorkspaceEdit;
 export function convertToWorkspaceEdit(
-    fs: FileSystem,
+    fs: ReadOnlyFileSystem,
     edits: FileEditActions | FileEditAction[],
     changeAnnotations?: {
         [id: string]: ChangeAnnotation;
@@ -65,7 +65,7 @@ export function convertToWorkspaceEdit(
     return _convertToWorkspaceEditWithDocumentChanges(fs, edits, changeAnnotations, defaultAnnotationId);
 }
 
-export function appendToWorkspaceEdit(fs: FileSystem, edits: FileEditAction[], workspaceEdit: WorkspaceEdit) {
+export function appendToWorkspaceEdit(fs: ReadOnlyFileSystem, edits: FileEditAction[], workspaceEdit: WorkspaceEdit) {
     edits.forEach((edit) => {
         const uri = convertPathToUri(fs, edit.filePath);
         workspaceEdit.changes![uri] = workspaceEdit.changes![uri] || [];
@@ -197,7 +197,7 @@ export function generateWorkspaceEdit(
     return edits;
 }
 
-function _convertToWorkspaceEditWithChanges(fs: FileSystem, edits: FileEditAction[]) {
+function _convertToWorkspaceEditWithChanges(fs: ReadOnlyFileSystem, edits: FileEditAction[]) {
     const workspaceEdit: WorkspaceEdit = {
         changes: {},
     };
@@ -207,7 +207,7 @@ function _convertToWorkspaceEditWithChanges(fs: FileSystem, edits: FileEditActio
 }
 
 function _convertToWorkspaceEditWithDocumentChanges(
-    fs: FileSystem,
+    fs: ReadOnlyFileSystem,
     editActions: FileEditActions,
     changeAnnotations?: {
         [id: string]: ChangeAnnotation;

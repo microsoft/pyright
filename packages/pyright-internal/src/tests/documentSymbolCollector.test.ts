@@ -819,20 +819,19 @@ function verifyReferencesAtPosition(
 
     const node = findNodeByOffset(sourceFile.getParseResults()!.parseTree, position);
     const decls = DocumentSymbolCollector.getDeclarationsForNode(
+        program,
         node as NameNode,
-        program.evaluator!,
         /* resolveLocalName */ true,
         DocumentSymbolCollectorUseCase.Reference,
-        CancellationToken.None,
-        program.test_createSourceMapper(configOption.findExecEnvironment(fileName))
+        CancellationToken.None
     );
 
     const rangesByFile = createMapFromItems(ranges, (r) => r.fileName);
     for (const rangeFileName of rangesByFile.keys()) {
         const collector = new DocumentSymbolCollector(
+            program,
             isArray(symbolNames) ? symbolNames : [symbolNames],
             decls,
-            program.evaluator!,
             CancellationToken.None,
             program.getBoundSourceFile(rangeFileName)!.getParseResults()!.parseTree,
             /* treatModuleInImportAndFromImportSame */ true,

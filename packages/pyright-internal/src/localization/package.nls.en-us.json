@@ -695,10 +695,5 @@
         "findingReferences": "Finding references",
         "organizeImports": "Organize Imports",
         "renameShadowedFile": "Rename \"{oldFile}\" to \"{newFile}\""
-    },
-    "Refactoring": {
-        "moveFile": "Do you want to update all import references for \"{oldModuleName}\" to \"{newModuleName}\"?",
-        "moveFileLabel": "Update all import references for \"{oldModuleName}\" to \"{newModuleName}\"?",
-        "moveFileDescription": "Update all import references for \"{oldModuleName}\" to \"{newModuleName}\"?"
     }
 }

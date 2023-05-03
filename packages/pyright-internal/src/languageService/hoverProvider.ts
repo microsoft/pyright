@@ -43,7 +43,6 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { assertNever, fail } from '../common/debug';
 import { DeclarationUseCase, Extensions, ProgramView } from '../common/extensibility';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
-import { hashString } from '../common/stringUtils';
 import { Position, Range, TextRange } from '../common/textRange';
 import { ExpressionNode, NameNode, ParseNode, ParseNodeType, StringNode, isExpressionNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
@@ -63,15 +62,38 @@ export class HoverProvider {
         private _filePath: string,
         private _position: Position,
         private _format: MarkupKind,
-        private _supportTelemetry: boolean,
         private _token: CancellationToken
     ) {
         this._parseResults = this._program.getParseResults(this._filePath);
         this._sourceMapper = this._program.getSourceMapper(this._filePath, this._token, /* mapCompiled */ true);
     }
 
-    getHover(): Hover | undefined {
+    getHover(): Hover | null {
         return this._convertHoverResults(this._getHoverResult());
+    }
+
+    static getPrimaryDeclaration(declarations: Declaration[]) {
+        // In most cases, it's best to treat the first declaration as the
+        // "primary". This works well for properties that have setters
+        // which often have doc strings on the getter but not the setter.
+        // The one case where using the first declaration doesn't work as
+        // well is the case where an import statement within an __init__.py
+        // file uses the form "from .A import A". In this case, if we use
+        // the first declaration, it will show up as a module rather than
+        // the imported symbol type.
+        const primaryDeclaration = declarations[0];
+        if (primaryDeclaration.type === DeclarationType.Alias && declarations.length > 1) {
+            return declarations[1];
+        } else if (
+            primaryDeclaration.type === DeclarationType.Variable &&
+            declarations.length > 1 &&
+            primaryDeclaration.isDefinedBySlots
+        ) {
+            // Slots cannot have docstrings, so pick the secondary.
+            return declarations[1];
+        }
+
+        return primaryDeclaration;
     }
 
     private get _evaluator(): TypeEvaluator {
@@ -82,21 +104,21 @@ export class HoverProvider {
         return this._program.configOptions.functionSignatureDisplay;
     }
 
-    private _getHoverResult(): HoverResults | undefined {
+    private _getHoverResult(): HoverResults | null {
         throwIfCancellationRequested(this._token);
 
         if (!this._parseResults) {
-            return undefined;
+            return null;
         }
 
         const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
-            return undefined;
+            return null;
         }
 
         const node = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, offset);
         if (node === undefined) {
-            return undefined;
+            return null;
         }
 
         const results: HoverResults = {
@@ -124,32 +146,10 @@ export class HoverProvider {
             if (declarations.length === 0) {
                 declarations = this._evaluator.getDeclarationsForNameNode(node);
             }
+
             if (declarations && declarations.length > 0) {
-                // In most cases, it's best to treat the first declaration as the
-                // "primary". This works well for properties that have setters
-                // which often have doc strings on the getter but not the setter.
-                // The one case where using the first declaration doesn't work as
-                // well is the case where an import statement within an __init__.py
-                // file uses the form "from .A import A". In this case, if we use
-                // the first declaration, it will show up as a module rather than
-                // the imported symbol type.
-                let primaryDeclaration = declarations[0];
-                if (primaryDeclaration.type === DeclarationType.Alias && declarations.length > 1) {
-                    primaryDeclaration = declarations[1];
-                } else if (
-                    primaryDeclaration.type === DeclarationType.Variable &&
-                    declarations.length > 1 &&
-                    primaryDeclaration.isDefinedBySlots
-                ) {
-                    // Slots cannot have docstrings, so pick the secondary.
-                    primaryDeclaration = declarations[1];
-                }
-
+                const primaryDeclaration = HoverProvider.getPrimaryDeclaration(declarations);
                 this._addResultsForDeclaration(results.parts, primaryDeclaration, node);
-
-                // Add the lastKnownModule for this declaration. We'll use this
-                // in telemetry for hover.
-                results.lastKnownModule = primaryDeclaration.moduleName;
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
                 // this if it's part of a module name, since a module name part with no declaration
@@ -193,7 +193,7 @@ export class HoverProvider {
             }
         }
 
-        return results.parts.length > 0 ? results : undefined;
+        return results.parts.length > 0 ? results : null;
     }
 
     private _addResultsForDeclaration(parts: HoverTextPart[], declaration: Declaration, node: NameNode): void {
@@ -637,12 +637,12 @@ export class HoverProvider {
         });
     }
 
-    private _convertHoverResults(hoverResults: HoverResults | undefined): Hover | undefined {
+    private _convertHoverResults(hoverResults: HoverResults | null): Hover | null {
         if (!hoverResults) {
-            return undefined;
+            return null;
         }
 
-        let markupString = hoverResults.parts
+        const markupString = hoverResults.parts
             .map((part) => {
                 if (part.python) {
                     if (this._format === MarkupKind.Markdown) {
@@ -657,12 +657,6 @@ export class HoverProvider {
             })
             .join('')
             .trimEnd();
-
-        // If we have a lastKnownModule in the hover results, stick in a comment with
-        // the hashed module name. This is used by the other side to send telemetry.
-        if (hoverResults.lastKnownModule && this._format === MarkupKind.Markdown && this._supportTelemetry) {
-            markupString += `\n<!--moduleHash:${hashString(hoverResults.lastKnownModule)}-->`;
-        }
 
         return {
             contents: {
@@ -681,6 +675,5 @@ interface HoverTextPart {
 
 interface HoverResults {
     parts: HoverTextPart[];
-    lastKnownModule?: string;
     range: Range;
 }

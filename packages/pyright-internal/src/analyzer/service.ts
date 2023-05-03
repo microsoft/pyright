@@ -23,7 +23,7 @@ import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, LogLevel, StandardConsole, log } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
-import { FileEditAction, FileEditActions } from '../common/editAction';
+import { FileEditAction } from '../common/editAction';
 import { Extensions, ProgramView } from '../common/extensibility';
 import { FileSystem, FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileSystem';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
@@ -49,7 +49,7 @@ import {
 } from '../common/pathUtils';
 import { Position, Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
-import { AutoImportOptions, ImportFormat } from '../languageService/autoImporter';
+import { AutoImportOptions } from '../languageService/autoImporter';
 import { AbbreviationMap, CompletionOptions, CompletionResultsList } from '../languageService/completionProvider';
 import { WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { AnalysisCompleteCallback } from './analysis';
@@ -431,54 +431,6 @@ export class AnalyzerService {
             options,
             nameMap,
             this._backgroundAnalysisProgram.getIndexing(filePath),
-            token
-        );
-    }
-
-    moveSymbolAtPosition(
-        filePath: string,
-        newFilePath: string,
-        position: Position,
-        options: { importFormat: ImportFormat },
-        token: CancellationToken
-    ): FileEditActions | undefined {
-        return this._program.moveSymbolAtPosition(filePath, newFilePath, position, options, token);
-    }
-
-    renameModule(filePath: string, newFilePath: string, token: CancellationToken): FileEditActions | undefined {
-        return this._program.renameModule(filePath, newFilePath, token);
-    }
-
-    canRenameSymbolAtPosition(
-        filePath: string,
-        position: Position,
-        isDefaultWorkspace: boolean,
-        allowModuleRename: boolean,
-        token: CancellationToken
-    ) {
-        return this._program.canRenameSymbolAtPosition(
-            filePath,
-            position,
-            isDefaultWorkspace,
-            allowModuleRename,
-            token
-        );
-    }
-
-    renameSymbolAtPosition(
-        filePath: string,
-        position: Position,
-        newName: string,
-        isDefaultWorkspace: boolean,
-        allowModuleRename: boolean,
-        token: CancellationToken
-    ): FileEditActions | undefined {
-        return this._program.renameSymbolAtPosition(
-            filePath,
-            position,
-            newName,
-            isDefaultWorkspace,
-            allowModuleRename,
             token
         );
     }

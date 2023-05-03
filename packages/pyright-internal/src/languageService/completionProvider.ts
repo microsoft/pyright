@@ -32,7 +32,7 @@ import {
 } from '../analyzer/declaration';
 import { isDefinedInFile } from '../analyzer/declarationUtils';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
-import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
+import { ImportedModuleDescriptor } from '../analyzer/importResolver';
 import { isTypedKwargs } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
@@ -80,7 +80,7 @@ import {
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { addIfNotNull, appendArray } from '../common/collectionUtils';
-import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { ExecutionEnvironment } from '../common/configOptions';
 import * as debug from '../common/debug';
 import { fail } from '../common/debug';
 import { fromLSPAny, toLSPAny } from '../common/lspUtils';
@@ -127,6 +127,7 @@ import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { IndexResults } from './documentSymbolProvider';
 import { ImportAdder, ImportData } from './importAdder';
 import { getAutoImportText, getDocumentationPartsForTypeAndDecl } from './tooltipUtils';
+import { ProgramView } from '../common/extensibility';
 
 namespace Keywords {
     const base: string[] = [
@@ -337,22 +338,27 @@ export class CompletionProvider {
     // Indicate whether invocation is inside of string literal.
     private _insideStringLiteral: StringToken | undefined = undefined;
 
+    private readonly _parseResults: ParseResults;
+    private readonly _sourceMapper: SourceMapper;
+
     constructor(
+        private _program: ProgramView,
         private _workspacePath: string,
-        private _parseResults: ParseResults,
-        private _fileContents: string,
-        private _importResolver: ImportResolver,
-        private _position: Position,
         private _filePath: string,
-        private _configOptions: ConfigOptions,
+        private _position: Position,
         private _importLookup: ImportLookup,
-        private _evaluator: TypeEvaluator,
         private _options: CompletionOptions,
-        private _sourceMapper: SourceMapper,
         private _autoImportMaps: AutoImportMaps,
         private _cancellationToken: CancellationToken
     ) {
         this._execEnv = this._configOptions.findExecEnvironment(this._filePath);
+
+        this._parseResults = this._program.getParseResults(this._filePath)!;
+        this._sourceMapper = this._program.getSourceMapper(
+            this._filePath,
+            this._cancellationToken,
+            /* mapCompiled */ true
+        );
     }
 
     getCompletionsForPosition(): CompletionResults | undefined {
@@ -660,7 +666,23 @@ export class CompletionProvider {
         }
     }
 
-    // This method will return false if it wants
+    private get _importResolver() {
+        return this._program.importResolver;
+    }
+
+    private get _configOptions() {
+        return this._program.configOptions;
+    }
+
+    private get _evaluator() {
+        return this._program.evaluator!;
+    }
+
+    private get _fileContents() {
+        return this._parseResults?.text ?? '';
+    }
+
+    // This method will return false if it wants1
     // caller to walk up the tree. it will return
     // CompletionResults or undefined if it wants caller
     // to return.
@@ -2147,8 +2169,8 @@ export class CompletionProvider {
         }
 
         const results = DocumentSymbolCollector.collectFromNode(
+            this._program,
             indexNode.baseExpression,
-            this._evaluator,
             this._cancellationToken,
             startingNode
         );

@@ -6,20 +6,14 @@
  * Functions that operate on SourceFileInfo objects.
  */
 
-import { SourceFileInfo } from './program';
+import { SourceFileInfo } from '../common/extensibility';
 
-interface FileInfo {
-    isTypeshedFile: boolean;
-    isThirdPartyImport: boolean;
-    isTracked: boolean;
-}
-
-export function isUserCode(fileInfo: FileInfo | undefined) {
+export function isUserCode(fileInfo: SourceFileInfo | undefined) {
     return !!fileInfo && fileInfo.isTracked && !fileInfo.isThirdPartyImport && !fileInfo.isTypeshedFile;
 }
 
-export function collectImportedByFiles(fileInfo: SourceFileInfo): Set<SourceFileInfo> {
-    const importedByFiles = new Set<SourceFileInfo>();
+export function collectImportedByFiles<T extends SourceFileInfo>(fileInfo: T): Set<T> {
+    const importedByFiles = new Set<T>();
     _collectImportedByFiles(fileInfo, importedByFiles);
     return importedByFiles;
 }

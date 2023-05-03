@@ -108,7 +108,6 @@ import { ProgressReportTracker, ProgressReporter } from './common/progressReport
 import { hashString } from './common/stringUtils';
 import { DocumentRange, Position, Range } from './common/textRange';
 import { UriParser } from './common/uriParser';
-import { convertToWorkspaceEdit } from './common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { ImportFormat } from './languageService/autoImporter';
 import { CallHierarchyProvider } from './languageService/callHierarchyProvider';
@@ -123,6 +122,7 @@ import { SignatureHelpProvider } from './languageService/signatureHelpProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
 import { PyrightFileSystem } from './pyrightFileSystem';
 import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
+import { RenameProvider } from './languageService/renameProvider';
 
 export interface ServerSettings {
     venvPath?: string | undefined;
@@ -517,10 +517,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     ) {
         AnalyzerServiceExecutor.runWithOptions(this.rootPath, workspace, serverSettings, typeStubTargetImportName);
         workspace.searchPathsToWatch = workspace.service.librarySearchPathsToWatch ?? [];
-    }
-
-    protected get allowModuleRename() {
-        return false;
     }
 
     protected abstract executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
@@ -956,14 +952,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         const workspace = await this.getWorkspaceForFile(filePath);
 
         return workspace.service.run((program) => {
-            return new HoverProvider(
-                program,
-                filePath,
-                position,
-                this.client.hoverContentFormat,
-                !!this.serverOptions.supportsTelemetry,
-                token
-            ).getHover();
+            return new HoverProvider(program, filePath, position, this.client.hoverContentFormat, token).getHover();
         }, token);
     }
 
@@ -1086,15 +1075,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return null;
         }
 
-        const result = workspace.service.canRenameSymbolAtPosition(
-            filePath,
-            position,
-            workspace.kinds.includes(WellKnownWorkspaceKinds.Default),
-            this.allowModuleRename,
-            token
-        );
-
-        return result?.range ?? null;
+        return workspace.service.run((program) => {
+            return new RenameProvider(program, filePath, position, token).canRenameSymbol(
+                workspace.kinds.includes(WellKnownWorkspaceKinds.Default)
+            );
+        }, token);
     }
 
     protected async onRenameRequest(
@@ -1108,20 +1093,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return;
         }
 
-        const editActions = workspace.service.renameSymbolAtPosition(
-            filePath,
-            position,
-            params.newName,
-            workspace.kinds.includes(WellKnownWorkspaceKinds.Default),
-            this.allowModuleRename,
-            token
-        );
-
-        if (!editActions) {
-            return undefined;
-        }
-
-        return convertToWorkspaceEdit(workspace.service.fs, editActions);
+        return workspace.service.run((program) => {
+            return new RenameProvider(program, filePath, position, token).renameSymbol(
+                params.newName,
+                workspace.kinds.includes(WellKnownWorkspaceKinds.Default)
+            );
+        }, token);
     }
 
     protected async onPrepare(

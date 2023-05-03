@@ -18,7 +18,7 @@ import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticCategory, TaskListToken, convertLevelToCategory } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
-import { Extensions } from '../common/extensibility';
+import { Extensions, ProgramView } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { LogTracker } from '../common/logTracker';
 import { fromLSPAny } from '../common/lspUtils';
@@ -1020,14 +1020,11 @@ export class SourceFile {
     }
 
     getCompletionsForPosition(
+        program: ProgramView,
         position: Position,
         workspacePath: string,
-        configOptions: ConfigOptions,
-        importResolver: ImportResolver,
         importLookup: ImportLookup,
-        evaluator: TypeEvaluator,
         options: CompletionOptions,
-        sourceMapper: SourceMapper,
         nameMap: AbbreviationMap | undefined,
         libraryMap: Map<string, IndexResults> | undefined,
         moduleSymbolsCallback: () => ModuleSymbolMap,
@@ -1046,17 +1043,12 @@ export class SourceFile {
         }
 
         const completionProvider = new CompletionProvider(
+            program,
             workspacePath,
-            this._writableData.parseResults,
-            fileContents,
-            importResolver,
-            position,
             this._filePath,
-            configOptions,
+            position,
             importLookup,
-            evaluator,
             options,
-            sourceMapper,
             {
                 nameMap,
                 libraryMap,
@@ -1069,12 +1061,9 @@ export class SourceFile {
     }
 
     resolveCompletionItem(
-        configOptions: ConfigOptions,
-        importResolver: ImportResolver,
+        program: ProgramView,
         importLookup: ImportLookup,
-        evaluator: TypeEvaluator,
         options: CompletionOptions,
-        sourceMapper: SourceMapper,
         nameMap: AbbreviationMap | undefined,
         libraryMap: Map<string, IndexResults> | undefined,
         moduleSymbolsCallback: () => ModuleSymbolMap,
@@ -1088,17 +1077,12 @@ export class SourceFile {
 
         const completionData = fromLSPAny<CompletionItemData>(completionItem.data);
         const completionProvider = new CompletionProvider(
+            program,
             completionData.workspacePath,
-            this._writableData.parseResults,
-            fileContents,
-            importResolver,
-            completionData.position,
             this._filePath,
-            configOptions,
+            completionData.position,
             importLookup,
-            evaluator,
             options,
-            sourceMapper,
             {
                 nameMap,
                 libraryMap,
