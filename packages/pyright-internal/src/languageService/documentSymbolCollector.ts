@@ -158,7 +158,6 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         );
 
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-        const sourceMapper = program.getSourceMapper(fileInfo.filePath, token);
         // Resolve the first set of declarations. It provides the basis for which declarations
         // are a match.
         const resolvedInitials = DocumentSymbolCollector._resolveDeclarations(
