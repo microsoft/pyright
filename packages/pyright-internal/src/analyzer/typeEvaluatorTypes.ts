@@ -454,6 +454,7 @@ export interface TypeEvaluator {
         recursionCount?: number,
         treatConstructorAsClassMember?: boolean
     ) => FunctionType | OverloadedFunctionType | undefined;
+    createFunctionFromConstructor: (classType: ClassType) => FunctionType | OverloadedFunctionType | undefined;
     getTypeOfMagicMethodReturn: (
         objType: Type,
         args: TypeResult[],

@@ -26514,6 +26514,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getTypeOfMember,
         getTypeOfObjectMember,
         getBoundMethod,
+        createFunctionFromConstructor,
         getTypeOfMagicMethodReturn,
         bindFunctionToClassOrObject,
         getCallSignatureInfo,

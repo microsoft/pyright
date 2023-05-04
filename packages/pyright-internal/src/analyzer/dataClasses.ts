@@ -779,6 +779,10 @@ function getConverterAsFunction(
         return evaluator.getBoundMethod(converterType, '__call__');
     }
 
+    if (isInstantiableClass(converterType)) {
+        return evaluator.createFunctionFromConstructor(converterType);
+    }
+
     return undefined;
 }
 
