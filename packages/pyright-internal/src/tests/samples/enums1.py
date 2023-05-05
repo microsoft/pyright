@@ -25,6 +25,20 @@ reveal_type(TestEnum1.D._name_, expected_text="Literal['D']")
 reveal_type(TestEnum1.D.value, expected_text="Literal[4]")
 reveal_type(TestEnum1.D._value_, expected_text="Literal[4]")
 
+
+def func1(te3: TestEnum3):
+    reveal_type(te3.name, expected_text="Literal['A', 'B', 'C', 'D']")
+    reveal_type(te3._name_, expected_text="Literal['A', 'B', 'C', 'D']")
+    reveal_type(te3.value, expected_text="Literal[0, 1, 2, 3]")
+    reveal_type(te3._value_, expected_text="Literal[0, 1, 2, 3]")
+
+
+reveal_type(TestEnum3.name, expected_text="property")
+reveal_type(TestEnum3._name_, expected_text="str")
+reveal_type(TestEnum3.value, expected_text="property")
+reveal_type(TestEnum3._value_, expected_text="Any")
+
+
 # This should generate an error because "Z" isn't
 # a valid member.
 z = TestEnum1.Z

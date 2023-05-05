@@ -7,6 +7,7 @@
  * Provides special-case logic for the Enum class.
  */
 
+import { assert } from '../common/debug';
 import { ArgumentCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { VariableDeclaration } from './declaration';
@@ -14,17 +15,19 @@ import { getClassFullName, getEnclosingClass, getTypeSourceId } from './parseTre
 import { Symbol, SymbolFlags } from './symbol';
 import { isSingleDunderName } from './symbolNameUtils';
 import { FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
+import { enumerateLiteralsForType } from './typeGuards';
+import { computeMroLinearization } from './typeUtils';
 import {
     ClassType,
     ClassTypeFlags,
     EnumLiteral,
+    Type,
+    combineTypes,
     isClass,
     isClassInstance,
     isFunction,
     isInstantiableClass,
-    Type,
 } from './types';
-import { computeMroLinearization } from './typeUtils';
 
 export function isKnownEnumType(className: string) {
     const knownEnumTypes = ['Enum', 'IntEnum', 'StrEnum', 'Flag', 'IntFlag'];
@@ -342,23 +345,60 @@ export function getTypeOfEnumMember(
     }
 
     const literalValue = classType.literalValue;
-    if (!(literalValue instanceof EnumLiteral)) {
-        return undefined;
-    }
 
     if (memberName === 'name' || memberName === '_name_') {
         const strClass = evaluator.getBuiltInType(errorNode, 'str');
+        if (!isInstantiableClass(strClass)) {
+            return undefined;
+        }
 
-        if (isInstantiableClass(strClass)) {
+        const makeNameType = (value: EnumLiteral) => {
+            return ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strClass, value.itemName));
+        };
+
+        if (literalValue) {
+            assert(literalValue instanceof EnumLiteral);
+            return { type: makeNameType(literalValue), isIncomplete };
+        }
+
+        // The type wasn't associated with a particular enum literal, so return
+        // a union of all possible enum literals.
+        const literalValues = enumerateLiteralsForType(evaluator, classType);
+        if (literalValues) {
             return {
-                type: ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strClass, literalValue.itemName)),
+                type: combineTypes(
+                    literalValues.map((literalClass) => {
+                        const literalValue = literalClass.literalValue;
+                        assert(literalValue instanceof EnumLiteral);
+                        return makeNameType(literalValue);
+                    })
+                ),
                 isIncomplete,
             };
         }
     }
 
     if (memberName === 'value' || memberName === '_value_') {
-        return { type: literalValue.itemType, isIncomplete };
+        if (literalValue) {
+            assert(literalValue instanceof EnumLiteral);
+            return { type: literalValue.itemType, isIncomplete };
+        }
+
+        // The type wasn't associated with a particular enum literal, so return
+        // a union of all possible enum literals.
+        const literalValues = enumerateLiteralsForType(evaluator, classType);
+        if (literalValues) {
+            return {
+                type: combineTypes(
+                    literalValues.map((literalClass) => {
+                        const literalValue = literalClass.literalValue;
+                        assert(literalValue instanceof EnumLiteral);
+                        return literalValue.itemType;
+                    })
+                ),
+                isIncomplete,
+            };
+        }
     }
 
     return undefined;
