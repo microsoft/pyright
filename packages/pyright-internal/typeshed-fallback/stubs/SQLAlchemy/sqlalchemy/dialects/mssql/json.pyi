@@ -1,4 +1,4 @@
-from ...types import JSON as _JSON
+from ...sql.sqltypes import JSON as _JSON
 
 class JSON(_JSON): ...
 

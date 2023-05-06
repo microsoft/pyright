@@ -1,10 +1,9 @@
 from _typeshed import Incomplete
 from typing import NamedTuple
 
-from sqlalchemy.util.langhelpers import EnsureKWArgType
-
-from ..util import memoized_property
-from . import elements
+from ..util import EnsureKWArgType, memoized_property
+from .base import CompileState
+from .elements import ColumnElement
 
 RESERVED_WORDS: Incomplete
 LEGAL_CHARACTERS: Incomplete
@@ -45,6 +44,7 @@ class Compiled:
     schema_translate_map: Incomplete
     execution_options: Incomplete
     compile_state: Incomplete
+    dml_compile_state: CompileState | None
     cache_key: Incomplete
     dialect: Incomplete
     preparer: Incomplete
@@ -76,7 +76,7 @@ class TypeCompiler(metaclass=EnsureKWArgType):
     def process(self, type_, **kw): ...
     def visit_unsupported_compilation(self, element, err, **kw) -> None: ...
 
-class _CompileLabel(elements.ColumnElement[Incomplete]):
+class _CompileLabel(ColumnElement[Incomplete]):
     __visit_name__: str
     element: Incomplete
     name: Incomplete
@@ -107,6 +107,7 @@ class SQLCompiler(Compiled):
     update_prefetch: Incomplete
     postfetch_lastrowid: bool
     positiontup: Incomplete
+    positiontup_level: dict[str, int] | None
     inline: bool
     column_keys: Incomplete
     cache_key: Incomplete

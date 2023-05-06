@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 from typing import Any
 
-from ...util import memoized_property
+from ...util.langhelpers import memoized_property
 from .base import MySQLCompiler, MySQLDialect, MySQLExecutionContext
 
 class MySQLExecutionContext_mysqldb(MySQLExecutionContext):

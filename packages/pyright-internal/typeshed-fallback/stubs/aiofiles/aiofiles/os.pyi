@@ -1,5 +1,5 @@
 import sys
-from _typeshed import FileDescriptorOrPath, GenericPath, StrOrBytesPath
+from _typeshed import FileDescriptorOrPath, GenericPath, ReadableBuffer, StrOrBytesPath
 from asyncio.events import AbstractEventLoop
 from collections.abc import Sequence
 from os import _ScandirIterator, stat_result
@@ -68,8 +68,8 @@ if sys.platform != "win32":
         in_fd: int,
         offset: int,
         count: int,
-        headers: Sequence[bytes] = ...,
-        trailers: Sequence[bytes] = ...,
+        headers: Sequence[ReadableBuffer] = ...,
+        trailers: Sequence[ReadableBuffer] = ...,
         flags: int = ...,
         *,
         loop: AbstractEventLoop | None = ...,

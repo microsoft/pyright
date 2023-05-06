@@ -1,6 +1,6 @@
 from typing import Any
 
-from ..util import memoized_property
+from ..util.langhelpers import memoized_property
 from . import interfaces
 
 class InstanceState(interfaces.InspectionAttrInfo):

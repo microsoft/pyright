@@ -122,6 +122,7 @@ class AsyncAdapt_asyncpg_connection(AdaptedConnection):
     def rollback(self) -> None: ...
     def commit(self) -> None: ...
     def close(self) -> None: ...
+    def terminate(self) -> None: ...
 
 class AsyncAdaptFallback_asyncpg_connection(AsyncAdapt_asyncpg_connection):
     await_: Any
@@ -152,6 +153,7 @@ class AsyncAdapt_asyncpg_dbapi:
     TIMESTAMP: Any
     TIMESTAMP_W_TZ: Any
     TIME: Any
+    TIME_W_TZ: Incomplete
     DATE: Any
     INTERVAL: Any
     NUMBER: Any
@@ -175,6 +177,7 @@ class PGDialect_asyncpg(PGDialect):
     supports_unicode_statements: bool
     supports_server_side_cursors: bool
     supports_unicode_binds: bool
+    has_terminate: bool
     default_paramstyle: str
     supports_sane_multi_rowcount: bool
     statement_compiler: Any

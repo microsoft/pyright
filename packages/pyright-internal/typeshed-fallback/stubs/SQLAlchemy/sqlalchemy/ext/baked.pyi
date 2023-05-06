@@ -1,6 +1,8 @@
 from _typeshed import Incomplete
 from typing import Any
 
+from ..orm.strategy_options import Load, loader_option
+
 log: Any
 
 class Bakery:
@@ -40,7 +42,8 @@ class Result:
 
 def bake_lazy_loaders() -> None: ...
 def unbake_lazy_loaders() -> None: ...
+@loader_option()
+def baked_lazyload(loadopt: Load, attr) -> loader_option: ...
+def baked_lazyload_all(loadopt: Load, attr) -> loader_option: ...
 
-baked_lazyload: Any
-baked_lazyload_all: Any
-bakery: Any
+bakery = BakedQuery.bakery

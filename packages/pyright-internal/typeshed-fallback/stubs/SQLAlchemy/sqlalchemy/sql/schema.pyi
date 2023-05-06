@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 from typing import Any
 
-from ..util import memoized_property
+from ..util.langhelpers import memoized_property
 from . import visitors
 from .base import DialectKWArgs, Executable, SchemaEventTarget
 from .elements import ColumnClause
@@ -14,7 +14,7 @@ NULL_UNSPECIFIED: Any
 class SchemaItem(SchemaEventTarget, visitors.Visitable):
     __visit_name__: str
     create_drop_stringify_dialect: str
-    @memoized_property
+    @property  # Should be @memoized_property, but that causes issues with regr_test
     def info(self): ...
 
 class Table(DialectKWArgs, SchemaItem, TableClause):

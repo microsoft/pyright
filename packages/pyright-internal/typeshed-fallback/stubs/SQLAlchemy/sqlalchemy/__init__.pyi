@@ -84,7 +84,7 @@ from .sql import (
     values as values,
     within_group as within_group,
 )
-from .types import (
+from .sql.sqltypes import (
     ARRAY as ARRAY,
     BIGINT as BIGINT,
     BINARY as BINARY,

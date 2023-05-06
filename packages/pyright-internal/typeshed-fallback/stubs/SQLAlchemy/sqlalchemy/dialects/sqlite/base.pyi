@@ -1,11 +1,9 @@
 from _typeshed import Incomplete
 from typing import Any
 
-import sqlalchemy.types as sqltypes
-
 from ...engine import default
-from ...sql import compiler
-from ...types import (
+from ...sql import compiler, sqltypes
+from ...sql.sqltypes import (
     BLOB as BLOB,
     BOOLEAN as BOOLEAN,
     CHAR as CHAR,

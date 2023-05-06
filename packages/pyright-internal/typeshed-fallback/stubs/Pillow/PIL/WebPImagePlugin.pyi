@@ -1,6 +1,7 @@
 from typing import Any, ClassVar
 from typing_extensions import Literal, TypeAlias
 
+from ._imaging import _PixelAccessor
 from .ImageFile import ImageFile
 
 SUPPORTED: bool
@@ -13,5 +14,5 @@ class WebPImageFile(ImageFile):
     def seek(self, frame) -> None: ...
     fp: Any
     tile: Any
-    def load(self): ...
+    def load(self) -> _PixelAccessor: ...
     def tell(self): ...

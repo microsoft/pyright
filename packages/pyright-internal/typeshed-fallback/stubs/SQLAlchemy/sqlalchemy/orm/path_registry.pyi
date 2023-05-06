@@ -2,7 +2,7 @@ from _typeshed import Incomplete
 from typing import Any, ClassVar
 
 from ..sql.traversals import HasCacheKey
-from ..util import memoized_property
+from ..util.langhelpers import memoized_property
 from . import base as orm_base
 
 log: Any

@@ -2,12 +2,10 @@ from _typeshed import Incomplete
 from typing import Any, overload
 from typing_extensions import Literal
 
-import sqlalchemy.types as sqltypes
-
 from ...engine import default
-from ...sql import compiler
+from ...sql import compiler, sqltypes
 from ...sql.elements import Cast
-from ...types import (
+from ...sql.sqltypes import (
     BIGINT as BIGINT,
     BINARY as BINARY,
     CHAR as CHAR,

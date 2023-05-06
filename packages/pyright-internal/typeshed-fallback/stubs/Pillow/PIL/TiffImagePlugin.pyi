@@ -5,6 +5,7 @@ from types import TracebackType
 from typing import Any, ClassVar
 from typing_extensions import Literal
 
+from ._imaging import _PixelAccessor
 from .ImageFile import ImageFile
 
 logger: Any
@@ -153,7 +154,7 @@ class TiffImageFile(ImageFile):
     im: Any
     def seek(self, frame) -> None: ...
     def tell(self): ...
-    def load(self): ...
+    def load(self) -> _PixelAccessor: ...
     def load_end(self) -> None: ...
 
 SAVE_INFO: Any

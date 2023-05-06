@@ -1,5 +1,6 @@
 from _typeshed import Incomplete, SupportsLenAndGetItem
 from collections.abc import Generator, Iterable
+from logging import Logger
 from typing import ClassVar, Protocol, TypeVar
 from typing_extensions import TypeAlias
 
@@ -9,6 +10,8 @@ from .syntax import Name, PDFObject
 
 _Key: TypeAlias = SupportsLenAndGetItem[int]
 _T_co = TypeVar("_T_co", covariant=True)
+
+LOGGER: Logger
 
 import_error: ImportError | None
 

@@ -1,7 +1,7 @@
 # https://pyinstaller.org/en/stable/advanced-topics.html#the-toc-and-tree-classes
 from collections.abc import Iterable, Sequence
 from typing import ClassVar
-from typing_extensions import Literal, LiteralString, SupportsIndex, TypeAlias
+from typing_extensions import Literal, LiteralString, Self, SupportsIndex, TypeAlias
 
 _TypeCode: TypeAlias = Literal["DATA", "BINARY", "EXTENSION", "OPTION"]
 _TOCTuple: TypeAlias = tuple[str, str | None, _TypeCode | None]
@@ -11,13 +11,22 @@ class TOC(list[_TOCTuple]):
     def __init__(self, initlist: Iterable[_TOCTuple] | None = None) -> None: ...
     def append(self, entry: _TOCTuple) -> None: ...
     def insert(self, pos: SupportsIndex, entry: _TOCTuple) -> None: ...
+    def __add__(self, other: Iterable[_TOCTuple]) -> TOC: ...  # type: ignore[override]
+    def __radd__(self, other: Iterable[_TOCTuple]) -> TOC: ...
+    def __iadd__(self, other: Iterable[_TOCTuple]) -> Self: ...  # type: ignore[override]
     def extend(self, other: Iterable[_TOCTuple]) -> None: ...
+    def __sub__(self, other: Iterable[_TOCTuple]) -> TOC: ...
+    def __rsub__(self, other: Iterable[_TOCTuple]) -> TOC: ...
+    # slicing a TOC is not supported, but has a special case for slice(None, None, None)
+    def __setitem__(self, key: int | slice, value: Iterable[_TOCTuple]) -> None: ...  # type: ignore[override]
 
 class Target:
     invcnum: ClassVar[int]
     tocfilename: LiteralString
     tocbasename: LiteralString
     dependencies: TOC
+    def __init__(self) -> None: ...
+    def __postinit__(self) -> None: ...
 
 class Tree(Target, TOC):
     root: str | None

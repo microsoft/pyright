@@ -1,8 +1,8 @@
 from _typeshed import Incomplete
 from typing import Any, ClassVar
 
-from .. import types as sqltypes
-from ..util import memoized_property
+from ..sql import sqltypes
+from ..util.langhelpers import memoized_property
 from . import interfaces
 
 AUTOCOMMIT_REGEXP: Any
@@ -78,6 +78,7 @@ class DefaultDialect(interfaces.Dialect):  # type: ignore[misc]
     CACHING_DISABLED: Any
     NO_CACHE_KEY: Any
     NO_DIALECT_SUPPORT: Any
+    has_terminate: bool
     convert_unicode: Any
     encoding: Any
     positional: bool

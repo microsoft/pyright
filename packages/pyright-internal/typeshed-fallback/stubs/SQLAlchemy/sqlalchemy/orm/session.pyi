@@ -9,7 +9,7 @@ from ..engine.result import Result
 from ..engine.util import TransactionalContext
 from ..sql.elements import ColumnElement
 from ..sql.schema import Table
-from ..util import MemoizedSlots, memoized_property
+from ..util.langhelpers import MemoizedSlots, memoized_property
 from .query import Query
 
 _T = TypeVar("_T")
@@ -93,6 +93,7 @@ class Session(_SessionClassMethods):
     enable_baked_queries: Any
     autocommit: bool
     twophase: Any
+    dispatch: Incomplete
     def __init__(
         self,
         bind: Incomplete | None = None,

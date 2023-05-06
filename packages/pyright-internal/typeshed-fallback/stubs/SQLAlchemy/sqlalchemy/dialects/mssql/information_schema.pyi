@@ -1,7 +1,7 @@
 from typing import Any
 
 from ...sql import expression
-from ...types import TypeDecorator
+from ...sql.type_api import TypeDecorator
 
 ischema: Any
 

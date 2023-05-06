@@ -2,6 +2,7 @@ from _typeshed import Incomplete
 from typing import Any, ClassVar
 from typing_extensions import Literal, TypeAlias
 
+from ._imaging import _PixelAccessor
 from .ImageFile import ImageFile
 
 _OleFileIO: TypeAlias = Any  # olefile.OleFileIO
@@ -19,4 +20,4 @@ class FpxImageFile(ImageFile):
     jpeg: dict[int, Incomplete]
     tile_prefix: Incomplete
     stream: list[str]
-    def load(self): ...
+    def load(self) -> _PixelAccessor: ...

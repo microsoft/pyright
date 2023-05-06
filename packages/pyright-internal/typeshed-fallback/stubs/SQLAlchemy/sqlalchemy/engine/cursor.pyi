@@ -1,8 +1,9 @@
-import abc
 from _typeshed import Incomplete
+from abc import ABCMeta
 from typing import Any
 
-from ..util import memoized_property
+from ..sql.compiler import RM_NAME as RM_NAME, RM_OBJECTS as RM_OBJECTS, RM_RENDERED_NAME as RM_RENDERED_NAME, RM_TYPE as RM_TYPE
+from ..util.langhelpers import memoized_property
 from .result import Result, ResultMetaData
 from .row import LegacyRow
 
@@ -128,5 +129,5 @@ ResultProxy = LegacyCursorResult
 
 class BufferedRowResultProxy(ResultProxy): ...
 class FullyBufferedResultProxy(ResultProxy): ...
-class BufferedColumnRow(LegacyRow, metaclass=abc.ABCMeta): ...
+class BufferedColumnRow(LegacyRow, metaclass=ABCMeta): ...
 class BufferedColumnResultProxy(ResultProxy): ...

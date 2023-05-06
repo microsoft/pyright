@@ -3,7 +3,7 @@ from typing import Any, Generic, TypeVar
 from typing_extensions import Literal, Self
 
 from .. import util
-from ..util import HasMemoized, memoized_property
+from ..util.langhelpers import HasMemoized, memoized_property
 from . import operators, roles
 from .annotation import Annotated, SupportsWrappingAnnotations
 from .base import Executable, Immutable, SingletonConstant
@@ -449,13 +449,13 @@ class quoted_name(util.MemoizedSlots, util.text_type):
 
 class AnnotatedColumnElement(Annotated):
     def __init__(self, element, values) -> None: ...
-    @memoized_property
+    @property  # Should be @memoized_property, but that causes issues with regr_test
     def name(self): ...
-    @memoized_property
+    @property  # Should be @memoized_property, but that causes issues with regr_test
     def table(self): ...
-    @memoized_property
+    @property  # Should be @memoized_property, but that causes issues with regr_test
     def key(self): ...
-    @memoized_property
+    @property  # Should be @memoized_property, but that causes issues with regr_test
     def info(self): ...
 
 class _truncated_label(quoted_name):

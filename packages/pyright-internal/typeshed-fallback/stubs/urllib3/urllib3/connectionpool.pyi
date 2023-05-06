@@ -7,8 +7,7 @@ from typing_extensions import Literal, Self, TypeAlias
 
 from . import connection, exceptions, request, response
 from .connection import BaseSSLError as BaseSSLError, ConnectionError as ConnectionError, HTTPException as HTTPException
-from .packages import ssl_match_hostname
-from .util import Url, connection as _connection, queue as urllib3queue, retry, timeout, url
+from .util import Url, connection as _connection, queue as urllib3queue, retry, ssl_match_hostname, timeout, url
 
 ClosedPoolError = exceptions.ClosedPoolError
 ProtocolError = exceptions.ProtocolError

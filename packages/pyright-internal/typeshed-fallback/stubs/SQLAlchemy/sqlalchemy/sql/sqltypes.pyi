@@ -370,9 +370,12 @@ class TableValueType(HasCacheKey, TypeEngine):
 
 class MatchType(Boolean): ...
 
-NULLTYPE: Any
-BOOLEANTYPE: Any
-STRINGTYPE: Any
-INTEGERTYPE: Any
-MATCHTYPE: Any
-TABLEVALUE: Any
+NULLTYPE: NullType
+BOOLEANTYPE: Boolean
+STRINGTYPE: String
+INTEGERTYPE: Integer
+NUMERICTYPE: Numeric
+MATCHTYPE: MatchType
+TABLEVALUE: TableValueType
+DATETIME_TIMEZONE: DateTime
+TIME_TIMEZONE: Time

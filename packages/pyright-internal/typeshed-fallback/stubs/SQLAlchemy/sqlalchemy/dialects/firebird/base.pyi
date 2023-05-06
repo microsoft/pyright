@@ -1,10 +1,9 @@
 from _typeshed import Incomplete
 from typing import Any
 
-from sqlalchemy import sql, types as sqltypes
-from sqlalchemy.engine import default
-from sqlalchemy.sql import compiler
-from sqlalchemy.types import (
+from ...engine import default
+from ...sql import compiler, sqltypes
+from ...sql.sqltypes import (
     BIGINT as BIGINT,
     BLOB as BLOB,
     DATE as DATE,
@@ -46,7 +45,7 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
     def visit_CHAR(self, type_, **kw): ...
     def visit_VARCHAR(self, type_, **kw): ...
 
-class FBCompiler(sql.compiler.SQLCompiler):
+class FBCompiler(compiler.SQLCompiler):
     ansi_bind_rules: bool
     def visit_now_func(self, fn, **kw): ...
     def visit_startswith_op_binary(self, binary, operator, **kw): ...
@@ -63,12 +62,12 @@ class FBCompiler(sql.compiler.SQLCompiler):
     def limit_clause(self, select, **kw): ...
     def returning_clause(self, stmt, returning_cols): ...
 
-class FBDDLCompiler(sql.compiler.DDLCompiler):
+class FBDDLCompiler(compiler.DDLCompiler):
     def visit_create_sequence(self, create): ...
     def visit_drop_sequence(self, drop): ...
     def visit_computed_column(self, generated): ...
 
-class FBIdentifierPreparer(sql.compiler.IdentifierPreparer):
+class FBIdentifierPreparer(compiler.IdentifierPreparer):
     reserved_words: Any
     illegal_initial_characters: Any
     def __init__(self, dialect) -> None: ...

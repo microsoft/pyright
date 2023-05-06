@@ -19,6 +19,7 @@ class Query(_SelectFromElements, SupportsCloneAnnotations, HasPrefixes, HasSuffi
     logger: Any
     load_options: Any
     session: Any
+    dispatch: Incomplete
     def __init__(self, entities, session: Incomplete | None = None) -> None: ...
     @property
     def statement(self): ...

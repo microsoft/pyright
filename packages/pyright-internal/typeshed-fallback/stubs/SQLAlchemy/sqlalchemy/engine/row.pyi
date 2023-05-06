@@ -1,3 +1,4 @@
+from abc import ABCMeta
 from collections.abc import ItemsView, Iterator, KeysView, Mapping, Sequence, ValuesView
 from typing import Any, Generic, TypeVar
 
@@ -14,7 +15,7 @@ KEY_OBJECTS_ONLY: int
 KEY_OBJECTS_BUT_WARN: int
 KEY_OBJECTS_NO_WARN: int
 
-class Row(BaseRow, Sequence[Any]):
+class Row(BaseRow, Sequence[Any], metaclass=ABCMeta):
     # The count and index methods are inherited from Sequence.
     # If the result set contains columns with the same names, these
     # fields contains their respective values, instead. We don't reflect
@@ -27,6 +28,7 @@ class Row(BaseRow, Sequence[Any]):
     def __eq__(self, other: object) -> bool: ...
     def __ne__(self, other: object) -> bool: ...
     def keys(self) -> list[str]: ...
+    def __contains__(self, key): ...
     # The following methods are public, but have a leading underscore
     # to prevent conflicts with column names.
     @property
@@ -35,7 +37,7 @@ class Row(BaseRow, Sequence[Any]):
     def _fields(self) -> tuple[str, ...]: ...
     def _asdict(self) -> dict[str, Any]: ...
 
-class LegacyRow(Row):
+class LegacyRow(Row, metaclass=ABCMeta):
     def has_key(self, key: str) -> bool: ...
     def items(self) -> list[tuple[str, Any]]: ...
     def iterkeys(self) -> Iterator[str]: ...

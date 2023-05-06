@@ -5,7 +5,7 @@ from typing_extensions import TypeAlias
 
 from ..engine.interfaces import Connectable
 from ..sql.schema import MetaData
-from ..util import hybridproperty
+from ..util.langhelpers import hybridproperty
 from . import interfaces
 
 _ClsT = TypeVar("_ClsT", bound=type[Any])

@@ -3,8 +3,8 @@ from _typeshed import Incomplete
 MAC_EPOCH: Incomplete
 WINDOWS_EPOCH: Incomplete
 # The following two constants are defined twice in the implementation.
-CALENDAR_WINDOWS_1900 = WINDOWS_EPOCH  # noqa: F821
-CALENDAR_MAC_1904 = MAC_EPOCH  # noqa: F821
+CALENDAR_WINDOWS_1900 = WINDOWS_EPOCH
+CALENDAR_MAC_1904 = MAC_EPOCH
 SECS_PER_DAY: int
 ISO_FORMAT: str
 ISO_REGEX: Incomplete

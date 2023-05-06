@@ -1,8 +1,7 @@
 from typing import Any
 
-import sqlalchemy.types as sqltypes
-
-from ...util import memoized_property
+from ...sql import sqltypes
+from ...util.langhelpers import memoized_property
 from .base import PGDialect, PGExecutionContext
 
 class PGNumeric(sqltypes.Numeric):

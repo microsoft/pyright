@@ -5,8 +5,10 @@ from typing import Any
 from .base import ProxyComparable, StartableContext
 
 def create_async_engine(*arg, **kw) -> AsyncEngine: ...
+def async_engine_from_config(configuration, prefix: str = "sqlalchemy.", **kwargs) -> AsyncEngine: ...
 
-class AsyncConnectable: ...
+class AsyncConnectable:
+    dispatch: Incomplete
 
 class AsyncConnection(ProxyComparable, StartableContext, AsyncConnectable):
     engine: Any

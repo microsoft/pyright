@@ -1,8 +1,8 @@
 from typing import Any
 
-from sqlalchemy import types as sqltypes
-from sqlalchemy.connectors.pyodbc import PyODBCConnector
-from sqlalchemy.dialects.sybase.base import SybaseDialect, SybaseExecutionContext
+from ...connectors.pyodbc import PyODBCConnector
+from ...sql import sqltypes
+from .base import SybaseDialect, SybaseExecutionContext
 
 class _SybNumeric_pyodbc(sqltypes.Numeric):
     def bind_processor(self, dialect): ...

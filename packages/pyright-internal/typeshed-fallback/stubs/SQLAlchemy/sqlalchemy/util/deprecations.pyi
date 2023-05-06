@@ -7,6 +7,7 @@ from .langhelpers import (
 )
 
 SQLALCHEMY_WARN_20: bool
+SILENCE_UBER_WARNING: bool
 
 def warn_deprecated(msg, version, stacklevel: int = 3, code: Incomplete | None = None) -> None: ...
 def warn_deprecated_limited(msg, args, version, stacklevel: int = 3, code: Incomplete | None = None) -> None: ...

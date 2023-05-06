@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 from typing import Any
 
-from ..util import memoized_property
+from ..util.langhelpers import memoized_property
 
 class ScopedSessionMixin:
     def __call__(self, **kw): ...

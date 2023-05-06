@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 from typing import Any
 
-import sqlalchemy.types as sqltypes
+from ...sql import sqltypes
 
 class JSONPathType(sqltypes.JSON.JSONPathType):
     def bind_processor(self, dialect): ...

@@ -1,9 +1,7 @@
 from _typeshed import Incomplete
 from typing import Any as _Any
 
-import sqlalchemy.types as sqltypes
-
-from ...sql import expression
+from ...sql import expression, sqltypes
 
 def Any(other, arrexpr, operator=...): ...
 def All(other, arrexpr, operator=...): ...

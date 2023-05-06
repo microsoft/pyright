@@ -3,9 +3,10 @@ from typing import Any
 
 from ...engine import default
 from ...sql import compiler
-from ...types import BINARY as BINARY, BLOB as BLOB, BOOLEAN as BOOLEAN, DATE as DATE, VARBINARY as VARBINARY
+from ...sql.sqltypes import BINARY as BINARY, BLOB as BLOB, BOOLEAN as BOOLEAN, DATE as DATE, VARBINARY as VARBINARY
 from .enumerated import ENUM as ENUM, SET as SET
 from .json import JSON as JSON
+from .reserved_words import RESERVED_WORDS_MARIADB as RESERVED_WORDS_MARIADB, RESERVED_WORDS_MYSQL as RESERVED_WORDS_MYSQL
 from .types import (
     BIGINT as BIGINT,
     BIT as BIT,

@@ -1,5 +1,5 @@
-from sqlalchemy.connectors.mxodbc import MxODBCConnector
-from sqlalchemy.dialects.sybase.base import SybaseDialect, SybaseExecutionContext
+from ...connectors.mxodbc import MxODBCConnector
+from .base import SybaseDialect, SybaseExecutionContext
 
 class SybaseExecutionContext_mxodbc(SybaseExecutionContext): ...
 

@@ -1,6 +1,6 @@
 from typing import Any
 
-from sqlalchemy.dialects.firebird.base import (
+from .base import (
     BIGINT as BIGINT,
     BLOB as BLOB,
     CHAR as CHAR,

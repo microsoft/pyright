@@ -1,5 +1,7 @@
 from typing import Any, ClassVar
 
+from fpdf.fonts import FontFace
+
 from .drawing import DeviceGray, DeviceRGB
 from .enums import TextMode
 
@@ -100,3 +102,4 @@ class GraphicsStateMixin:
     def denom_lift(self): ...
     @denom_lift.setter
     def denom_lift(self, v) -> None: ...
+    def font_face(self) -> FontFace: ...

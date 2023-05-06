@@ -1,10 +1,9 @@
 from _typeshed import Incomplete
 from typing import Any
 
-from sqlalchemy import types as sqltypes
-from sqlalchemy.engine import default, reflection
-from sqlalchemy.sql import compiler
-from sqlalchemy.types import (
+from ...engine import default, reflection
+from ...sql import compiler, sqltypes
+from ...sql.sqltypes import (
     BIGINT as BIGINT,
     BINARY as BINARY,
     CHAR as CHAR,

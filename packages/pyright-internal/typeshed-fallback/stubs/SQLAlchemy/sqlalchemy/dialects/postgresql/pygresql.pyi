@@ -1,6 +1,6 @@
 from typing import Any
 
-from ...types import Numeric
+from ...sql.sqltypes import Numeric
 from .base import UUID, PGCompiler, PGDialect, PGIdentifierPreparer
 from .hstore import HSTORE
 from .json import JSON, JSONB

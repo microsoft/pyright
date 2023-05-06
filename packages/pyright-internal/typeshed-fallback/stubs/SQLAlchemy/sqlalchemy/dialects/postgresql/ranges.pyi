@@ -1,6 +1,6 @@
 from typing import Any
 
-import sqlalchemy.types as sqltypes
+from ...sql import sqltypes
 
 class RangeOperators:
     class comparator_factory(sqltypes.Concatenable.Comparator[Any]):

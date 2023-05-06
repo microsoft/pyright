@@ -1,9 +1,7 @@
 from _typeshed import Incomplete
 from typing import Any
 
-import sqlalchemy.types as sqltypes
-
-from ...sql import functions as sqlfunc
+from ...sql import functions as sqlfunc, sqltypes
 
 class HSTORE(sqltypes.Indexable, sqltypes.Concatenable, sqltypes.TypeEngine):
     __visit_name__: str

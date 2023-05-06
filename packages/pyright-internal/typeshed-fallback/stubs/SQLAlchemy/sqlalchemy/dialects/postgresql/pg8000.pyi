@@ -1,8 +1,7 @@
 from _typeshed import Incomplete
 from typing import Any
 
-import sqlalchemy.types as sqltypes
-
+from ...sql import sqltypes
 from .array import ARRAY as PGARRAY
 from .base import ENUM, INTERVAL, UUID, PGCompiler, PGDialect, PGExecutionContext, PGIdentifierPreparer
 from .json import JSON, JSONB, JSONPathType

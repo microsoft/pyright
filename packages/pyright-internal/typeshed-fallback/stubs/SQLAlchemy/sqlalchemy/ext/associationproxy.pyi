@@ -3,7 +3,7 @@ from typing import Any
 
 from ..orm import interfaces
 from ..sql.operators import ColumnOperators
-from ..util import memoized_property
+from ..util.langhelpers import memoized_property
 
 def association_proxy(target_collection, attr, **kw): ...
 

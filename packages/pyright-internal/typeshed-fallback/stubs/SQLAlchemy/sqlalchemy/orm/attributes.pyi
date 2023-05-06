@@ -2,8 +2,34 @@ from _typeshed import Incomplete
 from typing import Any, Generic, NamedTuple, TypeVar
 
 from ..sql import base as sql_base, roles, traversals
-from ..util import memoized_property
+from ..util.langhelpers import memoized_property
 from . import interfaces
+from .base import (
+    ATTR_EMPTY as ATTR_EMPTY,
+    ATTR_WAS_SET as ATTR_WAS_SET,
+    CALLABLES_OK as CALLABLES_OK,
+    DEFERRED_HISTORY_LOAD as DEFERRED_HISTORY_LOAD,
+    INIT_OK as INIT_OK,
+    LOAD_AGAINST_COMMITTED as LOAD_AGAINST_COMMITTED,
+    NEVER_SET as NEVER_SET,
+    NO_AUTOFLUSH as NO_AUTOFLUSH,
+    NO_CHANGE as NO_CHANGE,
+    NO_RAISE as NO_RAISE,
+    NO_VALUE as NO_VALUE,
+    NON_PERSISTENT_OK as NON_PERSISTENT_OK,
+    PASSIVE_CLASS_MISMATCH as PASSIVE_CLASS_MISMATCH,
+    PASSIVE_NO_FETCH as PASSIVE_NO_FETCH,
+    PASSIVE_NO_FETCH_RELATED as PASSIVE_NO_FETCH_RELATED,
+    PASSIVE_NO_INITIALIZE as PASSIVE_NO_INITIALIZE,
+    PASSIVE_NO_RESULT as PASSIVE_NO_RESULT,
+    PASSIVE_OFF as PASSIVE_OFF,
+    PASSIVE_ONLY_PERSISTENT as PASSIVE_ONLY_PERSISTENT,
+    PASSIVE_RETURN_NO_VALUE as PASSIVE_RETURN_NO_VALUE,
+    RELATED_OBJECT_OK as RELATED_OBJECT_OK,
+    SQL_OK as SQL_OK,
+    instance_dict as instance_dict,
+    instance_state as instance_state,
+)
 
 _T = TypeVar("_T")
 
@@ -27,6 +53,7 @@ class QueryableAttribute(
     key: Any
     impl: Any
     comparator: Any
+    dispatch: Incomplete
     def __init__(
         self,
         class_,
