@@ -19,13 +19,7 @@ import { getFileInfo } from './analyzerNodeInfo';
 import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
 import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
 import { getTypeVarScopesForNode } from './parseTreeUtils';
-import {
-    CallResult,
-    ClassMemberLookup,
-    FunctionArgument,
-    MemberAccessFlags,
-    TypeEvaluator,
-} from './typeEvaluatorTypes';
+import { CallResult, FunctionArgument, MemberAccessFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassMemberLookupFlags,
     InferenceContext,
@@ -69,11 +63,25 @@ export function validateConstructorArguments(
     skipUnknownArgCheck: boolean,
     inferenceContext: InferenceContext | undefined
 ): CallResult {
+    // See if there's a custom `__call__` method on the metaclass. If so, we'll
+    // assume that it overrides the normal `type.__call__` logic and we won't
+    // do the normal __new__ and __init__ validation.
+    const metaclassResult = validateMetaclassCall(
+        evaluator,
+        errorNode,
+        argList,
+        type,
+        skipUnknownArgCheck,
+        inferenceContext
+    );
+    if (metaclassResult) {
+        return metaclassResult;
+    }
+
     let validatedTypes = false;
     let returnType: Type | undefined;
     let reportedErrors = false;
     let isTypeIncomplete = false;
-    let usedMetaclassCallMethod = false;
     const overloadsUsedForCall: FunctionType[] = [];
 
     // Create a helper function that determines whether we should skip argument
@@ -170,47 +178,21 @@ export function validateConstructorArguments(
     // Don't report errors for __new__ if __init__ already generated errors. They're
     // probably going to be entirely redundant anyway.
     if (!reportedErrors) {
-        const metaclass = type.details.effectiveMetaclass;
-        let constructorMethodInfo: ClassMemberLookup | undefined;
+        const newMethodInfo = evaluator.getTypeOfClassMemberName(
+            errorNode,
+            type,
+            /* isAccessedThroughObject */ false,
+            '__new__',
+            { method: 'get' },
+            /* diag */ undefined,
+            MemberAccessFlags.AccessClassMembersOnly |
+                MemberAccessFlags.SkipObjectBaseClass |
+                MemberAccessFlags.TreatConstructorAsClassMethod,
+            type
+        );
 
-        // See if there's a custom `__call__` method on the metaclass. If so, we'll
-        // use that rather than the `__new__` method on the class.
-        if (metaclass && isInstantiableClass(metaclass) && !ClassType.isSameGenericClass(metaclass, type)) {
-            constructorMethodInfo = evaluator.getTypeOfClassMemberName(
-                errorNode,
-                metaclass,
-                /* isAccessedThroughObject */ true,
-                '__call__',
-                { method: 'get' },
-                /* diag */ undefined,
-                MemberAccessFlags.ConsiderMetaclassOnly |
-                    MemberAccessFlags.SkipTypeBaseClass |
-                    MemberAccessFlags.SkipAttributeAccessOverride,
-                type
-            );
-
-            if (constructorMethodInfo) {
-                usedMetaclassCallMethod = true;
-            }
-        }
-
-        if (!constructorMethodInfo) {
-            constructorMethodInfo = evaluator.getTypeOfClassMemberName(
-                errorNode,
-                type,
-                /* isAccessedThroughObject */ false,
-                '__new__',
-                { method: 'get' },
-                /* diag */ undefined,
-                MemberAccessFlags.AccessClassMembersOnly |
-                    MemberAccessFlags.SkipObjectBaseClass |
-                    MemberAccessFlags.TreatConstructorAsClassMethod,
-                type
-            );
-        }
-
-        if (constructorMethodInfo && !skipConstructorCheck(constructorMethodInfo.type)) {
-            const constructorMethodType = constructorMethodInfo.type;
+        if (newMethodInfo && !skipConstructorCheck(newMethodInfo.type)) {
+            const constructorMethodType = newMethodInfo.type;
             let newReturnType: Type | undefined;
 
             // If there is an expected type that was not applied above when
@@ -254,7 +236,7 @@ export function validateConstructorArguments(
                     return evaluator.validateCallArguments(
                         errorNode,
                         argList,
-                        constructorMethodInfo!,
+                        newMethodInfo!,
                         typeVarContext,
                         skipUnknownArgCheck
                     );
@@ -263,7 +245,7 @@ export function validateConstructorArguments(
                 callResult = evaluator.validateCallArguments(
                     errorNode,
                     argList,
-                    constructorMethodInfo,
+                    newMethodInfo,
                     typeVarContext,
                     skipUnknownArgCheck
                 );
@@ -340,23 +322,13 @@ export function validateConstructorArguments(
     }
 
     if (!validatedTypes && argList.some((arg) => arg.argumentCategory === ArgumentCategory.Simple)) {
-        // Suppress this error if the class was instantiated from a custom
-        // metaclass because it's likely that it's a false positive. Also
-        // suppress the error if the class's metaclass has a __call__ method.
-        const isCustomMetaclass =
-            !!type.details.effectiveMetaclass &&
-            isInstantiableClass(type.details.effectiveMetaclass) &&
-            !ClassType.isBuiltIn(type.details.effectiveMetaclass);
-
-        if (!isCustomMetaclass && !usedMetaclassCallMethod) {
-            const fileInfo = getFileInfo(errorNode);
-            evaluator.addDiagnostic(
-                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.constructorNoArgs().format({ type: type.aliasName || type.details.name }),
-                errorNode
-            );
-        }
+        const fileInfo = getFileInfo(errorNode);
+        evaluator.addDiagnostic(
+            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.constructorNoArgs().format({ type: type.aliasName || type.details.name }),
+            errorNode
+        );
     }
 
     if (!returnType) {
@@ -411,6 +383,60 @@ export function validateConstructorArguments(
     };
 
     return result;
+}
+
+function validateMetaclassCall(
+    evaluator: TypeEvaluator,
+    errorNode: ExpressionNode,
+    argList: FunctionArgument[],
+    type: ClassType,
+    skipUnknownArgCheck: boolean,
+    inferenceContext: InferenceContext | undefined
+): CallResult | undefined {
+    const metaclass = type.details.effectiveMetaclass;
+
+    if (metaclass && isInstantiableClass(metaclass) && !ClassType.isSameGenericClass(metaclass, type)) {
+        const metaclassCallMethodInfo = evaluator.getTypeOfClassMemberName(
+            errorNode,
+            metaclass,
+            /* isAccessedThroughObject */ true,
+            '__call__',
+            { method: 'get' },
+            /* diag */ undefined,
+            MemberAccessFlags.ConsiderMetaclassOnly |
+                MemberAccessFlags.SkipTypeBaseClass |
+                MemberAccessFlags.SkipAttributeAccessOverride,
+            type
+        );
+
+        if (metaclassCallMethodInfo) {
+            const callResult = evaluator.validateCallArguments(
+                errorNode,
+                argList,
+                metaclassCallMethodInfo,
+                /* typeVarContext */ undefined,
+                skipUnknownArgCheck,
+                inferenceContext
+            );
+
+            if (!callResult.returnType || isUnknown(callResult.returnType)) {
+                // The return result isn't known. We'll assume in this case that
+                // the metaclass __call__ method allocated a new instance of the
+                // requested class.
+                const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
+                callResult.returnType = applyExpectedTypeForConstructor(
+                    evaluator,
+                    type,
+                    inferenceContext,
+                    typeVarContext
+                );
+            }
+
+            return callResult;
+        }
+    }
+
+    return undefined;
 }
 
 // For a constructor call that targets a generic class and an "expected type"
