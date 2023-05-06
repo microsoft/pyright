@@ -418,6 +418,14 @@ export const enum MemberAccessFlags {
     SkipTypeBaseClass = 1 << 8,
 }
 
+export interface ValidateTypeArgsOptions {
+    allowEmptyTuple?: boolean;
+    allowVariadicTypeVar?: boolean;
+    allowParamSpec?: boolean;
+    allowTypeArgList?: boolean;
+    allowUnpackedTuples?: boolean;
+}
+
 export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
@@ -454,7 +462,7 @@ export interface TypeEvaluator {
     ) => CallResult;
 
     isAfterNodeReachable: (node: ParseNode) => boolean;
-    isNodeReachable: (node: ParseNode, sourceNode: ParseNode | undefined) => boolean;
+    isNodeReachable: (node: ParseNode, sourceNode?: ParseNode | undefined) => boolean;
     isAsymmetricDescriptorAssignment: (node: ParseNode) => boolean;
     suppressDiagnostics: (node: ParseNode, callback: () => void) => void;
 
@@ -577,6 +585,7 @@ export interface TypeEvaluator {
         skipUnknownArgCheck?: boolean,
         inferenceContext?: InferenceContext
     ) => CallResult;
+    validateTypeArg: (argResult: TypeResultWithNode, options?: ValidateTypeArgsOptions) => boolean;
     assignTypeToExpression: (
         target: ExpressionNode,
         type: Type,
@@ -605,9 +614,9 @@ export interface TypeEvaluator {
     isFinalVariableDeclaration: (decl: Declaration) => boolean;
     isExplicitTypeAliasDeclaration: (decl: Declaration) => boolean;
 
-    addError: (message: string, node: ParseNode) => Diagnostic | undefined;
-    addWarning: (message: string, node: ParseNode) => Diagnostic | undefined;
-    addInformation: (message: string, node: ParseNode) => Diagnostic | undefined;
+    addError: (message: string, node: ParseNode, range?: TextRange) => Diagnostic | undefined;
+    addWarning: (message: string, node: ParseNode, range?: TextRange) => Diagnostic | undefined;
+    addInformation: (message: string, node: ParseNode, range?: TextRange) => Diagnostic | undefined;
     addUnusedCode: (node: ParseNode, textRange: TextRange) => void;
     addUnreachableCode: (node: ParseNode, textRange: TextRange) => void;
     addDeprecated: (message: string, node: ParseNode) => void;
