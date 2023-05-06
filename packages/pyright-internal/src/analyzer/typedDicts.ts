@@ -349,7 +349,7 @@ export function synthesizeTypedDictClassMethods(
         ) => {
             const getOverload = FunctionType.createSynthesizedInstance('get', FunctionTypeFlags.Overloaded);
             FunctionType.addParameter(getOverload, selfParam);
-            getOverload.details.typeVarScopeId = evaluator.getScopeIdForNode(node);
+            getOverload.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
             FunctionType.addParameter(getOverload, {
                 category: ParameterCategory.Simple,
                 name: 'k',
@@ -407,7 +407,7 @@ export function synthesizeTypedDictClassMethods(
             const popOverload2 = FunctionType.createSynthesizedInstance('pop', FunctionTypeFlags.Overloaded);
             FunctionType.addParameter(popOverload2, selfParam);
             FunctionType.addParameter(popOverload2, keyParam);
-            popOverload2.details.typeVarScopeId = evaluator.getScopeIdForNode(node);
+            popOverload2.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
             const defaultTypeVar = createDefaultTypeVar(popOverload2);
             FunctionType.addParameter(popOverload2, {
                 category: ParameterCategory.Simple,

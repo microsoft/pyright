@@ -11,9 +11,8 @@ import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { containsOnlyWhitespace } from '../common/core';
 import { assert, assertNever, fail } from '../common/debug';
 import { convertPositionToOffset, convertTextRangeToRange } from '../common/positionUtils';
-import { Position, Range } from '../common/textRange';
-import { TextRange } from '../common/textRange';
-import { getIndexContaining, TextRangeCollection } from '../common/textRangeCollection';
+import { Position, Range, TextRange } from '../common/textRange';
+import { TextRangeCollection, getIndexContaining } from '../common/textRangeCollection';
 import {
     ArgumentCategory,
     ArgumentNode,
@@ -27,7 +26,6 @@ import {
     FunctionNode,
     ImportFromNode,
     IndexNode,
-    isExpressionNode,
     LambdaNode,
     MemberAccessNode,
     ModuleNode,
@@ -43,13 +41,15 @@ import {
     SuiteNode,
     TypeAnnotationNode,
     TypeParameterScopeNode,
+    isExpressionNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { TokenizerOutput } from '../parser/tokenizer';
 import { KeywordType, OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { getScope } from './analyzerNodeInfo';
-import { getChildNodes, ParseTreeWalker } from './parseTreeWalker';
+import { ParseTreeWalker, getChildNodes } from './parseTreeWalker';
+import { TypeVarScopeId } from './types';
 
 export const enum PrintExpressionFlags {
     None = 0,
@@ -2649,4 +2649,38 @@ export function getVariableDocStringNode(node: ExpressionNode): StringListNode |
 
     // A docstring can consist of multiple joined strings in a single expression.
     return nextStatement.statements[0] as StringListNode;
+}
+
+// Creates an ID that identifies this parse node in a way that will
+// not change each time the file is parsed (unless, of course, the
+// file contents change).
+export function getScopeIdForNode(node: ParseNode): string {
+    let name = '';
+    if (node.nodeType === ParseNodeType.Class) {
+        name = node.name.value;
+    } else if (node.nodeType === ParseNodeType.Function) {
+        name = node.name.value;
+    }
+
+    const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+    return `${fileInfo.filePath}.${node.start.toString()}-${name}`;
+}
+
+// Walks up the parse tree and finds all scopes that can provide
+// a context for a TypeVar and returns the scope ID for each.
+export function getTypeVarScopesForNode(node: ParseNode): TypeVarScopeId[] {
+    const scopeIds: TypeVarScopeId[] = [];
+
+    let curNode: ParseNode | undefined = node;
+    while (curNode) {
+        curNode = getTypeVarScopeNode(curNode);
+        if (!curNode) {
+            break;
+        }
+
+        scopeIds.push(getScopeIdForNode(curNode));
+        curNode = curNode.parent;
+    }
+
+    return scopeIds;
 }

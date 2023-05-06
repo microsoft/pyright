@@ -101,7 +101,7 @@ export function createNamedTupleType(
         isInstantiableClass(namedTupleType) ? namedTupleType.details.effectiveMetaclass : UnknownType.create()
     );
     classType.details.baseClasses.push(namedTupleType);
-    classType.details.typeVarScopeId = evaluator.getScopeIdForNode(errorNode);
+    classType.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(errorNode);
 
     const classFields = classType.details.fields;
     classFields.set(

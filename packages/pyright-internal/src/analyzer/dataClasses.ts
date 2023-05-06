@@ -25,9 +25,10 @@ import {
     TypeAnnotationNode,
 } from '../parser/parseNodes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { createFunctionFromConstructor } from './constructors';
 import { DeclarationType } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
-import { getEnclosingClassOrFunction } from './parseTreeUtils';
+import { getEnclosingClassOrFunction, getScopeIdForNode } from './parseTreeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName } from './symbolNameUtils';
@@ -699,7 +700,7 @@ function getConverterInputType(
     // Create synthesized function of the form Callable[[T], fieldType] which
     // will be used to check compatibility of the provided converter.
     const typeVar = TypeVarType.createInstance('__converterInput');
-    typeVar.scopeId = evaluator.getScopeIdForNode(converterNode);
+    typeVar.scopeId = getScopeIdForNode(converterNode);
     const targetFunction = FunctionType.createSynthesizedInstance('');
     targetFunction.details.typeVarScopeId = typeVar.scopeId;
     targetFunction.details.declaredReturnType = fieldType;
@@ -780,7 +781,7 @@ function getConverterAsFunction(
     }
 
     if (isInstantiableClass(converterType)) {
-        return evaluator.createFunctionFromConstructor(converterType);
+        return createFunctionFromConstructor(evaluator, converterType);
     }
 
     return undefined;

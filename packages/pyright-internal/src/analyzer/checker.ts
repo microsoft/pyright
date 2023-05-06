@@ -2189,7 +2189,7 @@ export class Checker extends ParseTreeWalker {
             ``;
             if (nameType && isTypeVar(nameType) && !nameType.details.isSynthesizedSelf) {
                 // Does this name refer to a TypeVar that is scoped to this function?
-                if (nameType.scopeId === this._evaluator.getScopeIdForNode(node)) {
+                if (nameType.scopeId === ParseTreeUtils.getScopeIdForNode(node)) {
                     // We exempt constrained TypeVars, bound TypeVars that are type arguments of
                     // other types, and ParamSpecs. There are legitimate uses for singleton
                     // instances in these particular cases.

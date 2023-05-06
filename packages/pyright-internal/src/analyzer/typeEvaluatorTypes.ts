@@ -337,6 +337,28 @@ export interface CallResult {
     argResults?: ArgResult[];
 }
 
+export interface ClassMemberLookup {
+    symbol: Symbol | undefined;
+
+    // Type of symbol.
+    type: Type;
+    isTypeIncomplete: boolean;
+
+    // True if class member, false otherwise.
+    isClassMember: boolean;
+
+    // The class that declares the accessed member.
+    classType?: ClassType | UnknownType;
+
+    // True if the member is explicitly declared as ClassVar
+    // within a Protocol.
+    isClassVar: boolean;
+
+    // Is member a descriptor object that is asymmetric with respect
+    // to __get__ and __set__ types?
+    isAsymmetricDescriptor: boolean;
+}
+
 export interface PrintTypeOptions {
     expandTypeAlias?: boolean;
     enforcePythonSyntax?: boolean;
@@ -353,6 +375,47 @@ export interface DeclaredSymbolTypeInfo {
 export interface ResolveAliasOptions {
     allowExternallyHiddenAccess?: boolean;
     skipFileNeededCheck?: boolean;
+}
+
+export const enum MemberAccessFlags {
+    None = 0,
+
+    // By default, member accesses are assumed to access the attributes
+    // of a class instance. By setting this flag, only attributes of
+    // the class are considered.
+    AccessClassMembersOnly = 1 << 0,
+
+    // By default, members of base classes are also searched.
+    // Set this flag to consider only the specified class' members.
+    SkipBaseClasses = 1 << 1,
+
+    // Do not include the "object" base class in the search.
+    SkipObjectBaseClass = 1 << 2,
+
+    // Consider writes to symbols flagged as ClassVars as an error.
+    DisallowClassVarWrites = 1 << 3,
+
+    // Normally __new__ is treated as a static method, but when
+    // it is invoked implicitly through a constructor call, it
+    // acts like a class method instead.
+    TreatConstructorAsClassMethod = 1 << 4,
+
+    // By default, class member lookups start with the class itself
+    // and fall back on the metaclass if it's not found. This option
+    // skips the first check.
+    ConsiderMetaclassOnly = 1 << 5,
+
+    // If an attribute cannot be found when looking for instance
+    // members, normally an attribute access override method
+    // (__getattr__, etc.) may provide the missing attribute type.
+    // This disables this check.
+    SkipAttributeAccessOverride = 1 << 6,
+
+    // Do not include the class itself, only base classes.
+    SkipOriginalClass = 1 << 7,
+
+    // Do not include the "type" base class in the search.
+    SkipTypeBaseClass = 1 << 8,
 }
 
 export interface TypeEvaluator {
@@ -421,7 +484,6 @@ export interface TypeEvaluator {
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
     getTypeOfArgument: (arg: FunctionArgument) => TypeResult;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
-    getScopeIdForNode: (node: ParseNode) => string;
     makeTopLevelTypeVarsConcrete: (type: Type, makeParamSpecsConcrete?: boolean) => Type;
     mapSubtypesExpandTypeVars: (
         type: Type,
@@ -447,14 +509,31 @@ export interface TypeEvaluator {
     ) => FunctionType | undefined;
     getBuiltInType: (node: ParseNode, name: string) => Type;
     getTypeOfMember: (member: ClassMember) => Type;
-    getTypeOfObjectMember(errorNode: ExpressionNode, objectType: ClassType, memberName: string): TypeResult | undefined;
+    getTypeOfObjectMember(
+        errorNode: ExpressionNode,
+        objectType: ClassType,
+        memberName: string,
+        usage?: EvaluatorUsage,
+        diag?: DiagnosticAddendum | undefined,
+        memberAccessFlags?: MemberAccessFlags,
+        bindToType?: ClassType | TypeVarType
+    ): TypeResult | undefined;
+    getTypeOfClassMemberName: (
+        errorNode: ExpressionNode,
+        classType: ClassType,
+        isAccessedThroughObject: boolean,
+        memberName: string,
+        usage: EvaluatorUsage,
+        diag: DiagnosticAddendum | undefined,
+        flags: MemberAccessFlags,
+        bindToType?: ClassType | TypeVarType
+    ) => ClassMemberLookup | undefined;
     getBoundMethod: (
         classType: ClassType,
         memberName: string,
         recursionCount?: number,
         treatConstructorAsClassMember?: boolean
     ) => FunctionType | OverloadedFunctionType | undefined;
-    createFunctionFromConstructor: (classType: ClassType) => FunctionType | OverloadedFunctionType | undefined;
     getTypeOfMagicMethodReturn: (
         objType: Type,
         args: TypeResult[],
@@ -490,6 +569,14 @@ export interface TypeEvaluator {
         diag: DiagnosticAddendum,
         enforceParamNames?: boolean
     ) => boolean;
+    validateCallArguments: (
+        errorNode: ExpressionNode,
+        argList: FunctionArgument[],
+        callTypeResult: TypeResult,
+        typeVarContext?: TypeVarContext,
+        skipUnknownArgCheck?: boolean,
+        inferenceContext?: InferenceContext
+    ) => CallResult;
     assignTypeToExpression: (
         target: ExpressionNode,
         type: Type,
@@ -546,6 +633,7 @@ export interface TypeEvaluator {
     getTypeCacheEntryCount: () => number;
     disposeEvaluator: () => void;
     useSpeculativeMode: <T>(speculativeNode: ParseNode, callback: () => T) => T;
+    isSpeculativeModeInUse: (node: ParseNode | undefined) => boolean;
     setTypeForNode: (node: ParseNode, type?: Type, flags?: EvaluatorFlags) => void;
 
     checkForCancellation: () => void;
