@@ -118,3 +118,26 @@ reveal_type(TestEnum8.A.value, expected_text="Literal[1]")
 reveal_type(TestEnum8.B.value, expected_text="list[int]")
 reveal_type(TestEnum8.C.value, expected_text="Literal['c']")
 reveal_type(TestEnum8.D._value_, expected_text="Literal['d']")
+
+
+class TestEnum9(Enum):
+    _other1: int
+    _other2: int
+
+    def __new__(cls, value: str, other1: int, other2: int):
+        obj = object.__new__(cls)
+        obj._value_ = value
+        obj._other1 = other1
+        obj._other2 = other2
+        return obj
+
+    A = ("a", 1, 2)
+    B = ("b", 2, 3)
+
+
+te9_A = TestEnum9.A
+reveal_type(te9_A, expected_text="Literal[TestEnum9.A]")
+reveal_type(te9_A.value, expected_text="Any")
+reveal_type(te9_A._value_, expected_text="Any")
+reveal_type(te9_A.name, expected_text="Literal['A']")
+reveal_type(te9_A._name_, expected_text="Literal['A']")

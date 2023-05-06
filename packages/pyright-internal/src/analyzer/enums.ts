@@ -16,8 +16,9 @@ import { Symbol, SymbolFlags } from './symbol';
 import { isSingleDunderName } from './symbolNameUtils';
 import { FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
-import { computeMroLinearization } from './typeUtils';
+import { ClassMemberLookupFlags, computeMroLinearization, lookUpClassMember } from './typeUtils';
 import {
+    AnyType,
     ClassType,
     ClassTypeFlags,
     EnumLiteral,
@@ -298,7 +299,21 @@ export function transformTypeForPossibleEnumClass(
         isMemberOfEnumeration = false;
     }
 
-    const valueType = getValueType();
+    let valueType: Type;
+
+    // If the class includes a __new__ method, we cannot assume that
+    // the value of each enum element is simply the value assigned to it.
+    // The __new__ method can transform the value in ways that we cannot
+    // determine statically.
+    const newMember = lookUpClassMember(enumClassInfo.classType, '__new__', ClassMemberLookupFlags.SkipBaseClasses);
+    if (newMember) {
+        // We may want to change this to UnknownType in the future, but
+        // for now, we'll leave it as Any which is consistent with the
+        // type specified in the Enum class definition in enum.pyi.
+        valueType = AnyType.create();
+    } else {
+        valueType = getValueType();
+    }
 
     // The spec excludes descriptors.
     if (isClassInstance(valueType) && valueType.details.fields.get('__get__')) {
