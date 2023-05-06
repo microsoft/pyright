@@ -12787,21 +12787,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         };
 
-        if (isSpeculativeModeInUse(node) || inferenceContext?.isTypeIncomplete) {
-            // We need to set allowCacheRetention to false because we don't want to
-            // cache the type of the lambda return expression because it depends on
-            // the parameter types that we set above, and the speculative type cache
-            // doesn't know about that context.
-            useSpeculativeMode(
-                node.expression,
-                () => {
-                    inferLambdaReturnType();
-                },
-                /* allowCacheRetention */ false
-            );
-        } else {
-            inferLambdaReturnType();
-        }
+        // We need to set allowCacheRetention to false because we don't want to
+        // cache the type of the lambda return expression because it depends on
+        // the parameter types that we set above, and the speculative type cache
+        // doesn't know about that context.
+        useSpeculativeMode(
+            isSpeculativeModeInUse(node) || inferenceContext?.isTypeIncomplete ? node.expression : undefined,
+            () => {
+                inferLambdaReturnType();
+            },
+            /* allowCacheRetention */ false
+        );
 
         // Mark the function type as no longer being evaluated.
         functionType.details.flags &= ~FunctionTypeFlags.PartiallyEvaluated;
@@ -18880,10 +18876,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
-    // Disables recording of errors and warnings and disables
-    // any caching of types, under the assumption that we're
-    // performing speculative evaluations.
-    function useSpeculativeMode<T>(speculativeNode: ParseNode, callback: () => T, allowCacheRetention = true) {
+    // Disables recording of errors and warnings and disables any caching of
+    // types, under the assumption that we're performing speculative evaluations.
+    // If speculativeNode is undefined, speculative mode is not used. This is
+    // useful in cases where we conditionally want to use speculative mode.
+    function useSpeculativeMode<T>(
+        speculativeNode: ParseNode | undefined,
+        callback: () => T,
+        allowCacheRetention = true
+    ) {
+        if (!speculativeNode) {
+            return callback();
+        }
+
         speculativeTypeTracker.enterSpeculativeContext(speculativeNode, allowCacheRetention);
 
         try {

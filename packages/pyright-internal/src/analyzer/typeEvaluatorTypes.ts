@@ -641,7 +641,7 @@ export interface TypeEvaluator {
 
     getTypeCacheEntryCount: () => number;
     disposeEvaluator: () => void;
-    useSpeculativeMode: <T>(speculativeNode: ParseNode, callback: () => T) => T;
+    useSpeculativeMode: <T>(speculativeNode: ParseNode | undefined, callback: () => T) => T;
     isSpeculativeModeInUse: (node: ParseNode | undefined) => boolean;
     setTypeForNode: (node: ParseNode, type?: Type, flags?: EvaluatorFlags) => void;
 
