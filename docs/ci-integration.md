@@ -1,5 +1,15 @@
 ## Integrating Pyright into Continuous Integration
 
+### Adding Pyright badge to README.md
+
+[![Checked with pyright](https://microsoft.github.io/pyright/img/pyright_badge.svg)](https://microsoft.github.io/pyright/)
+
+To add a “pyright: checked” SVG badge to your project’s README.md file, use the following:
+
+```text
+[![Checked with pyright](https://microsoft.github.io/pyright/img/pyright_badge.svg)](https://microsoft.github.io/pyright/)
+```
+
 ### Running Pyright as a github action
 
 You can configure pyright to run as a github action.
