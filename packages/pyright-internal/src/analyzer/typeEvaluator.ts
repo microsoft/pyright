@@ -8129,6 +8129,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     // Eliminate any return types that are subsumed by other return types.
                     let dedupedMatchResults: Type[] = [];
+                    let dedupedResultsIncludeAny = false;
 
                     possibleMatchResults.forEach((result) => {
                         let isSubtypeSubsumed = false;
@@ -8137,11 +8138,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (assignType(dedupedMatchResults[dedupedIndex], result.returnType)) {
                                 if (!containsAnyOrUnknown(dedupedMatchResults[dedupedIndex])) {
                                     isSubtypeSubsumed = true;
+                                } else if (!containsUnknown(dedupedMatchResults[dedupedIndex])) {
+                                    dedupedResultsIncludeAny = true;
                                 }
                                 break;
                             } else if (assignType(result.returnType, dedupedMatchResults[dedupedIndex])) {
                                 if (!containsAnyOrUnknown(result.returnType)) {
                                     dedupedMatchResults[dedupedIndex] = NeverType.createNever();
+                                } else if (!containsUnknown(dedupedMatchResults[dedupedIndex])) {
+                                    dedupedResultsIncludeAny = true;
                                 }
                                 break;
                             }
@@ -8155,11 +8160,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     dedupedMatchResults = dedupedMatchResults.filter((t) => !isNever(t));
                     const combinedTypes = combineTypes(dedupedMatchResults);
 
-                    returnTypes.push(
-                        dedupedMatchResults.length > 1
-                            ? UnknownType.createPossibleType(combinedTypes, possibleMatchInvolvesIncompleteUnknown)
-                            : combinedTypes
-                    );
+                    let effectiveReturnType = combinedTypes;
+                    if (dedupedMatchResults.length > 1) {
+                        // If one or more of the deduped types is Any or contains Any,
+                        // we will assume that the person who defined the overload really
+                        // wanted Any rather than Unknown. In cases where the deduped types
+                        // simply contains conflicting results without an Any, we'll use
+                        // an UnknownType.
+                        if (dedupedResultsIncludeAny) {
+                            effectiveReturnType = AnyType.create();
+                        } else {
+                            effectiveReturnType = UnknownType.createPossibleType(
+                                combinedTypes,
+                                possibleMatchInvolvesIncompleteUnknown
+                            );
+                        }
+                    }
+
+                    returnTypes.push(effectiveReturnType);
                 }
             }
 
