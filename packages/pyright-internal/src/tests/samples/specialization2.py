@@ -1,4 +1,4 @@
-# This sample tests the special case of specialzing a Union
+# This sample tests the special case of specializing a Union
 # type that has generic parameters.
 
 from typing import Any, TypeVar, Generic, Union, Callable
