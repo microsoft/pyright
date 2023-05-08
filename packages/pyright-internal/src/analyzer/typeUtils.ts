@@ -1848,6 +1848,13 @@ export function getGeneratorYieldType(declaredReturnType: Type, isAsync: boolean
     return isLegalGeneratorType ? yieldType : undefined;
 }
 
+export function isInstantiableMetaclass(type: Type): boolean {
+    return (
+        isInstantiableClass(type) &&
+        type.details.mro.some((mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, 'type'))
+    );
+}
+
 export function isMetaclassInstance(type: Type): boolean {
     return (
         isClassInstance(type) &&
