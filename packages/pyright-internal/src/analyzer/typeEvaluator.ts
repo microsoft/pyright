@@ -15458,7 +15458,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         evaluatorInterface,
                         decoratorNode.expression
                     );
-                } else if (decoratorCallType.details.name === 'deprecated') {
+                } else if (decoratorCallType.details.builtInName === 'deprecated') {
                     originalClassType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
                     return inputClassType;
                 }
@@ -16542,7 +16542,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return inputFunctionType;
                 }
 
-                if (decoratorCallType.details.name === 'deprecated') {
+                if (decoratorCallType.details.builtInName === 'deprecated') {
                     undecoratedType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
                     return inputFunctionType;
                 }
