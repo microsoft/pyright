@@ -16,24 +16,15 @@ import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../anal
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import {
-    ClassMemberLookupFlags,
-    doForEachSubtype,
-    isMaybeDescriptorInstance,
-    lookUpClassMember,
-} from '../analyzer/typeUtils';
+import { doForEachSubtype, isMaybeDescriptorInstance } from '../analyzer/typeUtils';
 import {
     ClassType,
-    FunctionType,
-    OverloadedFunctionType,
     Type,
     TypeCategory,
-    UnknownType,
     getTypeAliasInfo,
     isAnyOrUnknown,
     isClassInstance,
     isFunction,
-    isInstantiableClass,
     isModule,
     isOverloadedFunction,
     isTypeVar,
@@ -48,9 +39,11 @@ import { ExpressionNode, NameNode, ParseNode, ParseNodeType, StringNode, isExpre
 import { ParseResults } from '../parser/parser';
 import {
     combineExpressionTypes,
+    getClassAndConstructorTypes,
     getConstructorTooltip,
     getDocumentationPartsForTypeAndDecl,
     getToolTipForType,
+    getTypeForToolTip,
 } from './tooltipUtils';
 
 export class HoverProvider {
@@ -424,99 +417,32 @@ export class HoverProvider {
     }
 
     private _addInitOrNewMethodInsteadIfCallNode(node: NameNode, parts: HoverTextPart[], declaration: Declaration) {
-        // If the class is used as part of a call (i.e. it is being
-        // instantiated), include the constructor arguments within the
-        // hover text.
-        let callLeftNode: ParseNode | undefined = node;
-
-        // Allow the left to be a member access chain (e.g. a.b.c) if the
-        // node in question is the last item in the chain.
-        if (callLeftNode?.parent?.nodeType === ParseNodeType.MemberAccess && node === callLeftNode.parent.memberName) {
-            callLeftNode = node.parent;
-            // Allow the left to be a generic class constructor (e.g. foo[int]())
-        } else if (callLeftNode?.parent?.nodeType === ParseNodeType.Index) {
-            callLeftNode = node.parent;
-        }
-
-        if (
-            !callLeftNode ||
-            !callLeftNode.parent ||
-            callLeftNode.parent.nodeType !== ParseNodeType.Call ||
-            callLeftNode.parent.leftExpression !== callLeftNode
-        ) {
+        const result = getClassAndConstructorTypes(node, this._evaluator);
+        if (!result) {
             return false;
         }
 
-        // Get the init method for this class.
-        const classType = this._getType(node);
-        if (!isInstantiableClass(classType)) {
-            return false;
-        }
-
-        const instanceType = this._getType(callLeftNode.parent);
-        if (!isClassInstance(instanceType)) {
-            return false;
-        }
-
-        let methodType: Type | undefined;
-
-        // Try to get the `__init__` method first because it typically has more type information than `__new__`.
-        // Don't exclude `object.__init__` since in the plain case we want to show Foo().
-        const initMember = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipInstanceVariables);
-
-        if (initMember) {
-            const functionType = this._evaluator.getTypeOfMember(initMember);
-
-            if (isFunction(functionType) || isOverloadedFunction(functionType)) {
-                methodType = this._bindFunctionToClassOrObject(node, instanceType, functionType);
-            }
-        }
-
-        // If there was no `__init__`, excluding `object` class `__init__`, or if `__init__` only had default params (*args: Any, **kwargs: Any) or no params (),
-        // see if we can find a better `__new__` method.
-        if (
-            !methodType ||
-            (methodType &&
-                isFunction(methodType) &&
-                (FunctionType.hasDefaultParameters(methodType) || methodType.details.parameters.length === 0))
-        ) {
-            const newMember = lookUpClassMember(
-                classType,
-                '__new__',
-                ClassMemberLookupFlags.SkipObjectBaseClass | ClassMemberLookupFlags.SkipInstanceVariables
-            );
-
-            if (newMember) {
-                const newMemberType = this._evaluator.getTypeOfMember(newMember);
-
-                // Prefer `__new__` if it doesn't have default params (*args: Any, **kwargs: Any) or no params ().
-                if (isFunction(newMemberType) || isOverloadedFunction(newMemberType)) {
-                    // Set `treatConstructorAsClassMember` to true to exclude `cls` as a parameter.
-                    methodType = this._bindFunctionToClassOrObject(
-                        node,
-                        instanceType,
-                        newMemberType,
-                        /* treatConstructorAsClassMember */ true
-                    );
-                }
-            }
-        }
-
-        if (methodType && (isFunction(methodType) || isOverloadedFunction(methodType))) {
+        if (result.methodType && (isFunction(result.methodType) || isOverloadedFunction(result.methodType))) {
             this._addResultsPart(
                 parts,
-                getConstructorTooltip(node.value, methodType, this._evaluator, this._functionSignatureDisplay),
+                getConstructorTooltip(node.value, result.methodType, this._evaluator, this._functionSignatureDisplay),
                 /* python */ true
             );
 
-            const addedDoc = this._addDocumentationPartForType(parts, methodType, declaration);
+            const addedDoc = this._addDocumentationPartForType(parts, result.methodType, declaration);
 
             if (!addedDoc) {
-                this._addDocumentationPartForType(parts, classType, declaration);
+                this._addDocumentationPartForType(parts, result.classType, declaration);
             }
             return true;
         }
         return false;
+    }
+
+    private _getType(node: ExpressionNode) {
+        // It does common work necessary for hover for a type we got
+        // from raw type evaluator.
+        return getTypeForToolTip(this._evaluator, node);
     }
 
     private _getTypeText(node: ExpressionNode, expandTypeAlias = false): string {
@@ -527,67 +453,6 @@ export class HoverProvider {
     private _getTypesText(nodes: ExpressionNode[], expandTypeAlias = false): string {
         const type = combineExpressionTypes(nodes, this._evaluator);
         return ': ' + this._evaluator.printType(type, { expandTypeAlias });
-    }
-
-    private _bindFunctionToClassOrObject(
-        node: ExpressionNode,
-        baseType: ClassType | undefined,
-        memberType: FunctionType | OverloadedFunctionType,
-        treatConstructorAsClassMember?: boolean
-    ): FunctionType | OverloadedFunctionType | undefined {
-        const methodType = this._evaluator.bindFunctionToClassOrObject(
-            baseType,
-            memberType,
-            /* memberClass */ undefined,
-            /* errorNode */ undefined,
-            /* recursiveCount */ undefined,
-            treatConstructorAsClassMember
-        );
-
-        if (!methodType) {
-            return undefined;
-        }
-
-        return this._limitOverloadBasedOnCall(methodType, node);
-    }
-
-    private _getType(node: ExpressionNode) {
-        // It does common work necessary for hover for a type we got
-        // from raw type evaluator.
-        const type = this._evaluator.getType(node) ?? UnknownType.create();
-        return this._limitOverloadBasedOnCall(type, node);
-    }
-
-    private _limitOverloadBasedOnCall<T extends Type>(
-        type: T,
-        node: ExpressionNode
-    ): T | FunctionType | OverloadedFunctionType {
-        // If it's an overloaded function, see if it's part of a call expression.
-        // If so, we may be able to eliminate some of the overloads based on
-        // the overload resolution.
-        if (!isOverloadedFunction(type) || node.nodeType !== ParseNodeType.Name) {
-            return type;
-        }
-
-        const callNode = ParseTreeUtils.getCallForName(node);
-        if (!callNode) {
-            return type;
-        }
-
-        const callTypeResult = this._evaluator.getTypeResult(callNode);
-        if (
-            !callTypeResult ||
-            !callTypeResult.overloadsUsedForCall ||
-            callTypeResult.overloadsUsedForCall.length === 0
-        ) {
-            return type;
-        }
-
-        if (callTypeResult.overloadsUsedForCall.length === 1) {
-            return callTypeResult.overloadsUsedForCall[0];
-        }
-
-        return OverloadedFunctionType.create(callTypeResult.overloadsUsedForCall);
     }
 
     private _addDocumentationPart(parts: HoverTextPart[], node: NameNode, resolvedDecl: Declaration | undefined) {

@@ -10,12 +10,7 @@
 
 import * as TOML from '@iarna/toml';
 import * as JSONC from 'jsonc-parser';
-import {
-    AbstractCancellationTokenSource,
-    CancellationToken,
-    CompletionItem,
-    DocumentSymbol,
-} from 'vscode-languageserver';
+import { AbstractCancellationTokenSource, CancellationToken } from 'vscode-languageserver';
 
 import { BackgroundAnalysisBase, IndexOptions, RefreshOptions } from '../backgroundAnalysisBase';
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
@@ -24,7 +19,7 @@ import { ConfigOptions, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, LogLevel, StandardConsole, log } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditAction } from '../common/editAction';
-import { Extensions, ProgramView } from '../common/extensibility';
+import { Extensions, ProgramMutator, ProgramView } from '../common/extensibility';
 import { FileSystem, FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileSystem';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
 import { defaultStubsDirectory } from '../common/pathConsts';
@@ -47,11 +42,8 @@ import {
     tryRealpath,
     tryStat,
 } from '../common/pathUtils';
-import { Position, Range } from '../common/textRange';
+import { Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
-import { AutoImportOptions } from '../languageService/autoImporter';
-import { AbbreviationMap, CompletionOptions, CompletionResultsList } from '../languageService/completionProvider';
-import { WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { AnalysisCompleteCallback } from './analysis';
 import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './backgroundAnalysisProgram';
 import { CacheManager } from './cacheManager';
@@ -161,9 +153,16 @@ export class AnalyzerService {
                       this._options.cacheManager
                   );
 
-        // Create the extensions tied to this program. This is where the mutating 'addTrackedFile' will actually
-        // mutate the local program and the BG thread one.
-        Extensions.createProgramExtensions(this._program, { addInterimFile: this.addInterimFile.bind(this) });
+        // Create the extensions tied to this program.
+
+        // Make a wrapper around the program for mutation situations. It
+        // will forward the requests to the background thread too.
+        const mutator: ProgramMutator = {
+            addInterimFile: this.addInterimFile.bind(this),
+            updateOpenFileContents: this.updateOpenFileContents.bind(this),
+            setFileOpened: this.setFileOpened.bind(this),
+        };
+        Extensions.createProgramExtensions(this._program, mutator);
     }
 
     get fs() {
@@ -222,7 +221,7 @@ export class AnalyzerService {
         return service;
     }
 
-    useEditMode(callback: () => void, token: CancellationToken) {
+    runEditMode(callback: (v: ProgramView, m: ProgramMutator) => void, token: CancellationToken) {
         let edits: FileEditAction[] = [];
         const disposable = token.onCancellationRequested(() => {
             edits = [];
@@ -230,7 +229,7 @@ export class AnalyzerService {
         });
         this._backgroundAnalysisProgram.enterEditMode();
         try {
-            callback();
+            this._program.runWithMutation(callback, token);
         } finally {
             disposable.dispose();
             edits = this._backgroundAnalysisProgram.exitEditMode();
@@ -371,68 +370,12 @@ export class AnalyzerService {
         return this._program.getTextOnRange(filePath, range, token);
     }
 
-    getAutoImports(
-        filePath: string,
-        range: Range,
-        similarityLimit: number,
-        nameMap: AbbreviationMap | undefined,
-        options: AutoImportOptions,
-        token: CancellationToken
-    ) {
-        options.libraryMap = options.libraryMap ?? this._backgroundAnalysisProgram.getIndexing(filePath);
-        return this._program.getAutoImports(filePath, range, similarityLimit, nameMap, options, token);
-    }
-
-    addSymbolsForDocument(filePath: string, symbolList: DocumentSymbol[], token: CancellationToken) {
-        this._program.addSymbolsForDocument(filePath, symbolList, token);
-    }
-
-    reportSymbolsForWorkspace(query: string, reporter: WorkspaceSymbolCallback, token: CancellationToken) {
-        this._program.reportSymbolsForWorkspace(query, reporter, token);
-    }
-
-    getCompletionsForPosition(
-        filePath: string,
-        position: Position,
-        workspacePath: string,
-        options: CompletionOptions,
-        nameMap: AbbreviationMap | undefined,
-        token: CancellationToken
-    ): Promise<CompletionResultsList | undefined> {
-        return this._program.getCompletionsForPosition(
-            filePath,
-            position,
-            workspacePath,
-            options,
-            nameMap,
-            this._backgroundAnalysisProgram.getIndexing(filePath),
-            token
-        );
-    }
-
     getEvaluator(): TypeEvaluator | undefined {
         return this._program.evaluator;
     }
 
     run<T>(callback: (p: ProgramView) => T, token: CancellationToken): T {
         return this._program.run(callback, token);
-    }
-
-    resolveCompletionItem(
-        filePath: string,
-        completionItem: CompletionItem,
-        options: CompletionOptions,
-        nameMap: AbbreviationMap | undefined,
-        token: CancellationToken
-    ) {
-        this._program.resolveCompletionItem(
-            filePath,
-            completionItem,
-            options,
-            nameMap,
-            this._backgroundAnalysisProgram.getIndexing(filePath),
-            token
-        );
     }
 
     printStats() {

@@ -7,7 +7,7 @@
  */
 
 import * as assert from 'assert';
-import { TextDocumentEdit } from 'vscode-languageserver-types';
+import { TextDocumentEdit, WorkspaceEdit } from 'vscode-languageserver-types';
 
 import { CancellationToken } from 'vscode-languageserver';
 import { IPythonMode } from '../analyzer/sourceFile';
@@ -17,6 +17,7 @@ import { AnalyzerServiceExecutor } from '../languageService/analyzerServiceExecu
 import { TestLanguageService } from './harness/fourslash/testLanguageService';
 import { TestState, parseAndGetTestState } from './harness/fourslash/testState';
 import { verifyWorkspaceEdit } from './harness/fourslash/workspaceEditTestUtils';
+import { AnalyzerService } from '../analyzer/service';
 
 test('test applyWorkspaceEdits changes', async () => {
     const code = `
@@ -29,7 +30,7 @@ test('test applyWorkspaceEdits changes', async () => {
     const range = state.getRangeByMarkerName('marker')!;
 
     const fileChanged = new Set<string>();
-    applyWorkspaceEdit(
+    applyWorkspaceEditToService(
         cloned,
         {
             changes: {
@@ -57,9 +58,9 @@ test('test edit mode for workspace', async () => {
     const state = parseAndGetTestState(code).state;
     const range = state.getRangeByMarkerName('marker')!;
     const addedFilePath = combinePaths(getDirectoryPath(range.fileName), 'test2.py');
-    const edits = await state.workspace.service.useEditMode(async () => {
+    const edits = await state.workspace.service.runEditMode(async () => {
         const fileChanged = new Set<string>();
-        applyWorkspaceEdit(
+        applyWorkspaceEditToService(
             state.workspace.service,
             {
                 documentChanges: [
@@ -97,7 +98,7 @@ test('test edit mode for workspace', async () => {
             realFilePath: addedFilePath,
         });
 
-        applyWorkspaceEdit(
+        applyWorkspaceEditToService(
             state.workspace.service,
             {
                 documentChanges: [
@@ -118,7 +119,7 @@ test('test edit mode for workspace', async () => {
             fileChanged
         );
 
-        applyWorkspaceEdit(
+        applyWorkspaceEditToService(
             state.workspace.service,
             {
                 documentChanges: [
@@ -177,7 +178,7 @@ test('test applyWorkspaceEdits documentChanges', async () => {
     const range = state.getRangeByMarkerName('marker')!;
 
     const fileChanged = new Set<string>();
-    applyWorkspaceEdit(
+    applyWorkspaceEditToService(
         cloned,
         {
             documentChanges: [
@@ -216,7 +217,7 @@ test('test generateWorkspaceEdits', async () => {
     const range1 = state.getRangeByMarkerName('marker1')!;
 
     const fileChanged = new Set<string>();
-    applyWorkspaceEdit(
+    applyWorkspaceEditToService(
         cloned,
         {
             changes: {
@@ -231,7 +232,7 @@ test('test generateWorkspaceEdits', async () => {
         fileChanged
     );
 
-    applyWorkspaceEdit(
+    applyWorkspaceEditToService(
         cloned,
         {
             documentChanges: [
@@ -253,7 +254,7 @@ test('test generateWorkspaceEdits', async () => {
     );
 
     const range2 = state.getRangeByMarkerName('marker2')!;
-    applyWorkspaceEdit(
+    applyWorkspaceEditToService(
         cloned,
         {
             documentChanges: [
@@ -274,7 +275,7 @@ test('test generateWorkspaceEdits', async () => {
         fileChanged
     );
 
-    applyWorkspaceEdit(
+    applyWorkspaceEditToService(
         cloned,
         {
             changes: {
@@ -312,6 +313,12 @@ test('test generateWorkspaceEdits', async () => {
         actualEdits
     );
 });
+
+function applyWorkspaceEditToService(service: AnalyzerService, edits: WorkspaceEdit, filesChanged: Set<string>) {
+    const view = service.backgroundAnalysisProgram.program;
+    const mutator = service;
+    applyWorkspaceEdit(view, mutator, edits, filesChanged);
+}
 
 async function getClonedService(state: TestState) {
     return await AnalyzerServiceExecutor.cloneService(

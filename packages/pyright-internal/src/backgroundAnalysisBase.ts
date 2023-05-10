@@ -36,7 +36,7 @@ import { FileSystem } from './common/fileSystem';
 import { Host, HostKind } from './common/host';
 import { LogTracker } from './common/logTracker';
 import { Range } from './common/textRange';
-import { IndexResults } from './languageService/documentSymbolProvider';
+import { IndexResults } from './languageService/symbolIndexer';
 
 export class BackgroundAnalysisBase {
     private _worker: Worker | undefined;
@@ -302,6 +302,22 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         // Create the extensions bound to the program for this background thread
         Extensions.createProgramExtensions(this._program, {
             addInterimFile: (filePath: string) => this._program.addInterimFile(filePath),
+            setFileOpened: (filePath, version, contents, ipythonMode, chainedFilePath, realFilePath) => {
+                this._program.setFileOpened(filePath, version, contents, {
+                    isTracked: this._program.owns(filePath),
+                    ipythonMode,
+                    chainedFilePath,
+                    realFilePath,
+                });
+            },
+            updateOpenFileContents: (filePath, version, contents, ipythonMode, realFilePath) => {
+                this._program.setFileOpened(filePath, version, contents, {
+                    isTracked: this._program.owns(filePath),
+                    ipythonMode,
+                    chainedFilePath: undefined,
+                    realFilePath,
+                });
+            },
         });
     }
 

@@ -32,7 +32,7 @@
                     kind: Consts.CompletionItemKind.Method,
                     textEdit: {
                         range: helper.getPositionRange('marker'),
-                        newText: 'append(self, __object: Any) -> None:\n    return super().append(__object)',
+                        newText: 'append(self, __object: _T) -> None:\n    return super().append(__object)',
                     },
                 },
             ],
@@ -58,21 +58,6 @@
                         range: helper.getPositionRange('marker3'),
                         newText: '__call__(self, *args: Any, **kwds: Any) -> Any:\n    ${0:pass}',
                     },
-                    additionalTextEdits: [
-                        {
-                            range: {
-                                start: {
-                                    line: 0,
-                                    character: 0,
-                                },
-                                end: {
-                                    line: 0,
-                                    character: 0,
-                                },
-                            },
-                            newText: 'from typing import Any\n\n\n',
-                        },
-                    ],
                 },
             ],
         },

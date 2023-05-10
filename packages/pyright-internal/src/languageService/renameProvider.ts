@@ -16,7 +16,7 @@ import { convertTextRangeToRange } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
 import { DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
-import { collectImportedByFiles, isUserCode } from '../analyzer/sourceFileInfoUtils';
+import { isUserCode } from '../analyzer/sourceFileInfoUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ParseResults } from '../parser/parser';
 import { convertToWorkspaceEdit } from '../common/workspaceEditUtils';
@@ -169,7 +169,14 @@ export class RenameProvider {
     }
 
     private _getReferenceResult() {
-        const referencesResult = this._getDeclaration();
+        const referencesResult = ReferencesProvider.getDeclarationForPosition(
+            this._program,
+            this._filePath,
+            this._position,
+            /* reporter */ undefined,
+            DocumentSymbolCollectorUseCase.Rename,
+            this._token
+        );
         if (!referencesResult) {
             return undefined;
         }
@@ -190,19 +197,6 @@ export class RenameProvider {
             referencesResult.symbolNames,
             referencesResult.nonImportDeclarations,
             referencesResult.useCase
-        );
-    }
-
-    private _getDeclaration() {
-        const sourceFileInfo = this._program.getSourceFileInfo(this._filePath)!;
-        return ReferencesProvider.getDeclarationForPosition(
-            this._program,
-            this._filePath,
-            this._position,
-            /* reporter */ undefined,
-            DocumentSymbolCollectorUseCase.Rename,
-            this._token,
-            Array.from(collectImportedByFiles(sourceFileInfo)).map((fileInfo) => fileInfo.sourceFile)
         );
     }
 }
