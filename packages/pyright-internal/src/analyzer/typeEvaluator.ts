@@ -11575,29 +11575,43 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const baseClass = getTypeOfArgumentExpectingType(argList[1]).type;
+        let baseClass = getTypeOfArgumentExpectingType(argList[1]).type;
+        let isBaseClassAny = false;
 
-        if (isInstantiableClass(baseClass)) {
-            if (ClassType.isProtocolClass(baseClass)) {
-                addError(Localizer.Diagnostic.newTypeProtocolClass(), argList[1].node || errorNode);
-            } else if (baseClass.literalValue !== undefined) {
-                addError(Localizer.Diagnostic.newTypeLiteral(), argList[1].node || errorNode);
+        if (isAnyOrUnknown(baseClass)) {
+            if (objectType && isClassInstance(objectType)) {
+                baseClass = ClassType.cloneAsInstantiable(objectType);
             }
 
-            const classFlags = baseClass.details.flags & ~(ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
-            const classType = ClassType.createInstantiable(
-                className,
-                ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
-                fileInfo.moduleName,
-                fileInfo.filePath,
-                classFlags,
-                ParseTreeUtils.getTypeSourceId(errorNode),
-                /* declaredMetaclass */ undefined,
-                baseClass.details.effectiveMetaclass
-            );
-            classType.details.baseClasses.push(baseClass);
-            computeMroLinearization(classType);
+            isBaseClassAny = true;
+        }
 
+        if (!isInstantiableClass(baseClass)) {
+            addError(Localizer.Diagnostic.newTypeNotAClass(), argList[1].node || errorNode);
+            return undefined;
+        }
+
+        if (ClassType.isProtocolClass(baseClass)) {
+            addError(Localizer.Diagnostic.newTypeProtocolClass(), argList[1].node || errorNode);
+        } else if (baseClass.literalValue !== undefined) {
+            addError(Localizer.Diagnostic.newTypeLiteral(), argList[1].node || errorNode);
+        }
+
+        const classFlags = baseClass.details.flags & ~(ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
+        const classType = ClassType.createInstantiable(
+            className,
+            ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
+            fileInfo.moduleName,
+            fileInfo.filePath,
+            classFlags,
+            ParseTreeUtils.getTypeSourceId(errorNode),
+            /* declaredMetaclass */ undefined,
+            baseClass.details.effectiveMetaclass
+        );
+        classType.details.baseClasses.push(isBaseClassAny ? AnyType.create() : baseClass);
+        computeMroLinearization(classType);
+
+        if (!isBaseClassAny) {
             // Synthesize an __init__ method that accepts only the specified type.
             const initType = FunctionType.createSynthesizedInstance('__init__');
             FunctionType.addParameter(initType, {
@@ -11626,14 +11640,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             FunctionType.addDefaultParameters(newType);
             newType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
             classType.details.fields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
-            return classType;
         }
 
-        if (!isAnyOrUnknown(baseClass)) {
-            addError(Localizer.Diagnostic.newTypeNotAClass(), argList[1].node || errorNode);
-        }
-
-        return undefined;
+        return classType;
     }
 
     // Implements the semantics of the multi-parameter variant of the "type" call.
