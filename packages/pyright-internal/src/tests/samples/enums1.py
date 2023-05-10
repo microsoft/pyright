@@ -1,6 +1,6 @@
 # This sample tests the type checker's handling of Enum.
 
-from enum import Enum, IntEnum
+from enum import Enum, EnumMeta, IntEnum
 
 
 TestEnum1 = Enum("TestEnum1", "   A   B, , ,C , \t D\t")
@@ -138,6 +138,23 @@ class TestEnum9(Enum):
 te9_A = TestEnum9.A
 reveal_type(te9_A, expected_text="Literal[TestEnum9.A]")
 reveal_type(te9_A.value, expected_text="Any")
+reveal_type(te9_A._value_, expected_text="Any")
+reveal_type(te9_A.name, expected_text="Literal['A']")
+reveal_type(te9_A._name_, expected_text="Literal['A']")
+
+
+class CustomEnumMeta1(EnumMeta):
+    pass
+
+
+class TestEnum10(Enum, metaclass=CustomEnumMeta1):
+    A = 1
+    B = 2
+
+
+te10_A = TestEnum10.A
+reveal_type(te10_A, expected_text="Literal[TestEnum10.A]")
+reveal_type(te10_A.value, expected_text="Any")
 reveal_type(te9_A._value_, expected_text="Any")
 reveal_type(te9_A.name, expected_text="Literal['A']")
 reveal_type(te9_A._name_, expected_text="Literal['A']")

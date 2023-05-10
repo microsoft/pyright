@@ -394,6 +394,15 @@ export function getTypeOfEnumMember(
     }
 
     if (memberName === 'value' || memberName === '_value_') {
+        // If the enum class has a custom metaclass, it may implement some
+        // "magic" that computes different values for the "value" attribute.
+        // This occurs, for example, in the django TextChoices class. If we
+        // detect a custom metaclass, we'll assume the value is Any.
+        const metaclass = classType.details.effectiveMetaclass;
+        if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass)) {
+            return { type: AnyType.create(), isIncomplete };
+        }
+
         if (literalValue) {
             assert(literalValue instanceof EnumLiteral);
             return { type: literalValue.itemType, isIncomplete };
