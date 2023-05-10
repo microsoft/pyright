@@ -652,4 +652,5 @@ export interface TypeEvaluator {
         callName: string,
         logger: ConsoleInterface
     ) => void;
+    printTypeVarContext: (typeVarContext: TypeVarContext) => void;
 }

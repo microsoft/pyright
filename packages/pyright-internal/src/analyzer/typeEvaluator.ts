@@ -24714,6 +24714,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return codeFlowEngine.printControlFlowGraph(flowNode, reference, callName, logger);
     }
 
+    function printTypeVarContext(typeVarContext: TypeVarContext): void {
+        const contexts = typeVarContext.getSignatureContexts();
+        contexts.forEach((context, index) => {
+            if (contexts.length > 1) {
+                console.log(`Signature context ${index + 1}:`);
+            }
+
+            context.getTypeVars().forEach((typeVarEntry) => {
+                const type = context.getTypeVarType(typeVarEntry.typeVar);
+                console.log(`  ${typeVarEntry.typeVar.details.name}: ${type ? printType(type) : '<none>'}`);
+            });
+        });
+    }
+
     const evaluatorInterface: TypeEvaluator = {
         runWithCancellationToken,
         getType,
@@ -24807,6 +24821,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         setTypeForNode,
         checkForCancellation,
         printControlFlowGraph,
+        printTypeVarContext,
     };
 
     const codeFlowEngine = getCodeFlowEngine(evaluatorInterface, speculativeTypeTracker);
