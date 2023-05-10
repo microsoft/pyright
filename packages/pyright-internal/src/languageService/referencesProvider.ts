@@ -13,7 +13,7 @@ import { CancellationToken, Location, ResultProgressReporter } from 'vscode-lang
 import { Declaration, DeclarationType, isAliasDeclaration } from '../analyzer/declaration';
 import { getNameFromDeclaration } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { collectImportedByFiles, isUserCode } from '../analyzer/sourceFileInfoUtils';
+import { isUserCode } from '../analyzer/sourceFileInfoUtils';
 import { Symbol } from '../analyzer/symbol';
 import { isVisibleExternally } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
@@ -21,7 +21,7 @@ import { maxTypeRecursionCount } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { assertNever } from '../common/debug';
-import { ProgramView, SourceFile } from '../common/extensibility';
+import { ProgramView } from '../common/extensibility';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position, TextRange, doesRangeContain } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
@@ -177,9 +177,7 @@ export class ReferencesProvider {
             position,
             reporter,
             DocumentSymbolCollectorUseCase.Reference,
-            this._token,
-            // It is temporary fix for release.
-            Array.from(collectImportedByFiles(sourceFileInfo)).map((fileInfo) => fileInfo.sourceFile)
+            this._token
         );
         if (!referencesResult) {
             return;
@@ -274,8 +272,7 @@ export class ReferencesProvider {
         node: NameNode,
         reporter: ReferenceCallback | undefined,
         useCase: DocumentSymbolCollectorUseCase,
-        token: CancellationToken,
-        implicitlyImportedBy?: SourceFile[]
+        token: CancellationToken
     ) {
         throwIfCancellationRequested(token);
 
@@ -284,8 +281,7 @@ export class ReferencesProvider {
             node,
             /* resolveLocalNames */ false,
             useCase,
-            token,
-            implicitlyImportedBy
+            token
         );
 
         if (declarations.length === 0) {
@@ -312,8 +308,7 @@ export class ReferencesProvider {
         position: Position,
         reporter: ReferenceCallback | undefined,
         useCase: DocumentSymbolCollectorUseCase,
-        token: CancellationToken,
-        implicitlyImportedBy?: SourceFile[]
+        token: CancellationToken
     ): ReferencesResult | undefined {
         throwIfCancellationRequested(token);
         const parseResults = program.getParseResults(filePath);
@@ -336,7 +331,7 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        return this.getDeclarationForNode(program, filePath, node, reporter, useCase, token, implicitlyImportedBy);
+        return this.getDeclarationForNode(program, filePath, node, reporter, useCase, token);
     }
 }
 

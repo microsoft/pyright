@@ -7,10 +7,19 @@
  */
 
 import { ConsoleInterface, LogLevel } from './console';
+import { ReadOnlyFileSystem } from './fileSystem';
 import { Duration, timingStats } from './timing';
 
 // Consider an operation "long running" if it goes longer than this.
 const durationThresholdForInfoInMs = 2000;
+
+export function getPathForLogging(fs: ReadOnlyFileSystem, filepath: string) {
+    if (fs.isMappedFilePath(filepath)) {
+        return fs.getOriginalFilePath(filepath);
+    }
+
+    return filepath;
+}
 
 export class LogTracker {
     private _dummyState = new State();

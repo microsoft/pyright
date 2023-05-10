@@ -36,7 +36,7 @@ import { ClassMemberLookupFlags, lookUpClassMember } from '../analyzer/typeUtils
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
-import { DeclarationUseCase, Extensions, ProgramView, SourceFile } from '../common/extensibility';
+import { DeclarationUseCase, Extensions, ProgramView } from '../common/extensibility';
 import { TextRange } from '../common/textRange';
 import {
     ClassNode,
@@ -48,6 +48,9 @@ import {
     StringListNode,
     StringNode,
 } from '../parser/parseNodes';
+import { IPythonMode } from '../analyzer/sourceFile';
+import { collectImportedByFiles } from '../analyzer/sourceFileInfoUtils';
+import { Symbol } from '../analyzer/symbol';
 
 export type CollectionResult = {
     node: NameNode | StringNode;
@@ -142,8 +145,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         node: NameNode,
         resolveLocalName: boolean,
         useCase: DocumentSymbolCollectorUseCase,
-        token: CancellationToken,
-        implicitlyImportedBy?: SourceFile[]
+        token: CancellationToken
     ): Declaration[] {
         throwIfCancellationRequested(token);
 
@@ -160,37 +162,14 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             /* skipUnreachableCode */ false
         );
 
-        // Add declarations from chained source files
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-        let builtinsScope = fileInfo.builtinsScope;
-        while (builtinsScope && builtinsScope.type === ScopeType.Module) {
-            const symbol = builtinsScope?.lookUpSymbol(node.value);
-            if (symbol) {
-                declarations.push(...symbol.getDeclarations());
-            }
-
-            builtinsScope = builtinsScope?.parent;
-        }
-
-        // Add declarations from files that implicitly import the target file.
-        implicitlyImportedBy?.forEach((implicitImport) => {
-            const parseTree = program.getParseResults(implicitImport.getFilePath())?.parseTree;
-            if (parseTree) {
-                const scope = AnalyzerNodeInfo.getScope(parseTree);
-                const symbol = scope?.lookUpSymbol(node.value);
-                if (symbol) {
-                    declarations.push(...symbol.getDeclarations());
-                }
-            }
-        });
 
         const resolvedDeclarations: Declaration[] = [];
         const sourceMapper = program.getSourceMapper(fileInfo.filePath, token);
         declarations.forEach((decl) => {
             const resolvedDecl = evaluator.resolveAliasDeclaration(decl, resolveLocalName);
             if (resolvedDecl) {
-                resolvedDeclarations.push(resolvedDecl);
-
+                this._addIfUnique(resolvedDeclarations, resolvedDecl);
                 if (sourceMapper && isStubFile(resolvedDecl.path)) {
                     const implDecls = sourceMapper.findDeclarations(resolvedDecl);
                     for (const implDecl of implDecls) {
@@ -202,7 +181,41 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             }
         });
 
+        const sourceFileInfo = program.getSourceFileInfo(fileInfo.filePath);
+        if (sourceFileInfo && sourceFileInfo.sourceFile.getIPythonMode() !== IPythonMode.None) {
+            // Add declarations from chained source files
+            let builtinsScope = fileInfo.builtinsScope;
+            while (builtinsScope && builtinsScope.type === ScopeType.Module) {
+                const symbol = builtinsScope?.lookUpSymbol(node.value);
+                appendSymbolDeclarations(symbol, resolvedDeclarations);
+                builtinsScope = builtinsScope?.parent;
+            }
+
+            // Add declarations from files that implicitly import the target file.
+            const implicitlyImportedBy = collectImportedByFiles(sourceFileInfo);
+            implicitlyImportedBy.forEach((implicitImport) => {
+                const parseTree = program.getParseResults(implicitImport.sourceFile.getFilePath())?.parseTree;
+                if (parseTree) {
+                    const scope = AnalyzerNodeInfo.getScope(parseTree);
+                    const symbol = scope?.lookUpSymbol(node.value);
+                    appendSymbolDeclarations(symbol, resolvedDeclarations);
+                }
+            });
+        }
+
         return resolvedDeclarations;
+
+        function appendSymbolDeclarations(symbol: Symbol | undefined, declarations: Declaration[]) {
+            symbol
+                ?.getDeclarations()
+                .filter((d) => !isAliasDeclaration(d))
+                .forEach((decl) => {
+                    const resolvedDecl = evaluator!.resolveAliasDeclaration(decl, resolveLocalName);
+                    if (resolvedDecl) {
+                        DocumentSymbolCollector._addIfUnique(declarations, resolvedDecl);
+                    }
+                });
+        }
     }
 
     collect() {

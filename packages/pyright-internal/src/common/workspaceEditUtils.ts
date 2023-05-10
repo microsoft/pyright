@@ -17,7 +17,6 @@ import {
 } from 'vscode-languageserver';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { SourceFileInfo } from '../analyzer/program';
 import { AnalyzerService } from '../analyzer/service';
 import { FileEditAction, FileEditActions, TextEditAction } from '../common/editAction';
 import { convertPathToUri, convertUriToPath } from '../common/pathUtils';
@@ -28,6 +27,7 @@ import { ReadOnlyFileSystem } from './fileSystem';
 import { convertRangeToTextRange, convertTextRangeToRange } from './positionUtils';
 import { TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
+import { ProgramMutator, ProgramView, SourceFileInfo } from './extensibility';
 
 export function convertToTextEdits(editActions: TextEditAction[]): TextEdit[] {
     return editActions.map((editAction) => ({
@@ -101,17 +101,22 @@ export function applyTextEditsToString(
     return current;
 }
 
-export function applyWorkspaceEdit(clonedService: AnalyzerService, edits: WorkspaceEdit, filesChanged: Set<string>) {
+export function applyWorkspaceEdit(
+    view: ProgramView,
+    mutator: ProgramMutator,
+    edits: WorkspaceEdit,
+    filesChanged: Set<string>
+) {
     if (edits.changes) {
         for (const kv of Object.entries(edits.changes)) {
-            const filePath = convertUriToPath(clonedService.fs, kv[0]);
-            const fileInfo = clonedService.backgroundAnalysisProgram.program.getSourceFileInfo(filePath);
+            const filePath = convertUriToPath(view.fileSystem, kv[0]);
+            const fileInfo = view.getSourceFileInfo(filePath);
             if (!fileInfo || !fileInfo.isTracked) {
                 // We don't allow non user file being modified.
                 continue;
             }
 
-            applyDocumentChanges(clonedService, fileInfo, kv[1]);
+            applyDocumentChanges(mutator, fileInfo, kv[1]);
             filesChanged.add(filePath);
         }
     }
@@ -120,14 +125,14 @@ export function applyWorkspaceEdit(clonedService: AnalyzerService, edits: Worksp
     if (edits.documentChanges) {
         for (const change of edits.documentChanges) {
             if (TextDocumentEdit.is(change)) {
-                const filePath = convertUriToPath(clonedService.fs, change.textDocument.uri);
-                const fileInfo = clonedService.backgroundAnalysisProgram.program.getSourceFileInfo(filePath);
+                const filePath = convertUriToPath(view.fileSystem, change.textDocument.uri);
+                const fileInfo = view.getSourceFileInfo(filePath);
                 if (!fileInfo || !fileInfo.isTracked) {
                     // We don't allow non user file being modified.
                     continue;
                 }
 
-                applyDocumentChanges(clonedService, fileInfo, change.edits);
+                applyDocumentChanges(mutator, fileInfo, change.edits);
                 filesChanged.add(filePath);
             }
 
@@ -137,10 +142,10 @@ export function applyWorkspaceEdit(clonedService: AnalyzerService, edits: Worksp
     }
 }
 
-export function applyDocumentChanges(clonedService: AnalyzerService, fileInfo: SourceFileInfo, edits: TextEdit[]) {
+export function applyDocumentChanges(mutator: ProgramMutator, fileInfo: SourceFileInfo, edits: TextEdit[]) {
     if (!fileInfo.isOpenByClient) {
         const fileContent = fileInfo.sourceFile.getFileContent();
-        clonedService.setFileOpened(
+        mutator.setFileOpened(
             fileInfo.sourceFile.getFilePath(),
             0,
             fileContent ?? '',
@@ -153,7 +158,7 @@ export function applyDocumentChanges(clonedService: AnalyzerService, fileInfo: S
     const filePath = fileInfo.sourceFile.getFilePath();
     const sourceDoc = TextDocument.create(filePath, 'python', version, fileInfo.sourceFile.getOpenFileContents() ?? '');
 
-    clonedService.updateOpenFileContents(
+    mutator.updateOpenFileContents(
         filePath,
         version + 1,
         TextDocument.applyEdits(sourceDoc, edits),

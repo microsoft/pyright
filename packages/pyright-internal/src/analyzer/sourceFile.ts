@@ -7,10 +7,8 @@
  * Class that represents a single Python source or stub file.
  */
 
-import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
 import { isMainThread } from 'worker_threads';
 
-import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { OperationCanceledException } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
@@ -18,25 +16,15 @@ import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticCategory, TaskListToken, convertLevelToCategory } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
-import { Extensions, ProgramView } from '../common/extensibility';
+import { Extensions } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
-import { LogTracker } from '../common/logTracker';
-import { fromLSPAny } from '../common/lspUtils';
-import { getFileName, normalizeSlashes, stripFileExtension } from '../common/pathUtils';
+import { LogTracker, getPathForLogging } from '../common/logTracker';
+import { getFileName, normalizeSlashes } from '../common/pathUtils';
 import { convertOffsetsToRange, convertTextRangeToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
-import { Position, Range, TextRange, getEmptyRange } from '../common/textRange';
+import { Range, TextRange, getEmptyRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
-import { ModuleSymbolMap } from '../languageService/autoImporter';
-import {
-    AbbreviationMap,
-    CompletionItemData,
-    CompletionOptions,
-    CompletionProvider,
-    CompletionResults,
-} from '../languageService/completionProvider';
-import { DocumentSymbolProvider, IndexOptions, IndexResults } from '../languageService/documentSymbolProvider';
 import { Localizer } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
 import { ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
@@ -56,6 +44,7 @@ import { SourceMapper } from './sourceMapper';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluatorTypes';
+import { IndexResults } from '../languageService/symbolIndexer';
 
 // Limit the number of import cycles tracked per source file.
 const _maxImportCyclesPerFile = 4;
@@ -756,6 +745,11 @@ export class SourceFile {
         return this._writableData.indexingNeeded;
     }
 
+    markIndexDone() {
+        // This will be removed once indexResult is removed from sourceFile.
+        this._writableData.indexingNeeded = false;
+    }
+
     isCheckingRequired() {
         return this._writableData.isCheckingNeeded;
     }
@@ -958,140 +952,6 @@ export class SourceFile {
 
             return true;
         });
-    }
-
-    index(options: IndexOptions, token: CancellationToken): IndexResults | undefined {
-        return this._logTracker.log(`indexing: ${this._getPathForLogging(this._filePath)}`, (ls) => {
-            // If we have no completed analysis job, there's nothing to do.
-            if (!this._writableData.parseResults || !this.isIndexingRequired()) {
-                ls.suppress();
-                return undefined;
-            }
-
-            this._writableData.indexingNeeded = false;
-            const symbols = DocumentSymbolProvider.indexSymbols(
-                AnalyzerNodeInfo.getFileInfo(this._writableData.parseResults.parseTree)!,
-                this._writableData.parseResults,
-                options,
-                token
-            );
-
-            ls.add(`found ${symbols.length}`);
-
-            const name = stripFileExtension(getFileName(this._filePath));
-            const privateOrProtected = SymbolNameUtils.isPrivateOrProtectedName(name);
-            return { privateOrProtected, symbols };
-        });
-    }
-
-    addHierarchicalSymbolsForDocument(symbolList: DocumentSymbol[], token: CancellationToken) {
-        // If we have no completed analysis job, there's nothing to do.
-        if (!this._writableData.parseResults && !this._writableData.cachedIndexResults) {
-            return;
-        }
-
-        DocumentSymbolProvider.addHierarchicalSymbolsForDocument(
-            this._writableData.parseResults
-                ? AnalyzerNodeInfo.getFileInfo(this._writableData.parseResults.parseTree)
-                : undefined,
-            this.getCachedIndexResults(),
-            this._writableData.parseResults,
-            symbolList,
-            token
-        );
-    }
-
-    getSymbolsForDocument(query: string, token: CancellationToken) {
-        // If we have no completed analysis job, there's nothing to do.
-        if (!this._writableData.parseResults && !this._writableData.cachedIndexResults) {
-            return [];
-        }
-
-        return DocumentSymbolProvider.getSymbolsForDocument(
-            this._writableData.parseResults
-                ? AnalyzerNodeInfo.getFileInfo(this._writableData.parseResults.parseTree)
-                : undefined,
-            this.getCachedIndexResults(),
-            this._writableData.parseResults,
-            this._filePath,
-            query,
-            token
-        );
-    }
-
-    getCompletionsForPosition(
-        program: ProgramView,
-        position: Position,
-        workspacePath: string,
-        importLookup: ImportLookup,
-        options: CompletionOptions,
-        nameMap: AbbreviationMap | undefined,
-        libraryMap: Map<string, IndexResults> | undefined,
-        moduleSymbolsCallback: () => ModuleSymbolMap,
-        token: CancellationToken
-    ): CompletionResults | undefined {
-        // If we have no completed analysis job, there's nothing to do.
-        if (!this._writableData.parseResults) {
-            return undefined;
-        }
-
-        // This command should be called only for open files, in which
-        // case we should have the file contents already loaded.
-        const fileContents = this.getOpenFileContents();
-        if (fileContents === undefined) {
-            return undefined;
-        }
-
-        const completionProvider = new CompletionProvider(
-            program,
-            workspacePath,
-            this._filePath,
-            position,
-            importLookup,
-            options,
-            {
-                nameMap,
-                libraryMap,
-                getModuleSymbolsMap: moduleSymbolsCallback,
-            },
-            token
-        );
-
-        return completionProvider.getCompletionsForPosition();
-    }
-
-    resolveCompletionItem(
-        program: ProgramView,
-        importLookup: ImportLookup,
-        options: CompletionOptions,
-        nameMap: AbbreviationMap | undefined,
-        libraryMap: Map<string, IndexResults> | undefined,
-        moduleSymbolsCallback: () => ModuleSymbolMap,
-        completionItem: CompletionItem,
-        token: CancellationToken
-    ) {
-        const fileContents = this.getOpenFileContents();
-        if (!this._writableData.parseResults || fileContents === undefined) {
-            return;
-        }
-
-        const completionData = fromLSPAny<CompletionItemData>(completionItem.data);
-        const completionProvider = new CompletionProvider(
-            program,
-            completionData.workspacePath,
-            this._filePath,
-            completionData.position,
-            importLookup,
-            options,
-            {
-                nameMap,
-                libraryMap,
-                getModuleSymbolsMap: moduleSymbolsCallback,
-            },
-            token
-        );
-
-        completionProvider.resolveCompletionItem(completionItem);
     }
 
     bind(
@@ -1429,11 +1289,7 @@ export class SourceFile {
     }
 
     private _getPathForLogging(filepath: string) {
-        if (this.fileSystem.isMappedFilePath(filepath)) {
-            return this.fileSystem.getOriginalFilePath(filepath);
-        }
-
-        return filepath;
+        return getPathForLogging(this.fileSystem, filepath);
     }
 }
 

@@ -1,0 +1,164 @@
+/*
+ * symbolIndexer.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ *
+ * Logic that collect all symbol decl information for a specified source file.
+ */
+
+import { CancellationToken, CompletionItemKind, SymbolKind } from 'vscode-languageserver';
+
+import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
+import { Declaration, DeclarationType } from '../analyzer/declaration';
+import { getLastTypedDeclaredForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { convertOffsetsToRange } from '../common/positionUtils';
+import { Range } from '../common/textRange';
+import { ParseResults } from '../parser/parser';
+import { convertSymbolKindToCompletionItemKind } from './autoImporter';
+import { getSymbolKind } from '../common/lspUtils';
+
+export interface IndexAliasData {
+    readonly originalName: string;
+    readonly modulePath: string;
+    readonly kind: SymbolKind;
+    readonly itemKind?: CompletionItemKind | undefined;
+}
+
+export interface IndexSymbolData {
+    readonly name: string;
+    readonly externallyVisible: boolean;
+    readonly kind: SymbolKind;
+    readonly itemKind?: CompletionItemKind | undefined;
+    readonly alias?: IndexAliasData | undefined;
+    readonly range?: Range | undefined;
+    readonly selectionRange?: Range | undefined;
+    readonly children?: IndexSymbolData[] | undefined;
+}
+
+export interface IndexResults {
+    readonly privateOrProtected: boolean;
+    readonly symbols: IndexSymbolData[];
+}
+
+export interface IndexOptions {
+    indexingForAutoImportMode: boolean;
+    includeAllSymbols?: boolean;
+}
+
+export class SymbolIndexer {
+    static indexSymbols(
+        fileInfo: AnalyzerFileInfo,
+        parseResults: ParseResults,
+        token: CancellationToken
+    ): IndexSymbolData[] {
+        // Here are the rule of what symbols are indexed for a file.
+        // 1. If it is a stub file, we index every public symbols defined by "https://www.python.org/dev/peps/pep-0484/#stub-files"
+        // 2. If it is a py file and it is py.typed package, we index public symbols
+        //    defined by "https://github.com/microsoft/pyright/blob/main/docs/typed-libraries.md#library-interface"
+        // 3. If it is a py file and it is not py.typed package, we index only symbols that appear in
+        //    __all__ to make sure we don't include too many symbols in the index.
+
+        const indexSymbolData: IndexSymbolData[] = [];
+        collectSymbolIndexData(fileInfo, parseResults, parseResults.parseTree, indexSymbolData, token);
+
+        return indexSymbolData;
+    }
+}
+
+function collectSymbolIndexData(
+    fileInfo: AnalyzerFileInfo,
+    parseResults: ParseResults,
+    node: AnalyzerNodeInfo.ScopedNode,
+    indexSymbolData: IndexSymbolData[],
+    token: CancellationToken
+) {
+    throwIfCancellationRequested(token);
+
+    const scope = AnalyzerNodeInfo.getScope(node);
+    if (!scope) {
+        return;
+    }
+
+    const symbolTable = scope.symbolTable;
+    symbolTable.forEach((symbol, name) => {
+        if (symbol.isIgnoredForProtocolMatch()) {
+            return;
+        }
+
+        // Prefer declarations with a defined type.
+        let declaration = getLastTypedDeclaredForSymbol(symbol);
+
+        // Fall back to declarations without a type.
+        if (!declaration && symbol.hasDeclarations()) {
+            declaration = symbol.getDeclarations()[0];
+        }
+
+        if (!declaration) {
+            return;
+        }
+
+        if (DeclarationType.Alias === declaration.type) {
+            return;
+        }
+
+        // We rely on ExternallyHidden flag to determine what
+        // symbols should be public (included in the index)
+        collectSymbolIndexDataForName(
+            fileInfo,
+            parseResults,
+            declaration,
+            isVisibleExternally(symbol),
+            name,
+            indexSymbolData,
+            token
+        );
+    });
+}
+
+function collectSymbolIndexDataForName(
+    fileInfo: AnalyzerFileInfo,
+    parseResults: ParseResults,
+    declaration: Declaration,
+    externallyVisible: boolean,
+    name: string,
+    indexSymbolData: IndexSymbolData[],
+    token: CancellationToken
+) {
+    const symbolKind = getSymbolKind(declaration, undefined, name);
+    if (symbolKind === undefined) {
+        return;
+    }
+
+    const selectionRange = declaration.range;
+    let range = selectionRange;
+    const children: IndexSymbolData[] = [];
+
+    if (declaration.type === DeclarationType.Class || declaration.type === DeclarationType.Function) {
+        collectSymbolIndexData(fileInfo, parseResults, declaration.node, children, token);
+
+        range = convertOffsetsToRange(
+            declaration.node.start,
+            declaration.node.start + declaration.node.length,
+            parseResults.tokenizerOutput.lines
+        );
+    }
+
+    if (DeclarationType.Alias === declaration.type) {
+        return;
+    }
+
+    const data: IndexSymbolData = {
+        name,
+        externallyVisible,
+        kind: symbolKind,
+        itemKind: convertSymbolKindToCompletionItemKind(symbolKind),
+        alias: undefined,
+        range: range,
+        selectionRange: selectionRange,
+        children: children,
+    };
+
+    indexSymbolData.push(data);
+}

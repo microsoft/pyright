@@ -17,14 +17,14 @@ import { ConfigOptions } from '../common/configOptions';
 import { NullConsole } from '../common/console';
 import { normalizeSlashes } from '../common/pathUtils';
 import { convertOffsetsToRange, convertOffsetToPosition } from '../common/positionUtils';
-import { ImportFormat } from '../languageService/autoImporter';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { TestAccessHost } from './harness/testAccessHost';
 import * as host from './harness/testHost';
 import { createFromFileSystem, distlibFolder, libFolder } from './harness/vfs/factory';
 import * as vfs from './harness/vfs/filesystem';
+import { CompletionProvider } from '../languageService/completionProvider';
 
-test('check chained files', async () => {
+test('check chained files', () => {
     const code = `
 // @filename: test1.py
 //// def foo1(): pass
@@ -45,29 +45,25 @@ test('check chained files', async () => {
     const marker = data.markerPositions.get('marker')!;
 
     const parseResult = service.getParseResult(marker.fileName)!;
-    const result = await service.getCompletionsForPosition(
+    const result = new CompletionProvider(
+        service.test_program,
+        basePath,
         marker.fileName,
         convertOffsetToPosition(marker.position, parseResult.tokenizerOutput.lines),
-        basePath,
         {
             format: MarkupKind.Markdown,
             lazyEdit: false,
             snippet: false,
-            autoImport: false,
-            extraCommitChars: false,
-            importFormat: ImportFormat.Absolute,
-            includeUserSymbolsInAutoImport: false,
         },
-        undefined,
         CancellationToken.None
-    );
+    ).getCompletions();
 
-    assert(result?.completionList.items.some((i) => i.label === 'foo1'));
-    assert(result?.completionList.items.some((i) => i.label === 'foo2'));
-    assert(result?.completionList.items.some((i) => i.label === 'foo3'));
+    assert(result?.items.some((i) => i.label === 'foo1'));
+    assert(result?.items.some((i) => i.label === 'foo2'));
+    assert(result?.items.some((i) => i.label === 'foo3'));
 });
 
-test('modify chained files', async () => {
+test('modify chained files', () => {
     const code = `
 // @filename: test1.py
 //// def foo1(): pass
@@ -93,28 +89,27 @@ test('modify chained files', async () => {
     // Close file in the middle of the chain
     service.setFileClosed(data.markerPositions.get('delete')!.fileName);
 
-    const result = await service.getCompletionsForPosition(
+    // Make sure we don't get suggestion from auto import but from chained files.
+    service.test_program.configOptions.autoImportCompletions = false;
+
+    const result = new CompletionProvider(
+        service.test_program,
+        basePath,
         marker.fileName,
         convertOffsetToPosition(marker.position, parseResult.tokenizerOutput.lines),
-        basePath,
         {
             format: MarkupKind.Markdown,
             lazyEdit: false,
             snippet: false,
-            autoImport: false,
-            extraCommitChars: false,
-            importFormat: ImportFormat.Absolute,
-            includeUserSymbolsInAutoImport: false,
         },
-        undefined,
         CancellationToken.None
-    );
+    ).getCompletions();
 
     assert(result);
 
-    assert(!result.completionList.items.some((i) => i.label === 'foo1'));
-    assert(!result.completionList.items.some((i) => i.label === 'foo2'));
-    assert(result.completionList.items.some((i) => i.label === 'foo3'));
+    assert(!result.items.some((i) => i.label === 'foo1'));
+    assert(!result.items.some((i) => i.label === 'foo2'));
+    assert(result.items.some((i) => i.label === 'foo3'));
 });
 
 test('modify chained files', async () => {

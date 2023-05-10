@@ -23,13 +23,7 @@ import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { isUserCode } from '../analyzer/sourceFileInfoUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import {
-    ClassMemberLookupFlags,
-    doForEachSubtype,
-    isMaybeDescriptorInstance,
-    lookUpClassMember,
-    lookUpObjectMember,
-} from '../analyzer/typeUtils';
+import { ClassMemberLookupFlags, doForEachSubtype, lookUpClassMember, lookUpObjectMember } from '../analyzer/typeUtils';
 import { ClassType, isClassInstance, isFunction, isInstantiableClass } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ProgramView } from '../common/extensibility';
@@ -41,6 +35,7 @@ import { CallNode, MemberAccessNode, NameNode, ParseNode, ParseNodeType } from '
 import { ParseResults } from '../parser/parser';
 import { DocumentSymbolCollectorUseCase } from './documentSymbolCollector';
 import { canNavigateToFile } from './navigationUtils';
+import { getSymbolKind } from '../common/lspUtils';
 
 export class CallHierarchyProvider {
     private readonly _parseResults: ParseResults | undefined;
@@ -90,7 +85,7 @@ export class CallHierarchyProvider {
 
         const callItem: CallHierarchyItem = {
             name: symbolName,
-            kind: getSymbolKind(targetDecl, this._evaluator),
+            kind: getSymbolKind(targetDecl, this._evaluator, symbolName) ?? SymbolKind.Module,
             uri: callItemUri,
             range: targetDecl.range,
             selectionRange: targetDecl.range,
@@ -405,7 +400,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
 
         const callDest: CallHierarchyItem = {
             name: nameNode.value,
-            kind: getSymbolKind(resolvedDecl, this._evaluator),
+            kind: getSymbolKind(resolvedDecl, this._evaluator, nameNode.value) ?? SymbolKind.Module,
             uri: resolvedDecl.path,
             range: resolvedDecl.range,
             selectionRange: resolvedDecl.range,
@@ -612,34 +607,4 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         );
         incomingCall.fromRanges.push(fromRange);
     }
-}
-
-function getSymbolKind(declaration: Declaration, evaluator: TypeEvaluator): SymbolKind {
-    let symbolKind: SymbolKind;
-
-    switch (declaration.type) {
-        case DeclarationType.Class:
-        case DeclarationType.SpecialBuiltInClass:
-            symbolKind = SymbolKind.Class;
-            break;
-
-        case DeclarationType.Function:
-            if (declaration.isMethod) {
-                const declType = evaluator.getTypeForDeclaration(declaration)?.type;
-                if (declType && isMaybeDescriptorInstance(declType, /* requireSetter */ false)) {
-                    symbolKind = SymbolKind.Property;
-                } else {
-                    symbolKind = SymbolKind.Method;
-                }
-            } else {
-                symbolKind = SymbolKind.Function;
-            }
-            break;
-
-        default:
-            symbolKind = SymbolKind.Function;
-            break;
-    }
-
-    return symbolKind;
 }

@@ -8,12 +8,10 @@
  * and all of their recursive imports.
  */
 
-import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
-import { CompletionList } from 'vscode-languageserver-types';
+import { CancellationToken } from 'vscode-languageserver';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
-import { appendArray } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import * as debug from '../common/debug';
@@ -21,7 +19,7 @@ import { assert } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction } from '../common/editAction';
-import { Extensions, ProgramView } from '../common/extensibility';
+import { Extensions, ProgramMutator, ProgramView } from '../common/extensibility';
 import { LogTracker } from '../common/logTracker';
 import {
     combinePaths,
@@ -33,24 +31,9 @@ import {
     normalizePathCase,
     stripFileExtension,
 } from '../common/pathUtils';
-import { convertPositionToOffset, convertRangeToTextRange } from '../common/positionUtils';
-import { computeCompletionSimilarity } from '../common/stringUtils';
-import { Position, Range, doRangesIntersect } from '../common/textRange';
+import { convertRangeToTextRange } from '../common/positionUtils';
+import { doRangesIntersect, Range } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
-import {
-    AutoImportOptions,
-    AutoImportResult,
-    AutoImporter,
-    ModuleSymbolMap,
-    buildModuleSymbolsMap,
-} from '../languageService/autoImporter';
-import {
-    AbbreviationMap,
-    CompletionMap,
-    CompletionOptions,
-    CompletionResultsList,
-} from '../languageService/completionProvider';
-import { IndexOptions, IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { ParseResults } from '../parser/parser';
 import { AbsoluteModuleDescriptor, ImportLookupResult, LookupImportOptions } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -58,20 +41,19 @@ import { CacheManager } from './cacheManager';
 import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
-import { findNodeByOffset, getDocString } from './parseTreeUtils';
+import { getDocString } from './parseTreeUtils';
 import { Scope } from './scope';
-import { getScopeForNode } from './scopeUtils';
 import { IPythonMode, SourceFile } from './sourceFile';
 import { collectImportedByFiles, isUserCode } from './sourceFileInfoUtils';
 import { SourceMapper } from './sourceMapper';
 import { Symbol } from './symbol';
-import { isPrivateOrProtectedName } from './symbolNameUtils';
 import { createTracePrinter } from './tracePrinter';
 import { PrintTypeOptions, TypeEvaluator } from './typeEvaluatorTypes';
 import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { PrintTypeFlags } from './typePrinter';
 import { TypeStubWriter } from './typeStubWriter';
 import { Type } from './types';
+import { IndexResults } from '../languageService/symbolIndexer';
 
 const _maxImportDepth = 256;
 
@@ -591,7 +573,7 @@ export class Program {
         return this.getBoundSourceFileInfo(filePath)?.sourceFile;
     }
 
-    getSourceFileInfoList(): SourceFileInfo[] {
+    getSourceFileInfoList(): readonly SourceFileInfo[] {
         return this._sourceFileList;
     }
 
@@ -676,79 +658,43 @@ export class Program {
         });
     }
 
-    indexWorkspace(callback: (path: string, results: IndexResults) => void, token: CancellationToken): number {
-        if (!this._configOptions.indexing) {
-            return 0;
-        }
-
-        return this._runEvaluatorWithCancellationToken(token, () => {
-            // Go through all workspace files to create indexing data.
-            // This will cause all files in the workspace to be parsed and bound. But
-            // _handleMemoryHighUsage will make sure we don't OOM and
-            // at the end of this method, we will drop all trees and symbol tables
-            // created due to indexing.
-            let count = 0;
-            const initiallyParsedSet = new Set<SourceFileInfo>();
-            for (const sourceFileInfo of this._sourceFileList) {
-                if (!sourceFileInfo.sourceFile.isParseRequired()) {
-                    initiallyParsedSet.add(sourceFileInfo);
-                }
-
-                if (isUserCode(sourceFileInfo) && !sourceFileInfo.sourceFile.isIndexingRequired()) {
-                    count++;
-                }
-            }
-
-            if (count >= MaxWorkspaceIndexFileCount) {
-                // Already processed max files.
-                return 0;
-            }
-
-            for (const sourceFileInfo of this._sourceFileList) {
-                if (!isUserCode(sourceFileInfo) || !sourceFileInfo.sourceFile.isIndexingRequired()) {
-                    continue;
-                }
-
-                this._bindFile(sourceFileInfo);
-                const results = sourceFileInfo.sourceFile.index({ indexingForAutoImportMode: false }, token);
-                if (results) {
-                    if (++count > MaxWorkspaceIndexFileCount) {
-                        this._console.warn(`Workspace indexing has hit its upper limit: 2000 files`);
-
-                        dropParseAndBindInfoCreatedForIndexing(this._sourceFileList, initiallyParsedSet);
-                        return count;
-                    }
-
-                    callback(sourceFileInfo.sourceFile.getFilePath(), results);
-                }
-
-                this._handleMemoryHighUsage();
-            }
-
-            dropParseAndBindInfoCreatedForIndexing(this._sourceFileList, initiallyParsedSet);
-            return count;
-        });
-
-        function dropParseAndBindInfoCreatedForIndexing(
-            sourceFiles: SourceFileInfo[],
-            initiallyParsedSet: Set<SourceFileInfo>
-        ) {
-            for (const sourceFileInfo of sourceFiles) {
-                if (sourceFileInfo.sourceFile.isParseRequired() || initiallyParsedSet.has(sourceFileInfo)) {
-                    continue;
-                }
-
-                // Drop parse and bind info created during indexing.
-                sourceFileInfo.sourceFile.dropParseAndBindInfo();
-            }
-        }
-    }
-
     // This will allow the callback to execute a type evaluator with an associated
     // cancellation token and provide a read-only program.
     run<T>(callback: (p: ProgramView) => T, token: CancellationToken): T {
         const evaluator = this._evaluator ?? this._createNewEvaluator();
         return evaluator.runWithCancellationToken(token, () => callback(this));
+    }
+
+    // This will allow the callback to execute a type evaluator with an associated
+    // cancellation token and provide a mutable program. Should already be in edit mode when called.
+    runWithMutation(callback: (v: ProgramView, m: ProgramMutator) => void, token: CancellationToken): void {
+        if (this._isEditMode) {
+            // Create a temporary mutator that doesn't talk to the
+            // background thread. In edit mode there is no background thread.
+            const mutator: ProgramMutator = {
+                addInterimFile: (f) => {
+                    return this.addInterimFile(f);
+                },
+                setFileOpened: (p, v, c, i, ch, r) => {
+                    this.setFileOpened(p, v, c, {
+                        isTracked: this.owns(p),
+                        ipythonMode: i,
+                        chainedFilePath: ch,
+                        realFilePath: r,
+                    });
+                },
+                updateOpenFileContents: (p, v, c, i, r) => {
+                    this.setFileOpened(p, v, c, {
+                        isTracked: this.owns(p),
+                        ipythonMode: i,
+                        chainedFilePath: undefined,
+                        realFilePath: r,
+                    });
+                },
+            };
+            const evaluator = this._evaluator ?? this._createNewEvaluator();
+            evaluator.runWithCancellationToken(token, () => callback(this, mutator));
+        }
     }
 
     getSourceMapper(
@@ -931,83 +877,6 @@ export class Program {
         });
     }
 
-    getAutoImports(
-        filePath: string,
-        range: Range,
-        similarityLimit: number,
-        nameMap: AbbreviationMap | undefined,
-        options: AutoImportOptions,
-        token: CancellationToken
-    ): AutoImportResult[] {
-        const sourceFileInfo = this.getSourceFileInfo(filePath);
-        if (!sourceFileInfo) {
-            return [];
-        }
-
-        const sourceFile = sourceFileInfo.sourceFile;
-        const fileContents = sourceFile.getOpenFileContents();
-        if (fileContents === undefined) {
-            // this only works with opened file
-            return [];
-        }
-
-        return this._runEvaluatorWithCancellationToken(token, () => {
-            this._bindFile(sourceFileInfo);
-
-            const parseTree = sourceFile.getParseResults()!;
-            const textRange = convertRangeToTextRange(range, parseTree.tokenizerOutput.lines);
-            if (!textRange) {
-                return [];
-            }
-
-            const currentNode = findNodeByOffset(parseTree.parseTree, textRange.start);
-            if (!currentNode) {
-                return [];
-            }
-
-            const writtenWord = fileContents.substr(textRange.start, textRange.length);
-            const map = this._buildModuleSymbolsMap(
-                sourceFileInfo,
-                options.libraryMap,
-                /* includeSymbolsFromIndices */ true,
-                token
-            );
-
-            options.patternMatcher =
-                options.patternMatcher ?? ((p, t) => computeCompletionSimilarity(p, t) > similarityLimit);
-
-            const autoImporter = new AutoImporter(
-                this._configOptions.findExecEnvironment(filePath),
-                this._importResolver,
-                parseTree,
-                range.start,
-                new CompletionMap(),
-                map,
-                options
-            );
-
-            // Filter out any name that is already defined in the current scope.
-            const results: AutoImportResult[] = [];
-
-            const currentScope = getScopeForNode(currentNode);
-            if (currentScope) {
-                const info = nameMap?.get(writtenWord);
-                if (info) {
-                    // No scope filter is needed since we only do exact match.
-                    appendArray(results, autoImporter.getAutoImportCandidatesForAbbr(writtenWord, info, token));
-                }
-
-                results.push(
-                    ...autoImporter
-                        .getAutoImportCandidates(writtenWord, similarityLimit, /* abbrFromUsers */ undefined, token)
-                        .filter((r) => !currentScope.lookUpSymbolRecursive(r.name))
-                );
-            }
-
-            return results;
-        });
-    }
-
     getDiagnostics(options: ConfigOptions): FileDiagnostics[] {
         const fileDiagnostics: FileDiagnostics[] = this._removeUnneededFiles();
 
@@ -1060,205 +929,6 @@ export class Program {
 
         return unfilteredDiagnostics.filter((diag) => {
             return doRangesIntersect(diag.range, range);
-        });
-    }
-
-    getFileIndex(filePath: string, options: IndexOptions, token: CancellationToken): IndexResults | undefined {
-        if (options.indexingForAutoImportMode) {
-            // Memory optimization. We only want to hold onto symbols
-            // usable outside when importSymbolsOnly is on.
-            const name = stripFileExtension(getFileName(filePath));
-            if (isPrivateOrProtectedName(name)) {
-                return undefined;
-            }
-        }
-
-        this._handleMemoryHighUsage();
-
-        return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this.getSourceFileInfo(filePath);
-            if (!sourceFileInfo) {
-                return undefined;
-            }
-
-            const content = sourceFileInfo.sourceFile.getFileContent() ?? '';
-            if (
-                options.indexingForAutoImportMode &&
-                !options.includeAllSymbols &&
-                !sourceFileInfo.sourceFile.isStubFile() &&
-                !sourceFileInfo.sourceFile.isThirdPartyPyTypedPresent()
-            ) {
-                // Perf optimization. if py file doesn't contain __all__
-                // No need to parse and bind.
-                if (content.indexOf('__all__') < 0) {
-                    return undefined;
-                }
-            }
-
-            this._bindFile(sourceFileInfo, content);
-            return sourceFileInfo.sourceFile.index(options, token);
-        });
-    }
-
-    addSymbolsForDocument(filePath: string, symbolList: DocumentSymbol[], token: CancellationToken) {
-        return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this.getSourceFileInfo(filePath);
-            if (sourceFileInfo) {
-                if (!sourceFileInfo.sourceFile.getCachedIndexResults()) {
-                    // If we already have cached index for this file, no need to bind this file.
-                    this._bindFile(sourceFileInfo);
-                }
-
-                sourceFileInfo.sourceFile.addHierarchicalSymbolsForDocument(symbolList, token);
-            }
-        });
-    }
-
-    reportSymbolsForWorkspace(query: string, reporter: WorkspaceSymbolCallback, token: CancellationToken) {
-        this._runEvaluatorWithCancellationToken(token, () => {
-            // Don't do a search if the query is empty. We'll return
-            // too many results in this case.
-            if (!query) {
-                return;
-            }
-
-            // "Workspace symbols" searches symbols only from user code.
-            for (const sourceFileInfo of this._sourceFileList) {
-                if (!isUserCode(sourceFileInfo)) {
-                    continue;
-                }
-
-                if (!sourceFileInfo.sourceFile.getCachedIndexResults()) {
-                    // If we already have cached index for this file, no need to bind this file.
-                    this._bindFile(sourceFileInfo);
-                }
-
-                const symbolList = sourceFileInfo.sourceFile.getSymbolsForDocument(query, token);
-                if (symbolList.length > 0) {
-                    reporter(symbolList);
-                }
-
-                // This operation can consume significant memory, so check
-                // for situations where we need to discard the type cache.
-                this._handleMemoryHighUsage();
-            }
-        });
-    }
-
-    async getCompletionsForPosition(
-        filePath: string,
-        position: Position,
-        workspacePath: string,
-        options: CompletionOptions,
-        nameMap: AbbreviationMap | undefined,
-        libraryMap: Map<string, IndexResults> | undefined,
-        token: CancellationToken
-    ): Promise<CompletionResultsList | undefined> {
-        const sourceFileInfo = this.getSourceFileInfo(filePath);
-        if (!sourceFileInfo) {
-            return undefined;
-        }
-
-        const completionResult = this._logTracker.log(
-            `completion at ${filePath}:${position.line}:${position.character}`,
-            (ls) => {
-                const result = this._runEvaluatorWithCancellationToken(token, () => {
-                    this._bindFile(sourceFileInfo);
-
-                    return sourceFileInfo.sourceFile.getCompletionsForPosition(
-                        this,
-                        position,
-                        workspacePath,
-                        this._lookUpImport,
-                        options,
-                        nameMap,
-                        libraryMap,
-                        () =>
-                            this._buildModuleSymbolsMap(
-                                sourceFileInfo,
-                                libraryMap,
-                                options.includeUserSymbolsInAutoImport,
-                                token
-                            ),
-                        token
-                    );
-                });
-
-                ls.add(`found ${result?.completionMap.size ?? 'null'} items`);
-                return result;
-            }
-        );
-
-        const completionResultsList: CompletionResultsList = {
-            completionList: CompletionList.create(completionResult?.completionMap.toArray()),
-            memberAccessInfo: completionResult?.memberAccessInfo,
-            autoImportInfo: completionResult?.autoImportInfo,
-            extensionInfo: completionResult?.extensionInfo,
-        };
-
-        const parseResults = sourceFileInfo.sourceFile.getParseResults();
-        if (parseResults?.parseTree && parseResults?.text) {
-            const execEnv = this._configOptions.findExecEnvironment(filePath);
-            const sourceMapper: SourceMapper = this._createSourceMapper(
-                execEnv,
-                token,
-                sourceFileInfo,
-                /* mapCompiled */ true
-            );
-
-            const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
-            if (offset !== undefined && sourceMapper) {
-                await Promise.all(
-                    Extensions.getProgramExtensions(parseResults.parseTree).map((e) =>
-                        e.completionListExtension?.updateCompletionResults(
-                            this.evaluator!,
-                            sourceMapper!,
-                            options,
-                            completionResultsList,
-                            parseResults,
-                            offset,
-                            this._configOptions.functionSignatureDisplay,
-                            token
-                        )
-                    )
-                );
-            }
-        }
-
-        return completionResultsList;
-    }
-
-    resolveCompletionItem(
-        filePath: string,
-        completionItem: CompletionItem,
-        options: CompletionOptions,
-        nameMap: AbbreviationMap | undefined,
-        libraryMap: Map<string, IndexResults> | undefined,
-        token: CancellationToken
-    ) {
-        return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this.getSourceFileInfo(filePath);
-            if (!sourceFileInfo) {
-                return;
-            }
-
-            this._bindFile(sourceFileInfo);
-            sourceFileInfo.sourceFile.resolveCompletionItem(
-                this,
-                this._lookUpImport,
-                options,
-                nameMap,
-                libraryMap,
-                () =>
-                    this._buildModuleSymbolsMap(
-                        sourceFileInfo,
-                        libraryMap,
-                        options.includeUserSymbolsInAutoImport,
-                        token
-                    ),
-                completionItem,
-                token
-            );
         });
     }
 
@@ -1316,10 +986,6 @@ export class Program {
         this._discardCachedParseResults();
         this._parsedFileCount = 0;
         Extensions.getProgramExtensions(this.rootPath).forEach((e) => (e.clearCache ? e.clearCache() : null));
-    }
-
-    test_createSourceMapper(execEnv: ExecutionEnvironment, from?: SourceFileInfo) {
-        return this._createSourceMapper(execEnv, CancellationToken.None, /* from */ from, /* mapCompiled */ false);
     }
 
     private _handleMemoryHighUsage() {
@@ -2167,44 +1833,6 @@ export class Program {
             isInPyTypedPackage: fileInfo.isInPyTypedPackage,
         };
     };
-
-    // Build a map of all modules within this program and the module-
-    // level scope that contains the symbol table for the module.
-    private _buildModuleSymbolsMap(
-        sourceFileToExclude: SourceFileInfo,
-        libraryMap: Map<string, IndexResults> | undefined,
-        includeSymbolsFromIndices: boolean,
-        token: CancellationToken
-    ): ModuleSymbolMap {
-        // If we have library map, always use the map for library symbols.
-        const predicate = (s: SourceFileInfo) => {
-            if (!libraryMap) {
-                // We don't have any prebuilt indices, so we need to include
-                // all files.
-                return true;
-            }
-
-            if (!this._configOptions.indexing) {
-                // We have some prebuilt indices such as stdlib, but indexing is disabled.
-                // Include files we don't have prebuilt indices.
-                return libraryMap.get(s.sourceFile.getFilePath()) === undefined;
-            }
-
-            // We have prebuilt indices for third party libraries. Include only
-            // user files.
-            return isUserCode(s);
-        };
-
-        // Only include import alias from user files if indexing is off for now.
-        // Currently, when indexing is off, we don't do import alias deduplication, so
-        // adding import alias is cheap. But when indexing is on, we do deduplication, which
-        // require resolveAliasDeclaration that can cause more files to be parsed and bound.
-        return buildModuleSymbolsMap(
-            this._sourceFileList.filter((s) => s !== sourceFileToExclude && predicate(s)),
-            includeSymbolsFromIndices,
-            token
-        );
-    }
 
     private _shouldCheckFile(fileInfo: SourceFileInfo) {
         // Always do a full checking for a file that's open in the editor.

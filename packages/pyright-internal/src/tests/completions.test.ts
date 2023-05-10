@@ -8,8 +8,7 @@ import assert from 'assert';
 import { CancellationToken } from 'vscode-languageserver';
 import { CompletionItemKind, MarkupKind } from 'vscode-languageserver-types';
 
-import { ImportFormat } from '../languageService/autoImporter';
-import { CompletionOptions } from '../languageService/completionProvider';
+import { CompletionOptions, CompletionProvider } from '../languageService/completionProvider';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 
 test('completion import statement tooltip', async () => {
@@ -805,24 +804,20 @@ test('completion quote trigger', async () => {
         format: 'markdown',
         snippet: false,
         lazyEdit: false,
-        autoImport: false,
-        extraCommitChars: false,
-        importFormat: ImportFormat.Absolute,
-        includeUserSymbolsInAutoImport: false,
         triggerCharacter: '"',
     };
 
-    const result = await state.workspace.service.getCompletionsForPosition(
+    const result = new CompletionProvider(
+        state.program,
+        state.workspace.rootPath,
         filePath,
         position,
-        state.workspace.rootPath,
         options,
-        undefined,
         CancellationToken.None
-    );
+    ).getCompletions();
 
     assert(result);
-    const item = result.completionList.items.find((a) => a.label === '"USD"');
+    const item = result.items.find((a) => a.label === '"USD"');
     assert(item);
 });
 
@@ -847,23 +842,19 @@ test('completion quote trigger - middle', async () => {
         format: 'markdown',
         snippet: false,
         lazyEdit: false,
-        autoImport: false,
-        extraCommitChars: false,
-        importFormat: ImportFormat.Absolute,
-        includeUserSymbolsInAutoImport: false,
         triggerCharacter: "'",
     };
 
-    const result = await state.workspace.service.getCompletionsForPosition(
+    const result = new CompletionProvider(
+        state.program,
+        state.workspace.rootPath,
         filePath,
         position,
-        state.workspace.rootPath,
         options,
-        undefined,
         CancellationToken.None
-    );
+    ).getCompletions();
 
-    assert.strictEqual(result?.completionList.items.length, 0);
+    assert.strictEqual(result?.items.length, 0);
 });
 
 test('auto import sort text', async () => {
@@ -897,22 +888,18 @@ test('auto import sort text', async () => {
         format: 'markdown',
         snippet: false,
         lazyEdit: false,
-        autoImport: true,
-        extraCommitChars: false,
-        importFormat: ImportFormat.Absolute,
-        includeUserSymbolsInAutoImport: true,
     };
 
-    const result = await state.workspace.service.getCompletionsForPosition(
+    const result = new CompletionProvider(
+        state.program,
+        state.workspace.rootPath,
         filePath,
         position,
-        state.workspace.rootPath,
         options,
-        undefined,
         CancellationToken.None
-    );
+    ).getCompletions();
 
-    const items = result?.completionList.items.filter((i) => i.label === 'os');
+    const items = result?.items.filter((i) => i.label === 'os');
     assert.strictEqual(items?.length, 2);
 
     items.sort((a, b) => a.sortText!.localeCompare(b.sortText!));
@@ -947,7 +934,7 @@ test('override generic', async () => {
                     kind: CompletionItemKind.Method,
                     textEdit: {
                         range: state.getPositionRange('marker'),
-                        newText: 'foo(self, x: list[int]) -> int:\n    return super().foo(x)',
+                        newText: 'foo(self, x: list[T]) -> T:\n    return super().foo(x)',
                     },
                 },
             ],
@@ -988,7 +975,7 @@ test('override generic nested', async () => {
                     kind: CompletionItemKind.Method,
                     textEdit: {
                         range: state.getPositionRange('marker1'),
-                        newText: 'foo(self, x: tuple[int, T3]) -> int:\n    return super().foo(x)',
+                        newText: 'foo(self, x: tuple[T, T2]) -> T:\n    return super().foo(x)',
                     },
                 },
             ],
@@ -1000,7 +987,7 @@ test('override generic nested', async () => {
                     kind: CompletionItemKind.Method,
                     textEdit: {
                         range: state.getPositionRange('marker2'),
-                        newText: 'foo(self, x: tuple[int, int]) -> int:\n    return super().foo(x)',
+                        newText: 'foo(self, x: tuple[T, T2]) -> T:\n    return super().foo(x)',
                     },
                 },
             ],
@@ -1030,34 +1017,6 @@ test('override __call__', async () => {
                         newText:
                             '__call__(self, parser: ArgumentParser, namespace: Namespace, values: str | Sequence[Any] | None, option_string: str | None = None) -> None:\n    return super().__call__(parser, namespace, values, option_string)',
                     },
-                    additionalTextEdits: [
-                        {
-                            range: {
-                                start: {
-                                    line: 0,
-                                    character: 27,
-                                },
-                                end: {
-                                    line: 0,
-                                    character: 27,
-                                },
-                            },
-                            newText: ', ArgumentParser, Namespace',
-                        },
-                        {
-                            range: {
-                                start: {
-                                    line: 0,
-                                    character: 27,
-                                },
-                                end: {
-                                    line: 0,
-                                    character: 27,
-                                },
-                            },
-                            newText: '\nfrom collections.abc import Sequence\nfrom typing import Any',
-                        },
-                    ],
                 },
             ],
         },
@@ -1098,93 +1057,6 @@ test('override ParamSpec', async () => {
     });
 });
 
-test('fallback to syntax', async () => {
-    const code = `
-// @filename: test.py
-//// class A:
-////     def foo(self, a: MyType) -> NewMyType:
-////         pass
-//// 
-//// class B(A):
-////     def [|foo/*marker*/|]
-    `;
-
-    const state = parseAndGetTestState(code).state;
-
-    await state.verifyCompletion('included', 'markdown', {
-        ['marker']: {
-            completions: [
-                {
-                    label: 'foo',
-                    kind: CompletionItemKind.Method,
-                    textEdit: {
-                        range: state.getPositionRange('marker'),
-                        newText: 'foo(self, a: MyType) -> NewMyType:\n    return super().foo(a)',
-                    },
-                },
-            ],
-        },
-    });
-});
-
-test('omit Unknown', async () => {
-    const code = `
-// @filename: test.py
-//// class A:
-////     def foo(self, a: list) -> None:
-////         pass
-//// 
-//// class B(A):
-////     def [|foo/*marker*/|]
-    `;
-
-    const state = parseAndGetTestState(code).state;
-
-    await state.verifyCompletion('included', 'markdown', {
-        ['marker']: {
-            completions: [
-                {
-                    label: 'foo',
-                    kind: CompletionItemKind.Method,
-                    textEdit: {
-                        range: state.getPositionRange('marker'),
-                        newText: 'foo(self, a: list) -> None:\n    return super().foo(a)',
-                    },
-                },
-            ],
-        },
-    });
-});
-
-test('no annotation, no return type', async () => {
-    const code = `
-// @filename: test.py
-//// class A:
-////     def foo(self):
-////         pass
-//// 
-//// class B(A):
-////     def [|foo/*marker*/|]
-    `;
-
-    const state = parseAndGetTestState(code).state;
-
-    await state.verifyCompletion('included', 'markdown', {
-        ['marker']: {
-            completions: [
-                {
-                    label: 'foo',
-                    kind: CompletionItemKind.Method,
-                    textEdit: {
-                        range: state.getPositionRange('marker'),
-                        newText: 'foo(self):\n    return super().foo()',
-                    },
-                },
-            ],
-        },
-    });
-});
-
 test('annotation using comment', async () => {
     const code = `
 // @filename: test.py
@@ -1208,90 +1080,6 @@ test('annotation using comment', async () => {
                         range: state.getPositionRange('marker'),
                         newText: 'foo(self, a: int) -> None:\n    return super().foo(a)',
                     },
-                },
-            ],
-        },
-    });
-});
-
-test('adding import for type arguments', async () => {
-    const code = `
-// @filename: __builtins__.pyi
-//// class MyBuiltIns: ...
-
-// @filename: test.py
-//// from typing import Generic, TypeVar
-//// 
-//// T = TypeVar("T")
-//// 
-//// class A(Generic[T]):
-////     def foo(self, a: T) -> T:
-////         return a
-//// 
-//// class Action:
-////     pass
-////
-//// class B(A[Action]):
-////     pass
-//// 
-//// class C(A[MyBuiltIns]):
-////     pass
-
-// @filename: test1.py
-//// from test import B
-//// 
-//// class U(B):
-////     def [|foo/*marker1*/|]
-
-// @filename: test2.py
-//// from test import C
-//// 
-//// class U(C):
-////     def [|foo/*marker2*/|]
-    `;
-
-    const state = parseAndGetTestState(code).state;
-
-    state.openFiles(state.testData.files.map((f) => f.fileName));
-
-    await state.verifyCompletion('included', 'markdown', {
-        marker1: {
-            completions: [
-                {
-                    label: 'foo',
-                    kind: CompletionItemKind.Method,
-                    textEdit: {
-                        range: state.getPositionRange('marker1'),
-                        newText: 'foo(self, a: Action) -> Action:\n    return super().foo(a)',
-                    },
-                    additionalTextEdits: [
-                        {
-                            range: {
-                                start: {
-                                    line: 0,
-                                    character: 18,
-                                },
-                                end: {
-                                    line: 0,
-                                    character: 18,
-                                },
-                            },
-                            newText: ', Action',
-                        },
-                    ],
-                },
-            ],
-        },
-        marker2: {
-            completions: [
-                {
-                    label: 'foo',
-                    kind: CompletionItemKind.Method,
-                    textEdit: {
-                        range: state.getPositionRange('marker2'),
-                        newText: 'foo(self, a: MyBuiltIns) -> MyBuiltIns:\n    return super().foo(a)',
-                    },
-                    additionalTextEdits: [],
                 },
             ],
         },
@@ -1331,37 +1119,8 @@ test('Complex type arguments', async () => {
                     kind: CompletionItemKind.Method,
                     textEdit: {
                         range: state.getPositionRange('marker'),
-                        newText:
-                            'foo(self, a: Tuple[list, dict] | tuple[Mapping[List[A[int]], Dict[str, Any]], float]) -> Tuple[list, dict] | tuple[Mapping[List[A[int]], Dict[str, Any]], float]:\n    return super().foo(a)',
+                        newText: 'foo(self, a: T) -> T:\n    return super().foo(a)',
                     },
-                    additionalTextEdits: [
-                        {
-                            range: {
-                                start: {
-                                    line: 0,
-                                    character: 17,
-                                },
-                                end: {
-                                    line: 0,
-                                    character: 17,
-                                },
-                            },
-                            newText: 'A, ',
-                        },
-                        {
-                            range: {
-                                start: {
-                                    line: 0,
-                                    character: 0,
-                                },
-                                end: {
-                                    line: 0,
-                                    character: 0,
-                                },
-                            },
-                            newText: 'from typing import Any, Dict, List, Mapping, Tuple\n',
-                        },
-                    ],
                 },
             ],
         },

@@ -83,7 +83,7 @@ import { IPythonMode } from './analyzer/sourceFile';
 import type { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandResult } from './commands/commandResult';
 import { CancelAfter, CancellationProvider } from './common/cancellationUtils';
-import { appendArray, getNestedProperty } from './common/collectionUtils';
+import { getNestedProperty } from './common/collectionUtils';
 import {
     DiagnosticSeverityOverrides,
     DiagnosticSeverityOverridesMap,
@@ -105,16 +105,14 @@ import { Host } from './common/host';
 import { fromLSPAny } from './common/lspUtils';
 import { convertPathToUri, deduplicateFolders, getDirectoryPath, getFileName, isFile } from './common/pathUtils';
 import { ProgressReportTracker, ProgressReporter } from './common/progressReporter';
-import { hashString } from './common/stringUtils';
 import { DocumentRange, Position, Range } from './common/textRange';
 import { UriParser } from './common/uriParser';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
-import { ImportFormat } from './languageService/autoImporter';
 import { CallHierarchyProvider } from './languageService/callHierarchyProvider';
-import { CompletionItemData, CompletionOptions, CompletionResultsList } from './languageService/completionProvider';
+import { CompletionItemData, CompletionProvider } from './languageService/completionProvider';
 import { DefinitionFilter, DefinitionProvider, TypeDefinitionProvider } from './languageService/definitionProvider';
 import { DocumentHighlightProvider } from './languageService/documentHighlightProvider';
-import { WorkspaceSymbolCallback, convertToFlatSymbols } from './languageService/documentSymbolProvider';
+import { DocumentSymbolProvider } from './languageService/documentSymbolProvider';
 import { HoverProvider } from './languageService/hoverProvider';
 import { canNavigateToFile } from './languageService/navigationUtils';
 import { ReferencesProvider } from './languageService/referencesProvider';
@@ -123,6 +121,7 @@ import { Localizer, setLocaleOverride } from './localization/localize';
 import { PyrightFileSystem } from './pyrightFileSystem';
 import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
 import { RenameProvider } from './languageService/renameProvider';
+import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvider';
 
 export interface ServerSettings {
     venvPath?: string | undefined;
@@ -630,7 +629,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this.connection.onSignatureHelp(async (params, token) => this.onSignatureHelp(params, token));
 
         this.connection.onCompletion((params, token) => this.onCompletion(params, token));
-
         this.connection.onCompletionResolve(async (params, token) => this.onCompletionResolve(params, token));
 
         this.connection.onPrepareRename(async (params, token) => this.onPrepareRenameRequest(params, token));
@@ -911,40 +909,34 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this.recordUserInteractionTime();
 
         const filePath = this.uriParser.decodeTextDocumentUri(params.textDocument.uri);
-
         const workspace = await this.getWorkspaceForFile(filePath);
         if (workspace.disableLanguageServices) {
             return undefined;
         }
 
-        const symbolList: DocumentSymbol[] = [];
-        workspace.service.addSymbolsForDocument(filePath, symbolList, token);
-        if (this.client.hasHierarchicalDocumentSymbolCapability) {
-            return symbolList;
-        }
-
-        return convertToFlatSymbols(params.textDocument.uri, symbolList);
+        return workspace.service.run((program) => {
+            return new DocumentSymbolProvider(
+                program,
+                filePath,
+                this.client.hasHierarchicalDocumentSymbolCapability,
+                token
+            ).getSymbols();
+        }, token);
     }
 
-    protected async onWorkspaceSymbol(
+    protected onWorkspaceSymbol(
         params: WorkspaceSymbolParams,
         token: CancellationToken,
         resultReporter: ResultProgressReporter<SymbolInformation[]> | undefined
     ): Promise<SymbolInformation[] | WorkspaceSymbol[] | null | undefined> {
-        const symbolList: SymbolInformation[] = [];
+        const result = new WorkspaceSymbolProvider(
+            this.workspaceFactory.items(),
+            resultReporter,
+            params.query,
+            token
+        ).reportSymbols();
 
-        const reporter: WorkspaceSymbolCallback = resultReporter
-            ? (symbols) => resultReporter.report(symbols)
-            : (symbols) => appendArray(symbolList, symbols);
-
-        for (const workspace of this.workspaceFactory.items()) {
-            await workspace.isInitialized.promise;
-            if (!workspace.disableLanguageServices && !workspace.disableWorkspaceSymbol) {
-                workspace.service.reportSymbolsForWorkspace(params.query, reporter, token);
-            }
-        }
-
-        return symbolList;
+        return Promise.resolve(result);
     }
 
     protected async onHover(params: HoverParams, token: CancellationToken) {
@@ -993,10 +985,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         }, token);
     }
 
-    protected async onCompletion(
-        params: CompletionParams,
-        token: CancellationToken
-    ): Promise<CompletionList | undefined> {
+    protected setCompletionIncomplete(params: CompletionParams, completions: CompletionList | null) {
         // We set completion incomplete for the first invocation and next consecutive call,
         // but after that we mark it as completed so the client doesn't repeatedly call back.
         // We mark the first one as incomplete because completion could be invoked without
@@ -1011,42 +1000,36 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         this._lastTriggerKind = params.context?.triggerKind;
 
-        const { filePath, position } = this.uriParser.decodeTextDocumentPosition(params.textDocument, params.position);
+        if (completions) {
+            completions.isIncomplete = completionIncomplete;
+        }
+    }
 
+    protected async onCompletion(params: CompletionParams, token: CancellationToken): Promise<CompletionList | null> {
+        const { filePath, position } = this.uriParser.decodeTextDocumentPosition(params.textDocument, params.position);
         const workspace = await this.getWorkspaceForFile(filePath);
         if (workspace.disableLanguageServices) {
-            return;
+            return null;
         }
 
-        const completions = await this.getWorkspaceCompletionsForPosition(
-            workspace,
-            filePath,
-            position,
-            this.getCompletionOptions(workspace, params),
-            token
-        );
+        return workspace.service.run((program) => {
+            const completions = new CompletionProvider(
+                program,
+                workspace.rootPath,
+                filePath,
+                position,
+                {
+                    format: this.client.completionDocFormat,
+                    snippet: this.client.completionSupportsSnippet,
+                    lazyEdit: false,
+                    triggerCharacter: params?.context?.triggerCharacter,
+                },
+                token
+            ).getCompletions();
 
-        if (completions) {
-            completions.completionList.isIncomplete = completionIncomplete;
-        }
-
-        // Add memberAccessInfo.lastKnownModule if we have it. The client side
-        // will use this to send extra telemetry
-        if (
-            completions?.memberAccessInfo &&
-            completions.completionList &&
-            completions.completionList.items.length > 0 &&
-            completions.memberAccessInfo.lastKnownModule &&
-            this.serverOptions.supportsTelemetry
-        ) {
-            // Just stick it on the first item. It only checks the first one
-            completions.completionList.items[0].data = {
-                ...completions.completionList.items[0].data,
-                moduleHash: hashString(completions.memberAccessInfo.lastKnownModule),
-            };
-        }
-
-        return completions?.completionList;
+            this.setCompletionIncomplete(params, completions);
+            return completions;
+        }, token);
     }
 
     // Cancellation bugs in vscode and LSP:
@@ -1059,7 +1042,20 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         const completionItemData = fromLSPAny<CompletionItemData>(params.data);
         if (completionItemData && completionItemData.filePath) {
             const workspace = await this.getWorkspaceForFile(completionItemData.filePath);
-            this.resolveWorkspaceCompletionItem(workspace, completionItemData.filePath, params, token);
+            workspace.service.run((program) => {
+                return new CompletionProvider(
+                    program,
+                    workspace.rootPath,
+                    completionItemData.filePath,
+                    completionItemData.position,
+                    {
+                        format: this.client.completionDocFormat,
+                        snippet: this.client.completionSupportsSnippet,
+                        lazyEdit: false,
+                    },
+                    token
+                ).resolveCompletionItem(params);
+            }, token);
         }
         return params;
     }
@@ -1278,51 +1274,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this.openFileMap.clear();
 
         return Promise.resolve();
-    }
-
-    protected resolveWorkspaceCompletionItem(
-        workspace: Workspace,
-        filePath: string,
-        item: CompletionItem,
-        token: CancellationToken
-    ): void {
-        workspace.service.resolveCompletionItem(
-            filePath,
-            item,
-            this.getCompletionOptions(workspace),
-            /* nameMap */ undefined,
-            token
-        );
-    }
-
-    protected getWorkspaceCompletionsForPosition(
-        workspace: Workspace,
-        filePath: string,
-        position: Position,
-        options: CompletionOptions,
-        token: CancellationToken
-    ): Promise<CompletionResultsList | undefined> {
-        return workspace.service.getCompletionsForPosition(
-            filePath,
-            position,
-            workspace.rootPath,
-            options,
-            undefined,
-            token
-        );
-    }
-
-    protected getCompletionOptions(workspace: Workspace, params?: CompletionParams): CompletionOptions {
-        return {
-            format: this.client.completionDocFormat,
-            snippet: this.client.completionSupportsSnippet,
-            lazyEdit: this.client.completionItemResolveSupportsAdditionalTextEdits,
-            autoImport: true,
-            includeUserSymbolsInAutoImport: false,
-            extraCommitChars: false,
-            importFormat: ImportFormat.Absolute,
-            triggerCharacter: params?.context?.triggerCharacter,
-        };
     }
 
     protected convertDiagnostics(fs: FileSystem, fileDiagnostics: FileDiagnostics): PublishDiagnosticsParams[] {
