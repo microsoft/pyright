@@ -1146,6 +1146,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         writeTypeCache(node, typeResult, flags, inferenceContext, /* allowSpeculativeCaching */ true);
 
+        // If there was an expected type, make sure that the result type is compatible.
         if (
             inferenceContext &&
             !isAnyOrUnknown(inferenceContext.expectedType) &&
@@ -3051,7 +3052,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 destType = declaredType;
             } else {
                 // Constrain the resulting type to match the declared type.
-                destType = narrowTypeBasedOnAssignment(declaredType, type);
+                destType = narrowTypeBasedOnAssignment(nameNode, declaredType, type);
             }
         } else {
             // If this is a member name (within a class scope) and the member name
@@ -3809,7 +3810,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // is a enum because the annotated type in an enum doesn't reflect
                             // the type of the symbol.
                             if (!isClassInstance(type) || !ClassType.isEnumClass(type)) {
-                                type = narrowTypeBasedOnAssignment(annotationType, type);
+                                type = narrowTypeBasedOnAssignment(target, annotationType, type);
                             }
                         }
                     }
@@ -10538,14 +10539,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             unknownIfNotFound = false;
         }
 
-        let specializedReturnType = addConditionToType(
-            applySolvedTypeVars(returnType, typeVarContext, {
-                unknownIfNotFound,
-                useUnknownOverDefault: skipUnknownArgCheck,
-                eliminateUnsolvedInUnions,
-            }),
-            typeCondition
-        );
+        let specializedReturnType = applySolvedTypeVars(returnType, typeVarContext, {
+            unknownIfNotFound,
+            useUnknownOverDefault: skipUnknownArgCheck,
+            eliminateUnsolvedInUnions,
+        });
+        specializedReturnType = addConditionToType(specializedReturnType, typeCondition);
 
         // If the final return type is an unpacked tuple, turn it into a normal (unpacked) tuple.
         if (isUnpackedClass(specializedReturnType)) {
@@ -11994,12 +11993,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             (ClassType.isBuiltIn(inferenceContext.expectedType, 'dict') ||
                 ClassType.isBuiltIn(inferenceContext.expectedType, 'MutableMapping'));
 
-        const specializedKeyType = inferTypeArgFromExpectedType(
+        const specializedKeyType = inferTypeArgFromExpectedEntryType(
             makeInferenceContext(expectedKeyType, inferenceContext?.typeVarContext),
             keyTypes.map((result) => result.type),
             /* isNarrowable */ false
         );
-        const specializedValueType = inferTypeArgFromExpectedType(
+        const specializedValueType = inferTypeArgFromExpectedEntryType(
             makeInferenceContext(expectedValueType, inferenceContext?.typeVarContext),
             valueTypes.map((result) => result.type),
             !isValueTypeInvariant
@@ -12417,7 +12416,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const isTypeInvariant =
             isClassInstance(inferenceContext.expectedType) &&
             ClassType.isBuiltIn(inferenceContext.expectedType, builtInClassName);
-        const specializedEntryType = inferTypeArgFromExpectedType(
+        const specializedEntryType = inferTypeArgFromExpectedEntryType(
             makeInferenceContext(expectedEntryType, inferenceContext?.typeVarContext),
             entryTypes,
             !isTypeInvariant
@@ -12531,7 +12530,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
-    function inferTypeArgFromExpectedType(
+    function inferTypeArgFromExpectedEntryType(
         inferenceContext: InferenceContext,
         entryTypes: Type[],
         isNarrowable: boolean
@@ -14319,7 +14318,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (assignType(declaredType, srcType)) {
                         // Narrow the resulting type if possible.
                         if (!isAnyOrUnknown(srcType)) {
-                            srcType = narrowTypeBasedOnAssignment(declaredType, srcType);
+                            srcType = narrowTypeBasedOnAssignment(node, declaredType, srcType);
                         }
                     }
                 }
@@ -23614,6 +23613,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // that the caller has already verified that the assignedType is assignable
     // to the declaredType.
     function replaceTypeArgsWithAny(
+        node: ExpressionNode,
         declaredType: ClassType,
         assignedType: ClassType,
         recursionCount = 0
@@ -23643,7 +23643,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ),
                 declaredType,
                 typeVarContext,
-                []
+                ParseTreeUtils.getTypeVarScopesForNode(node)
             );
 
             let replacedTypeArg = false;
@@ -23658,6 +23658,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     } else if (isClassInstance(expectedTypeArgType) && isClassInstance(typeArg)) {
                         // Recursively replace Any in the type argument.
                         const recursiveReplacement = replaceTypeArgsWithAny(
+                            node,
                             expectedTypeArgType,
                             typeArg,
                             recursionCount
@@ -23682,7 +23683,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // When a value is assigned to a variable with a declared type,
     // we may be able to narrow the type based on the assignment.
-    function narrowTypeBasedOnAssignment(declaredType: Type, assignedType: Type): Type {
+    function narrowTypeBasedOnAssignment(node: ExpressionNode, declaredType: Type, assignedType: Type): Type {
         const narrowedType = mapSubtypes(assignedType, (assignedSubtype) => {
             const narrowedSubtype = mapSubtypes(declaredType, (declaredSubtype) => {
                 // We can't narrow "Any".
@@ -23694,12 +23695,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // If the source is generic and has unspecified type arguments,
                     // see if we can determine then based on the declared type.
                     if (isInstantiableClass(declaredSubtype) && isInstantiableClass(assignedSubtype)) {
-                        const result = replaceTypeArgsWithAny(declaredSubtype, assignedSubtype);
+                        const result = replaceTypeArgsWithAny(node, declaredSubtype, assignedSubtype);
                         if (result) {
                             assignedSubtype = result;
                         }
                     } else if (isClassInstance(declaredSubtype) && isClassInstance(assignedSubtype)) {
                         const result = replaceTypeArgsWithAny(
+                            node,
                             ClassType.cloneAsInstantiable(declaredSubtype),
                             ClassType.cloneAsInstantiable(assignedSubtype)
                         );
