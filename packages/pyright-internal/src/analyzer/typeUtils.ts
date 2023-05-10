@@ -1089,10 +1089,7 @@ export function validateTypeVarDefault(
 // expected type uses TypeVars that are not part of the context of the
 // class we are constructing. We'll replace these type variables with dummy
 // type variables that are scoped to the appropriate context.
-export function transformExpectedTypeForConstructor(
-    expectedType: Type,
-    liveTypeVarScopes: TypeVarScopeId[]
-): Type | undefined {
+export function transformExpectedType(expectedType: Type, liveTypeVarScopes: TypeVarScopeId[]): Type | undefined {
     const isTypeVarLive = (typeVar: TypeVarType) => liveTypeVarScopes.some((scopeId) => typeVar.scopeId === scopeId);
 
     // Handle "naked TypeVars" (i.e. the expectedType is a TypeVar itself)
@@ -1106,7 +1103,7 @@ export function transformExpectedTypeForConstructor(
         return undefined;
     }
 
-    const transformer = new ExpectedConstructorTypeTransformer(liveTypeVarScopes);
+    const transformer = new ExpectedTypeTransformer(liveTypeVarScopes);
     return transformer.apply(expectedType, 0);
 }
 
@@ -3767,7 +3764,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     }
 }
 
-class ExpectedConstructorTypeTransformer extends TypeVarTransformer {
+class ExpectedTypeTransformer extends TypeVarTransformer {
     constructor(private _liveTypeVarScopes: TypeVarScopeId[]) {
         super();
     }

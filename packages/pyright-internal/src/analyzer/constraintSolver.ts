@@ -55,7 +55,7 @@ import {
     isPartlyUnknown,
     mapSubtypes,
     specializeTupleClass,
-    transformExpectedTypeForConstructor,
+    transformExpectedType,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
@@ -855,17 +855,19 @@ export function populateTypeVarContextBasedOnExpectedType(
             .getPrimarySignature()
             .getTypeVars()
             .forEach((entry) => {
-                const typeVarType = sameClassTypeVarContext.getPrimarySignature().getTypeVarType(entry.typeVar);
+                const typeArgValue = sameClassTypeVarContext.getPrimarySignature().getTypeVarType(entry.typeVar);
 
-                if (typeVarType) {
+                if (typeArgValue) {
                     // Skip this if the type argument is a TypeVar defined by the class scope because
                     // we're potentially solving for these TypeVars.
-                    if (!isTypeVar(typeVarType) || typeVarType.scopeId !== type.details.typeVarScopeId) {
+                    if (!isTypeVar(typeArgValue) || typeArgValue.scopeId !== type.details.typeVarScopeId) {
+                        const variance = TypeVarType.getVariance(entry.typeVar);
+
                         typeVarContext.setTypeVarType(
                             entry.typeVar,
-                            TypeVarType.getVariance(entry.typeVar) === Variance.Covariant ? undefined : typeVarType,
+                            variance === Variance.Covariant ? undefined : typeArgValue,
                             /* narrowBoundNoLiterals */ undefined,
-                            TypeVarType.getVariance(entry.typeVar) === Variance.Contravariant ? undefined : typeVarType
+                            variance === Variance.Contravariant ? undefined : typeArgValue
                         );
                     }
                 }
@@ -927,25 +929,20 @@ export function populateTypeVarContextBasedOnExpectedType(
                 const targetTypeVar =
                     ClassType.getTypeParameters(specializedType)[synthTypeVar.details.synthesizedIndex];
                 if (index < expectedTypeArgs.length) {
-                    let expectedTypeArgValue: Type | undefined = transformPossibleRecursiveTypeAlias(
-                        expectedTypeArgs[index]
-                    );
+                    let typeArgValue: Type | undefined = transformPossibleRecursiveTypeAlias(expectedTypeArgs[index]);
 
                     if (liveTypeVarScopes) {
-                        expectedTypeArgValue = transformExpectedTypeForConstructor(
-                            expectedTypeArgValue,
-                            liveTypeVarScopes
-                        );
+                        typeArgValue = transformExpectedType(typeArgValue, liveTypeVarScopes);
                     }
 
-                    if (expectedTypeArgValue) {
+                    if (typeArgValue) {
+                        const variance = TypeVarType.getVariance(typeVar);
+
                         typeVarContext.setTypeVarType(
                             targetTypeVar,
-                            TypeVarType.getVariance(typeVar) === Variance.Covariant ? undefined : expectedTypeArgValue,
+                            variance === Variance.Covariant ? undefined : typeArgValue,
                             /* narrowBoundNoLiterals */ undefined,
-                            TypeVarType.getVariance(typeVar) === Variance.Contravariant
-                                ? undefined
-                                : expectedTypeArgValue
+                            variance === Variance.Contravariant ? undefined : typeArgValue
                         );
                     } else {
                         isResultValid = false;
