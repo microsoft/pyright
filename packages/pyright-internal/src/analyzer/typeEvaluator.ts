@@ -10391,7 +10391,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // If we skipped a overload arg during the first pass,
                         // add another pass to ensure that we handle all of the
                         // type variables.
-                        if (i === 0 && argResult.skippedOverloadArg) {
+                        if (i === 0 && (argResult.skippedOverloadArg || argResult.skippedBareTypeVarExpectedType)) {
                             passCount++;
                         }
                     });
@@ -10901,17 +10901,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isTypeIncomplete = !!typeResult?.isIncomplete;
         let isCompatible = true;
         const functionName = typeResult?.type.details.name;
+        let skippedBareTypeVarExpectedType = false;
 
         if (argParam.argument.valueExpression) {
             let expectedType: Type | undefined;
-            if (
-                !options.skipBareTypeVarExpectedType ||
-                !isTypeVar(argParam.paramType) ||
-                argParam.paramType.scopeId !== typeResult?.type.details.typeVarScopeId
-            ) {
-                expectedType = applySolvedTypeVars(argParam.paramType, typeVarContext, {
-                    useNarrowBoundOnly: !!options.useNarrowBoundOnly,
-                });
+
+            const isBareTypeVarExpectedType =
+                isTypeVar(argParam.paramType) && argParam.paramType.scopeId === typeResult?.type.details.typeVarScopeId;
+
+            if (!options.skipBareTypeVarExpectedType || !isBareTypeVarExpectedType) {
+                expectedType = argParam.paramType;
+
+                // If the parameter type is a function with a ParamSpec, don't apply
+                // the solved TypeVars if the typeVarContext has more than one signature.
+                // This will expand the ParamSpec into an overload, which will cause problems.
+                const skipApplySolvedTypeVars =
+                    isFunction(argParam.paramType) &&
+                    !!argParam.paramType.details.paramSpec &&
+                    typeVarContext.getSignatureContexts().length > 1;
+
+                if (!skipApplySolvedTypeVars) {
+                    expectedType = applySolvedTypeVars(expectedType, typeVarContext, {
+                        useNarrowBoundOnly: !!options.useNarrowBoundOnly,
+                    });
+                }
+            } else {
+                skippedBareTypeVarExpectedType = true;
             }
 
             // If the expected type is unknown, don't use an expected type. Instead,
@@ -11023,7 +11038,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // an overloaded callback protocol.
         if (options.skipOverloadArg) {
             if (isOverloadedFunction(argType)) {
-                return { isCompatible, argType, isTypeIncomplete, skippedOverloadArg: true, condition };
+                return {
+                    isCompatible,
+                    argType,
+                    isTypeIncomplete,
+                    skippedOverloadArg: true,
+                    skippedBareTypeVarExpectedType,
+                    condition,
+                };
             }
 
             const concreteParamType = makeTopLevelTypeVarsConcrete(argParam.paramType);
@@ -11031,7 +11053,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isInstantiableClass(argType)) {
                     const constructor = createFunctionFromConstructor(evaluatorInterface, argType);
                     if (constructor && isOverloadedFunction(constructor)) {
-                        return { isCompatible, argType, isTypeIncomplete, skippedOverloadArg: true, condition };
+                        return {
+                            isCompatible,
+                            argType,
+                            isTypeIncomplete,
+                            skippedOverloadArg: true,
+                            skippedBareTypeVarExpectedType,
+                            condition,
+                        };
                     }
                 }
 
@@ -11040,7 +11069,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (callMember) {
                         const memberType = getTypeOfMember(callMember);
                         if (isOverloadedFunction(memberType)) {
-                            return { isCompatible, argType, isTypeIncomplete, skippedOverloadArg: true, condition };
+                            return {
+                                isCompatible,
+                                argType,
+                                isTypeIncomplete,
+                                skippedOverloadArg: true,
+                                skippedBareTypeVarExpectedType,
+                                condition,
+                            };
                         }
                     }
                 }
@@ -11107,7 +11143,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
             }
 
-            return { isCompatible: false, argType, isTypeIncomplete, condition };
+            return { isCompatible: false, argType, isTypeIncomplete, skippedBareTypeVarExpectedType, condition };
         }
 
         if (!options.skipUnknownArgCheck) {
@@ -11186,7 +11222,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return { isCompatible, argType, isTypeIncomplete, condition };
+        return { isCompatible, argType, isTypeIncomplete, skippedBareTypeVarExpectedType, condition };
     }
 
     function createTypeVarType(errorNode: ExpressionNode, argList: FunctionArgument[]): Type | undefined {

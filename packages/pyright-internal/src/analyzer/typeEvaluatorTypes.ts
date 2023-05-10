@@ -303,6 +303,7 @@ export interface ArgResult {
     isTypeIncomplete?: boolean | undefined;
     condition?: TypeCondition[];
     skippedOverloadArg?: boolean;
+    skippedBareTypeVarExpectedType?: boolean;
 }
 
 export interface CallResult {
