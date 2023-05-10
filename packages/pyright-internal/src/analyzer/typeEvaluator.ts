@@ -250,6 +250,7 @@ import {
     specializeForBaseClass,
     specializeTupleClass,
     synthesizeTypeVarForSelfCls,
+    transformExpectedType,
     transformPossibleRecursiveTypeAlias,
     validateTypeVarDefault,
 } from './typeUtils';
@@ -1158,16 +1159,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const diag = new DiagnosticAddendum();
 
                 // Make sure the resulting type is assignable to the expected type.
-                // Use the "solve for scopes" of the associated typeVarContext if
-                // it is provided.
-                if (
-                    !assignType(
-                        inferenceContext.expectedType,
-                        typeResult.type,
-                        diag,
-                        new TypeVarContext(inferenceContext.typeVarContext?.getSolveForScopes())
-                    )
-                ) {
+                if (!assignType(inferenceContext.expectedType, typeResult.type, diag)) {
                     typeResult.typeErrors = true;
                     typeResult.expectedTypeDiagAddendum = diag;
                     diag.addTextRange(node);
@@ -7289,10 +7281,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (!matchingSubtype) {
                     const subtypeResult = useSpeculativeMode(node, () => {
-                        return getTypeOfTupleWithContext(
-                            node,
-                            makeInferenceContext(subtype, inferenceContext?.typeVarContext)
-                        );
+                        return getTypeOfTupleWithContext(node, makeInferenceContext(subtype));
                     });
 
                     if (subtypeResult && assignType(subtype, subtypeResult.type)) {
@@ -7306,10 +7295,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
         if (effectiveExpectedType) {
-            const result = getTypeOfTupleWithContext(
-                node,
-                makeInferenceContext(effectiveExpectedType, inferenceContext?.typeVarContext)
-            );
+            const result = getTypeOfTupleWithContext(node, makeInferenceContext(effectiveExpectedType));
             if (result && !result.typeErrors) {
                 return result;
             }
@@ -10226,13 +10212,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // callee has a declared return type. This will allow us to more closely match
             // the expected type if possible.
 
-            // If the return type is not the same as the expected type but is
-            // assignable to the expected type, determine which type arguments
-            // are needed to match the expected type.
+            // Determine which type arguments are needed to match the expected type.
             if (
                 isClassInstance(effectiveReturnType) &&
                 isClassInstance(effectiveExpectedType) &&
-                !ClassType.isSameGenericClass(effectiveReturnType, effectiveExpectedType)
+                !isTypeSame(effectiveReturnType, effectiveExpectedType)
             ) {
                 const tempTypeVarContext = new TypeVarContext(getTypeVarScopeId(effectiveReturnType));
                 populateTypeVarContextBasedOnExpectedType(
@@ -10543,6 +10527,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             unknownIfNotFound,
             useUnknownOverDefault: skipUnknownArgCheck,
             eliminateUnsolvedInUnions,
+            applyInScopePlaceholders: true,
         });
         specializedReturnType = addConditionToType(specializedReturnType, typeCondition);
 
@@ -10734,6 +10719,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return false;
         }
 
+        const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
+
         const srcTypeVarContext = new TypeVarContext(paramSpecType.details.typeVarScopeId);
         let reportedArgError = false;
 
@@ -10812,7 +10799,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const argResult = validateArgType(
                         {
                             paramCategory: ParameterCategory.Simple,
-                            paramType,
+                            paramType: transformExpectedType(paramType, liveTypeVarScopes),
                             requiresTypeVarMatching: false,
                             argument: arg,
                             errorNode: arg.valueExpression || errorNode,
@@ -10947,10 +10934,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const exprTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
                     flags,
-                    makeInferenceContext(expectedType, typeVarContext, !!typeResult?.isIncomplete)
+                    makeInferenceContext(expectedType, !!typeResult?.isIncomplete)
                 );
 
                 argType = exprTypeResult.type;
+
+                // If the type includes multiple instances of a generic function
+                // signature, force the type arguments for the duplicates to have
+                // unique names.
+                argType = ensureFunctionSignaturesAreUnique(argType, signatureTracker);
 
                 if (exprTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
@@ -10958,6 +10950,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (exprTypeResult.typeErrors) {
                     isCompatible = false;
+                } else if (expectedType && requiresSpecialization(expectedType)) {
+                    // Assign the argument type back to the expected type to assign
+                    // values to any in-scope placeholder type variables.
+                    const typeVarContextClone = typeVarContext.clone();
+                    if (assignType(expectedType, argType, /* diag */ undefined, typeVarContextClone)) {
+                        typeVarContext.copyFromClone(typeVarContextClone);
+                    } else {
+                        isCompatible = false;
+                    }
                 }
 
                 expectedTypeDiag = exprTypeResult.expectedTypeDiagAddendum;
@@ -10995,11 +10996,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
         }
-
-        // If the type includes multiple instances of a generic function
-        // signature, force the type arguments for the duplicates to have
-        // unique names.
-        argType = ensureFunctionSignaturesAreUnique(argType, signatureTracker);
 
         // If we're assigning to a var arg dictionary with a TypeVar type,
         // strip literals before performing the assignment. This is used in
@@ -11882,10 +11878,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 const subtypeResult = useSpeculativeMode(node, () => {
-                    return getTypeOfDictionaryWithContext(
-                        node,
-                        makeInferenceContext(subtype, inferenceContext?.typeVarContext)
-                    );
+                    return getTypeOfDictionaryWithContext(node, makeInferenceContext(subtype));
                 });
 
                 if (subtypeResult && assignType(subtype, subtypeResult.type)) {
@@ -11906,7 +11899,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             expectedTypeDiagAddendum = new DiagnosticAddendum();
             const result = getTypeOfDictionaryWithContext(
                 node,
-                makeInferenceContext(effectiveExpectedType, inferenceContext?.typeVarContext),
+                makeInferenceContext(effectiveExpectedType),
                 expectedTypeDiagAddendum
             );
             if (result) {
@@ -12014,8 +12007,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 expectedKeyType,
                 expectedValueType,
                 undefined,
-                expectedDiagAddendum,
-                inferenceContext
+                expectedDiagAddendum
             )
         ) {
             isIncomplete = true;
@@ -12030,12 +12022,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ClassType.isBuiltIn(inferenceContext.expectedType, 'MutableMapping'));
 
         const specializedKeyType = inferTypeArgFromExpectedEntryType(
-            makeInferenceContext(expectedKeyType, inferenceContext?.typeVarContext),
+            makeInferenceContext(expectedKeyType),
             keyTypes.map((result) => result.type),
             /* isNarrowable */ false
         );
         const specializedValueType = inferTypeArgFromExpectedEntryType(
-            makeInferenceContext(expectedValueType, inferenceContext?.typeVarContext),
+            makeInferenceContext(expectedValueType),
             valueTypes.map((result) => result.type),
             !isValueTypeInvariant
         );
@@ -12125,8 +12117,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         expectedKeyType?: Type,
         expectedValueType?: Type,
         expectedTypedDictEntries?: Map<string, TypedDictEntry>,
-        expectedDiagAddendum?: DiagnosticAddendum,
-        inferenceContext?: InferenceContext
+        expectedDiagAddendum?: DiagnosticAddendum
     ): boolean {
         let isIncomplete = false;
 
@@ -12139,8 +12130,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     entryNode.keyExpression,
                     /* flags */ undefined,
                     makeInferenceContext(
-                        expectedKeyType ?? (forceStrictInference ? NeverType.createNever() : undefined),
-                        inferenceContext?.typeVarContext
+                        expectedKeyType ?? (forceStrictInference ? NeverType.createNever() : undefined)
                     )
                 );
 
@@ -12171,7 +12161,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     valueTypeResult = getTypeOfExpression(
                         entryNode.valueExpression,
                         /* flags */ undefined,
-                        makeInferenceContext(effectiveValueType, inferenceContext?.typeVarContext)
+                        makeInferenceContext(effectiveValueType)
                     );
                 } else {
                     const effectiveValueType =
@@ -12179,7 +12169,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     valueTypeResult = getTypeOfExpression(
                         entryNode.valueExpression,
                         /* flags */ undefined,
-                        makeInferenceContext(effectiveValueType, inferenceContext?.typeVarContext)
+                        makeInferenceContext(effectiveValueType)
                     );
                 }
 
@@ -12215,7 +12205,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const unexpandedTypeResult = getTypeOfExpression(
                     entryNode.expandExpression,
                     /* flags */ undefined,
-                    makeInferenceContext(expectedType, inferenceContext?.typeVarContext)
+                    makeInferenceContext(expectedType)
                 );
 
                 if (unexpandedTypeResult.isIncomplete) {
@@ -12334,10 +12324,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 const subtypeResult = useSpeculativeMode(node, () => {
-                    return getTypeOfListOrSetWithContext(
-                        node,
-                        makeInferenceContext(subtype, inferenceContext?.typeVarContext)
-                    );
+                    return getTypeOfListOrSetWithContext(node, makeInferenceContext(subtype));
                 });
 
                 if (subtypeResult && assignType(subtype, subtypeResult.type)) {
@@ -12355,10 +12342,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
         if (effectiveExpectedType) {
-            const result = getTypeOfListOrSetWithContext(
-                node,
-                makeInferenceContext(effectiveExpectedType, inferenceContext?.typeVarContext)
-            );
+            const result = getTypeOfListOrSetWithContext(node, makeInferenceContext(effectiveExpectedType));
             if (result && !result.typeErrors) {
                 return result;
             }
@@ -12426,7 +12410,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 entryTypeResult = getTypeOfExpression(
                     entry,
                     /* flags */ undefined,
-                    makeInferenceContext(expectedEntryType, inferenceContext?.typeVarContext)
+                    makeInferenceContext(expectedEntryType)
                 );
             }
 
@@ -12453,7 +12437,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isClassInstance(inferenceContext.expectedType) &&
             ClassType.isBuiltIn(inferenceContext.expectedType, builtInClassName);
         const specializedEntryType = inferTypeArgFromExpectedEntryType(
-            makeInferenceContext(expectedEntryType, inferenceContext?.typeVarContext),
+            makeInferenceContext(expectedEntryType),
             entryTypes,
             !isTypeInvariant
         );
@@ -12576,14 +12560,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return inferenceContext.expectedType;
         }
 
-        const typeVarContext = inferenceContext.typeVarContext?.clone();
+        const typeVarContext = new TypeVarContext();
+        const expectedType = inferenceContext.expectedType;
         let isCompatible = true;
 
         entryTypes.forEach((entryType) => {
-            if (
-                isCompatible &&
-                !assignType(inferenceContext.expectedType, entryType, /* diag */ undefined, typeVarContext)
-            ) {
+            if (isCompatible && !assignType(expectedType, entryType, /* diag */ undefined, typeVarContext)) {
                 isCompatible = false;
             }
         });
@@ -12599,11 +12581,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 : stripLiteralValue(combinedTypes);
         }
 
-        if (typeVarContext) {
-            return applySolvedTypeVars(inferenceContext.expectedType, typeVarContext);
-        }
-
-        return inferenceContext.expectedType;
+        return applySolvedTypeVars(inferenceContext.expectedType, typeVarContext, { applyInScopePlaceholders: true });
     }
 
     function getTypeOfYield(node: YieldNode): TypeResult {
@@ -12795,13 +12773,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        let expectedReturnType = expectedFunctionType
+        const expectedReturnType = expectedFunctionType
             ? getFunctionEffectiveReturnType(expectedFunctionType)
             : undefined;
-
-        if (expectedReturnType && inferenceContext?.typeVarContext) {
-            expectedReturnType = applySolvedTypeVars(expectedReturnType, inferenceContext.typeVarContext);
-        }
 
         // If we're speculatively evaluating the lambda, create another speculative
         // evaluation scope for the return expression and do not allow retention
@@ -12810,7 +12784,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const returnTypeResult = getTypeOfExpression(
                 node.expression,
                 /* flags */ undefined,
-                makeInferenceContext(expectedReturnType, inferenceContext?.typeVarContext)
+                makeInferenceContext(expectedReturnType)
             );
 
             functionType.inferredReturnType = returnTypeResult.type;

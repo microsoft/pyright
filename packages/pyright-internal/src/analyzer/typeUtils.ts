@@ -195,12 +195,12 @@ export interface ApplyTypeVarOptions {
     useNarrowBoundOnly?: boolean;
     eliminateUnsolvedInUnions?: boolean;
     typeClassType?: Type;
+    applyInScopePlaceholders?: boolean;
 }
 
 export interface InferenceContext {
     expectedType: Type;
     isTypeIncomplete?: boolean;
-    typeVarContext?: TypeVarContext;
 }
 
 export interface SignatureWithCount {
@@ -279,32 +279,22 @@ export function isTypeVarSame(type1: TypeVarType, type2: Type) {
     return isCompatible;
 }
 
-export function makeInferenceContext(
-    expectedType: undefined,
-    typeVarContext?: TypeVarContext,
-    isTypeIncomplete?: boolean
-): undefined;
-export function makeInferenceContext(
-    expectedType: Type,
-    typeVarContext?: TypeVarContext,
-    isTypeIncomplete?: boolean
-): InferenceContext;
+export function makeInferenceContext(expectedType: undefined, isTypeIncomplete?: boolean): undefined;
+export function makeInferenceContext(expectedType: Type, isTypeIncomplete?: boolean): InferenceContext;
 export function makeInferenceContext(
     expectedType: Type | undefined,
-    typeVarContext?: TypeVarContext,
     isTypeIncomplete?: boolean
 ): InferenceContext | undefined;
 
 export function makeInferenceContext(
     expectedType: Type | undefined,
-    typeVarContext?: TypeVarContext,
     isTypeIncomplete?: boolean
 ): InferenceContext | undefined {
     if (!expectedType) {
         return undefined;
     }
 
-    return { expectedType, isTypeIncomplete, typeVarContext };
+    return { expectedType, isTypeIncomplete };
 }
 
 // Calls a callback for each subtype and combines the results
@@ -1030,6 +1020,10 @@ export function applySolvedTypeVars(
         return type;
     }
 
+    if (options.applyInScopePlaceholders) {
+        applyInScopePlaceholders(typeVarContext);
+    }
+
     const transformer = new ApplySolvedTypeVarsTransformer(typeVarContext, options);
     return transformer.apply(type, 0);
 }
@@ -1069,6 +1063,47 @@ export function applySourceContextTypeVarsToSignature(
     });
 }
 
+// If the TypeVarContext contains any type variables whose types depend on
+// in-scope placeholders used for bidirectional type inference, replace those
+// with the solved type associated with those in-scope placeholders.
+export function applyInScopePlaceholders(typeVarContext: TypeVarContext) {
+    typeVarContext.doForEachSignatureContext((signature) => {
+        signature.getTypeVars().forEach((entry) => {
+            const typeVar = entry.typeVar;
+            if (!typeVar.isInScopePlaceholder) {
+                const newNarrowTypeBound = entry.narrowBound
+                    ? applyInScopePlaceholdersToType(entry.narrowBound, signature)
+                    : undefined;
+                const newNarrowTypeBoundNoLiterals = entry.narrowBoundNoLiterals
+                    ? applyInScopePlaceholdersToType(entry.narrowBoundNoLiterals, signature)
+                    : undefined;
+                const newWideTypeBound = entry.wideBound
+                    ? applyInScopePlaceholdersToType(entry.wideBound, signature)
+                    : undefined;
+
+                signature.setTypeVarType(
+                    entry.typeVar,
+                    newNarrowTypeBound,
+                    newNarrowTypeBoundNoLiterals,
+                    newWideTypeBound
+                );
+
+                if (entry.tupleTypes) {
+                    signature.setTupleTypeVar(
+                        entry.typeVar,
+                        entry.tupleTypes.map((arg) => {
+                            return {
+                                isUnbounded: arg.isUnbounded,
+                                type: applyInScopePlaceholdersToType(arg.type, signature),
+                            };
+                        })
+                    );
+                }
+            }
+        });
+    });
+}
+
 // Validates that a default type associated with a TypeVar does not refer to
 // other TypeVars or ParamSpecs that are out of scope.
 export function validateTypeVarDefault(
@@ -1088,21 +1123,8 @@ export function validateTypeVarDefault(
 // is used to prepopulate the type var map. This is problematic when the
 // expected type uses TypeVars that are not part of the context of the
 // class we are constructing. We'll replace these type variables with dummy
-// type variables that are scoped to the appropriate context.
-export function transformExpectedType(expectedType: Type, liveTypeVarScopes: TypeVarScopeId[]): Type | undefined {
-    const isTypeVarLive = (typeVar: TypeVarType) => liveTypeVarScopes.some((scopeId) => typeVar.scopeId === scopeId);
-
-    // Handle "naked TypeVars" (i.e. the expectedType is a TypeVar itself)
-    // specially. Return undefined to indicate that it's an out-of-scope
-    // TypeVar.
-    if (isTypeVar(expectedType)) {
-        if (isTypeVarLive(expectedType)) {
-            return expectedType;
-        }
-
-        return undefined;
-    }
-
+// type variables.
+export function transformExpectedType(expectedType: Type, liveTypeVarScopes: TypeVarScopeId[]): Type {
     const transformer = new ExpectedTypeTransformer(liveTypeVarScopes);
     return transformer.apply(expectedType, 0);
 }
@@ -3770,16 +3792,55 @@ class ExpectedTypeTransformer extends TypeVarTransformer {
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
-        // If the type variable is unrelated to the scopes we're solving,
-        // don't transform that type variable.
-        if (this._isTypeVarLive(typeVar)) {
-            return typeVar;
+        if (!this._isTypeVarLive(typeVar)) {
+            return TypeVarType.cloneAsInScopePlaceholder(typeVar);
         }
 
-        return AnyType.create();
+        return typeVar;
+    }
+
+    override transformParamSpec(paramSpec: TypeVarType): FunctionType | undefined {
+        if (!this._isTypeVarLive(paramSpec)) {
+            return convertTypeToParamSpecValue(TypeVarType.cloneAsInScopePlaceholder(paramSpec));
+        }
+
+        return undefined;
     }
 
     private _isTypeVarLive(typeVar: TypeVarType) {
         return this._liveTypeVarScopes.some((scopeId) => typeVar.scopeId === scopeId);
     }
+}
+
+class InScopePlaceholderTransformer extends TypeVarTransformer {
+    constructor(private _signatureContext: TypeVarSignatureContext) {
+        super();
+    }
+
+    override transformTypeVar(typeVar: TypeVarType) {
+        if (typeVar.isInScopePlaceholder) {
+            return this._signatureContext.getTypeVarType(typeVar) ?? UnknownType.create();
+        }
+
+        return typeVar;
+    }
+
+    override transformParamSpec(paramSpec: TypeVarType): FunctionType | undefined {
+        if (paramSpec.isInScopePlaceholder) {
+            return this._signatureContext.getParamSpecType(paramSpec);
+        }
+
+        return undefined;
+    }
+}
+
+function applyInScopePlaceholdersToType(type: Type, signatureContext: TypeVarSignatureContext): Type {
+    // Handle the common case where there are no in-scope placeholders.
+    // No more work is required in this case.
+    if (!signatureContext.getTypeVars().some((entry) => entry.typeVar.isInScopePlaceholder)) {
+        return type;
+    }
+
+    const transformer = new InScopePlaceholderTransformer(signatureContext);
+    return transformer.apply(type, 0);
 }

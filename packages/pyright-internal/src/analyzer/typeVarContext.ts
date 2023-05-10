@@ -14,6 +14,7 @@ import {
     AnyType,
     ClassType,
     FunctionType,
+    InScopePlaceholderScopeId,
     isFunction,
     maxTypeRecursionCount,
     TupleTypeArgument,
@@ -335,6 +336,10 @@ export class TypeVarContext {
     hasSolveForScope(scopeId: TypeVarScopeId | TypeVarScopeId[] | undefined): boolean {
         if (Array.isArray(scopeId)) {
             return scopeId.some((s) => this.hasSolveForScope(s));
+        }
+
+        if (scopeId === InScopePlaceholderScopeId) {
+            return true;
         }
 
         return (

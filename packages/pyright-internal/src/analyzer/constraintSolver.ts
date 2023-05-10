@@ -855,21 +855,21 @@ export function populateTypeVarContextBasedOnExpectedType(
             .getPrimarySignature()
             .getTypeVars()
             .forEach((entry) => {
-                const typeArgValue = sameClassTypeVarContext.getPrimarySignature().getTypeVarType(entry.typeVar);
+                let typeArgValue = sameClassTypeVarContext.getPrimarySignature().getTypeVarType(entry.typeVar);
+
+                if (typeArgValue && liveTypeVarScopes) {
+                    typeArgValue = transformExpectedType(typeArgValue, liveTypeVarScopes);
+                }
 
                 if (typeArgValue) {
-                    // Skip this if the type argument is a TypeVar defined by the class scope because
-                    // we're potentially solving for these TypeVars.
-                    if (!isTypeVar(typeArgValue) || typeArgValue.scopeId !== type.details.typeVarScopeId) {
-                        const variance = TypeVarType.getVariance(entry.typeVar);
+                    const variance = TypeVarType.getVariance(entry.typeVar);
 
-                        typeVarContext.setTypeVarType(
-                            entry.typeVar,
-                            variance === Variance.Covariant ? undefined : typeArgValue,
-                            /* narrowBoundNoLiterals */ undefined,
-                            variance === Variance.Contravariant ? undefined : typeArgValue
-                        );
-                    }
+                    typeVarContext.setTypeVarType(
+                        entry.typeVar,
+                        variance === Variance.Covariant ? undefined : typeArgValue,
+                        /* narrowBoundNoLiterals */ undefined,
+                        variance === Variance.Contravariant ? undefined : typeArgValue
+                    );
                 }
             });
         return true;

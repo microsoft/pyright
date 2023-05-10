@@ -17,4 +17,4 @@ def g(x: T, y: T) -> T:
     return x if random() > 0.5 else y
 
 
-reveal_type(g(f, g), expected_text="(x: T@f, y: U@f) -> (T@f | U@f)")
+reveal_type(g(f, g), expected_text="((x: T@f, y: U@f) -> (T@f | U@f)) | T@f | U@f")

@@ -540,15 +540,7 @@ function applyExpectedSubtypeForConstructor(
 ): Type | undefined {
     const specializedType = applySolvedTypeVars(ClassType.cloneAsInstance(type), typeVarContext);
 
-    if (
-        !evaluator.assignType(
-            expectedSubtype,
-            specializedType,
-            /* diag */ undefined,
-            /* destTypeVarContext */ inferenceContext?.typeVarContext?.clone(),
-            /* srcTypeVarContext */ undefined
-        )
-    ) {
+    if (!evaluator.assignType(expectedSubtype, specializedType)) {
         return undefined;
     }
 

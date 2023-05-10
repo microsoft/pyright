@@ -85,6 +85,7 @@ export type Type = UnionableType | NeverType | UnionType;
 
 export type TypeVarScopeId = string;
 export const WildcardTypeVarScopeId = '*';
+export const InScopePlaceholderScopeId = '-';
 
 export class EnumLiteral {
     constructor(
@@ -2245,6 +2246,12 @@ export interface TypeVarType extends TypeBase {
 
     // May be different from declaredVariance if declared as Auto
     computedVariance?: Variance;
+
+    // When an out-of-scope TypeVar appears within an expected type during
+    // bidirectional type inference, it needs to be solved along with the
+    // in-scope TypeVars. This is done by cloning the out-of-scope TypeVar
+    // and effectively making it in-scope.
+    isInScopePlaceholder?: boolean;
 }
 
 export namespace TypeVarType {
@@ -2348,6 +2355,17 @@ export namespace TypeVarType {
         const newInstance = TypeBase.cloneType(type);
         newInstance.details = { ...newInstance.details };
         newInstance.details.boundType = specializedBoundType;
+        return newInstance;
+    }
+
+    export function cloneAsInScopePlaceholder(type: TypeVarType): TypeVarType {
+        if (type.isInScopePlaceholder) {
+            return type;
+        }
+
+        const newInstance = TypeBase.cloneType(type);
+        newInstance.isInScopePlaceholder = true;
+        newInstance.scopeId = InScopePlaceholderScopeId;
         return newInstance;
     }
 
