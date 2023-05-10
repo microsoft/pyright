@@ -23,7 +23,6 @@ import {
     TypeVarType,
     WildcardTypeVarScopeId,
 } from './types';
-import { applySolvedTypeVars, doForEachSubtype } from './typeUtils';
 
 export interface TypeVarMapEntry {
     typeVar: TypeVarType;
@@ -156,30 +155,6 @@ export class TypeVarSignatureContext {
         return entries;
     }
 
-    // Applies solved TypeVars from one context to this context.
-    applySourceContextTypeVars(srcContext: TypeVarContext) {
-        this._typeVarMap.forEach((entry) => {
-            const newNarrowTypeBound = entry.narrowBound
-                ? applySolvedTypeVars(entry.narrowBound, srcContext)
-                : undefined;
-            const newNarrowTypeBoundNoLiterals = entry.narrowBoundNoLiterals
-                ? applySolvedTypeVars(entry.narrowBoundNoLiterals, srcContext)
-                : undefined;
-            const newWideTypeBound = entry.wideBound ? applySolvedTypeVars(entry.wideBound, srcContext) : undefined;
-
-            this.setTypeVarType(entry.typeVar, newNarrowTypeBound, newNarrowTypeBoundNoLiterals, newWideTypeBound);
-
-            if (entry.tupleTypes) {
-                this.setTupleTypeVar(
-                    entry.typeVar,
-                    entry.tupleTypes.map((arg) => {
-                        return { isUnbounded: arg.isUnbounded, type: applySolvedTypeVars(arg.type, srcContext) };
-                    })
-                );
-            }
-        });
-    }
-
     getTypeVarCount() {
         return this._typeVarMap.size;
     }
@@ -244,7 +219,7 @@ export class TypeVarSignatureContext {
                 // If this union has a very large number of subtypes, don't bother
                 // accurately computing the score. Assume a fixed value.
                 if (type.subtypes.length < 16) {
-                    doForEachSubtype(type, (subtype) => {
+                    type.subtypes.forEach((subtype) => {
                         const subtypeScore = this._getComplexityScoreForType(subtype, recursionCount);
                         maxScore = Math.max(maxScore, subtypeScore);
                     });
@@ -406,22 +381,6 @@ export class TypeVarContext {
         return this._signatureContexts.every((context) => context.isEmpty());
     }
 
-    // Applies solved TypeVars from one context to this context.
-    applySourceContextTypeVars(srcContext: TypeVarContext) {
-        if (srcContext.isEmpty()) {
-            return;
-        }
-
-        const wasLocked = this.isLocked();
-        this.unlock();
-
-        this._signatureContexts.forEach((context) => context.applySourceContextTypeVars(srcContext));
-
-        if (wasLocked) {
-            this.lock();
-        }
-    }
-
     setTypeVarType(
         reference: TypeVarType,
         narrowBound: Type | undefined,
@@ -460,6 +419,19 @@ export class TypeVarContext {
 
     getSignatureContexts() {
         return this._signatureContexts;
+    }
+
+    doForEachSignatureContext(callback: (signature: TypeVarSignatureContext) => void) {
+        const wasLocked = this.isLocked();
+        this.unlock();
+
+        this.getSignatureContexts().forEach((signature) => {
+            callback(signature);
+        });
+
+        if (wasLocked) {
+            this.lock();
+        }
     }
 
     getSignatureContext(index: number) {

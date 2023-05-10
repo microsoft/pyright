@@ -189,6 +189,8 @@ import {
     addConditionToType,
     addTypeVarsToListIfUnique,
     applySolvedTypeVars,
+    applySourceContextTypeVars,
+    applySourceContextTypeVarsToSignature,
     areTypesSame,
     combineSameSizedTuples,
     combineVariances,
@@ -10882,7 +10884,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!reportedArgError) {
-            typeVarContext.applySourceContextTypeVars(srcTypeVarContext);
+            applySourceContextTypeVarsToSignature(typeVarContext, srcTypeVarContext);
         }
 
         return !reportedArgError;
@@ -23592,7 +23594,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Apply any solved source TypeVars to the dest TypeVar solutions. This
         // allows for higher-order functions to accept generic callbacks.
-        destTypeVarContext.applySourceContextTypeVars(srcTypeVarContext);
+        applySourceContextTypeVars(destTypeVarContext, srcTypeVarContext);
 
         return canAssign;
     }

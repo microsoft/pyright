@@ -58,7 +58,7 @@ import {
     Variance,
     WildcardTypeVarScopeId,
 } from './types';
-import { TypeVarContext } from './typeVarContext';
+import { TypeVarContext, TypeVarSignatureContext } from './typeVarContext';
 
 export interface ClassMember {
     // Symbol
@@ -1032,6 +1032,41 @@ export function applySolvedTypeVars(
 
     const transformer = new ApplySolvedTypeVarsTransformer(typeVarContext, options);
     return transformer.apply(type, 0);
+}
+
+// Applies solved TypeVars from one context to this context.
+export function applySourceContextTypeVars(destContext: TypeVarContext, srcContext: TypeVarContext) {
+    if (srcContext.isEmpty()) {
+        return;
+    }
+
+    destContext.doForEachSignatureContext((destSignature) => {
+        applySourceContextTypeVarsToSignature(destSignature, srcContext);
+    });
+}
+
+export function applySourceContextTypeVarsToSignature(
+    destSignature: TypeVarSignatureContext,
+    srcContext: TypeVarContext
+) {
+    destSignature.getTypeVars().forEach((entry) => {
+        const newNarrowTypeBound = entry.narrowBound ? applySolvedTypeVars(entry.narrowBound, srcContext) : undefined;
+        const newNarrowTypeBoundNoLiterals = entry.narrowBoundNoLiterals
+            ? applySolvedTypeVars(entry.narrowBoundNoLiterals, srcContext)
+            : undefined;
+        const newWideTypeBound = entry.wideBound ? applySolvedTypeVars(entry.wideBound, srcContext) : undefined;
+
+        destSignature.setTypeVarType(entry.typeVar, newNarrowTypeBound, newNarrowTypeBoundNoLiterals, newWideTypeBound);
+
+        if (entry.tupleTypes) {
+            destSignature.setTupleTypeVar(
+                entry.typeVar,
+                entry.tupleTypes.map((arg) => {
+                    return { isUnbounded: arg.isUnbounded, type: applySolvedTypeVars(arg.type, srcContext) };
+                })
+            );
+        }
+    });
 }
 
 // Validates that a default type associated with a TypeVar does not refer to
