@@ -959,7 +959,7 @@ export class AnalyzerService {
                 throw e;
             }
 
-            this._console.error(`Pyproject file "${pyprojectPath}" is missing "[tool.pyright]" section.`);
+            this._console.info(`Pyproject file "${pyprojectPath}" has no "[tool.pyright]" section.`);
             return undefined;
         });
     }
