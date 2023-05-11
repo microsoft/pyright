@@ -19,12 +19,13 @@ import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSin
 import { Extensions } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { LogTracker, getPathForLogging } from '../common/logTracker';
-import { getFileName, normalizeSlashes } from '../common/pathUtils';
+import { getFileName, normalizeSlashes, stripFileExtension } from '../common/pathUtils';
 import { convertOffsetsToRange, convertTextRangeToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { Range, TextRange, getEmptyRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
+import { IndexResults } from '../languageService/symbolIndexer';
 import { Localizer } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
 import { ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
@@ -44,7 +45,6 @@ import { SourceMapper } from './sourceMapper';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluatorTypes';
-import { IndexResults } from '../languageService/symbolIndexer';
 
 // Limit the number of import cycles tracked per source file.
 const _maxImportCyclesPerFile = 4;
@@ -253,7 +253,12 @@ export class SourceFile {
     }
 
     getModuleName(): string {
-        return this._moduleName;
+        if (this._moduleName) {
+            return this._moduleName;
+        }
+
+        // Synthesize a module name using the file path.
+        return stripFileExtension(getFileName(this._filePath));
     }
 
     setModuleName(name: string) {
@@ -1187,7 +1192,7 @@ export class SourceFile {
             typingSymbolAliases: this._writableData.parseResults!.typingSymbolAliases,
             definedConstants: configOptions.defineConstant,
             filePath: this._filePath,
-            moduleName: this._moduleName,
+            moduleName: this.getModuleName(),
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
             isTypingExtensionsStubFile: this._isTypingExtensionsStubFile,
