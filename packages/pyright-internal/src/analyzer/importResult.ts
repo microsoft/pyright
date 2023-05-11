@@ -39,7 +39,10 @@ export interface ImportResult {
     isPartlyResolved: boolean;
 
     // True if the import refers to a namespace package (a
-    // folder without an __init__.py(i) file at every level).
+    // folder without an __init__.py(i) file at the last level).
+    // To determine if any intermediate level is a namespace
+    // package, look at the resolvedPaths array. Namespace package
+    // entries will have an empty string for the resolvedPath.
     isNamespacePackage: boolean;
 
     // True if there is an __init__.py(i) file in the final

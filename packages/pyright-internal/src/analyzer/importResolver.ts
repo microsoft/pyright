@@ -1578,41 +1578,38 @@ export class ImportResolver {
         }
 
         if (newImport.isImportFound) {
+            // Prefer traditional packages over namespace packages.
+            const soFarIndex = bestImportSoFar.resolvedPaths.findIndex((path) => !!path);
+            const newIndex = newImport.resolvedPaths.findIndex((path) => !!path);
+            if (soFarIndex !== newIndex) {
+                if (soFarIndex < 0) {
+                    return newImport;
+                } else if (newIndex < 0) {
+                    return bestImportSoFar;
+                }
+                return soFarIndex < newIndex ? bestImportSoFar : newImport;
+            }
+
             // Prefer found over not found.
             if (!bestImportSoFar.isImportFound) {
                 return newImport;
             }
 
-            // Prefer traditional over namespace imports.
-            if (bestImportSoFar.isNamespacePackage && !newImport.isNamespacePackage) {
-                return newImport;
-            }
-
-            // Prefer local packages.
-            if (bestImportSoFar.importType === ImportType.Local && !bestImportSoFar.isNamespacePackage) {
-                return bestImportSoFar;
-            }
-            if (newImport.importType === ImportType.Local && !newImport.isNamespacePackage) {
-                return newImport;
-            }
-
             // If both are namespace imports, select the one that resolves the symbols.
-            if (
-                bestImportSoFar.isNamespacePackage &&
-                newImport.isNamespacePackage &&
-                moduleDescriptor.importedSymbols
-            ) {
-                if (!this._isNamespacePackageResolved(moduleDescriptor, bestImportSoFar.implicitImports)) {
-                    if (this._isNamespacePackageResolved(moduleDescriptor, newImport.implicitImports)) {
-                        return newImport;
-                    }
+            if (bestImportSoFar.isNamespacePackage && newImport.isNamespacePackage) {
+                if (moduleDescriptor.importedSymbols) {
+                    if (!this._isNamespacePackageResolved(moduleDescriptor, bestImportSoFar.implicitImports)) {
+                        if (this._isNamespacePackageResolved(moduleDescriptor, newImport.implicitImports)) {
+                            return newImport;
+                        }
 
-                    // Prefer the namespace package that has an __init__.py(i) file present
-                    // in the final directory over one that does not.
-                    if (bestImportSoFar.isInitFilePresent && !newImport.isInitFilePresent) {
-                        return bestImportSoFar;
-                    } else if (!bestImportSoFar.isInitFilePresent && newImport.isInitFilePresent) {
-                        return newImport;
+                        // Prefer the namespace package that has an __init__.py(i) file present
+                        // in the final directory over one that does not.
+                        if (bestImportSoFar.isInitFilePresent && !newImport.isInitFilePresent) {
+                            return bestImportSoFar;
+                        } else if (!bestImportSoFar.isInitFilePresent && newImport.isInitFilePresent) {
+                            return newImport;
+                        }
                     }
                 }
             }
@@ -1635,10 +1632,27 @@ export class ImportResolver {
             if (bestImportSoFar.resolvedPaths.length > newImport.resolvedPaths.length) {
                 return newImport;
             }
-        } else if (newImport.isPartlyResolved && bestImportSoFar.isNamespacePackage && !newImport.isNamespacePackage) {
-            // Always prefer a traditional over namespace import even
-            // if the traditional import is only partly resolved.
-            return newImport;
+        } else if (newImport.isPartlyResolved) {
+            // If the new import is a traditional package but only partly resolves
+            // the import but the best import so far is a namespace package, we need
+            // to consider whether the best import so far also resolves the first part
+            // of the import with a traditional package. Using the example "import a.b.c.d"
+            // and the symbol ~ to represent a namespace package, consider the following
+            // cases:
+            //  bestSoFar: a/~b/~c/~d   new: a      Result: bestSoFar wins
+            //  bestSoFar: ~a/~b/~c/~d  new: a      Result: new wins
+            //  bestSoFar: a/~b/~c/~d   new: a/b    Result: new wins
+            const soFarIndex = bestImportSoFar.resolvedPaths.findIndex((path) => !!path);
+            const newIndex = newImport.resolvedPaths.findIndex((path) => !!path);
+
+            if (soFarIndex !== newIndex) {
+                if (soFarIndex < 0) {
+                    return newImport;
+                } else if (newIndex < 0) {
+                    return bestImportSoFar;
+                }
+                return soFarIndex < newIndex ? bestImportSoFar : newImport;
+            }
         }
 
         return bestImportSoFar;

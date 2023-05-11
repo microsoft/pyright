@@ -474,7 +474,7 @@ test('import side by side file sub under lib folder', () => {
     assert(!importResult.isImportFound);
 });
 
-test('dont walk up the root', () => {
+test("don't walk up the root", () => {
     const files = [
         {
             path: combinePaths('/', 'file1.py'),
@@ -483,6 +483,94 @@ test('dont walk up the root', () => {
     ];
 
     const importResult = getImportResult(files, ['notExist'], (c) => (c.projectRoot = ''));
+    assert(!importResult.isImportFound);
+});
+
+test('nested namespace package 1', () => {
+    const files = [
+        {
+            path: combinePaths('/', 'packages1', 'a', 'b', 'c', 'd.py'),
+            content: 'def f(): pass',
+        },
+        {
+            path: combinePaths('/', 'packages1', 'a', '__init__.py'),
+            content: '',
+        },
+        {
+            path: combinePaths('/', 'packages2', 'a', '__init__.py'),
+            content: '',
+        },
+    ];
+
+    const importResult = getImportResult(files, ['a', 'b', 'c', 'd'], (config) => {
+        config.defaultExtraPaths = [combinePaths('/', 'packages1'), combinePaths('/', 'packages2')];
+    });
+    assert(importResult.isImportFound);
+});
+
+test('nested namespace package 2', () => {
+    const files = [
+        {
+            path: combinePaths('/', 'packages1', 'a', 'b', 'c', 'd.py'),
+            content: 'def f(): pass',
+        },
+        {
+            path: combinePaths('/', 'packages1', 'a', 'b', 'c', '__init__.py'),
+            content: '',
+        },
+        {
+            path: combinePaths('/', 'packages2', 'a', 'b', 'c', '__init__.py'),
+            content: '',
+        },
+    ];
+
+    const importResult = getImportResult(files, ['a', 'b', 'c', 'd'], (config) => {
+        config.defaultExtraPaths = [combinePaths('/', 'packages1'), combinePaths('/', 'packages2')];
+    });
+    assert(importResult.isImportFound);
+});
+
+test('nested namespace package 3', () => {
+    const files = [
+        {
+            path: combinePaths('/', 'packages1', 'a', 'b', 'c', 'd.py'),
+            content: 'def f(): pass',
+        },
+        {
+            path: combinePaths('/', 'packages2', 'a', '__init__.py'),
+            content: '',
+        },
+    ];
+
+    const importResult = getImportResult(files, ['a', 'b', 'c', 'd'], (config) => {
+        config.defaultExtraPaths = [combinePaths('/', 'packages1'), combinePaths('/', 'packages2')];
+    });
+    assert(!importResult.isImportFound);
+});
+
+test('nested namespace package 4', () => {
+    const files = [
+        {
+            path: combinePaths('/', 'packages1', 'a', 'b', '__init__.py'),
+            content: '',
+        },
+        {
+            path: combinePaths('/', 'packages1', 'a', 'b', 'c.py'),
+            content: 'def f(): pass',
+        },
+        {
+            path: combinePaths('/', 'packages2', 'a', '__init__.py'),
+            content: '',
+        },
+        {
+            path: combinePaths('/', 'packages2', 'a', 'b', '__init__.py'),
+            content: '',
+        },
+    ];
+
+    const importResult = getImportResult(files, ['a', 'b', 'c'], (config) => {
+        config.defaultExtraPaths = [combinePaths('/', 'packages1'), combinePaths('/', 'packages2')];
+    });
     assert(!importResult.isImportFound);
 });
 
