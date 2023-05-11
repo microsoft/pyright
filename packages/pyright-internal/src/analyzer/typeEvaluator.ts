@@ -14022,7 +14022,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return TypeBase.cloneForTypeAlias(
             type,
             name.value,
-            `${fileInfo.moduleName}.${name.value}`,
+            ParseTreeUtils.getClassFullName(name, fileInfo.moduleName, name.value),
             typeAliasScopeId,
             typeParameters.length > 0 ? typeParameters : undefined
         );
