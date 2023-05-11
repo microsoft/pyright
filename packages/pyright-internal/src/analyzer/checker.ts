@@ -5487,6 +5487,10 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        if (baseClassAndSymbol.symbol.isIgnoredForOverrideChecks()) {
+            return;
+        }
+
         // If the base class doesn't provide a type declaration, we won't bother
         // proceeding with additional checks. Type inference is too inaccurate
         // in this case, plus it would be very slow.

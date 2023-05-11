@@ -622,9 +622,18 @@ export function synthesizeDataClassMethods(
         const hashMethod = FunctionType.createSynthesizedInstance('__hash__');
         FunctionType.addParameter(hashMethod, selfParam);
         hashMethod.details.declaredReturnType = evaluator.getBuiltInObject(node, 'int');
-        symbolTable.set('__hash__', Symbol.createWithType(SymbolFlags.ClassMember, hashMethod));
+        symbolTable.set(
+            '__hash__',
+            Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.IgnoredForOverrideChecks, hashMethod)
+        );
     } else if (synthesizeHashNone && !skipSynthesizeHash) {
-        symbolTable.set('__hash__', Symbol.createWithType(SymbolFlags.ClassMember, NoneType.createInstance()));
+        symbolTable.set(
+            '__hash__',
+            Symbol.createWithType(
+                SymbolFlags.ClassMember | SymbolFlags.IgnoredForOverrideChecks,
+                NoneType.createInstance()
+            )
+        );
     }
 
     let dictType = evaluator.getBuiltInType(node, 'dict');
