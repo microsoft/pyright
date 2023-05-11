@@ -1,5 +1,5 @@
 # This sample tests the handling of functions that include TypeVars
-# within unions, where the TypeVar may not be matched during constraint
+# within unions, where the TypeVar may not be solved during constraint
 # solving.
 
 from typing import (
@@ -50,3 +50,11 @@ def dec1() -> Callable[
 @dec1()
 async def bars() -> None:
     ...
+
+
+def get_first(l: list):
+    return next(iter(l), None)
+
+
+val = get_first([])
+reveal_type(val, expected_text="Unknown | None")

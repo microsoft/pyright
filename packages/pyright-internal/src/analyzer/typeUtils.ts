@@ -3656,16 +3656,25 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 preTransform.scopeId !== undefined &&
                 this._typeVarContext.hasSolveForScope(preTransform.scopeId)
             ) {
-                // If the TypeVar was not transformed, then it was unsolved,
-                // and we'll eliminate it.
-                if (preTransform === postTransform) {
-                    return undefined;
-                }
+                const signatureContext = this._typeVarContext.getSignatureContext(
+                    this._activeTypeVarSignatureContextIndex ?? 0
+                );
 
-                // If _unknownIfNotFound is true, the postTransform type will
-                // be Unknown, which we want to eliminate.
-                if (isUnknown(postTransform) && this._options.unknownIfNotFound) {
-                    return undefined;
+                const typeVarType = signatureContext.getTypeVarType(preTransform);
+
+                // Did the TypeVar remain unsolved?
+                if (!typeVarType) {
+                    // If the TypeVar was not transformed, then it was unsolved,
+                    // and we'll eliminate it.
+                    if (preTransform === postTransform) {
+                        return undefined;
+                    }
+
+                    // If _unknownIfNotFound is true, the postTransform type will
+                    // be Unknown, which we want to eliminate.
+                    if (isUnknown(postTransform) && this._options.unknownIfNotFound) {
+                        return undefined;
+                    }
                 }
             }
         }
