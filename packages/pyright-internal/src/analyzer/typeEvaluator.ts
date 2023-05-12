@@ -192,6 +192,7 @@ import {
     applySourceContextTypeVars,
     applySourceContextTypeVarsToSignature,
     areTypesSame,
+    buildTypeVarContextFromSpecializedClass,
     combineSameSizedTuples,
     combineVariances,
     computeMroLinearization,
@@ -2328,8 +2329,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isClassInstance(declaredType)) {
                     const setterInfo = lookUpClassMember(declaredType, '__set__');
                     const setter = setterInfo ? getTypeOfMember(setterInfo) : undefined;
-                    if (setter && isFunction(setter) && setter.details.parameters.length >= 3) {
+                    if (setterInfo && setter && isFunction(setter) && setter.details.parameters.length >= 3) {
                         declaredType = setter.details.parameters[2].type;
+
+                        if (isClass(setterInfo.classType)) {
+                            const typeVarMap = buildTypeVarContextFromSpecializedClass(setterInfo.classType);
+                            declaredType = applySolvedTypeVars(declaredType, typeVarMap);
+                        }
 
                         if (isAnyOrUnknown(declaredType)) {
                             return undefined;
