@@ -1186,11 +1186,6 @@ export const enum FunctionTypeFlags {
     // for implied methods such as those used in namedtuple, dataclass, etc.
     SynthesizedMethod = 1 << 6,
 
-    // For some synthesized classes (in particular, NamedTuple), the
-    // __init__ method is created with default parameters, so we will
-    // skip the constructor check for these methods.
-    SkipConstructorCheck = 1 << 7,
-
     // Function is decorated with @overload
     Overloaded = 1 << 8,
 
@@ -1772,10 +1767,6 @@ export namespace FunctionType {
 
     export function isSynthesizedMethod(type: FunctionType): boolean {
         return (type.details.flags & FunctionTypeFlags.SynthesizedMethod) !== 0;
-    }
-
-    export function isSkipConstructorCheck(type: FunctionType): boolean {
-        return (type.details.flags & FunctionTypeFlags.SkipConstructorCheck) !== 0;
     }
 
     export function isOverloaded(type: FunctionType): boolean {

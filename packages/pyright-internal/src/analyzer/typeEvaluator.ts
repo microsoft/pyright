@@ -2128,15 +2128,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             !!methodType &&
                             isFunction(methodType) &&
                             methodType.details.fullName === 'builtins.object.__init__';
-                        const isSkipConstructor =
-                            !!methodType && isFunction(methodType) && FunctionType.isSkipConstructorCheck(methodType);
                         const isDefaultParams =
                             methodType && isFunction(methodType) && FunctionType.hasDefaultParameters(methodType);
 
                         // If there was no `__init__` or the only `__init__` that was found was from
                         // the `object` class or accepts only default parameters(* args, ** kwargs),
                         // see if we can find a better signature from the `__new__` method.
-                        if (!methodType || isObjectInit || isSkipConstructor || isDefaultParams) {
+                        if (!methodType || isObjectInit || isDefaultParams) {
                             const constructorType = getBoundMethod(
                                 subtype,
                                 '__new__',
@@ -10219,27 +10217,39 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // the expected type if possible.
 
             // Determine which type arguments are needed to match the expected type.
-            if (
-                isClassInstance(effectiveReturnType) &&
-                isClassInstance(effectiveExpectedType) &&
-                !isTypeSame(effectiveReturnType, effectiveExpectedType)
-            ) {
-                const tempTypeVarContext = new TypeVarContext(getTypeVarScopeId(effectiveReturnType));
-                populateTypeVarContextBasedOnExpectedType(
-                    evaluatorInterface,
-                    effectiveReturnType,
-                    effectiveExpectedType,
-                    tempTypeVarContext,
-                    ParseTreeUtils.getTypeVarScopesForNode(errorNode)
-                );
+            if (isClassInstance(effectiveReturnType)) {
+                // If the return type is a class and the expected type is a union that contains
+                // that class, see if we can eliminate the other subtypes in the union.
+                if (isUnion(effectiveExpectedType)) {
+                    const filteredType = mapSubtypes(effectiveExpectedType, (subtype) => {
+                        return isClassInstance(subtype) && ClassType.isSameGenericClass(effectiveReturnType, subtype)
+                            ? subtype
+                            : undefined;
+                    });
 
-                const genericReturnType = ClassType.cloneForSpecialization(
-                    effectiveReturnType,
-                    /* typeArguments */ undefined,
-                    /* isTypeArgumentExplicit */ false
-                );
+                    if (isClassInstance(filteredType)) {
+                        effectiveExpectedType = filteredType;
+                    }
+                }
 
-                effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext);
+                if (isClassInstance(effectiveExpectedType) && !isTypeSame(effectiveReturnType, effectiveExpectedType)) {
+                    const tempTypeVarContext = new TypeVarContext(getTypeVarScopeId(effectiveReturnType));
+                    populateTypeVarContextBasedOnExpectedType(
+                        evaluatorInterface,
+                        effectiveReturnType,
+                        effectiveExpectedType,
+                        tempTypeVarContext,
+                        ParseTreeUtils.getTypeVarScopesForNode(errorNode)
+                    );
+
+                    const genericReturnType = ClassType.cloneForSpecialization(
+                        effectiveReturnType,
+                        /* typeArguments */ undefined,
+                        /* isTypeArgumentExplicit */ false
+                    );
+
+                    effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext);
+                }
             } else if (isFunction(effectiveReturnType)) {
                 // If the return type is a callable and the expected type is a union that
                 // includes one or more non-callables, filter those out.

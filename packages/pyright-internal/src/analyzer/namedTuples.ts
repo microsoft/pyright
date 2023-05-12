@@ -305,11 +305,8 @@ export function createNamedTupleType(
         entryTypes.push(AnyType.create(/* isEllipsis */ true));
     }
 
-    // Always use generic parameters for __init__. The __new__ method
-    // will handle property type checking. We may need to disable default
-    // parameter processing for __new__ (see isAssignmentToDefaultsFollowingNamedTuple),
-    // and we don't want to do it for __init__ as well.
-    const initType = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.SkipConstructorCheck);
+    // Always use generic parameters for __init__.
+    const initType = FunctionType.createSynthesizedInstance('__init__');
     FunctionType.addParameter(initType, selfParameter);
     FunctionType.addDefaultParameters(initType);
     initType.details.declaredReturnType = NoneType.createInstance();

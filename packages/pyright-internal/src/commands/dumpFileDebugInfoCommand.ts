@@ -455,7 +455,6 @@ const FunctionTypeFlagsToString: [FunctionTypeFlags, string][] = [
     [FunctionTypeFlags.PartiallyEvaluated, 'PartiallyEvaluated'],
     [FunctionTypeFlags.PyTypedDefinition, 'PyTypedDefinition'],
     [FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck, 'SkipArgsKwargsCompatibilityCheck'],
-    [FunctionTypeFlags.SkipConstructorCheck, 'SkipConstructorCheck'],
     [FunctionTypeFlags.StaticMethod, 'StaticMethod'],
     [FunctionTypeFlags.StubDefinition, 'StubDefinition'],
     [FunctionTypeFlags.SynthesizedMethod, 'SynthesizedMethod'],
