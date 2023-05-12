@@ -237,7 +237,7 @@ function assignClassToProtocolInternal(
                         // We can skip this if it's the dest class because it is already
                         // specialized.
                         if (!ClassType.isSameGenericClass(mroClass, destType)) {
-                            destMemberType = partiallySpecializeType(destMemberType, mroClass, destType);
+                            destMemberType = partiallySpecializeType(destMemberType, mroClass, srcType);
                         }
 
                         let srcMemberType: Type;
