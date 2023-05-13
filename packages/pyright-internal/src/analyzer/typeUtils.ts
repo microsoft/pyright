@@ -8,7 +8,7 @@
  */
 
 import { appendArray } from '../common/collectionUtils';
-import { assert } from '../common/debug';
+import { assert, fail } from '../common/debug';
 import { ParameterCategory } from '../parser/parseNodes';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
@@ -2712,7 +2712,7 @@ export function computeMroLinearization(classType: ClassType): boolean {
     // Helper function that returns true if the specified searchClass
     // is found in the "tail" (i.e. in elements 1 through n) of any
     // of the class lists.
-    const isInTail = (searchClass: ClassType, classLists: Type[][]) => {
+    function isInTail(searchClass: ClassType, classLists: Type[][]) {
         return classLists.some((classList) => {
             return (
                 classList.findIndex(
@@ -2720,15 +2720,35 @@ export function computeMroLinearization(classType: ClassType): boolean {
                 ) > 0
             );
         });
-    };
+    }
 
-    const filterClass = (classToFilter: ClassType, classLists: Type[][]) => {
-        for (let i = 0; i < classLists.length; i++) {
-            classLists[i] = classLists[i].filter(
-                (value) => !isInstantiableClass(value) || !ClassType.isSameGenericClass(value, classToFilter)
+    // Helper function that filters the class lists to remove any duplicate
+    // entries of the specified class. This is used once the class has been
+    // added to the MRO.
+    function filterClass(classToFilter: ClassType, classLists: Type[][]) {
+        if (classToFilter?.category !== TypeCategory.Class) {
+            // These "fail" calls are in place to diagnose a sporadic crash that
+            // we are seeing in the pylance telemetry. Delete these once we
+            // fix the underlying problem.
+            fail(
+                `Corrupted class type when computing MRO for ${classType.details.name}: ${JSON.stringify(
+                    classToFilter
+                )}`
             );
         }
-    };
+        for (let i = 0; i < classLists.length; i++) {
+            classLists[i] = classLists[i].filter((value) => {
+                if (value?.category === undefined) {
+                    fail(
+                        `Unexpected undefined type when computing MRO for ${classType.details.name}: ${JSON.stringify(
+                            classLists
+                        )}`
+                    );
+                }
+                return !isInstantiableClass(value) || !ClassType.isSameGenericClass(value, classToFilter);
+            });
+        }
+    }
 
     while (true) {
         let foundValidHead = false;
