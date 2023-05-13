@@ -1016,7 +1016,12 @@ export function applySolvedTypeVars(
     options: ApplyTypeVarOptions = {}
 ): Type {
     // Use a shortcut if the typeVarContext is empty and no transform is necessary.
-    if (typeVarContext.isEmpty() && !options.unknownIfNotFound && !options.eliminateUnsolvedInUnions) {
+    if (
+        typeVarContext.isEmpty() &&
+        !options.unknownIfNotFound &&
+        !options.eliminateUnsolvedInUnions &&
+        !options.applyInScopePlaceholders
+    ) {
         return type;
     }
 
@@ -3597,7 +3602,14 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             // If this typeVar is in scope for what we're solving but the type
             // var map doesn't contain any entry for it, replace with the
             // default or Unknown.
+            let useDefaultOrUnknown = false;
             if (this._options.unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
+                useDefaultOrUnknown = true;
+            } else if (this._options.applyInScopePlaceholders && typeVar.isInScopePlaceholder) {
+                useDefaultOrUnknown = true;
+            }
+
+            if (useDefaultOrUnknown) {
                 // Use the default value if there is one.
                 if (typeVar.details.defaultType && !this._options.useUnknownOverDefault) {
                     return this._solveDefaultType(typeVar.details.defaultType, recursionCount);
@@ -3670,7 +3682,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                         return undefined;
                     }
 
-                    // If _unknownIfNotFound is true, the postTransform type will
+                    // If unknownIfNotFound is true, the postTransform type will
                     // be Unknown, which we want to eliminate.
                     if (isUnknown(postTransform) && this._options.unknownIfNotFound) {
                         return undefined;
@@ -3730,7 +3742,14 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return transformedParamSpec;
         }
 
+        let useDefaultOrUnknown = false;
         if (this._options.unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
+            useDefaultOrUnknown = true;
+        } else if (this._options.applyInScopePlaceholders && paramSpec.isInScopePlaceholder) {
+            useDefaultOrUnknown = true;
+        }
+
+        if (useDefaultOrUnknown) {
             // Use the default value if there is one.
             if (paramSpec.details.defaultType) {
                 return convertTypeToParamSpecValue(
