@@ -16,6 +16,7 @@ import { isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
 import {
     AnyType,
     ClassType,
+    ClassTypeFlags,
     combineTypes,
     findSubtype,
     FunctionParameter,
@@ -1134,28 +1135,33 @@ export function transformExpectedType(expectedType: Type, liveTypeVarScopes: Typ
     return transformer.apply(expectedType, 0);
 }
 
-// Given a protocol class, this function returns a set of all the
-// symbols (indexed by symbol name) that are part of that protocol
-// and its protocol parent classes. If a same-named symbol appears
-// in a parent and a child, the child overrides the parent.
+// Given a protocol class (or abstract class), this function returns
+// a set of all the symbols (indexed by symbol name) that are part of
+// that protocol and its protocol parent classes. If a same-named symbol
+// appears in a parent and a child, the child overrides the parent.
 export function getProtocolSymbols(classType: ClassType) {
     const symbolMap = new Map<string, ClassMember>();
 
-    if (ClassType.isProtocolClass(classType)) {
-        getProtocolSymbolsRecursive(classType, symbolMap);
+    if ((classType.details.flags & ClassTypeFlags.ProtocolClass) !== 0) {
+        getProtocolSymbolsRecursive(classType, symbolMap, ClassTypeFlags.ProtocolClass);
     }
 
     return symbolMap;
 }
 
-function getProtocolSymbolsRecursive(classType: ClassType, symbolMap: Map<string, ClassMember>, recursionCount = 0) {
+export function getProtocolSymbolsRecursive(
+    classType: ClassType,
+    symbolMap: Map<string, ClassMember>,
+    classFlags = ClassTypeFlags.ProtocolClass,
+    recursionCount = 0
+) {
     if (recursionCount > maxTypeRecursionCount) {
         return;
     }
 
     classType.details.baseClasses.forEach((baseClass) => {
-        if (isClass(baseClass) && ClassType.isProtocolClass(baseClass)) {
-            getProtocolSymbolsRecursive(baseClass, symbolMap, recursionCount + 1);
+        if (isClass(baseClass) && (baseClass.details.flags & classFlags) !== 0) {
+            getProtocolSymbolsRecursive(baseClass, symbolMap, classFlags, recursionCount + 1);
         }
     });
 

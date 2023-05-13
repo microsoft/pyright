@@ -473,6 +473,19 @@ test('UninitializedVariable1', () => {
     // Enable it as an error.
     configOptions.diagnosticRuleSet.reportUninitializedInstanceVariable = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['uninitializedVariable1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 3);
+});
+
+test('UninitializedVariable2', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, this is off.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['uninitializedVariable2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+
+    // Enable it as an error.
+    configOptions.diagnosticRuleSet.reportUninitializedInstanceVariable = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['uninitializedVariable2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 2);
 });
 

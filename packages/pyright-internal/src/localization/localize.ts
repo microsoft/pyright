@@ -982,6 +982,8 @@ export namespace Localizer {
         export const unionForwardReferenceNotAllowed = () => getRawString('Diagnostic.unionForwardReferenceNotAllowed');
         export const unionSyntaxIllegal = () => getRawString('Diagnostic.unionSyntaxIllegal');
         export const unionTypeArgCount = () => getRawString('Diagnostic.unionTypeArgCount');
+        export const uninitializedAbstractVariables = () =>
+            new ParameterizedString<{ classType: string }>(getRawString('Diagnostic.uninitializedAbstractVariables'));
         export const uninitializedInstanceVariable = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.uninitializedInstanceVariable'));
         export const unmatchedEndregionComment = () => getRawString('Diagnostic.unmatchedEndregionComment');
@@ -1345,6 +1347,10 @@ export namespace Localizer {
         export const typeVarUnsolvableRemedy = () => getRawString('DiagnosticAddendum.typeVarUnsolvableRemedy');
         export const unhashableType = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.unhashableType'));
+        export const uninitializedAbstractVariable = () =>
+            new ParameterizedString<{ name: string; classType: string }>(
+                getRawString('DiagnosticAddendum.uninitializedAbstractVariable')
+            );
         export const unreachableExcept = () =>
             new ParameterizedString<{ exceptionType: string; parentType: string }>(
                 getRawString('DiagnosticAddendum.unreachableExcept')

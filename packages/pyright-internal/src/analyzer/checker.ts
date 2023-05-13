@@ -119,6 +119,7 @@ import {
 } from './typeGuards';
 import {
     ClassType,
+    ClassTypeFlags,
     combineTypes,
     FunctionType,
     FunctionTypeFlags,
@@ -161,6 +162,7 @@ import {
     getGeneratorTypeArgs,
     getGeneratorYieldType,
     getProtocolSymbols,
+    getProtocolSymbolsRecursive,
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
     isLiteralType,
@@ -385,7 +387,7 @@ export class Checker extends ParseTreeWalker {
 
             this._validateFinalMemberOverrides(classTypeResult.classType);
 
-            this._validateInstanceVariableInitialization(classTypeResult.classType);
+            this._validateInstanceVariableInitialization(node, classTypeResult.classType);
 
             this._validateFinalClassNotAbstract(classTypeResult.classType, node);
 
@@ -4690,7 +4692,7 @@ export class Checker extends ParseTreeWalker {
 
     // Reports the case where an instance variable is not declared or initialized
     // within the class body or constructor method.
-    private _validateInstanceVariableInitialization(classType: ClassType) {
+    private _validateInstanceVariableInitialization(node: ClassNode, classType: ClassType) {
         // This check doesn't apply to stub files.
         if (this._fileInfo.isStubFile) {
             return;
@@ -4711,7 +4713,16 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // If the class is final, see if it has any abstract base classes that define
+        // variables. We need to make sure these are initialized.
+        const abstractSymbols = new Map<string, ClassMember>();
+        if (ClassType.isFinal(classType)) {
+            getProtocolSymbolsRecursive(classType, abstractSymbols, ClassTypeFlags.SupportsAbstractMethods);
+        }
+
         classType.details.fields.forEach((localSymbol, name) => {
+            abstractSymbols.delete(name);
+
             // This applies only to instance members.
             if (!localSymbol.isInstanceMember()) {
                 return;
@@ -4781,6 +4792,42 @@ export class Checker extends ParseTreeWalker {
                 decls[0].node
             );
         });
+
+        // See if there are any variables from abstract base classes
+        // that are not initialized.
+        const diagAddendum = new DiagnosticAddendum();
+        abstractSymbols.forEach((member, name) => {
+            const decls = member.symbol.getDeclarations();
+
+            if (decls.length === 0 || !isClass(member.classType)) {
+                return;
+            }
+
+            if (decls[0].type === DeclarationType.Variable) {
+                // If none of the declarations involve assignments, assume it's
+                // not implemented in the protocol.
+                if (!decls.some((decl) => decl.type === DeclarationType.Variable && !!decl.inferredTypeSource)) {
+                    // This is a variable declaration that is not implemented in the
+                    // protocol base class. Make sure it's implemented in the derived class.
+                    diagAddendum.addMessage(
+                        Localizer.DiagnosticAddendum.uninitializedAbstractVariable().format({
+                            name,
+                            classType: member.classType.details.name,
+                        })
+                    );
+                }
+            }
+        });
+
+        if (!diagAddendum.isEmpty()) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportUninitializedInstanceVariable,
+                DiagnosticRule.reportUninitializedInstanceVariable,
+                Localizer.Diagnostic.uninitializedAbstractVariables().format({ classType: classType.details.name }) +
+                    diagAddendum.getString(),
+                node.name
+            );
+        }
     }
 
     // Validates that the type variables used in a generic protocol class have
