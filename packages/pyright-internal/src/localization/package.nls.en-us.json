@@ -1,5 +1,6 @@
 {
     "Diagnostic": {
+        "abstractMethodInvocation": "Method \"{method}\" cannot be called because it is abstract",
         "annotatedParamCountMismatch": "Parameter annotation count mismatch: expected {expected} but received {received}",
         "annotatedTypeArgMissing": "Expected one type argument and one or more annotations for \"Annotated\"",
         "annotationFormatString": "Type annotations cannot use format string literals (f-strings)",

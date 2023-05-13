@@ -167,6 +167,8 @@ export function loadStringsForLocale(locale: string, localeMap: Map<string, any>
 
 export namespace Localizer {
     export namespace Diagnostic {
+        export const abstractMethodInvocation = () =>
+            new ParameterizedString<{ method: string }>(getRawString('Diagnostic.abstractMethodInvocation'));
         export const annotatedParamCountMismatch = () =>
             new ParameterizedString<{ expected: number; received: number }>(
                 getRawString('Diagnostic.annotatedParamCountMismatch')
