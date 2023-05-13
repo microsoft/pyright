@@ -17,8 +17,8 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | --pythonversion `<VERSION>`             | Analyze for version (3.3, 3.4, etc.)                 |
 | --skipunannotated                       | Skip type analysis of unannotated functions          |
 | --stats                                 | Print detailed performance stats                     |
-| -t, --typeshed-path `<DIRECTORY>`       | Use typeshed type stubs at this location (2)         |
-| -v, --venv-path `<DIRECTORY>`           | Directory that contains virtual environments (3)     |
+| -t, --typeshedpath `<DIRECTORY>`        | Use typeshed type stubs at this location (2)         |
+| -v, --venvpath `<DIRECTORY>`            | Directory that contains virtual environments (3)     |
 | --verbose                               | Emit verbose diagnostics                             |
 | --verifytypes `<IMPORT>`                | Verify completeness of types in py.typed package     |
 | --version                               | Print pyright version                                |

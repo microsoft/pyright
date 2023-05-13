@@ -140,8 +140,10 @@ async function processArgs(): Promise<ExitStatus> {
         { name: 'pythonversion', type: String },
         { name: 'skipunannotated', type: Boolean },
         { name: 'stats', type: Boolean },
-        { name: 'typeshed-path', alias: 't', type: String },
-        { name: 'venv-path', alias: 'v', type: String },
+        { name: 'typeshed-path', type: String },
+        { name: 'typeshedpath', alias: 't', type: String },
+        { name: 'venv-path', type: String },
+        { name: 'venvpath', alias: 'v', type: String },
         { name: 'verifytypes', type: String },
         { name: 'verbose', type: Boolean },
         { name: 'version', type: Boolean },
@@ -247,11 +249,21 @@ async function processArgs(): Promise<ExitStatus> {
     }
 
     if (args['venv-path']) {
+        console.warn(`'venv-path' option is deprecated; use 'venvpath' instead`);
         options.venvPath = combinePaths(process.cwd(), normalizePath(args['venv-path']));
     }
 
+    if (args['venvpath']) {
+        options.venvPath = combinePaths(process.cwd(), normalizePath(args['venvpath']));
+    }
+
     if (args['typeshed-path']) {
+        console.warn(`'typeshed-path' option is deprecated; use 'typeshedpath' instead`);
         options.typeshedPath = combinePaths(process.cwd(), normalizePath(args['typeshed-path']));
+    }
+
+    if (args['typeshedpath']) {
+        options.typeshedPath = combinePaths(process.cwd(), normalizePath(args['typeshedpath']));
     }
 
     if (args.createstub) {
@@ -697,8 +709,8 @@ function printUsage() {
             '  --pythonversion <VERSION>          Analyze for a specific version (3.3, 3.4, etc.)\n' +
             '  --skipunannotated                  Skip analysis of functions with no type annotations\n' +
             '  --stats                            Print detailed performance stats\n' +
-            '  -t,--typeshed-path <DIRECTORY>     Use typeshed type stubs at this location\n' +
-            '  -v,--venv-path <DIRECTORY>         Directory that contains virtual environments\n' +
+            '  -t,--typeshedpath <DIRECTORY>      Use typeshed type stubs at this location\n' +
+            '  -v,--venvpath <DIRECTORY>          Directory that contains virtual environments\n' +
             '  --verbose                          Emit verbose diagnostics\n' +
             '  --verifytypes <PACKAGE>            Verify type completeness of a py.typed package\n' +
             '  --version                          Print Pyright version\n' +
