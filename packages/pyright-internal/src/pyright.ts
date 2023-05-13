@@ -136,6 +136,7 @@ async function processArgs(): Promise<ExitStatus> {
         { name: 'level', type: String },
         { name: 'outputjson', type: Boolean },
         { name: 'project', alias: 'p', type: String },
+        { name: 'pythonpath', type: String },
         { name: 'pythonplatform', type: String },
         { name: 'pythonversion', type: String },
         { name: 'skipunannotated', type: Boolean },
@@ -246,6 +247,18 @@ async function processArgs(): Promise<ExitStatus> {
             console.error(`'${args.pythonversion}' is not a supported Python version; specify 3.3, 3.4, etc.`);
             return ExitStatus.ParameterError;
         }
+    }
+
+    if (args.pythonpath !== undefined) {
+        const incompatibleArgs = ['venv-path', 'venvpath'];
+        for (const arg of incompatibleArgs) {
+            if (args[arg] !== undefined) {
+                console.error(`'pythonpath' option cannot be used with '${arg}' option`);
+                return ExitStatus.ParameterError;
+            }
+        }
+
+        options.pythonPath = combinePaths(process.cwd(), normalizePath(args['pythonpath']));
     }
 
     if (args['venv-path']) {
@@ -706,6 +719,7 @@ function printUsage() {
             '  --outputjson                       Output results in JSON format\n' +
             '  -p,--project <FILE OR DIRECTORY>   Use the configuration file at this location\n' +
             '  --pythonplatform <PLATFORM>        Analyze for a specific platform (Darwin, Linux, Windows)\n' +
+            '  --pythonpath <FILE>                Path to the Python interpreter\n' +
             '  --pythonversion <VERSION>          Analyze for a specific version (3.3, 3.4, etc.)\n' +
             '  --skipunannotated                  Skip analysis of functions with no type annotations\n' +
             '  --stats                            Print detailed performance stats\n' +

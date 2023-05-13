@@ -32,5 +32,5 @@ The Pyright language server honors the following settings.
 
 **python.pythonPath** [path]: Path to Python interpreter. This setting is being deprecated by the VS Code Python extension in favor of a setting that is stored in the Python extension’s internal configuration store. Pyright supports both mechanisms but prefers the new one if both settings are present.
 
-**python.venvPath** [path]: Path to folder with subdirectories that contain virtual environments.
+**python.venvPath** [path]: Path to folder with subdirectories that contain virtual environments. The `python.pythonPath` setting is recommended over this mechanism for most users. For more details, refer to the [import resolution](import-resolution.md#configuring-your-python-environment) documentation.
 

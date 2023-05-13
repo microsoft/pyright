@@ -13,25 +13,28 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | --level <LEVEL>                         | Minimum diagnostic level (error or warning)          |
 | --outputjson                            | Output results in JSON format                        |
 | -p, --project `<FILE OR DIRECTORY>`     | Use the configuration file at this location          |
+| --pythonpath `<FILE>`                   | Path to the Python interpreter (2)                   |
 | --pythonplatform `<PLATFORM>`           | Analyze for platform (Darwin, Linux, Windows)        |
 | --pythonversion `<VERSION>`             | Analyze for version (3.3, 3.4, etc.)                 |
 | --skipunannotated                       | Skip type analysis of unannotated functions          |
 | --stats                                 | Print detailed performance stats                     |
-| -t, --typeshedpath `<DIRECTORY>`        | Use typeshed type stubs at this location (2)         |
-| -v, --venvpath `<DIRECTORY>`            | Directory that contains virtual environments (3)     |
+| -t, --typeshedpath `<DIRECTORY>`        | Use typeshed type stubs at this location (3)         |
+| -v, --venvpath `<DIRECTORY>`            | Directory that contains virtual environments (4)     |
 | --verbose                               | Emit verbose diagnostics                             |
 | --verifytypes `<IMPORT>`                | Verify completeness of types in py.typed package     |
 | --version                               | Print pyright version                                |
 | --warnings                              | Use exit code of 1 if warnings are reported          |
-| -w, --watch                             | Continue to run and watch for changes (4)            |
+| -w, --watch                             | Continue to run and watch for changes (5)            |
 
 (1) If specific files are specified on the command line, it overrides the files or directories specified in the pyrightconfig.json or pyproject.toml file.
 
-(2) Pyright has built-in typeshed type stubs for Python stdlib functionality. To use a different version of typeshed type stubs, specify the directory with this option.
+(2) This option is the same as the language server setting `python.pythonPath`. It cannot be used with --venvpath. The --pythonpath options is recommended over --venvpath in most cases. For more details, refer to the [import resolution](import-resolution.md#configuring-your-python-environment) documentation.
 
-(3) This option is used in conjunction with configuration file, which can refer to different virtual environments by name. For more details, refer to the [configuration](configuration.md) documentation. This allows a common config file to be checked in to the project and shared by everyone on the development team without making assumptions about the local paths to the venv directory on each developer’s computer.
+(3) Pyright has built-in typeshed type stubs for Python stdlib functionality. To use a different version of typeshed type stubs, specify the directory with this option.
 
-(4) When running in watch mode, pyright will reanalyze only those files that have been modified. These “deltas” are typically much faster than the initial analysis, which needs to analyze all files in the source tree.
+(4) This option is the same as the language server setting `python.venvPath`. It used in conjunction with configuration file, which can refer to different virtual environments by name. For more details, refer to the [configuration](configuration.md) and [import resolution](import-resolution.md#configuring-your-python-environment) documentation. This allows a common config file to be checked in to the project and shared by everyone on the development team without making assumptions about the local paths to the venv directory on each developer’s computer.
+
+(5) When running in watch mode, pyright will reanalyze only those files that have been modified. These “deltas” are typically much faster than the initial analysis, which needs to analyze all files in the source tree.
 
 
 # Pyright Exit Codes
