@@ -2,7 +2,8 @@
 # when used to define generic functions and with defaults type
 # expressions that refer to other type variables.
 
-from typing import Generic, Self, TypeVar
+from typing import Generic, Self
+from typing_extensions import TypeVar
 
 T1 = TypeVar("T1", default=str)
 T2 = TypeVar("T2", default=list[T1])

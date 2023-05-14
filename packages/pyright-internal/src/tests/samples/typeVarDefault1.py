@@ -1,7 +1,7 @@
 # This sample tests basic support for PEP 696 -- default types for TypeVars.
 
-from typing import Any, ParamSpec
-from typing_extensions import TypeVar, TypeVarTuple, Unpack
+from typing import Any
+from typing_extensions import TypeVar, TypeVarTuple, ParamSpec, Unpack
 
 S1 = TypeVar("S1")
 S2 = TypeVar("S2", bound=int)

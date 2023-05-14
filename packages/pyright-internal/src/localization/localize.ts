@@ -936,9 +936,10 @@ export namespace Localizer {
         export const typeVarDefaultBoundMismatch = () => getRawString('Diagnostic.typeVarDefaultBoundMismatch');
         export const typeVarDefaultConstraintMismatch = () =>
             getRawString('Diagnostic.typeVarDefaultConstraintMismatch');
-        export const typeVarFirstArg = () => getRawString('Diagnostic.typeVarFirstArg');
+        export const typeVarDefaultIllegal = () => getRawString('Diagnostic.typeVarDefaultIllegal');
         export const typeVarDefaultInvalidTypeVar = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarDefaultInvalidTypeVar'));
+        export const typeVarFirstArg = () => getRawString('Diagnostic.typeVarFirstArg');
         export const typeVarNoMember = () =>
             new ParameterizedString<{ type: string; name: string }>(getRawString('Diagnostic.typeVarNoMember'));
         export const typeVarNotSubscriptable = () =>

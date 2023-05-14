@@ -8839,15 +8839,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 }
 
                                 if (className === 'TypeVar') {
-                                    return createTypeVarType(errorNode, argList);
+                                    return createTypeVarType(errorNode, expandedSubtype, argList);
                                 }
 
                                 if (className === 'TypeVarTuple') {
-                                    return createTypeVarTupleType(errorNode, argList);
+                                    return createTypeVarTupleType(errorNode, expandedSubtype, argList);
                                 }
 
                                 if (className === 'ParamSpec') {
-                                    return createParamSpecType(errorNode, argList);
+                                    return createParamSpecType(errorNode, expandedSubtype, argList);
                                 }
 
                                 if (className === 'TypeAliasType') {
@@ -11279,7 +11279,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { isCompatible, argType, isTypeIncomplete, skippedBareTypeVarExpectedType, condition };
     }
 
-    function createTypeVarType(errorNode: ExpressionNode, argList: FunctionArgument[]): Type | undefined {
+    function createTypeVarType(
+        errorNode: ExpressionNode,
+        classType: ClassType,
+        argList: FunctionArgument[]
+    ): Type | undefined {
         let typeVarName = '';
         let firstConstraintArg: FunctionArgument | undefined;
         let defaultValueNode: ExpressionNode | undefined;
@@ -11367,10 +11371,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     defaultValueNode = argList[i].valueExpression;
                     const argType =
                         argList[i].typeResult?.type ??
-                        getTypeOfExpressionExpectingType(argList[i].valueExpression!, {
+                        getTypeOfExpressionExpectingType(defaultValueNode!, {
                             allowTypeVarsWithoutScopeId: true,
                         }).type;
                     typeVar.details.defaultType = convertToInstance(argType);
+
+                    const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+                    if (
+                        !fileInfo.isStubFile &&
+                        fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_13 &&
+                        classType.details.moduleName !== 'typing_extensions'
+                    ) {
+                        addError(Localizer.Diagnostic.typeVarDefaultIllegal(), defaultValueNode!);
+                    }
                 } else {
                     addError(
                         Localizer.Diagnostic.typeVarUnknownParam().format({ name: paramName }),
@@ -11447,7 +11460,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return typeVar;
     }
 
-    function createTypeVarTupleType(errorNode: ExpressionNode, argList: FunctionArgument[]): Type | undefined {
+    function createTypeVarTupleType(
+        errorNode: ExpressionNode,
+        classType: ClassType,
+        argList: FunctionArgument[]
+    ): Type | undefined {
         let typeVarName = '';
 
         if (argList.length === 0) {
@@ -11475,6 +11492,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const expr = argList[i].valueExpression;
                     if (expr) {
                         typeVar.details.defaultType = getTypeVarTupleDefaultType(expr);
+                    }
+
+                    const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+                    if (
+                        !fileInfo.isStubFile &&
+                        fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_13 &&
+                        classType.details.moduleName !== 'typing_extensions'
+                    ) {
+                        addError(Localizer.Diagnostic.typeVarDefaultIllegal(), expr!);
                     }
                 } else {
                     addError(
@@ -11509,7 +11535,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return convertToInstance(argType);
     }
 
-    function createParamSpecType(errorNode: ExpressionNode, argList: FunctionArgument[]): Type | undefined {
+    function createParamSpecType(
+        errorNode: ExpressionNode,
+        classType: ClassType,
+        argList: FunctionArgument[]
+    ): Type | undefined {
         if (argList.length === 0) {
             addError(Localizer.Diagnostic.paramSpecFirstArg(), errorNode);
             return undefined;
@@ -11535,6 +11565,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const expr = argList[i].valueExpression;
                     if (expr) {
                         paramSpec.details.defaultType = getParamSpecDefaultType(expr);
+                    }
+
+                    const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+                    if (
+                        !fileInfo.isStubFile &&
+                        fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_13 &&
+                        classType.details.moduleName !== 'typing_extensions'
+                    ) {
+                        addError(Localizer.Diagnostic.typeVarDefaultIllegal(), expr!);
                     }
                 } else {
                     addError(

@@ -551,6 +551,10 @@ export class Parser {
             defaultExpression = this._parseExpression(
                 /* allowUnpack */ typeParamCategory === TypeParameterCategory.TypeVarTuple
             );
+
+            if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_13) {
+                this._addError(Localizer.Diagnostic.typeVarDefaultIllegal(), defaultExpression);
+            }
         }
 
         return TypeParameterNode.create(name, typeParamCategory, boundExpression, defaultExpression);

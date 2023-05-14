@@ -4,7 +4,8 @@
 
 # pyright: reportInvalidTypeVarUse=true
 
-from typing import AnyStr, Callable, Dict, Generic, List, TypeVar, overload
+from typing import AnyStr, Callable, Dict, Generic, List, overload
+from typing_extensions import TypeVar
 
 
 _T = TypeVar("_T")
