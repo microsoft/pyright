@@ -832,6 +832,10 @@ export namespace Localizer {
         export const typeAliasRedeclared = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeAliasRedeclared'));
         export const typeAliasStatementIllegal = () => getRawString('Diagnostic.typeAliasStatementIllegal');
+        export const typeAliasTypeMustBeAssigned = () => getRawString('Diagnostic.typeAliasTypeMustBeAssigned');
+        export const typeAliasTypeNameArg = () => getRawString('Diagnostic.typeAliasTypeNameArg');
+        export const typeAliasTypeNameMismatch = () => getRawString('Diagnostic.typeAliasTypeNameMismatch');
+        export const typeAliasTypeParamInvalid = () => getRawString('Diagnostic.typeAliasTypeParamInvalid');
         export const typeAnnotationCall = () => getRawString('Diagnostic.typeAnnotationCall');
         export const typeAnnotationVariable = () => getRawString('Diagnostic.typeAnnotationVariable');
         export const typeArgListExpected = () => getRawString('Diagnostic.typeArgListExpected');

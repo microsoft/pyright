@@ -4740,6 +4740,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }),
                             node
                         );
+                    } else {
+                        // If this is a TypeAliasType call, the recursiveTypeParameters will already
+                        // be populated, and we need to verify that the type parameter is in the
+                        // list of allowed type parameters.
+                        const allowedTypeParams = leftType.details.recursiveTypeParameters;
+                        if (allowedTypeParams) {
+                            if (!allowedTypeParams.some((param) => param.details.name === type.details.name)) {
+                                // Return the original type.
+                                return { type, isRescoped: false, foundInterveningClass: false };
+                            }
+                        }
                     }
 
                     return {
@@ -8839,6 +8850,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     return createParamSpecType(errorNode, argList);
                                 }
 
+                                if (className === 'TypeAliasType') {
+                                    const newTypeAlias = createTypeAliasType(errorNode, argList);
+                                    if (newTypeAlias) {
+                                        return newTypeAlias;
+                                    }
+                                }
+
                                 if (className === 'NamedTuple') {
                                     return createNamedTupleType(
                                         evaluatorInterface,
@@ -11585,6 +11603,109 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
 
         return undefined;
+    }
+
+    // Handles a call to TypeAliasType(). This special form allows a caller to programmatically
+    // create a type alias as defined in PEP 695. If one or more of the arguments is incorrect,
+    // it returns undefined so the normal constructor evaluation can be performed (and type errors
+    // emitted).
+    function createTypeAliasType(errorNode: ExpressionNode, argList: FunctionArgument[]): Type | undefined {
+        if (errorNode.nodeType !== ParseNodeType.Call || !errorNode.parent || argList.length < 2) {
+            return undefined;
+        }
+
+        if (
+            errorNode.parent.nodeType !== ParseNodeType.Assignment ||
+            errorNode.parent.rightExpression !== errorNode ||
+            errorNode.parent.leftExpression.nodeType !== ParseNodeType.Name
+        ) {
+            addError(Localizer.Diagnostic.typeAliasTypeMustBeAssigned(), errorNode);
+            return undefined;
+        }
+
+        const nameNode = errorNode.parent.leftExpression;
+
+        const firstArg = argList[0];
+        if (firstArg.valueExpression && firstArg.valueExpression.nodeType === ParseNodeType.StringList) {
+            const typeAliasName = firstArg.valueExpression.strings.map((s) => s.value).join('');
+            if (typeAliasName !== nameNode.value) {
+                addError(Localizer.Diagnostic.typeAliasTypeNameMismatch(), firstArg.valueExpression);
+            }
+        } else {
+            addError(Localizer.Diagnostic.typeAliasTypeNameArg(), firstArg.valueExpression || errorNode);
+            return undefined;
+        }
+
+        let valueExpr: ExpressionNode | undefined;
+        let typeParamsExpr: ExpressionNode | undefined;
+
+        // Parse the remaining parameters.
+        for (let i = 1; i < argList.length; i++) {
+            const paramNameNode = argList[i].name;
+            const paramName = paramNameNode ? paramNameNode.value : undefined;
+
+            if (paramName) {
+                if (paramName === 'type_params' && !typeParamsExpr) {
+                    typeParamsExpr = argList[i].valueExpression;
+                } else if (paramName === 'value' && !valueExpr) {
+                    valueExpr = argList[i].valueExpression;
+                } else {
+                    return undefined;
+                }
+            } else if (i === 1) {
+                valueExpr = argList[i].valueExpression;
+            } else {
+                return undefined;
+            }
+        }
+
+        // The value expression is not optional, so bail if it's not present.
+        if (!valueExpr) {
+            return undefined;
+        }
+
+        let typeParameters: TypeVarType[] | undefined;
+        if (typeParamsExpr) {
+            if (typeParamsExpr.nodeType !== ParseNodeType.Tuple) {
+                addError(Localizer.Diagnostic.typeAliasTypeParamInvalid(), typeParamsExpr);
+                return undefined;
+            }
+
+            typeParameters = [];
+            let isTypeParamListValid = true;
+            typeParamsExpr.expressions.map((expr) => {
+                let entryType = getTypeOfExpression(expr, EvaluatorFlags.ExpectingType).type;
+                if (isTypeVar(entryType)) {
+                    if (entryType.scopeId) {
+                        isTypeParamListValid = false;
+                    } else {
+                        entryType = TypeVarType.cloneForScopeId(
+                            entryType,
+                            ParseTreeUtils.getScopeIdForNode(nameNode),
+                            nameNode.value,
+                            TypeVarScopeType.TypeAlias
+                        );
+                    }
+
+                    typeParameters!.push(entryType);
+                } else {
+                    isTypeParamListValid = false;
+                }
+            });
+
+            if (!isTypeParamListValid) {
+                addError(Localizer.Diagnostic.typeAliasTypeParamInvalid(), typeParamsExpr);
+                return undefined;
+            }
+        }
+
+        return getTypeOfTypeAliasCommon(
+            nameNode,
+            nameNode,
+            valueExpr,
+            /* typeParamNodes */ undefined,
+            () => typeParameters
+        );
     }
 
     function getBooleanValue(node: ExpressionNode): boolean {

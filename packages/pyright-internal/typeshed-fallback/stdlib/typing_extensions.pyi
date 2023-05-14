@@ -329,6 +329,21 @@ class TypeVarTuple:
 def override(__arg: _F) -> _F: ...
 def deprecated(__msg: str, *, category: type[Warning] | None = ..., stacklevel: int = 1) -> Callable[[_T], _T]: ...
 
+# PEP 695
+
+@final
+class TypeAliasType:
+    def __new__(
+        cls,
+        name: str,
+        value: Any,
+        *,
+        type_params: tuple[Any, ...] | None = None,
+    ) -> TypeAliasType: ...
+    def __or__(self, other: Any) -> Any: ...
+    __name__: str
+    __parameters__: tuple[Any, ...] | None
+    __value__: Any
 
 # Proposed extension to PEP 647
 StrictTypeGuard: _SpecialForm = ...

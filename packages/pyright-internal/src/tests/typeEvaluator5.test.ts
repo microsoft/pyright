@@ -276,3 +276,13 @@ test('TypePrinter1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typePrinter1.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('TypeAliasType1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasType1.py']);
+    TestUtils.validateResults(analysisResults, 13);
+});
+
+test('TypeAliasType2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasType2.py']);
+    TestUtils.validateResults(analysisResults, 5);
+});
