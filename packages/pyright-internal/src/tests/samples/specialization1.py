@@ -61,13 +61,15 @@ def m4(c: Moo[List[C]]):
     pass
 
 
-# This should generate an error:
-# TypeVar constraint types can't be generic.
-_T2 = TypeVar("_T2", Iterable[_T1], int)
+class D(Generic[_T1]):
+    # This should generate an error:
+    # TypeVar constraint types can't be generic.
+    _T2 = TypeVar("_T2", Iterable[_T1], int)
 
-# This should generate an error:
-# TypeVar bound types can't be generic.
-_T3 = TypeVar("_T3", bound=Iterable[_T1])
+    # This should generate an error:
+    # TypeVar bound types can't be generic.
+    _T3 = TypeVar("_T3", bound=Iterable[_T1])
+
 
 # This should generate an error:
 # TypeVars can't be bound and constrained.

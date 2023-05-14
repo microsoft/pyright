@@ -11349,7 +11349,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     defaultValueNode = argList[i].valueExpression;
                     const argType =
                         argList[i].typeResult?.type ??
-                        getTypeOfExpressionExpectingType(argList[i].valueExpression!).type;
+                        getTypeOfExpressionExpectingType(argList[i].valueExpression!, {
+                            allowTypeVarsWithoutScopeId: true,
+                        }).type;
                     typeVar.details.defaultType = convertToInstance(argType);
                 } else {
                     addError(
@@ -11469,7 +11471,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeVarTupleDefaultType(node: ExpressionNode): Type | undefined {
-        const argType = getTypeOfExpressionExpectingType(node, { allowUnpackedTuple: true }).type;
+        const argType = getTypeOfExpressionExpectingType(node, {
+            allowUnpackedTuple: true,
+            allowTypeVarsWithoutScopeId: true,
+        }).type;
         const isUnpackedTuple = isClass(argType) && isTupleClass(argType) && argType.isUnpacked;
         const isUnpackedTypeVarTuple = isUnpackedVariadicTypeVar(argType);
 
@@ -11542,7 +11547,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (node.nodeType === ParseNodeType.List) {
             node.entries.forEach((paramExpr, index) => {
-                const typeResult = getTypeOfExpressionExpectingType(paramExpr);
+                const typeResult = getTypeOfExpressionExpectingType(paramExpr, { allowTypeVarsWithoutScopeId: true });
 
                 FunctionType.addParameter(functionType, {
                     category: ParameterCategory.Simple,
@@ -11558,7 +11563,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             writeTypeCache(node, { type: AnyType.create() }, /* flags */ undefined);
             return functionType;
         } else {
-            const typeResult = getTypeOfExpressionExpectingType(node, { allowParamSpec: true });
+            const typeResult = getTypeOfExpressionExpectingType(node, {
+                allowParamSpec: true,
+                allowTypeVarsWithoutScopeId: true,
+            });
             if (typeResult.typeErrors) {
                 return undefined;
             }
@@ -14475,69 +14483,78 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // path does not handle traditional type aliases, which are treated as
     // variables since they use normal variable assignment syntax.
     function getTypeOfTypeAlias(node: TypeAliasNode): Type {
-        const cachedType = readTypeCache(node.name, EvaluatorFlags.None);
+        return getTypeOfTypeAliasCommon(node, node.name, node.expression, node.typeParameters?.parameters, () => {
+            let typeParameters: TypeVarType[] = [];
+            if (node.typeParameters) {
+                typeParameters = evaluateTypeParameterList(node.typeParameters);
+            }
+            return typeParameters;
+        });
+    }
+
+    // This function is common to the handling of "type" statements and explicit
+    // calls to the TypeAliasType constructor.
+    function getTypeOfTypeAliasCommon(
+        declNode: ParseNode,
+        nameNode: NameNode,
+        valueNode: ExpressionNode,
+        typeParamNodes: TypeParameterNode[] | undefined,
+        getTypeParamCallback: () => TypeVarType[] | undefined
+    ) {
+        const cachedType = readTypeCache(nameNode, EvaluatorFlags.None);
         if (cachedType) {
             return cachedType;
         }
 
         // Synthesize a type variable that represents the type alias while we're
         // evaluating it. This allows us to handle recursive definitions.
-        const typeAliasTypeVar = TypeVarType.createInstantiable(`__type_alias_${node.name.value}`);
+        const typeAliasTypeVar = TypeVarType.createInstantiable(`__type_alias_${nameNode.value}`);
         typeAliasTypeVar.details.isSynthesized = true;
-        typeAliasTypeVar.details.recursiveTypeAliasName = node.name.value;
-        const scopeId = ParseTreeUtils.getScopeIdForNode(node.name);
+        typeAliasTypeVar.details.recursiveTypeAliasName = nameNode.value;
+        const scopeId = ParseTreeUtils.getScopeIdForNode(nameNode);
         typeAliasTypeVar.details.recursiveTypeAliasScopeId = scopeId;
         typeAliasTypeVar.scopeId = scopeId;
 
         // Write the type to the type cache. It will be replaced below.
-        writeTypeCache(node.name, { type: typeAliasTypeVar }, /* flags */ undefined);
+        writeTypeCache(nameNode, { type: typeAliasTypeVar }, /* flags */ undefined);
 
         // Set a partial type to handle recursive (self-referential) type aliases.
-        const scope = ScopeUtils.getScopeForNode(node);
-        const typeAliasSymbol = scope?.lookUpSymbolRecursive(node.name.value);
-        const typeAliasDecl = AnalyzerNodeInfo.getDeclaration(node);
+        const scope = ScopeUtils.getScopeForNode(declNode);
+        const typeAliasSymbol = scope?.lookUpSymbolRecursive(nameNode.value);
+        const typeAliasDecl = AnalyzerNodeInfo.getDeclaration(declNode);
         if (typeAliasDecl && typeAliasSymbol) {
             setSymbolResolutionPartialType(typeAliasSymbol.symbol, typeAliasDecl, typeAliasTypeVar);
         }
 
-        let typeParameters: TypeVarType[] = [];
-        if (node.typeParameters) {
-            typeParameters = evaluateTypeParameterList(node.typeParameters);
-            typeAliasTypeVar.details.recursiveTypeParameters = typeParameters;
-        }
+        const typeParameters = getTypeParamCallback();
+        typeAliasTypeVar.details.recursiveTypeParameters = typeParameters;
 
-        if (!isLegalTypeAliasExpressionForm(node.expression)) {
+        if (!isLegalTypeAliasExpressionForm(valueNode)) {
             addDiagnostic(
-                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                AnalyzerNodeInfo.getFileInfo(valueNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.typeAliasIllegalExpressionForm(),
-                node.expression
+                valueNode
             );
         }
 
-        const aliasTypeResult = getTypeOfExpressionExpectingType(node.expression);
+        const aliasTypeResult = getTypeOfExpressionExpectingType(valueNode, { allowForwardReference: true });
         let isIncomplete = false;
         let aliasType = aliasTypeResult.type;
         if (aliasTypeResult.isIncomplete) {
             isIncomplete = true;
         }
 
-        aliasType = transformTypeForTypeAlias(
-            aliasType,
-            node.name,
-            node.expression,
-            typeParameters,
-            node.typeParameters?.parameters
-        );
+        aliasType = transformTypeForTypeAlias(aliasType, nameNode, valueNode, typeParameters, typeParamNodes);
 
         if (isTypeAliasRecursive(typeAliasTypeVar, aliasType)) {
             addDiagnostic(
-                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                AnalyzerNodeInfo.getFileInfo(valueNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.typeAliasIsRecursiveDirect().format({
-                    name: node.name.value,
+                    name: nameNode.value,
                 }),
-                node.expression
+                valueNode
             );
 
             aliasType = UnknownType.create();
@@ -14547,7 +14564,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // to support recursive type aliases.
         typeAliasTypeVar.details.boundType = aliasType;
 
-        writeTypeCache(node.name, { type: aliasType, isIncomplete }, EvaluatorFlags.None);
+        writeTypeCache(nameNode, { type: aliasType, isIncomplete }, EvaluatorFlags.None);
 
         return aliasType;
     }
@@ -18732,8 +18749,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let flags =
             EvaluatorFlags.ExpectingType | EvaluatorFlags.EvaluateStringLiteralAsType | EvaluatorFlags.DisallowClassVar;
 
+        if (!options?.allowTypeVarsWithoutScopeId) {
+            flags |= EvaluatorFlags.DisallowTypeVarsWithoutScopeId;
+        }
+
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-        if (fileInfo.isStubFile) {
+        if (fileInfo.isStubFile || options?.allowForwardReference) {
             flags |= EvaluatorFlags.AllowForwardReferences;
         } else {
             flags |= EvaluatorFlags.InterpreterParsesStringLiteral;

@@ -284,6 +284,8 @@ export interface ExpectedTypeOptions {
     allowRequired?: boolean;
     allowUnpackedTuple?: boolean;
     allowParamSpec?: boolean;
+    allowForwardReference?: boolean;
+    allowTypeVarsWithoutScopeId?: boolean;
 }
 
 export interface ExpectedTypeResult {
