@@ -54,7 +54,7 @@ export interface ImportedModuleDescriptor {
     leadingDots: number;
     nameParts: string[];
     hasTrailingDot?: boolean | undefined;
-    importedSymbols: string[] | undefined;
+    importedSymbols: Set<string> | undefined;
 }
 
 export interface ModuleNameAndType {
@@ -70,7 +70,7 @@ export interface ModuleNameInfoFromPath {
 
 export function createImportedModuleDescriptor(moduleName: string): ImportedModuleDescriptor {
     if (moduleName.length === 0) {
-        return { leadingDots: 0, nameParts: [], importedSymbols: [] };
+        return { leadingDots: 0, nameParts: [], importedSymbols: new Set<string>() };
     }
 
     let startIndex = 0;
@@ -86,7 +86,7 @@ export function createImportedModuleDescriptor(moduleName: string): ImportedModu
     return {
         leadingDots,
         nameParts: moduleName.slice(startIndex).split('.'),
-        importedSymbols: [],
+        importedSymbols: new Set<string>(),
     };
 }
 
@@ -582,7 +582,7 @@ export class ImportResolver {
         execEnv: ExecutionEnvironment,
         importName: string,
         importResult: ImportResult,
-        importedSymbols: string[] | undefined,
+        importedSymbols: Set<string> | undefined,
         fromUserFile: boolean
     ) {
         getOrAdd(this._cachedImportResults, execEnv.root, () => new Map<string, ImportResult>()).set(
@@ -757,26 +757,32 @@ export class ImportResolver {
 
     // Potentially modifies the ImportResult by removing some or all of the
     // implicit import entries. Only the imported symbols should be included.
-    protected filterImplicitImports(importResult: ImportResult, importedSymbols: string[] | undefined): ImportResult {
+    protected filterImplicitImports(
+        importResult: ImportResult,
+        importedSymbols: Set<string> | undefined
+    ): ImportResult {
         if (importedSymbols === undefined) {
             const newImportResult = Object.assign({}, importResult);
-            newImportResult.filteredImplicitImports = [];
+            newImportResult.filteredImplicitImports = new Map<string, ImplicitImport>();
             return newImportResult;
         }
 
-        if (importedSymbols.length === 0) {
+        if (importedSymbols.size === 0) {
             return importResult;
         }
 
-        if (importResult.implicitImports.length === 0) {
+        if (importResult.implicitImports.size === 0) {
             return importResult;
         }
 
-        const filteredImplicitImports = importResult.implicitImports.filter((implicitImport) => {
-            return importedSymbols.some((sym) => sym === implicitImport.name);
+        const filteredImplicitImports = new Map<string, ImplicitImport>();
+        importResult.implicitImports.forEach((implicitImport) => {
+            if (importedSymbols.has(implicitImport.name)) {
+                filteredImplicitImports.set(implicitImport.name, implicitImport);
+            }
         });
 
-        if (filteredImplicitImports.length === importResult.implicitImports.length) {
+        if (filteredImplicitImports.size === importResult.implicitImports.size) {
             return importResult;
         }
 
@@ -818,8 +824,8 @@ export class ImportResolver {
             importType: ImportType.Local,
             isStubFile: false,
             isNativeLib: false,
-            implicitImports: [],
-            filteredImplicitImports: [],
+            implicitImports: new Map<string, ImplicitImport>(),
+            filteredImplicitImports: new Map<string, ImplicitImport>(),
             nonStubImportResult: undefined,
         };
 
@@ -1172,7 +1178,7 @@ export class ImportResolver {
         let isStubPackage = false;
         let isStubFile = false;
         let isNativeLib = false;
-        let implicitImports: ImplicitImport[] = [];
+        let implicitImports = new Map<string, ImplicitImport>();
         let packageDirectory: string | undefined;
         let pyTypedInfo: PyTypedInfo | undefined;
 
@@ -1348,7 +1354,7 @@ export class ImportResolver {
     private _lookUpResultsInCache(
         execEnv: ExecutionEnvironment,
         importName: string,
-        importedSymbols: string[] | undefined,
+        importedSymbols: Set<string> | undefined,
         fromUserFile: boolean
     ) {
         const cacheForExecEnv = this._cachedImportResults.get(execEnv.root);
@@ -1369,18 +1375,15 @@ export class ImportResolver {
     // file, so the only way that symbols can be resolved is if submodules
     // are present. If specific symbols were requested, make sure they
     // are all satisfied by submodules (as listed in the implicit imports).
-    private _isNamespacePackageResolved(moduleDescriptor: ImportedModuleDescriptor, implicitImports: ImplicitImport[]) {
+    private _isNamespacePackageResolved(
+        moduleDescriptor: ImportedModuleDescriptor,
+        implicitImports: Map<string, ImplicitImport>
+    ) {
         if (moduleDescriptor.importedSymbols) {
-            if (
-                !moduleDescriptor.importedSymbols.some((symbol) => {
-                    return implicitImports.some((implicitImport) => {
-                        return implicitImport.name === symbol;
-                    });
-                })
-            ) {
+            if (!Array.from(moduleDescriptor.importedSymbols.keys()).some((symbol) => implicitImports.has(symbol))) {
                 return false;
             }
-        } else if (implicitImports.length === 0) {
+        } else if (implicitImports.size === 0) {
             return false;
         }
         return true;
@@ -2296,10 +2299,10 @@ export class ImportResolver {
         strictOnly: boolean
     ) {
         // We always resolve names based on sourceFilePath.
-        const moduleDescriptor = {
+        const moduleDescriptor: ImportedModuleDescriptor = {
             leadingDots: leadingDots,
             nameParts: [...parentNameParts, name],
-            importedSymbols: [],
+            importedSymbols: new Set<string>(),
         };
 
         // Make sure we don't use parent folder resolution when checking whether the given name is resolvable.
@@ -2332,7 +2335,11 @@ export class ImportResolver {
         return true;
     }
 
-    private _findImplicitImports(importingModuleName: string, dirPath: string, exclusions: string[]): ImplicitImport[] {
+    private _findImplicitImports(
+        importingModuleName: string,
+        dirPath: string,
+        exclusions: string[]
+    ): Map<string, ImplicitImport> {
         const implicitImportMap = new Map<string, ImplicitImport>();
 
         // Enumerate all of the files and directories in the path, expanding links.
@@ -2421,7 +2428,7 @@ export class ImportResolver {
             }
         }
 
-        return [...implicitImportMap.values()];
+        return implicitImportMap;
     }
 
     private _resolveNativeModuleStub(

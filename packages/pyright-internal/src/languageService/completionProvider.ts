@@ -74,12 +74,12 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ExecutionEnvironment } from '../common/configOptions';
 import * as debug from '../common/debug';
 import { fail } from '../common/debug';
+import { ProgramView } from '../common/extensibility';
 import { fromLSPAny, toLSPAny } from '../common/lspUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import * as StringUtils from '../common/stringUtils';
-import { comparePositions, Position } from '../common/textRange';
-import { TextRange } from '../common/textRange';
+import { comparePositions, Position, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { convertToTextEdits } from '../common/workspaceEditUtils';
 import {
@@ -114,7 +114,6 @@ import {
 } from './completionProviderUtils';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { getAutoImportText, getDocumentationPartsForTypeAndDecl } from './tooltipUtils';
-import { ProgramView } from '../common/extensibility';
 
 namespace Keywords {
     const base: string[] = [
@@ -3036,7 +3035,7 @@ export class CompletionProvider {
             leadingDots: node.leadingDots,
             hasTrailingDot: node.hasTrailingDot || false,
             nameParts: node.nameParts.map((part) => part.value),
-            importedSymbols: [],
+            importedSymbols: new Set<string>(),
         };
 
         const completions = this.importResolver.getCompletionSuggestions(this.filePath, this.execEnv, moduleDescriptor);

@@ -107,7 +107,7 @@ test('side by side files', () => {
     const sideBySideResult = importResolver.resolveImport(myFile, configOptions.findExecEnvironment(myFile), {
         leadingDots: 0,
         nameParts: ['myLib', 'partialStub'],
-        importedSymbols: [],
+        importedSymbols: new Set<string>(),
     });
 
     assert(sideBySideResult.isImportFound);
@@ -121,7 +121,7 @@ test('side by side files', () => {
     const partialStubResult = importResolver.resolveImport(myFile, configOptions.findExecEnvironment(myFile), {
         leadingDots: 0,
         nameParts: ['myLib', 'partialStub2'],
-        importedSymbols: [],
+        importedSymbols: new Set<string>(),
     });
 
     assert(partialStubResult.isImportFound);
@@ -601,7 +601,7 @@ function getImportResult(
     const importResult = importResolver.resolveImport(file, configOptions.findExecEnvironment(file), {
         leadingDots: 0,
         nameParts: nameParts,
-        importedSymbols: [],
+        importedSymbols: new Set<string>(),
     });
 
     return importResult;

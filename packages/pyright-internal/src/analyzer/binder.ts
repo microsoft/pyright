@@ -1792,9 +1792,7 @@ export class Binder extends ParseTreeWalker {
                                 // The symbol wasn't in the target module's symbol table. It's probably
                                 // an implicitly-imported submodule referenced by __all__.
                                 if (importInfo && importInfo.filteredImplicitImports) {
-                                    const implicitImport = importInfo.filteredImplicitImports.find(
-                                        (imp) => imp.name === name
-                                    );
+                                    const implicitImport = importInfo.filteredImplicitImports.get(name);
 
                                     if (implicitImport) {
                                         const submoduleFallback: AliasDeclaration = {
@@ -1881,7 +1879,7 @@ export class Binder extends ParseTreeWalker {
                     // Is the import referring to an implicitly-imported module?
                     let implicitImport: ImplicitImport | undefined;
                     if (importInfo && importInfo.filteredImplicitImports) {
-                        implicitImport = importInfo.filteredImplicitImports.find((imp) => imp.name === importedName);
+                        implicitImport = importInfo.filteredImplicitImports.get(importedName);
                     }
 
                     let submoduleFallback: AliasDeclaration | undefined;

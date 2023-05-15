@@ -32,8 +32,9 @@ import {
     stripFileExtension,
 } from '../common/pathUtils';
 import { convertRangeToTextRange } from '../common/positionUtils';
-import { doRangesIntersect, Range } from '../common/textRange';
+import { Range, doRangesIntersect } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
+import { IndexResults } from '../languageService/symbolIndexer';
 import { ParseResults } from '../parser/parser';
 import { AbsoluteModuleDescriptor, ImportLookupResult, LookupImportOptions } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -53,7 +54,6 @@ import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { PrintTypeFlags } from './typePrinter';
 import { TypeStubWriter } from './typeStubWriter';
 import { Type } from './types';
-import { IndexResults } from '../languageService/symbolIndexer';
 
 const _maxImportDepth = 256;
 
@@ -1252,7 +1252,9 @@ export class Program {
                 thirdPartyImportAllowed = true;
             } else if (
                 importResult.isNamespacePackage &&
-                importResult.filteredImplicitImports.some((implicitImport) => !!implicitImport.pyTypedInfo)
+                Array.from(importResult.filteredImplicitImports.values()).some(
+                    (implicitImport) => !!implicitImport.pyTypedInfo
+                )
             ) {
                 // Handle the case where the import targets a namespace package, and a
                 // submodule contained within it has a py.typed marker.

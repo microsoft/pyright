@@ -3890,7 +3890,7 @@ export class Checker extends ParseTreeWalker {
         const desc: ImportedModuleDescriptor = {
             nameParts: moduleName.split('.'),
             leadingDots: 0,
-            importedSymbols: [],
+            importedSymbols: new Set<string>(),
         };
         const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._fileInfo.executionEnvironment);
         if (
@@ -3949,7 +3949,7 @@ export class Checker extends ParseTreeWalker {
         const module: ImportedModuleDescriptor = {
             nameParts,
             leadingDots: 0,
-            importedSymbols: [],
+            importedSymbols: new Set<string>(),
         };
 
         // Make sure the module is a potential stdlib one so we don't spend the time

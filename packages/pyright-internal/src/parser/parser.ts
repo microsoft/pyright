@@ -188,7 +188,7 @@ export interface ModuleImport {
 
     // Used for "from X import Y" pattern. An empty
     // array implies "from X import *".
-    importedSymbols: string[] | undefined;
+    importedSymbols: Set<string> | undefined;
 }
 
 export interface ArgListResult {
@@ -2472,7 +2472,7 @@ export class Parser {
             nameNode: importFromNode.module,
             leadingDots: importFromNode.module.leadingDots,
             nameParts: importFromNode.module.nameParts.map((p) => p.value),
-            importedSymbols: importFromNode.imports.map((imp) => imp.name.value),
+            importedSymbols: new Set<string>(importFromNode.imports.map((imp) => imp.name.value)),
         });
 
         let isTypingImport = false;
