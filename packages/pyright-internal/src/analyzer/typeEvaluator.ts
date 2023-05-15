@@ -4961,7 +4961,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return { type: UnknownType.create(isIncomplete), isIncomplete };
                 }
 
-                if (flags & EvaluatorFlags.ExpectingType) {
+                if (flags & EvaluatorFlags.ExpectingTypeAnnotation) {
                     if (!isIncomplete) {
                         addDiagnostic(
                             AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -14866,7 +14866,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     getTypeOfExpression(arg.valueExpression);
                     argType = UnknownType.create();
                 } else {
-                    argType = getTypeOfExpression(arg.valueExpression, exprFlags).type;
+                    argType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(arg.valueExpression, exprFlags).type);
                 }
 
                 // In some stub files, classes are conditionally defined (e.g. based
