@@ -579,18 +579,22 @@ export class ImportResolver {
     }
 
     protected addResultsToCache(
+        sourceFilePath: string,
         execEnv: ExecutionEnvironment,
         importName: string,
         importResult: ImportResult,
-        importedSymbols: Set<string> | undefined,
+        moduleDescriptor: ImportedModuleDescriptor | undefined,
         fromUserFile: boolean
     ) {
+        // If the import is relative, include the source file path in the key.
+        const relativeSourceFilePath = moduleDescriptor && moduleDescriptor.leadingDots > 0 ? sourceFilePath : '';
+
         getOrAdd(this._cachedImportResults, execEnv.root, () => new Map<string, ImportResult>()).set(
-            this._getCacheKey(importName, fromUserFile),
+            this._getImportCacheKey(relativeSourceFilePath, importName, fromUserFile),
             importResult
         );
 
-        return this.filterImplicitImports(importResult, importedSymbols);
+        return this.filterImplicitImports(importResult, moduleDescriptor?.importedSymbols);
     }
 
     // Follows import resolution algorithm defined in PEP-420:
@@ -613,7 +617,6 @@ export class ImportResolver {
             // their stubs separately from their package implementation by appending the string
             // '-stubs' to its top - level directory name. We'll look there first.
             const importResult = this._resolveAbsoluteImport(
-                sourceFilePath,
                 rootPath,
                 execEnv,
                 moduleDescriptor,
@@ -637,7 +640,6 @@ export class ImportResolver {
         }
 
         return this._resolveAbsoluteImport(
-            sourceFilePath,
             rootPath,
             execEnv,
             moduleDescriptor,
@@ -833,6 +835,18 @@ export class ImportResolver {
 
         // Is it a relative import?
         if (moduleDescriptor.leadingDots > 0) {
+            const cachedResults = this._lookUpResultsInCache(
+                sourceFilePath,
+                execEnv,
+                importName,
+                moduleDescriptor,
+                fromUserFile
+            );
+
+            if (cachedResults) {
+                return cachedResults;
+            }
+
             const relativeImport = this._resolveRelativeImport(
                 sourceFilePath,
                 execEnv,
@@ -843,14 +857,22 @@ export class ImportResolver {
 
             if (relativeImport) {
                 relativeImport.isRelative = true;
-                return relativeImport;
+
+                return this.addResultsToCache(
+                    sourceFilePath,
+                    execEnv,
+                    importName,
+                    relativeImport,
+                    moduleDescriptor,
+                    fromUserFile
+                );
             }
         } else {
-            // Is it already cached?
             const cachedResults = this._lookUpResultsInCache(
+                sourceFilePath,
                 execEnv,
                 importName,
-                moduleDescriptor.importedSymbols,
+                moduleDescriptor,
                 fromUserFile
             );
 
@@ -889,20 +911,22 @@ export class ImportResolver {
                 }
 
                 return this.addResultsToCache(
+                    sourceFilePath,
                     execEnv,
                     importName,
                     bestImport,
-                    moduleDescriptor.importedSymbols,
+                    moduleDescriptor,
                     fromUserFile
                 );
             }
         }
 
         return this.addResultsToCache(
+            sourceFilePath,
             execEnv,
             importName,
             notFoundResult,
-            /* importedSymbols */ undefined,
+            /* moduleDescriptor */ undefined,
             fromUserFile
         );
     }
@@ -1151,7 +1175,6 @@ export class ImportResolver {
     }
 
     private _resolveAbsoluteImport(
-        sourceFilePath: string | undefined,
         rootPath: string,
         execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor,
@@ -1347,14 +1370,15 @@ export class ImportResolver {
         };
     }
 
-    private _getCacheKey(importName: string, fromUserFile: boolean) {
-        return `${importName}-${fromUserFile}`;
+    private _getImportCacheKey(sourceFilePath: string, importName: string, fromUserFile: boolean) {
+        return `${sourceFilePath}-${importName}-${fromUserFile}`;
     }
 
     private _lookUpResultsInCache(
+        sourceFilePath: string,
         execEnv: ExecutionEnvironment,
         importName: string,
-        importedSymbols: Set<string> | undefined,
+        moduleDescriptor: ImportedModuleDescriptor,
         fromUserFile: boolean
     ) {
         const cacheForExecEnv = this._cachedImportResults.get(execEnv.root);
@@ -1362,12 +1386,18 @@ export class ImportResolver {
             return undefined;
         }
 
-        const cachedEntry = cacheForExecEnv.get(this._getCacheKey(importName, fromUserFile));
+        // If the import is relative, include the source file path in the key.
+        const relativeSourceFilePath = moduleDescriptor.leadingDots > 0 ? sourceFilePath : '';
+
+        const cachedEntry = cacheForExecEnv.get(
+            this._getImportCacheKey(relativeSourceFilePath, importName, fromUserFile)
+        );
+
         if (!cachedEntry) {
             return undefined;
         }
 
-        return this.filterImplicitImports(cachedEntry, importedSymbols);
+        return this.filterImplicitImports(cachedEntry, moduleDescriptor.importedSymbols);
     }
 
     // Determines whether a namespace package resolves all of the symbols
@@ -2110,7 +2140,7 @@ export class ImportResolver {
             };
         }
 
-        return this.filterImplicitImports(absImport, moduleDescriptor.importedSymbols);
+        return absImport;
     }
 
     private _getCompletionSuggestionsRelative(
