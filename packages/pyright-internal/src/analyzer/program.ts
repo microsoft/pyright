@@ -1806,6 +1806,21 @@ export class Program {
             return undefined;
         }
 
+        if (options?.skipParsing) {
+            // Return dummy information if the caller has indicated that parsing is
+            // unnecessary. This is used in cases where the caller simply wants to
+            // know if the source file exists but is not interested in the contents.
+            return {
+                symbolTable: new Map<string, Symbol>(),
+                dunderAllNames: undefined,
+                usesUnsupportedDunderAllForm: false,
+                get docString() {
+                    return undefined;
+                },
+                isInPyTypedPackage: false,
+            };
+        }
+
         if (sourceFileInfo.sourceFile.isBindingRequired()) {
             // Bind the file if it's not already bound. Don't count this time
             // against the type checker.

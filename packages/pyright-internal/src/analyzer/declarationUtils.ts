@@ -285,6 +285,7 @@ export function resolveAliasDeclaration(
                     ) {
                         const lookupResult = importLookup(curDeclaration.submoduleFallback.path, {
                             skipFileNeededCheck: options.skipFileNeededCheck,
+                            skipParsing: true,
                         });
                         if (!lookupResult) {
                             return undefined;

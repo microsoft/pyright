@@ -25,6 +25,7 @@ export interface AbsoluteModuleDescriptor {
 
 export interface LookupImportOptions {
     skipFileNeededCheck: boolean;
+    skipParsing?: boolean;
 }
 
 export type ImportLookup = (
