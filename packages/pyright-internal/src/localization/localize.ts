@@ -457,6 +457,8 @@ export namespace Localizer {
         export const formatStringEscape = () => getRawString('Diagnostic.formatStringEscape');
         export const formatStringInPattern = () => getRawString('Diagnostic.formatStringInPattern');
         export const formatStringIllegal = () => getRawString('Diagnostic.formatStringIllegal');
+        export const formatStringNestedFormatSpecifier = () =>
+            getRawString('Diagnostic.formatStringNestedFormatSpecifier');
         export const formatStringUnicode = () => getRawString('Diagnostic.formatStringUnicode');
         export const formatStringUnterminated = () => getRawString('Diagnostic.formatStringUnterminated');
         export const functionDecoratorTypeUnknown = () => getRawString('Diagnostic.functionDecoratorTypeUnknown');

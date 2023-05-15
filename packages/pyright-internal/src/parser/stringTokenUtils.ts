@@ -34,6 +34,7 @@ export const enum UnescapeErrorType {
     EscapeWithinFormatExpression,
     SingleCloseBraceWithinFormatLiteral,
     UnterminatedFormatExpression,
+    NestedFormatSpecifierExpression,
 }
 
 export interface UnescapeError {
@@ -68,6 +69,7 @@ interface IncompleteFormatStringSegment {
     valueParts: string[];
     isExpression: boolean;
     hasFormatSpecifier: boolean;
+    formatSpecifierNestCount: number;
 }
 
 function completeUnescapedString(incomplete: IncompleteUnescapedString): UnescapedString {
@@ -125,6 +127,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
         valueParts: [],
         isExpression: false,
         hasFormatSpecifier: false,
+        formatSpecifierNestCount: 0,
     };
     let strOffset = 0;
     const output: IncompleteUnescapedString = {
@@ -381,6 +384,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                 appendOutputChar(curChar);
                 strOffset += 2;
             } else {
+                // Are we parsing a format specifier?
                 if (formatExpressionNestCount === 0) {
                     // A single open brace within a format literal indicates that
                     // an expression is starting.
@@ -397,8 +401,19 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                         valueParts: [],
                         isExpression: true,
                         hasFormatSpecifier: false,
+                        formatSpecifierNestCount: 0,
                     };
                 } else {
+                    if (formatSegment.hasFormatSpecifier) {
+                        if (formatSegment.formatSpecifierNestCount === 1) {
+                            output.unescapeErrors.push({
+                                offset: strOffset,
+                                length: 1,
+                                errorType: UnescapeErrorType.NestedFormatSpecifierExpression,
+                            });
+                        }
+                        formatSegment.formatSpecifierNestCount++;
+                    }
                     appendOutputChar(curChar);
                     strOffset++;
                 }
@@ -416,6 +431,10 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                 });
                 strOffset++;
             } else {
+                if (formatSegment.hasFormatSpecifier) {
+                    formatSegment.formatSpecifierNestCount--;
+                }
+
                 formatExpressionNestCount--;
 
                 if (formatExpressionNestCount === 0) {
@@ -432,6 +451,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                         valueParts: [],
                         isExpression: false,
                         hasFormatSpecifier: false,
+                        formatSpecifierNestCount: 0,
                     };
                 } else {
                     appendOutputChar(curChar);

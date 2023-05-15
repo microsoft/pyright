@@ -78,3 +78,6 @@ width = 3
 l = f"{my_str:\>{width}s}"
 m = f"{my_str:\x00>{width}s}"
 n = f"{my_str:\u2007>{width}s}"
+
+# f-strings with nested expressions in the format string section.
+o = f"{1+2:{1+2:{1+1:{1}}}}"

@@ -1356,6 +1356,14 @@ export class Checker extends ParseTreeWalker {
                             Localizer.Diagnostic.formatStringUnterminated(),
                             textRange
                         );
+                    } else if (error.errorType === UnescapeErrorType.NestedFormatSpecifierExpression) {
+                        this._evaluator.addDiagnosticForTextRange(
+                            this._fileInfo,
+                            'error',
+                            '',
+                            Localizer.Diagnostic.formatStringNestedFormatSpecifier(),
+                            textRange
+                        );
                     }
                 });
             }

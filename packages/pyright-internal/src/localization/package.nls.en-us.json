@@ -185,6 +185,7 @@
         "formatStringBytes": "Format string literals (f-strings) cannot be binary",
         "formatStringEscape": "Escape sequence (backslash) not allowed in expression portion of f-string",
         "formatStringInPattern": "Format string not allowed in pattern",
+        "formatStringNestedFormatSpecifier": "Expressions nested too deeply within format string specifier",
         "formatStringUnicode": "Format string literals (f-strings) cannot be unicode",
         "formatStringIllegal": "Format string literals (f-strings) require Python 3.6 or newer",
         "formatStringUnterminated": "Unterminated expression in f-string; missing close brace",
