@@ -30,7 +30,7 @@ Pyright supports [configuration files](configuration.md) that provide granular c
 * [PEP 675](https://www.python.org/dev/peps/pep-0675/) arbitrary literal strings
 * [PEP 681](https://www.python.org/dev/peps/pep-0681/) dataclass transform
 * [PEP 692](https://www.python.org/dev/peps/pep-0692/) TypedDict for kwargs typing
-* [PEP 695](https://www.python.org/dev/peps/pep-0695/) (draft) Type parameter syntax
+* [PEP 695](https://www.python.org/dev/peps/pep-0695/) Type parameter syntax
 * [PEP 696](https://www.python.org/dev/peps/pep-0696/) (draft) Type defaults for TypeVarLikes
 * [PEP 698](https://www.python.org/dev/peps/pep-0698/) Override decorator for static typing
 * [PEP 702](https://www.python.org/dev/peps/pep-0702/) (draft) Marking deprecations
