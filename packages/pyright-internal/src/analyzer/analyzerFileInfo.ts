@@ -72,10 +72,11 @@ export function isAnnotationEvaluationPostponed(fileInfo: AnalyzerFileInfo) {
         return true;
     }
 
-    // As of November 22, the Python steering council has tentatively
-    // approved PEP 649 for Python 3.12.
+    // As of May 2023, the Python steering council has approved PEP 649 for Python 3.13.
+    // It was tentatively approved for 3.12, but they decided to defer until the next
+    // release to reduce the risk.
     // https://discuss.python.org/t/pep-649-deferred-evaluation-of-annotations-tentatively-accepted/21331
-    if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_12) {
+    if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_13) {
         return true;
     }
 
