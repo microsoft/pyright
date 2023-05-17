@@ -141,14 +141,6 @@ export function validateConstructorArguments(
                 // If the __new__ method returns something other than an object or
                 // NoReturn, we'll ignore its return type.
                 newMethodReturnType = ClassType.cloneAsInstance(type);
-            } else if (
-                ClassType.isSameGenericClass(newMethodReturnType, type) &&
-                isPartlyUnknown(newMethodReturnType)
-            ) {
-                // If the __new__ method returns the same type as the class it's constructing
-                // but doesn't supply solved type arguments, we'll ignore its return type
-                // and rely on the __init__ method to supply them instead.
-                newMethodReturnType = ClassType.cloneAsInstance(type);
             }
         }
 
@@ -160,10 +152,18 @@ export function validateConstructorArguments(
             !isNever(newMethodReturnType) &&
             !shouldSkipInitEvaluation(evaluator, type, newMethodReturnType)
         ) {
+            // If the __new__ method returned the same type as the class it's constructing
+            // but didn't supply solved type arguments, we'll ignore its specialized return
+            // type and rely on the __init__ method to supply the type arguments instead.
+            let initMethodBindToType = newMethodReturnType;
+            if (isPartlyUnknown(initMethodBindToType)) {
+                initMethodBindToType = ClassType.cloneAsInstance(type);
+            }
+
             // Determine whether the class overrides the object.__init__ method.
             initMethodTypeResult = evaluator.getTypeOfObjectMember(
                 errorNode,
-                ClassType.cloneAsInstance(newMethodReturnType),
+                ClassType.cloneAsInstance(initMethodBindToType),
                 '__init__',
                 { method: 'get' },
                 /* diag */ undefined,
@@ -176,7 +176,7 @@ export function validateConstructorArguments(
                     evaluator,
                     errorNode,
                     argList,
-                    newMethodReturnType,
+                    initMethodBindToType,
                     skipUnknownArgCheck,
                     inferenceContext,
                     initMethodTypeResult.type
