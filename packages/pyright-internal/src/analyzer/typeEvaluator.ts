@@ -10258,8 +10258,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (effectiveExpectedType) {
-            const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
-
             // Prepopulate the typeVarContext based on the specialized expected type if the
             // callee has a declared return type. This will allow us to more closely match
             // the expected type if possible.
@@ -10274,6 +10272,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             ? subtype
                             : undefined;
                     });
+
                     if (isClassInstance(filteredType)) {
                         effectiveExpectedType = filteredType;
                     }
@@ -10286,13 +10285,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         effectiveReturnType,
                         effectiveExpectedType,
                         tempTypeVarContext,
-                        liveTypeVarScopes
+                        ParseTreeUtils.getTypeVarScopesForNode(errorNode)
                     );
+
                     const genericReturnType = ClassType.cloneForSpecialization(
                         effectiveReturnType,
                         /* typeArguments */ undefined,
                         /* isTypeArgumentExplicit */ false
                     );
+
                     effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext);
                 }
             } else if (isFunction(effectiveReturnType)) {
@@ -10304,8 +10305,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     });
                 }
             }
-
-            effectiveExpectedType = transformExpectedType(effectiveExpectedType, liveTypeVarScopes);
 
             assignType(
                 effectiveReturnType,

@@ -2,7 +2,7 @@
 # type derives from the expected type and both are
 # generic.
 
-from typing import Mapping, Optional, Union
+from typing import Iterable, Mapping, Optional, TypeVar, Union
 
 v0: Optional[Mapping[str, Union[int, str]]] = dict([("test1", 1), ("test2", 2)])
 
