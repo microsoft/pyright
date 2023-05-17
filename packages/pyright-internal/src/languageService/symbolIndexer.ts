@@ -37,16 +37,6 @@ export interface IndexSymbolData {
     readonly children?: IndexSymbolData[] | undefined;
 }
 
-export interface IndexResults {
-    readonly privateOrProtected: boolean;
-    readonly symbols: IndexSymbolData[];
-}
-
-export interface IndexOptions {
-    indexingForAutoImportMode: boolean;
-    includeAllSymbols?: boolean;
-}
-
 export class SymbolIndexer {
     static indexSymbols(
         fileInfo: AnalyzerFileInfo,

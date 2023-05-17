@@ -26,7 +26,6 @@ import { Range } from './textRange';
 import { SymbolTable } from '../analyzer/symbol';
 import { Diagnostic } from '../common/diagnostic';
 import { IPythonMode } from '../analyzer/sourceFile';
-import { IndexResults } from '../languageService/symbolIndexer';
 
 export interface LanguageServiceExtension {
     readonly commandExtension?: CommandExtension;
@@ -53,7 +52,6 @@ export interface SourceFile {
     getClientVersion(): number | undefined;
     getOpenFileContents(): string | undefined;
     getModuleSymbolTable(): SymbolTable | undefined;
-    getCachedIndexResults(): IndexResults | undefined;
 }
 
 export interface SourceFileInfo {
@@ -81,7 +79,7 @@ export interface SourceFileInfo {
 
 // Readonly wrapper around a Program. Makes sure it doesn't mutate the program.
 export interface ProgramView {
-    readonly id: number;
+    readonly id: string;
     readonly rootPath: string;
     readonly console: ConsoleInterface;
     readonly evaluator: TypeEvaluator | undefined;
@@ -232,7 +230,7 @@ export namespace Extensions {
         );
     }
 
-    export function destroyProgramExtensions(viewId: number) {
+    export function destroyProgramExtensions(viewId: string) {
         programExtensions = programExtensions.filter((s) => s.view.id !== viewId);
     }
 

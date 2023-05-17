@@ -96,7 +96,6 @@ class WriteableData {
 
     parseResults: ParseResults | undefined;
     moduleSymbolTable: SymbolTable | undefined;
-    cachedIndexResults: IndexResults | undefined;
 
     // Reentrancy check for binding.
     isBindingInProgress = false;
@@ -126,8 +125,6 @@ class WriteableData {
     // Time (in ms) that the last check() call required for this file.
     checkTime: number | undefined;
 
-    // Do we need to perform an indexing step?
-    indexingNeeded = true;
     // Information about implicit and explicit imports from this file.
     imports: ImportResult[] | undefined;
     builtinsImport: ImportResult | undefined;
@@ -624,14 +621,13 @@ export class SourceFile {
         this._writableData.isBindingNeeded = true;
     }
 
-    markDirty(indexingNeeded = true): void {
+    markDirty(): void {
         this._writableData.fileContentsVersion++;
         this._writableData.noCircularDependencyConfirmed = false;
         this._writableData.isCheckingNeeded = true;
         this._writableData.isBindingNeeded = true;
-        this._writableData.indexingNeeded = indexingNeeded;
         this._writableData.moduleSymbolTable = undefined;
-        this._writableData.cachedIndexResults = undefined;
+
         const filePath = this.getFilePath();
         Extensions.getProgramExtensions(filePath).forEach((e) => (e.fileDirty ? e.fileDirty(filePath) : null));
     }
@@ -746,15 +742,6 @@ export class SourceFile {
         return this._writableData.isBindingNeeded;
     }
 
-    isIndexingRequired() {
-        return this._writableData.indexingNeeded;
-    }
-
-    markIndexDone() {
-        // This will be removed once indexResult is removed from sourceFile.
-        this._writableData.indexingNeeded = false;
-    }
-
     isCheckingRequired() {
         return this._writableData.isCheckingNeeded;
     }
@@ -765,14 +752,6 @@ export class SourceFile {
         }
 
         return undefined;
-    }
-
-    getCachedIndexResults(): IndexResults | undefined {
-        return this._writableData.cachedIndexResults;
-    }
-
-    cacheIndexResults(indexResults: IndexResults) {
-        this._writableData.cachedIndexResults = indexResults;
     }
 
     // Adds a new circular dependency for this file but only if
@@ -948,7 +927,6 @@ export class SourceFile {
             }
 
             this._writableData.analyzedFileContentsVersion = this._writableData.fileContentsVersion;
-            this._writableData.indexingNeeded = true;
             this._writableData.isBindingNeeded = true;
             this._writableData.isCheckingNeeded = true;
             this._writableData.parseTreeNeedsCleaning = false;
@@ -1026,7 +1004,6 @@ export class SourceFile {
             // Prepare for the next stage of the analysis.
             this._writableData.diagnosticVersion++;
             this._writableData.isCheckingNeeded = true;
-            this._writableData.indexingNeeded = true;
             this._writableData.isBindingNeeded = false;
         });
     }

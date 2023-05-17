@@ -57,8 +57,6 @@ import { Type } from './types';
 
 const _maxImportDepth = 256;
 
-export const MaxWorkspaceIndexFileCount = 2000;
-
 // Tracks information about each source file in a program,
 // including the reason it was added to the program and any
 // dependencies that it has on other files in the program.
@@ -107,11 +105,6 @@ export interface MaxAnalysisTime {
     noOpenFilesTimeInMs: number;
 }
 
-export interface Indices {
-    setWorkspaceIndex(path: string, indexResults: IndexResults): void;
-    getIndex(execEnv: string | undefined): Map<string, IndexResults> | undefined;
-}
-
 interface UpdateImportInfo {
     path: string;
     isTypeshedFile: boolean;
@@ -135,19 +128,24 @@ export interface OpenFileOptions {
 //  Opened - temporarily opened in the editor
 //  Shadowed - implementation file that shadows a type stub file
 export class Program {
-    private _console: ConsoleInterface;
-    private _sourceFileList: SourceFileInfo[] = [];
-    private _sourceFileMap = new Map<string, SourceFileInfo>();
+    private static _nextId = 0;
+
+    private readonly _console: ConsoleInterface;
+    private readonly _sourceFileList: SourceFileInfo[] = [];
+    private readonly _sourceFileMap = new Map<string, SourceFileInfo>();
+
+    private readonly _logTracker: LogTracker;
+    private readonly _cacheManager: CacheManager;
+    private readonly _id: string;
+
     private _allowedThirdPartyImports: string[] | undefined;
-    private _evaluator: TypeEvaluator | undefined;
     private _configOptions: ConfigOptions;
     private _importResolver: ImportResolver;
-    private _logTracker: LogTracker;
+    private _evaluator: TypeEvaluator | undefined;
+
     private _parsedFileCount = 0;
     private _preCheckCallback: PreCheckCallback | undefined;
-    private _cacheManager: CacheManager;
-    private _id: number;
-    private static _nextId = 0;
+
     private _isEditMode = false;
 
     constructor(
@@ -156,7 +154,8 @@ export class Program {
         console?: ConsoleInterface,
         logTracker?: LogTracker,
         private _disableChecker?: boolean,
-        cacheManager?: CacheManager
+        cacheManager?: CacheManager,
+        id?: string
     ) {
         this._console = console || new StandardConsole();
         this._logTracker = logTracker ?? new LogTracker(console, 'FG');
@@ -166,7 +165,8 @@ export class Program {
         this._cacheManager = cacheManager ?? new CacheManager();
         this._cacheManager.registerCacheOwner(this);
         this._createNewEvaluator();
-        this._id = Program._nextId;
+
+        this._id = id ?? `Prog_${Program._nextId}`;
         Program._nextId += 1;
     }
 
@@ -441,14 +441,14 @@ export class Program {
         return this._removeUnneededFiles();
     }
 
-    markAllFilesDirty(evenIfContentsAreSame: boolean, indexingNeeded = true) {
+    markAllFilesDirty(evenIfContentsAreSame: boolean) {
         const markDirtySet = new Set<string>();
 
         this._sourceFileList.forEach((sourceFileInfo) => {
             if (evenIfContentsAreSame) {
-                sourceFileInfo.sourceFile.markDirty(indexingNeeded);
+                sourceFileInfo.sourceFile.markDirty();
             } else if (sourceFileInfo.sourceFile.didContentsChangeOnDisk()) {
-                sourceFileInfo.sourceFile.markDirty(indexingNeeded);
+                sourceFileInfo.sourceFile.markDirty();
 
                 // Mark any files that depend on this file as dirty
                 // also. This will retrigger analysis of these other files.
@@ -461,7 +461,7 @@ export class Program {
         }
     }
 
-    markFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean, indexingNeeded = true) {
+    markFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean) {
         const markDirtySet = new Set<string>();
         filePaths.forEach((filePath) => {
             const sourceFileInfo = this.getSourceFileInfo(filePath);
@@ -471,7 +471,7 @@ export class Program {
                 // Handle builtins and __builtins__ specially. They are implicitly
                 // included by all source files.
                 if (fileName === 'builtins.pyi' || fileName === '__builtins__.pyi') {
-                    this.markAllFilesDirty(evenIfContentsAreSame, indexingNeeded);
+                    this.markAllFilesDirty(evenIfContentsAreSame);
                     return;
                 }
 
@@ -482,7 +482,7 @@ export class Program {
                     evenIfContentsAreSame ||
                     (!sourceFileInfo.isOpenByClient && sourceFileInfo.sourceFile.didContentsChangeOnDisk())
                 ) {
-                    sourceFileInfo.sourceFile.markDirty(indexingNeeded);
+                    sourceFileInfo.sourceFile.markDirty();
 
                     // Mark any files that depend on this file as dirty
                     // also. This will retrigger analysis of these other files.
@@ -943,7 +943,7 @@ export class Program {
         // Cloned program will use whatever user files the program currently has.
         const userFiles = this.getUserFiles();
         program.setTrackedFiles(userFiles.map((i) => i.sourceFile.getFilePath()));
-        program.markAllFilesDirty(true);
+        program.markAllFilesDirty(/* evenIfContentsAreSame */ true);
 
         // Make sure we keep editor content (open file) which could be different than one in the file system.
         for (const fileInfo of this.getOpened()) {
