@@ -48,6 +48,7 @@ export class TestFeatures implements HostSpecificFeatures {
         cacheManager?: CacheManager
     ) =>
         new BackgroundAnalysisProgram(
+            serviceId,
             console,
             configOptions,
             importResolver,

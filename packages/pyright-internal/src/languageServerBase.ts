@@ -74,7 +74,7 @@ import { ResultProgressReporter, attachWorkDone } from 'vscode-languageserver/li
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AnalysisResults } from './analyzer/analysis';
-import { BackgroundAnalysisProgram } from './analyzer/backgroundAnalysisProgram';
+import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
 import { CacheManager } from './analyzer/cacheManager';
 import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
@@ -456,7 +456,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     reanalyze() {
         this.workspaceFactory.items().forEach((workspace) => {
-            workspace.service.invalidateAndForceReanalysis();
+            workspace.service.invalidateAndForceReanalysis(InvalidatedReason.Reanalyzed);
         });
     }
 
@@ -588,6 +588,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         cacheManager?: CacheManager
     ): BackgroundAnalysisProgram {
         return new BackgroundAnalysisProgram(
+            serviceId,
             console,
             configOptions,
             importResolver,

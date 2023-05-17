@@ -53,7 +53,7 @@ export class BackgroundThreadBase {
         };
     }
 
-    protected shutdown() {
+    protected handleShutdown() {
         this.fs.dispose();
         parentPort?.close();
     }

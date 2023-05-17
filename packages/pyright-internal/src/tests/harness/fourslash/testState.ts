@@ -25,7 +25,7 @@ import {
     WorkspaceEdit,
 } from 'vscode-languageserver';
 
-import { BackgroundAnalysisProgramFactory } from '../../../analyzer/backgroundAnalysisProgram';
+import { BackgroundAnalysisProgramFactory, InvalidatedReason } from '../../../analyzer/backgroundAnalysisProgram';
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { findNodeByOffset } from '../../../analyzer/parseTreeUtils';
 import { Program } from '../../../analyzer/program';
@@ -662,7 +662,7 @@ export class TestState {
         }
     ): Promise<any> {
         // make sure we don't use cache built from other tests
-        this.workspace.service.invalidateAndForceReanalysis();
+        this.workspace.service.invalidateAndForceReanalysis(InvalidatedReason.Reanalyzed);
         this.analyze();
 
         for (const range of this.getRanges()) {

@@ -156,7 +156,7 @@ export class AutoImporter {
     private readonly _importStatements: ImportStatements;
 
     constructor(
-        private readonly _execEnvironment: ExecutionEnvironment,
+        protected readonly execEnvironment: ExecutionEnvironment,
         protected readonly importResolver: ImportResolver,
         protected readonly parseResults: ParseResults,
         private readonly _invocationPosition: Position,
@@ -588,7 +588,7 @@ export class AutoImporter {
     // convert to a module name that can be used in an
     // 'import from' statement.
     private _getModuleNameAndTypeFromFilePath(filePath: string): ModuleNameAndType {
-        return this.importResolver.getModuleNameForImport(filePath, this._execEnvironment);
+        return this.importResolver.getModuleNameForImport(filePath, this.execEnvironment);
     }
 
     private _getTextEditsForAutoImportByFilePath(

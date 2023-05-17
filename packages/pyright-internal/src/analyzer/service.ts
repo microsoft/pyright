@@ -12,7 +12,7 @@ import * as TOML from '@iarna/toml';
 import * as JSONC from 'jsonc-parser';
 import { AbstractCancellationTokenSource, CancellationToken } from 'vscode-languageserver';
 
-import { BackgroundAnalysisBase, IndexOptions, RefreshOptions } from '../backgroundAnalysisBase';
+import { BackgroundAnalysisBase, RefreshOptions } from '../backgroundAnalysisBase';
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, matchFileSpecs } from '../common/configOptions';
@@ -45,7 +45,11 @@ import {
 import { Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
 import { AnalysisCompleteCallback } from './analysis';
-import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './backgroundAnalysisProgram';
+import {
+    BackgroundAnalysisProgram,
+    BackgroundAnalysisProgramFactory,
+    InvalidatedReason,
+} from './backgroundAnalysisProgram';
 import { CacheManager } from './cacheManager';
 import {
     ImportResolver,
@@ -144,6 +148,7 @@ export class AnalyzerService {
                       this._options.cacheManager
                   )
                 : new BackgroundAnalysisProgram(
+                      this._options.serviceId,
                       this._options.console,
                       this._options.configOptions,
                       importResolver,
@@ -183,6 +188,10 @@ export class AnalyzerService {
 
     get test_program() {
         return this._program;
+    }
+
+    get id() {
+        return this._options.serviceId!;
     }
 
     clone(
@@ -345,10 +354,6 @@ export class AnalyzerService {
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
-    startIndexing(indexOptions: IndexOptions) {
-        this._backgroundAnalysisProgram.startIndexing(indexOptions);
-    }
-
     setFileClosed(path: string, isTracked?: boolean) {
         this._backgroundAnalysisProgram.setFileClosed(path, isTracked);
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
@@ -453,16 +458,8 @@ export class AnalyzerService {
         );
     }
 
-    invalidateAndForceReanalysis(
-        rebuildUserFileIndexing = true,
-        rebuildLibraryIndexing = true,
-        refreshOptions?: RefreshOptions
-    ) {
-        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(
-            rebuildUserFileIndexing,
-            rebuildLibraryIndexing,
-            refreshOptions
-        );
+    invalidateAndForceReanalysis(reason: InvalidatedReason) {
+        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(reason);
     }
 
     // Forces the service to stop all analysis, discard all its caches,
@@ -1234,27 +1231,23 @@ export class AnalyzerService {
                         return;
                     }
 
-                    // If the change is the content of 1 file, then it can't affect `import resolution` result. All we need to do is
-                    // reanalyzing related files (files that transitively depends on this file).
+                    // This is for performance optimization. If the change only pertains to the content of one file,
+                    // then it can't affect the 'import resolution' result. All we need to do is reanalyze the related files
+                    // (those that have a transitive dependency on this file).
                     if (eventInfo.isFile && eventInfo.event === 'change') {
                         this._backgroundAnalysisProgram.markFilesDirty([path], /* evenIfContentsAreSame */ false);
                         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
                         return;
                     }
 
-                    // fs events happened can impact import resolution result.
-                    // clear the import resolver cache and reanalyze everything.
+                    // When the file system structure changes, like when files are added or removed,
+                    // this can affect how we resolve imports. This requires us to reset caches and reanalyze everything.
                     //
-                    // Here we don't need to rebuild any indexing since this kind of change can't affect
-                    // indices. For library, since the changes are on workspace files, it won't affect library
-                    // indices. For user file, since user file indices don't contains import alias symbols,
-                    // it won't affect those indices. we only need to rebuild user file indices when symbols
-                    // defined in the file are changed. ex) user modified the file.
-                    // Newly added file will be scanned since it doesn't have existing indices.
-                    this.invalidateAndForceReanalysis(
-                        /* rebuildUserFileIndexing */ false,
-                        /* rebuildLibraryIndexing */ false
-                    );
+                    // However, we don't need to rebuild any indexes in this situation. Changes to workspace files don't affect library indices.
+                    // As for user files, their indices don't contain import alias symbols, so adding or removing user files won't affect the existing indices.
+                    // We only rebuild the indices for a user file when the symbols within the file are changed, like when a user edits the file.
+                    // The index scanner will index any new files during its next background run.
+                    this.invalidateAndForceReanalysis(InvalidatedReason.SourceWatcherChanged);
                     this._scheduleReanalysis(/* requireTrackedFileUpdate */ true);
                 });
             } catch {
@@ -1420,7 +1413,7 @@ export class AnalyzerService {
         if (this._libraryReanalysisTimer) {
             clearTimeout(this._libraryReanalysisTimer);
             this._libraryReanalysisTimer = undefined;
-            this._backgroundAnalysisProgram?.cancelIndexing();
+            this._backgroundAnalysisProgram?.libraryUpdated();
         }
     }
 
@@ -1449,9 +1442,11 @@ export class AnalyzerService {
 
             // Invalidate import resolver, mark all files dirty unconditionally,
             // and reanalyze.
-            this.invalidateAndForceReanalysis(/* rebuildUserFileIndexing */ false, /* rebuildLibraryIndexing */ true, {
-                changesOnly: this._pendingLibraryChanges.changesOnly,
-            });
+            this.invalidateAndForceReanalysis(
+                this._pendingLibraryChanges.changesOnly
+                    ? InvalidatedReason.LibraryWatcherContentOnlyChanged
+                    : InvalidatedReason.LibraryWatcherChanged
+            );
             this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
 
             // No more pending changes.
