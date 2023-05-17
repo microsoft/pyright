@@ -34,7 +34,6 @@ import {
 import { convertRangeToTextRange } from '../common/positionUtils';
 import { Range, doRangesIntersect } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
-import { IndexResults } from '../languageService/symbolIndexer';
 import { ParseResults } from '../parser/parser';
 import { AbsoluteModuleDescriptor, ImportLookupResult, LookupImportOptions } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
