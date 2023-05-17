@@ -22,9 +22,7 @@ import { MaxAnalysisTime, OpenFileOptions, Program } from './program';
 
 export enum InvalidatedReason {
     Reanalyzed,
-
     SourceWatcherChanged,
-
     LibraryWatcherChanged,
     LibraryWatcherContentOnlyChanged,
 }
