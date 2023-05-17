@@ -3880,28 +3880,6 @@ export class Binder extends ParseTreeWalker {
         return { isClassVar, classVarTypeNode };
     }
 
-    // Determines if the specified type annotation is wrapped in a "Required".
-    private _isRequiredAnnotation(typeAnnotation: ExpressionNode | undefined): boolean {
-        if (typeAnnotation && typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
-            if (this._isTypingAnnotation(typeAnnotation.baseExpression, 'Required')) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    // Determines if the specified type annotation is wrapped in a "NotRequired".
-    private _isNotRequiredAnnotation(typeAnnotation: ExpressionNode | undefined): boolean {
-        if (typeAnnotation && typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
-            if (this._isTypingAnnotation(typeAnnotation.baseExpression, 'NotRequired')) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     // Determines whether a member access expression is referring to a
     // member of a class (either a class or instance member). This will
     // typically take the form "self.x" or "cls.x".
