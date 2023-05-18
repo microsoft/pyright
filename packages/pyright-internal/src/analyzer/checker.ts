@@ -90,7 +90,7 @@ import {
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { UnescapeError, UnescapeErrorType, getUnescapedString } from '../parser/stringTokenUtils';
-import { OperatorType } from '../parser/tokenizerTypes';
+import { OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
@@ -1313,60 +1313,71 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitStringList(node: StringListNode): boolean {
+        // If this is Python 3.11 or older, there are several restrictions
+        // associated with f-strings that we need to validate. Determine whether
+        // we're within an f-string (or multiple f-strings if nesting is used).
+        const fStringContainers: FormatStringNode[] = [];
+        if (this._fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_12) {
+            let curNode: ParseNode | undefined = node;
+            while (curNode) {
+                if (curNode.nodeType === ParseNodeType.FormatString) {
+                    fStringContainers.push(curNode);
+                }
+                curNode = curNode.parent;
+            }
+        }
+
         for (const stringNode of node.strings) {
-            if (stringNode.hasUnescapeErrors) {
-                const unescapedResult = getUnescapedString(stringNode.token);
+            const stringTokens =
+                stringNode.nodeType === ParseNodeType.String ? [stringNode.token] : stringNode.middleTokens;
+
+            stringTokens.forEach((token) => {
+                const unescapedResult = getUnescapedString(token);
+                let start = token.start;
+                if (token.type === TokenType.String) {
+                    start += token.prefixLength + token.quoteMarkLength;
+                }
 
                 unescapedResult.unescapeErrors.forEach((error: UnescapeError) => {
-                    const start =
-                        stringNode.token.start +
-                        stringNode.token.prefixLength +
-                        stringNode.token.quoteMarkLength +
-                        error.offset;
-                    const textRange = { start, length: error.length };
-
                     if (error.errorType === UnescapeErrorType.InvalidEscapeSequence) {
                         this._evaluator.addDiagnosticForTextRange(
                             this._fileInfo,
                             this._fileInfo.diagnosticRuleSet.reportInvalidStringEscapeSequence,
                             DiagnosticRule.reportInvalidStringEscapeSequence,
                             Localizer.Diagnostic.stringUnsupportedEscape(),
-                            textRange
+                            { start: start + error.offset, length: error.length }
                         );
-                    } else if (error.errorType === UnescapeErrorType.EscapeWithinFormatExpression) {
+                    }
+                });
+
+                // Prior to Python 3.12, it was not allowed to include a slash in an f-string.
+                if (fStringContainers.length > 0) {
+                    const escapeOffset = token.escapedValue.indexOf('\\');
+                    if (escapeOffset >= 0) {
                         this._evaluator.addDiagnosticForTextRange(
                             this._fileInfo,
                             'error',
                             '',
                             Localizer.Diagnostic.formatStringEscape(),
-                            textRange
-                        );
-                    } else if (error.errorType === UnescapeErrorType.SingleCloseBraceWithinFormatLiteral) {
-                        this._evaluator.addDiagnosticForTextRange(
-                            this._fileInfo,
-                            'error',
-                            '',
-                            Localizer.Diagnostic.formatStringBrace(),
-                            textRange
-                        );
-                    } else if (error.errorType === UnescapeErrorType.UnterminatedFormatExpression) {
-                        this._evaluator.addDiagnosticForTextRange(
-                            this._fileInfo,
-                            'error',
-                            '',
-                            Localizer.Diagnostic.formatStringUnterminated(),
-                            textRange
-                        );
-                    } else if (error.errorType === UnescapeErrorType.NestedFormatSpecifierExpression) {
-                        this._evaluator.addDiagnosticForTextRange(
-                            this._fileInfo,
-                            'error',
-                            '',
-                            Localizer.Diagnostic.formatStringNestedFormatSpecifier(),
-                            textRange
+                            { start, length: 1 }
                         );
                     }
-                });
+                }
+            });
+
+            // Prior to Python 3.12, it was not allowed to nest strings that
+            // used the same quote scheme within an f-string.
+            if (fStringContainers.length > 0) {
+                const quoteTypeMask =
+                    StringTokenFlags.SingleQuote | StringTokenFlags.DoubleQuote | StringTokenFlags.Triplicate;
+                if (
+                    fStringContainers.some(
+                        (fStringContainer) =>
+                            (fStringContainer.token.flags & quoteTypeMask) === (stringNode.token.flags & quoteTypeMask)
+                    )
+                ) {
+                    this._evaluator.addError(Localizer.Diagnostic.formatStringNestedQuote(), stringNode);
+                }
             }
         }
 
@@ -1388,8 +1399,12 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitFormatString(node: FormatStringNode): boolean {
-        node.expressions.forEach((formatExpr) => {
-            this._evaluator.getType(formatExpr);
+        node.fieldExpressions.forEach((expr) => {
+            this._evaluator.getType(expr);
+        });
+
+        node.formatExpressions.forEach((expr) => {
+            this._evaluator.getType(expr);
         });
 
         return true;

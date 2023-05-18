@@ -1366,7 +1366,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // If all of the format expressions are of type LiteralString, then
             // the resulting formatted string is also LiteralString.
-            node.expressions.forEach((expr) => {
+            node.fieldExpressions.forEach((expr) => {
                 const exprType = getTypeOfExpression(expr).type;
 
                 doForEachSubtype(exprType, (exprSubtype) => {
@@ -11670,7 +11670,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const firstArg = argList[0];
         if (firstArg.valueExpression && firstArg.valueExpression.nodeType === ParseNodeType.StringList) {
-            const typeAliasName = firstArg.valueExpression.strings.map((s) => s.value).join('');
+            const typeAliasName = firstArg.valueExpression.strings
+                .map((s) => s.value)
+                .join('');
             if (typeAliasName !== nameNode.value) {
                 addError(Localizer.Diagnostic.typeAliasTypeNameMismatch(), firstArg.valueExpression);
             }
@@ -24911,8 +24913,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Determine the offset within the file where the string
         // literal's contents begin.
-        const valueOffset =
-            node.strings[0].start + node.strings[0].token.prefixLength + node.strings[0].token.quoteMarkLength;
+        let valueOffset = node.strings[0].start;
+        if (node.strings[0].nodeType === ParseNodeType.String) {
+            valueOffset += node.strings[0].token.prefixLength + node.strings[0].token.quoteMarkLength;
+        }
 
         const parseOptions = new ParseOptions();
         parseOptions.isStubFile = fileInfo.isStubFile;

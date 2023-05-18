@@ -10,6 +10,9 @@
 
 import { TextRange } from '../common/textRange';
 import {
+    FStringEndToken,
+    FStringMiddleToken,
+    FStringStartToken,
     IdentifierToken,
     KeywordToken,
     KeywordType,
@@ -1519,11 +1522,10 @@ export interface StringNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.String;
     token: StringToken;
     value: string;
-    hasUnescapeErrors: boolean;
 }
 
 export namespace StringNode {
-    export function create(token: StringToken, unescapedValue: string, hasUnescapeErrors: boolean) {
+    export function create(token: StringToken, unescapedValue: string) {
         const node: StringNode = {
             start: token.start,
             length: token.length,
@@ -1531,7 +1533,6 @@ export namespace StringNode {
             id: _nextNodeId++,
             token,
             value: unescapedValue,
-            hasUnescapeErrors,
         };
 
         return node;
@@ -1540,33 +1541,50 @@ export namespace StringNode {
 
 export interface FormatStringNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.FormatString;
-    token: StringToken;
-    value: string;
-    hasUnescapeErrors: boolean;
-    expressions: ExpressionNode[];
+    token: FStringStartToken;
+    middleTokens: FStringMiddleToken[];
+    fieldExpressions: ExpressionNode[];
+    formatExpressions: ExpressionNode[];
+
+    // Include a dummy "value" to simplify other code.
+    value: '';
 }
 
 export namespace FormatStringNode {
     export function create(
-        token: StringToken,
-        unescapedValue: string,
-        hasUnescapeErrors: boolean,
-        expressions: ExpressionNode[]
+        startToken: FStringStartToken,
+        endToken: FStringEndToken | undefined,
+        middleTokens: FStringMiddleToken[],
+        fieldExpressions: ExpressionNode[],
+        formatExpressions: ExpressionNode[]
     ) {
         const node: FormatStringNode = {
-            start: token.start,
-            length: token.length,
+            start: startToken.start,
+            length: startToken.length,
             nodeType: ParseNodeType.FormatString,
             id: _nextNodeId++,
-            token,
-            value: unescapedValue,
-            hasUnescapeErrors,
-            expressions,
+            token: startToken,
+            middleTokens,
+            fieldExpressions,
+            formatExpressions,
+            value: '',
         };
 
-        expressions.forEach((expr) => {
+        fieldExpressions.forEach((expr) => {
             expr.parent = node;
+            extendRange(node, expr);
         });
+
+        if (formatExpressions) {
+            formatExpressions.forEach((expr) => {
+                expr.parent = node;
+                extendRange(node, expr);
+            });
+        }
+
+        if (endToken) {
+            extendRange(node, endToken);
+        }
 
         return node;
     }

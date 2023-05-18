@@ -727,11 +727,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitFormatString(node: FormatStringNode) {
-        this._log(
-            `${this._getPrefix(node)} ${getTokenString(this._file, node.token, this._lines)} ${
-                node.value
-            } unescape errors:(${node.hasUnescapeErrors})`
-        );
+        this._log(`${this._getPrefix(node)} f-string`);
         return true;
     }
 
@@ -841,11 +837,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitString(node: StringNode) {
-        this._log(
-            `${this._getPrefix(node)} ${getTokenString(this._file, node.token, this._lines)} ${
-                node.value
-            } unescape errors:(${node.hasUnescapeErrors})`
-        );
+        this._log(`${this._getPrefix(node)} ${getTokenString(this._file, node.token, this._lines)} ${node.value}`);
         return true;
     }
 
