@@ -401,6 +401,7 @@ export interface DataClassEntry {
 export interface TypedDictEntry {
     valueType: Type;
     isRequired: boolean;
+    isReadOnly: boolean;
     isProvided: boolean;
 }
 
@@ -437,6 +438,10 @@ export const enum ClassTypeFlags {
     // Used in conjunction with TypedDictClass, indicates that
     // the dictionary values can be omitted.
     CanOmitDictValues = 1 << 8,
+
+    // Used in conjunction with TypedDictClass, indicates that
+    // the dictionary values are all readonly.
+    DictValuesReadOnly = 1 << 9,
 
     // The class derives from a class that has the ABCMeta
     // metaclass. Such classes are allowed to contain
@@ -919,6 +924,10 @@ export namespace ClassType {
 
     export function isCanOmitDictValues(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.CanOmitDictValues);
+    }
+
+    export function isDictValuesReadOnly(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.DictValuesReadOnly);
     }
 
     export function isEnumClass(classType: ClassType) {
