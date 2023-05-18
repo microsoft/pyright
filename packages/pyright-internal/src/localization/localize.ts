@@ -867,18 +867,19 @@ export namespace Localizer {
         export const typedDictAccess = () => getRawString('Diagnostic.typedDictAccess');
         export const typedDictBadVar = () => getRawString('Diagnostic.typedDictBadVar');
         export const typedDictBaseClass = () => getRawString('Diagnostic.typedDictBaseClass');
+        export const typedDictBoolParam = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictBoolParam'));
         export const typedDictDelete = () => getRawString('Diagnostic.typedDictDelete');
         export const typedDictEmptyName = () => getRawString('Diagnostic.typedDictEmptyName');
         export const typedDictEntryName = () => getRawString('Diagnostic.typedDictEntryName');
         export const typedDictEntryUnique = () => getRawString('Diagnostic.typedDictEntryUnique');
         export const typedDictExtraArgs = () => getRawString('Diagnostic.typedDictExtraArgs');
-        export const typedDictFieldRedefinition = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictFieldRedefinition'));
+        export const typedDictFieldTypeRedefinition = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictFieldTypeRedefinition'));
         export const typedDictFirstArg = () => getRawString('Diagnostic.typedDictFirstArg');
         export const typedDictSecondArgDict = () => getRawString('Diagnostic.typedDictSecondArgDict');
         export const typedDictSecondArgDictEntry = () => getRawString('Diagnostic.typedDictSecondArgDictEntry');
         export const typedDictSet = () => getRawString('Diagnostic.typedDictSet');
-        export const typedDictTotalParam = () => getRawString('Diagnostic.typedDictTotalParam');
         export const typeExpectedClass = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeExpectedClass'));
         export const typeGuardArgCount = () => getRawString('Diagnostic.typeGuardArgCount');
@@ -1304,9 +1305,9 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; type: string }>(
                 getRawString('DiagnosticAddendum.typedDictFieldNotRequired')
             );
-        export const typedDictFieldRedefinition = () =>
+        export const typedDictFieldTypeRedefinition = () =>
             new ParameterizedString<{ parentType: string; childType: string }>(
-                getRawString('DiagnosticAddendum.typedDictFieldRedefinition')
+                getRawString('DiagnosticAddendum.typedDictFieldTypeRedefinition')
             );
         export const typedDictFieldRequired = () =>
             new ParameterizedString<{ name: string; type: string }>(

@@ -441,7 +441,7 @@ export const enum ClassTypeFlags {
     // The class derives from a class that has the ABCMeta
     // metaclass. Such classes are allowed to contain
     // @abstractmethod decorators.
-    SupportsAbstractMethods = 1 << 9,
+    SupportsAbstractMethods = 1 << 10,
 
     // Derives from property class and has the semantics of
     // a property (with optional setter, deleter).

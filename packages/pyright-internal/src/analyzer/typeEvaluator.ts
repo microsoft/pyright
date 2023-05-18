@@ -13739,7 +13739,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function createRequiredType(
         classType: ClassType,
         errorNode: ParseNode,
-        isRequired: boolean,
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvaluatorFlags
     ): TypeResult {
@@ -13752,7 +13751,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!typeArgs || typeArgs.length !== 1) {
             addError(
-                isRequired ? Localizer.Diagnostic.requiredArgCount() : Localizer.Diagnostic.notRequiredArgCount(),
+                classType.details.name === 'Required'
+                    ? Localizer.Diagnostic.requiredArgCount()
+                    : Localizer.Diagnostic.notRequiredArgCount(),
                 errorNode
             );
             return { type: classType };
@@ -13781,14 +13782,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isUsageLegal = true;
         }
 
+        let isRequired = typeArgs[0].isRequired;
+        let isNotRequired = typeArgs[0].isNotRequired;
+
         // Nested Required/NotRequired are not allowed.
         if (typeArgs[0].isRequired || typeArgs[0].isNotRequired) {
             isUsageLegal = false;
         }
 
+        isRequired = classType.details.name === 'Required';
+        isNotRequired = classType.details.name === 'NotRequired';
+
         if (!isUsageLegal) {
             addError(
-                isRequired
+                classType.details.name === 'Required'
                     ? Localizer.Diagnostic.requiredNotInTypedDict()
                     : Localizer.Diagnostic.notRequiredNotInTypedDict(),
                 errorNode
@@ -13796,7 +13803,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: ClassType.cloneForSpecialization(classType, [convertToInstance(typeArgType)], !!typeArgs) };
         }
 
-        return { type: typeArgType, isRequired, isNotRequired: !isRequired };
+        return { type: typeArgType, isRequired, isNotRequired };
     }
 
     function createUnpackType(
@@ -15082,8 +15089,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     fileInfo.definedConstants
                 );
                 if (constArgValue === undefined) {
-                    addError(Localizer.Diagnostic.typedDictTotalParam(), arg.valueExpression);
-                } else if (!constArgValue) {
+                    addError(
+                        Localizer.Diagnostic.typedDictBoolParam().format({ name: arg.name.value }),
+                        arg.valueExpression
+                    );
+                } else if (arg.name.value === 'total' && !constArgValue) {
                     classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
                 }
             } else {
@@ -18549,7 +18559,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 case 'Required':
                 case 'NotRequired': {
-                    return createRequiredType(classType, errorNode, aliasedName === 'Required', typeArgs, flags);
+                    return createRequiredType(classType, errorNode, typeArgs, flags);
                 }
 
                 case 'Self': {
