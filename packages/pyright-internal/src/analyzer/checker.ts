@@ -5446,14 +5446,14 @@ export class Checker extends ParseTreeWalker {
             if (!firstOverride) {
                 // If this is a method decorated with @override, validate that there
                 // is a base class method of the same name.
-                this._validateOverrideDecoratorNotPresent(typeOfSymbol);
+                this._validateOverrideDecoratorNotPresent(symbol, typeOfSymbol);
             } else {
-                this._validateOverrideDecoratorPresent(typeOfSymbol, firstOverride);
+                this._validateOverrideDecoratorPresent(symbol, typeOfSymbol, firstOverride);
             }
         });
     }
 
-    private _validateOverrideDecoratorPresent(overrideType: Type, baseMember: ClassMember) {
+    private _validateOverrideDecoratorPresent(symbol: Symbol, overrideType: Type, baseMember: ClassMember) {
         // Skip this check if disabled.
         if (this._fileInfo.diagnosticRuleSet.reportImplicitOverride === 'none') {
             return;
@@ -5485,6 +5485,12 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // If the declaration for the override function is not the same as the
+        // declaration for the symbol, the function was probably replaced by a decorator.
+        if (!symbol.getDeclarations().some((decl) => decl === overrideFunction!.details.declaration)) {
+            return;
+        }
+
         const funcNode = overrideFunction.details.declaration.node;
         this._evaluator.addDiagnostic(
             this._fileInfo.diagnosticRuleSet.reportImplicitOverride,
@@ -5500,7 +5506,7 @@ export class Checker extends ParseTreeWalker {
     // Determines whether the type is a function or overloaded function with an @override
     // decorator. In this case, an error is reported because no base class has declared
     // a method of the same name.
-    private _validateOverrideDecoratorNotPresent(overrideType: Type) {
+    private _validateOverrideDecoratorNotPresent(symbol: Symbol, overrideType: Type) {
         let overrideFunction: FunctionType | undefined;
 
         if (isFunction(overrideType)) {
@@ -5519,6 +5525,12 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (!overrideFunction?.details.declaration || !FunctionType.isOverridden(overrideFunction)) {
+            return;
+        }
+
+        // If the declaration for the override function is not the same as the
+        // declaration for the symbol, the function was probably replaced by a decorator.
+        if (!symbol.getDeclarations().some((decl) => decl === overrideFunction!.details.declaration)) {
             return;
         }
 
