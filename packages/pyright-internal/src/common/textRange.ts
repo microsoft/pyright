@@ -77,7 +77,7 @@ export namespace TextRange {
             return undefined;
         }
 
-        const combinedRange = ranges[0];
+        const combinedRange = { start: ranges[0].start, length: ranges[0].length };
         for (let i = 1; i < ranges.length; i++) {
             extend(combinedRange, ranges[i]);
         }
