@@ -240,7 +240,7 @@ export class PackageTypeVerifier {
     }
 
     private _getDeepestPyTypedInfo(rootDirectory: string, packageNameParts: string[]) {
-        let subNameParts = [...packageNameParts];
+        let subNameParts = Array.from(packageNameParts);
 
         // Find the deepest py.typed file that corresponds to the requested submodule.
         while (subNameParts.length >= 1) {

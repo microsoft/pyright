@@ -286,7 +286,7 @@ export class TypeVarContext {
     clone() {
         const newTypeVarMap = new TypeVarContext();
         if (this._solveForScopes) {
-            newTypeVarMap._solveForScopes = [...this._solveForScopes];
+            newTypeVarMap._solveForScopes = Array.from(this._solveForScopes);
         }
 
         newTypeVarMap._signatureContexts = this._signatureContexts.map((context) => context.clone());
@@ -325,7 +325,7 @@ export class TypeVarContext {
     copySignatureContexts(contexts: TypeVarSignatureContext[]) {
         assert(contexts.length > 0);
 
-        this._signatureContexts = [...contexts];
+        this._signatureContexts = Array.from(contexts);
     }
 
     // Returns the list of scopes this type var map is "solving".

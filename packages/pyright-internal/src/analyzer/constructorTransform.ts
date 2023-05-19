@@ -10,6 +10,7 @@
  *
  */
 
+import { appendArray } from '../common/collectionUtils';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
@@ -437,7 +438,10 @@ function applyPartialTransformToFunction(
         return param.category === ParameterCategory.VarArgDictionary;
     });
 
-    const newParamList = [...unassignedParamList, ...assignedKeywordParamList, ...kwargsParam];
+    const newParamList: FunctionParameter[] = [];
+    appendArray(newParamList, unassignedParamList);
+    appendArray(newParamList, assignedKeywordParamList);
+    appendArray(newParamList, kwargsParam);
 
     // Create a new __call__ method that uses the remaining parameters.
     const newCallMemberType = FunctionType.createInstance(

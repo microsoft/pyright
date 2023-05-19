@@ -71,6 +71,7 @@ import {
     lookUpObjectMember,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { appendArray } from '../common/collectionUtils';
 import { ExecutionEnvironment } from '../common/configOptions';
 import * as debug from '../common/debug';
 import { fail } from '../common/debug';
@@ -800,8 +801,9 @@ export class CompletionProvider {
         );
 
         const results: AutoImportResult[] = [];
-        results.push(
-            ...autoImporter.getAutoImportCandidates(
+        appendArray(
+            results,
+            autoImporter.getAutoImportCandidates(
                 priorWord,
                 similarityLimit,
                 /* abbrFromUsers */ undefined,
@@ -2055,7 +2057,7 @@ export class CompletionProvider {
             }
         }
 
-        return [...keys];
+        return Array.from(keys);
     }
 
     private _getLiteralCompletions(

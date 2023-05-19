@@ -8676,7 +8676,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             isTypeIncomplete = true;
                         }
 
-                        overloadsUsedForCall.push(...functionResult.overloadsUsedForCall);
+                        appendArray(overloadsUsedForCall, functionResult.overloadsUsedForCall);
 
                         if (functionResult.argumentErrors) {
                             argumentErrors = true;
@@ -8750,7 +8750,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             inferenceContext
                         );
 
-                        overloadsUsedForCall.push(...functionResult.overloadsUsedForCall);
+                        appendArray(overloadsUsedForCall, functionResult.overloadsUsedForCall);
 
                         if (functionResult.isTypeIncomplete) {
                             isTypeIncomplete = true;
@@ -8972,7 +8972,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 inferenceContext
                             );
 
-                            overloadsUsedForCall.push(...constructorResult.overloadsUsedForCall);
+                            appendArray(overloadsUsedForCall, constructorResult.overloadsUsedForCall);
 
                             if (constructorResult.argumentErrors) {
                                 argumentErrors = true;
@@ -9052,7 +9052,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     recursionCount
                                 );
 
-                                overloadsUsedForCall.push(...functionResult.overloadsUsedForCall);
+                                appendArray(overloadsUsedForCall, functionResult.overloadsUsedForCall);
 
                                 if (functionResult.argumentErrors) {
                                     argumentErrors = true;
@@ -9137,7 +9137,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             recursionCount
                         );
 
-                        overloadsUsedForCall.push(...callResult.overloadsUsedForCall);
+                        appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
 
                         if (callResult.argumentErrors) {
                             argumentErrors = true;
@@ -10019,7 +10019,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // (i.e. an arg starting with a "**"), we will assume that all parameters
             // are matched.
             if (!unpackedDictionaryArgType && !FunctionType.isDefaultParameterCheckDisabled(typeResult.type)) {
-                const unassignedParams = [...paramMap.keys()].filter((name) => {
+                const unassignedParams = Array.from(paramMap.keys()).filter((name) => {
                     const entry = paramMap.get(name)!;
                     return !entry || entry.argsReceived < entry.argsNeeded;
                 });
@@ -10904,7 +10904,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Report any missing parameters.
         if (!reportedArgError) {
-            let unassignedParams = [...paramMap.keys()];
+            let unassignedParams = Array.from(paramMap.keys());
 
             // Parameters that have defaults can be left unspecified.
             unassignedParams = unassignedParams.filter((name) => {
@@ -15398,7 +15398,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // This needs to be done after dataclass processing.
         if (classType.details.localSlotsNames) {
             let isLimitedToSlots = true;
-            const extendedSlotsNames = [...classType.details.localSlotsNames];
+            const extendedSlotsNames = Array.from(classType.details.localSlotsNames);
 
             classType.details.baseClasses.forEach((baseClass) => {
                 if (isInstantiableClass(baseClass)) {
@@ -22181,11 +22181,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         filteredOverloads.push(overload);
 
                         if (destTypeVarContextClone) {
-                            destTypeVarSignatures.push(...destTypeVarContextClone.getSignatureContexts());
+                            appendArray(destTypeVarSignatures, destTypeVarContextClone.getSignatureContexts());
                         }
 
                         if (srcTypeVarContextClone) {
-                            srcTypeVarSignatures.push(...srcTypeVarContextClone.getSignatureContexts());
+                            appendArray(srcTypeVarSignatures, srcTypeVarContextClone.getSignatureContexts());
                         }
                     }
                 });

@@ -12,6 +12,7 @@
  * the `__init__` method on the resulting object with the same arguments.
  */
 
+import { appendArray } from '../common/collectionUtils';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
 import { ExpressionNode } from '../parser/parseNodes';
@@ -124,7 +125,7 @@ export function validateConstructorArguments(
             if (newCallResult.argumentErrors) {
                 argumentErrors = true;
             } else {
-                overloadsUsedForCall.push(...newCallResult.overloadsUsedForCall);
+                appendArray(overloadsUsedForCall, newCallResult.overloadsUsedForCall);
             }
 
             if (newCallResult.isTypeIncomplete) {
@@ -226,7 +227,7 @@ export function validateConstructorArguments(
             if (callResult.argumentErrors) {
                 argumentErrors = true;
             } else {
-                overloadsUsedForCall.push(...callResult.overloadsUsedForCall);
+                appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
             }
 
             if (callResult.isTypeIncomplete) {
@@ -430,7 +431,7 @@ function validateInitMethod(
                         argumentErrors = true;
                     }
 
-                    overloadsUsedForCall.push(...callResult.overloadsUsedForCall);
+                    appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
 
                     return applyExpectedSubtypeForConstructor(evaluator, type, expectedSubType, typeVarContext);
                 }

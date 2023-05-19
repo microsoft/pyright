@@ -15,6 +15,7 @@
 import { CancellationToken } from 'vscode-languageserver';
 
 import { Commands } from '../commands/commands';
+import { appendArray } from '../common/collectionUtils';
 import { DiagnosticLevel } from '../common/configOptions';
 import { assert, assertNever } from '../common/debug';
 import { ActionKind, Diagnostic, DiagnosticAddendum, RenameShadowedFileAction } from '../common/diagnostic';
@@ -40,8 +41,8 @@ import {
     ErrorNode,
     ExceptNode,
     ExpressionNode,
-    FormatStringNode,
     ForNode,
+    FormatStringNode,
     FunctionNode,
     GlobalNode,
     IfNode,
@@ -49,7 +50,6 @@ import {
     ImportFromAsNode,
     ImportFromNode,
     IndexNode,
-    isExpressionNode,
     LambdaNode,
     ListComprehensionIfNode,
     ListComprehensionNode,
@@ -86,25 +86,26 @@ import {
     WithNode,
     YieldFromNode,
     YieldNode,
+    isExpressionNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { getUnescapedString, UnescapeError, UnescapeErrorType } from '../parser/stringTokenUtils';
+import { UnescapeError, UnescapeErrorType, getUnescapedString } from '../parser/stringTokenUtils';
 import { OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
-import { createImportedModuleDescriptor, ImportedModuleDescriptor, ImportResolver } from './importResolver';
+import { ImportResolver, ImportedModuleDescriptor, createImportedModuleDescriptor } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
 import { getParameterListDetails } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
-import { getRegionComments, RegionComment, RegionCommentType } from './regions';
+import { RegionComment, RegionCommentType, getRegionComments } from './regions';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode } from './sourceFile';
-import { isStubFile, SourceMapper } from './sourceMapper';
+import { SourceMapper, isStubFile } from './sourceMapper';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
@@ -118,41 +119,10 @@ import {
     narrowTypeForContainerElementType,
 } from './typeGuards';
 import {
-    ClassType,
-    ClassTypeFlags,
-    combineTypes,
-    FunctionType,
-    FunctionTypeFlags,
-    isAnyOrUnknown,
-    isClass,
-    isClassInstance,
-    isFunction,
-    isInstantiableClass,
-    isModule,
-    isNever,
-    isNoneInstance,
-    isOverloadedFunction,
-    isParamSpec,
-    isPossiblyUnbound,
-    isTypeSame,
-    isTypeVar,
-    isUnbound,
-    isUnion,
-    isUnknown,
-    NoneType,
-    OverloadedFunctionType,
-    Type,
-    TypeBase,
-    TypeCategory,
-    TypeVarType,
-    UnknownType,
-    Variance,
-} from './types';
-import {
-    applySolvedTypeVars,
     AssignTypeFlags,
     ClassMember,
     ClassMemberLookupFlags,
+    applySolvedTypeVars,
     convertToInstance,
     derivesFromAnyOrUnknown,
     derivesFromClassRecursive,
@@ -177,6 +147,37 @@ import {
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
+import {
+    ClassType,
+    ClassTypeFlags,
+    FunctionType,
+    FunctionTypeFlags,
+    NoneType,
+    OverloadedFunctionType,
+    Type,
+    TypeBase,
+    TypeCategory,
+    TypeVarType,
+    UnknownType,
+    Variance,
+    combineTypes,
+    isAnyOrUnknown,
+    isClass,
+    isClassInstance,
+    isFunction,
+    isInstantiableClass,
+    isModule,
+    isNever,
+    isNoneInstance,
+    isOverloadedFunction,
+    isParamSpec,
+    isPossiblyUnbound,
+    isTypeSame,
+    isTypeVar,
+    isUnbound,
+    isUnion,
+    isUnknown,
+} from './types';
 
 interface TypeVarUsageInfo {
     isExempt: boolean;
@@ -6329,7 +6330,7 @@ export class Checker extends ParseTreeWalker {
                 }
             }
 
-            exceptionTypesSoFar.push(...typesOfThisExcept);
+            appendArray(exceptionTypesSoFar, typesOfThisExcept);
         });
     }
 

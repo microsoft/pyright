@@ -10,6 +10,7 @@
 import { isMainThread } from 'worker_threads';
 
 import { OperationCanceledException } from '../common/cancellationUtils';
+import { appendArray } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
@@ -289,12 +290,12 @@ export class SourceFile {
             includeWarningsAndErrors = false;
         }
 
-        let diagList = [
-            ...this._writableData.parseDiagnostics,
-            ...this._writableData.commentDiagnostics,
-            ...this._writableData.bindDiagnostics,
-            ...this._writableData.checkerDiagnostics,
-        ];
+        let diagList: Diagnostic[] = [];
+        appendArray(diagList, this._writableData.parseDiagnostics);
+        appendArray(diagList, this._writableData.commentDiagnostics);
+        appendArray(diagList, this._writableData.bindDiagnostics);
+        appendArray(diagList, this._writableData.checkerDiagnostics);
+
         const prefilteredDiagList = diagList;
         const typeIgnoreLinesClone = new Map(this._writableData.typeIgnoreLines);
         const pyrightIgnoreLinesClone = new Map(this._writableData.pyrightIgnoreLines);

@@ -11,7 +11,7 @@
 import { CancellationToken } from 'vscode-languageserver';
 
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { addIfUnique, createMapFromItems } from '../common/collectionUtils';
+import { addIfUnique, appendArray, createMapFromItems } from '../common/collectionUtils';
 import { TextEditAction } from '../common/editAction';
 import { ReadOnlyFileSystem } from '../common/fileSystem';
 import {
@@ -341,8 +341,9 @@ export function getTextEditsForAutoImportInsertions(
 
     const map = createMapFromItems(importNameInfo, (i) => `${i.module.moduleName}-${i.nameForImportFrom ?? ''}`);
     for (const importInfo of map.values()) {
-        insertionEdits.push(
-            ..._getInsertionEditsForAutoImportInsertion(
+        appendArray(
+            insertionEdits,
+            _getInsertionEditsForAutoImportInsertion(
                 importInfo,
                 { name: importInfo[0].module.moduleName, nameForImportFrom: importInfo[0].nameForImportFrom },
                 importStatements,

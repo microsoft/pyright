@@ -753,7 +753,7 @@ export namespace ClassType {
         const newClassType = TypeBase.cloneType(classType);
         newClassType.details = { ...newClassType.details };
         newClassType.details.fields = new Map(newClassType.details.fields);
-        newClassType.details.mro = [...newClassType.details.mro];
+        newClassType.details.mro = Array.from(newClassType.details.mro);
         newClassType.details.mro[0] = cloneAsInstantiable(newClassType);
         return newClassType;
     }
@@ -1520,11 +1520,13 @@ export namespace FunctionType {
             // Update the specialized parameter types as well.
             if (type.specializedTypes) {
                 newFunction.specializedTypes = {
-                    parameterTypes: [...type.specializedTypes.parameterTypes],
+                    parameterTypes: Array.from(type.specializedTypes.parameterTypes),
                     returnType: type.specializedTypes.returnType,
                 };
                 if (type.specializedTypes.parameterDefaultArgs) {
-                    newFunction.specializedTypes.parameterDefaultArgs = [...type.specializedTypes.parameterDefaultArgs];
+                    newFunction.specializedTypes.parameterDefaultArgs = Array.from(
+                        type.specializedTypes.parameterDefaultArgs
+                    );
                 }
                 paramSpecValue.details.parameters.forEach((paramInfo) => {
                     newFunction.specializedTypes!.parameterTypes.push(paramInfo.type);
@@ -1975,7 +1977,7 @@ export namespace TypeCondition {
         }
 
         // Deduplicate the lists.
-        const combined = [...conditions1];
+        const combined = Array.from(conditions1);
         conditions2.forEach((c1) => {
             if (!combined.some((c2) => _compare(c1, c2) === 0)) {
                 combined.push(c1);

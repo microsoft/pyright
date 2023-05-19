@@ -159,7 +159,7 @@ export class WorkspaceFactory {
     }
 
     items() {
-        return [...this._map.values()];
+        return Array.from(this._map.values());
     }
 
     applyPythonPath(workspace: Workspace, newPythonPath: string | undefined): string | undefined {
@@ -337,9 +337,9 @@ export class WorkspaceFactory {
         // for the notebook.
         // If a notebook has the new python path but is currently in a workspace with the path hardcoded, we need to move it to
         // this workspace.
-        const oldPathFiles = [
-            ...new Set<string>(mutableWorkspace.service.getOpenFiles().filter((f) => this._isPythonPathImmutable(f))),
-        ];
+        const oldPathFiles = Array.from(
+            new Set<string>(mutableWorkspace.service.getOpenFiles().filter((f) => this._isPythonPathImmutable(f)))
+        );
         const exitingWorkspaceWithSamePath = this.items().find(
             (w) => w.pythonPath === mutableWorkspace.pythonPath && w !== mutableWorkspace
         );
@@ -361,7 +361,7 @@ export class WorkspaceFactory {
         // Immutable files from a different workspace (with the same path as the new path)
         // have to be moved to the mutable workspace (which now has the new path)
         if (exitingWorkspaceWithSamePath) {
-            this.moveFiles([...newPathFiles], exitingWorkspaceWithSamePath!, mutableWorkspace);
+            this.moveFiles(Array.from(newPathFiles), exitingWorkspaceWithSamePath!, mutableWorkspace);
             this.removeUnused(exitingWorkspaceWithSamePath);
         }
     }
