@@ -1815,6 +1815,7 @@ function narrowTypeForTypedDictKey(
                 // Add the new entry.
                 newNarrowedEntriesMap.set(literalKey.literalValue as string, {
                     valueType: tdEntry.valueType,
+                    isReadOnly: tdEntry.isReadOnly,
                     isRequired: false,
                     isProvided: true,
                 });

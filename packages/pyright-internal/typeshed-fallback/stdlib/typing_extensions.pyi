@@ -345,5 +345,10 @@ class TypeAliasType:
     __parameters__: tuple[Any, ...] | None
     __value__: Any
 
+
+# PEP 705
+ReadOnly: _SpecialForm
+
+
 # Proposed extension to PEP 647
 StrictTypeGuard: _SpecialForm = ...

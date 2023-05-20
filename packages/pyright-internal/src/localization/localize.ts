@@ -751,6 +751,8 @@ export namespace Localizer {
             new ParameterizedString<{ directive: string }>(getRawString('Diagnostic.pyrightCommentUnknownDirective'));
         export const pyrightCommentUnknownDiagnosticRule = () =>
             new ParameterizedString<{ rule: string }>(getRawString('Diagnostic.pyrightCommentUnknownDiagnosticRule'));
+        export const readOnlyArgCount = () => getRawString('Diagnostic.readOnlyArgCount');
+        export const readOnlyNotInTypedDict = () => getRawString('Diagnostic.readOnlyNotInTypedDict');
         export const recursiveDefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.recursiveDefinition'));
         export const relativeImportNotAllowed = () => getRawString('Diagnostic.relativeImportNotAllowed');
@@ -877,6 +879,8 @@ export namespace Localizer {
         export const typedDictEntryName = () => getRawString('Diagnostic.typedDictEntryName');
         export const typedDictEntryUnique = () => getRawString('Diagnostic.typedDictEntryUnique');
         export const typedDictExtraArgs = () => getRawString('Diagnostic.typedDictExtraArgs');
+        export const typedDictFieldReadOnlyRedefinition = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictFieldReadOnlyRedefinition'));
         export const typedDictFieldTypeRedefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictFieldTypeRedefinition'));
         export const typedDictFirstArg = () => getRawString('Diagnostic.typedDictFirstArg');
@@ -1132,6 +1136,8 @@ export namespace Localizer {
             );
         export const keyNotRequired = () =>
             new ParameterizedString<{ name: string; type: string }>(getRawString('DiagnosticAddendum.keyNotRequired'));
+        export const keyReadOnly = () =>
+            new ParameterizedString<{ name: string; type: string }>(getRawString('DiagnosticAddendum.keyReadOnly'));
         export const keyRequiredDeleted = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.keyRequiredDeleted'));
         export const keyUndefined = () =>
@@ -1303,6 +1309,10 @@ export namespace Localizer {
         export const typedDictFieldMissing = () =>
             new ParameterizedString<{ name: string; type: string }>(
                 getRawString('DiagnosticAddendum.typedDictFieldMissing')
+            );
+        export const typedDictFieldNotReadOnly = () =>
+            new ParameterizedString<{ name: string; type: string }>(
+                getRawString('DiagnosticAddendum.typedDictFieldNotReadOnly')
             );
         export const typedDictFieldNotRequired = () =>
             new ParameterizedString<{ name: string; type: string }>(

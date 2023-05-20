@@ -6507,6 +6507,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isIncomplete = baseTypeResult.isIncomplete;
         let isRequired = false;
         let isNotRequired = false;
+        let isReadOnly = false;
 
         const type = mapSubtypesExpandTypeVars(
             baseTypeResult.type,
@@ -6675,6 +6676,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isNotRequired = true;
                     }
 
+                    if (result.isReadOnly) {
+                        isReadOnly = true;
+                    }
+
                     return result.type;
                 }
 
@@ -6725,7 +6730,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        return { type, isIncomplete, isRequired, isNotRequired };
+        return { type, isIncomplete, isReadOnly, isRequired, isNotRequired };
     }
 
     // Determines the effective variance of the type parameters for a generic
@@ -13736,7 +13741,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return synthesizeTypeVarForSelfCls(enclosingClassTypeResult.classType, /* isClsParam */ true);
     }
 
-    function createRequiredType(
+    function createRequiredOrReadOnlyType(
         classType: ClassType,
         errorNode: ParseNode,
         typeArgs: TypeResultWithNode[] | undefined,
@@ -13751,7 +13756,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!typeArgs || typeArgs.length !== 1) {
             addError(
-                classType.details.name === 'Required'
+                classType.details.name === 'ReadOnly'
+                    ? Localizer.Diagnostic.readOnlyArgCount()
+                    : classType.details.name === 'Required'
                     ? Localizer.Diagnostic.requiredArgCount()
                     : Localizer.Diagnostic.notRequiredArgCount(),
                 errorNode
@@ -13782,12 +13789,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isUsageLegal = true;
         }
 
+        let isReadOnly = typeArgs[0].isReadOnly;
         let isRequired = typeArgs[0].isRequired;
         let isNotRequired = typeArgs[0].isNotRequired;
 
-        // Nested Required/NotRequired are not allowed.
-        if (typeArgs[0].isRequired || typeArgs[0].isNotRequired) {
-            isUsageLegal = false;
+        if (classType.details.name === 'ReadOnly') {
+            // Nested ReadOnly are not allowed.
+            if (typeArgs[0].isReadOnly) {
+                isUsageLegal = false;
+            }
+
+            isReadOnly = true;
+        } else {
+            // Nested Required/NotRequired are not allowed.
+            if (typeArgs[0].isRequired || typeArgs[0].isNotRequired) {
+                isUsageLegal = false;
+            }
+
+            isRequired = classType.details.name === 'Required';
+            isNotRequired = classType.details.name === 'NotRequired';
         }
 
         isRequired = classType.details.name === 'Required';
@@ -13795,7 +13815,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!isUsageLegal) {
             addError(
-                classType.details.name === 'Required'
+                classType.details.name === 'ReadOnly'
+                    ? Localizer.Diagnostic.readOnlyNotInTypedDict()
+                    : classType.details.name === 'Required'
                     ? Localizer.Diagnostic.requiredNotInTypedDict()
                     : Localizer.Diagnostic.notRequiredNotInTypedDict(),
                 errorNode
@@ -13803,7 +13825,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: ClassType.cloneForSpecialization(classType, [convertToInstance(typeArgType)], !!typeArgs) };
         }
 
-        return { type: typeArgType, isRequired, isNotRequired };
+        return { type: typeArgType, isReadOnly, isRequired, isNotRequired };
     }
 
     function createUnpackType(
@@ -13934,6 +13956,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         return {
             type: TypeBase.cloneForAnnotated(typeArgs[0].type),
+            isReadOnly: typeArgs[0].isReadOnly,
             isRequired: typeArgs[0].isRequired,
             isNotRequired: typeArgs[0].isNotRequired,
         };
@@ -14341,6 +14364,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ['NoReturn', { alias: '', module: 'builtins' }],
             ['Never', { alias: '', module: 'builtins' }],
             ['LiteralString', { alias: '', module: 'builtins' }],
+            ['ReadOnly', { alias: '', module: 'builtins' }],
         ]);
 
         const aliasMapEntry = specialTypes.get(assignedName);
@@ -15080,8 +15104,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     metaclassNode = arg.valueExpression;
                 }
-            } else if (arg.name.value === 'total' && ClassType.isTypedDictClass(classType)) {
-                // The "total" parameter name applies only for TypedDict classes.
+            } else if (
+                ClassType.isTypedDictClass(classType) &&
+                (arg.name.value === 'total' || arg.name.value === 'readonly')
+            ) {
+                // The "total" and "readonly" parameters apply only for TypedDict classes.
                 // PEP 589 specifies that the parameter must be either True or False.
                 const constArgValue = evaluateStaticBoolExpression(
                     arg.valueExpression,
@@ -15095,6 +15122,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 } else if (arg.name.value === 'total' && !constArgValue) {
                     classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
+                } else if (arg.name.value === 'readonly' && constArgValue) {
+                    classType.details.flags |= ClassTypeFlags.DictValuesReadOnly;
                 }
             } else {
                 // Collect arguments that will be passed to the `__init_subclass__`
@@ -18558,8 +18587,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Required':
-                case 'NotRequired': {
-                    return createRequiredType(classType, errorNode, typeArgs, flags);
+                case 'NotRequired':
+                case 'ReadOnly': {
+                    return createRequiredOrReadOnlyType(classType, errorNode, typeArgs, flags);
                 }
 
                 case 'Self': {

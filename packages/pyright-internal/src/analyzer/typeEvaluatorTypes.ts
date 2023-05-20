@@ -176,9 +176,10 @@ export interface TypeResult<T extends Type = Type> {
     // to __get__ and __set__ types?
     isAsymmetricDescriptor?: boolean;
 
-    // Is the type wrapped in a "Required" or "NotRequired" class?
+    // Is the type wrapped in a "Required", "NotRequired" or "ReadOnly" class?
     isRequired?: boolean;
     isNotRequired?: boolean;
+    isReadOnly?: boolean;
 
     // If a call expression, which overloads were used to satisfy it?
     overloadsUsedForCall?: FunctionType[];

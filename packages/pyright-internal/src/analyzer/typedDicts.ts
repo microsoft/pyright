@@ -185,6 +185,8 @@ export function createTypedDictType(
                     );
                 } else if (arg.name.value === 'total' && arg.valueExpression.constType === KeywordType.False) {
                     classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
+                } else if (arg.name.value === 'readonly' && arg.valueExpression.constType === KeywordType.True) {
+                    classType.details.flags |= ClassTypeFlags.DictValuesReadOnly;
                 }
             } else {
                 evaluator.addError(Localizer.Diagnostic.typedDictExtraArgs(), arg.valueExpression || errorNode);
@@ -293,6 +295,7 @@ export function synthesizeTypedDictClassMethods(
 
     const entries = getTypedDictMembersForClass(evaluator, classType);
     let allEntriesAreNotRequired = true;
+    let allEntriesAreReadOnly = true;
     entries.forEach((entry, name) => {
         FunctionType.addParameter(initOverride1, {
             category: ParameterCategory.Simple,
@@ -312,6 +315,10 @@ export function synthesizeTypedDictClassMethods(
 
         if (entry.isRequired) {
             allEntriesAreNotRequired = false;
+        }
+
+        if (!entry.isReadOnly) {
+            allEntriesAreReadOnly = false;
         }
     });
 
@@ -500,11 +507,13 @@ export function synthesizeTypedDictClassMethods(
             }
 
             // Add a pop method if the entry is not required.
-            if (!entry.isRequired) {
+            if (!entry.isRequired && !entry.isReadOnly) {
                 appendArray(popOverloads, createPopMethods(nameLiteralType, entry.valueType));
             }
 
-            setDefaultOverloads.push(createSetDefaultMethod(nameLiteralType, entry.valueType));
+            if (!entry.isReadOnly) {
+                setDefaultOverloads.push(createSetDefaultMethod(nameLiteralType, entry.valueType));
+            }
         });
 
         // If the class is marked "@final", we can assume that any other literal
@@ -552,11 +561,16 @@ export function synthesizeTypedDictClassMethods(
             );
         }
 
-        symbolTable.set('__delitem__', Symbol.createWithType(SymbolFlags.ClassMember, createDelItemMethod(strType)));
+        if (!allEntriesAreReadOnly) {
+            symbolTable.set(
+                '__delitem__',
+                Symbol.createWithType(SymbolFlags.ClassMember, createDelItemMethod(strType))
+            );
+        }
 
         // If the TypedDict is final and all of its entries are NotRequired,
         // add a "clear" and "popitem" method.
-        if (isClassFinal && allEntriesAreNotRequired) {
+        if (isClassFinal && allEntriesAreNotRequired && !allEntriesAreReadOnly) {
             const clearMethod = FunctionType.createSynthesizedInstance('clear');
             FunctionType.addParameter(clearMethod, selfParam);
             clearMethod.details.declaredReturnType = NoneType.createInstance();
@@ -705,6 +719,7 @@ function getTypedDictMembersForClassRecursive(
                 valueType = applySolvedTypeVars(valueType, typeVarContext);
 
                 let isRequired = !ClassType.isCanOmitDictValues(classType);
+                let isReadOnly = ClassType.isDictValuesReadOnly(classType);
 
                 if (isRequiredTypedDictVariable(evaluator, symbol)) {
                     isRequired = true;
@@ -712,15 +727,31 @@ function getTypedDictMembersForClassRecursive(
                     isRequired = false;
                 }
 
+                if (isReadOnlyTypedDictVariable(evaluator, symbol)) {
+                    isReadOnly = true;
+                }
+
                 // If a base class already declares this field, verify that the
                 // subclass isn't trying to change its type. That's expressly
                 // forbidden in PEP 589.
                 const existingEntry = keyMap.get(name);
                 if (existingEntry) {
-                    const isTypeCompatible = isTypeSame(existingEntry.valueType, valueType);
+                    let isTypeCompatible: boolean;
+                    const diag = new DiagnosticAddendum();
+
+                    // If the field is read-only, the type is covariant. If it's not
+                    // read-only, it's invariant.
+                    if (existingEntry.isReadOnly) {
+                        isTypeCompatible = evaluator.assignType(
+                            existingEntry.valueType,
+                            valueType,
+                            diag.createAddendum()
+                        );
+                    } else {
+                        isTypeCompatible = isTypeSame(existingEntry.valueType, valueType);
+                    }
 
                     if (!isTypeCompatible) {
-                        const diag = new DiagnosticAddendum();
                         diag.addMessage(
                             Localizer.DiagnosticAddendum.typedDictFieldTypeRedefinition().format({
                                 parentType: evaluator.printType(existingEntry.valueType),
@@ -736,10 +767,24 @@ function getTypedDictMembersForClassRecursive(
                             lastDecl.node
                         );
                     }
+
+                    // Make sure that the derived class isn't marking a previously writable
+                    // entry as read-only.
+                    if (!existingEntry.isReadOnly && isReadOnly) {
+                        evaluator.addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typedDictFieldReadOnlyRedefinition().format({
+                                name,
+                            }),
+                            lastDecl.node
+                        );
+                    }
                 }
 
                 keyMap.set(name, {
                     valueType,
+                    isReadOnly,
                     isRequired,
                     isProvided: false,
                 });
@@ -772,12 +817,22 @@ export function assignTypedDictToTypedDict(
             );
             typesAreConsistent = false;
         } else {
-            if (destEntry.isRequired !== srcEntry.isRequired) {
+            if (destEntry.isRequired !== srcEntry.isRequired && !destEntry.isReadOnly) {
                 const message = destEntry.isRequired
                     ? Localizer.DiagnosticAddendum.typedDictFieldRequired()
                     : Localizer.DiagnosticAddendum.typedDictFieldNotRequired();
                 diag?.createAddendum().addMessage(
                     message.format({
+                        name,
+                        type: evaluator.printType(destType),
+                    })
+                );
+                typesAreConsistent = false;
+            }
+
+            if (!destEntry.isReadOnly && srcEntry.isReadOnly) {
+                diag?.createAddendum().addMessage(
+                    Localizer.DiagnosticAddendum.typedDictFieldNotReadOnly().format({
                         name,
                         type: evaluator.printType(destType),
                     })
@@ -895,6 +950,7 @@ export function assignToTypedDict(
                 if (!symbolEntry.isRequired) {
                     narrowedEntries.set(keyValue, {
                         valueType: valueTypes[index].type,
+                        isReadOnly: !!valueTypes[index].isReadOnly,
                         isRequired: false,
                         isProvided: true,
                     });
@@ -993,6 +1049,13 @@ export function getTypeOfIndexedTypedDict(
                         })
                     );
                 }
+            } else if (entry.isReadOnly && usage.method !== 'get') {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.keyReadOnly().format({
+                        name: entryName,
+                        type: evaluator.printType(baseType),
+                    })
+                );
             }
 
             if (usage.method === 'set') {
@@ -1077,6 +1140,7 @@ export function narrowForKeyAssignment(classType: ClassType, key: string) {
     narrowedEntries.set(key, {
         isProvided: true,
         isRequired: false,
+        isReadOnly: tdEntry.isReadOnly,
         valueType: tdEntry.valueType,
     });
 
@@ -1110,5 +1174,20 @@ function isNotRequiredTypedDictVariable(evaluator: TypeEvaluator, symbol: Symbol
         });
 
         return !!annotatedType.isNotRequired;
+    });
+}
+
+function isReadOnlyTypedDictVariable(evaluator: TypeEvaluator, symbol: Symbol) {
+    return symbol.getDeclarations().some((decl) => {
+        if (decl.type !== DeclarationType.Variable || !decl.typeAnnotationNode) {
+            return false;
+        }
+
+        const annotatedType = evaluator.getTypeOfExpressionExpectingType(decl.typeAnnotationNode, {
+            allowFinal: true,
+            allowRequired: true,
+        });
+
+        return !!annotatedType.isReadOnly;
     });
 }
