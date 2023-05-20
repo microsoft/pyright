@@ -87,6 +87,9 @@ export function synthesizeDataClassMethods(
     const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
     const initType = FunctionType.createSynthesizedInstance('__init__');
 
+    // Override `__new__` because some dataclasses (such as those that are
+    // created by subclassing from NamedTuple) may have their own custom
+    // __new__ that requires overriding.
     FunctionType.addParameter(newType, {
         category: ParameterCategory.Simple,
         name: 'cls',
