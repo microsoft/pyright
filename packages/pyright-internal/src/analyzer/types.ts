@@ -626,6 +626,10 @@ export interface ClassType extends TypeBase {
     // through the use of a guard expression.
     typedDictNarrowedEntries?: Map<string, TypedDictEntry> | undefined;
 
+    // Indicates that the typed dict class should be considered "partial",
+    // i.e. all of its entries are effectively NotRequired.
+    isTypedDictPartial?: boolean;
+
     // Indicates whether the class is an asymmetric descriptor
     // or property - one where the __get__ and __set__ types differ.
     // If undefined, it hasn't been tested yet for asymmetry.
@@ -732,6 +736,12 @@ export namespace ClassType {
     ): ClassType {
         const newClassType = TypeBase.cloneType(classType);
         newClassType.typedDictNarrowedEntries = narrowedEntries;
+        return newClassType;
+    }
+
+    export function cloneForPartialTypedDict(classType: ClassType): ClassType {
+        const newClassType = TypeBase.cloneType(classType);
+        newClassType.isTypedDictPartial = true;
         return newClassType;
     }
 

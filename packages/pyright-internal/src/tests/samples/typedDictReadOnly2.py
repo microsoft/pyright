@@ -53,6 +53,14 @@ class TD4(TypedDict, total=True):
 td3: TD3 = {"a": ""}
 td4: TD4 = {"a": ""}
 
+reveal_type(td4.update, expected_text="(__m: Never, /) -> None")
+
+# This should generate an error.
+td4.update({"a", ""})
+
+# This should generate an error.
+td4.update({})
+
 # This should generate an error.
 td5 = td3 | td4
 

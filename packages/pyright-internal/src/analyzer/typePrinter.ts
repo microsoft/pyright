@@ -953,6 +953,13 @@ function printObjectTypeForClassInternal(
         }
     }
 
+    // Wrap in a "Partial" for TypedDict that has been synthesized as partial.
+    if (type.isTypedDictPartial) {
+        if ((printTypeFlags & PrintTypeFlags.PythonSyntax) === 0) {
+            objName = `Partial[${objName}]`;
+        }
+    }
+
     return objName;
 }
 

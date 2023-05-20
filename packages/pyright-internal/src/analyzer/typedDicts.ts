@@ -45,6 +45,7 @@ import {
     isInstantiableClass,
     isTypeSame,
     maxTypeRecursionCount,
+    NeverType,
     NoneType,
     OverloadedFunctionType,
     Type,
@@ -464,6 +465,40 @@ export function synthesizeTypedDictClassMethods(
             return delItemOverload;
         }
 
+        function createUpdateMethod() {
+            const updateMethod = FunctionType.createSynthesizedInstance('update');
+            FunctionType.addParameter(updateMethod, selfParam);
+
+            let foundReadOnlyEntry = false;
+            entries.forEach((entry) => {
+                if (entry.isReadOnly) {
+                    foundReadOnlyEntry = true;
+                }
+            });
+
+            // If at least one entry is read-only, don't allow updates. We need to override
+            // the update method provided by the _TypedDict base class, so we'll use
+            // a Never parameter to generate an error if someone attempts to call it
+            // in this case.
+            FunctionType.addParameter(updateMethod, {
+                category: ParameterCategory.Simple,
+                name: '__m',
+                hasDeclaredType: true,
+                type: foundReadOnlyEntry
+                    ? NeverType.createNever()
+                    : ClassType.cloneAsInstance(ClassType.cloneForPartialTypedDict(classType)),
+            });
+
+            FunctionType.addParameter(updateMethod, {
+                category: ParameterCategory.Simple,
+                name: '',
+                type: AnyType.create(),
+            });
+
+            updateMethod.details.declaredReturnType = NoneType.createInstance();
+            return updateMethod;
+        }
+
         const getOverloads: FunctionType[] = [];
         const popOverloads: FunctionType[] = [];
         const setDefaultOverloads: FunctionType[] = [];
@@ -568,6 +603,8 @@ export function synthesizeTypedDictClassMethods(
             );
         }
 
+        symbolTable.set('update', Symbol.createWithType(SymbolFlags.ClassMember, createUpdateMethod()));
+
         // If the TypedDict is final and all of its entries are NotRequired,
         // add a "clear" and "popitem" method.
         if (isClassFinal && allEntriesAreNotRequired && !allEntriesAreReadOnly) {
@@ -623,6 +660,13 @@ export function getTypedDictMembersForClass(evaluator: TypeEvaluator, classType:
             const tdEntry = { ...value };
             tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, typeVarContext);
             entries.set(key, tdEntry);
+        });
+    }
+
+    // If the class is "Partial", make all entries optional.
+    if (classType.isTypedDictPartial) {
+        entries.forEach((entry) => {
+            entry.isRequired = false;
         });
     }
 
@@ -803,21 +847,24 @@ export function assignTypedDictToTypedDict(
     recursionCount = 0
 ) {
     let typesAreConsistent = true;
+    const isDestPartial = !!destType.isTypedDictPartial;
     const destEntries = getTypedDictMembersForClass(evaluator, destType);
     const srcEntries = getTypedDictMembersForClass(evaluator, srcType, /* allowNarrowed */ true);
 
     destEntries.forEach((destEntry, name) => {
         const srcEntry = srcEntries.get(name);
         if (!srcEntry) {
-            diag?.createAddendum().addMessage(
-                Localizer.DiagnosticAddendum.typedDictFieldMissing().format({
-                    name,
-                    type: evaluator.printType(srcType),
-                })
-            );
-            typesAreConsistent = false;
+            if (!isDestPartial) {
+                diag?.createAddendum().addMessage(
+                    Localizer.DiagnosticAddendum.typedDictFieldMissing().format({
+                        name,
+                        type: evaluator.printType(srcType),
+                    })
+                );
+                typesAreConsistent = false;
+            }
         } else {
-            if (destEntry.isRequired !== srcEntry.isRequired && !destEntry.isReadOnly) {
+            if (destEntry.isRequired !== srcEntry.isRequired && !destEntry.isReadOnly && !isDestPartial) {
                 const message = destEntry.isRequired
                     ? Localizer.DiagnosticAddendum.typedDictFieldRequired()
                     : Localizer.DiagnosticAddendum.typedDictFieldNotRequired();
@@ -830,7 +877,7 @@ export function assignTypedDictToTypedDict(
                 typesAreConsistent = false;
             }
 
-            if (!destEntry.isReadOnly && srcEntry.isReadOnly) {
+            if (!destEntry.isReadOnly && srcEntry.isReadOnly && !isDestPartial) {
                 diag?.createAddendum().addMessage(
                     Localizer.DiagnosticAddendum.typedDictFieldNotReadOnly().format({
                         name,
