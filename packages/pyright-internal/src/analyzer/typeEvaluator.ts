@@ -11670,9 +11670,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const firstArg = argList[0];
         if (firstArg.valueExpression && firstArg.valueExpression.nodeType === ParseNodeType.StringList) {
-            const typeAliasName = firstArg.valueExpression.strings
-                .map((s) => s.value)
-                .join('');
+            const typeAliasName = firstArg.valueExpression.strings.map((s) => s.value).join('');
             if (typeAliasName !== nameNode.value) {
                 addError(Localizer.Diagnostic.typeAliasTypeNameMismatch(), firstArg.valueExpression);
             }
