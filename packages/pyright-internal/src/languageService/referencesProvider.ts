@@ -295,7 +295,7 @@ export class ReferencesProvider {
         return new ReferencesResult(
             requiresGlobalSearch,
             node,
-            [...symbolNames.values()],
+            Array.from(symbolNames.values()),
             declarations,
             useCase,
             reporter

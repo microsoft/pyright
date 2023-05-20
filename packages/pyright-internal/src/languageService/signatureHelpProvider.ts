@@ -249,7 +249,7 @@ export class SignatureHelpProvider {
                 ) {
                     // Use the relative position in typed dict entries.
                     const dictIndex = paramIndex - kwargsIndex;
-                    paramName = [...kwargsParam.type.details.typedDictEntries.keys()][dictIndex];
+                    paramName = Array.from(kwargsParam.type.details.typedDictEntries.keys())[dictIndex];
                 }
             }
 

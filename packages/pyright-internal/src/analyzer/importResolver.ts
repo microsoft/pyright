@@ -417,7 +417,7 @@ export class ImportResolver {
             ).map((p) => this.fileSystem.realCasePath(p));
 
             // Remove duplicates (yes, it happens).
-            this._cachedPythonSearchPaths = { paths: [...new Set(paths)], failureInfo: info };
+            this._cachedPythonSearchPaths = { paths: Array.from(new Set(paths)), failureInfo: info };
         }
 
         // Make sure we cache the logs as well so we can find out why search path failed.
@@ -1814,8 +1814,8 @@ export class ImportResolver {
             });
         }
 
-        const flattenPaths = [...this._cachedTypeshedThirdPartyPackagePaths.values()].flatMap((v) => v);
-        this._cachedTypeshedThirdPartyPackageRoots = [...new Set(flattenPaths)].sort();
+        const flattenPaths = Array.from(this._cachedTypeshedThirdPartyPackagePaths.values()).flatMap((v) => v);
+        this._cachedTypeshedThirdPartyPackageRoots = Array.from(new Set(flattenPaths)).sort();
     }
 
     private _getCompletionSuggestionsTypeshedPath(

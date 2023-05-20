@@ -3096,7 +3096,7 @@ class TypeVarTransformer {
                 if (isFunction(replacementType)) {
                     newOverloads.push(replacementType);
                 } else {
-                    newOverloads.push(...replacementType.overloads);
+                    appendArray(newOverloads, replacementType.overloads);
                 }
 
                 if (replacementType !== entry) {

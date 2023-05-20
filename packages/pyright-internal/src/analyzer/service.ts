@@ -967,7 +967,7 @@ export class AnalyzerService {
             .filter((f) => matchFileSpecs(this._program.configOptions, f))
             .forEach((f) => fileMap.set(f, f));
 
-        return [...fileMap.values()];
+        return Array.from(fileMap.values());
     }
 
     // If markFilesDirtyUnconditionally is true, we need to reparse

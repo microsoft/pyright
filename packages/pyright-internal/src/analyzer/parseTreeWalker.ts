@@ -180,7 +180,7 @@ export function getChildNodes(node: ParseNode): (ParseNode | undefined)[] {
             return [node.targetExpression, node.iterableExpression, node.forSuite, node.elseSuite];
 
         case ParseNodeType.FormatString:
-            return node.expressions;
+            return [...node.fieldExpressions, ...(node.formatExpressions ?? [])];
 
         case ParseNodeType.Function:
             return [

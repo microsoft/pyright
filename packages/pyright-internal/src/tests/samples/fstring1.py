@@ -8,10 +8,10 @@ a = f'hello { f"hi {1}" } bye { f"hello" }'
 # This should generate an error.
 b = f"hello { \t1 }"
 
-# This should generate an error.
+# This should generate an error prior to Python 3.12.
 b1 = f"""{"\n"}"""
 
-# This should generate an error.
+# This should generate an error prior to Python 3.12.
 b2 = f"{r'\n'}"
 
 
@@ -33,7 +33,7 @@ f = f"hello { 2 != 3 :3 }"
 g = f"hello { a[2:3] :3 }"
 
 # Test f-string with embedded bang.
-h = f"hello { b['hello!'] :3 }"
+h = f"hello { {}['hello!'] :3 }"
 
 # Test f-string with expression that contains newlines.
 i = f"""
@@ -50,10 +50,6 @@ j = f"""
     '''
 }
 """
-
-# This should generate a warning because of the unknown
-# escape sequence but not an error.
-h = f"hello\{4}"
 
 # Test f-string with raw string and backslash.
 j = rf"aaa\{4}"
@@ -80,4 +76,67 @@ m = f"{my_str:\x00>{width}s}"
 n = f"{my_str:\u2007>{width}s}"
 
 # f-strings with nested expressions in the format string section.
-o = f"{1+2:{1+2:{1+1:{1}}}}"
+o = f"{1+2:{1+2:{1+1:}}}"
+
+# This should generate an error because the nesting is too deep.
+p = f"{1+2:{1+2:{1+1:{1}}}}"
+
+# This should generate a warning because of the unknown
+# escape sequence but not an error.
+q = f"hello\{4}"
+
+s1 = f"""{f'''{f'{f"{1+1}"}'}'''}"""
+
+# This should generate an error prior to Python 3.12.
+s2 = f"""{f'''{f'{f"""{1+1}"""}'}'''}"""
+
+# This should generate an error prior to Python 3.12.
+s3 = f'{f'''{r'abc'}'''}'
+
+q1 = f"""{
+    1 + 1   # Comment
+    }"""
+
+# This should generate an error prior to Python 3.12, but
+# pyright doesn't currently detect this error.
+q2 = f'{
+    1 + 1   # Comment
+    }'
+
+# This should generate an error because an expression is missing.
+r1 = f'{!r}'
+
+# This should generate an error because an expression is missing.
+r2 = f'{!}'
+
+# This should generate an error because an expression is missing.
+r3 = f'{:}'
+
+# This should generate an error because an expression is missing.
+r4 = f'{=}'
+
+r5 = f'{1!s:}'
+r6 = f'{1:}'
+r7 = f'{1=}'
+r8 = f'{1=:}'
+r9 = f'{1=!r:}'
+
+s1 = f"}}"
+
+# This should generate an error because a single right brace is used.
+s2 = f"}"
+
+t1 = f'{0==1}'
+t2 = f'{0!=1}'
+t3 = f'{0<=1}'
+
+# This should generate an error because this isn't a walrus
+# operator as it appears.
+t4 = f'{x1:=3}'
+
+t5 = f"{(x2:=3):{(x3:=0)}}"
+
+u1 = f"'{{\"{0}\": {0}}}'"
+
+def func1(x):
+    f"x:{yield (lambda i: x * i)}"

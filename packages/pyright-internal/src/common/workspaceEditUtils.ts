@@ -23,11 +23,11 @@ import { convertPathToUri, convertUriToPath } from '../common/pathUtils';
 import { createMapFromItems } from './collectionUtils';
 import { isArray } from './core';
 import { assertNever } from './debug';
+import { ProgramMutator, ProgramView, SourceFileInfo } from './extensibility';
 import { ReadOnlyFileSystem } from './fileSystem';
 import { convertRangeToTextRange, convertTextRangeToRange } from './positionUtils';
 import { TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
-import { ProgramMutator, ProgramView, SourceFileInfo } from './extensibility';
 
 export function convertToTextEdits(editActions: TextEditAction[]): TextEdit[] {
     return editActions.map((editAction) => ({
@@ -249,13 +249,16 @@ function _convertToWorkspaceEditWithDocumentChanges(
     const mapPerFile = createMapFromItems(editActions.edits, (e) => e.filePath);
     for (const [key, value] of mapPerFile) {
         workspaceEdit.documentChanges!.push(
-            TextDocumentEdit.create({ uri: convertPathToUri(fs, key), version: null }, [
-                ...value.map((v) => ({
-                    range: v.range,
-                    newText: v.replacementText,
-                    annotationId: defaultAnnotationId,
-                })),
-            ])
+            TextDocumentEdit.create(
+                { uri: convertPathToUri(fs, key), version: null },
+                Array.from(
+                    value.map((v) => ({
+                        range: v.range,
+                        newText: v.replacementText,
+                        annotationId: defaultAnnotationId,
+                    }))
+                )
+            )
         );
     }
 

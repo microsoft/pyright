@@ -15,7 +15,11 @@ import assert from 'assert';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { Tokenizer } from '../parser/tokenizer';
 import {
+    CommentType,
     DedentToken,
+    FStringEndToken,
+    FStringMiddleToken,
+    FStringStartToken,
     IdentifierToken,
     IndentToken,
     NewLineToken,
@@ -511,118 +515,378 @@ test('Strings: triplicate double quote escape', () => {
 test('Strings: single quoted f-string', () => {
     const t = new Tokenizer();
     const results = t.tokenize("a+f'quoted'");
-    assert.equal(results.tokens.count, 3 + _implicitTokenCount);
+    assert.equal(results.tokens.count, 5 + _implicitTokenCount);
     assert.equal(results.tokens.getItemAt(0).type, TokenType.Identifier);
     assert.equal(results.tokens.getItemAt(1).type, TokenType.Operator);
 
-    const stringToken = results.tokens.getItemAt(2) as StringToken;
-    assert.equal(stringToken.type, TokenType.String);
-    assert.equal(stringToken.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Format);
-    assert.equal(stringToken.length, 9);
-    assert.equal(stringToken.escapedValue, 'quoted');
+    const fStringStartToken = results.tokens.getItemAt(2) as FStringStartToken;
+    assert.equal(fStringStartToken.type, TokenType.FStringStart);
+    assert.equal(fStringStartToken.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Format);
+    assert.equal(fStringStartToken.length, 2);
+
+    const fStringMiddleToken = results.tokens.getItemAt(3) as FStringMiddleToken;
+    assert.equal(fStringMiddleToken.type, TokenType.FStringMiddle);
+    assert.equal(fStringMiddleToken.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Format);
+    assert.equal(fStringMiddleToken.length, 6);
+    assert.equal(fStringMiddleToken.escapedValue, 'quoted');
+
+    const fStringEndToken = results.tokens.getItemAt(4) as FStringEndToken;
+    assert.equal(fStringEndToken.type, TokenType.FStringEnd);
+    assert.equal(fStringEndToken.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Format);
+    assert.equal(fStringEndToken.length, 1);
 });
 
 test('Strings: double quoted f-string', () => {
     const t = new Tokenizer();
     const results = t.tokenize('x(1,f"quoted")');
-    assert.equal(results.tokens.count, 6 + _implicitTokenCount);
+    assert.equal(results.tokens.count, 8 + _implicitTokenCount);
     assert.equal(results.tokens.getItemAt(0).type, TokenType.Identifier);
     assert.equal(results.tokens.getItemAt(1).type, TokenType.OpenParenthesis);
     assert.equal(results.tokens.getItemAt(2).type, TokenType.Number);
     assert.equal(results.tokens.getItemAt(3).type, TokenType.Comma);
-    assert.equal(results.tokens.getItemAt(5).type, TokenType.CloseParenthesis);
+    assert.equal(results.tokens.getItemAt(7).type, TokenType.CloseParenthesis);
 
-    const stringToken = results.tokens.getItemAt(4) as StringToken;
-    assert.equal(stringToken.type, TokenType.String);
-    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.Format);
-    assert.equal(stringToken.length, 9);
-    assert.equal(stringToken.escapedValue, 'quoted');
+    const fStringStartToken = results.tokens.getItemAt(4) as FStringStartToken;
+    assert.equal(fStringStartToken.type, TokenType.FStringStart);
+    assert.equal(fStringStartToken.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.Format);
+    assert.equal(fStringStartToken.length, 2);
+
+    const fStringMiddleToken = results.tokens.getItemAt(5) as FStringMiddleToken;
+    assert.equal(fStringMiddleToken.type, TokenType.FStringMiddle);
+    assert.equal(fStringMiddleToken.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.Format);
+    assert.equal(fStringMiddleToken.length, 6);
+    assert.equal(fStringMiddleToken.escapedValue, 'quoted');
+
+    const fStringEndToken = results.tokens.getItemAt(6) as FStringEndToken;
+    assert.equal(fStringEndToken.type, TokenType.FStringEnd);
+    assert.equal(fStringEndToken.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.Format);
+    assert.equal(fStringEndToken.length, 1);
 });
 
 test('Strings: single quoted multiline f-string', () => {
     const t = new Tokenizer();
     const results = t.tokenize("f'''quoted'''");
-    assert.equal(results.tokens.count, 1 + _implicitTokenCount);
+    assert.equal(results.tokens.count, 3 + _implicitTokenCount);
 
-    const stringToken = results.tokens.getItemAt(0) as StringToken;
-    assert.equal(stringToken.type, TokenType.String);
+    const fStringStartToken = results.tokens.getItemAt(0) as FStringStartToken;
+    assert.equal(fStringStartToken.type, TokenType.FStringStart);
     assert.equal(
-        stringToken.flags,
+        fStringStartToken.flags,
         StringTokenFlags.SingleQuote | StringTokenFlags.Triplicate | StringTokenFlags.Format
     );
-    assert.equal(stringToken.length, 13);
-    assert.equal(stringToken.escapedValue, 'quoted');
+    assert.equal(fStringStartToken.length, 4);
+
+    const fStringMiddleToken = results.tokens.getItemAt(1) as FStringMiddleToken;
+    assert.equal(fStringMiddleToken.type, TokenType.FStringMiddle);
+    assert.equal(
+        fStringMiddleToken.flags,
+        StringTokenFlags.SingleQuote | StringTokenFlags.Triplicate | StringTokenFlags.Format
+    );
+    assert.equal(fStringMiddleToken.length, 6);
+    assert.equal(fStringMiddleToken.escapedValue, 'quoted');
+
+    const fStringEndToken = results.tokens.getItemAt(2) as FStringEndToken;
+    assert.equal(fStringEndToken.type, TokenType.FStringEnd);
+    assert.equal(
+        fStringEndToken.flags,
+        StringTokenFlags.SingleQuote | StringTokenFlags.Triplicate | StringTokenFlags.Format
+    );
+    assert.equal(fStringEndToken.length, 3);
 });
 
 test('Strings: double quoted multiline f-string', () => {
     const t = new Tokenizer();
     const results = t.tokenize('f"""quoted """');
-    assert.equal(results.tokens.count, 1 + _implicitTokenCount);
+    assert.equal(results.tokens.count, 3 + _implicitTokenCount);
 
-    const stringToken = results.tokens.getItemAt(0) as StringToken;
-    assert.equal(stringToken.type, TokenType.String);
+    const fStringStartToken = results.tokens.getItemAt(0) as FStringStartToken;
+    assert.equal(fStringStartToken.type, TokenType.FStringStart);
     assert.equal(
-        stringToken.flags,
+        fStringStartToken.flags,
         StringTokenFlags.DoubleQuote | StringTokenFlags.Triplicate | StringTokenFlags.Format
     );
-    assert.equal(stringToken.length, 14);
-    assert.equal(stringToken.escapedValue, 'quoted ');
+    assert.equal(fStringStartToken.length, 4);
+
+    const fStringMiddleToken = results.tokens.getItemAt(1) as FStringMiddleToken;
+    assert.equal(fStringMiddleToken.type, TokenType.FStringMiddle);
+    assert.equal(
+        fStringMiddleToken.flags,
+        StringTokenFlags.DoubleQuote | StringTokenFlags.Triplicate | StringTokenFlags.Format
+    );
+    assert.equal(fStringMiddleToken.length, 7);
+    assert.equal(fStringMiddleToken.escapedValue, 'quoted ');
+
+    const fStringEndToken = results.tokens.getItemAt(2) as FStringEndToken;
+    assert.equal(fStringEndToken.type, TokenType.FStringEnd);
+    assert.equal(
+        fStringEndToken.flags,
+        StringTokenFlags.DoubleQuote | StringTokenFlags.Triplicate | StringTokenFlags.Format
+    );
+    assert.equal(fStringEndToken.length, 3);
 });
 
 test('Strings: f-string with single right brace', () => {
     const t = new Tokenizer();
     const results = t.tokenize("f'hello}'");
-    assert.equal(results.tokens.count, 1 + _implicitTokenCount);
+    assert.equal(results.tokens.count, 4 + _implicitTokenCount);
 
-    const stringToken = results.tokens.getItemAt(0) as StringToken;
-    const unescapedValue = StringTokenUtils.getUnescapedString(stringToken);
-    assert.equal(stringToken.type, TokenType.String);
-    assert.equal(stringToken.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Format);
-    assert.equal(unescapedValue.formatStringSegments.length, 1);
-    assert.equal(unescapedValue.unescapeErrors.length, 1);
-    assert.equal(unescapedValue.unescapeErrors[0].offset, 5);
-    assert.equal(unescapedValue.unescapeErrors[0].length, 1);
+    const fStringStartToken = results.tokens.getItemAt(0) as FStringStartToken;
+    assert.equal(fStringStartToken.type, TokenType.FStringStart);
+    assert.equal(fStringStartToken.length, 2);
+    assert.equal(fStringStartToken.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Format);
+
+    const fStringMiddleToken = results.tokens.getItemAt(1) as FStringMiddleToken;
+    assert.equal(fStringMiddleToken.type, TokenType.FStringMiddle);
+    assert.equal(fStringMiddleToken.length, 5);
     assert.equal(
-        unescapedValue.unescapeErrors[0].errorType,
-        StringTokenUtils.UnescapeErrorType.SingleCloseBraceWithinFormatLiteral
+        fStringMiddleToken.flags,
+        StringTokenFlags.SingleQuote | StringTokenFlags.Format | StringTokenFlags.ReplacementFieldEnd
     );
+
+    const braceToken = results.tokens.getItemAt(2).type;
+    assert.equal(braceToken, TokenType.CloseCurlyBrace);
+
+    const fStringEndToken = results.tokens.getItemAt(3) as FStringEndToken;
+    assert.equal(fStringEndToken.type, TokenType.FStringEnd);
+    assert.equal(fStringEndToken.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Format);
+    assert.equal(fStringEndToken.length, 1);
 });
 
 test('Strings: f-string with escape in expression', () => {
     const t = new Tokenizer();
-    const results = t.tokenize("f'hello { \\t }'");
-    assert.equal(results.tokens.count, 1 + _implicitTokenCount);
+    const results = t.tokenize(`f'hello { "\\t" }'`);
+    assert.equal(results.tokens.count, 6 + _implicitTokenCount);
 
-    const stringToken = results.tokens.getItemAt(0) as StringToken;
-    const unescapedValue = StringTokenUtils.getUnescapedString(stringToken);
-    assert.equal(stringToken.type, TokenType.String);
-    assert.equal(stringToken.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Format);
-    assert.equal(unescapedValue.formatStringSegments.length, 2);
-    assert.equal(unescapedValue.unescapeErrors.length, 1);
-    assert.equal(unescapedValue.unescapeErrors[0].offset, 8);
-    assert.equal(unescapedValue.unescapeErrors[0].length, 1);
-    assert.equal(
-        unescapedValue.unescapeErrors[0].errorType,
-        StringTokenUtils.UnescapeErrorType.EscapeWithinFormatExpression
-    );
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.FStringStart);
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(3).type, TokenType.String);
+    assert.equal(results.tokens.getItemAt(4).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(5).type, TokenType.FStringEnd);
+});
+
+test('Strings: f-string with escape in format string 1', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize("f'he\\{ 1 }lo'");
+    assert.equal(results.tokens.count, 7 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.FStringStart);
+
+    const middleFString = results.tokens.getItemAt(1) as FStringMiddleToken;
+    assert.equal(middleFString.type, TokenType.FStringMiddle);
+    assert.equal(middleFString.escapedValue.length, 3);
+
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(3).type, TokenType.Number);
+    assert.equal(results.tokens.getItemAt(4).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(5).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(6).type, TokenType.FStringEnd);
+});
+
+test('Strings: f-string with escape in format string 2', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize(`f"'{{\\"{0}\\": {0}}}'"`);
+    assert.equal(results.tokens.count, 11 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.FStringStart);
+
+    const middleFString = results.tokens.getItemAt(1) as FStringMiddleToken;
+    assert.equal(middleFString.type, TokenType.FStringMiddle);
+    assert.equal(middleFString.escapedValue.length, 5);
+
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(3).type, TokenType.Number);
+    assert.equal(results.tokens.getItemAt(4).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(5).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(6).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(7).type, TokenType.Number);
+    assert.equal(results.tokens.getItemAt(8).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(9).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(10).type, TokenType.FStringEnd);
+});
+
+test('Strings: f-string with double brace', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize(`f"hello {{{0==0}}}"`);
+    assert.equal(results.tokens.count, 9 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.FStringStart);
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(3).type, TokenType.Number);
+    assert.equal(results.tokens.getItemAt(4).type, TokenType.Operator);
+    assert.equal(results.tokens.getItemAt(5).type, TokenType.Number);
+    assert.equal(results.tokens.getItemAt(6).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(7).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(8).type, TokenType.FStringEnd);
+});
+
+test('Strings: f-string with walrus operator', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize(`f"{(x:=0)}"`);
+    assert.equal(results.tokens.count, 9 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.FStringStart);
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.OpenParenthesis);
+    assert.equal(results.tokens.getItemAt(3).type, TokenType.Identifier);
+    assert.equal(results.tokens.getItemAt(4).type, TokenType.Operator);
+    assert.equal(results.tokens.getItemAt(5).type, TokenType.Number);
+    assert.equal(results.tokens.getItemAt(6).type, TokenType.CloseParenthesis);
+    assert.equal(results.tokens.getItemAt(7).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(8).type, TokenType.FStringEnd);
+});
+
+test('Strings: f-string with single right brace', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize(`f"}"`);
+    assert.equal(results.tokens.count, 3 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.FStringStart);
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.FStringEnd);
+});
+
+test('Strings: f-string with comment', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize(`f'''hello{\nx # comment\n}'''`);
+    assert.equal(results.tokens.count, 6 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.FStringStart);
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(3).type, TokenType.Identifier);
+    const closeBraceToken = results.tokens.getItemAt(4);
+    assert.equal(closeBraceToken.type, TokenType.CloseCurlyBrace);
+    assert.deepEqual(closeBraceToken.comments, [
+        { type: CommentType.Regular, value: ' comment', start: 14, length: 8 },
+    ]);
+    assert.equal(results.tokens.getItemAt(5).type, TokenType.FStringEnd);
 });
 
 test('Strings: f-string with unterminated expression', () => {
     const t = new Tokenizer();
-    const results = t.tokenize("f'hello { a + b'");
-    assert.equal(results.tokens.count, 1 + _implicitTokenCount);
+    const results = t.tokenize("f'hello { a'");
+    assert.equal(results.tokens.count, 5 + _implicitTokenCount);
 
-    const stringToken = results.tokens.getItemAt(0) as StringToken;
-    const unescapedValue = StringTokenUtils.getUnescapedString(stringToken);
-    assert.equal(stringToken.type, TokenType.String);
-    assert.equal(stringToken.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Format);
-    assert.equal(unescapedValue.formatStringSegments.length, 2);
-    assert.equal(unescapedValue.unescapeErrors.length, 1);
-    assert.equal(unescapedValue.unescapeErrors[0].offset, 7);
-    assert.equal(
-        unescapedValue.unescapeErrors[0].errorType,
-        StringTokenUtils.UnescapeErrorType.UnterminatedFormatExpression
-    );
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.FStringStart);
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(3).type, TokenType.Identifier);
+
+    const fStringEnd = results.tokens.getItemAt(4) as FStringEndToken;
+    assert.equal(fStringEnd.type, TokenType.FStringEnd);
+    assert.equal(fStringEnd.flags, StringTokenFlags.Format | StringTokenFlags.SingleQuote);
+});
+
+test('Strings: f-string with replacement field', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize("f'hello { a + b}'");
+    assert.equal(results.tokens.count, 8 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.FStringStart);
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(3).type, TokenType.Identifier);
+    assert.equal(results.tokens.getItemAt(4).type, TokenType.Operator);
+    assert.equal(results.tokens.getItemAt(5).type, TokenType.Identifier);
+    assert.equal(results.tokens.getItemAt(6).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(7).type, TokenType.FStringEnd);
+});
+
+test('Strings: f-string with format specifier', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize("f'hello { a ! b}'");
+    assert.equal(results.tokens.count, 8 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.FStringStart);
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(3).type, TokenType.Identifier);
+    assert.equal(results.tokens.getItemAt(4).type, TokenType.ExclamationMark);
+    assert.equal(results.tokens.getItemAt(5).type, TokenType.Identifier);
+    assert.equal(results.tokens.getItemAt(6).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(7).type, TokenType.FStringEnd);
+});
+
+test('Strings: f-string with debug format specifier', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize("f'hello { a =}'");
+    assert.equal(results.tokens.count, 7 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.FStringStart);
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(3).type, TokenType.Identifier);
+    assert.equal(results.tokens.getItemAt(4).type, TokenType.Operator);
+    assert.equal(results.tokens.getItemAt(5).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(6).type, TokenType.FStringEnd);
+});
+
+test('Strings: nested f-string', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize("f'{f'{a}'}'");
+    assert.equal(results.tokens.count, 9 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.FStringStart);
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.FStringStart);
+    assert.equal(results.tokens.getItemAt(3).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(4).type, TokenType.Identifier);
+    assert.equal(results.tokens.getItemAt(5).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(6).type, TokenType.FStringEnd);
+    assert.equal(results.tokens.getItemAt(7).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(8).type, TokenType.FStringEnd);
+});
+
+test('Strings: nested f-string formats 1', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize("f'{a:x{{b}+:x{c}+}}'");
+    assert.equal(results.tokens.count, 19 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.FStringStart);
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.Identifier);
+    assert.equal(results.tokens.getItemAt(3).type, TokenType.Colon);
+    assert.equal(results.tokens.getItemAt(4).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(5).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(6).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(7).type, TokenType.Identifier);
+    assert.equal(results.tokens.getItemAt(8).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(9).type, TokenType.Operator);
+    assert.equal(results.tokens.getItemAt(10).type, TokenType.Colon);
+    assert.equal(results.tokens.getItemAt(11).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(12).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(13).type, TokenType.Identifier);
+    assert.equal(results.tokens.getItemAt(14).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(15).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(16).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(17).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(18).type, TokenType.FStringEnd);
+});
+
+test('Strings: nested f-string formats 2', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize("f'hi{'x':*^{8:{'':}}0}'");
+    assert.equal(results.tokens.count, 17 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.FStringStart);
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(3).type, TokenType.String);
+    assert.equal(results.tokens.getItemAt(4).type, TokenType.Colon);
+    assert.equal(results.tokens.getItemAt(5).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(6).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(7).type, TokenType.Number);
+    assert.equal(results.tokens.getItemAt(8).type, TokenType.Colon);
+    assert.equal(results.tokens.getItemAt(9).type, TokenType.OpenCurlyBrace);
+    assert.equal(results.tokens.getItemAt(10).type, TokenType.String);
+    assert.equal(results.tokens.getItemAt(11).type, TokenType.Colon);
+    assert.equal(results.tokens.getItemAt(12).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(13).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(14).type, TokenType.FStringMiddle);
+    assert.equal(results.tokens.getItemAt(15).type, TokenType.CloseCurlyBrace);
+    assert.equal(results.tokens.getItemAt(16).type, TokenType.FStringEnd);
 });
 
 test('Strings: escape at the end of single quoted string', () => {
@@ -920,7 +1184,7 @@ test('Strings: bad name escapes', () => {
 
 test('Comments', () => {
     const t = new Tokenizer();
-    const results = t.tokenize(' #co"""mment1\n\t\n#comm\'ent2 ');
+    const results = t.tokenize(' #co"""mment1\n\t\n#x\'y2 ');
     assert.equal(results.tokens.count, 1 + _implicitTokenCountNoImplicitNewLine);
     assert.equal(results.tokens.getItemAt(0).type, TokenType.NewLine);
 });
@@ -1474,7 +1738,7 @@ test('TypeIgnoreAll2', () => {
 
 test('TypeIgnoreAll3', () => {
     const t = new Tokenizer();
-    const results = t.tokenize('\n#    type:     ignoressss\n');
+    const results = t.tokenize('\n#    type:     ignoreSsss\n');
     assert(!results.typeIgnoreAll);
 });
 

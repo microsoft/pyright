@@ -29,10 +29,13 @@ import { getModuleNode, getStringNodeValueRange } from '../analyzer/parseTreeUti
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { ScopeType } from '../analyzer/scope';
 import * as ScopeUtils from '../analyzer/scopeUtils';
+import { IPythonMode } from '../analyzer/sourceFile';
+import { collectImportedByFiles } from '../analyzer/sourceFileInfoUtils';
 import { isStubFile } from '../analyzer/sourceMapper';
+import { Symbol } from '../analyzer/symbol';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { isInstantiableClass, TypeCategory } from '../analyzer/types';
 import { ClassMemberLookupFlags, lookUpClassMember } from '../analyzer/typeUtils';
+import { TypeCategory, isInstantiableClass } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
@@ -48,9 +51,6 @@ import {
     StringListNode,
     StringNode,
 } from '../parser/parseNodes';
-import { IPythonMode } from '../analyzer/sourceFile';
-import { collectImportedByFiles } from '../analyzer/sourceFileInfoUtils';
-import { Symbol } from '../analyzer/symbol';
 
 export type CollectionResult = {
     node: NameNode | StringNode;
@@ -465,7 +465,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
 
             // Special case for __init__. Might be __init__ on a class.
             if (node.value === '__init__' && useCase === DocumentSymbolCollectorUseCase.Reference && node.parent) {
-                result.push(...this._getDeclarationsForInitNode(node, evaluator));
+                appendArray(result, this._getDeclarationsForInitNode(node, evaluator));
             }
         } else {
             result = this._getDeclarationsForModuleNameNode(node, evaluator);
@@ -485,7 +485,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 token
             );
             if (extras && extras.length > 0) {
-                result.push(...extras);
+                appendArray(result, extras);
             }
         });
 
@@ -526,7 +526,10 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 continue;
             }
 
-            decls.push(...(evaluator.getDeclarationsForNameNode(node.module.nameParts[0], skipUnreachableCode) || []));
+            appendArray(
+                decls,
+                evaluator.getDeclarationsForNameNode(node.module.nameParts[0], skipUnreachableCode) || []
+            );
         }
 
         // For now, we only support function overriding.
@@ -588,10 +591,11 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
 
                 // First, we need to put decls for module names type evaluator synthesized so that
                 // we can match both "import X" and "from X import ..."
-                decls.push(
-                    ...(evaluator
+                appendArray(
+                    decls,
+                    evaluator
                         .getDeclarationsForNameNode(moduleName.nameParts[0])
-                        ?.filter((d) => isAliasDeclaration(d)) || [])
+                        ?.filter((d) => isAliasDeclaration(d)) || []
                 );
 
                 if (decls.length === 0 || moduleName.parent.nodeType !== ParseNodeType.ImportAs) {
@@ -647,7 +651,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                         declsFromSymbol = getDeclarationsWithUsesLocalNameRemoved(declsFromSymbol);
                     }
 
-                    decls.push(...declsFromSymbol);
+                    appendArray(decls, declsFromSymbol);
                 }
 
                 return decls;

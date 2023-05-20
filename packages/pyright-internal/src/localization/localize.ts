@@ -454,11 +454,14 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.finalUnassigned'));
         export const formatStringBrace = () => getRawString('Diagnostic.formatStringBrace');
         export const formatStringBytes = () => getRawString('Diagnostic.formatStringBytes');
+        export const formatStringDebuggingIllegal = () => getRawString('Diagnostic.formatStringDebuggingIllegal');
         export const formatStringEscape = () => getRawString('Diagnostic.formatStringEscape');
+        export const formatStringExpectedConversion = () => getRawString('Diagnostic.formatStringExpectedConversion');
         export const formatStringInPattern = () => getRawString('Diagnostic.formatStringInPattern');
         export const formatStringIllegal = () => getRawString('Diagnostic.formatStringIllegal');
         export const formatStringNestedFormatSpecifier = () =>
             getRawString('Diagnostic.formatStringNestedFormatSpecifier');
+        export const formatStringNestedQuote = () => getRawString('Diagnostic.formatStringNestedQuote');
         export const formatStringUnicode = () => getRawString('Diagnostic.formatStringUnicode');
         export const formatStringUnterminated = () => getRawString('Diagnostic.formatStringUnterminated');
         export const functionDecoratorTypeUnknown = () => getRawString('Diagnostic.functionDecoratorTypeUnknown');

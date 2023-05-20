@@ -32,7 +32,7 @@ import {
     Type,
     TypeCategory,
 } from '../analyzer/types';
-import { addIfNotNull } from '../common/collectionUtils';
+import { addIfNotNull, appendArray } from '../common/collectionUtils';
 import { ModuleNode, ParseNodeType } from '../parser/parseNodes';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
@@ -200,7 +200,7 @@ export function getModuleDocStringFromPaths(filePaths: string[], sourceMapper: S
             addIfNotNull(modules, sourceMapper.getModuleNode(filePath));
         }
 
-        modules.push(...sourceMapper.findModules(filePath));
+        appendArray(modules, sourceMapper.findModules(filePath));
     }
 
     return getModuleDocStringFromModuleNodes(modules);

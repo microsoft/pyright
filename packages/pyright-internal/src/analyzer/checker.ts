@@ -15,6 +15,7 @@
 import { CancellationToken } from 'vscode-languageserver';
 
 import { Commands } from '../commands/commands';
+import { appendArray } from '../common/collectionUtils';
 import { DiagnosticLevel } from '../common/configOptions';
 import { assert, assertNever } from '../common/debug';
 import { ActionKind, Diagnostic, DiagnosticAddendum, RenameShadowedFileAction } from '../common/diagnostic';
@@ -40,8 +41,8 @@ import {
     ErrorNode,
     ExceptNode,
     ExpressionNode,
-    FormatStringNode,
     ForNode,
+    FormatStringNode,
     FunctionNode,
     GlobalNode,
     IfNode,
@@ -49,7 +50,6 @@ import {
     ImportFromAsNode,
     ImportFromNode,
     IndexNode,
-    isExpressionNode,
     LambdaNode,
     ListComprehensionIfNode,
     ListComprehensionNode,
@@ -86,25 +86,26 @@ import {
     WithNode,
     YieldFromNode,
     YieldNode,
+    isExpressionNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { getUnescapedString, UnescapeError, UnescapeErrorType } from '../parser/stringTokenUtils';
-import { OperatorType } from '../parser/tokenizerTypes';
+import { UnescapeError, UnescapeErrorType, getUnescapedString } from '../parser/stringTokenUtils';
+import { OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
-import { createImportedModuleDescriptor, ImportedModuleDescriptor, ImportResolver } from './importResolver';
+import { ImportResolver, ImportedModuleDescriptor, createImportedModuleDescriptor } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
 import { getParameterListDetails } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
-import { getRegionComments, RegionComment, RegionCommentType } from './regions';
+import { RegionComment, RegionCommentType, getRegionComments } from './regions';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode } from './sourceFile';
-import { isStubFile, SourceMapper } from './sourceMapper';
+import { SourceMapper, isStubFile } from './sourceMapper';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
@@ -118,41 +119,10 @@ import {
     narrowTypeForContainerElementType,
 } from './typeGuards';
 import {
-    ClassType,
-    ClassTypeFlags,
-    combineTypes,
-    FunctionType,
-    FunctionTypeFlags,
-    isAnyOrUnknown,
-    isClass,
-    isClassInstance,
-    isFunction,
-    isInstantiableClass,
-    isModule,
-    isNever,
-    isNoneInstance,
-    isOverloadedFunction,
-    isParamSpec,
-    isPossiblyUnbound,
-    isTypeSame,
-    isTypeVar,
-    isUnbound,
-    isUnion,
-    isUnknown,
-    NoneType,
-    OverloadedFunctionType,
-    Type,
-    TypeBase,
-    TypeCategory,
-    TypeVarType,
-    UnknownType,
-    Variance,
-} from './types';
-import {
-    applySolvedTypeVars,
     AssignTypeFlags,
     ClassMember,
     ClassMemberLookupFlags,
+    applySolvedTypeVars,
     convertToInstance,
     derivesFromAnyOrUnknown,
     derivesFromClassRecursive,
@@ -177,6 +147,37 @@ import {
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
+import {
+    ClassType,
+    ClassTypeFlags,
+    FunctionType,
+    FunctionTypeFlags,
+    NoneType,
+    OverloadedFunctionType,
+    Type,
+    TypeBase,
+    TypeCategory,
+    TypeVarType,
+    UnknownType,
+    Variance,
+    combineTypes,
+    isAnyOrUnknown,
+    isClass,
+    isClassInstance,
+    isFunction,
+    isInstantiableClass,
+    isModule,
+    isNever,
+    isNoneInstance,
+    isOverloadedFunction,
+    isParamSpec,
+    isPossiblyUnbound,
+    isTypeSame,
+    isTypeVar,
+    isUnbound,
+    isUnion,
+    isUnknown,
+} from './types';
 
 interface TypeVarUsageInfo {
     isExempt: boolean;
@@ -1312,60 +1313,71 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitStringList(node: StringListNode): boolean {
+        // If this is Python 3.11 or older, there are several restrictions
+        // associated with f-strings that we need to validate. Determine whether
+        // we're within an f-string (or multiple f-strings if nesting is used).
+        const fStringContainers: FormatStringNode[] = [];
+        if (this._fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_12) {
+            let curNode: ParseNode | undefined = node;
+            while (curNode) {
+                if (curNode.nodeType === ParseNodeType.FormatString) {
+                    fStringContainers.push(curNode);
+                }
+                curNode = curNode.parent;
+            }
+        }
+
         for (const stringNode of node.strings) {
-            if (stringNode.hasUnescapeErrors) {
-                const unescapedResult = getUnescapedString(stringNode.token);
+            const stringTokens =
+                stringNode.nodeType === ParseNodeType.String ? [stringNode.token] : stringNode.middleTokens;
+
+            stringTokens.forEach((token) => {
+                const unescapedResult = getUnescapedString(token);
+                let start = token.start;
+                if (token.type === TokenType.String) {
+                    start += token.prefixLength + token.quoteMarkLength;
+                }
 
                 unescapedResult.unescapeErrors.forEach((error: UnescapeError) => {
-                    const start =
-                        stringNode.token.start +
-                        stringNode.token.prefixLength +
-                        stringNode.token.quoteMarkLength +
-                        error.offset;
-                    const textRange = { start, length: error.length };
-
                     if (error.errorType === UnescapeErrorType.InvalidEscapeSequence) {
                         this._evaluator.addDiagnosticForTextRange(
                             this._fileInfo,
                             this._fileInfo.diagnosticRuleSet.reportInvalidStringEscapeSequence,
                             DiagnosticRule.reportInvalidStringEscapeSequence,
                             Localizer.Diagnostic.stringUnsupportedEscape(),
-                            textRange
+                            { start: start + error.offset, length: error.length }
                         );
-                    } else if (error.errorType === UnescapeErrorType.EscapeWithinFormatExpression) {
+                    }
+                });
+
+                // Prior to Python 3.12, it was not allowed to include a slash in an f-string.
+                if (fStringContainers.length > 0) {
+                    const escapeOffset = token.escapedValue.indexOf('\\');
+                    if (escapeOffset >= 0) {
                         this._evaluator.addDiagnosticForTextRange(
                             this._fileInfo,
                             'error',
                             '',
                             Localizer.Diagnostic.formatStringEscape(),
-                            textRange
-                        );
-                    } else if (error.errorType === UnescapeErrorType.SingleCloseBraceWithinFormatLiteral) {
-                        this._evaluator.addDiagnosticForTextRange(
-                            this._fileInfo,
-                            'error',
-                            '',
-                            Localizer.Diagnostic.formatStringBrace(),
-                            textRange
-                        );
-                    } else if (error.errorType === UnescapeErrorType.UnterminatedFormatExpression) {
-                        this._evaluator.addDiagnosticForTextRange(
-                            this._fileInfo,
-                            'error',
-                            '',
-                            Localizer.Diagnostic.formatStringUnterminated(),
-                            textRange
-                        );
-                    } else if (error.errorType === UnescapeErrorType.NestedFormatSpecifierExpression) {
-                        this._evaluator.addDiagnosticForTextRange(
-                            this._fileInfo,
-                            'error',
-                            '',
-                            Localizer.Diagnostic.formatStringNestedFormatSpecifier(),
-                            textRange
+                            { start, length: 1 }
                         );
                     }
-                });
+                }
+            });
+
+            // Prior to Python 3.12, it was not allowed to nest strings that
+            // used the same quote scheme within an f-string.
+            if (fStringContainers.length > 0) {
+                const quoteTypeMask =
+                    StringTokenFlags.SingleQuote | StringTokenFlags.DoubleQuote | StringTokenFlags.Triplicate;
+                if (
+                    fStringContainers.some(
+                        (fStringContainer) =>
+                            (fStringContainer.token.flags & quoteTypeMask) === (stringNode.token.flags & quoteTypeMask)
+                    )
+                ) {
+                    this._evaluator.addError(Localizer.Diagnostic.formatStringNestedQuote(), stringNode);
+                }
             }
         }
 
@@ -1387,8 +1399,12 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitFormatString(node: FormatStringNode): boolean {
-        node.expressions.forEach((formatExpr) => {
-            this._evaluator.getType(formatExpr);
+        node.fieldExpressions.forEach((expr) => {
+            this._evaluator.getType(expr);
+        });
+
+        node.formatExpressions.forEach((expr) => {
+            this._evaluator.getType(expr);
         });
 
         return true;
@@ -5446,14 +5462,14 @@ export class Checker extends ParseTreeWalker {
             if (!firstOverride) {
                 // If this is a method decorated with @override, validate that there
                 // is a base class method of the same name.
-                this._validateOverrideDecoratorNotPresent(typeOfSymbol);
+                this._validateOverrideDecoratorNotPresent(symbol, typeOfSymbol);
             } else {
-                this._validateOverrideDecoratorPresent(typeOfSymbol, firstOverride);
+                this._validateOverrideDecoratorPresent(symbol, typeOfSymbol, firstOverride);
             }
         });
     }
 
-    private _validateOverrideDecoratorPresent(overrideType: Type, baseMember: ClassMember) {
+    private _validateOverrideDecoratorPresent(symbol: Symbol, overrideType: Type, baseMember: ClassMember) {
         // Skip this check if disabled.
         if (this._fileInfo.diagnosticRuleSet.reportImplicitOverride === 'none') {
             return;
@@ -5485,6 +5501,12 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // If the declaration for the override function is not the same as the
+        // declaration for the symbol, the function was probably replaced by a decorator.
+        if (!symbol.getDeclarations().some((decl) => decl === overrideFunction!.details.declaration)) {
+            return;
+        }
+
         const funcNode = overrideFunction.details.declaration.node;
         this._evaluator.addDiagnostic(
             this._fileInfo.diagnosticRuleSet.reportImplicitOverride,
@@ -5500,7 +5522,7 @@ export class Checker extends ParseTreeWalker {
     // Determines whether the type is a function or overloaded function with an @override
     // decorator. In this case, an error is reported because no base class has declared
     // a method of the same name.
-    private _validateOverrideDecoratorNotPresent(overrideType: Type) {
+    private _validateOverrideDecoratorNotPresent(symbol: Symbol, overrideType: Type) {
         let overrideFunction: FunctionType | undefined;
 
         if (isFunction(overrideType)) {
@@ -5519,6 +5541,12 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (!overrideFunction?.details.declaration || !FunctionType.isOverridden(overrideFunction)) {
+            return;
+        }
+
+        // If the declaration for the override function is not the same as the
+        // declaration for the symbol, the function was probably replaced by a decorator.
+        if (!symbol.getDeclarations().some((decl) => decl === overrideFunction!.details.declaration)) {
             return;
         }
 
@@ -6317,7 +6345,7 @@ export class Checker extends ParseTreeWalker {
                 }
             }
 
-            exceptionTypesSoFar.push(...typesOfThisExcept);
+            appendArray(exceptionTypesSoFar, typesOfThisExcept);
         });
     }
 

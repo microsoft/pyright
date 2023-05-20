@@ -71,6 +71,7 @@ import {
     lookUpObjectMember,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { appendArray } from '../common/collectionUtils';
 import { ExecutionEnvironment } from '../common/configOptions';
 import * as debug from '../common/debug';
 import { fail } from '../common/debug';
@@ -90,6 +91,7 @@ import {
     ErrorExpressionCategory,
     ErrorNode,
     ExpressionNode,
+    FormatStringNode,
     ImportFromNode,
     IndexNode,
     isExpressionNode,
@@ -104,7 +106,15 @@ import {
     TypeAnnotationNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { OperatorToken, OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
+import {
+    FStringStartToken,
+    OperatorToken,
+    OperatorType,
+    StringToken,
+    StringTokenFlags,
+    Token,
+    TokenType,
+} from '../parser/tokenizerTypes';
 import { AutoImporter, AutoImportResult, buildModuleSymbolsMap } from './autoImporter';
 import {
     CompletionDetail,
@@ -265,8 +275,9 @@ export class CompletionProvider {
     // original completion algorithm and look for this symbol.
     private _itemToResolve: CompletionItem | undefined;
 
-    // Indicate whether invocation is inside of string literal.
-    private _insideStringLiteral: StringToken | undefined = undefined;
+    // Indicates whether invocation position is inside of string literal
+    // token or an f-string expression.
+    private _stringLiteralContainer: StringToken | FStringStartToken | undefined = undefined;
 
     protected readonly execEnv: ExecutionEnvironment;
     protected readonly parseResults: ParseResults;
@@ -800,8 +811,9 @@ export class CompletionProvider {
         );
 
         const results: AutoImportResult[] = [];
-        results.push(
-            ...autoImporter.getAutoImportCandidates(
+        appendArray(
+            results,
+            autoImporter.getAutoImportCandidates(
                 priorWord,
                 similarityLimit,
                 /* abbrFromUsers */ undefined,
@@ -861,17 +873,23 @@ export class CompletionProvider {
             return undefined;
         }
 
+        let node = ParseTreeUtils.findNodeByOffset(this.parseResults.parseTree, offset);
+
+        // See if we're inside a string literal or an f-string statement.
         const token = ParseTreeUtils.getTokenOverlapping(this.parseResults.tokenizerOutput.tokens, offset);
         if (token?.type === TokenType.String) {
             const stringToken = token as StringToken;
-            this._insideStringLiteral = TextRange.contains(stringToken, offset)
+            this._stringLiteralContainer = TextRange.contains(stringToken, offset)
                 ? stringToken
                 : stringToken.flags & StringTokenFlags.Unterminated
                 ? stringToken
                 : undefined;
+        } else if (node) {
+            const fStringContainer = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.FormatString);
+            if (fStringContainer) {
+                this._stringLiteralContainer = (fStringContainer as FormatStringNode).token;
+            }
         }
-
-        let node = ParseTreeUtils.findNodeByOffset(this.parseResults.parseTree, offset);
 
         // See if we can get to a "better" node by backing up a few columns.
         // A "better" node is defined as one that's deeper than the current
@@ -2055,7 +2073,7 @@ export class CompletionProvider {
             }
         }
 
-        return [...keys];
+        return Array.from(keys);
     }
 
     private _getLiteralCompletions(
@@ -2389,7 +2407,7 @@ export class CompletionProvider {
         return newTypes;
     }
 
-    // Find out quotation and string prefix to use for string literals
+    // Find quotation and string prefix to use for string literals
     // completion under current context.
     private _getQuoteInfo(priorWord: string, priorText: string): QuoteInfo {
         let filterText = priorWord;
@@ -2399,7 +2417,7 @@ export class CompletionProvider {
         // If completion is not inside of the existing string literal
         // ex) typedDict[ |<= here
         // use default quotation char without any string prefix.
-        if (!this._insideStringLiteral) {
+        if (!this._stringLiteralContainer) {
             return { priorWord, priorText, filterText, stringValue, quoteCharacter };
         }
 
@@ -2422,16 +2440,15 @@ export class CompletionProvider {
             }
         }
 
-        // If the string literal that completion is invoked in is f-string,
-        // quotation must be the other one than one that is used for f-string.
-        // ex) f"....{typedDict[|<= here ]}"
-        // then quotation must be "'"
-        //
-        // for f-string, this code path will be only taken when completion is inside
-        // of f-string segment.
-        // ex) f"..{|<= here }"
-        if (this._insideStringLiteral.flags & StringTokenFlags.Format) {
-            quoteCharacter = this._insideStringLiteral.flags & StringTokenFlags.SingleQuote ? doubleQuote : singleQuote;
+        // If the invocation position is within an f-string, use a double or
+        // single quote that doesn't match the f-string. Prior to Python 3.12,
+        // using the same quotation mark nested within an f-string was not
+        // permitted. For example, f"..{typedDict[|<= here ]}", we need to use
+        // single quotes. Note that this doesn't account for deeper nested
+        // f-strings.
+        if (this._stringLiteralContainer.flags & StringTokenFlags.Format) {
+            quoteCharacter =
+                this._stringLiteralContainer.flags & StringTokenFlags.SingleQuote ? doubleQuote : singleQuote;
         }
 
         if (stringValue) {

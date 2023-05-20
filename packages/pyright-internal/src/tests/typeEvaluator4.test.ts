@@ -380,8 +380,15 @@ test('CallSite2', () => {
 });
 
 test('FString1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['fstring1.py']);
-    TestUtils.validateResults(analysisResults, 8, 1);
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['fstring1.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 14, 1);
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_12;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['fstring1.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 10, 1);
 });
 
 test('FString2', () => {

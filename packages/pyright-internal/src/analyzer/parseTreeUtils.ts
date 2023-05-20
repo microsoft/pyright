@@ -44,7 +44,6 @@ import {
     isExpressionNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { TokenizerOutput } from '../parser/tokenizer';
 import { KeywordType, OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { getScope } from './analyzerNodeInfo';
@@ -1378,7 +1377,6 @@ export function getDocString(statements: StatementNode[]): string | undefined {
     // It's up to the user to convert normalize/convert this as needed.
     const strings = (statements[0].statements[0] as StringListNode).strings;
     if (strings.length === 1) {
-        // Common case.
         return strings[0].value;
     }
 
@@ -1399,7 +1397,7 @@ export function isDocString(statementList: StatementListNode): boolean {
     }
 
     // Any f-strings invalidate the entire docstring.
-    if (strings.some((n) => (n.token.flags & StringTokenFlags.Format) !== 0)) {
+    if (strings.some((n) => n.nodeType === ParseNodeType.FormatString)) {
         return false;
     }
 
@@ -1652,53 +1650,12 @@ export function getCallNodeAndActiveParameterIndex(
 
         const index = tokens.getItemAtPosition(argumentStart);
         if (index < 0 || tokens.count <= index) {
-            // Somehow, we can't get token. To be safe, we will allow
-            // signature help to show up.
-            return true;
-        }
-
-        const token = tokens.getItemAt(index);
-        if (
-            token.type === TokenType.String &&
-            (token as StringToken).flags & StringTokenFlags.Format &&
-            TextRange.contains(token, offset)
-        ) {
-            // tokenizer won't tokenize format string segments. We get one token
-            // for the whole format string. We need to dig in.
-            const stringToken = token as StringToken;
-            const result = StringTokenUtils.getUnescapedString(stringToken);
-            const offsetInSegment = offset - stringToken.start - stringToken.prefixLength - stringToken.quoteMarkLength;
-            const segment = result.formatStringSegments.find(
-                (s) => s.offset <= offsetInSegment && offsetInSegment < s.offset + s.length
-            );
-            if (!segment || !segment.isExpression) {
-                // Just to be safe, allow signature help.
-                return true;
-            }
-
-            const length = Math.min(
-                segment.length,
-                callEndOffset -
-                    stringToken.start -
-                    stringToken.prefixLength -
-                    stringToken.quoteMarkLength -
-                    segment.offset
-            );
-
-            for (let i = offsetInSegment - segment.offset; i < length; i++) {
-                const ch = segment.value[i];
-                if (ch === '(') {
-                    // position must be after '('
-                    return false;
-                }
-            }
-
             return true;
         }
 
         const nextToken = tokens.getItemAt(index + 1);
         if (nextToken.type === TokenType.OpenParenthesis && offset < TextRange.getEnd(nextToken)) {
-            // position must be after '('
+            // Position must be after '('.
             return false;
         }
 

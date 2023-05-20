@@ -9,7 +9,7 @@
 
 import type * as fs from 'fs';
 
-import { getOrAdd } from './common/collectionUtils';
+import { appendArray, getOrAdd } from './common/collectionUtils';
 import {
     FileSystem,
     FileWatcher,
@@ -56,8 +56,9 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
         const entries: fs.Dirent[] = [];
         const movedEntries = this._folderMap.get(maybeDirectory);
         if (!movedEntries || this.realFS.existsSync(path)) {
-            entries.push(
-                ...this.realFS.readdirEntriesSync(path).filter((item) => {
+            appendArray(
+                entries,
+                this.realFS.readdirEntriesSync(path).filter((item) => {
                     // Filter out the stub package directory and any
                     // entries that will be overwritten by stub package
                     // virtual items.

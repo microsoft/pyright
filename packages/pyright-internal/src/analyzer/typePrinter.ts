@@ -7,6 +7,7 @@
  * Converts a type into a string representation.
  */
 
+import { appendArray } from '../common/collectionUtils';
 import { ParameterCategory } from '../parser/parseNodes';
 import { isTypedKwargs } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -856,8 +857,9 @@ function printObjectTypeForClassInternal(
                                 typeArgStrings.push(_printUnpack('tuple[()]', printTypeFlags));
                             }
                         } else {
-                            typeArgStrings.push(
-                                ...typeArg.type.tupleTypeArguments.map((typeArg) => {
+                            appendArray(
+                                typeArgStrings,
+                                typeArg.type.tupleTypeArguments.map((typeArg) => {
                                     if (!isUnknown(typeArg.type)) {
                                         isAllUnknown = false;
                                     }

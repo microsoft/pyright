@@ -60,7 +60,7 @@ export class ExecutionEnvironment {
         this.root = root || undefined;
         this.pythonVersion = defaultPythonVersion || latestStablePythonVersion;
         this.pythonPlatform = defaultPythonPlatform;
-        this.extraPaths = [...(defaultExtraPaths ?? [])];
+        this.extraPaths = Array.from(defaultExtraPaths ?? []);
     }
 }
 

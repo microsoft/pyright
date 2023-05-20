@@ -10,31 +10,10 @@
 
 import Char from 'typescript-char';
 
-import { StringToken, StringTokenFlags } from './tokenizerTypes';
-
-export interface FormatStringSegment {
-    // Offset within the unescaped string where
-    // this format string segment begins.
-    offset: number;
-
-    // Length of unescaped string corresponding
-    // to this segment.
-    length: number;
-
-    // Unescaped value of segment (without brackets).
-    value: string;
-
-    // Indicates whether this segment should be parsed
-    // as an expression.
-    isExpression: boolean;
-}
+import { FStringMiddleToken, StringToken, StringTokenFlags } from './tokenizerTypes';
 
 export const enum UnescapeErrorType {
     InvalidEscapeSequence,
-    EscapeWithinFormatExpression,
-    SingleCloseBraceWithinFormatLiteral,
-    UnterminatedFormatExpression,
-    NestedFormatSpecifierExpression,
 }
 
 export interface UnescapeError {
@@ -53,47 +32,30 @@ export interface UnescapedString {
     value: string;
     unescapeErrors: UnescapeError[];
     nonAsciiInBytes: boolean;
-    formatStringSegments: FormatStringSegment[];
 }
 
 interface IncompleteUnescapedString {
     valueParts: string[];
     unescapeErrors: UnescapeError[];
     nonAsciiInBytes: boolean;
-    formatStringSegments: IncompleteFormatStringSegment[];
-}
-
-interface IncompleteFormatStringSegment {
-    offset: number;
-    length: number;
-    valueParts: string[];
-    isExpression: boolean;
-    hasFormatSpecifier: boolean;
-    formatSpecifierNestCount: number;
 }
 
 function completeUnescapedString(incomplete: IncompleteUnescapedString): UnescapedString {
     return {
         ...incomplete,
         value: incomplete.valueParts.join(''),
-        formatStringSegments: incomplete.formatStringSegments.map((segment) => ({
-            ...segment,
-            value: segment.valueParts.join(''),
-        })),
     };
 }
 
-export function getUnescapedString(stringToken: StringToken): UnescapedString {
+export function getUnescapedString(stringToken: StringToken | FStringMiddleToken): UnescapedString {
     const escapedString = stringToken.escapedValue;
     const isRaw = (stringToken.flags & StringTokenFlags.Raw) !== 0;
-    const isFormat = (stringToken.flags & StringTokenFlags.Format) !== 0;
 
-    if (isRaw && !isFormat) {
+    if (isRaw) {
         return {
             value: escapedString,
             unescapeErrors: [],
             nonAsciiInBytes: false,
-            formatStringSegments: [],
         };
     }
 
@@ -105,36 +67,23 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
     const isBytes = (stringToken.flags & StringTokenFlags.Bytes) !== 0;
 
     // Handle the common case in an expedited manner.
-    if (!isFormat) {
-        if (
-            !charCodes.some(
-                (curChar) => curChar === Char.CarriageReturn || curChar === Char.LineFeed || curChar === Char.Backslash
-            )
-        ) {
-            return {
-                value: escapedString,
-                unescapeErrors: [],
-                nonAsciiInBytes: isBytes && charCodes.some((curChar) => curChar >= 128),
-                formatStringSegments: [],
-            };
-        }
+    if (
+        !charCodes.some(
+            (curChar) => curChar === Char.CarriageReturn || curChar === Char.LineFeed || curChar === Char.Backslash
+        )
+    ) {
+        return {
+            value: escapedString,
+            unescapeErrors: [],
+            nonAsciiInBytes: isBytes && charCodes.some((curChar) => curChar >= 128),
+        };
     }
 
-    let formatExpressionNestCount = 0;
-    let formatSegment: IncompleteFormatStringSegment = {
-        offset: 0,
-        length: 0,
-        valueParts: [],
-        isExpression: false,
-        hasFormatSpecifier: false,
-        formatSpecifierNestCount: 0,
-    };
     let strOffset = 0;
     const output: IncompleteUnescapedString = {
         valueParts: [],
         unescapeErrors: [],
         nonAsciiInBytes: false,
-        formatStringSegments: [],
     };
 
     const addInvalidEscapeOffset = () => {
@@ -185,41 +134,15 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
     const appendOutputChar = (charCode: number) => {
         const char = String.fromCharCode(charCode);
         output.valueParts.push(char);
-        formatSegment.valueParts.push(char);
     };
 
     while (true) {
         let curChar = getEscapedCharacter();
         if (curChar === Char.EndOfText) {
-            if (isFormat) {
-                if (formatSegment.isExpression) {
-                    // The last format segment was an unterminated expression.
-                    output.unescapeErrors.push({
-                        offset: formatSegment.offset,
-                        length: strOffset - formatSegment.offset,
-                        errorType: UnescapeErrorType.UnterminatedFormatExpression,
-                    });
-                }
-
-                // Push the last segment.
-                if (strOffset !== formatSegment.offset) {
-                    formatSegment.length = strOffset - formatSegment.offset;
-                    output.formatStringSegments.push(formatSegment);
-                }
-            }
             return completeUnescapedString(output);
         }
 
         if (curChar === Char.Backslash) {
-            if (isFormat && formatSegment.isExpression && !formatSegment.hasFormatSpecifier) {
-                // Backslashes aren't allowed within format string expressions.
-                output.unescapeErrors.push({
-                    offset: strOffset,
-                    length: 1,
-                    errorType: UnescapeErrorType.EscapeWithinFormatExpression,
-                });
-            }
-
             // Move past the escape (backslash) character.
             strOffset++;
 
@@ -244,7 +167,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                 }
                 strOffset++;
             } else {
-                if (isRaw || (isFormat && formatSegment.isExpression)) {
+                if (isRaw) {
                     localValue = '\\' + String.fromCharCode(curChar);
                     strOffset++;
                 } else {
@@ -368,7 +291,6 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
             }
 
             output.valueParts.push(localValue);
-            formatSegment.valueParts.push(localValue);
         } else if (curChar === Char.LineFeed || curChar === Char.CarriageReturn) {
             // Skip over the escaped new line (either one or two characters).
             if (curChar === Char.CarriageReturn && getEscapedCharacter(1) === Char.LineFeed) {
@@ -379,154 +301,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
 
             appendOutputChar(curChar);
             strOffset++;
-        } else if (isFormat && curChar === Char.OpenBrace) {
-            if (!formatSegment.isExpression && getEscapedCharacter(1) === Char.OpenBrace) {
-                appendOutputChar(curChar);
-                strOffset += 2;
-            } else {
-                // Are we parsing a format specifier?
-                if (formatExpressionNestCount === 0) {
-                    // A single open brace within a format literal indicates that
-                    // an expression is starting.
-                    formatSegment.length = strOffset - formatSegment.offset;
-                    if (formatSegment.length > 0) {
-                        output.formatStringSegments.push(formatSegment);
-                    }
-                    strOffset++;
-
-                    // Start a new segment.
-                    formatSegment = {
-                        offset: strOffset,
-                        length: 0,
-                        valueParts: [],
-                        isExpression: true,
-                        hasFormatSpecifier: false,
-                        formatSpecifierNestCount: 0,
-                    };
-                } else {
-                    if (formatSegment.hasFormatSpecifier) {
-                        if (formatSegment.formatSpecifierNestCount === 1) {
-                            output.unescapeErrors.push({
-                                offset: strOffset,
-                                length: 1,
-                                errorType: UnescapeErrorType.NestedFormatSpecifierExpression,
-                            });
-                        }
-                        formatSegment.formatSpecifierNestCount++;
-                    }
-                    appendOutputChar(curChar);
-                    strOffset++;
-                }
-                formatExpressionNestCount++;
-            }
-        } else if (isFormat && curChar === Char.CloseBrace) {
-            if (!formatSegment.isExpression && getEscapedCharacter(1) === Char.CloseBrace) {
-                appendOutputChar(curChar);
-                strOffset += 2;
-            } else if (formatExpressionNestCount === 0) {
-                output.unescapeErrors.push({
-                    offset: strOffset,
-                    length: 1,
-                    errorType: UnescapeErrorType.SingleCloseBraceWithinFormatLiteral,
-                });
-                strOffset++;
-            } else {
-                if (formatSegment.hasFormatSpecifier) {
-                    formatSegment.formatSpecifierNestCount--;
-                }
-
-                formatExpressionNestCount--;
-
-                if (formatExpressionNestCount === 0) {
-                    // A close brace within a format expression indicates that
-                    // the expression is complete.
-                    formatSegment.length = strOffset - formatSegment.offset;
-                    output.formatStringSegments.push(formatSegment);
-                    strOffset++;
-
-                    // Start a new segment.
-                    formatSegment = {
-                        offset: strOffset,
-                        length: 0,
-                        valueParts: [],
-                        isExpression: false,
-                        hasFormatSpecifier: false,
-                        formatSpecifierNestCount: 0,
-                    };
-                } else {
-                    appendOutputChar(curChar);
-                    strOffset++;
-                }
-            }
-        } else if (formatSegment.isExpression && (curChar === Char.SingleQuote || curChar === Char.DoubleQuote)) {
-            // We're within an expression, and we've encountered a string literal.
-            // Skip over it.
-            const quoteChar = curChar;
-            appendOutputChar(curChar);
-            const isTriplicate = getEscapedCharacter(1) === quoteChar && getEscapedCharacter(2) === quoteChar;
-            if (isTriplicate) {
-                strOffset += 2;
-                appendOutputChar(curChar);
-                appendOutputChar(curChar);
-                output.valueParts.push(String.fromCharCode(curChar));
-                output.valueParts.push(String.fromCharCode(curChar));
-            }
-
-            while (true) {
-                strOffset++;
-                let strChar = getEscapedCharacter();
-                if (strChar === Char.EndOfText) {
-                    break;
-                }
-
-                if (strChar === Char.Backslash) {
-                    if (isFormat) {
-                        if (formatSegment.isExpression) {
-                            // The last format segment was an unterminated expression.
-                            output.unescapeErrors.push({
-                                offset: formatSegment.offset,
-                                length: strOffset - formatSegment.offset,
-                                errorType: UnescapeErrorType.UnterminatedFormatExpression,
-                            });
-                        }
-                    }
-
-                    appendOutputChar(strChar);
-                    strOffset++;
-                    strChar = getEscapedCharacter();
-                    appendOutputChar(strChar);
-                    continue;
-                }
-
-                if (strChar === Char.LineFeed || strChar === Char.CarriageReturn) {
-                    if (!isTriplicate) {
-                        break;
-                    }
-                }
-
-                if (strChar === quoteChar) {
-                    if (!isTriplicate) {
-                        strOffset++;
-                        appendOutputChar(strChar);
-                        break;
-                    }
-
-                    if (getEscapedCharacter(1) === quoteChar && getEscapedCharacter(2) === quoteChar) {
-                        strOffset += 3;
-                        appendOutputChar(strChar);
-                        appendOutputChar(strChar);
-                        appendOutputChar(strChar);
-                        break;
-                    }
-                }
-
-                appendOutputChar(strChar);
-            }
         } else {
-            if (formatSegment.isExpression && curChar === Char.Colon) {
-                formatSegment.hasFormatSpecifier = true;
-            }
-
             // There's nothing to unescape, so output the escaped character directly.
             if (isBytes && curChar >= 128) {
                 output.nonAsciiInBytes = true;

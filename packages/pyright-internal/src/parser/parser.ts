@@ -11,14 +11,12 @@
  * into an abstract syntax tree (AST).
  */
 
-import Char from 'typescript-char';
-
 import { IPythonMode } from '../analyzer/sourceFile';
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticSink } from '../common/diagnosticSink';
-import { convertOffsetsToRange, convertPositionToOffset } from '../common/positionUtils';
+import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion, latestStablePythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -122,6 +120,9 @@ import * as StringTokenUtils from './stringTokenUtils';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
 import {
     DedentToken,
+    FStringEndToken,
+    FStringMiddleToken,
+    FStringStartToken,
     IdentifierToken,
     IndentToken,
     KeywordToken,
@@ -1128,7 +1129,7 @@ export class Parser {
 
             // Check for f-strings, which are not allowed.
             stringList.strings.forEach((stringAtom) => {
-                if (stringAtom.token.flags & StringTokenFlags.Format) {
+                if (stringAtom.nodeType === ParseNodeType.FormatString) {
                     this._addError(Localizer.Diagnostic.formatStringInPattern(), stringAtom);
                 }
             });
@@ -3791,7 +3792,7 @@ export class Parser {
             return NameNode.create(this._getNextToken() as IdentifierToken);
         }
 
-        if (nextToken.type === TokenType.String) {
+        if (nextToken.type === TokenType.String || nextToken.type === TokenType.FStringStart) {
             return this._parseStringList();
         }
 
@@ -3902,7 +3903,7 @@ export class Parser {
             appendArray(stopTokens, additionalStopTokens);
         }
 
-        // Using token that is not consumed by error node will mess up spans in parse node.
+        // Using a token that is not included in the error node creates problems.
         // Sibling nodes in parse tree shouldn't overlap each other.
         const nextToken = this._peekToken();
         const initialRange: TextRange = stopTokens.some((k) => nextToken.type === k)
@@ -4293,7 +4294,7 @@ export class Parser {
             }
 
             const rightExpr =
-                this._tryParseYieldExpression() ||
+                this._tryParseYieldExpression() ??
                 this._parseTestOrStarListAsExpression(
                     /* allowAssignmentExpression */ false,
                     /* allowMultipleUnpack */ true,
@@ -4315,7 +4316,7 @@ export class Parser {
             const operatorToken = this._getNextToken() as OperatorToken;
 
             const rightExpr =
-                this._tryParseYieldExpression() ||
+                this._tryParseYieldExpression() ??
                 this._parseTestListAsExpression(ErrorExpressionCategory.MissingExpression, () =>
                     Localizer.Diagnostic.expectedBinaryRightHandExpr()
                 );
@@ -4337,7 +4338,7 @@ export class Parser {
 
         while (true) {
             rightExpr =
-                this._tryParseYieldExpression() ||
+                this._tryParseYieldExpression() ??
                 this._parseTestOrStarListAsExpression(
                     /* allowAssignmentExpression */ false,
                     /* allowMultipleUnpack */ true,
@@ -4470,12 +4471,15 @@ export class Parser {
         return result;
     }
 
-    private _reportStringTokenErrors(stringToken: StringToken, unescapedResult: StringTokenUtils.UnescapedString) {
+    private _reportStringTokenErrors(
+        stringToken: StringToken | FStringStartToken,
+        unescapedResult?: StringTokenUtils.UnescapedString
+    ) {
         if (stringToken.flags & StringTokenFlags.Unterminated) {
             this._addError(Localizer.Diagnostic.stringUnterminated(), stringToken);
         }
 
-        if (unescapedResult.nonAsciiInBytes) {
+        if (unescapedResult?.nonAsciiInBytes) {
             this._addError(Localizer.Diagnostic.stringNonAsciiBytes(), stringToken);
         }
 
@@ -4497,7 +4501,7 @@ export class Parser {
     private _makeStringNode(stringToken: StringToken): StringNode {
         const unescapedResult = StringTokenUtils.getUnescapedString(stringToken);
         this._reportStringTokenErrors(stringToken, unescapedResult);
-        return StringNode.create(stringToken, unescapedResult.value, unescapedResult.unescapeErrors.length > 0);
+        return StringNode.create(stringToken, unescapedResult.value);
     }
 
     private _getTypeAnnotationCommentText(): StringToken | undefined {
@@ -4601,189 +4605,167 @@ export class Parser {
         extendRange(functionNode, functionAnnotation);
     }
 
-    private _parseFormatStringSegment(
-        stringToken: StringToken,
-        segment: StringTokenUtils.FormatStringSegment,
-        segmentOffset: number,
-        segmentLength: number
-    ) {
-        assert(segment.isExpression);
-        const parser = new Parser();
-        const parseResults = parser.parseTextExpression(
-            this._fileContents!,
-            stringToken.start + stringToken.prefixLength + stringToken.quoteMarkLength + segment.offset + segmentOffset,
-            segmentLength,
-            this._parseOptions,
-            ParseTextMode.Expression,
-            /* initialParenDepth */ 1,
-            this._typingSymbolAliases
-        );
+    private _parseFStringReplacementField(
+        fieldExpressions: ExpressionNode[],
+        middleTokens: FStringMiddleToken[],
+        formatExpressions: ExpressionNode[],
+        nestingDepth = 0
+    ): boolean {
+        let nextToken = this._getNextToken();
 
-        parseResults.diagnostics.forEach((diag) => {
-            const textRangeStart =
-                (diag.range ? convertPositionToOffset(diag.range.start, parseResults.lines) : stringToken.start) ||
-                stringToken.start;
-            const textRangeEnd =
-                (diag.range
-                    ? (convertPositionToOffset(diag.range.end, parseResults.lines) || 0) + 1
-                    : stringToken.start + stringToken.length) || stringToken.start + stringToken.length;
-            const textRange = { start: textRangeStart, length: textRangeEnd - textRangeStart };
-            this._addError(diag.message, textRange);
-        });
+        // The caller should have already confirmed that the next token is an open brace.
+        assert(nextToken.type === TokenType.OpenCurlyBrace);
 
-        return parseResults.parseTree;
-    }
+        // Consume the expression.
+        const expr =
+            this._tryParseYieldExpression() ??
+            this._parseTestOrStarListAsExpression(
+                /* allowAssignmentExpression */ true,
+                /* allowMultipleUnpack */ true,
+                ErrorExpressionCategory.MissingExpression,
+                () => Localizer.Diagnostic.expectedExpr()
+            );
 
-    private _parseFormatString(stringToken: StringToken): FormatStringNode {
-        const unescapedResult = StringTokenUtils.getUnescapedString(stringToken);
-        this._reportStringTokenErrors(stringToken, unescapedResult);
+        fieldExpressions.push(expr);
 
-        const formatExpressions: ExpressionNode[] = [];
-
-        for (const segment of unescapedResult.formatStringSegments) {
-            if (segment.isExpression) {
-                // Determine if we need to truncate the expression because it
-                // contains formatting directives that start with a ! or :.
-                const segmentExprLength = this._getFormatStringExpressionLength(segment.value.trimEnd());
-                const parseTree = this._parseFormatStringSegment(stringToken, segment, 0, segmentExprLength);
-                if (parseTree) {
-                    assert(parseTree.nodeType !== ParseNodeType.FunctionAnnotation);
-                    formatExpressions.push(parseTree);
-                }
-
-                // Look for additional expressions within the format directive.
-                const formatDirective = segment.value.substr(segmentExprLength);
-                let braceDepth = 0;
-                let startOfExprOffset = 0;
-                for (let i = 0; i < formatDirective.length; i++) {
-                    if (formatDirective.charCodeAt(i) === Char.OpenBrace) {
-                        if (braceDepth === 0) {
-                            startOfExprOffset = i + 1;
-                        }
-                        braceDepth++;
-                    } else if (formatDirective.charCodeAt(i) === Char.CloseBrace) {
-                        if (braceDepth > 0) {
-                            braceDepth--;
-                            if (braceDepth === 0) {
-                                const formatSegmentLength = this._getFormatStringExpressionLength(
-                                    segment.value.substr(segmentExprLength + startOfExprOffset, i - startOfExprOffset)
-                                );
-                                const parseTree = this._parseFormatStringSegment(
-                                    stringToken,
-                                    segment,
-                                    segmentExprLength + startOfExprOffset,
-                                    formatSegmentLength
-                                );
-                                if (parseTree) {
-                                    assert(parseTree.nodeType !== ParseNodeType.FunctionAnnotation);
-                                    formatExpressions.push(parseTree);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        if (expr.nodeType === ParseNodeType.Error) {
+            return false;
         }
 
-        return FormatStringNode.create(
-            stringToken,
-            unescapedResult.value,
-            unescapedResult.unescapeErrors.length > 0,
-            formatExpressions
-        );
-    }
+        // Consume an optional "=" token after the expression.
+        nextToken = this._peekToken();
+        if (
+            nextToken.type === TokenType.Operator &&
+            (nextToken as OperatorToken).operatorType === OperatorType.Assign
+        ) {
+            // This feature requires Python 3.8 or newer.
+            if (this._parseOptions.pythonVersion < PythonVersion.V3_8) {
+                this._addError(Localizer.Diagnostic.formatStringDebuggingIllegal(), nextToken);
+            }
 
-    private _getFormatStringExpressionLength(segmentValue: string): number {
-        let segmentExprLength = 0;
+            this._getNextToken();
+            nextToken = this._peekToken();
+        }
 
-        // PEP 498 says: Expressions cannot contain ':' or '!' outside of
-        // strings or parentheses, brackets, or braces. The exception is
-        // that the '!=' operator is allowed as a special case.
-        const quoteStack: string[] = [];
-        let braceCount = 0;
-        let parenCount = 0;
-        let bracketCount = 0;
-        let indexOfDebugEqual: number | undefined;
+        // Consume an optional !r, !s, or !a token.
+        if (nextToken.type === TokenType.ExclamationMark) {
+            this._getNextToken();
+            nextToken = this._peekToken();
 
-        while (segmentExprLength < segmentValue.length) {
-            const curChar = segmentValue[segmentExprLength];
-            const ignoreSeparator = quoteStack.length > 0 || braceCount > 0 || parenCount > 0 || bracketCount > 0;
-            const inString = quoteStack.length > 0;
-
-            if (curChar === '=') {
-                indexOfDebugEqual = segmentExprLength;
+            if (nextToken.type !== TokenType.Identifier) {
+                this._addError(Localizer.Diagnostic.formatStringExpectedConversion(), nextToken);
             } else {
-                if (curChar === ':') {
-                    if (!ignoreSeparator) {
-                        break;
-                    }
-                } else if (curChar === '!') {
-                    if (!ignoreSeparator) {
-                        // Allow !=, as per PEP 498
-                        if (
-                            segmentExprLength === segmentValue.length - 1 ||
-                            segmentValue[segmentExprLength + 1] !== '='
-                        ) {
-                            break;
-                        }
-                    }
-                } else if (curChar === "'" || curChar === '"') {
-                    let quoteSequence = curChar;
-                    if (
-                        segmentExprLength + 2 < segmentValue.length &&
-                        segmentValue[segmentExprLength + 1] === curChar &&
-                        segmentValue[segmentExprLength + 2] === curChar
-                    ) {
-                        quoteSequence = curChar + curChar + curChar;
-                        segmentExprLength += 2;
-                    }
+                this._getNextToken();
+                nextToken = this._peekToken();
+            }
+        }
 
-                    if (quoteStack.length > 0 && quoteStack[quoteStack.length - 1] === quoteSequence) {
-                        quoteStack.pop();
-                    } else if (quoteStack.length === 0) {
-                        quoteStack.push(quoteSequence);
-                    }
-                } else if (curChar === '(') {
-                    if (!inString) {
-                        parenCount++;
-                    }
-                } else if (curChar === ')') {
-                    if (!inString && parenCount > 0) {
-                        parenCount--;
-                    }
-                } else if (curChar === '{') {
-                    if (!inString) {
-                        braceCount++;
-                    }
-                } else if (curChar === '}') {
-                    if (!inString && braceCount > 0) {
-                        braceCount--;
-                    }
-                } else if (curChar === '[') {
-                    if (!inString) {
-                        bracketCount++;
-                    }
-                } else if (curChar === ']') {
-                    if (!inString && bracketCount > 0) {
-                        bracketCount--;
-                    }
-                }
+        if (nextToken.type === TokenType.Colon) {
+            this._getNextToken();
+            this._parseFStringFormatString(fieldExpressions, middleTokens, formatExpressions, nestingDepth);
+            nextToken = this._peekToken();
+        }
 
-                if (curChar !== ' ') {
-                    indexOfDebugEqual = undefined;
-                }
+        if (nextToken.type !== TokenType.CloseCurlyBrace) {
+            this._addError(Localizer.Diagnostic.formatStringUnterminated(), nextToken);
+            return false;
+        } else {
+            this._getNextToken();
+        }
+
+        // Indicate success.
+        return true;
+    }
+
+    private _parseFStringFormatString(
+        fieldExpressions: ExpressionNode[],
+        middleTokens: FStringMiddleToken[],
+        formatExpressions: ExpressionNode[],
+        nestingDepth: number
+    ) {
+        while (true) {
+            const nextToken = this._peekToken();
+
+            if (nextToken.type === TokenType.CloseCurlyBrace || nextToken.type === TokenType.FStringEnd) {
+                break;
             }
 
-            segmentExprLength++;
+            if (nextToken.type === TokenType.FStringMiddle) {
+                this._getNextToken();
+                continue;
+            }
+
+            if (nextToken.type === TokenType.OpenCurlyBrace) {
+                // The Python interpreter reports an error at the point where the
+                // nesting level exceeds 1. Don't report the error again for deeper nestings.
+                if (nestingDepth === 2) {
+                    this._addError(Localizer.Diagnostic.formatStringNestedFormatSpecifier(), nextToken);
+                }
+
+                this._parseFStringReplacementField(fieldExpressions, middleTokens, formatExpressions, nestingDepth + 1);
+                continue;
+            }
+
+            break;
+        }
+    }
+
+    private _parseFormatString(startToken: FStringStartToken): FormatStringNode {
+        const middleTokens: FStringMiddleToken[] = [];
+        const fieldExpressions: ExpressionNode[] = [];
+        const formatExpressions: ExpressionNode[] = [];
+        let endToken: FStringEndToken | undefined = undefined;
+
+        // Consume middle tokens and expressions until we hit a "{" or "}" token.
+        while (true) {
+            const nextToken = this._peekToken();
+
+            if (nextToken.type === TokenType.FStringEnd) {
+                endToken = nextToken as FStringEndToken;
+
+                if ((endToken.flags & StringTokenFlags.Unterminated) !== 0) {
+                    this._addError(Localizer.Diagnostic.stringUnterminated(), startToken);
+                }
+                this._getNextToken();
+                break;
+            }
+
+            if (nextToken.type === TokenType.FStringMiddle) {
+                middleTokens.push(nextToken as FStringMiddleToken);
+                this._getNextToken();
+                continue;
+            }
+
+            if (nextToken.type === TokenType.OpenCurlyBrace) {
+                if (!this._parseFStringReplacementField(fieldExpressions, middleTokens, formatExpressions)) {
+                    // An error was reported. Try to recover the parse.
+                    if (this._consumeTokensUntilType([TokenType.FStringEnd, TokenType.NewLine])) {
+                        if (this._peekToken().type === TokenType.FStringEnd) {
+                            this._getNextToken();
+                        }
+                    }
+                    break;
+                }
+                continue;
+            }
+
+            // We've hit an error. Consume tokens until we find the end.
+            if (this._consumeTokensUntilType([TokenType.FStringEnd])) {
+                this._getNextToken();
+            }
+
+            this._addError(
+                nextToken.type === TokenType.CloseCurlyBrace
+                    ? Localizer.Diagnostic.formatStringBrace()
+                    : Localizer.Diagnostic.stringUnterminated(),
+                nextToken
+            );
+            break;
         }
 
-        // Handle Python 3.8 f-string formatting expressions that
-        // end in an "=".
-        if (this._parseOptions.pythonVersion >= PythonVersion.V3_8 && indexOfDebugEqual !== undefined) {
-            segmentExprLength = indexOfDebugEqual;
-        }
+        this._reportStringTokenErrors(startToken);
 
-        return segmentExprLength;
+        return FormatStringNode.create(startToken, endToken, middleTokens, fieldExpressions, formatExpressions);
     }
 
     private _createBinaryOperationNode(
@@ -4823,12 +4805,14 @@ export class Parser {
     private _parseStringList(): StringListNode {
         const stringList: (StringNode | FormatStringNode)[] = [];
 
-        while (this._peekTokenType() === TokenType.String) {
-            const stringToken = this._getNextToken() as StringToken;
-            if (stringToken.flags & StringTokenFlags.Format) {
-                stringList.push(this._parseFormatString(stringToken));
+        while (true) {
+            const nextToken = this._peekToken();
+            if (nextToken.type === TokenType.String) {
+                stringList.push(this._makeStringNode(this._getNextToken() as StringToken));
+            } else if (nextToken.type === TokenType.FStringStart) {
+                stringList.push(this._parseFormatString(this._getNextToken() as FStringStartToken));
             } else {
-                stringList.push(this._makeStringNode(stringToken));
+                break;
             }
         }
 
@@ -4840,7 +4824,7 @@ export class Parser {
             // parse errors that span strings.
             if (stringNode.strings.length > 1) {
                 this._addError(Localizer.Diagnostic.annotationSpansStrings(), stringNode);
-            } else if (stringNode.strings[0].token.flags & StringTokenFlags.Format) {
+            } else if (stringNode.strings[0].nodeType === ParseNodeType.FormatString) {
                 this._addError(Localizer.Diagnostic.annotationFormatString(), stringNode);
             } else {
                 const stringToken = stringNode.strings[0].token;
@@ -4955,6 +4939,9 @@ export class Parser {
             case TokenType.CloseCurlyBrace:
             case TokenType.Comma:
             case TokenType.Colon:
+            case TokenType.ExclamationMark:
+            case TokenType.FStringMiddle:
+            case TokenType.FStringEnd:
                 return true;
         }
 

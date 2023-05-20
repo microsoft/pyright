@@ -26,7 +26,9 @@ import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { ClassMemberLookupFlags, doForEachSubtype, lookUpClassMember, lookUpObjectMember } from '../analyzer/typeUtils';
 import { ClassType, isClassInstance, isFunction, isInstantiableClass } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { appendArray } from '../common/collectionUtils';
 import { ProgramView } from '../common/extensibility';
+import { getSymbolKind } from '../common/lspUtils';
 import { convertPathToUri, getFileName } from '../common/pathUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { Position, rangesAreEqual } from '../common/textRange';
@@ -35,7 +37,6 @@ import { CallNode, MemberAccessNode, NameNode, ParseNode, ParseNodeType } from '
 import { ParseResults } from '../parser/parser';
 import { DocumentSymbolCollectorUseCase } from './documentSymbolCollector';
 import { canNavigateToFile } from './navigationUtils';
-import { getSymbolKind } from '../common/lspUtils';
 
 export class CallHierarchyProvider {
     private readonly _parseResults: ParseResults | undefined;
@@ -130,7 +131,7 @@ export class CallHierarchyProvider {
                 );
 
                 if (itemsToAdd) {
-                    items.push(...itemsToAdd);
+                    appendArray(items, itemsToAdd);
                 }
 
                 // This operation can consume significant memory, so check
