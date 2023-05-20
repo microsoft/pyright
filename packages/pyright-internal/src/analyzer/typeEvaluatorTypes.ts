@@ -173,8 +173,10 @@ export interface TypeResult<T extends Type = Type> {
     expectedTypeDiagAddendum?: DiagnosticAddendum | undefined;
 
     // Is member a descriptor object that is asymmetric with respect
-    // to __get__ and __set__ types?
-    isAsymmetricDescriptor?: boolean;
+    // to __get__ and __set__ types? Or is the member accessed through
+    // a __setattr__ method that is asymmetric with respect to the
+    // corresponding __getattr__?
+    isAsymmetricAccessor?: boolean;
 
     // Is the type wrapped in a "Required", "NotRequired" or "ReadOnly" class?
     isRequired?: boolean;
@@ -360,7 +362,7 @@ export interface ClassMemberLookup {
 
     // Is member a descriptor object that is asymmetric with respect
     // to __get__ and __set__ types?
-    isAsymmetricDescriptor: boolean;
+    isAsymmetricAccessor: boolean;
 }
 
 export interface PrintTypeOptions {

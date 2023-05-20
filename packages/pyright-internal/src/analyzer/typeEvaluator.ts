@@ -345,9 +345,9 @@ interface MatchArgsToParamsResult {
     relevance: number;
 }
 
-export interface DescriptorTypeResult {
+export interface MemberAccessTypeResult {
     type: Type;
-    isAsymmetricDescriptor: boolean;
+    isAsymmetricAccessor: boolean;
 }
 
 interface ScopedTypeVarResult {
@@ -533,7 +533,7 @@ interface TypeCacheEntry {
 
 export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
-    const asymmetricDescriptorAssignmentCache = new Set<number>();
+    const asymmetricAccessorAssignmentCache = new Set<number>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     const suppressedNodeStack: ParseNode[] = [];
 
@@ -698,11 +698,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return;
         }
 
-        asymmetricDescriptorAssignmentCache.add(node.id);
+        asymmetricAccessorAssignmentCache.add(node.id);
     }
 
-    function isAsymmetricDescriptorAssignment(node: ParseNode) {
-        return asymmetricDescriptorAssignmentCache.has(node.id);
+    function isAsymmetricAccessorAssignment(node: ParseNode) {
+        return asymmetricAccessorAssignmentCache.has(node.id);
     }
 
     // Determines whether the specified node is contained within
@@ -1884,7 +1884,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type: memberInfo.type,
                 classType: memberInfo.classType,
                 isIncomplete: !!memberInfo.isTypeIncomplete,
-                isAsymmetricDescriptor: memberInfo.isAsymmetricDescriptor,
+                isAsymmetricAccessor: memberInfo.isAsymmetricAccessor,
             };
         }
         return undefined;
@@ -1974,7 +1974,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return {
                 type: memberInfo.type,
                 isIncomplete: !!memberInfo.isTypeIncomplete,
-                isAsymmetricDescriptor: memberInfo.isAsymmetricDescriptor,
+                isAsymmetricAccessor: memberInfo.isAsymmetricAccessor,
             };
         }
 
@@ -3175,7 +3175,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             EvaluatorFlags.None
         );
 
-        if (setTypeResult.isAsymmetricDescriptor) {
+        if (setTypeResult.isAsymmetricAccessor) {
             setAsymmetricDescriptorAssignment(target);
         }
 
@@ -4883,7 +4883,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         let type: Type | undefined;
         let isIncomplete = !!baseTypeResult.isIncomplete;
-        let isAsymmetricDescriptor: boolean | undefined;
+        let isAsymmetricAccessor: boolean | undefined;
         const isRequired = false;
         const isNotRequired = false;
 
@@ -5010,8 +5010,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isIncomplete = true;
                     }
 
-                    if (typeResult?.isAsymmetricDescriptor) {
-                        isAsymmetricDescriptor = true;
+                    if (typeResult?.isAsymmetricAccessor) {
+                        isAsymmetricAccessor = true;
                     }
                 } else {
                     // Handle the special case of 'name' and 'value' members within an enum.
@@ -5044,8 +5044,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isIncomplete = true;
                     }
 
-                    if (typeResult?.isAsymmetricDescriptor) {
-                        isAsymmetricDescriptor = true;
+                    if (typeResult?.isAsymmetricAccessor) {
+                        isAsymmetricAccessor = true;
                     }
                 }
                 break;
@@ -5304,7 +5304,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return { type, isIncomplete, isAsymmetricDescriptor, isRequired, isNotRequired };
+        return { type, isIncomplete, isAsymmetricAccessor, isRequired, isNotRequired };
     }
 
     function getTypeOfClassMemberName(
@@ -5490,7 +5490,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isClassMember: !memberInfo.isInstanceMember,
                 isClassVar: memberInfo.isClassVar,
                 classType: memberInfo.classType,
-                isAsymmetricDescriptor: descriptorResult.isAsymmetricDescriptor,
+                isAsymmetricAccessor: descriptorResult.isAsymmetricAccessor,
             };
         }
 
@@ -5505,11 +5505,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (generalAttrType) {
                 return {
                     symbol: undefined,
-                    type: generalAttrType,
+                    type: generalAttrType.type,
                     isTypeIncomplete: false,
                     isClassMember: false,
                     isClassVar: false,
-                    isAsymmetricDescriptor: false,
+                    isAsymmetricAccessor: generalAttrType.isAsymmetricAccessor,
                 };
             }
         }
@@ -5533,10 +5533,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberName: string,
         usage: EvaluatorUsage,
         diag: DiagnosticAddendum | undefined
-    ): DescriptorTypeResult | undefined {
+    ): MemberAccessTypeResult | undefined {
         const treatConstructorAsClassMember = (flags & MemberAccessFlags.TreatConstructorAsClassMethod) !== 0;
         let isTypeValid = true;
-        let isAsymmetricDescriptor = false;
+        let isAsymmetricAccessor = false;
 
         type = mapSubtypes(type, (subtype) => {
             const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
@@ -5779,7 +5779,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // Determine if we're calling __set__ on an asymmetric descriptor or property.
                             if (usage.method === 'set' && isClass(accessMethod.classType)) {
                                 if (isAsymmetricDescriptorClass(accessMethod.classType)) {
-                                    isAsymmetricDescriptor = true;
+                                    isAsymmetricAccessor = true;
                                 }
                             }
 
@@ -5910,7 +5910,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        return { type, isAsymmetricDescriptor };
+        return { type, isAsymmetricAccessor };
     }
 
     function isAsymmetricDescriptorClass(classType: ClassType): boolean {
@@ -5950,13 +5950,50 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return isAsymmetric;
     }
 
+    function isClassWithAsymmetricAttributeAccessor(classType: ClassType): boolean {
+        // If the value has already been cached in this type, return the cached value.
+        if (classType.isAsymmetricAttributeAccessor !== undefined) {
+            return classType.isAsymmetricAttributeAccessor;
+        }
+
+        let isAsymmetric = false;
+
+        const getterSymbolResult = lookUpClassMember(classType, '__getattr__', ClassMemberLookupFlags.SkipBaseClasses);
+        const setterSymbolResult = lookUpClassMember(classType, '__setattr__', ClassMemberLookupFlags.SkipBaseClasses);
+
+        if (!getterSymbolResult || !setterSymbolResult) {
+            isAsymmetric = false;
+        } else {
+            const getterType = getEffectiveTypeOfSymbol(getterSymbolResult.symbol);
+            const setterType = getEffectiveTypeOfSymbol(setterSymbolResult.symbol);
+
+            // If either the setter or getter is an overload (or some other non-function type),
+            // conservatively assume that it's not asymmetric.
+            if (isFunction(getterType) && isFunction(setterType)) {
+                // If there's no declared return type on the getter, assume it's symmetric.
+                if (setterType.details.parameters.length >= 3 && getterType.details.declaredReturnType) {
+                    const setterValueType = FunctionType.getEffectiveParameterType(setterType, 2);
+                    const getterReturnType = FunctionType.getSpecializedReturnType(getterType) ?? UnknownType.create();
+
+                    if (!isTypeSame(setterValueType, getterReturnType)) {
+                        isAsymmetric = true;
+                    }
+                }
+            }
+        }
+
+        // Cache the value for next time.
+        classType.isAsymmetricAttributeAccessor = isAsymmetric;
+        return isAsymmetric;
+    }
+
     // Applies the __getattr__, __setattr__ or __delattr__ method if present.
     function applyAttributeAccessOverride(
         classType: ClassType,
         errorNode: ExpressionNode,
         usage: EvaluatorUsage,
         memberName: string
-    ): Type | undefined {
+    ): MemberAccessTypeResult | undefined {
         const getAttributeAccessMember = (name: string) => {
             // See if the class has a "__getattribute__" or "__getattr__" method.
             // If so, arbitrary members are supported.
@@ -6023,7 +6060,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* skipUnknownArgCheck */ true
                     );
 
-                    return callResult.returnType ?? UnknownType.create();
+                    let isAsymmetricAccessor = false;
+                    if (usage.method === 'set') {
+                        isAsymmetricAccessor = isClassWithAsymmetricAttributeAccessor(classType);
+                    }
+
+                    return {
+                        type: callResult.returnType ?? UnknownType.create(),
+                        isAsymmetricAccessor,
+                    };
                 }
             }
         }
@@ -25045,7 +25090,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         validateOverloadedFunctionArguments,
         isAfterNodeReachable,
         isNodeReachable,
-        isAsymmetricDescriptorAssignment,
+        isAsymmetricDescriptorAssignment: isAsymmetricAccessorAssignment,
         suppressDiagnostics,
         getDeclarationsForStringNode,
         getDeclarationsForNameNode,
