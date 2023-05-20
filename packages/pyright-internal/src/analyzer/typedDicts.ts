@@ -297,6 +297,7 @@ export function synthesizeTypedDictClassMethods(
     const entries = getTypedDictMembersForClass(evaluator, classType);
     let allEntriesAreNotRequired = true;
     let allEntriesAreReadOnly = true;
+    let allEntriesAreWritable = true;
     entries.forEach((entry, name) => {
         FunctionType.addParameter(initOverride1, {
             category: ParameterCategory.Simple,
@@ -318,7 +319,9 @@ export function synthesizeTypedDictClassMethods(
             allEntriesAreNotRequired = false;
         }
 
-        if (!entry.isReadOnly) {
+        if (entry.isReadOnly) {
+            allEntriesAreWritable = false;
+        } else {
             allEntriesAreReadOnly = false;
         }
     });
@@ -469,13 +472,6 @@ export function synthesizeTypedDictClassMethods(
             const updateMethod = FunctionType.createSynthesizedInstance('update');
             FunctionType.addParameter(updateMethod, selfParam);
 
-            let foundReadOnlyEntry = false;
-            entries.forEach((entry) => {
-                if (entry.isReadOnly) {
-                    foundReadOnlyEntry = true;
-                }
-            });
-
             // If at least one entry is read-only, don't allow updates. We need to override
             // the update method provided by the _TypedDict base class, so we'll use
             // a Never parameter to generate an error if someone attempts to call it
@@ -484,7 +480,7 @@ export function synthesizeTypedDictClassMethods(
                 category: ParameterCategory.Simple,
                 name: '__m',
                 hasDeclaredType: true,
-                type: foundReadOnlyEntry
+                type: !allEntriesAreWritable
                     ? NeverType.createNever()
                     : ClassType.cloneAsInstance(ClassType.cloneForPartialTypedDict(classType)),
             });
