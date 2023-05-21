@@ -192,6 +192,7 @@ export const enum AssignTypeFlags {
 
 export interface ApplyTypeVarOptions {
     unknownIfNotFound?: boolean;
+    unknownExemptTypeVars?: TypeVarType[];
     useUnknownOverDefault?: boolean;
     useNarrowBoundOnly?: boolean;
     eliminateUnsolvedInUnions?: boolean;
@@ -3630,7 +3631,10 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             // default or Unknown.
             let useDefaultOrUnknown = false;
             if (this._options.unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
-                useDefaultOrUnknown = true;
+                const exemptTypeVars = this._options.unknownExemptTypeVars ?? [];
+                if (!exemptTypeVars.some((t) => isTypeSame(t, typeVar))) {
+                    useDefaultOrUnknown = true;
+                }
             } else if (this._options.applyInScopePlaceholders && typeVar.isInScopePlaceholder) {
                 useDefaultOrUnknown = true;
             }

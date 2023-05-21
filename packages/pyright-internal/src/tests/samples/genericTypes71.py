@@ -1,7 +1,7 @@
 # This sample tests the case where a generic class uses a default argument
 # for a generic type parameter in its constructor.
 
-from typing import Generic, List, TypeVar
+from typing import Callable, Generic, List, TypeVar
 
 
 T = TypeVar("T")
@@ -67,6 +67,26 @@ class ContainerList(Generic[U]):
         Container[U].create()
 
 
-def default_if_empty(obv: Container[T], default_value: T = None) -> None:
+def func1(obv: Container[T], default_value: T = None) -> None:
     # This should generate an error.
     obv.on_next(default_value)
+
+
+class A:
+    ...
+
+
+T = TypeVar("T")
+T_A = TypeVar("T_A", bound=A)
+
+
+class B(Generic[T]):
+    def __init__(self, c: Callable[[], T]):
+        ...
+
+
+def func2(cls: type[T_A] = A) -> Callable[[], T_A]:
+    ...
+
+
+B(func2())

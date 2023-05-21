@@ -10262,6 +10262,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): CallResult {
         const type = matchResults.overload;
 
+        // Can we safely ignore the inference context (either because it's not provided
+        // or will have no effect)? If so, we can eliminate a bunch of extra work.
         if (
             !inferenceContext ||
             isAnyOrUnknown(inferenceContext.expectedType) ||
@@ -10308,6 +10310,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (effectiveExpectedType) {
+            const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
+
             // Prepopulate the typeVarContext based on the specialized expected type if the
             // callee has a declared return type. This will allow us to more closely match
             // the expected type if possible.
@@ -10335,7 +10339,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         effectiveReturnType,
                         effectiveExpectedType,
                         tempTypeVarContext,
-                        ParseTreeUtils.getTypeVarScopesForNode(errorNode)
+                        liveTypeVarScopes
                     );
 
                     const genericReturnType = ClassType.cloneForSpecialization(
@@ -10355,6 +10359,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     });
                 }
             }
+
+            effectiveExpectedType = transformExpectedType(effectiveExpectedType, liveTypeVarScopes);
 
             assignType(
                 effectiveReturnType,
@@ -10484,9 +10490,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             isTypeIncomplete = true;
                         }
 
-                        // If we skipped a overload arg during the first pass,
-                        // add another pass to ensure that we handle all of the
-                        // type variables.
+                        // If we skipped an overload arg or a bare type var during the first pass,
+                        // add another pass to ensure that we handle all of the type variables.
                         if (i === 0 && (argResult.skippedOverloadArg || argResult.skippedBareTypeVarExpectedType)) {
                             passCount++;
                         }
@@ -10494,8 +10499,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
             }
 
-            // Lock the type var map so it cannot be modified and revalidate the
-            // arguments in a second pass.
+            // Lock the type var map so it cannot be modified when revalidating
+            // the arguments in a second pass.
             typeVarContext.lock();
         }
 
@@ -10620,23 +10625,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             eliminateUnsolvedInUnions = false;
         }
 
-        // In general, we want to replace in-scope TypeVars with Unknown
-        // if they were not solved. However, if the return type is a
-        // Callable, we'll leave the TypeVars unsolved because
-        // the call below to adjustCallableReturnType will "detach" these
-        // TypeVars from the scope of this function and "attach" them to
-        // the scope of the callable.
-        let unknownIfNotFound = !isFunction(returnType);
-
-        // We'll also leave TypeVars unsolved if the call is a recursive
+        // We'll leave TypeVars unsolved if the call is a recursive
         // call to a generic function.
-        const typeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
-        if (typeVarScopes.some((typeVarScope) => typeVarContext.hasSolveForScope(typeVarScope))) {
-            unknownIfNotFound = false;
-        }
+        const unknownIfNotFound = !ParseTreeUtils.getTypeVarScopesForNode(errorNode).some((typeVarScope) =>
+            typeVarContext.hasSolveForScope(typeVarScope)
+        );
 
         let specializedReturnType = applySolvedTypeVars(returnType, typeVarContext, {
             unknownIfNotFound,
+            unknownExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
             useUnknownOverDefault: skipUnknownArgCheck,
             eliminateUnsolvedInUnions,
             applyInScopePlaceholders: true,
@@ -10705,6 +10702,40 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             specializedInitSelfType,
             overloadsUsedForCall: argumentErrors ? [] : [type],
         };
+    }
+
+    // In general, all in-scope type variables left in a return type should be
+    // replaced with Unknown. However, if the return type is a callable that uses
+    // type vars that are found nowhere within the function's input parameters,
+    // we'll treat these as though they're scoped to the callable and leave them
+    // unsolved.
+    function getUnknownExemptTypeVarsForReturnType(functionType: FunctionType, returnType: Type): TypeVarType[] {
+        if (isFunction(returnType) && !returnType.details.name) {
+            const returnTypeScopeId = returnType.details.typeVarScopeId;
+
+            // If one or more type vars found within the return type are scoped to
+            // the functionType but don't appear anywhere else within the functionType's
+            // input parameters, rescope them to the return type callable so they are
+            // not replaced with Unknown.
+            if (returnTypeScopeId && functionType.details.typeVarScopeId) {
+                let typeVarsInReturnType = getTypeVarArgumentsRecursive(returnType);
+
+                // Remove any type variables that appear in the function's input parameters.
+                functionType.details.parameters.forEach((param, index) => {
+                    if (param.hasDeclaredType) {
+                        const typeVarsInInputParam = getTypeVarArgumentsRecursive(param.type);
+                        typeVarsInReturnType = typeVarsInReturnType.filter(
+                            (returnTypeVar) =>
+                                !typeVarsInInputParam.some((inputTypeVar) => isTypeSame(returnTypeVar, inputTypeVar))
+                        );
+                    }
+                });
+
+                return typeVarsInReturnType;
+            }
+        }
+
+        return [];
     }
 
     function adjustCallableReturnType(returnType: Type): Type {
