@@ -68,7 +68,6 @@ class ContainerList(Generic[U]):
 
 
 def func1(obv: Container[T], default_value: T = None) -> None:
-    # This should generate an error.
     obv.on_next(default_value)
 
 
