@@ -89,6 +89,10 @@ export class CommandLineOptions {
     // Emit verbose information to console?
     verboseOutput?: boolean | undefined;
 
+    // In the absence of type stubs, use library implementations
+    // to extract type information?
+    useLibraryCodeForTypes?: boolean | undefined;
+
     // Indicates that only open files should be checked.
     checkOnlyOpenFiles?: boolean | undefined;
 

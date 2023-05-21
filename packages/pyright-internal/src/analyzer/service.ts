@@ -725,6 +725,14 @@ export class AnalyzerService {
         configOptions.logTypeEvaluationTime = !!commandLineOptions.logTypeEvaluationTime;
         configOptions.typeEvaluationTimeThreshold = commandLineOptions.typeEvaluationTimeThreshold;
 
+        // If useLibraryCodeForTypes was not specified in the config, allow the settings
+        // or command line to override it.
+        if (configOptions.useLibraryCodeForTypes === undefined) {
+            configOptions.useLibraryCodeForTypes = commandLineOptions.useLibraryCodeForTypes;
+        } else if (commandLineOptions.useLibraryCodeForTypes !== undefined) {
+            reportDuplicateSetting('useLibraryCodeForTypes', configOptions.useLibraryCodeForTypes);
+        }
+
         // If useLibraryCodeForTypes is unspecified, default it to true.
         if (configOptions.useLibraryCodeForTypes === undefined) {
             configOptions.useLibraryCodeForTypes = true;

@@ -97,6 +97,7 @@ function getEffectiveCommandLineOptions(
 ) {
     const commandLineOptions = new CommandLineOptions(workspaceRootPath, true);
     commandLineOptions.checkOnlyOpenFiles = serverSettings.openFilesOnly;
+    commandLineOptions.useLibraryCodeForTypes = serverSettings.useLibraryCodeForTypes;
     commandLineOptions.typeCheckingMode = serverSettings.typeCheckingMode;
     commandLineOptions.autoImportCompletions = serverSettings.autoImportCompletions;
     commandLineOptions.indexing = serverSettings.indexing;
