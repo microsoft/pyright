@@ -12,7 +12,12 @@ from .transport import _SocketLike
 
 class _TransportFactory(Protocol):
     def __call__(
-        self, __sock: _SocketLike, *, gss_kex: bool, gss_deleg_creds: bool, disabled_algorithms: dict[str, Iterable[str]] | None
+        self,
+        __sock: _SocketLike,
+        *,
+        gss_kex: bool,
+        gss_deleg_creds: bool,
+        disabled_algorithms: Mapping[str, Iterable[str]] | None,
     ) -> Transport: ...
 
 class SSHClient(ClosingContextManager):
@@ -44,7 +49,7 @@ class SSHClient(ClosingContextManager):
         auth_timeout: float | None = None,
         gss_trust_dns: bool = True,
         passphrase: str | None = None,
-        disabled_algorithms: dict[str, Iterable[str]] | None = None,
+        disabled_algorithms: Mapping[str, Iterable[str]] | None = None,
         transport_factory: _TransportFactory | None = None,
     ) -> None: ...
     def close(self) -> None: ...
@@ -54,7 +59,7 @@ class SSHClient(ClosingContextManager):
         bufsize: int = -1,
         timeout: float | None = None,
         get_pty: bool = False,
-        environment: dict[str, str] | None = None,
+        environment: Mapping[str, str] | None = None,
     ) -> tuple[ChannelStdinFile, ChannelFile, ChannelStderrFile]: ...
     def invoke_shell(
         self,

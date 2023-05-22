@@ -1,70 +1,81 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
+from typing import ClassVar
+from typing_extensions import Literal
 
+from openpyxl.chart.data_source import AxDataSource, NumDataSource, StrRef
+from openpyxl.chart.error_bar import ErrorBars
+from openpyxl.chart.label import DataLabelList
+from openpyxl.chart.marker import Marker
+from openpyxl.chart.picture import PictureOptions
+from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.chart.trendline import Trendline
+from openpyxl.descriptors.base import Alias, Typed
+from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
 
 attribute_mapping: Incomplete
 
 class SeriesLabel(Serialisable):
     tagname: str
-    strRef: Incomplete
+    strRef: Typed[StrRef, Literal[True]]
     v: Incomplete
-    value: Incomplete
-    __elements__: Incomplete
-    def __init__(self, strRef: Incomplete | None = None, v: Incomplete | None = None) -> None: ...
+    value: Alias
+    __elements__: ClassVar[tuple[str, ...]]
+    def __init__(self, strRef: StrRef | None = None, v: Incomplete | None = None) -> None: ...
 
 class Series(Serialisable):
     tagname: str
     idx: Incomplete
     order: Incomplete
-    tx: Incomplete
-    title: Incomplete
-    spPr: Incomplete
+    tx: Typed[SeriesLabel, Literal[True]]
+    title: Alias
+    spPr: Typed[GraphicalProperties, Literal[True]]
     graphicalProperties: Incomplete
-    pictureOptions: Incomplete
+    pictureOptions: Typed[PictureOptions, Literal[True]]
     dPt: Incomplete
-    data_points: Incomplete
-    dLbls: Incomplete
-    labels: Incomplete
-    trendline: Incomplete
-    errBars: Incomplete
-    cat: Incomplete
-    identifiers: Incomplete
-    val: Incomplete
-    extLst: Incomplete
+    data_points: Alias
+    dLbls: Typed[DataLabelList, Literal[True]]
+    labels: Alias
+    trendline: Typed[Trendline, Literal[True]]
+    errBars: Typed[ErrorBars, Literal[True]]
+    cat: Typed[AxDataSource, Literal[True]]
+    identifiers: Alias
+    val: Typed[NumDataSource, Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
     invertIfNegative: Incomplete
     shape: Incomplete
-    xVal: Incomplete
-    yVal: Incomplete
-    bubbleSize: Incomplete
-    zVal: Incomplete
+    xVal: Typed[AxDataSource, Literal[True]]
+    yVal: Typed[NumDataSource, Literal[True]]
+    bubbleSize: Typed[NumDataSource, Literal[True]]
+    zVal: Alias
     bubble3D: Incomplete
-    marker: Incomplete
+    marker: Typed[Marker, Literal[True]]
     smooth: Incomplete
     explosion: Incomplete
-    __elements__: Incomplete
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
         idx: int = 0,
         order: int = 0,
-        tx: Incomplete | None = None,
-        spPr: Incomplete | None = None,
-        pictureOptions: Incomplete | None = None,
+        tx: SeriesLabel | None = None,
+        spPr: GraphicalProperties | None = None,
+        pictureOptions: PictureOptions | None = None,
         dPt=(),
-        dLbls: Incomplete | None = None,
-        trendline: Incomplete | None = None,
-        errBars: Incomplete | None = None,
-        cat: Incomplete | None = None,
-        val: Incomplete | None = None,
+        dLbls: DataLabelList | None = None,
+        trendline: Trendline | None = None,
+        errBars: ErrorBars | None = None,
+        cat: AxDataSource | None = None,
+        val: NumDataSource | None = None,
         invertIfNegative: Incomplete | None = None,
         shape: Incomplete | None = None,
-        xVal: Incomplete | None = None,
-        yVal: Incomplete | None = None,
-        bubbleSize: Incomplete | None = None,
+        xVal: AxDataSource | None = None,
+        yVal: NumDataSource | None = None,
+        bubbleSize: NumDataSource | None = None,
         bubble3D: Incomplete | None = None,
-        marker: Incomplete | None = None,
+        marker: Marker | None = None,
         smooth: Incomplete | None = None,
         explosion: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        extLst: Unused = None,
     ) -> None: ...
     def to_tree(self, tagname: Incomplete | None = None, idx: Incomplete | None = None): ...  # type: ignore[override]
 

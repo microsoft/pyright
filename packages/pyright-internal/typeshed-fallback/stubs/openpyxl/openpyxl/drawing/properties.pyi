@@ -1,97 +1,122 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
+from typing import ClassVar, overload
+from typing_extensions import Literal, TypeAlias
 
+from openpyxl.descriptors.base import Bool, NoneSet, String, Typed, _ConvertibleToBool
+from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.drawing.geometry import GroupTransform2D, Scene3D
+from openpyxl.drawing.text import Hyperlink
+
+_GroupShapePropertiesBwMode: TypeAlias = Literal[
+    "clr", "auto", "gray", "ltGray", "invGray", "grayWhite", "blackGray", "blackWhite", "black", "white", "hidden"
+]
 
 class GroupShapeProperties(Serialisable):
     tagname: str
-    bwMode: Incomplete
-    xfrm: Incomplete
-    scene3d: Incomplete
-    extLst: Incomplete
+    bwMode: NoneSet[_GroupShapePropertiesBwMode]
+    xfrm: Typed[GroupTransform2D, Literal[True]]
+    scene3d: Typed[Scene3D, Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
     def __init__(
         self,
-        bwMode: Incomplete | None = None,
-        xfrm: Incomplete | None = None,
-        scene3d: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        bwMode: _GroupShapePropertiesBwMode | Literal["none"] | None = None,
+        xfrm: GroupTransform2D | None = None,
+        scene3d: Scene3D | None = None,
+        extLst: ExtensionList | None = None,
     ) -> None: ...
 
 class GroupLocking(Serialisable):
     tagname: str
     namespace: Incomplete
-    noGrp: Incomplete
-    noUngrp: Incomplete
-    noSelect: Incomplete
-    noRot: Incomplete
-    noChangeAspect: Incomplete
-    noMove: Incomplete
-    noResize: Incomplete
-    noChangeArrowheads: Incomplete
-    noEditPoints: Incomplete
-    noAdjustHandles: Incomplete
-    noChangeShapeType: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    noGrp: Bool[Literal[True]]
+    noUngrp: Bool[Literal[True]]
+    noSelect: Bool[Literal[True]]
+    noRot: Bool[Literal[True]]
+    noChangeAspect: Bool[Literal[True]]
+    noMove: Bool[Literal[True]]
+    noResize: Bool[Literal[True]]
+    noChangeArrowheads: Bool[Literal[True]]
+    noEditPoints: Bool[Literal[True]]
+    noAdjustHandles: Bool[Literal[True]]
+    noChangeShapeType: Bool[Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        noGrp: Incomplete | None = None,
-        noUngrp: Incomplete | None = None,
-        noSelect: Incomplete | None = None,
-        noRot: Incomplete | None = None,
-        noChangeAspect: Incomplete | None = None,
-        noChangeArrowheads: Incomplete | None = None,
-        noMove: Incomplete | None = None,
-        noResize: Incomplete | None = None,
-        noEditPoints: Incomplete | None = None,
-        noAdjustHandles: Incomplete | None = None,
-        noChangeShapeType: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        noGrp: _ConvertibleToBool | None = None,
+        noUngrp: _ConvertibleToBool | None = None,
+        noSelect: _ConvertibleToBool | None = None,
+        noRot: _ConvertibleToBool | None = None,
+        noChangeAspect: _ConvertibleToBool | None = None,
+        noChangeArrowheads: _ConvertibleToBool | None = None,
+        noMove: _ConvertibleToBool | None = None,
+        noResize: _ConvertibleToBool | None = None,
+        noEditPoints: _ConvertibleToBool | None = None,
+        noAdjustHandles: _ConvertibleToBool | None = None,
+        noChangeShapeType: _ConvertibleToBool | None = None,
+        extLst: Unused = None,
     ) -> None: ...
 
 class NonVisualGroupDrawingShapeProps(Serialisable):
     tagname: str
-    grpSpLocks: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
-    def __init__(self, grpSpLocks: Incomplete | None = None, extLst: Incomplete | None = None) -> None: ...
+    grpSpLocks: Typed[GroupLocking, Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
+    def __init__(self, grpSpLocks: Incomplete | None = None, extLst: Unused = None) -> None: ...
 
 class NonVisualDrawingShapeProps(Serialisable):
     tagname: str
-    spLocks: Incomplete
-    txBax: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    spLocks: Typed[GroupLocking, Literal[True]]
+    txBax: Bool[Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     txBox: Incomplete
     def __init__(
-        self, spLocks: Incomplete | None = None, txBox: Incomplete | None = None, extLst: Incomplete | None = None
+        self, spLocks: Incomplete | None = None, txBox: _ConvertibleToBool | None = None, extLst: Unused = None
     ) -> None: ...
 
 class NonVisualDrawingProps(Serialisable):
     tagname: str
     id: Incomplete
-    name: Incomplete
-    descr: Incomplete
-    hidden: Incomplete
-    title: Incomplete
-    hlinkClick: Incomplete
-    hlinkHover: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    name: String[Literal[False]]
+    descr: String[Literal[True]]
+    hidden: Bool[Literal[True]]
+    title: String[Literal[True]]
+    hlinkClick: Typed[Hyperlink, Literal[True]]
+    hlinkHover: Typed[Hyperlink, Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    # Source incorrectly uses a list here instead of a tuple
+    __elements__: ClassVar[list[str]]  # type: ignore[assignment]
+    @overload
     def __init__(
         self,
         id: Incomplete | None = None,
-        name: Incomplete | None = None,
-        descr: Incomplete | None = None,
-        hidden: Incomplete | None = None,
-        title: Incomplete | None = None,
-        hlinkClick: Incomplete | None = None,
-        hlinkHover: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        *,
+        name: str,
+        descr: str | None = None,
+        hidden: _ConvertibleToBool | None = None,
+        title: str | None = None,
+        hlinkClick: Hyperlink | None = None,
+        hlinkHover: Hyperlink | None = None,
+        extLst: ExtensionList | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        id: Incomplete | None,
+        name: str,
+        descr: str | None = None,
+        hidden: _ConvertibleToBool | None = None,
+        title: str | None = None,
+        hlinkClick: Hyperlink | None = None,
+        hlinkHover: Hyperlink | None = None,
+        extLst: ExtensionList | None = None,
     ) -> None: ...
 
 class NonVisualGroupShape(Serialisable):
     tagname: str
-    cNvPr: Incomplete
-    cNvGrpSpPr: Incomplete
-    __elements__: Incomplete
-    def __init__(self, cNvPr: Incomplete | None = None, cNvGrpSpPr: Incomplete | None = None) -> None: ...
+    cNvPr: Typed[NonVisualDrawingProps, Literal[False]]
+    cNvGrpSpPr: Typed[NonVisualGroupDrawingShapeProps, Literal[False]]
+    __elements__: ClassVar[tuple[str, ...]]
+    def __init__(self, cNvPr: NonVisualDrawingProps, cNvGrpSpPr: NonVisualGroupDrawingShapeProps) -> None: ...

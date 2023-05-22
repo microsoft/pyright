@@ -1,76 +1,98 @@
-from _typeshed import Incomplete
+from typing import ClassVar, overload
+from typing_extensions import Literal
 
+from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.chart.text import RichText
+from openpyxl.descriptors import Typed
+from openpyxl.descriptors.base import Alias, Bool, Integer, String, _ConvertibleToBool, _ConvertibleToInt
+from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.drawing.geometry import ShapeStyle
+from openpyxl.drawing.properties import NonVisualDrawingProps, NonVisualDrawingShapeProps
 
 class Connection(Serialisable):
-    id: Incomplete
-    idx: Incomplete
-    def __init__(self, id: Incomplete | None = None, idx: Incomplete | None = None) -> None: ...
+    id: Integer[Literal[False]]
+    idx: Integer[Literal[False]]
+    def __init__(self, id: _ConvertibleToInt, idx: _ConvertibleToInt) -> None: ...
 
 class ConnectorLocking(Serialisable):
-    extLst: Incomplete
-    def __init__(self, extLst: Incomplete | None = None) -> None: ...
+    extLst: Typed[ExtensionList, Literal[True]]
+    def __init__(self, extLst: ExtensionList | None = None) -> None: ...
 
 class NonVisualConnectorProperties(Serialisable):
-    cxnSpLocks: Incomplete
-    stCxn: Incomplete
-    endCxn: Incomplete
-    extLst: Incomplete
+    cxnSpLocks: Typed[ConnectorLocking, Literal[True]]
+    stCxn: Typed[Connection, Literal[True]]
+    endCxn: Typed[Connection, Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
     def __init__(
         self,
-        cxnSpLocks: Incomplete | None = None,
-        stCxn: Incomplete | None = None,
-        endCxn: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        cxnSpLocks: ConnectorLocking | None = None,
+        stCxn: Connection | None = None,
+        endCxn: Connection | None = None,
+        extLst: ExtensionList | None = None,
     ) -> None: ...
 
 class ConnectorNonVisual(Serialisable):
-    cNvPr: Incomplete
-    cNvCxnSpPr: Incomplete
-    __elements__: Incomplete
-    def __init__(self, cNvPr: Incomplete | None = None, cNvCxnSpPr: Incomplete | None = None) -> None: ...
+    cNvPr: Typed[NonVisualDrawingProps, Literal[False]]
+    cNvCxnSpPr: Typed[NonVisualConnectorProperties, Literal[False]]
+    __elements__: ClassVar[tuple[str, ...]]
+    def __init__(self, cNvPr: NonVisualDrawingProps, cNvCxnSpPr: NonVisualConnectorProperties) -> None: ...
 
 class ConnectorShape(Serialisable):
     tagname: str
-    nvCxnSpPr: Incomplete
-    spPr: Incomplete
-    style: Incomplete
-    macro: Incomplete
-    fPublished: Incomplete
+    nvCxnSpPr: Typed[ConnectorNonVisual, Literal[False]]
+    spPr: Typed[GraphicalProperties, Literal[False]]
+    style: Typed[ShapeStyle, Literal[True]]
+    macro: String[Literal[True]]
+    fPublished: Bool[Literal[True]]
     def __init__(
         self,
-        nvCxnSpPr: Incomplete | None = None,
-        spPr: Incomplete | None = None,
-        style: Incomplete | None = None,
-        macro: Incomplete | None = None,
-        fPublished: Incomplete | None = None,
+        nvCxnSpPr: ConnectorNonVisual,
+        spPr: GraphicalProperties,
+        style: ShapeStyle | None = None,
+        macro: str | None = None,
+        fPublished: _ConvertibleToBool | None = None,
     ) -> None: ...
 
 class ShapeMeta(Serialisable):
     tagname: str
-    cNvPr: Incomplete
-    cNvSpPr: Incomplete
-    def __init__(self, cNvPr: Incomplete | None = None, cNvSpPr: Incomplete | None = None) -> None: ...
+    cNvPr: Typed[NonVisualDrawingProps, Literal[False]]
+    cNvSpPr: Typed[NonVisualDrawingShapeProps, Literal[False]]
+    def __init__(self, cNvPr: NonVisualDrawingProps, cNvSpPr: NonVisualDrawingShapeProps) -> None: ...
 
 class Shape(Serialisable):
-    macro: Incomplete
-    textlink: Incomplete
-    fPublished: Incomplete
-    fLocksText: Incomplete
-    nvSpPr: Incomplete
-    meta: Incomplete
-    spPr: Incomplete
-    graphicalProperties: Incomplete
-    style: Incomplete
-    txBody: Incomplete
+    macro: String[Literal[True]]
+    textlink: String[Literal[True]]
+    fPublished: Bool[Literal[True]]
+    fLocksText: Bool[Literal[True]]
+    nvSpPr: Typed[ShapeMeta, Literal[True]]
+    meta: Alias
+    spPr: Typed[GraphicalProperties, Literal[False]]
+    graphicalProperties: Alias
+    style: Typed[ShapeStyle, Literal[True]]
+    txBody: Typed[RichText, Literal[True]]
+    @overload
     def __init__(
         self,
-        macro: Incomplete | None = None,
-        textlink: Incomplete | None = None,
-        fPublished: Incomplete | None = None,
-        fLocksText: Incomplete | None = None,
-        nvSpPr: Incomplete | None = None,
-        spPr: Incomplete | None = None,
-        style: Incomplete | None = None,
-        txBody: Incomplete | None = None,
+        macro: str | None = None,
+        textlink: str | None = None,
+        fPublished: _ConvertibleToBool | None = None,
+        fLocksText: _ConvertibleToBool | None = None,
+        nvSpPr: ShapeMeta | None = None,
+        *,
+        spPr: GraphicalProperties,
+        style: ShapeStyle | None = None,
+        txBody: RichText | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        macro: str | None,
+        textlink: str | None,
+        fPublished: _ConvertibleToBool | None,
+        fLocksText: _ConvertibleToBool | None,
+        nvSpPr: ShapeMeta | None,
+        spPr: GraphicalProperties,
+        style: ShapeStyle | None = None,
+        txBody: RichText | None = None,
     ) -> None: ...

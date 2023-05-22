@@ -1,6 +1,7 @@
 version = "3.0.*"
 # Requires a version of cryptography where cryptography.hazmat.primitives.ciphers.Cipher is generic
 requires = ["cryptography>=37.0.0"]
+partial_stub = true
 
 [tool.stubtest]
 ignore_missing_stub = true

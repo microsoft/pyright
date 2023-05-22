@@ -1,38 +1,43 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
+from typing import ClassVar
+from typing_extensions import Literal
 
+from openpyxl.chart.layout import Layout
+from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.chart.text import RichText
+from openpyxl.descriptors.base import Alias, Typed
+from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
 
 class LegendEntry(Serialisable):
     tagname: str
     idx: Incomplete
     delete: Incomplete
-    txPr: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
-    def __init__(
-        self, idx: int = 0, delete: bool = False, txPr: Incomplete | None = None, extLst: Incomplete | None = None
-    ) -> None: ...
+    txPr: Typed[RichText, Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
+    def __init__(self, idx: int = 0, delete: bool = False, txPr: RichText | None = None, extLst: Unused = None) -> None: ...
 
 class Legend(Serialisable):
     tagname: str
     legendPos: Incomplete
-    position: Incomplete
+    position: Alias
     legendEntry: Incomplete
-    layout: Incomplete
+    layout: Typed[Layout, Literal[True]]
     overlay: Incomplete
-    spPr: Incomplete
-    graphicalProperties: Incomplete
-    txPr: Incomplete
-    textProperties: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    spPr: Typed[GraphicalProperties, Literal[True]]
+    graphicalProperties: Alias
+    txPr: Typed[RichText, Literal[True]]
+    textProperties: Alias
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
         legendPos: str = "r",
         legendEntry=(),
-        layout: Incomplete | None = None,
+        layout: Layout | None = None,
         overlay: Incomplete | None = None,
-        spPr: Incomplete | None = None,
-        txPr: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        spPr: GraphicalProperties | None = None,
+        txPr: RichText | None = None,
+        extLst: Unused = None,
     ) -> None: ...

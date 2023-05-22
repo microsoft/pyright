@@ -1,3 +1,4 @@
+from _typeshed import StrOrBytesPath
 from collections.abc import Callable, Iterator
 from logging import Logger
 from typing import IO
@@ -50,11 +51,11 @@ class SFTPClient(BaseSFTP, ClosingContextManager):
         self, fl: IO[bytes], remotepath: bytes | str, file_size: int = 0, callback: _Callback | None = None, confirm: bool = True
     ) -> SFTPAttributes: ...
     def put(
-        self, localpath: bytes | str, remotepath: bytes | str, callback: _Callback | None = None, confirm: bool = True
+        self, localpath: StrOrBytesPath, remotepath: bytes | str, callback: _Callback | None = None, confirm: bool = True
     ) -> SFTPAttributes: ...
     def getfo(self, remotepath: bytes | str, fl: IO[bytes], callback: _Callback | None = None, prefetch: bool = True) -> int: ...
     def get(
-        self, remotepath: bytes | str, localpath: bytes | str, callback: _Callback | None = None, prefetch: bool = True
+        self, remotepath: bytes | str, localpath: StrOrBytesPath, callback: _Callback | None = None, prefetch: bool = True
     ) -> None: ...
 
 class SFTP(SFTPClient): ...

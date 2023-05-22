@@ -1,4 +1,12 @@
 from _typeshed import Incomplete
+from typing import IO, Any
+from typing_extensions import Literal
+
+__all__ = ["Require", "find_module", "get_module_constant", "extract_constant"]
+
+def find_module(
+    module, paths=None
+) -> tuple[IO[Any], str | None, tuple[str, Literal["", "r", "rb"], Literal[7, 6, 1, 2, 3, -1]]]: ...
 
 class Require:
     def __init__(

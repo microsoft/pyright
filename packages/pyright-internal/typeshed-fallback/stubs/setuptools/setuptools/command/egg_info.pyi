@@ -1,9 +1,11 @@
 from typing import Any
+from typing_extensions import Final
 
-from setuptools import Command, SetuptoolsDeprecationWarning
-from setuptools.command.sdist import sdist
-
+from .. import Command, SetuptoolsDeprecationWarning
 from .._distutils.filelist import FileList as _FileList
+from .sdist import sdist
+
+PY_MAJOR: Final[str]
 
 def translate_pattern(glob): ...
 

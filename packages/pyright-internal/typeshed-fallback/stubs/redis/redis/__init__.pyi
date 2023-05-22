@@ -1,4 +1,4 @@
-from . import client, connection, credentials, exceptions, sentinel, utils
+from . import backoff, client, connection, credentials, exceptions, sentinel, utils
 from .cluster import RedisCluster as RedisCluster
 
 __all__ = [
@@ -13,6 +13,7 @@ __all__ = [
     "CredentialProvider",
     "DataError",
     "from_url",
+    "default_backoff",
     "InvalidResponse",
     "PubSubError",
     "ReadOnlyError",
@@ -31,6 +32,8 @@ __all__ = [
     "UnixDomainSocketConnection",
     "WatchError",
 ]
+
+default_backoff = backoff.default_backoff
 
 Redis = client.Redis
 

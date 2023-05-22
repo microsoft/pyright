@@ -1,33 +1,39 @@
 from _typeshed import Incomplete
+from typing import ClassVar
+from typing_extensions import Literal
 
+from openpyxl.descriptors.base import Alias, Typed
+from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.styles import Alignment, Border, Fill, Font, Protection
+from openpyxl.styles.numbers import NumberFormat
 
 class DifferentialStyle(Serialisable):
     tagname: str
-    __elements__: Incomplete
-    font: Incomplete
-    numFmt: Incomplete
-    fill: Incomplete
-    alignment: Incomplete
-    border: Incomplete
-    protection: Incomplete
-    extLst: Incomplete
+    __elements__: ClassVar[tuple[str, ...]]
+    font: Typed[Font, Literal[True]]
+    numFmt: Typed[NumberFormat, Literal[True]]
+    fill: Typed[Fill, Literal[True]]
+    alignment: Typed[Alignment, Literal[True]]
+    border: Typed[Border, Literal[True]]
+    protection: Typed[Protection, Literal[True]]
+    extLst: ExtensionList | None
     def __init__(
         self,
-        font: Incomplete | None = None,
-        numFmt: Incomplete | None = None,
-        fill: Incomplete | None = None,
-        alignment: Incomplete | None = None,
-        border: Incomplete | None = None,
-        protection: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        font: Font | None = None,
+        numFmt: NumberFormat | None = None,
+        fill: Fill | None = None,
+        alignment: Alignment | None = None,
+        border: Border | None = None,
+        protection: Protection | None = None,
+        extLst: ExtensionList | None = None,
     ) -> None: ...
 
 class DifferentialStyleList(Serialisable):
     tagname: str
     dxf: Incomplete
-    styles: Incomplete
-    __attrs__: Incomplete
+    styles: Alias
+    __attrs__: ClassVar[tuple[str, ...]]
     def __init__(self, dxf=(), count: Incomplete | None = None) -> None: ...
     def append(self, dxf) -> None: ...
     def add(self, dxf): ...

@@ -1,56 +1,119 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
+from typing import ClassVar
+from typing_extensions import Literal, TypeAlias
 
-from openpyxl.descriptors import Float
+from openpyxl.descriptors import Float, Strict
+from openpyxl.descriptors.base import Bool, Integer, NoneSet, Set, String, Typed, _ConvertibleToBool, _ConvertibleToInt
+from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.styles.differential import DifferentialStyle
 
-class ValueDescriptor(Float):
-    expected_type: Incomplete
-    def __set__(self, instance, value) -> None: ...
+_IconSetIconSet: TypeAlias = Literal[
+    "3Arrows",
+    "3ArrowsGray",
+    "3Flags",
+    "3TrafficLights1",
+    "3TrafficLights2",
+    "3Signs",
+    "3Symbols",
+    "3Symbols2",
+    "4Arrows",
+    "4ArrowsGray",
+    "4RedToBlack",
+    "4Rating",
+    "4TrafficLights",
+    "5Arrows",
+    "5ArrowsGray",
+    "5Rating",
+    "5Quarters",
+]
+_RuleOperator: TypeAlias = Literal[
+    "lessThan",
+    "lessThanOrEqual",
+    "equal",
+    "notEqual",
+    "greaterThanOrEqual",
+    "greaterThan",
+    "between",
+    "notBetween",
+    "containsText",
+    "notContains",
+    "beginsWith",
+    "endsWith",
+]
+_RuleTimePeriod: TypeAlias = Literal[
+    "today", "yesterday", "tomorrow", "last7Days", "thisMonth", "lastMonth", "nextMonth", "thisWeek", "lastWeek", "nextWeek"
+]
+_FormatObjectType: TypeAlias = Literal["num", "percent", "max", "min", "formula", "percentile"]
+_RuleType: TypeAlias = Literal[
+    "expression",
+    "cellIs",
+    "colorScale",
+    "dataBar",
+    "iconSet",
+    "top10",
+    "uniqueValues",
+    "duplicateValues",
+    "containsText",
+    "notContainsText",
+    "beginsWith",
+    "endsWith",
+    "containsBlanks",
+    "notContainsBlanks",
+    "containsErrors",
+    "notContainsErrors",
+    "timePeriod",
+    "aboveAverage",
+]
+
+class ValueDescriptor(Float[Incomplete]):
+    expected_type: type[Incomplete]
+    def __set__(self, instance: Serialisable | Strict, value) -> None: ...  # type: ignore[override]
 
 class FormatObject(Serialisable):
     tagname: str
-    type: Incomplete
+    type: Set[_FormatObjectType]
     val: Incomplete
-    gte: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    gte: Bool[Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
-        self, type, val: Incomplete | None = None, gte: Incomplete | None = None, extLst: Incomplete | None = None
+        self, type: _FormatObjectType, val: Incomplete | None = None, gte: _ConvertibleToBool | None = None, extLst: Unused = None
     ) -> None: ...
 
-class RuleType(Serialisable):  # type: ignore[misc]
+class RuleType(Serialisable):
     cfvo: Incomplete
 
 class IconSet(RuleType):
     tagname: str
-    iconSet: Incomplete
-    showValue: Incomplete
-    percent: Incomplete
-    reverse: Incomplete
-    __elements__: Incomplete
+    iconSet: NoneSet[_IconSetIconSet]
+    showValue: Bool[Literal[True]]
+    percent: Bool[Literal[True]]
+    reverse: Bool[Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     cfvo: Incomplete
     def __init__(
         self,
-        iconSet: Incomplete | None = None,
-        showValue: Incomplete | None = None,
-        percent: Incomplete | None = None,
-        reverse: Incomplete | None = None,
+        iconSet: _IconSetIconSet | Literal["none"] | None = None,
+        showValue: _ConvertibleToBool | None = None,
+        percent: _ConvertibleToBool | None = None,
+        reverse: _ConvertibleToBool | None = None,
         cfvo: Incomplete | None = None,
     ) -> None: ...
 
 class DataBar(RuleType):
     tagname: str
-    minLength: Incomplete
-    maxLength: Incomplete
-    showValue: Incomplete
+    minLength: Integer[Literal[True]]
+    maxLength: Integer[Literal[True]]
+    showValue: Bool[Literal[True]]
     color: Incomplete
-    __elements__: Incomplete
+    __elements__: ClassVar[tuple[str, ...]]
     cfvo: Incomplete
     def __init__(
         self,
-        minLength: Incomplete | None = None,
-        maxLength: Incomplete | None = None,
-        showValue: Incomplete | None = None,
+        minLength: _ConvertibleToInt | None = None,
+        maxLength: _ConvertibleToInt | None = None,
+        showValue: _ConvertibleToBool | None = None,
         cfvo: Incomplete | None = None,
         color: Incomplete | None = None,
     ) -> None: ...
@@ -58,54 +121,54 @@ class DataBar(RuleType):
 class ColorScale(RuleType):
     tagname: str
     color: Incomplete
-    __elements__: Incomplete
+    __elements__: ClassVar[tuple[str, ...]]
     cfvo: Incomplete
     def __init__(self, cfvo: Incomplete | None = None, color: Incomplete | None = None) -> None: ...
 
 class Rule(Serialisable):
     tagname: str
-    type: Incomplete
-    dxfId: Incomplete
-    priority: Incomplete
-    stopIfTrue: Incomplete
-    aboveAverage: Incomplete
-    percent: Incomplete
-    bottom: Incomplete
-    operator: Incomplete
-    text: Incomplete
-    timePeriod: Incomplete
-    rank: Incomplete
-    stdDev: Incomplete
-    equalAverage: Incomplete
+    type: Set[_RuleType]
+    dxfId: Integer[Literal[True]]
+    priority: Integer[Literal[False]]
+    stopIfTrue: Bool[Literal[True]]
+    aboveAverage: Bool[Literal[True]]
+    percent: Bool[Literal[True]]
+    bottom: Bool[Literal[True]]
+    operator: NoneSet[_RuleOperator]
+    text: String[Literal[True]]
+    timePeriod: NoneSet[_RuleTimePeriod]
+    rank: Integer[Literal[True]]
+    stdDev: Integer[Literal[True]]
+    equalAverage: Bool[Literal[True]]
     formula: Incomplete
-    colorScale: Incomplete
-    dataBar: Incomplete
-    iconSet: Incomplete
-    extLst: Incomplete
-    dxf: Incomplete
-    __elements__: Incomplete
-    __attrs__: Incomplete
+    colorScale: Typed[ColorScale, Literal[True]]
+    dataBar: Typed[DataBar, Literal[True]]
+    iconSet: Typed[IconSet, Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    dxf: Typed[DifferentialStyle, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
+    __attrs__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        type,
-        dxfId: Incomplete | None = None,
-        priority: int = 0,
-        stopIfTrue: Incomplete | None = None,
-        aboveAverage: Incomplete | None = None,
-        percent: Incomplete | None = None,
-        bottom: Incomplete | None = None,
-        operator: Incomplete | None = None,
-        text: Incomplete | None = None,
-        timePeriod: Incomplete | None = None,
-        rank: Incomplete | None = None,
-        stdDev: Incomplete | None = None,
-        equalAverage: Incomplete | None = None,
+        type: _RuleType,
+        dxfId: _ConvertibleToInt | None = None,
+        priority: _ConvertibleToInt = 0,
+        stopIfTrue: _ConvertibleToBool | None = None,
+        aboveAverage: _ConvertibleToBool | None = None,
+        percent: _ConvertibleToBool | None = None,
+        bottom: _ConvertibleToBool | None = None,
+        operator: _RuleOperator | Literal["none"] | None = None,
+        text: str | None = None,
+        timePeriod: _RuleTimePeriod | Literal["none"] | None = None,
+        rank: _ConvertibleToInt | None = None,
+        stdDev: _ConvertibleToInt | None = None,
+        equalAverage: _ConvertibleToBool | None = None,
         formula=(),
-        colorScale: Incomplete | None = None,
-        dataBar: Incomplete | None = None,
-        iconSet: Incomplete | None = None,
-        extLst: Incomplete | None = None,
-        dxf: Incomplete | None = None,
+        colorScale: ColorScale | None = None,
+        dataBar: DataBar | None = None,
+        iconSet: IconSet | None = None,
+        extLst: Unused = None,
+        dxf: DifferentialStyle | None = None,
     ) -> None: ...
 
 def ColorScaleRule(

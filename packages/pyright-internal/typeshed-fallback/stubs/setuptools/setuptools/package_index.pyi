@@ -4,6 +4,8 @@ from typing import Any
 
 from pkg_resources import Environment
 
+__all__ = ["PackageIndex", "distros_for_url", "parse_bdist_wininst", "interpret_distro_name"]
+
 def parse_bdist_wininst(name): ...
 def distros_for_url(url, metadata: Incomplete | None = None) -> None: ...
 def interpret_distro_name(

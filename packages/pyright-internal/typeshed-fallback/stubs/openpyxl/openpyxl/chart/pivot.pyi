@@ -1,35 +1,41 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
+from typing import ClassVar
+from typing_extensions import Literal
 
+from openpyxl.chart.label import DataLabel as _DataLabel
+from openpyxl.chart.marker import Marker
+from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.chart.text import RichText
+from openpyxl.descriptors.base import Alias, Typed
+from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
 
 class PivotSource(Serialisable):
     tagname: str
     name: Incomplete
     fmtId: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
-    def __init__(
-        self, name: Incomplete | None = None, fmtId: Incomplete | None = None, extLst: Incomplete | None = None
-    ) -> None: ...
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
+    def __init__(self, name: str | None = None, fmtId: Incomplete | None = None, extLst: Unused = None) -> None: ...
 
 class PivotFormat(Serialisable):
     tagname: str
     idx: Incomplete
-    spPr: Incomplete
-    graphicalProperties: Incomplete
-    txPr: Incomplete
-    TextBody: Incomplete
-    marker: Incomplete
-    dLbl: Incomplete
-    DataLabel: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    spPr: Typed[GraphicalProperties, Literal[True]]
+    graphicalProperties: Alias
+    txPr: Typed[RichText, Literal[True]]
+    TextBody: Alias
+    marker: Typed[Marker, Literal[True]]
+    dLbl: Typed[_DataLabel, Literal[True]]
+    DataLabel: Alias
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
         idx: int = 0,
-        spPr: Incomplete | None = None,
-        txPr: Incomplete | None = None,
-        marker: Incomplete | None = None,
-        dLbl: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        spPr: GraphicalProperties | None = None,
+        txPr: RichText | None = None,
+        marker: Marker | None = None,
+        dLbl: _DataLabel | None = None,
+        extLst: Unused = None,
     ) -> None: ...

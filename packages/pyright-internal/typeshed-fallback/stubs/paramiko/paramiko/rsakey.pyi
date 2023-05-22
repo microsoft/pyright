@@ -1,3 +1,4 @@
+from _typeshed import ReadableBuffer
 from collections.abc import Callable
 from typing import IO
 
@@ -11,7 +12,7 @@ class RSAKey(PKey):
     def __init__(
         self,
         msg: Message | None = None,
-        data: bytes | None = None,
+        data: ReadableBuffer | None = None,
         filename: str | None = None,
         password: str | None = None,
         key: None | RSAPublicKey | RSAPrivateKey = None,

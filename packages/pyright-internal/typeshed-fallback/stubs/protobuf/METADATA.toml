@@ -1,5 +1,6 @@
-version = "4.22.*"
+version = "4.23.*"
 extra_description = "Generated with aid from mypy-protobuf v3.4.0"
+partial_stub = true
 
 [tool.stubtest]
 ignore_missing_stub = true

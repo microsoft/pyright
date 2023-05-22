@@ -1,6 +1,7 @@
 version = "23.1.*"
 # Requires a version of cryptography with a `py.typed` file
 requires = ["cryptography>=35.0.0"]
+partial_stub = true
 
 [tool.stubtest]
 ignore_missing_stub = true

@@ -1,5 +1,6 @@
 version = "2.49.*"
 requires = []
+partial_stub = true
 
 [tool.stubtest]
 ignore_missing_stub = true

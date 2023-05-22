@@ -1,6 +1,9 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
+from typing import ClassVar
+from typing_extensions import Literal
 
-from openpyxl.descriptors import String
+from openpyxl.descriptors import Strict, String
+from openpyxl.descriptors.base import Integer, _ConvertibleToInt
 from openpyxl.descriptors.serialisable import Serialisable
 
 BUILTIN_FORMATS: Incomplete
@@ -53,21 +56,21 @@ def is_builtin(fmt): ...
 def builtin_format_code(index): ...
 def builtin_format_id(fmt): ...
 
-class NumberFormatDescriptor(String):
-    def __set__(self, instance, value) -> None: ...
+class NumberFormatDescriptor(String[Incomplete]):
+    def __set__(self, instance: Serialisable | Strict, value) -> None: ...
 
-class NumberFormat(Serialisable):  # type: ignore[misc]
-    numFmtId: Incomplete
-    formatCode: Incomplete
-    def __init__(self, numFmtId: Incomplete | None = None, formatCode: Incomplete | None = None) -> None: ...
+class NumberFormat(Serialisable):
+    numFmtId: Integer[Literal[False]]
+    formatCode: String[Literal[False]]
+    def __init__(self, numFmtId: _ConvertibleToInt, formatCode: str) -> None: ...
 
-class NumberFormatList(Serialisable):  # type: ignore[misc]
+class NumberFormatList(Serialisable):
     # Overwritten by property below
     # count: Integer
     numFmt: Incomplete
-    __elements__: Incomplete
-    __attrs__: Incomplete
-    def __init__(self, count: Incomplete | None = None, numFmt=()) -> None: ...
+    __elements__: ClassVar[tuple[str, ...]]
+    __attrs__: ClassVar[tuple[str, ...]]
+    def __init__(self, count: Unused = None, numFmt=()) -> None: ...
     @property
     def count(self): ...
     def __getitem__(self, idx): ...

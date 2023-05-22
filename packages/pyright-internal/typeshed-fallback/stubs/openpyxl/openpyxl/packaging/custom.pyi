@@ -1,35 +1,53 @@
 from _typeshed import Incomplete
 from collections.abc import Iterator
-from typing_extensions import Self
+from datetime import datetime
+from typing import Any, Generic, TypeVar
+from typing_extensions import Literal, Self
 
-from openpyxl.descriptors import Bool, DateTime, Float, Integer, Sequence, Strict, String
+from openpyxl.descriptors import Sequence, Strict
+from openpyxl.descriptors.base import (
+    Bool,
+    DateTime,
+    Float,
+    Integer,
+    String,
+    _ConvertibleToBool,
+    _ConvertibleToFloat,
+    _ConvertibleToInt,
+)
 from openpyxl.descriptors.nested import NestedText
 
-class NestedBoolText(Bool, NestedText): ...
+_T = TypeVar("_T")
 
-class _TypedProperty(Strict):
-    name: String
-    value: Incomplete
-    def __init__(self, name: str, value) -> None: ...
-    def __eq__(self, other: _TypedProperty) -> bool: ...  # type: ignore[override]
+# Does not reimplement anything, so runtime also has incompatible supertypes
+class NestedBoolText(Bool[Incomplete], NestedText): ...  # type: ignore[misc]
 
-class IntProperty(_TypedProperty):
-    value: Integer
+class _TypedProperty(Strict, Generic[_T]):
+    name: String[Literal[False]]
+    # Since this is internal, just list all possible values
+    value: Integer[Literal[False]] | Float[Literal[False]] | String[Literal[True]] | DateTime[Literal[False]] | Bool[
+        Literal[False]
+    ] | String[Literal[False]]
+    def __init__(self, name: str, value: _T) -> None: ...
+    def __eq__(self, other: _TypedProperty[Any]) -> bool: ...  # type: ignore[override]
 
-class FloatProperty(_TypedProperty):
-    value: Float
+class IntProperty(_TypedProperty[_ConvertibleToInt]):
+    value: Integer[Literal[False]]
 
-class StringProperty(_TypedProperty):
-    value: String
+class FloatProperty(_TypedProperty[_ConvertibleToFloat]):
+    value: Float[Literal[False]]
 
-class DateTimeProperty(_TypedProperty):
-    value: DateTime
+class StringProperty(_TypedProperty[str | None]):
+    value: String[Literal[True]]
 
-class BoolProperty(_TypedProperty):
-    value: Bool
+class DateTimeProperty(_TypedProperty[datetime]):
+    value: DateTime[Literal[False]]
 
-class LinkProperty(_TypedProperty):
-    value: String
+class BoolProperty(_TypedProperty[_ConvertibleToBool]):
+    value: Bool[Literal[False]]
+
+class LinkProperty(_TypedProperty[str]):
+    value: String[Literal[False]]
 
 CLASS_MAPPING: Incomplete
 XML_MAPPING: Incomplete

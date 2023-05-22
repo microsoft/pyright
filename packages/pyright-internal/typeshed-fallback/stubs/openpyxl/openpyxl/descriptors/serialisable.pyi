@@ -1,15 +1,17 @@
 from _typeshed import Incomplete
+from typing import ClassVar
 
-from . import _Serialiasable
+from openpyxl.descriptors import MetaSerialisable
 
 KEYWORDS: Incomplete
 seq_types: Incomplete
 
-class Serialisable(_Serialiasable):
-    __attrs__: Incomplete
-    __nested__: Incomplete
-    __elements__: Incomplete
-    __namespaced__: Incomplete
+class Serialisable(metaclass=MetaSerialisable):
+    # These dunders are always set at runtime by MetaSerialisable so they can't be None
+    __attrs__: ClassVar[tuple[str, ...]]
+    __nested__: ClassVar[tuple[str, ...]]
+    __elements__: ClassVar[tuple[str, ...]]
+    __namespaced__: ClassVar[tuple[tuple[str, str], ...]]
     idx_base: int
     @property
     # TODO: needs overrides in many sub-classes

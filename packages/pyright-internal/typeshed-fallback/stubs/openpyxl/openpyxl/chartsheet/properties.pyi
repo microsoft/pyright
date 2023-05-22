@@ -1,13 +1,16 @@
-from _typeshed import Incomplete
+from typing import ClassVar
+from typing_extensions import Literal
 
+from openpyxl.descriptors.base import Bool, String, Typed, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable as Serialisable
+from openpyxl.styles.colors import Color
 
 class ChartsheetProperties(Serialisable):
     tagname: str
-    published: Incomplete
-    codeName: Incomplete
-    tabColor: Incomplete
-    __elements__: Incomplete
+    published: Bool[Literal[True]]
+    codeName: String[Literal[True]]
+    tabColor: Typed[Color, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
-        self, published: Incomplete | None = None, codeName: Incomplete | None = None, tabColor: Incomplete | None = None
+        self, published: _ConvertibleToBool | None = None, codeName: str | None = None, tabColor: Color | None = None
     ) -> None: ...

@@ -2,7 +2,7 @@ from enum import IntEnum
 from typing import Any, ClassVar
 from typing_extensions import Literal
 
-from .ImageFile import ImageFile, PyDecoder
+from .ImageFile import ImageFile, PyDecoder, PyEncoder
 
 class Format(IntEnum):
     JPEG: int
@@ -44,3 +44,6 @@ class _BLPBaseDecoder(PyDecoder):
 
 class BLP1Decoder(_BLPBaseDecoder): ...
 class BLP2Decoder(_BLPBaseDecoder): ...
+
+class BLPEncoder(PyEncoder):
+    def encode(self, bufsize): ...

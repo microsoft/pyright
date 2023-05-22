@@ -832,7 +832,7 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
     def zremrangebylex(self, name: _Key, min: _Value, max: _Value) -> Any: ...  # type: ignore[override]
     def zremrangebyrank(self, name: _Key, min: int, max: int) -> Any: ...  # type: ignore[override]
     def zremrangebyscore(self, name: _Key, min: _Value, max: _Value) -> Any: ...  # type: ignore[override]
-    def zrevrank(self, name: _Key, value: _Value) -> Any: ...  # type: ignore[override]
+    def zrevrank(self, name: _Key, value: _Value, withscore: bool = False) -> Any: ...  # type: ignore[override]
     def zscore(self, name: _Key, value: _Value) -> Any: ...  # type: ignore[override]
     def zunion(self, keys, aggregate: Incomplete | None = None, withscores: bool = False) -> Any: ...  # type: ignore[override]
     def zunionstore(self, dest: _Key, keys: Iterable[_Key], aggregate: Literal["SUM", "MIN", "MAX"] | None = None) -> Any: ...  # type: ignore[override]

@@ -1,42 +1,79 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
+from typing import ClassVar, overload
+from typing_extensions import Literal
 
+from openpyxl.descriptors.base import (
+    Bool,
+    Convertible,
+    Integer,
+    String,
+    _ConvertibleToBool,
+    _ConvertibleToInt,
+    _ConvertibleToMultiCellRange,
+)
 from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.worksheet.cell_range import MultiCellRange
 
 class InputCells(Serialisable):
     tagname: str
-    r: Incomplete
-    deleted: Incomplete
-    undone: Incomplete
-    val: Incomplete
-    numFmtId: Incomplete
+    r: String[Literal[False]]
+    deleted: Bool[Literal[True]]
+    undone: Bool[Literal[True]]
+    val: String[Literal[False]]
+    numFmtId: Integer[Literal[True]]
+
+    @overload
     def __init__(
         self,
-        r: Incomplete | None = None,
-        deleted: bool = False,
-        undone: bool = False,
-        val: Incomplete | None = None,
-        numFmtId: Incomplete | None = None,
+        r: str,
+        deleted: _ConvertibleToBool | None = False,
+        undone: _ConvertibleToBool | None = False,
+        *,
+        val: str,
+        numFmtId: _ConvertibleToInt | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        r: str,
+        deleted: _ConvertibleToBool | None,
+        undone: _ConvertibleToBool | None,
+        val: str,
+        numFmtId: _ConvertibleToInt | None = None,
     ) -> None: ...
 
 class Scenario(Serialisable):
     tagname: str
     inputCells: Incomplete
-    name: Incomplete
-    locked: Incomplete
-    hidden: Incomplete
-    user: Incomplete
-    comment: Incomplete
-    __elements__: Incomplete
-    __attrs__: Incomplete
+    name: String[Literal[False]]
+    locked: Bool[Literal[True]]
+    hidden: Bool[Literal[True]]
+    user: String[Literal[True]]
+    comment: String[Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
+    __attrs__: ClassVar[tuple[str, ...]]
+    @overload
     def __init__(
         self,
         inputCells=(),
-        name: Incomplete | None = None,
-        locked: bool = False,
-        hidden: bool = False,
-        count: Incomplete | None = None,
-        user: Incomplete | None = None,
-        comment: Incomplete | None = None,
+        *,
+        name: str,
+        locked: _ConvertibleToBool | None = False,
+        hidden: _ConvertibleToBool | None = False,
+        count: Unused = None,
+        user: str | None = None,
+        comment: str | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        inputCells,
+        name: str,
+        locked: _ConvertibleToBool | None = False,
+        hidden: _ConvertibleToBool | None = False,
+        count: Unused = None,
+        user: str | None = None,
+        comment: str | None = None,
     ) -> None: ...
     @property
     def count(self): ...
@@ -44,12 +81,16 @@ class Scenario(Serialisable):
 class ScenarioList(Serialisable):
     tagname: str
     scenario: Incomplete
-    current: Incomplete
-    show: Incomplete
-    sqref: Incomplete
-    __elements__: Incomplete
+    current: Integer[Literal[True]]
+    show: Integer[Literal[True]]
+    sqref: Convertible[MultiCellRange, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
-        self, scenario=(), current: Incomplete | None = None, show: Incomplete | None = None, sqref: Incomplete | None = None
+        self,
+        scenario=(),
+        current: _ConvertibleToInt | None = None,
+        show: _ConvertibleToInt | None = None,
+        sqref: _ConvertibleToMultiCellRange | None = None,
     ) -> None: ...
     def append(self, scenario) -> None: ...
     def __bool__(self) -> bool: ...

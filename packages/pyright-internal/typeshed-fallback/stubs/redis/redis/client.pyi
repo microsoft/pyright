@@ -702,7 +702,7 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
     def zrevrangebylex(  # type: ignore[override]
         self, name: _Key, max: _Value, min: _Value, start: int | None = None, num: int | None = None
     ) -> Pipeline[_StrType]: ...
-    def zrevrank(self, name: _Key, value: _Value) -> Pipeline[_StrType]: ...  # type: ignore[override]
+    def zrevrank(self, name: _Key, value: _Value, withscore: bool = False) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def zscore(self, name: _Key, value: _Value) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def zunionstore(self, dest: _Key, keys: Iterable[_Key], aggregate: Literal["SUM", "MIN", "MAX"] | None = None) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def pfadd(self, name: _Key, *values: _Value) -> Pipeline[_StrType]: ...  # type: ignore[override]

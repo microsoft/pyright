@@ -1,4 +1,5 @@
-from _typeshed import Incomplete
+import sys
+from _typeshed import Incomplete, Unused
 from enum import IntEnum
 from typing import Any
 from typing_extensions import Literal
@@ -55,7 +56,11 @@ class ImageCmsTransform(ImagePointHandler):
     def apply(self, im, imOut: Incomplete | None = None): ...
     def apply_in_place(self, im): ...
 
-def get_display_profile(handle: Incomplete | None = None): ...
+if sys.platform == "win32":
+    def get_display_profile(handle: Incomplete | None = None) -> ImageCmsProfile | None: ...
+
+else:
+    def get_display_profile(handle: Unused = None) -> None: ...
 
 class PyCMSError(Exception): ...
 

@@ -1,8 +1,10 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
 from re import Pattern
-from typing_extensions import Self
+from typing import overload
+from typing_extensions import Literal, Self
 
 from openpyxl.descriptors import Integer, Strict, String
+from openpyxl.descriptors.base import Typed, _ConvertibleToInt
 from openpyxl.utils.cell import SHEETRANGE_RE as SHEETRANGE_RE
 
 from .cell_range import MultiCellRange
@@ -15,26 +17,28 @@ TITLES_REGEX: Pattern[str]
 PRINT_AREA_RE: Pattern[str]
 
 class ColRange(Strict):
-    min_col: String
-    max_col: String
-    def __init__(
-        self, range_string: Incomplete | None = None, min_col: Incomplete | None = None, max_col: Incomplete | None = None
-    ) -> None: ...
+    min_col: String[Literal[False]]
+    max_col: String[Literal[False]]
+    @overload
+    def __init__(self, range_string: None = None, *, min_col: str, max_col: str) -> None: ...
+    @overload
+    def __init__(self, range_string: Incomplete, min_col: Unused = None, max_col: Unused = None) -> None: ...
     def __eq__(self, other: object) -> bool: ...
 
 class RowRange(Strict):
-    min_row: Integer
-    max_row: Integer
-    def __init__(
-        self, range_string: Incomplete | None = None, min_row: Incomplete | None = None, max_row: Incomplete | None = None
-    ) -> None: ...
+    min_row: Integer[Literal[False]]
+    max_row: Integer[Literal[False]]
+    @overload
+    def __init__(self, range_string: None, min_row: _ConvertibleToInt, max_row: _ConvertibleToInt) -> None: ...
+    @overload
+    def __init__(self, range_string: Incomplete, min_row: Unused = None, max_row: Unused = None) -> None: ...
     def __eq__(self, other: object) -> bool: ...
 
 class PrintTitles(Strict):
-    cols: Incomplete
-    rows: Incomplete
-    title: String
-    def __init__(self, cols: Incomplete | None = None, rows: Incomplete | None = None, title: str = "") -> None: ...
+    cols: Typed[ColRange, Literal[True]]
+    rows: Typed[RowRange, Literal[True]]
+    title: String[Literal[False]]
+    def __init__(self, cols: ColRange | None = None, rows: RowRange | None = None, title: str = "") -> None: ...
     @classmethod
     def from_string(cls, value) -> Self: ...
     def __eq__(self, other: object) -> bool: ...

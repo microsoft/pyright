@@ -1,21 +1,30 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
+from typing import ClassVar
+from typing_extensions import Literal
 
+from openpyxl.descriptors.base import Typed
+from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.styles.cell_style import CellStyleList
+from openpyxl.styles.colors import ColorList
+from openpyxl.styles.named_styles import _NamedCellStyleList
+from openpyxl.styles.numbers import NumberFormatList
+from openpyxl.styles.table import TableStyleList
 
 class Stylesheet(Serialisable):
     tagname: str
-    numFmts: Incomplete
+    numFmts: Typed[NumberFormatList, Literal[False]]
     fonts: Incomplete
     fills: Incomplete
     borders: Incomplete
-    cellStyleXfs: Incomplete
-    cellXfs: Incomplete
-    cellStyles: Incomplete
+    cellStyleXfs: Typed[CellStyleList, Literal[False]]
+    cellXfs: Typed[CellStyleList, Literal[False]]
+    cellStyles: Typed[_NamedCellStyleList, Literal[False]]
     dxfs: Incomplete
-    tableStyles: Incomplete
-    colors: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    tableStyles: Typed[TableStyleList, Literal[True]]
+    colors: Typed[ColorList, Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     number_formats: Incomplete
     cell_styles: Incomplete
     alignments: Incomplete
@@ -23,17 +32,17 @@ class Stylesheet(Serialisable):
     named_styles: Incomplete
     def __init__(
         self,
-        numFmts: Incomplete | None = None,
+        numFmts: NumberFormatList | None = None,
         fonts=(),
         fills=(),
         borders=(),
-        cellStyleXfs: Incomplete | None = None,
-        cellXfs: Incomplete | None = None,
-        cellStyles: Incomplete | None = None,
+        cellStyleXfs: CellStyleList | None = None,
+        cellXfs: CellStyleList | None = None,
+        cellStyles: _NamedCellStyleList | None = None,
         dxfs=(),
-        tableStyles: Incomplete | None = None,
-        colors: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        tableStyles: TableStyleList | None = None,
+        colors: ColorList | None = None,
+        extLst: Unused = None,
     ) -> None: ...
     @classmethod
     def from_tree(cls, node): ...

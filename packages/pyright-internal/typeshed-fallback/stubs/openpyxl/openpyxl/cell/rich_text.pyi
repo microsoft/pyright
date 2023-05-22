@@ -1,14 +1,15 @@
 from collections.abc import Iterable
 from typing import overload
-from typing_extensions import Self
+from typing_extensions import Literal, Self
 
+from openpyxl.cell.text import InlineFont
 from openpyxl.descriptors import Strict, String, Typed
 
 class TextBlock(Strict):
-    font: Typed
-    text: String
+    font: Typed[InlineFont, Literal[False]]
+    text: String[Literal[False]]
 
-    def __init__(self, font: Typed, text: String) -> None: ...
+    def __init__(self, font: InlineFont, text: str) -> None: ...
     def __eq__(self, other: TextBlock) -> bool: ...  # type: ignore[override]
 
 class CellRichText(list[str | TextBlock]):

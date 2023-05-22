@@ -1,5 +1,9 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
+from typing import ClassVar
+from typing_extensions import Literal
 
+from openpyxl.descriptors.base import Typed
+from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Record(Serialisable):
@@ -28,10 +32,10 @@ class RecordList(Serialisable):
     rel_type: str
     tagname: str
     r: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
-    __attrs__: Incomplete
-    def __init__(self, count: Incomplete | None = None, r=(), extLst: Incomplete | None = None) -> None: ...
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
+    __attrs__: ClassVar[tuple[str, ...]]
+    def __init__(self, count: Unused = None, r=(), extLst: ExtensionList | None = None) -> None: ...
     @property
     def count(self): ...
     def to_tree(self): ...

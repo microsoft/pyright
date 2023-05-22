@@ -1,4 +1,5 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
+from typing import ClassVar
 
 from openpyxl.descriptors.serialisable import Serialisable
 
@@ -8,7 +9,7 @@ class MergeCell(CellRange):
     tagname: str
     @property
     def ref(self): ...
-    __attrs__: Incomplete
+    __attrs__: ClassVar[tuple[str, ...]]
     def __init__(self, ref: Incomplete | None = None) -> None: ...
     def __copy__(self): ...
 
@@ -17,9 +18,9 @@ class MergeCells(Serialisable):
     # Overwritten by property below
     # count: Integer
     mergeCell: Incomplete
-    __elements__: Incomplete
-    __attrs__: Incomplete
-    def __init__(self, count: Incomplete | None = None, mergeCell=()) -> None: ...
+    __elements__: ClassVar[tuple[str, ...]]
+    __attrs__: ClassVar[tuple[str, ...]]
+    def __init__(self, count: Unused = None, mergeCell=()) -> None: ...
     @property
     def count(self): ...
 

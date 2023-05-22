@@ -1,6 +1,12 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
 from abc import abstractmethod
+from typing import ClassVar
+from typing_extensions import Literal
 
+from openpyxl.chart.axis import ChartLines
+from openpyxl.chart.label import DataLabelList
+from openpyxl.descriptors.base import Alias, Typed
+from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
 
 from ._chart import ChartBase
@@ -8,10 +14,10 @@ from ._chart import ChartBase
 class _PieChartBase(ChartBase):
     varyColors: Incomplete
     ser: Incomplete
-    dLbls: Incomplete
-    dataLabels: Incomplete
-    __elements__: Incomplete
-    def __init__(self, varyColors: bool = True, ser=(), dLbls: Incomplete | None = None) -> None: ...
+    dLbls: Typed[DataLabelList, Literal[True]]
+    dataLabels: Alias
+    __elements__: ClassVar[tuple[str, ...]]
+    def __init__(self, varyColors: bool = True, ser=(), dLbls: DataLabelList | None = None) -> None: ...
     @property
     @abstractmethod
     def tagname(self) -> str: ...
@@ -22,17 +28,17 @@ class PieChart(_PieChartBase):
     ser: Incomplete
     dLbls: Incomplete
     firstSliceAng: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
-    def __init__(self, firstSliceAng: int = 0, extLst: Incomplete | None = None, **kw) -> None: ...
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
+    def __init__(self, firstSliceAng: int = 0, extLst: Unused = None, **kw) -> None: ...
 
 class PieChart3D(_PieChartBase):
     tagname: str
     varyColors: Incomplete
     ser: Incomplete
     dLbls: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
 
 class DoughnutChart(_PieChartBase):
     tagname: str
@@ -41,14 +47,14 @@ class DoughnutChart(_PieChartBase):
     dLbls: Incomplete
     firstSliceAng: Incomplete
     holeSize: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
-    def __init__(self, firstSliceAng: int = 0, holeSize: int = 10, extLst: Incomplete | None = None, **kw) -> None: ...
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
+    def __init__(self, firstSliceAng: int = 0, holeSize: int = 10, extLst: Unused = None, **kw) -> None: ...
 
 class CustomSplit(Serialisable):
     tagname: str
     secondPiePt: Incomplete
-    __elements__: Incomplete
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, secondPiePt=()) -> None: ...
 
 class ProjectedPieChart(_PieChartBase):
@@ -57,25 +63,25 @@ class ProjectedPieChart(_PieChartBase):
     ser: Incomplete
     dLbls: Incomplete
     ofPieType: Incomplete
-    type: Incomplete
+    type: Alias
     gapWidth: Incomplete
     splitType: Incomplete
     splitPos: Incomplete
-    custSplit: Incomplete
+    custSplit: Typed[CustomSplit, Literal[True]]
     secondPieSize: Incomplete
-    serLines: Incomplete
-    join_lines: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    serLines: Typed[ChartLines, Literal[True]]
+    join_lines: Alias
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
         ofPieType: str = "pie",
         gapWidth: Incomplete | None = None,
         splitType: str = "auto",
         splitPos: Incomplete | None = None,
-        custSplit: Incomplete | None = None,
+        custSplit: CustomSplit | None = None,
         secondPieSize: int = 75,
-        serLines: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        serLines: ChartLines | None = None,
+        extLst: Unused = None,
         **kw,
     ) -> None: ...

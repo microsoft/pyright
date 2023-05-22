@@ -1,49 +1,56 @@
 from _typeshed import Incomplete
+from typing_extensions import Literal, TypeAlias
 
+from openpyxl.descriptors.base import Bool, Float, Integer, NoneSet, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt
 from openpyxl.descriptors.serialisable import Serialisable
+
+_PrintPageSetupOrientation: TypeAlias = Literal["default", "portrait", "landscape"]
+_PrintPageSetupPageOrder: TypeAlias = Literal["downThenOver", "overThenDown"]
+_PrintPageSetupCellComments: TypeAlias = Literal["asDisplayed", "atEnd"]
+_PrintPageSetupErrors: TypeAlias = Literal["displayed", "blank", "dash", "NA"]
 
 class PrintPageSetup(Serialisable):
     tagname: str
-    orientation: Incomplete
-    paperSize: Incomplete
-    scale: Incomplete
-    fitToHeight: Incomplete
-    fitToWidth: Incomplete
-    firstPageNumber: Incomplete
-    useFirstPageNumber: Incomplete
+    orientation: NoneSet[_PrintPageSetupOrientation]
+    paperSize: Integer[Literal[True]]
+    scale: Integer[Literal[True]]
+    fitToHeight: Integer[Literal[True]]
+    fitToWidth: Integer[Literal[True]]
+    firstPageNumber: Integer[Literal[True]]
+    useFirstPageNumber: Bool[Literal[True]]
     paperHeight: Incomplete
     paperWidth: Incomplete
-    pageOrder: Incomplete
-    usePrinterDefaults: Incomplete
-    blackAndWhite: Incomplete
-    draft: Incomplete
-    cellComments: Incomplete
-    errors: Incomplete
-    horizontalDpi: Incomplete
-    verticalDpi: Incomplete
-    copies: Incomplete
+    pageOrder: NoneSet[_PrintPageSetupPageOrder]
+    usePrinterDefaults: Bool[Literal[True]]
+    blackAndWhite: Bool[Literal[True]]
+    draft: Bool[Literal[True]]
+    cellComments: NoneSet[_PrintPageSetupCellComments]
+    errors: NoneSet[_PrintPageSetupErrors]
+    horizontalDpi: Integer[Literal[True]]
+    verticalDpi: Integer[Literal[True]]
+    copies: Integer[Literal[True]]
     id: Incomplete
     def __init__(
         self,
         worksheet: Incomplete | None = None,
-        orientation: Incomplete | None = None,
-        paperSize: Incomplete | None = None,
-        scale: Incomplete | None = None,
-        fitToHeight: Incomplete | None = None,
-        fitToWidth: Incomplete | None = None,
-        firstPageNumber: Incomplete | None = None,
-        useFirstPageNumber: Incomplete | None = None,
+        orientation: _PrintPageSetupOrientation | Literal["none"] | None = None,
+        paperSize: _ConvertibleToInt | None = None,
+        scale: _ConvertibleToInt | None = None,
+        fitToHeight: _ConvertibleToInt | None = None,
+        fitToWidth: _ConvertibleToInt | None = None,
+        firstPageNumber: _ConvertibleToInt | None = None,
+        useFirstPageNumber: _ConvertibleToBool | None = None,
         paperHeight: Incomplete | None = None,
         paperWidth: Incomplete | None = None,
-        pageOrder: Incomplete | None = None,
-        usePrinterDefaults: Incomplete | None = None,
-        blackAndWhite: Incomplete | None = None,
-        draft: Incomplete | None = None,
-        cellComments: Incomplete | None = None,
-        errors: Incomplete | None = None,
-        horizontalDpi: Incomplete | None = None,
-        verticalDpi: Incomplete | None = None,
-        copies: Incomplete | None = None,
+        pageOrder: _PrintPageSetupPageOrder | Literal["none"] | None = None,
+        usePrinterDefaults: _ConvertibleToBool | None = None,
+        blackAndWhite: _ConvertibleToBool | None = None,
+        draft: _ConvertibleToBool | None = None,
+        cellComments: _PrintPageSetupCellComments | Literal["none"] | None = None,
+        errors: _PrintPageSetupErrors | Literal["none"] | None = None,
+        horizontalDpi: _ConvertibleToInt | None = None,
+        verticalDpi: _ConvertibleToInt | None = None,
+        copies: _ConvertibleToInt | None = None,
         id: Incomplete | None = None,
     ) -> None: ...
     def __bool__(self) -> bool: ...
@@ -62,29 +69,35 @@ class PrintPageSetup(Serialisable):
 
 class PrintOptions(Serialisable):
     tagname: str
-    horizontalCentered: Incomplete
-    verticalCentered: Incomplete
-    headings: Incomplete
-    gridLines: Incomplete
-    gridLinesSet: Incomplete
+    horizontalCentered: Bool[Literal[True]]
+    verticalCentered: Bool[Literal[True]]
+    headings: Bool[Literal[True]]
+    gridLines: Bool[Literal[True]]
+    gridLinesSet: Bool[Literal[True]]
     def __init__(
         self,
-        horizontalCentered: Incomplete | None = None,
-        verticalCentered: Incomplete | None = None,
-        headings: Incomplete | None = None,
-        gridLines: Incomplete | None = None,
-        gridLinesSet: Incomplete | None = None,
+        horizontalCentered: _ConvertibleToBool | None = None,
+        verticalCentered: _ConvertibleToBool | None = None,
+        headings: _ConvertibleToBool | None = None,
+        gridLines: _ConvertibleToBool | None = None,
+        gridLinesSet: _ConvertibleToBool | None = None,
     ) -> None: ...
     def __bool__(self) -> bool: ...
 
 class PageMargins(Serialisable):
     tagname: str
-    left: Incomplete
-    right: Incomplete
-    top: Incomplete
-    bottom: Incomplete
-    header: Incomplete
-    footer: Incomplete
+    left: Float[Literal[False]]
+    right: Float[Literal[False]]
+    top: Float[Literal[False]]
+    bottom: Float[Literal[False]]
+    header: Float[Literal[False]]
+    footer: Float[Literal[False]]
     def __init__(
-        self, left: float = 0.75, right: float = 0.75, top: int = 1, bottom: int = 1, header: float = 0.5, footer: float = 0.5
+        self,
+        left: _ConvertibleToFloat = 0.75,
+        right: _ConvertibleToFloat = 0.75,
+        top: _ConvertibleToFloat = 1,
+        bottom: _ConvertibleToFloat = 1,
+        header: _ConvertibleToFloat = 0.5,
+        footer: _ConvertibleToFloat = 0.5,
     ) -> None: ...
