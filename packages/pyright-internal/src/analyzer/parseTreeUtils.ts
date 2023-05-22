@@ -17,6 +17,7 @@ import {
     ArgumentCategory,
     ArgumentNode,
     AssignmentExpressionNode,
+    AwaitNode,
     CallNode,
     ClassNode,
     DecoratorNode,
@@ -1080,6 +1081,21 @@ export function isSuiteEmpty(node: SuiteNode): boolean {
     }
 
     return sawEllipsis;
+}
+
+export function containsAwaitNode(node: ParseNode): boolean {
+    let foundAwait = false;
+
+    class AwaitNodeWalker extends ParseTreeWalker {
+        override visitAwait(node: AwaitNode) {
+            foundAwait = true;
+            return false;
+        }
+    }
+
+    const walker = new AwaitNodeWalker();
+    walker.walk(node);
+    return foundAwait;
 }
 
 export function isMatchingExpression(reference: ExpressionNode, expression: ExpressionNode): boolean {
