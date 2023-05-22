@@ -1181,6 +1181,16 @@ export interface FunctionParameter {
     typeAnnotation?: ExpressionNode | undefined;
 }
 
+export function isPositionOnlySeparator(param: FunctionParameter) {
+    // A simple parameter with no name is treated as a "/" separator.
+    return param.category === ParameterCategory.Simple && !param.name;
+}
+
+export function isKeywordOnlySeparator(param: FunctionParameter) {
+    // An *args parameter with no name is treated as a "*" separator.
+    return param.category === ParameterCategory.ArgsList && !param.name;
+}
+
 export const enum FunctionTypeFlags {
     None = 0,
 
@@ -1629,14 +1639,10 @@ export namespace FunctionType {
         // If there is a position-only separator in the captured param spec signature,
         // remove the position-only separator in the existing signature. Otherwise,
         // we'll end up with redundant position-only separators.
-        if (
-            paramSpecValue.details.parameters.some(
-                (entry) => entry.category === ParameterCategory.Simple && !entry.name
-            )
-        ) {
+        if (paramSpecValue.details.parameters.some((entry) => isPositionOnlySeparator(entry))) {
             if (newFunction.details.parameters.length > 0) {
                 const lastParam = newFunction.details.parameters[newFunction.details.parameters.length - 1];
-                if (lastParam.category === ParameterCategory.Simple && !lastParam.name) {
+                if (isPositionOnlySeparator(lastParam)) {
                     newFunction.details.parameters.pop();
                 }
             }
@@ -1717,13 +1723,13 @@ export namespace FunctionType {
     export function getDefaultParameters(useUnknown = false): FunctionParameter[] {
         return [
             {
-                category: ParameterCategory.VarArgList,
+                category: ParameterCategory.ArgsList,
                 name: 'args',
                 type: useUnknown ? UnknownType.create() : AnyType.create(),
                 hasDeclaredType: !useUnknown,
             },
             {
-                category: ParameterCategory.VarArgDictionary,
+                category: ParameterCategory.KwargsDict,
                 name: 'kwargs',
                 type: useUnknown ? UnknownType.create() : AnyType.create(),
                 hasDeclaredType: !useUnknown,
@@ -1746,9 +1752,9 @@ export namespace FunctionType {
 
             if (param.category === ParameterCategory.Simple) {
                 return false;
-            } else if (param.category === ParameterCategory.VarArgList) {
+            } else if (param.category === ParameterCategory.ArgsList) {
                 sawArgs = true;
-            } else if (param.category === ParameterCategory.VarArgDictionary) {
+            } else if (param.category === ParameterCategory.KwargsDict) {
                 sawKwargs = true;
             }
 
@@ -2676,12 +2682,8 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
-            const positionalOnlyIndex1 = params1.findIndex(
-                (param) => param.category === ParameterCategory.Simple && !param.name
-            );
-            const positionalOnlyIndex2 = params2.findIndex(
-                (param) => param.category === ParameterCategory.Simple && !param.name
-            );
+            const positionalOnlyIndex1 = params1.findIndex((param) => isPositionOnlySeparator(param));
+            const positionalOnlyIndex2 = params2.findIndex((param) => isPositionOnlySeparator(param));
 
             // Make sure the parameter details match.
             for (let i = 0; i < params1.length; i++) {

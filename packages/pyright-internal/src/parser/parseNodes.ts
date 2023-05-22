@@ -454,8 +454,8 @@ export namespace FunctionNode {
 
 export const enum ParameterCategory {
     Simple,
-    VarArgList,
-    VarArgDictionary,
+    ArgsList,
+    KwargsDict,
 }
 
 export interface ParameterNode extends ParseNodeBase {

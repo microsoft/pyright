@@ -306,6 +306,7 @@ import {
     isNoneTypeClass,
     isOverloadedFunction,
     isParamSpec,
+    isPositionOnlySeparator,
     isTypeSame,
     isTypeVar,
     isUnbound,
@@ -1436,9 +1437,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeOfParameterAnnotation(paramTypeNode: ExpressionNode, paramCategory: ParameterCategory) {
         return getTypeOfAnnotation(paramTypeNode, {
             associateTypeVarsWithScope: true,
-            allowTypeVarTuple: paramCategory === ParameterCategory.VarArgList,
-            allowUnpackedTypedDict: paramCategory === ParameterCategory.VarArgDictionary,
-            allowUnpackedTuple: paramCategory === ParameterCategory.VarArgList,
+            allowTypeVarTuple: paramCategory === ParameterCategory.ArgsList,
+            allowUnpackedTypedDict: paramCategory === ParameterCategory.KwargsDict,
+            allowUnpackedTuple: paramCategory === ParameterCategory.ArgsList,
         });
     }
 
@@ -4934,7 +4935,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (baseType.details.isParamSpec) {
                     if (memberName === 'args') {
                         const paramNode = ParseTreeUtils.getEnclosingParameter(node);
-                        if (!paramNode || paramNode.category !== ParameterCategory.VarArgList) {
+                        if (!paramNode || paramNode.category !== ParameterCategory.ArgsList) {
                             addError(Localizer.Diagnostic.paramSpecArgsUsage(), node);
                             return { type: UnknownType.create(isIncomplete), isIncomplete };
                         }
@@ -4943,7 +4944,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (memberName === 'kwargs') {
                         const paramNode = ParseTreeUtils.getEnclosingParameter(node);
-                        if (!paramNode || paramNode.category !== ParameterCategory.VarArgDictionary) {
+                        if (!paramNode || paramNode.category !== ParameterCategory.KwargsDict) {
                             addError(Localizer.Diagnostic.paramSpecKwargsUsage(), node);
                             return { type: UnknownType.create(isIncomplete), isIncomplete };
                         }
@@ -9472,7 +9473,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const paramName = paramDetails.params[paramIndex].param.name;
 
             const isParamVariadic =
-                paramDetails.params[paramIndex].param.category === ParameterCategory.VarArgList &&
+                paramDetails.params[paramIndex].param.category === ParameterCategory.ArgsList &&
                 isVariadicTypeVar(paramType);
 
             if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
@@ -9546,7 +9547,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             argList[argIndex].valueExpression!
                         )?.type ?? UnknownType.create();
 
-                    if (paramDetails.params[paramIndex].param.category !== ParameterCategory.VarArgList) {
+                    if (paramDetails.params[paramIndex].param.category !== ParameterCategory.ArgsList) {
                         matchedUnpackedListOfUnknownLength = true;
                     }
                 }
@@ -9603,20 +9604,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     paramMap.get(paramName)!.argsReceived++;
                 }
 
-                if (
-                    advanceToNextArg ||
-                    paramDetails.params[paramIndex].param.category === ParameterCategory.VarArgList
-                ) {
+                if (advanceToNextArg || paramDetails.params[paramIndex].param.category === ParameterCategory.ArgsList) {
                     argIndex++;
                 }
 
                 if (
                     isVariadicTypeVarFullyMatched ||
-                    paramDetails.params[paramIndex].param.category !== ParameterCategory.VarArgList
+                    paramDetails.params[paramIndex].param.category !== ParameterCategory.ArgsList
                 ) {
                     paramIndex++;
                 }
-            } else if (paramDetails.params[paramIndex].param.category === ParameterCategory.VarArgList) {
+            } else if (paramDetails.params[paramIndex].param.category === ParameterCategory.ArgsList) {
                 trySetActive(argList[argIndex], paramDetails.params[paramIndex].param);
 
                 if (paramSpecArgList) {
@@ -9636,7 +9634,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     paramCategory = isVariadicTypeVar(effectiveParamType)
-                        ? ParameterCategory.VarArgList
+                        ? ParameterCategory.ArgsList
                         : ParameterCategory.Simple;
 
                     if (remainingArgCount <= remainingParamCount) {
@@ -9703,7 +9701,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (
             positionalOnlyLimitIndex >= 0 &&
             paramIndex < positionalOnlyLimitIndex &&
-            paramDetails.params[paramIndex].param.category === ParameterCategory.VarArgList &&
+            paramDetails.params[paramIndex].param.category === ParameterCategory.ArgsList &&
             !isParamSpec(paramDetails.params[paramIndex].param.type)
         ) {
             paramIndex++;
@@ -9733,7 +9731,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             const firstArgsParam = paramDetails.params.findIndex(
                 (paramInfo) =>
-                    paramInfo.param.category === ParameterCategory.VarArgList && !isParamSpec(paramInfo.param.type)
+                    paramInfo.param.category === ParameterCategory.ArgsList && !isParamSpec(paramInfo.param.type)
             );
             if (firstArgsParam >= paramIndex && firstArgsParam < positionalOnlyLimitIndex) {
                 // If there is another args parameter beyond the current param index,
@@ -9806,7 +9804,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             } else if (paramDetails.kwargsIndex !== undefined) {
                                 const paramType = paramDetails.params[paramDetails.kwargsIndex].type;
                                 validateArgTypeParams.push({
-                                    paramCategory: ParameterCategory.VarArgDictionary,
+                                    paramCategory: ParameterCategory.KwargsDict,
                                     paramType,
                                     requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argument: {
@@ -9849,7 +9847,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         unpackedDictionaryArgType = AnyType.create();
                         if (typeResult.type.details.paramSpec) {
                             validateArgTypeParams.push({
-                                paramCategory: ParameterCategory.VarArgDictionary,
+                                paramCategory: ParameterCategory.KwargsDict,
                                 paramType: typeResult.type.details.paramSpec,
                                 requiresTypeVarMatching: false,
                                 argument: argList[argIndex],
@@ -9956,7 +9954,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             } else {
                                 const paramType = paramDetails.params[paramDetails.kwargsIndex].type;
                                 validateArgTypeParams.push({
-                                    paramCategory: ParameterCategory.VarArgDictionary,
+                                    paramCategory: ParameterCategory.KwargsDict,
                                     paramType,
                                     requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argument: argList[argIndex],
@@ -10013,7 +10011,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                             if (isParamSpec(argType) && argType.paramSpecAccess === 'args') {
                                 validateArgTypeParams.push({
-                                    paramCategory: ParameterCategory.VarArgList,
+                                    paramCategory: ParameterCategory.ArgsList,
                                     paramType: typeResult.type.details.paramSpec,
                                     requiresTypeVarMatching: false,
                                     argument: argList[argIndex],
@@ -10199,7 +10197,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         const combinedArg: ValidateArgTypeParams = {
-                            paramCategory: ParameterCategory.VarArgList,
+                            paramCategory: ParameterCategory.ArgsList,
                             paramType,
                             requiresTypeVarMatching: true,
                             argument: {
@@ -10883,10 +10881,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (positionalIndexLimit < 0) {
             positionalIndexLimit = paramSpecParams.length;
         }
-        const argsParam = paramSpecParams.find((paramInfo) => paramInfo.category === ParameterCategory.VarArgList);
-        const kwargsParam = paramSpecParams.find(
-            (paramInfo) => paramInfo.category === ParameterCategory.VarArgDictionary
-        );
+        const argsParam = paramSpecParams.find((paramInfo) => paramInfo.category === ParameterCategory.ArgsList);
+        const kwargsParam = paramSpecParams.find((paramInfo) => paramInfo.category === ParameterCategory.KwargsDict);
 
         const signatureTracker = new UniqueSignatureTracker();
         let sawUnpackedListArgument = false;
@@ -10962,7 +10958,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 // See if there is an *args parameter.
                 const argsParam = paramSpecParams.find(
-                    (param) => param.category === ParameterCategory.VarArgList && param.name
+                    (param) => param.category === ParameterCategory.ArgsList && param.name
                 );
                 if (argsParam && paramMap.has(argsParam.name!)) {
                     // TODO - validate args type
@@ -10973,9 +10969,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 assert(arg.argumentCategory === ArgumentCategory.UnpackedDictionary);
 
                 // See if there is an *kwargs parameter.
-                const kwargsParam = paramSpecParams.find(
-                    (param) => param.category === ParameterCategory.VarArgDictionary
-                );
+                const kwargsParam = paramSpecParams.find((param) => param.category === ParameterCategory.KwargsDict);
                 if (kwargsParam && paramMap.has(kwargsParam.name!)) {
                     // TODO - validate kwargs type
                     paramMap.delete(kwargsParam.name!);
@@ -11143,7 +11137,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If we're assigning to a var arg dictionary with a TypeVar type,
         // strip literals before performing the assignment. This is used in
         // places like a dict constructor.
-        if (argParam.paramCategory === ParameterCategory.VarArgDictionary && isTypeVar(argParam.paramType)) {
+        if (argParam.paramCategory === ParameterCategory.KwargsDict && isTypeVar(argParam.paramType)) {
             argType = stripLiteralValue(argType);
         }
 
@@ -13437,11 +13431,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (isVariadicTypeVar(entryType)) {
                         validateVariadicTypeVarIsUnpacked(entryType, entry.node);
-                        paramCategory = ParameterCategory.VarArgList;
+                        paramCategory = ParameterCategory.ArgsList;
                         noteSawUnpacked(entry);
                     } else if (validateTypeArg(entry, { allowUnpackedTuples: true })) {
                         if (isUnpackedClass(entryType)) {
-                            paramCategory = ParameterCategory.VarArgList;
+                            paramCategory = ParameterCategory.ArgsList;
                             noteSawUnpacked(entry);
                         }
                     } else {
@@ -16731,7 +16725,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return type;
             }
 
-            case ParameterCategory.VarArgList: {
+            case ParameterCategory.ArgsList: {
                 if (isTypeVar(type) && type.paramSpecAccess) {
                     return type;
                 }
@@ -16753,7 +16747,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return UnknownType.create();
             }
 
-            case ParameterCategory.VarArgDictionary: {
+            case ParameterCategory.KwargsDict: {
                 // Leave a ParamSpec alone.
                 if (isTypeVar(type) && type.paramSpecAccess) {
                     return type;
@@ -18040,10 +18034,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isVariableAnnotation: annotationNode.parent?.nodeType === ParseNodeType.TypeAnnotation,
                 allowUnpackedTuple:
                     annotationParent.nodeType === ParseNodeType.Parameter &&
-                    annotationParent.category === ParameterCategory.VarArgList,
+                    annotationParent.category === ParameterCategory.ArgsList,
                 allowUnpackedTypedDict:
                     annotationParent.nodeType === ParseNodeType.Parameter &&
-                    annotationParent.category === ParameterCategory.VarArgDictionary,
+                    annotationParent.category === ParameterCategory.KwargsDict,
             });
             return;
         }
@@ -23184,7 +23178,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const srcPositionalsToPack = srcDetails.params.slice(destDetails.argsIndex, srcLastToPackIndex - suffixLength);
         const srcTupleTypes: TupleTypeArgument[] = [];
         srcPositionalsToPack.forEach((entry) => {
-            if (entry.param.category === ParameterCategory.VarArgList) {
+            if (entry.param.category === ParameterCategory.ArgsList) {
                 if (isUnpackedVariadicTypeVar(entry.type)) {
                     srcTupleTypes.push({ type: entry.type, isUnbounded: false });
                 } else if (isUnpackedClass(entry.type) && entry.type.tupleTypeArguments) {
@@ -23219,7 +23213,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ...srcDetails.params.slice(0, destDetails.argsIndex),
                 {
                     param: {
-                        category: ParameterCategory.VarArgList,
+                        category: ParameterCategory.ArgsList,
                         name: '_arg_combined',
                         isNameSynthesized: true,
                         hasDeclaredType: true,
@@ -23236,12 +23230,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ];
 
             const argsIndex = srcDetails.params.findIndex(
-                (param) => param.param.category === ParameterCategory.VarArgList
+                (param) => param.param.category === ParameterCategory.ArgsList
             );
             srcDetails.argsIndex = argsIndex >= 0 ? argsIndex : undefined;
 
             const kwargsIndex = srcDetails.params.findIndex(
-                (param) => param.param.category === ParameterCategory.VarArgDictionary
+                (param) => param.param.category === ParameterCategory.KwargsDict
             );
             srcDetails.kwargsIndex = kwargsIndex >= 0 ? kwargsIndex : undefined;
 
@@ -23309,8 +23303,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const isDestPositionalOnly = destParam.source === ParameterSource.PositionOnly;
                 if (
                     !isDestPositionalOnly &&
-                    destParam.param.category !== ParameterCategory.VarArgList &&
-                    srcParam.param.category !== ParameterCategory.VarArgList &&
+                    destParam.param.category !== ParameterCategory.ArgsList &&
+                    srcParam.param.category !== ParameterCategory.ArgsList &&
                     destParamName !== srcParamName
                 ) {
                     diag?.createAddendum().addMessage(
@@ -23786,7 +23780,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (p.name) {
                             matchedParamCount++;
                         }
-                    } else if (!p.name && p.category === ParameterCategory.Simple && remainingParams.length === 0) {
+                    } else if (isPositionOnlySeparator(p) && remainingParams.length === 0) {
                         // Don't bother pushing a position-only separator if it
                         // is the first remaining param.
                     } else {

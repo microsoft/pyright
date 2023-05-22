@@ -428,9 +428,9 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                     .map((param) => {
                         let paramStr = '';
 
-                        if (param.category === ParameterCategory.VarArgList) {
+                        if (param.category === ParameterCategory.ArgsList) {
                             paramStr += '*';
-                        } else if (param.category === ParameterCategory.VarArgDictionary) {
+                        } else if (param.category === ParameterCategory.KwargsDict) {
                             paramStr += '**';
                         }
 

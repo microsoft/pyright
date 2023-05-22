@@ -1093,8 +1093,8 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | None
             } else if (
                 isFunction(subtype) &&
                 subtype.details.parameters.length === 2 &&
-                subtype.details.parameters[0].category === ParameterCategory.VarArgList &&
-                subtype.details.parameters[1].category === ParameterCategory.VarArgDictionary
+                subtype.details.parameters[0].category === ParameterCategory.ArgsList &&
+                subtype.details.parameters[1].category === ParameterCategory.KwargsDict
             ) {
                 classTypeList.push(subtype);
             } else {

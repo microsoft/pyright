@@ -423,10 +423,10 @@ function applyPartialTransformToFunction(
         return specializedParam;
     });
     const unassignedParamList = updatedParamList.filter((param) => {
-        if (param.category === ParameterCategory.VarArgDictionary) {
+        if (param.category === ParameterCategory.KwargsDict) {
             return false;
         }
-        if (param.category === ParameterCategory.VarArgList) {
+        if (param.category === ParameterCategory.ArgsList) {
             return true;
         }
         return !param.name || !paramMap.has(param.name);
@@ -435,7 +435,7 @@ function applyPartialTransformToFunction(
         return param.name && paramMap.get(param.name);
     });
     const kwargsParam = updatedParamList.filter((param) => {
-        return param.category === ParameterCategory.VarArgDictionary;
+        return param.category === ParameterCategory.KwargsDict;
     });
 
     const newParamList: FunctionParameter[] = [];

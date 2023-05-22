@@ -13,6 +13,7 @@ import {
     FunctionParameter,
     FunctionType,
     isClassInstance,
+    isPositionOnlySeparator,
     isUnpackedClass,
     isVariadicTypeVar,
     Type,
@@ -21,7 +22,7 @@ import { partiallySpecializeType } from './typeUtils';
 
 export function isTypedKwargs(param: FunctionParameter): boolean {
     return (
-        param.category === ParameterCategory.VarArgDictionary &&
+        param.category === ParameterCategory.KwargsDict &&
         isClassInstance(param.type) &&
         isUnpackedClass(param.type) &&
         ClassType.isTypedDictClass(param.type) &&
@@ -75,9 +76,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
         hasUnpackedTypedDict: false,
     };
 
-    let positionOnlyIndex = type.details.parameters.findIndex(
-        (p) => p.category === ParameterCategory.Simple && !p.name
-    );
+    let positionOnlyIndex = type.details.parameters.findIndex((p) => isPositionOnlySeparator(p));
 
     // Handle the old (pre Python 3.8) way of specifying positional-only
     // parameters by naming them with "__".
@@ -125,7 +124,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
             let source: ParameterSource;
             if (sourceOverride !== undefined) {
                 source = sourceOverride;
-            } else if (param.category === ParameterCategory.VarArgList) {
+            } else if (param.category === ParameterCategory.ArgsList) {
                 source = ParameterSource.PositionOnly;
             } else if (sawKeywordOnlySeparator) {
                 source = ParameterSource.KeywordOnly;
@@ -146,7 +145,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
     };
 
     type.details.parameters.forEach((param, index) => {
-        if (param.category === ParameterCategory.VarArgList) {
+        if (param.category === ParameterCategory.ArgsList) {
             // If this is an unpacked tuple, expand the entries.
             const paramType = FunctionType.getEffectiveParameterType(type, index);
             if (param.name && isUnpackedClass(paramType) && paramType.tupleTypeArguments) {
@@ -155,10 +154,10 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                 paramType.tupleTypeArguments.forEach((tupleArg, tupleIndex) => {
                     const category =
                         isVariadicTypeVar(tupleArg.type) || tupleArg.isUnbounded
-                            ? ParameterCategory.VarArgList
+                            ? ParameterCategory.ArgsList
                             : ParameterCategory.Simple;
 
-                    if (category === ParameterCategory.VarArgList) {
+                    if (category === ParameterCategory.ArgsList) {
                         result.argsIndex = result.params.length;
                     }
 
@@ -220,7 +219,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
 
                 addVirtualParameter(param, index);
             }
-        } else if (param.category === ParameterCategory.VarArgDictionary) {
+        } else if (param.category === ParameterCategory.KwargsDict) {
             sawKeywordOnlySeparator = true;
 
             const paramType = FunctionType.getEffectiveParameterType(type, index);

@@ -273,7 +273,7 @@ export function synthesizeTypedDictClassMethods(
 
     // All subsequent parameters must be named, so insert an empty "*".
     FunctionType.addParameter(initOverride1, {
-        category: ParameterCategory.VarArgList,
+        category: ParameterCategory.ArgsList,
         type: AnyType.create(),
         hasDeclaredType: true,
     });
@@ -289,7 +289,7 @@ export function synthesizeTypedDictClassMethods(
 
     // All parameters must be named, so insert an empty "*".
     FunctionType.addParameter(initOverride2, {
-        category: ParameterCategory.VarArgList,
+        category: ParameterCategory.ArgsList,
         type: AnyType.create(),
         hasDeclaredType: true,
     });

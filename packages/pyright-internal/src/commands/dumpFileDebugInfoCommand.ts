@@ -1012,9 +1012,9 @@ function getParameterCategoryString(type: ParameterCategory) {
     switch (type) {
         case ParameterCategory.Simple:
             return 'Simple';
-        case ParameterCategory.VarArgList:
+        case ParameterCategory.ArgsList:
             return 'VarArgList';
-        case ParameterCategory.VarArgDictionary:
+        case ParameterCategory.KwargsDict:
             return 'VarArgDictionary';
     }
 }

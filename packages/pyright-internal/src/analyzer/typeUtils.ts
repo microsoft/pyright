@@ -28,10 +28,12 @@ import {
     isClassInstance,
     isFunction,
     isInstantiableClass,
+    isKeywordOnlySeparator,
     isNever,
     isNoneInstance,
     isOverloadedFunction,
     isParamSpec,
+    isPositionOnlySeparator,
     isTypeSame,
     isTypeVar,
     isUnbound,
@@ -2388,8 +2390,8 @@ export function removeParamSpecVariadicsFromFunction(type: FunctionType): Functi
     const kwargsParam = type.details.parameters[paramCount - 1];
 
     if (
-        argsParam.category !== ParameterCategory.VarArgList ||
-        kwargsParam.category !== ParameterCategory.VarArgDictionary ||
+        argsParam.category !== ParameterCategory.ArgsList ||
+        kwargsParam.category !== ParameterCategory.KwargsDict ||
         !isParamSpec(argsParam.type) ||
         !isParamSpec(kwargsParam.type) ||
         !isTypeSame(argsParam.type, kwargsParam.type)
@@ -2905,7 +2907,7 @@ export function convertParamSpecValueToType(paramSpecValue: FunctionType, omitPa
         // If the ParamSpec has a position-only separator as its only parameter,
         // treat it as though there are no parameters.
         const onlyParam = paramSpecValue.details.parameters[0];
-        if (onlyParam.category === ParameterCategory.Simple && !onlyParam.name) {
+        if (isPositionOnlySeparator(onlyParam)) {
             hasParameters = false;
         }
     }
@@ -3352,8 +3354,8 @@ class TypeVarTransformer {
                 );
 
                 if (
-                    argsParam.category === ParameterCategory.VarArgList &&
-                    kwargsParam.category === ParameterCategory.VarArgDictionary &&
+                    argsParam.category === ParameterCategory.ArgsList &&
+                    kwargsParam.category === ParameterCategory.KwargsDict &&
                     isParamSpec(argsParamType) &&
                     isParamSpec(kwargsParamType) &&
                     isTypeSame(argsParamType, kwargsParamType)
@@ -3397,7 +3399,7 @@ class TypeVarTransformer {
                 if (
                     variadicParamIndex === undefined &&
                     isVariadicTypeVar(paramType) &&
-                    functionType.details.parameters[i].category === ParameterCategory.VarArgList
+                    functionType.details.parameters[i].category === ParameterCategory.ArgsList
                 ) {
                     variadicParamIndex = i;
 
@@ -3454,9 +3456,7 @@ class TypeVarTransformer {
                     // Unpack the tuple into individual parameters.
                     variadicTypesToUnpack!.forEach((unpackedType) => {
                         FunctionType.addParameter(newFunctionType, {
-                            category: unpackedType.isUnbounded
-                                ? ParameterCategory.VarArgList
-                                : ParameterCategory.Simple,
+                            category: unpackedType.isUnbounded ? ParameterCategory.ArgsList : ParameterCategory.Simple,
                             name: `__p${newFunctionType.details.parameters.length}`,
                             isNameSynthesized: true,
                             type: unpackedType.type,
@@ -3476,9 +3476,9 @@ class TypeVarTransformer {
                 } else {
                     const param = { ...functionType.details.parameters[index] };
 
-                    if (param.category === ParameterCategory.VarArgList && !param.name) {
+                    if (isKeywordOnlySeparator(param)) {
                         insertKeywordOnlySeparator = false;
-                    } else if (param.category === ParameterCategory.VarArgDictionary) {
+                    } else if (param.category === ParameterCategory.KwargsDict) {
                         insertKeywordOnlySeparator = false;
                     }
 
@@ -3486,7 +3486,7 @@ class TypeVarTransformer {
                     // unpacked a variadic TypeVar.
                     if (param.category === ParameterCategory.Simple && param.name && insertKeywordOnlySeparator) {
                         FunctionType.addParameter(newFunctionType, {
-                            category: ParameterCategory.VarArgList,
+                            category: ParameterCategory.ArgsList,
                             type: UnknownType.create(),
                         });
                         insertKeywordOnlySeparator = false;

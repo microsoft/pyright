@@ -1958,7 +1958,7 @@ export class Parser {
 
             paramList.push(param);
 
-            if (param.category === ParameterCategory.VarArgList) {
+            if (param.category === ParameterCategory.ArgsList) {
                 if (!param.name) {
                     if (sawKeywordOnlySeparator) {
                         this._addError(Localizer.Diagnostic.duplicateKeywordOnly(), param);
@@ -1974,7 +1974,7 @@ export class Parser {
                 }
             }
 
-            if (param.category === ParameterCategory.VarArgDictionary) {
+            if (param.category === ParameterCategory.KwargsDict) {
                 if (sawKwArgs) {
                     this._addError(Localizer.Diagnostic.duplicateKwargsParam(), param);
                 }
@@ -2007,7 +2007,7 @@ export class Parser {
 
         if (paramList.length > 0) {
             const lastParam = paramList[paramList.length - 1];
-            if (lastParam.category === ParameterCategory.VarArgList && !lastParam.name) {
+            if (lastParam.category === ParameterCategory.ArgsList && !lastParam.name) {
                 this._addError(Localizer.Diagnostic.expectedNamedParameter(), lastParam);
             }
         }
@@ -2034,7 +2034,7 @@ export class Parser {
         const paramName = this._getTokenIfIdentifier();
         if (!paramName) {
             if (starCount === 1) {
-                const paramNode = ParameterNode.create(firstToken, ParameterCategory.VarArgList);
+                const paramNode = ParameterNode.create(firstToken, ParameterCategory.ArgsList);
                 return paramNode;
             } else if (slashCount === 1) {
                 const paramNode = ParameterNode.create(firstToken, ParameterCategory.Simple);
@@ -2055,9 +2055,9 @@ export class Parser {
 
         let paramType = ParameterCategory.Simple;
         if (starCount === 1) {
-            paramType = ParameterCategory.VarArgList;
+            paramType = ParameterCategory.ArgsList;
         } else if (starCount === 2) {
-            paramType = ParameterCategory.VarArgDictionary;
+            paramType = ParameterCategory.KwargsDict;
         }
         const paramNode = ParameterNode.create(firstToken, paramType);
         if (paramName) {
@@ -2067,7 +2067,7 @@ export class Parser {
         }
 
         if (allowAnnotations && this._consumeTokenIfType(TokenType.Colon)) {
-            paramNode.typeAnnotation = this._parseTypeAnnotation(paramType === ParameterCategory.VarArgList);
+            paramNode.typeAnnotation = this._parseTypeAnnotation(paramType === ParameterCategory.ArgsList);
             paramNode.typeAnnotation.parent = paramNode;
             extendRange(paramNode, paramNode.typeAnnotation);
         }

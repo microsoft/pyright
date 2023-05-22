@@ -978,7 +978,7 @@ function printFunctionPartsInternal(
         // Handle specialized variadic type parameters specially.
         if (
             index === type.details.parameters.length - 1 &&
-            param.category === ParameterCategory.VarArgList &&
+            param.category === ParameterCategory.ArgsList &&
             isVariadicTypeVar(param.type)
         ) {
             const specializedParamType = FunctionType.getEffectiveParameterType(type, index);
@@ -1023,11 +1023,11 @@ function printFunctionPartsInternal(
         }
 
         let paramString = '';
-        if (param.category === ParameterCategory.VarArgList) {
+        if (param.category === ParameterCategory.ArgsList) {
             if (!param.name || !param.isNameSynthesized) {
                 paramString += '*';
             }
-        } else if (param.category === ParameterCategory.VarArgDictionary) {
+        } else if (param.category === ParameterCategory.KwargsDict) {
             paramString += '**';
         }
 
@@ -1063,11 +1063,11 @@ function printFunctionPartsInternal(
 
                 if (emittedParamName) {
                     paramString += ': ';
-                } else if (param.category === ParameterCategory.VarArgList && !isUnpacked(paramType)) {
+                } else if (param.category === ParameterCategory.ArgsList && !isUnpacked(paramType)) {
                     paramString += '*';
                 }
 
-                if (param.category === ParameterCategory.VarArgDictionary && isUnpacked(paramType)) {
+                if (param.category === ParameterCategory.KwargsDict && isUnpacked(paramType)) {
                     if (printTypeFlags & PrintTypeFlags.PythonSyntax) {
                         // Use "Unpack" because ** isn't legal syntax prior to Python 3.12.
                         paramTypeString = `Unpack[${paramTypeString.substring(1)}]`;
@@ -1081,8 +1081,8 @@ function printFunctionPartsInternal(
 
                 if (isParamSpec(paramType)) {
                     if (
-                        param.category === ParameterCategory.VarArgList ||
-                        param.category === ParameterCategory.VarArgDictionary
+                        param.category === ParameterCategory.ArgsList ||
+                        param.category === ParameterCategory.KwargsDict
                     ) {
                         isParamSpecArgsKwargsParam = true;
                     }
@@ -1123,9 +1123,9 @@ function printFunctionPartsInternal(
 
         // If this is a (...) signature, replace the *args, **kwargs with "...".
         if (FunctionType.shouldSkipArgsKwargsCompatibilityCheck(type) && !isParamSpecArgsKwargsParam) {
-            if (param.category === ParameterCategory.VarArgList) {
+            if (param.category === ParameterCategory.ArgsList) {
                 paramString = '...';
-            } else if (param.category === ParameterCategory.VarArgDictionary) {
+            } else if (param.category === ParameterCategory.KwargsDict) {
                 return;
             }
         }

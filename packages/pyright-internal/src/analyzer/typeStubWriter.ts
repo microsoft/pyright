@@ -660,9 +660,9 @@ export class TypeStubWriter extends ParseTreeWalker {
 
     private _printParameter(paramNode: ParameterNode, functionNode: FunctionNode, paramIndex: number): string {
         let line = '';
-        if (paramNode.category === ParameterCategory.VarArgList) {
+        if (paramNode.category === ParameterCategory.ArgsList) {
             line += '*';
-        } else if (paramNode.category === ParameterCategory.VarArgDictionary) {
+        } else if (paramNode.category === ParameterCategory.KwargsDict) {
             line += '**';
         }
 

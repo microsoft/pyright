@@ -574,7 +574,7 @@ export class CompletionProvider {
 
                 // All simple parameters after a `*` or `*args` parameter
                 // are considered keyword only.
-                if (parameter.category === ParameterCategory.VarArgList) {
+                if (parameter.category === ParameterCategory.ArgsList) {
                     sawKeywordOnlySeparator = true;
                 }
             }
@@ -584,11 +584,11 @@ export class CompletionProvider {
 
         function convertToString(parameter: [node: ParameterNode, keywordOnly: boolean]) {
             const name = parameter[0].name?.value;
-            if (parameter[0].category === ParameterCategory.VarArgList) {
+            if (parameter[0].category === ParameterCategory.ArgsList) {
                 return `*${name}`;
             }
 
-            if (parameter[0].category === ParameterCategory.VarArgDictionary) {
+            if (parameter[0].category === ParameterCategory.KwargsDict) {
                 return `**${name}`;
             }
 
@@ -1646,9 +1646,9 @@ export class CompletionProvider {
         const paramList = node.parameters
             .map((param, index) => {
                 let paramString = '';
-                if (param.category === ParameterCategory.VarArgList) {
+                if (param.category === ParameterCategory.ArgsList) {
                     paramString += '*';
-                } else if (param.category === ParameterCategory.VarArgDictionary) {
+                } else if (param.category === ParameterCategory.KwargsDict) {
                     paramString += '**';
                 }
 

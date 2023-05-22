@@ -541,7 +541,7 @@ export function synthesizeDataClassMethods(
 
             if (keywordOnlyParams.length > 0) {
                 FunctionType.addParameter(initType, {
-                    category: ParameterCategory.VarArgList,
+                    category: ParameterCategory.ArgsList,
                     type: AnyType.create(),
                 });
                 keywordOnlyParams.forEach((param) => {

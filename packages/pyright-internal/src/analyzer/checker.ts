@@ -438,7 +438,7 @@ export class Checker extends ParseTreeWalker {
             node.parameters.forEach((param, index) => {
                 if (param.name) {
                     // Determine whether this is a P.args parameter.
-                    if (param.category === ParameterCategory.VarArgList) {
+                    if (param.category === ParameterCategory.ArgsList) {
                         const annotationExpr = param.typeAnnotation || param.typeAnnotationComment;
                         if (
                             annotationExpr &&
@@ -450,7 +450,7 @@ export class Checker extends ParseTreeWalker {
                                 sawParamSpecArgs = true;
                             }
                         }
-                    } else if (param.category === ParameterCategory.VarArgDictionary) {
+                    } else if (param.category === ParameterCategory.KwargsDict) {
                         sawParamSpecArgs = false;
                     }
                 }

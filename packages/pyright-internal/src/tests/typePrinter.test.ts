@@ -133,14 +133,14 @@ test('FunctionTypes', () => {
     });
 
     FunctionType.addParameter(funcTypeA, {
-        category: ParameterCategory.VarArgList,
+        category: ParameterCategory.ArgsList,
         hasDeclaredType: true,
         type: AnyType.create(),
         name: 'args',
     });
 
     FunctionType.addParameter(funcTypeA, {
-        category: ParameterCategory.VarArgDictionary,
+        category: ParameterCategory.KwargsDict,
         hasDeclaredType: true,
         type: AnyType.create(),
         name: 'kwargs',
@@ -188,7 +188,7 @@ test('FunctionTypes', () => {
     const unpackedTs = TypeVarType.cloneForUnpacked(typeVarTupleTs);
 
     FunctionType.addParameter(funcTypeC, {
-        category: ParameterCategory.VarArgList,
+        category: ParameterCategory.ArgsList,
         hasDeclaredType: true,
         type: unpackedTs,
         name: 'args',
