@@ -13074,19 +13074,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If we're speculatively evaluating the lambda, create another speculative
         // evaluation scope for the return expression and do not allow retention
         // of the cached types.
-        const inferLambdaReturnType = () => {
-            const returnTypeResult = getTypeOfExpression(
-                node.expression,
-                /* flags */ undefined,
-                makeInferenceContext(expectedReturnType)
-            );
-
-            functionType.inferredReturnType = returnTypeResult.type;
-            if (returnTypeResult.isIncomplete) {
-                isIncomplete = true;
-            }
-        };
-
         // We need to set allowCacheRetention to false because we don't want to
         // cache the type of the lambda return expression because it depends on
         // the parameter types that we set above, and the speculative type cache
@@ -13094,7 +13081,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         useSpeculativeMode(
             isSpeculativeModeInUse(node) || inferenceContext?.isTypeIncomplete ? node.expression : undefined,
             () => {
-                inferLambdaReturnType();
+                const returnTypeResult = getTypeOfExpression(
+                    node.expression,
+                    /* flags */ undefined,
+                    makeInferenceContext(expectedReturnType)
+                );
+
+                functionType.inferredReturnType = returnTypeResult.type;
+                if (returnTypeResult.isIncomplete) {
+                    isIncomplete = true;
+                }
             },
             /* allowCacheRetention */ false
         );
