@@ -796,6 +796,7 @@ export interface UnaryOperationNode extends ParseNodeBase {
     expression: ExpressionNode;
     operatorToken: Token;
     operator: OperatorType;
+    parenthesized?: boolean;
 }
 
 export namespace UnaryOperationNode {
@@ -1126,6 +1127,7 @@ export namespace AugmentedAssignmentNode {
 export interface AwaitNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Await;
     expression: ExpressionNode;
+    parenthesized?: boolean;
 }
 
 export namespace AwaitNode {

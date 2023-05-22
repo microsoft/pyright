@@ -214,7 +214,8 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.UnaryOperation: {
-            return printOperator(node.operator) + printExpression(node.expression, flags);
+            const exprStr = printOperator(node.operator) + printExpression(node.expression, flags);
+            return node.parenthesized ? `(${exprStr})` : exprStr;
         }
 
         case ParseNodeType.BinaryOperation: {
@@ -318,7 +319,8 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Await: {
-            return 'await ' + printExpression(node.expression, flags);
+            const exprStr = 'await ' + printExpression(node.expression, flags);
+            return node.parenthesized ? `(${exprStr})` : exprStr;
         }
 
         case ParseNodeType.Ternary: {

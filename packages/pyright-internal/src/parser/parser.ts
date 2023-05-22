@@ -3827,10 +3827,15 @@ export class Parser {
                 this._addError(Localizer.Diagnostic.tupleInAnnotation() + diag.getString(), possibleTupleNode);
             }
 
-            if (possibleTupleNode.nodeType === ParseNodeType.BinaryOperation) {
-                // Mark the binary expression as parenthesized so we don't attempt
+            if (
+                possibleTupleNode.nodeType === ParseNodeType.UnaryOperation ||
+                possibleTupleNode.nodeType === ParseNodeType.Await ||
+                possibleTupleNode.nodeType === ParseNodeType.BinaryOperation
+            ) {
+                // Mark binary expressions as parenthesized so we don't attempt
                 // to use comparison chaining, which isn't appropriate when the
-                // expression is parenthesized.
+                // expression is parenthesized. Unary and await expressions
+                // are also marked to be able to display them unambiguously.
                 possibleTupleNode.parenthesized = true;
             }
 
