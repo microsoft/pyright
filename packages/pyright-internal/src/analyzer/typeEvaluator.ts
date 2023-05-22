@@ -13067,6 +13067,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
+        // Handle the case where the expected type contains a ParamSpec.
+        if (expectedFunctionType?.details.paramSpec) {
+            functionType.details.paramSpec = expectedFunctionType.details.paramSpec;
+        }
+
         const expectedReturnType = expectedFunctionType
             ? getFunctionEffectiveReturnType(expectedFunctionType)
             : undefined;
