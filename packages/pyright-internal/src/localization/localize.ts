@@ -1248,6 +1248,7 @@ export namespace Localizer {
             new ParameterizedString<{ index: number; sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.paramAssignment')
             );
+        export const paramSpecMissingInOverride = () => getRawString('DiagnosticAddendum.paramSpecMissingInOverride');
         export const paramType = () =>
             new ParameterizedString<{ paramType: string }>(getRawString('DiagnosticAddendum.paramType'));
         export const privateImportFromPyTypedSource = () =>

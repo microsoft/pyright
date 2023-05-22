@@ -24261,7 +24261,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     baseParam.name !== overrideParam.name
                 ) {
                     if (overrideParam.category === ParameterCategory.Simple) {
-                        if (enforceParamNames) {
+                        if (enforceParamNames && !baseParam.isNameSynthesized) {
                             if (overrideParamDetails.params[i].source === ParameterSource.PositionOnly) {
                                 diag?.addMessage(
                                     Localizer.DiagnosticAddendum.overrideParamNamePositionOnly().format({
@@ -24285,13 +24285,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     i < overrideParamDetails.positionOnlyParamCount &&
                     i >= baseParamDetails.positionOnlyParamCount
                 ) {
-                    diag?.addMessage(
-                        Localizer.DiagnosticAddendum.overrideParamNamePositionOnly().format({
-                            index: i + 1,
-                            baseName: baseParam.name || '*',
-                        })
-                    );
-                    canOverride = false;
+                    if (!baseParam.isNameSynthesized) {
+                        diag?.addMessage(
+                            Localizer.DiagnosticAddendum.overrideParamNamePositionOnly().format({
+                                index: i + 1,
+                                baseName: baseParam.name || '*',
+                            })
+                        );
+                        canOverride = false;
+                    }
                 } else {
                     const baseParamType = baseParamDetails.params[i].type;
                     const overrideParamType = overrideParamDetails.params[i].type;
@@ -24460,6 +24462,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
                 canOverride = false;
             }
+        }
+
+        // Verify that one or the other method doesn't contain a ParamSpec.
+        if (baseMethod.details.paramSpec && !overrideMethod.details.paramSpec) {
+            diag?.addMessage(Localizer.DiagnosticAddendum.paramSpecMissingInOverride());
+            canOverride = false;
         }
 
         // Now check the return type.

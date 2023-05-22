@@ -3,7 +3,7 @@
 # diagnostic rule.
 
 
-from typing import Generic, Iterable, TypeVar
+from typing import Generic, Iterable, ParamSpec, TypeVar
 
 
 class A1:
@@ -109,3 +109,50 @@ class FSub2(F3[int], F1[int]):
 
 class FSub3(F2[int], F1[int]):
     pass
+
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+class G1(Generic[_P, _R]):
+    def f(self, *args: _P.args, **kwargs: _P.kwargs) -> _R:
+        ...
+
+    def g(self) -> _R:
+        ...
+
+
+class G2(G1[_P, _R]):
+    # This should generate an error because f is missing ParamSpec parameters.
+    def f(self) -> _R:
+        ...
+
+    def g(self, *args: _P.args, **kwargs: _P.kwargs) -> _R:
+        ...
+
+
+class G3(G1[[], _R]):
+    def f(self) -> _R:
+        ...
+
+    def g(self) -> _R:
+        ...
+
+
+class G4(G1[[int, int], str]):
+    def f(self, a: int, b: int, /) -> str:
+        ...
+
+    def g(self) -> str:
+        ...
+
+
+class G5(G1[[], str]):
+    # This should generate an error because the specialized
+    # signature of f in the base class has no positional parameters.
+    def f(self, a: int, b: int) -> str:
+        ...
+
+    def g(self) -> str:
+        ...
