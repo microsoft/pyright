@@ -1410,6 +1410,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function stripLiteralValue(type: Type): Type {
+        // Handle the not-uncommon case where the type is a union that consists
+        // only of literal str or literal int values.
+        if (isUnion(type) && type.subtypes.length > 0) {
+            if (
+                type.literalStrMap?.size === type.subtypes.length ||
+                type.literalIntMap?.size === type.subtypes.length ||
+                type.literalEnumMap?.size === type.subtypes.length
+            ) {
+                return stripLiteralValue(type.subtypes[0]);
+            }
+        }
+
         return mapSubtypes(type, (subtype) => {
             if (isClass(subtype)) {
                 if (subtype.literalValue !== undefined) {
