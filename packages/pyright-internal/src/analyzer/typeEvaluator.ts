@@ -13091,7 +13091,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isIncomplete = true;
                 }
             },
-            /* allowCacheRetention */ false
+            inferenceContext?.expectedType
         );
 
         // Mark the function type as no longer being evaluated.
@@ -19215,13 +19215,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function useSpeculativeMode<T>(
         speculativeNode: ParseNode | undefined,
         callback: () => T,
-        allowCacheRetention = true
+        dependentType?: Type | undefined
     ) {
         if (!speculativeNode) {
             return callback();
         }
 
-        speculativeTypeTracker.enterSpeculativeContext(speculativeNode, allowCacheRetention);
+        speculativeTypeTracker.enterSpeculativeContext(speculativeNode, dependentType);
 
         try {
             const result = callback();
