@@ -1950,7 +1950,7 @@ export function isEffectivelyInstantiable(type: Type): boolean {
 
 export function convertToInstance(type: Type, includeSubclasses = true): Type {
     // See if we've already performed this conversion and cached it.
-    if (type.cached?.instanceType) {
+    if (type.cached?.instanceType && includeSubclasses) {
         return type.cached.instanceType;
     }
 
@@ -2008,7 +2008,7 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
         );
     }
 
-    if (type !== result) {
+    if (type !== result && includeSubclasses) {
         // Cache the converted value for next time.
         if (!type.cached) {
             type.cached = {};
