@@ -8,6 +8,12 @@
     "files": [
         "dist"
     ],
+    "scripts": {
+        "build": "tsc",
+        "clean": "shx rm -rf ./dist ./out",
+        "test": "jest --forceExit",
+        "test:coverage": "jest --forceExit --reporters=jest-junit --reporters=default --coverage --coverageReporters=cobertura --coverageReporters=html --coverageReporters=json"
+    },
     "dependencies": {
         "@iarna/toml": "2.2.5",
         "@yarnpkg/fslib": "2.7.1",
