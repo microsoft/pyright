@@ -60,6 +60,11 @@ import {
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
+// As we widen the narrow bound of a type variable, we may end up with
+// many subtypes. For performance reasons, we need to cap this at some
+// point. This constant determines the cap.
+const maxSubtypeCountForTypeVarNarrowBound = 64;
+
 // Assigns the source type to the dest type var in the type var context. If an existing
 // type is already associated with that type var name, it attempts to either widen or
 // narrow the type (depending on the value of the isContravariant parameter). The goal is
@@ -582,9 +587,15 @@ export function assignTypeToTypeVar(
                         objectType &&
                         isClassInstance(objectType)
                     ) {
-                        newNarrowTypeBound = combineTypes([curSolvedNarrowTypeBound, objectType]);
+                        newNarrowTypeBound = combineTypes(
+                            [curSolvedNarrowTypeBound, objectType],
+                            maxSubtypeCountForTypeVarNarrowBound
+                        );
                     } else {
-                        newNarrowTypeBound = combineTypes([curSolvedNarrowTypeBound, adjSrcType]);
+                        newNarrowTypeBound = combineTypes(
+                            [curSolvedNarrowTypeBound, adjSrcType],
+                            maxSubtypeCountForTypeVarNarrowBound
+                        );
                     }
                 }
             }
