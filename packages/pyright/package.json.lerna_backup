@@ -16,6 +16,12 @@
         "url": "https://github.com/Microsoft/pyright",
         "directory": "packages/pyright"
     },
+    "scripts": {
+        "build": "webpack --mode production --progress",
+        "clean": "shx rm -rf ./dist ./out README.md LICENSE.txt",
+        "prepack": "npm run clean && shx cp ../../README.md . && shx cp ../../LICENSE.txt . && npm run build",
+        "webpack": "webpack --mode development --progress"
+    },
     "devDependencies": {
         "@types/copy-webpack-plugin": "^10.1.0",
         "@types/node": "^17.0.45",
