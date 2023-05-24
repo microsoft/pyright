@@ -140,3 +140,9 @@ u1 = f"'{{\"{0}\": {0}}}'"
 
 def func1(x):
     f"x:{yield (lambda i: x * i)}"
+
+v1 = f"x \
+y"
+
+v2 = f'x \
+y'

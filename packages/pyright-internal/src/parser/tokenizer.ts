@@ -1564,17 +1564,17 @@ export class Tokenizer {
                 ) {
                     isInNamedUnicodeEscape = true;
                 } else {
-                    // If this is an f-string, the only escape that is allowed is for
-                    // a single or double quote symbol.
-                    if (
-                        !isFString ||
+                    // If this is an f-string, the only escapes that are allowed is for
+                    // a single or double quote symbol or a newline/carriage return.
+                    const isEscapedQuote =
                         this._cs.getCurrentChar() === Char.SingleQuote ||
-                        this._cs.getCurrentChar() === Char.DoubleQuote
-                    ) {
-                        if (
-                            this._cs.getCurrentChar() === Char.CarriageReturn ||
-                            this._cs.getCurrentChar() === Char.LineFeed
-                        ) {
+                        this._cs.getCurrentChar() === Char.DoubleQuote;
+                    const isEscapedNewLine =
+                        this._cs.getCurrentChar() === Char.CarriageReturn ||
+                        this._cs.getCurrentChar() === Char.LineFeed;
+
+                    if (!isFString || isEscapedQuote || isEscapedNewLine) {
+                        if (isEscapedNewLine) {
                             if (
                                 this._cs.getCurrentChar() === Char.CarriageReturn &&
                                 this._cs.nextChar === Char.LineFeed
