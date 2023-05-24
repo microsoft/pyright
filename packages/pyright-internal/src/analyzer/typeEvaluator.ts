@@ -9312,6 +9312,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Build a map of parameters by name.
         const paramMap = new Map<string, ParamAssignmentInfo>();
         paramDetails.params.forEach((paramInfo) => {
+            assert(paramInfo !== undefined, 'paramInfo is undefined for param name map');
             const param = paramInfo.param;
             if (param.name && param.category === ParameterCategory.Simple) {
                 paramMap.set(param.name, {
@@ -9372,11 +9373,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (argList.some((arg) => arg.argumentCategory === ArgumentCategory.UnpackedList)) {
             argList.forEach((arg) => {
                 if (arg.name) {
-                    const keywordParamIndex = paramDetails.params.findIndex(
-                        (paramInfo) =>
+                    const keywordParamIndex = paramDetails.params.findIndex((paramInfo) => {
+                        assert(paramInfo, 'paramInfo entry is undefined fork kwargs check');
+                        return (
                             paramInfo.param.name === arg.name!.value &&
                             paramInfo.param.category === ParameterCategory.Simple
-                    );
+                        );
+                    });
 
                     // Is this a parameter that can be interpreted as either a keyword or a positional?
                     // If so, we'll treat it as a keyword parameter in this case because it's being
@@ -9713,6 +9716,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (
             positionalOnlyLimitIndex >= 0 &&
             paramIndex < positionalOnlyLimitIndex &&
+            paramIndex < paramDetails.params.length &&
             paramDetails.params[paramIndex].param.category === ParameterCategory.ArgsList &&
             !isParamSpec(paramDetails.params[paramIndex].param.type)
         ) {
@@ -10143,6 +10147,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // already been matched, see if the type of that *args parameter is a variadic
             // type variable. If so, we'll preprocess those arguments and combine them
             // into a tuple.
+            assert(
+                paramDetails.argsIndex === undefined || paramDetails.argsIndex < paramDetails.params.length,
+                'paramDetails.argsIndex params entry is invalid'
+            );
             if (
                 paramDetails.argsIndex !== undefined &&
                 paramDetails.argsIndex >= 0 &&
