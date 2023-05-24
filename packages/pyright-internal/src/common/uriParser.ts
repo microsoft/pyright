@@ -26,6 +26,18 @@ export class UriParser {
         return convertUriToPath(this.fs, uriString);
     }
 
+    isUntitled(uri: URI | string | undefined) {
+        if (!uri) {
+            return false;
+        }
+
+        if (isString(uri)) {
+            uri = URI.parse(uri);
+        }
+
+        return uri.scheme === 'untitled';
+    }
+
     isLocal(uri: URI | string | undefined) {
         if (!uri) {
             return false;

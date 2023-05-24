@@ -449,7 +449,7 @@ export class WorkspaceFactory {
         await bestInstance.isInitialized.promise;
 
         // If this best instance doesn't match the pythonPath, then we need to create a new one.
-        if (pythonPath && bestInstance.pythonPath !== pythonPath) {
+        if (pythonPath !== undefined && bestInstance.pythonPath !== pythonPath) {
             bestInstance = this._createImmutableCopy(bestInstance, pythonPath);
         }
 
@@ -461,7 +461,7 @@ export class WorkspaceFactory {
         let bestInstance = this._getBestWorkspaceForFile(filePath, pythonPath);
 
         // If this best instance doesn't match the pythonPath, then we need to create a new one.
-        if (pythonPath && bestInstance.pythonPath !== pythonPath) {
+        if (pythonPath !== undefined && bestInstance.pythonPath !== pythonPath) {
             bestInstance = this._createImmutableCopy(bestInstance, pythonPath);
         }
 
@@ -561,7 +561,7 @@ export class WorkspaceFactory {
                 '',
                 this._defaultWorkspacePath,
                 pythonPath,
-                pythonPath ? WorkspacePythonPathKind.Immutable : WorkspacePythonPathKind.Mutable,
+                pythonPath !== undefined ? WorkspacePythonPathKind.Immutable : WorkspacePythonPathKind.Mutable,
                 [WellKnownWorkspaceKinds.Default]
             );
         }
@@ -594,7 +594,7 @@ export class WorkspaceFactory {
         }
 
         // If there's any that match the python path, take the one with the longest path from those.
-        if (pythonPath) {
+        if (pythonPath !== undefined) {
             const matchingWorkspaces = workspaces.filter((w) => w.pythonPath === pythonPath);
             if (matchingWorkspaces.length > 0) {
                 return this._getLongestPathWorkspace(matchingWorkspaces);

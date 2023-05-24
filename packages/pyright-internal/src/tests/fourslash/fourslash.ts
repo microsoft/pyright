@@ -337,12 +337,15 @@ declare namespace _ {
                 definitions: DocumentRange[];
             };
         }): void;
-        verifyRename(map: {
-            [marker: string]: {
-                newName: string;
-                changes: FileEditAction[];
-            };
-        }): void;
+        verifyRename(
+            map: {
+                [marker: string]: {
+                    newName: string;
+                    changes: FileEditAction[];
+                };
+            },
+            isUntitled?: boolean
+        ): void;
 
         /* not tested yet
         paste(text: string): void;
