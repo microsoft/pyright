@@ -1066,6 +1066,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         token: CancellationToken
     ): Promise<Range | { range: Range; placeholder: string } | null> {
         const { filePath, position } = this.uriParser.decodeTextDocumentPosition(params.textDocument, params.position);
+        const isUntitled = this.uriParser.isUntitled(params.textDocument.uri);
 
         const workspace = await this.getWorkspaceForFile(filePath);
         if (workspace.disableLanguageServices) {
@@ -1074,7 +1075,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         return workspace.service.run((program) => {
             return new RenameProvider(program, filePath, position, token).canRenameSymbol(
-                workspace.kinds.includes(WellKnownWorkspaceKinds.Default)
+                workspace.kinds.includes(WellKnownWorkspaceKinds.Default),
+                isUntitled
             );
         }, token);
     }
@@ -1084,6 +1086,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         token: CancellationToken
     ): Promise<WorkspaceEdit | null | undefined> {
         const { filePath, position } = this.uriParser.decodeTextDocumentPosition(params.textDocument, params.position);
+        const isUntitled = this.uriParser.isUntitled(params.textDocument.uri);
 
         const workspace = await this.getWorkspaceForFile(filePath);
         if (workspace.disableLanguageServices) {
@@ -1093,7 +1096,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return workspace.service.run((program) => {
             return new RenameProvider(program, filePath, position, token).renameSymbol(
                 params.newName,
-                workspace.kinds.includes(WellKnownWorkspaceKinds.Default)
+                workspace.kinds.includes(WellKnownWorkspaceKinds.Default),
+                isUntitled
             );
         }, token);
     }

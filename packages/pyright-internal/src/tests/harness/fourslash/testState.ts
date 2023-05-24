@@ -1364,12 +1364,15 @@ export class TestState {
         }
     }
 
-    verifyRename(map: {
-        [marker: string]: {
-            newName: string;
-            changes: FileEditAction[];
-        };
-    }) {
+    verifyRename(
+        map: {
+            [marker: string]: {
+                newName: string;
+                changes: FileEditAction[];
+            };
+        },
+        isUntitled = false
+    ) {
         this.analyze();
 
         for (const marker of this.getMarkers()) {
@@ -1385,7 +1388,8 @@ export class TestState {
             const position = this.convertOffsetToPosition(fileName, marker.position);
             const actual = new RenameProvider(this.program, fileName, position, CancellationToken.None).renameSymbol(
                 expected.newName,
-                /* isDefaultWorkspace */ false
+                /* isDefaultWorkspace */ false,
+                isUntitled
             );
 
             verifyWorkspaceEdit(

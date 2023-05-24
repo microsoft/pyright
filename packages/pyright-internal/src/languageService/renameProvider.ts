@@ -33,7 +33,7 @@ export class RenameProvider {
         this._parseResults = this._program.getParseResults(this._filePath);
     }
 
-    canRenameSymbol(isDefaultWorkspace: boolean): Range | null {
+    canRenameSymbol(isDefaultWorkspace: boolean, isUntitled: boolean): Range | null {
         throwIfCancellationRequested(this._token);
         if (!this._parseResults) {
             return null;
@@ -48,7 +48,8 @@ export class RenameProvider {
             this._program,
             this._filePath,
             referencesResult,
-            isDefaultWorkspace
+            isDefaultWorkspace,
+            isUntitled
         );
         if (renameMode === 'none') {
             return null;
@@ -58,7 +59,7 @@ export class RenameProvider {
         return convertTextRangeToRange(referencesResult.nodeAtOffset, this._parseResults.tokenizerOutput.lines);
     }
 
-    renameSymbol(newName: string, isDefaultWorkspace: boolean): WorkspaceEdit | null {
+    renameSymbol(newName: string, isDefaultWorkspace: boolean, isUntitled: boolean): WorkspaceEdit | null {
         throwIfCancellationRequested(this._token);
         if (!this._parseResults) {
             return null;
@@ -74,7 +75,8 @@ export class RenameProvider {
             this._program,
             this._filePath,
             referencesResult,
-            isDefaultWorkspace
+            isDefaultWorkspace,
+            isUntitled
         );
 
         switch (renameMode) {
@@ -136,7 +138,8 @@ export class RenameProvider {
         program: ProgramView,
         filePath: string,
         referencesResult: ReferencesResult,
-        isDefaultWorkspace: boolean
+        isDefaultWorkspace: boolean,
+        isUntitled: boolean
     ) {
         const sourceFileInfo = program.getSourceFileInfo(filePath)!;
 
@@ -159,7 +162,7 @@ export class RenameProvider {
             return 'singleFileMode';
         }
 
-        if (referencesResult.declarations.every((d) => isUserCode(program.getSourceFileInfo(d.path)))) {
+        if (!isUntitled && referencesResult.declarations.every((d) => isUserCode(program.getSourceFileInfo(d.path)))) {
             return 'multiFileMode';
         }
 
