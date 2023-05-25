@@ -1425,7 +1425,7 @@ test('Descriptor2', () => {
 test('Partial1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['partial1.py']);
 
-    TestUtils.validateResults(analysisResults, 17);
+    TestUtils.validateResults(analysisResults, 18);
 });
 
 test('Partial2', () => {

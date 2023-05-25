@@ -20,7 +20,14 @@ import { getFileInfo } from './analyzerNodeInfo';
 import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
 import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
 import { getTypeVarScopesForNode } from './parseTreeUtils';
-import { CallResult, FunctionArgument, MemberAccessFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import {
+    CallResult,
+    ClassMemberLookup,
+    FunctionArgument,
+    MemberAccessFlags,
+    TypeEvaluator,
+    TypeResult,
+} from './typeEvaluatorTypes';
 import {
     ClassMemberLookupFlags,
     InferenceContext,
@@ -96,167 +103,60 @@ export function validateConstructorArguments(
         type
     );
 
-    let returnType: Type | undefined;
-    let validatedArgExpressions = false;
-    let argumentErrors = false;
-    let isTypeIncomplete = false;
-    const overloadsUsedForCall: FunctionType[] = [];
-    let newMethodReturnType: Type | undefined;
     const useConstructorTransform = hasConstructorTransform(type);
 
     // If there is a constructor transform, evaluate all arguments speculatively
     // so we can later re-evaluate them in the context of the transform.
-    evaluator.useSpeculativeMode(useConstructorTransform ? errorNode : undefined, () => {
-        // Validate __new__ if it is present.
-        if (newMethodTypeResult) {
-            // Use speculative mode for arg expressions because we don't know whether
-            // we'll need to re-evaluate these expressions later for __init__.
-            const newCallResult = validateNewMethod(
+    const returnResult = evaluator.useSpeculativeMode(useConstructorTransform ? errorNode : undefined, () => {
+        return validateNewAndInitMethods(
+            evaluator,
+            errorNode,
+            argList,
+            type,
+            skipUnknownArgCheck,
+            inferenceContext,
+            newMethodTypeResult
+        );
+    });
+
+    let validatedArgExpressions = !useConstructorTransform || returnResult.argumentErrors;
+
+    // Apply a constructor transform if applicable.
+    if (useConstructorTransform) {
+        if (returnResult.argumentErrors) {
+            // If there were errors when validating the __new__ and __init__ methods,
+            // we need to re-evaluate the arguments to generate error messages because
+            // we previously evaluated them speculatively.
+            validateNewAndInitMethods(
                 evaluator,
                 errorNode,
                 argList,
                 type,
                 skipUnknownArgCheck,
                 inferenceContext,
-                newMethodTypeResult,
-                /* useSpeculativeModeForArgs */ true
+                newMethodTypeResult
             );
 
-            if (newCallResult.argumentErrors) {
-                argumentErrors = true;
-            } else {
-                appendArray(overloadsUsedForCall, newCallResult.overloadsUsedForCall);
+            validatedArgExpressions = true;
+        } else if (returnResult.returnType) {
+            const transformed = applyConstructorTransform(evaluator, errorNode, argList, type, {
+                argumentErrors: returnResult.argumentErrors,
+                returnType: returnResult.returnType,
+                isTypeIncomplete: !!returnResult.isTypeIncomplete,
+            });
+
+            returnResult.returnType = transformed.returnType;
+
+            if (transformed.isTypeIncomplete) {
+                returnResult.isTypeIncomplete = true;
             }
 
-            if (newCallResult.isTypeIncomplete) {
-                isTypeIncomplete = true;
-            }
-
-            newMethodReturnType = newCallResult.returnType;
-        }
-
-        if (!newMethodReturnType) {
-            newMethodReturnType = ClassType.cloneAsInstance(type);
-        } else if (!isNever(newMethodReturnType)) {
-            if (!isClassInstance(newMethodReturnType)) {
-                // If the __new__ method returns something other than an object or
-                // NoReturn, we'll ignore its return type.
-                newMethodReturnType = ClassType.cloneAsInstance(type);
-            }
-        }
-
-        let initMethodTypeResult: TypeResult | undefined;
-
-        // Validate __init__ if it's present. Skip if the __new__ method produced errors.
-        if (
-            !argumentErrors &&
-            !isNever(newMethodReturnType) &&
-            !shouldSkipInitEvaluation(evaluator, type, newMethodReturnType)
-        ) {
-            // If the __new__ method returned the same type as the class it's constructing
-            // but didn't supply solved type arguments, we'll ignore its specialized return
-            // type and rely on the __init__ method to supply the type arguments instead.
-            let initMethodBindToType = newMethodReturnType;
-            if (isPartlyUnknown(initMethodBindToType)) {
-                initMethodBindToType = ClassType.cloneAsInstance(type);
-            }
-
-            // Determine whether the class overrides the object.__init__ method.
-            initMethodTypeResult = evaluator.getTypeOfObjectMember(
-                errorNode,
-                ClassType.cloneAsInstance(initMethodBindToType),
-                '__init__',
-                { method: 'get' },
-                /* diag */ undefined,
-                MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
-            );
-
-            // Validate __init__ if it's present.
-            if (initMethodTypeResult) {
-                const initCallResult = validateInitMethod(
-                    evaluator,
-                    errorNode,
-                    argList,
-                    initMethodBindToType,
-                    skipUnknownArgCheck,
-                    inferenceContext,
-                    initMethodTypeResult.type
-                );
-
-                if (initCallResult.argumentErrors) {
-                    argumentErrors = true;
-                } else {
-                    overloadsUsedForCall.push(...initCallResult.overloadsUsedForCall);
-                }
-
-                if (initCallResult.isTypeIncomplete) {
-                    isTypeIncomplete = true;
-                }
-
-                returnType = initCallResult.returnType;
-                validatedArgExpressions = true;
-                skipUnknownArgCheck = true;
-            }
-        }
-
-        if (!validatedArgExpressions && newMethodTypeResult) {
-            // If we skipped the __init__ method and the __new__ method was evaluated only
-            // speculatively, evaluate it non-speculatively now so we can report errors.
-            if (!evaluator.isSpeculativeModeInUse(errorNode)) {
-                validateNewMethod(
-                    evaluator,
-                    errorNode,
-                    argList,
-                    type,
-                    skipUnknownArgCheck,
-                    inferenceContext,
-                    newMethodTypeResult,
-                    /* useSpeculativeModeForArgs */ false
-                );
+            if (transformed.argumentErrors) {
+                returnResult.argumentErrors = true;
             }
 
             validatedArgExpressions = true;
-            returnType = newMethodReturnType;
         }
-
-        // If the class doesn't override object.__new__ or object.__init__, use the
-        // fallback constructor type evaluation for the `object` class.
-        if (!newMethodTypeResult && !initMethodTypeResult) {
-            const callResult = validateFallbackConstructorCall(evaluator, errorNode, argList, type, inferenceContext);
-
-            if (callResult.argumentErrors) {
-                argumentErrors = true;
-            } else {
-                appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
-            }
-
-            if (callResult.isTypeIncomplete) {
-                isTypeIncomplete = true;
-            }
-
-            returnType = callResult.returnType ?? UnknownType.create();
-        }
-    });
-
-    // Apply a constructor transform if applicable.
-    if (!argumentErrors && returnType && useConstructorTransform) {
-        const transformed = applyConstructorTransform(evaluator, errorNode, argList, type, {
-            argumentErrors,
-            returnType,
-            isTypeIncomplete,
-        });
-
-        returnType = transformed.returnType;
-
-        if (transformed.isTypeIncomplete) {
-            isTypeIncomplete = true;
-        }
-
-        if (transformed.argumentErrors) {
-            argumentErrors = true;
-        }
-
-        validatedArgExpressions = true;
     }
 
     // If we weren't able to validate the args, analyze the expressions here
@@ -267,6 +167,155 @@ export function validateConstructorArguments(
                 evaluator.getTypeOfExpression(arg.valueExpression);
             }
         });
+    }
+
+    return returnResult;
+}
+
+function validateNewAndInitMethods(
+    evaluator: TypeEvaluator,
+    errorNode: ExpressionNode,
+    argList: FunctionArgument[],
+    type: ClassType,
+    skipUnknownArgCheck: boolean,
+    inferenceContext: InferenceContext | undefined,
+    newMethodTypeResult: ClassMemberLookup | undefined
+): CallResult {
+    let returnType: Type | undefined;
+    let validatedArgExpressions = false;
+    let argumentErrors = false;
+    let isTypeIncomplete = false;
+    const overloadsUsedForCall: FunctionType[] = [];
+    let newMethodReturnType: Type | undefined;
+
+    // Validate __new__ if it is present.
+    if (newMethodTypeResult) {
+        // Use speculative mode for arg expressions because we don't know whether
+        // we'll need to re-evaluate these expressions later for __init__.
+        const newCallResult = validateNewMethod(
+            evaluator,
+            errorNode,
+            argList,
+            type,
+            skipUnknownArgCheck,
+            inferenceContext,
+            newMethodTypeResult,
+            /* useSpeculativeModeForArgs */ true
+        );
+
+        if (newCallResult.argumentErrors) {
+            argumentErrors = true;
+        } else {
+            appendArray(overloadsUsedForCall, newCallResult.overloadsUsedForCall);
+        }
+
+        if (newCallResult.isTypeIncomplete) {
+            isTypeIncomplete = true;
+        }
+
+        newMethodReturnType = newCallResult.returnType;
+    }
+
+    if (!newMethodReturnType) {
+        newMethodReturnType = ClassType.cloneAsInstance(type);
+    } else if (!isNever(newMethodReturnType)) {
+        if (!isClassInstance(newMethodReturnType)) {
+            // If the __new__ method returns something other than an object or
+            // NoReturn, we'll ignore its return type.
+            newMethodReturnType = ClassType.cloneAsInstance(type);
+        }
+    }
+
+    let initMethodTypeResult: TypeResult | undefined;
+
+    // Validate __init__ if it's present. Skip if the __new__ method produced errors.
+    if (
+        !argumentErrors &&
+        !isNever(newMethodReturnType) &&
+        !shouldSkipInitEvaluation(evaluator, type, newMethodReturnType)
+    ) {
+        // If the __new__ method returned the same type as the class it's constructing
+        // but didn't supply solved type arguments, we'll ignore its specialized return
+        // type and rely on the __init__ method to supply the type arguments instead.
+        let initMethodBindToType = newMethodReturnType;
+        if (isPartlyUnknown(initMethodBindToType)) {
+            initMethodBindToType = ClassType.cloneAsInstance(type);
+        }
+
+        // Determine whether the class overrides the object.__init__ method.
+        initMethodTypeResult = evaluator.getTypeOfObjectMember(
+            errorNode,
+            ClassType.cloneAsInstance(initMethodBindToType),
+            '__init__',
+            { method: 'get' },
+            /* diag */ undefined,
+            MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
+        );
+
+        // Validate __init__ if it's present.
+        if (initMethodTypeResult) {
+            const initCallResult = validateInitMethod(
+                evaluator,
+                errorNode,
+                argList,
+                initMethodBindToType,
+                skipUnknownArgCheck,
+                inferenceContext,
+                initMethodTypeResult.type
+            );
+
+            if (initCallResult.argumentErrors) {
+                argumentErrors = true;
+            } else {
+                overloadsUsedForCall.push(...initCallResult.overloadsUsedForCall);
+            }
+
+            if (initCallResult.isTypeIncomplete) {
+                isTypeIncomplete = true;
+            }
+
+            returnType = initCallResult.returnType;
+            validatedArgExpressions = true;
+            skipUnknownArgCheck = true;
+        }
+    }
+
+    if (!validatedArgExpressions && newMethodTypeResult) {
+        // If we skipped the __init__ method and the __new__ method was evaluated only
+        // speculatively, evaluate it non-speculatively now so we can report errors.
+        if (!evaluator.isSpeculativeModeInUse(errorNode)) {
+            validateNewMethod(
+                evaluator,
+                errorNode,
+                argList,
+                type,
+                skipUnknownArgCheck,
+                inferenceContext,
+                newMethodTypeResult,
+                /* useSpeculativeModeForArgs */ false
+            );
+        }
+
+        validatedArgExpressions = true;
+        returnType = newMethodReturnType;
+    }
+
+    // If the class doesn't override object.__new__ or object.__init__, use the
+    // fallback constructor type evaluation for the `object` class.
+    if (!newMethodTypeResult && !initMethodTypeResult) {
+        const callResult = validateFallbackConstructorCall(evaluator, errorNode, argList, type, inferenceContext);
+
+        if (callResult.argumentErrors) {
+            argumentErrors = true;
+        } else {
+            appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
+        }
+
+        if (callResult.isTypeIncomplete) {
+            isTypeIncomplete = true;
+        }
+
+        returnType = callResult.returnType ?? UnknownType.create();
     }
 
     return { argumentErrors, returnType, isTypeIncomplete, overloadsUsedForCall };
