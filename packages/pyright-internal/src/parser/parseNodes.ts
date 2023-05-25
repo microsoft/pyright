@@ -130,8 +130,15 @@ export const enum ErrorExpressionCategory {
     MaxDepthExceeded,
 }
 
-export interface ParseNodeBase extends TextRange {
+export interface MutableTextRange {
+    start: number;
+    length: number;
+}
+
+export interface ParseNodeBase extends MutableTextRange {
     readonly nodeType: ParseNodeType;
+    readonly start: number;
+    readonly length: number;
 
     // A unique ID given to each parse node.
     id: number;
@@ -151,14 +158,12 @@ export function getNextNodeId() {
 }
 
 export function extendRange(node: ParseNodeBase, newRange: TextRange) {
-    if (newRange.start < node.start) {
-        node.length += node.start - newRange.start;
-        node.start = newRange.start;
-    }
+    const extendedRange = TextRange.extend(node, newRange);
 
-    if (TextRange.getEnd(newRange) > TextRange.getEnd(node)) {
-        node.length = TextRange.getEnd(newRange) - node.start;
-    }
+    // Temporarily allow writes to the range fields.
+    const mutableNode = node as MutableTextRange;
+    mutableNode.start = extendedRange.start;
+    mutableNode.length = extendedRange.length;
 }
 
 export type ParseNodeArray = (ParseNode | undefined)[];

@@ -3280,8 +3280,8 @@ export class Checker extends ParseTreeWalker {
                         const nameParts = decl.node.module.nameParts;
                         if (nameParts.length > 0) {
                             const multipartName = nameParts.map((np) => np.value).join('.');
-                            const textRange: TextRange = { start: nameParts[0].start, length: nameParts[0].length };
-                            TextRange.extend(textRange, nameParts[nameParts.length - 1]);
+                            let textRange: TextRange = { start: nameParts[0].start, length: nameParts[0].length };
+                            textRange = TextRange.extend(textRange, nameParts[nameParts.length - 1]);
                             this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
                                 Localizer.Diagnostic.unaccessedSymbol().format({ name: multipartName }),
                                 textRange,
