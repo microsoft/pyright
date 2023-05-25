@@ -21,7 +21,8 @@ Steps to reproduce the behavior.
 A clear and concise description of what you expected to happen.
 
 **Screenshots or Code**
-If applicable, add screenshots or the text of the code (surrounded by triple back ticks) to help explain your problem.
+If possible, provide a minimal, self-contained code sample (surrounded by triple back ticks) to demonstrate the issue. The code should define or imports all referenced symbols.
+
 ```python
 def foo(self) -> str:
     return 3
