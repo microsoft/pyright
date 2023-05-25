@@ -373,7 +373,13 @@ export class SourceFile {
 
         const unnecessaryTypeIgnoreDiags: Diagnostic[] = [];
 
-        if (this._diagnosticRuleSet.reportUnnecessaryTypeIgnoreComment !== 'none') {
+        // Skip this step if type checking is needed. Otherwise we'll likely produce
+        // incorrect (false positive) reportUnnecessaryTypeIgnoreComment diagnostics
+        // until checking is performed on this file.
+        if (
+            this._diagnosticRuleSet.reportUnnecessaryTypeIgnoreComment !== 'none' &&
+            !this._writableData.isCheckingNeeded
+        ) {
             const diagCategory = convertLevelToCategory(this._diagnosticRuleSet.reportUnnecessaryTypeIgnoreComment);
 
             const prefilteredErrorList = prefilteredDiagList.filter(
