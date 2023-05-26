@@ -280,6 +280,13 @@ Mypy infers the type of `self` and `cls` parameters in methods but otherwise doe
 Pyright implements several parameter type inference techniques that improve type checking and language service features in the absence of explicit parameter type annotations. For details, refer to [this documentation](type-inference.md#parameter-type-inference).
 
 
+### Constructor Calls
+
+When pyright evaluates a call to a constructor, it attempts to follow the runtime behavior as closely as possible. At runtime, when a constructor is called, it invokes the `__call__` method of the metaclass. Most classes use `type` as their metaclass. (Even when a different metaclasses is used, it typically does not override `type.__call__`.) The `type.__call__` method calls the `__new__` method for the class and passes all of the arguments (both positional and keyword) that were passed to the constructor call. If the `__new__` method returns an instance of the class (or a child class), `type.__call__` then calls the `__init__` method on the class. Pyright follows this same flow for evaluating the type of a constructor call. If a custom metaclass is present, pyright evaluates its `__call__` method to determine whether it returns an instance of the class. If not, it assumes that the metaclass has custom behavior that overrides `type.__call__`. Likewise, if a class provides a `__new__` method that returns a type other than the class being constructed (or a child class thereof), it assumes that `__init__` will not be called.
+
+By comparison, mypy first evaluates the `__init__` method if present, and it ignores the annotated return type of the `__new__` method.
+
+
 ### Constraint Solver Behaviors
 
 When evaluating a call expression that invokes a generic class constructor or a generic function, a type checker performs a process called “constraint solving” to solve the type variables found within the target function signature. The solved type variables are then applied to the return type of that function to determine the final type of the call expression. This process is called “constraint solving” because it takes into account various constraints that are specified for each type variable. These constraints include variance rules and type variable bounds.
