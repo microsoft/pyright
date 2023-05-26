@@ -55,7 +55,7 @@ function getRawString(key: string): string {
         localizedStrings = initialize();
     }
 
-    const keyParts = key.split('.');
+    const keyParts = [key]
 
     const str = getRawStringFromMap(localizedStrings, keyParts) || getRawStringFromMap(defaultStrings, keyParts);
     if (str) {
