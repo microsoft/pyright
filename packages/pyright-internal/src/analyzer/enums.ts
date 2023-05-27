@@ -411,7 +411,7 @@ export function getTypeOfEnumMember(
         // The type wasn't associated with a particular enum literal, so return
         // a union of all possible enum literals.
         const literalValues = enumerateLiteralsForType(evaluator, classType);
-        if (literalValues) {
+        if (literalValues && literalValues.length > 0) {
             return {
                 type: combineTypes(
                     literalValues.map((literalClass) => {

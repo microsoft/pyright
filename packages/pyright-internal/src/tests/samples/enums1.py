@@ -158,3 +158,8 @@ reveal_type(te10_A.value, expected_text="Any")
 reveal_type(te9_A._value_, expected_text="Any")
 reveal_type(te9_A.name, expected_text="Literal['A']")
 reveal_type(te9_A._name_, expected_text="Literal['A']")
+
+
+def func2(e: type[Enum]):
+    values = {v.value for v in e}
+    reveal_type(values, expected_text="set[Any]")
