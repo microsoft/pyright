@@ -3706,7 +3706,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 const typeVarType = signatureContext.getTypeVarType(preTransform);
 
                 // Did the TypeVar remain unsolved?
-                if (!typeVarType) {
+                if (!typeVarType || (isTypeVar(typeVarType) && typeVarType.isInScopePlaceholder)) {
                     // If the TypeVar was not transformed, then it was unsolved,
                     // and we'll eliminate it.
                     if (preTransform === postTransform) {
