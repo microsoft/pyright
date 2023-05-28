@@ -220,8 +220,13 @@ function validateNewAndInitMethods(
     } else if (!isNever(newMethodReturnType)) {
         if (!isClassInstance(newMethodReturnType)) {
             // If the __new__ method returns something other than an object or
-            // NoReturn, we'll ignore its return type.
-            newMethodReturnType = ClassType.cloneAsInstance(type);
+            // NoReturn, we'll ignore its return type and assume that it
+            // returns Self.
+            newMethodReturnType = applySolvedTypeVars(
+                ClassType.cloneAsInstance(type),
+                new TypeVarContext(getTypeVarScopeId(type)),
+                { unknownIfNotFound: true }
+            ) as ClassType;
         }
     }
 
