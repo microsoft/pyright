@@ -40,7 +40,6 @@ import {
     isTupleClass,
     lookUpClassMember,
     mapSubtypes,
-    requiresSpecialization,
     specializeTupleClass,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
@@ -372,42 +371,22 @@ function validateNewMethod(
         if (overloadsUsedForCall.length === 0) {
             overloadsUsedForCall.push(...callResult.overloadsUsedForCall);
         }
-
-        // If the constructor returned an object whose type matches the class of
-        // the original type being constructed, use the return type in case it was
-        // specialized. If it doesn't match, we'll fall back on the assumption that
-        // the constructed type is an instance of the class type. We need to do this
-        // in cases where we're inferring the return type based on a call to
-        // super().__new__().
-        if (newReturnType) {
-            if (isClassInstance(newReturnType) && ClassType.isSameGenericClass(newReturnType, type)) {
-                // If the specialized return type derived from the __init__
-                // method is "better" than the return type provided by the
-                // __new__ method (where "better" means that the type arguments
-                // are all known), stick with the __init__ result.
-                if (!isPartlyUnknown(newReturnType) && !requiresSpecialization(newReturnType)) {
-                    // Special-case the 'tuple' type specialization to use
-                    // the homogenous arbitrary-length form.
-                    if (
-                        isClassInstance(newReturnType) &&
-                        ClassType.isTupleClass(newReturnType) &&
-                        !newReturnType.tupleTypeArguments &&
-                        newReturnType.typeArguments &&
-                        newReturnType.typeArguments.length === 1
-                    ) {
-                        newReturnType = specializeTupleClass(newReturnType, [
-                            { type: newReturnType.typeArguments[0], isUnbounded: true },
-                        ]);
-                    }
-                }
-            }
-        }
     }
 
-    if (!newReturnType) {
+    if (newReturnType) {
+        // Special-case the 'tuple' type specialization to use the homogenous
+        // arbitrary-length form.
+        if (isClassInstance(newReturnType) && isTupleClass(newReturnType) && !newReturnType.tupleTypeArguments) {
+            if (newReturnType.typeArguments && newReturnType.typeArguments.length === 1) {
+                newReturnType = specializeTupleClass(newReturnType, [
+                    { type: newReturnType.typeArguments[0], isUnbounded: true },
+                ]);
+            }
+
+            newReturnType = applyExpectedTypeForTupleConstructor(newReturnType, inferenceContext);
+        }
+    } else {
         newReturnType = applyExpectedTypeForConstructor(evaluator, type, inferenceContext, typeVarContext);
-    } else if (isClassInstance(newReturnType) && isTupleClass(newReturnType) && !newReturnType.tupleTypeArguments) {
-        newReturnType = applyExpectedTypeForTupleConstructor(newReturnType, inferenceContext);
     }
 
     return { argumentErrors, returnType: newReturnType, isTypeIncomplete, overloadsUsedForCall };
