@@ -33,6 +33,10 @@ class D(Generic[T]):
         ...
 
 
+class E(Generic[T]):
+    pass
+
+
 a = A(1)
 reveal_type(a, expected_text="A[Unknown]")
 
@@ -44,3 +48,6 @@ reveal_type(c, expected_text="C[Unknown]")
 
 d = D(1)
 reveal_type(d, expected_text="D[int]")
+
+e = E()
+reveal_type(e, expected_text="E[Unknown]")

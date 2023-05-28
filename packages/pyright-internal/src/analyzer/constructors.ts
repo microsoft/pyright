@@ -217,17 +217,15 @@ function validateNewAndInitMethods(
 
     if (!newMethodReturnType) {
         newMethodReturnType = ClassType.cloneAsInstance(type);
-    } else if (!isNever(newMethodReturnType)) {
-        if (!isClassInstance(newMethodReturnType)) {
-            // If the __new__ method returns something other than an object or
-            // NoReturn, we'll ignore its return type and assume that it
-            // returns Self.
-            newMethodReturnType = applySolvedTypeVars(
-                ClassType.cloneAsInstance(type),
-                new TypeVarContext(getTypeVarScopeId(type)),
-                { unknownIfNotFound: true }
-            ) as ClassType;
-        }
+    } else if (!isNever(newMethodReturnType) && !isClassInstance(newMethodReturnType)) {
+        // If the __new__ method returns something other than an object or
+        // NoReturn, we'll ignore its return type and assume that it
+        // returns Self.
+        newMethodReturnType = applySolvedTypeVars(
+            ClassType.cloneAsInstance(type),
+            new TypeVarContext(getTypeVarScopeId(type)),
+            { unknownIfNotFound: true }
+        ) as ClassType;
     }
 
     let initMethodTypeResult: TypeResult | undefined;
@@ -249,7 +247,7 @@ function validateNewAndInitMethods(
         // Determine whether the class overrides the object.__init__ method.
         initMethodTypeResult = evaluator.getTypeOfObjectMember(
             errorNode,
-            ClassType.cloneAsInstance(initMethodBindToType),
+            initMethodBindToType,
             '__init__',
             { method: 'get' },
             /* diag */ undefined,
