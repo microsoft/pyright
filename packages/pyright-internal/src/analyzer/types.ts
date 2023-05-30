@@ -2715,21 +2715,19 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             }
 
             // If the functions have ParamSpecs associated with them, make sure those match.
-            if (!type1.specializedTypes && !functionType2.specializedTypes) {
-                const paramSpec1 = type1.details.paramSpec;
-                const paramSpec2 = functionType2.details.paramSpec;
+            const paramSpec1 = type1.details.paramSpec;
+            const paramSpec2 = functionType2.details.paramSpec;
 
-                if (paramSpec1) {
-                    if (!paramSpec2) {
-                        return false;
-                    }
-
-                    if (!isTypeSame(paramSpec1, paramSpec2, options, recursionCount)) {
-                        return false;
-                    }
-                } else if (paramSpec2) {
+            if (paramSpec1) {
+                if (!paramSpec2) {
                     return false;
                 }
+
+                if (!isTypeSame(paramSpec1, paramSpec2, options, recursionCount)) {
+                    return false;
+                }
+            } else if (paramSpec2) {
+                return false;
             }
 
             // Make sure the return types match.

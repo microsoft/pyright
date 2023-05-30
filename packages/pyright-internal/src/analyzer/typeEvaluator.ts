@@ -13000,8 +13000,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const hasVarArgs = functionType.details.parameters.some(
                     (param) => !!param.name && param.category !== ParameterCategory.Simple
                 );
+                const hasParamSpec = !!functionType.details.paramSpec;
+
                 return (
                     hasVarArgs ||
+                    hasParamSpec ||
                     (functionParamCount >= minLambdaParamCount && functionParamCount <= maxLambdaParamCount)
                 );
             });
@@ -13079,11 +13082,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 category: ParameterCategory.Simple,
                 type: UnknownType.create(),
             });
-        }
-
-        // Handle the case where the expected type contains a ParamSpec.
-        if (expectedFunctionType?.details.paramSpec) {
-            functionType.details.paramSpec = expectedFunctionType.details.paramSpec;
         }
 
         const expectedReturnType = expectedFunctionType
