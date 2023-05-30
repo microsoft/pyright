@@ -8,7 +8,7 @@
  */
 
 import { appendArray } from '../common/collectionUtils';
-import { assert, fail } from '../common/debug';
+import { assert } from '../common/debug';
 import { ParameterCategory } from '../parser/parseNodes';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
@@ -2729,25 +2729,8 @@ export function computeMroLinearization(classType: ClassType): boolean {
     // entries of the specified class. This is used once the class has been
     // added to the MRO.
     function filterClass(classToFilter: ClassType, classLists: Type[][]) {
-        if (classToFilter?.category !== TypeCategory.Class) {
-            // These "fail" calls are in place to diagnose a sporadic crash that
-            // we are seeing in the pylance telemetry. Delete these once we
-            // fix the underlying problem.
-            fail(
-                `Corrupted class type when computing MRO for ${classType.details.name}: ${JSON.stringify(
-                    classToFilter
-                )}`
-            );
-        }
         for (let i = 0; i < classLists.length; i++) {
             classLists[i] = classLists[i].filter((value) => {
-                if (value?.category === undefined) {
-                    fail(
-                        `Unexpected undefined type when computing MRO for ${classType.details.name}: ${JSON.stringify(
-                            classLists
-                        )}`
-                    );
-                }
                 return !isInstantiableClass(value) || !ClassType.isSameGenericClass(value, classToFilter);
             });
         }
