@@ -15,7 +15,7 @@
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
-import { ExpressionNode } from '../parser/parseNodes';
+import { ExpressionNode, ParameterCategory } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
 import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
@@ -59,6 +59,7 @@ import {
     isInstantiableClass,
     isNever,
     isOverloadedFunction,
+    isTypeVar,
     isUnknown,
 } from './types';
 
@@ -215,7 +216,10 @@ function validateNewAndInitMethods(
         newMethodReturnType = newCallResult.returnType;
     }
 
-    if (!newMethodReturnType) {
+    if (!newMethodReturnType || isDefaultNewMethod(newMethodTypeResult?.type)) {
+        // If there is no __new__ method or it uses a default signature,
+        // (cls, *args, **kwargs) -> Self, allow the __init__ method to
+        // determine the specialized type of the class.
         newMethodReturnType = ClassType.cloneAsInstance(type);
     } else if (!isNever(newMethodReturnType) && !isClassInstance(newMethodReturnType)) {
         // If the __new__ method returns something other than an object or
@@ -858,4 +862,32 @@ function shouldSkipInitEvaluation(evaluator: TypeEvaluator, classType: ClassType
     });
 
     return skipInitCheck;
+}
+
+// Determine whether the __new__ method is the placeholder signature
+// of "def __new__(cls, *args, **kwargs) -> Self".
+function isDefaultNewMethod(newMethod?: Type): boolean {
+    if (!newMethod || !isFunction(newMethod)) {
+        return false;
+    }
+
+    if (newMethod.details.paramSpec) {
+        return false;
+    }
+
+    const params = newMethod.details.parameters;
+    if (params.length !== 2) {
+        return false;
+    }
+
+    if (params[0].category !== ParameterCategory.ArgsList || params[1].category !== ParameterCategory.KwargsDict) {
+        return false;
+    }
+
+    const returnType = newMethod.details.declaredReturnType ?? newMethod.inferredReturnType;
+    if (!returnType || !isTypeVar(returnType) || !returnType.details.isSynthesizedSelf) {
+        return false;
+    }
+
+    return true;
 }
