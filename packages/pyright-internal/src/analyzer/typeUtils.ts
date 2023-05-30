@@ -3165,15 +3165,16 @@ class TypeVarTransformer {
     }
 
     transformTypeVarsInClassType(classType: ClassType, recursionCount: number): ClassType {
+        const typeParams = ClassType.getTypeParameters(classType);
+
         // Handle the common case where the class has no type parameters.
-        if (ClassType.getTypeParameters(classType).length === 0 && !ClassType.isSpecialBuiltIn(classType)) {
+        if (typeParams.length === 0 && !ClassType.isSpecialBuiltIn(classType)) {
             return classType;
         }
 
         let newTypeArgs: Type[] | undefined;
         let newTupleTypeArgs: TupleTypeArgument[] | undefined;
         let specializationNeeded = false;
-        const typeParams = ClassType.getTypeParameters(classType);
 
         const transformParamSpec = (paramSpec: TypeVarType) => {
             const paramSpecValue = this.transformParamSpec(paramSpec, recursionCount);
@@ -3878,7 +3879,7 @@ class InScopePlaceholderTransformer extends TypeVarTransformer {
 
     override transformTypeVar(typeVar: TypeVarType) {
         if (typeVar.isInScopePlaceholder) {
-            return this._signatureContext.getTypeVarType(typeVar) ?? UnknownType.create();
+            return this._signatureContext.getTypeVarType(typeVar) ?? typeVar;
         }
 
         return typeVar;
