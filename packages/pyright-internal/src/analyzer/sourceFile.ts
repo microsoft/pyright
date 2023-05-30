@@ -109,6 +109,11 @@ class WriteableData {
     typeIgnoreAll: IgnoreComment | undefined;
     pyrightIgnoreLines = new Map<number, IgnoreComment>();
 
+    // Accumulated and filtered diagnostics that combines all of the
+    // above information. This needs to be recomputed any time the
+    // above change.
+    accumulatedDiagnostics: Diagnostic[] = [];
+
     // Circular dependencies that have been reported in this file.
     circularDependencies: CircularDependency[] = [];
     noCircularDependencyConfirmed = false;
@@ -281,6 +286,553 @@ export class SourceFile {
         if (this._writableData.diagnosticVersion === prevDiagnosticVersion) {
             return undefined;
         }
+
+        return this._writableData.accumulatedDiagnostics;
+    }
+
+    getImports(): ImportResult[] {
+        return this._writableData.imports || [];
+    }
+
+    getBuiltinsImport(): ImportResult | undefined {
+        return this._writableData.builtinsImport;
+    }
+
+    getIPythonDisplayImport(): ImportResult | undefined {
+        return this._writableData.ipythonDisplayImport;
+    }
+
+    getModuleSymbolTable(): SymbolTable | undefined {
+        return this._writableData.moduleSymbolTable;
+    }
+
+    getCheckTime() {
+        return this._writableData.checkTime;
+    }
+
+    enterEditMode() {
+        this._isEditMode = true;
+    }
+
+    exitEditMode(): string | undefined {
+        this._isEditMode = false;
+
+        // If we had an edit, return our text.
+        if (this._preEditData) {
+            const text = this._writableData.clientDocumentContents!;
+            this._writableData = this._preEditData;
+            this._preEditData = undefined;
+            return text;
+        }
+        return undefined;
+    }
+
+    // Indicates whether the contents of the file have changed since
+    // the last analysis was performed.
+    didContentsChangeOnDisk(): boolean {
+        // If this is an open file any content changes will be
+        // provided through the editor. We can assume contents
+        // didn't change without us knowing about them.
+        if (this._writableData.clientDocumentContents) {
+            return false;
+        }
+
+        // If the file was never read previously, no need to check for a change.
+        if (this._writableData.lastFileContentLength === undefined) {
+            return false;
+        }
+
+        // Read in the latest file contents and see if the hash matches
+        // that of the previous contents.
+        try {
+            // Read the file's contents.
+            const fileContents = this.fileSystem.readFileSync(this._filePath, 'utf8');
+
+            if (fileContents.length !== this._writableData.lastFileContentLength) {
+                return true;
+            }
+
+            if (StringUtils.hashString(fileContents) !== this._writableData.lastFileContentHash) {
+                return true;
+            }
+        } catch (error) {
+            return true;
+        }
+
+        return false;
+    }
+
+    // Drop parse and binding info to save memory. It is used
+    // in cases where memory is low. When info is needed, the file
+    // will be re-parsed and rebound.
+    dropParseAndBindInfo(): void {
+        this._writableData.parseResults = undefined;
+        this._writableData.moduleSymbolTable = undefined;
+        this._writableData.isBindingNeeded = true;
+    }
+
+    markDirty(): void {
+        this._writableData.fileContentsVersion++;
+        this._writableData.noCircularDependencyConfirmed = false;
+        this._writableData.isCheckingNeeded = true;
+        this._writableData.isBindingNeeded = true;
+        this._writableData.moduleSymbolTable = undefined;
+
+        const filePath = this.getFilePath();
+        Extensions.getProgramExtensions(filePath).forEach((e) => (e.fileDirty ? e.fileDirty(filePath) : null));
+    }
+
+    markReanalysisRequired(forceRebinding: boolean): void {
+        // Keep the parse info, but reset the analysis to the beginning.
+        this._writableData.isCheckingNeeded = true;
+        this._writableData.noCircularDependencyConfirmed = false;
+
+        // If the file contains a wildcard import or __all__ symbols,
+        // we need to rebind because a dependent import may have changed.
+        if (this._writableData.parseResults) {
+            if (
+                this._writableData.parseResults.containsWildcardImport ||
+                AnalyzerNodeInfo.getDunderAllInfo(this._writableData.parseResults.parseTree) !== undefined ||
+                forceRebinding
+            ) {
+                // We don't need to rebuild index data since wildcard
+                // won't affect user file indices. User file indices
+                // don't contain import alias info.
+                this._writableData.parseTreeNeedsCleaning = true;
+                this._writableData.isBindingNeeded = true;
+                this._writableData.moduleSymbolTable = undefined;
+            }
+        }
+    }
+
+    getClientVersion() {
+        return this._writableData.clientDocumentVersion;
+    }
+
+    getOpenFileContents() {
+        return this._writableData.clientDocumentContents;
+    }
+
+    getFileContent(): string | undefined {
+        // Get current buffer content if the file is opened.
+        const openFileContent = this.getOpenFileContents();
+        if (openFileContent !== undefined) {
+            return openFileContent;
+        }
+
+        // Otherwise, get content from file system.
+        try {
+            // Check the file's length before attempting to read its full contents.
+            const fileStat = this.fileSystem.statSync(this._filePath);
+            if (fileStat.size > _maxSourceFileSize) {
+                this._console.error(
+                    `File length of "${this._filePath}" is ${fileStat.size} ` +
+                        `which exceeds the maximum supported file size of ${_maxSourceFileSize}`
+                );
+                throw new Error('File larger than max');
+            }
+
+            return this.fileSystem.readFileSync(this._filePath, 'utf8');
+        } catch (error) {
+            return undefined;
+        }
+    }
+
+    setClientVersion(version: number | null, contents: string): void {
+        // Save pre edit state if in edit mode.
+        this._cachePreEditState();
+
+        if (version === null) {
+            this._writableData.clientDocumentVersion = undefined;
+            this._writableData.clientDocumentContents = undefined;
+        } else {
+            this._writableData.clientDocumentVersion = version;
+            this._writableData.clientDocumentContents = contents;
+
+            const contentsHash = StringUtils.hashString(contents);
+
+            // Have the contents of the file changed?
+            if (
+                contents.length !== this._writableData.lastFileContentLength ||
+                contentsHash !== this._writableData.lastFileContentHash
+            ) {
+                this.markDirty();
+            }
+
+            this._writableData.lastFileContentLength = contents.length;
+            this._writableData.lastFileContentHash = contentsHash;
+            this._writableData.isFileDeleted = false;
+        }
+    }
+
+    prepareForClose() {
+        // Nothing to do currently.
+    }
+
+    isFileDeleted() {
+        return this._writableData.isFileDeleted;
+    }
+
+    isParseRequired() {
+        return (
+            !this._writableData.parseResults ||
+            this._writableData.analyzedFileContentsVersion !== this._writableData.fileContentsVersion
+        );
+    }
+
+    isBindingRequired() {
+        if (this._writableData.isBindingInProgress) {
+            return false;
+        }
+
+        if (this.isParseRequired()) {
+            return true;
+        }
+
+        return this._writableData.isBindingNeeded;
+    }
+
+    isCheckingRequired() {
+        return this._writableData.isCheckingNeeded;
+    }
+
+    getParseResults(): ParseResults | undefined {
+        if (!this.isParseRequired()) {
+            return this._writableData.parseResults;
+        }
+
+        return undefined;
+    }
+
+    // Adds a new circular dependency for this file but only if
+    // it hasn't already been added.
+    addCircularDependency(configOptions: ConfigOptions, circDependency: CircularDependency) {
+        let updatedDependencyList = false;
+
+        // Some topologies can result in a massive number of cycles. We'll cut it off.
+        if (this._writableData.circularDependencies.length < _maxImportCyclesPerFile) {
+            if (!this._writableData.circularDependencies.some((dep) => dep.isEqual(circDependency))) {
+                this._writableData.circularDependencies.push(circDependency);
+                updatedDependencyList = true;
+            }
+        }
+
+        if (updatedDependencyList) {
+            this._recomputeDiagnostics(configOptions);
+        }
+    }
+
+    setNoCircularDependencyConfirmed() {
+        this._writableData.noCircularDependencyConfirmed = true;
+    }
+
+    isNoCircularDependencyConfirmed() {
+        return !this.isParseRequired() && this._writableData.noCircularDependencyConfirmed;
+    }
+
+    setHitMaxImportDepth(maxImportDepth: number) {
+        this._writableData.hitMaxImportDepth = maxImportDepth;
+    }
+
+    // Parse the file and update the state. Callers should wait for completion
+    // (or at least cancel) prior to calling again. It returns true if a parse
+    // was required and false if the parse information was up to date already.
+    parse(configOptions: ConfigOptions, importResolver: ImportResolver, content?: string): boolean {
+        return this._logTracker.log(`parsing: ${this._getPathForLogging(this._filePath)}`, (logState) => {
+            // If the file is already parsed, we can skip.
+            if (!this.isParseRequired()) {
+                logState.suppress();
+                return false;
+            }
+
+            const diagSink = new DiagnosticSink();
+            let fileContents = this.getOpenFileContents();
+            if (fileContents === undefined) {
+                try {
+                    const startTime = timingStats.readFileTime.totalTime;
+                    timingStats.readFileTime.timeOperation(() => {
+                        // Read the file's contents.
+                        fileContents = content ?? this.getFileContent();
+                        if (fileContents === undefined) {
+                            throw new Error("Can't get file content");
+                        }
+
+                        // Remember the length and hash for comparison purposes.
+                        this._writableData.lastFileContentLength = fileContents.length;
+                        this._writableData.lastFileContentHash = StringUtils.hashString(fileContents);
+                    });
+                    logState.add(`fs read ${timingStats.readFileTime.totalTime - startTime}ms`);
+                } catch (error) {
+                    diagSink.addError(`Source file could not be read`, getEmptyRange());
+                    fileContents = '';
+
+                    if (!this.fileSystem.existsSync(this._realFilePath)) {
+                        this._writableData.isFileDeleted = true;
+                    }
+                }
+            }
+
+            try {
+                // Parse the token stream, building the abstract syntax tree.
+                const parseResults = parseFile(
+                    configOptions,
+                    this._filePath,
+                    fileContents!,
+                    this._ipythonMode,
+                    diagSink
+                );
+
+                assert(parseResults !== undefined && parseResults.tokenizerOutput !== undefined);
+                this._writableData.parseResults = parseResults;
+                this._writableData.typeIgnoreLines = this._writableData.parseResults.tokenizerOutput.typeIgnoreLines;
+                this._writableData.typeIgnoreAll = this._writableData.parseResults.tokenizerOutput.typeIgnoreAll;
+                this._writableData.pyrightIgnoreLines =
+                    this._writableData.parseResults.tokenizerOutput.pyrightIgnoreLines;
+
+                // Resolve imports.
+                const execEnvironment = configOptions.findExecEnvironment(this._filePath);
+                timingStats.resolveImportsTime.timeOperation(() => {
+                    const importResult = this._resolveImports(
+                        importResolver,
+                        parseResults.importedModules,
+                        execEnvironment
+                    );
+
+                    this._writableData.imports = importResult.imports;
+                    this._writableData.builtinsImport = importResult.builtinsImportResult;
+                    this._writableData.ipythonDisplayImport = importResult.ipythonDisplayImportResult;
+
+                    this._writableData.parseDiagnostics = diagSink.fetchAndClear();
+                });
+
+                // Is this file in a "strict" path?
+                const useStrict =
+                    configOptions.strict.find((strictFileSpec) => strictFileSpec.regExp.test(this._realFilePath)) !==
+                    undefined;
+
+                const commentDiags: CommentUtils.CommentDiagnostic[] = [];
+                this._diagnosticRuleSet = CommentUtils.getFileLevelDirectives(
+                    this._writableData.parseResults.tokenizerOutput.tokens,
+                    this._writableData.parseResults.tokenizerOutput.lines,
+                    configOptions.diagnosticRuleSet,
+                    useStrict,
+                    commentDiags
+                );
+
+                this._writableData.commentDiagnostics = [];
+
+                commentDiags.forEach((commentDiag) => {
+                    this._writableData.commentDiagnostics.push(
+                        new Diagnostic(
+                            DiagnosticCategory.Error,
+                            commentDiag.message,
+                            convertTextRangeToRange(
+                                commentDiag.range,
+                                this._writableData.parseResults!.tokenizerOutput.lines
+                            )
+                        )
+                    );
+                });
+            } catch (e: any) {
+                const message: string =
+                    (e.stack ? e.stack.toString() : undefined) ||
+                    (typeof e.message === 'string' ? e.message : undefined) ||
+                    JSON.stringify(e);
+                this._console.error(
+                    Localizer.Diagnostic.internalParseError().format({ file: this.getFilePath(), message })
+                );
+
+                // Create dummy parse results.
+                this._writableData.parseResults = {
+                    text: '',
+                    parseTree: ModuleNode.create({ start: 0, length: 0 }),
+                    importedModules: [],
+                    futureImports: new Set<string>(),
+                    tokenizerOutput: {
+                        tokens: new TextRangeCollection<Token>([]),
+                        lines: new TextRangeCollection<TextRange>([]),
+                        typeIgnoreAll: undefined,
+                        typeIgnoreLines: new Map<number, IgnoreComment>(),
+                        pyrightIgnoreLines: new Map<number, IgnoreComment>(),
+                        predominantEndOfLineSequence: '\n',
+                        predominantTabSequence: '    ',
+                        predominantSingleQuoteCharacter: "'",
+                    },
+                    containsWildcardImport: false,
+                    typingSymbolAliases: new Map<string, string>(),
+                };
+                this._writableData.imports = undefined;
+                this._writableData.builtinsImport = undefined;
+                this._writableData.ipythonDisplayImport = undefined;
+
+                const diagSink = new DiagnosticSink();
+                diagSink.addError(
+                    Localizer.Diagnostic.internalParseError().format({ file: this.getFilePath(), message }),
+                    getEmptyRange()
+                );
+                this._writableData.parseDiagnostics = diagSink.fetchAndClear();
+
+                // Do not rethrow the exception, swallow it here. Callers are not
+                // prepared to handle an exception.
+            }
+
+            this._writableData.analyzedFileContentsVersion = this._writableData.fileContentsVersion;
+            this._writableData.isBindingNeeded = true;
+            this._writableData.isCheckingNeeded = true;
+            this._writableData.parseTreeNeedsCleaning = false;
+            this._writableData.hitMaxImportDepth = undefined;
+
+            this._recomputeDiagnostics(configOptions);
+
+            return true;
+        });
+    }
+
+    bind(
+        configOptions: ConfigOptions,
+        importLookup: ImportLookup,
+        builtinsScope: Scope | undefined,
+        futureImports: Set<string>
+    ) {
+        assert(!this.isParseRequired(), 'Bind called before parsing');
+        assert(this.isBindingRequired(), 'Bind called unnecessarily');
+        assert(!this._writableData.isBindingInProgress, 'Bind called while binding in progress');
+        assert(this._writableData.parseResults !== undefined, 'Parse results not available');
+
+        return this._logTracker.log(`binding: ${this._getPathForLogging(this._filePath)}`, () => {
+            try {
+                // Perform name binding.
+                timingStats.bindTime.timeOperation(() => {
+                    this._cleanParseTreeIfRequired();
+
+                    const fileInfo = this._buildFileInfo(
+                        configOptions,
+                        this._writableData.parseResults!.text,
+                        importLookup,
+                        builtinsScope,
+                        futureImports
+                    );
+                    AnalyzerNodeInfo.setFileInfo(this._writableData.parseResults!.parseTree, fileInfo);
+
+                    const binder = new Binder(fileInfo, configOptions.indexGenerationMode);
+                    this._writableData.isBindingInProgress = true;
+                    binder.bindModule(this._writableData.parseResults!.parseTree);
+
+                    // If we're in "test mode" (used for unit testing), run an additional
+                    // "test walker" over the parse tree to validate its internal consistency.
+                    if (configOptions.internalTestMode) {
+                        const testWalker = new TestWalker();
+                        testWalker.walk(this._writableData.parseResults!.parseTree);
+                    }
+
+                    this._writableData.bindDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
+                    const moduleScope = AnalyzerNodeInfo.getScope(this._writableData.parseResults!.parseTree);
+                    assert(moduleScope !== undefined, 'Module scope not returned by binder');
+                    this._writableData.moduleSymbolTable = moduleScope!.symbolTable;
+                });
+            } catch (e: any) {
+                const message: string =
+                    (e.stack ? e.stack.toString() : undefined) ||
+                    (typeof e.message === 'string' ? e.message : undefined) ||
+                    JSON.stringify(e);
+                this._console.error(
+                    Localizer.Diagnostic.internalBindError().format({ file: this.getFilePath(), message })
+                );
+
+                const diagSink = new DiagnosticSink();
+                diagSink.addError(
+                    Localizer.Diagnostic.internalBindError().format({ file: this.getFilePath(), message }),
+                    getEmptyRange()
+                );
+                this._writableData.bindDiagnostics = diagSink.fetchAndClear();
+
+                // Do not rethrow the exception, swallow it here. Callers are not
+                // prepared to handle an exception.
+            } finally {
+                this._writableData.isBindingInProgress = false;
+            }
+
+            // Prepare for the next stage of the analysis.
+            this._writableData.isCheckingNeeded = true;
+            this._writableData.isBindingNeeded = false;
+
+            this._recomputeDiagnostics(configOptions);
+        });
+    }
+
+    check(
+        configOptions: ConfigOptions,
+        importResolver: ImportResolver,
+        evaluator: TypeEvaluator,
+        sourceMapper: SourceMapper,
+        dependentFiles?: ParseResults[]
+    ) {
+        assert(!this.isParseRequired(), 'Check called before parsing');
+        assert(!this.isBindingRequired(), 'Check called before binding');
+        assert(!this._writableData.isBindingInProgress, 'Check called while binding in progress');
+        assert(this.isCheckingRequired(), 'Check called unnecessarily');
+        assert(this._writableData.parseResults !== undefined, 'Parse results not available');
+
+        return this._logTracker.log(`checking: ${this._getPathForLogging(this._filePath)}`, () => {
+            try {
+                timingStats.typeCheckerTime.timeOperation(() => {
+                    const checkDuration = new Duration();
+                    const checker = new Checker(
+                        importResolver,
+                        evaluator,
+                        this._writableData.parseResults!,
+                        sourceMapper,
+                        dependentFiles
+                    );
+                    checker.check();
+                    this._writableData.isCheckingNeeded = false;
+
+                    const fileInfo = AnalyzerNodeInfo.getFileInfo(this._writableData.parseResults!.parseTree)!;
+                    this._writableData.checkerDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
+                    this._writableData.checkTime = checkDuration.getDurationInMilliseconds();
+                });
+            } catch (e: any) {
+                const isCancellation = OperationCanceledException.is(e);
+                if (!isCancellation) {
+                    const message: string =
+                        (e.stack ? e.stack.toString() : undefined) ||
+                        (typeof e.message === 'string' ? e.message : undefined) ||
+                        JSON.stringify(e);
+                    this._console.error(
+                        Localizer.Diagnostic.internalTypeCheckingError().format({ file: this.getFilePath(), message })
+                    );
+                    const diagSink = new DiagnosticSink();
+                    diagSink.addError(
+                        Localizer.Diagnostic.internalTypeCheckingError().format({ file: this.getFilePath(), message }),
+                        getEmptyRange()
+                    );
+
+                    this._writableData.checkerDiagnostics = diagSink.fetchAndClear();
+
+                    // Mark the file as complete so we don't get into an infinite loop.
+                    this._writableData.isCheckingNeeded = false;
+                }
+
+                throw e;
+            } finally {
+                // Clear any circular dependencies associated with this file.
+                // These will be detected by the program module and associated
+                // with the source file right before it is finalized.
+                this._writableData.circularDependencies = [];
+
+                this._recomputeDiagnostics(configOptions);
+            }
+        });
+    }
+
+    test_enableIPythonMode(enable: boolean) {
+        this._ipythonMode = enable ? IPythonMode.CellDocs : IPythonMode.None;
+    }
+
+    // Computes an updated set of accumulated diagnostics for the file
+    // based on the partial diagnostics from various analysis stages.
+    private _recomputeDiagnostics(configOptions: ConfigOptions) {
+        this._writableData.diagnosticVersion++;
 
         let includeWarningsAndErrors = true;
 
@@ -507,11 +1059,11 @@ export class SourceFile {
             );
         }
 
-        // add diagnostics for comments that match the task list tokens
-        this._addTaskListDiagnostics(options.taskListTokens, diagList);
+        // Add diagnostics for comments that match the task list tokens.
+        this._addTaskListDiagnostics(configOptions.taskListTokens, diagList);
 
         // If the file is in the ignore list, clear the diagnostic list.
-        if (options.ignore.find((ignoreFileSpec) => ignoreFileSpec.regExp.test(this._realFilePath))) {
+        if (configOptions.ignore.find((ignoreFileSpec) => ignoreFileSpec.regExp.test(this._realFilePath))) {
             diagList = [];
         }
 
@@ -543,542 +1095,7 @@ export class SourceFile {
             );
         }
 
-        return diagList;
-    }
-
-    getImports(): ImportResult[] {
-        return this._writableData.imports || [];
-    }
-
-    getBuiltinsImport(): ImportResult | undefined {
-        return this._writableData.builtinsImport;
-    }
-
-    getIPythonDisplayImport(): ImportResult | undefined {
-        return this._writableData.ipythonDisplayImport;
-    }
-
-    getModuleSymbolTable(): SymbolTable | undefined {
-        return this._writableData.moduleSymbolTable;
-    }
-
-    getCheckTime() {
-        return this._writableData.checkTime;
-    }
-
-    enterEditMode() {
-        this._isEditMode = true;
-    }
-
-    exitEditMode(): string | undefined {
-        this._isEditMode = false;
-
-        // If we had an edit, return our text.
-        if (this._preEditData) {
-            const text = this._writableData.clientDocumentContents!;
-            this._writableData = this._preEditData;
-            this._preEditData = undefined;
-            return text;
-        }
-        return undefined;
-    }
-
-    // Indicates whether the contents of the file have changed since
-    // the last analysis was performed.
-    didContentsChangeOnDisk(): boolean {
-        // If this is an open file any content changes will be
-        // provided through the editor. We can assume contents
-        // didn't change without us knowing about them.
-        if (this._writableData.clientDocumentContents) {
-            return false;
-        }
-
-        // If the file was never read previously, no need to check for a change.
-        if (this._writableData.lastFileContentLength === undefined) {
-            return false;
-        }
-
-        // Read in the latest file contents and see if the hash matches
-        // that of the previous contents.
-        try {
-            // Read the file's contents.
-            const fileContents = this.fileSystem.readFileSync(this._filePath, 'utf8');
-
-            if (fileContents.length !== this._writableData.lastFileContentLength) {
-                return true;
-            }
-
-            if (StringUtils.hashString(fileContents) !== this._writableData.lastFileContentHash) {
-                return true;
-            }
-        } catch (error) {
-            return true;
-        }
-
-        return false;
-    }
-
-    // Drop parse and binding info to save memory. It is used
-    // in cases where memory is low. When info is needed, the file
-    // will be re-parsed and rebound.
-    dropParseAndBindInfo(): void {
-        this._writableData.parseResults = undefined;
-        this._writableData.moduleSymbolTable = undefined;
-        this._writableData.isBindingNeeded = true;
-    }
-
-    markDirty(): void {
-        this._writableData.fileContentsVersion++;
-        this._writableData.noCircularDependencyConfirmed = false;
-        this._writableData.isCheckingNeeded = true;
-        this._writableData.isBindingNeeded = true;
-        this._writableData.moduleSymbolTable = undefined;
-
-        const filePath = this.getFilePath();
-        Extensions.getProgramExtensions(filePath).forEach((e) => (e.fileDirty ? e.fileDirty(filePath) : null));
-    }
-
-    markReanalysisRequired(forceRebinding: boolean): void {
-        // Keep the parse info, but reset the analysis to the beginning.
-        this._writableData.isCheckingNeeded = true;
-        this._writableData.noCircularDependencyConfirmed = false;
-
-        // If the file contains a wildcard import or __all__ symbols,
-        // we need to rebind because a dependent import may have changed.
-        if (this._writableData.parseResults) {
-            if (
-                this._writableData.parseResults.containsWildcardImport ||
-                AnalyzerNodeInfo.getDunderAllInfo(this._writableData.parseResults.parseTree) !== undefined ||
-                forceRebinding
-            ) {
-                // We don't need to rebuild index data since wildcard
-                // won't affect user file indices. User file indices
-                // don't contain import alias info.
-                this._writableData.parseTreeNeedsCleaning = true;
-                this._writableData.isBindingNeeded = true;
-                this._writableData.moduleSymbolTable = undefined;
-            }
-        }
-    }
-
-    getClientVersion() {
-        return this._writableData.clientDocumentVersion;
-    }
-
-    getOpenFileContents() {
-        return this._writableData.clientDocumentContents;
-    }
-
-    getFileContent(): string | undefined {
-        // Get current buffer content if the file is opened.
-        const openFileContent = this.getOpenFileContents();
-        if (openFileContent !== undefined) {
-            return openFileContent;
-        }
-
-        // Otherwise, get content from file system.
-        try {
-            // Check the file's length before attempting to read its full contents.
-            const fileStat = this.fileSystem.statSync(this._filePath);
-            if (fileStat.size > _maxSourceFileSize) {
-                this._console.error(
-                    `File length of "${this._filePath}" is ${fileStat.size} ` +
-                        `which exceeds the maximum supported file size of ${_maxSourceFileSize}`
-                );
-                throw new Error('File larger than max');
-            }
-
-            return this.fileSystem.readFileSync(this._filePath, 'utf8');
-        } catch (error) {
-            return undefined;
-        }
-    }
-
-    setClientVersion(version: number | null, contents: string): void {
-        // Save pre edit state if in edit mode.
-        this._cachePreEditState();
-
-        if (version === null) {
-            this._writableData.clientDocumentVersion = undefined;
-            this._writableData.clientDocumentContents = undefined;
-        } else {
-            this._writableData.clientDocumentVersion = version;
-            this._writableData.clientDocumentContents = contents;
-
-            const contentsHash = StringUtils.hashString(contents);
-
-            // Have the contents of the file changed?
-            if (
-                contents.length !== this._writableData.lastFileContentLength ||
-                contentsHash !== this._writableData.lastFileContentHash
-            ) {
-                this.markDirty();
-            }
-
-            this._writableData.lastFileContentLength = contents.length;
-            this._writableData.lastFileContentHash = contentsHash;
-            this._writableData.isFileDeleted = false;
-        }
-    }
-
-    prepareForClose() {
-        // Nothing to do currently.
-    }
-
-    isFileDeleted() {
-        return this._writableData.isFileDeleted;
-    }
-
-    isParseRequired() {
-        return (
-            !this._writableData.parseResults ||
-            this._writableData.analyzedFileContentsVersion !== this._writableData.fileContentsVersion
-        );
-    }
-
-    isBindingRequired() {
-        if (this._writableData.isBindingInProgress) {
-            return false;
-        }
-
-        if (this.isParseRequired()) {
-            return true;
-        }
-
-        return this._writableData.isBindingNeeded;
-    }
-
-    isCheckingRequired() {
-        return this._writableData.isCheckingNeeded;
-    }
-
-    getParseResults(): ParseResults | undefined {
-        if (!this.isParseRequired()) {
-            return this._writableData.parseResults;
-        }
-
-        return undefined;
-    }
-
-    // Adds a new circular dependency for this file but only if
-    // it hasn't already been added.
-    addCircularDependency(circDependency: CircularDependency) {
-        let updatedDependencyList = false;
-
-        // Some topologies can result in a massive number of cycles. We'll cut it off.
-        if (this._writableData.circularDependencies.length < _maxImportCyclesPerFile) {
-            if (!this._writableData.circularDependencies.some((dep) => dep.isEqual(circDependency))) {
-                this._writableData.circularDependencies.push(circDependency);
-                updatedDependencyList = true;
-            }
-        }
-
-        if (updatedDependencyList) {
-            this._writableData.diagnosticVersion++;
-        }
-    }
-
-    setNoCircularDependencyConfirmed() {
-        this._writableData.noCircularDependencyConfirmed = true;
-    }
-
-    isNoCircularDependencyConfirmed() {
-        return !this.isParseRequired() && this._writableData.noCircularDependencyConfirmed;
-    }
-
-    setHitMaxImportDepth(maxImportDepth: number) {
-        this._writableData.hitMaxImportDepth = maxImportDepth;
-    }
-
-    // Parse the file and update the state. Callers should wait for completion
-    // (or at least cancel) prior to calling again. It returns true if a parse
-    // was required and false if the parse information was up to date already.
-    parse(configOptions: ConfigOptions, importResolver: ImportResolver, content?: string): boolean {
-        return this._logTracker.log(`parsing: ${this._getPathForLogging(this._filePath)}`, (logState) => {
-            // If the file is already parsed, we can skip.
-            if (!this.isParseRequired()) {
-                logState.suppress();
-                return false;
-            }
-
-            const diagSink = new DiagnosticSink();
-            let fileContents = this.getOpenFileContents();
-            if (fileContents === undefined) {
-                try {
-                    const startTime = timingStats.readFileTime.totalTime;
-                    timingStats.readFileTime.timeOperation(() => {
-                        // Read the file's contents.
-                        fileContents = content ?? this.getFileContent();
-                        if (fileContents === undefined) {
-                            throw new Error("Can't get file content");
-                        }
-
-                        // Remember the length and hash for comparison purposes.
-                        this._writableData.lastFileContentLength = fileContents.length;
-                        this._writableData.lastFileContentHash = StringUtils.hashString(fileContents);
-                    });
-                    logState.add(`fs read ${timingStats.readFileTime.totalTime - startTime}ms`);
-                } catch (error) {
-                    diagSink.addError(`Source file could not be read`, getEmptyRange());
-                    fileContents = '';
-
-                    if (!this.fileSystem.existsSync(this._realFilePath)) {
-                        this._writableData.isFileDeleted = true;
-                    }
-                }
-            }
-
-            try {
-                // Parse the token stream, building the abstract syntax tree.
-                const parseResults = parseFile(
-                    configOptions,
-                    this._filePath,
-                    fileContents!,
-                    this._ipythonMode,
-                    diagSink
-                );
-
-                assert(parseResults !== undefined && parseResults.tokenizerOutput !== undefined);
-                this._writableData.parseResults = parseResults;
-                this._writableData.typeIgnoreLines = this._writableData.parseResults.tokenizerOutput.typeIgnoreLines;
-                this._writableData.typeIgnoreAll = this._writableData.parseResults.tokenizerOutput.typeIgnoreAll;
-                this._writableData.pyrightIgnoreLines =
-                    this._writableData.parseResults.tokenizerOutput.pyrightIgnoreLines;
-
-                // Resolve imports.
-                const execEnvironment = configOptions.findExecEnvironment(this._filePath);
-                timingStats.resolveImportsTime.timeOperation(() => {
-                    const importResult = this._resolveImports(
-                        importResolver,
-                        parseResults.importedModules,
-                        execEnvironment
-                    );
-
-                    this._writableData.imports = importResult.imports;
-                    this._writableData.builtinsImport = importResult.builtinsImportResult;
-                    this._writableData.ipythonDisplayImport = importResult.ipythonDisplayImportResult;
-
-                    this._writableData.parseDiagnostics = diagSink.fetchAndClear();
-                });
-
-                // Is this file in a "strict" path?
-                const useStrict =
-                    configOptions.strict.find((strictFileSpec) => strictFileSpec.regExp.test(this._realFilePath)) !==
-                    undefined;
-
-                const commentDiags: CommentUtils.CommentDiagnostic[] = [];
-                this._diagnosticRuleSet = CommentUtils.getFileLevelDirectives(
-                    this._writableData.parseResults.tokenizerOutput.tokens,
-                    this._writableData.parseResults.tokenizerOutput.lines,
-                    configOptions.diagnosticRuleSet,
-                    useStrict,
-                    commentDiags
-                );
-
-                this._writableData.commentDiagnostics = [];
-
-                commentDiags.forEach((commentDiag) => {
-                    this._writableData.commentDiagnostics.push(
-                        new Diagnostic(
-                            DiagnosticCategory.Error,
-                            commentDiag.message,
-                            convertTextRangeToRange(
-                                commentDiag.range,
-                                this._writableData.parseResults!.tokenizerOutput.lines
-                            )
-                        )
-                    );
-                });
-            } catch (e: any) {
-                const message: string =
-                    (e.stack ? e.stack.toString() : undefined) ||
-                    (typeof e.message === 'string' ? e.message : undefined) ||
-                    JSON.stringify(e);
-                this._console.error(
-                    Localizer.Diagnostic.internalParseError().format({ file: this.getFilePath(), message })
-                );
-
-                // Create dummy parse results.
-                this._writableData.parseResults = {
-                    text: '',
-                    parseTree: ModuleNode.create({ start: 0, length: 0 }),
-                    importedModules: [],
-                    futureImports: new Set<string>(),
-                    tokenizerOutput: {
-                        tokens: new TextRangeCollection<Token>([]),
-                        lines: new TextRangeCollection<TextRange>([]),
-                        typeIgnoreAll: undefined,
-                        typeIgnoreLines: new Map<number, IgnoreComment>(),
-                        pyrightIgnoreLines: new Map<number, IgnoreComment>(),
-                        predominantEndOfLineSequence: '\n',
-                        predominantTabSequence: '    ',
-                        predominantSingleQuoteCharacter: "'",
-                    },
-                    containsWildcardImport: false,
-                    typingSymbolAliases: new Map<string, string>(),
-                };
-                this._writableData.imports = undefined;
-                this._writableData.builtinsImport = undefined;
-                this._writableData.ipythonDisplayImport = undefined;
-
-                const diagSink = new DiagnosticSink();
-                diagSink.addError(
-                    Localizer.Diagnostic.internalParseError().format({ file: this.getFilePath(), message }),
-                    getEmptyRange()
-                );
-                this._writableData.parseDiagnostics = diagSink.fetchAndClear();
-
-                // Do not rethrow the exception, swallow it here. Callers are not
-                // prepared to handle an exception.
-            }
-
-            this._writableData.analyzedFileContentsVersion = this._writableData.fileContentsVersion;
-            this._writableData.isBindingNeeded = true;
-            this._writableData.isCheckingNeeded = true;
-            this._writableData.parseTreeNeedsCleaning = false;
-            this._writableData.hitMaxImportDepth = undefined;
-            this._writableData.diagnosticVersion++;
-
-            return true;
-        });
-    }
-
-    bind(
-        configOptions: ConfigOptions,
-        importLookup: ImportLookup,
-        builtinsScope: Scope | undefined,
-        futureImports: Set<string>
-    ) {
-        assert(!this.isParseRequired(), 'Bind called before parsing');
-        assert(this.isBindingRequired(), 'Bind called unnecessarily');
-        assert(!this._writableData.isBindingInProgress, 'Bind called while binding in progress');
-        assert(this._writableData.parseResults !== undefined, 'Parse results not available');
-
-        return this._logTracker.log(`binding: ${this._getPathForLogging(this._filePath)}`, () => {
-            try {
-                // Perform name binding.
-                timingStats.bindTime.timeOperation(() => {
-                    this._cleanParseTreeIfRequired();
-
-                    const fileInfo = this._buildFileInfo(
-                        configOptions,
-                        this._writableData.parseResults!.text,
-                        importLookup,
-                        builtinsScope,
-                        futureImports
-                    );
-                    AnalyzerNodeInfo.setFileInfo(this._writableData.parseResults!.parseTree, fileInfo);
-
-                    const binder = new Binder(fileInfo, configOptions.indexGenerationMode);
-                    this._writableData.isBindingInProgress = true;
-                    binder.bindModule(this._writableData.parseResults!.parseTree);
-
-                    // If we're in "test mode" (used for unit testing), run an additional
-                    // "test walker" over the parse tree to validate its internal consistency.
-                    if (configOptions.internalTestMode) {
-                        const testWalker = new TestWalker();
-                        testWalker.walk(this._writableData.parseResults!.parseTree);
-                    }
-
-                    this._writableData.bindDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
-                    const moduleScope = AnalyzerNodeInfo.getScope(this._writableData.parseResults!.parseTree);
-                    assert(moduleScope !== undefined, 'Module scope not returned by binder');
-                    this._writableData.moduleSymbolTable = moduleScope!.symbolTable;
-                });
-            } catch (e: any) {
-                const message: string =
-                    (e.stack ? e.stack.toString() : undefined) ||
-                    (typeof e.message === 'string' ? e.message : undefined) ||
-                    JSON.stringify(e);
-                this._console.error(
-                    Localizer.Diagnostic.internalBindError().format({ file: this.getFilePath(), message })
-                );
-
-                const diagSink = new DiagnosticSink();
-                diagSink.addError(
-                    Localizer.Diagnostic.internalBindError().format({ file: this.getFilePath(), message }),
-                    getEmptyRange()
-                );
-                this._writableData.bindDiagnostics = diagSink.fetchAndClear();
-
-                // Do not rethrow the exception, swallow it here. Callers are not
-                // prepared to handle an exception.
-            } finally {
-                this._writableData.isBindingInProgress = false;
-            }
-
-            // Prepare for the next stage of the analysis.
-            this._writableData.diagnosticVersion++;
-            this._writableData.isCheckingNeeded = true;
-            this._writableData.isBindingNeeded = false;
-        });
-    }
-
-    check(
-        importResolver: ImportResolver,
-        evaluator: TypeEvaluator,
-        sourceMapper: SourceMapper,
-        dependentFiles?: ParseResults[]
-    ) {
-        assert(!this.isParseRequired(), 'Check called before parsing');
-        assert(!this.isBindingRequired(), 'Check called before binding');
-        assert(!this._writableData.isBindingInProgress, 'Check called while binding in progress');
-        assert(this.isCheckingRequired(), 'Check called unnecessarily');
-        assert(this._writableData.parseResults !== undefined, 'Parse results not available');
-
-        return this._logTracker.log(`checking: ${this._getPathForLogging(this._filePath)}`, () => {
-            try {
-                timingStats.typeCheckerTime.timeOperation(() => {
-                    const checkDuration = new Duration();
-                    const checker = new Checker(
-                        importResolver,
-                        evaluator,
-                        this._writableData.parseResults!,
-                        sourceMapper,
-                        dependentFiles
-                    );
-                    checker.check();
-                    this._writableData.isCheckingNeeded = false;
-
-                    const fileInfo = AnalyzerNodeInfo.getFileInfo(this._writableData.parseResults!.parseTree)!;
-                    this._writableData.checkerDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
-                    this._writableData.checkTime = checkDuration.getDurationInMilliseconds();
-                });
-            } catch (e: any) {
-                const isCancellation = OperationCanceledException.is(e);
-                if (!isCancellation) {
-                    const message: string =
-                        (e.stack ? e.stack.toString() : undefined) ||
-                        (typeof e.message === 'string' ? e.message : undefined) ||
-                        JSON.stringify(e);
-                    this._console.error(
-                        Localizer.Diagnostic.internalTypeCheckingError().format({ file: this.getFilePath(), message })
-                    );
-                    const diagSink = new DiagnosticSink();
-                    diagSink.addError(
-                        Localizer.Diagnostic.internalTypeCheckingError().format({ file: this.getFilePath(), message }),
-                        getEmptyRange()
-                    );
-
-                    this._writableData.checkerDiagnostics = diagSink.fetchAndClear();
-
-                    // Mark the file as complete so we don't get into an infinite loop.
-                    this._writableData.isCheckingNeeded = false;
-                }
-
-                throw e;
-            } finally {
-                // Clear any circular dependencies associated with this file.
-                // These will be detected by the program module and associated
-                // with the source file right before it is finalized.
-                this._writableData.circularDependencies = [];
-                this._writableData.diagnosticVersion++;
-            }
-        });
-    }
-
-    test_enableIPythonMode(enable: boolean) {
-        this._ipythonMode = enable ? IPythonMode.CellDocs : IPythonMode.None;
+        this._writableData.accumulatedDiagnostics = diagList;
     }
 
     private _cachePreEditState() {

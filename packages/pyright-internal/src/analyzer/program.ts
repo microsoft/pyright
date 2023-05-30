@@ -1926,6 +1926,7 @@ export class Program {
 
                 const execEnv = this._configOptions.findExecEnvironment(fileToCheck.sourceFile.getFilePath());
                 fileToCheck.sourceFile.check(
+                    this.configOptions,
                     this._importResolver,
                     this._evaluator!,
                     this._createSourceMapper(execEnv, token, fileToCheck),
@@ -2084,7 +2085,7 @@ export class Program {
         const firstFilePath = circDep.getPaths()[0];
         const firstSourceFile = this.getSourceFileInfo(firstFilePath)!;
         assert(firstSourceFile !== undefined);
-        firstSourceFile.sourceFile.addCircularDependency(circDep);
+        firstSourceFile.sourceFile.addCircularDependency(this.configOptions, circDep);
     }
 
     private _markFileDirtyRecursive(sourceFileInfo: SourceFileInfo, markSet: Set<string>, forceRebinding = false) {
