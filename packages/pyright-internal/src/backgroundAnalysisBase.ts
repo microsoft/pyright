@@ -671,36 +671,36 @@ function convertDiagnostics(diagnostics: Diagnostic[]) {
     });
 }
 
-export interface AnalysisRequest {
-    requestType:
-        | 'analyze'
-        | 'resumeAnalysis'
-        | 'setConfigOptions'
-        | 'setTrackedFiles'
-        | 'setAllowedThirdPartyImports'
-        | 'ensurePartialStubPackages'
-        | 'setFileOpened'
-        | 'updateChainedFilePath'
-        | 'setFileClosed'
-        | 'markAllFilesDirty'
-        | 'markFilesDirty'
-        | 'invalidateAndForceReanalysis'
-        | 'restart'
-        | 'getDiagnosticsForRange'
-        | 'writeTypeStub'
-        | 'getSemanticTokens'
-        | 'setExperimentOptions'
-        | 'setImportResolver'
-        | 'getInlayHints'
-        | 'shutdown'
-        | 'addInterimFile';
+export type AnalysisRequestKind =
+    | 'analyze'
+    | 'resumeAnalysis'
+    | 'setConfigOptions'
+    | 'setTrackedFiles'
+    | 'setAllowedThirdPartyImports'
+    | 'ensurePartialStubPackages'
+    | 'setFileOpened'
+    | 'updateChainedFilePath'
+    | 'setFileClosed'
+    | 'markAllFilesDirty'
+    | 'markFilesDirty'
+    | 'invalidateAndForceReanalysis'
+    | 'restart'
+    | 'getDiagnosticsForRange'
+    | 'writeTypeStub'
+    | 'setImportResolver'
+    | 'shutdown'
+    | 'addInterimFile';
 
+export interface AnalysisRequest {
+    requestType: AnalysisRequestKind;
     data: any;
     port?: MessagePort | undefined;
 }
 
+export type AnalysisResponseKind = 'log' | 'analysisResult' | 'analysisPaused' | 'analysisDone';
+
 export interface AnalysisResponse {
-    requestType: 'log' | 'telemetry' | 'analysisResult' | 'analysisPaused' | 'indexResult' | 'analysisDone';
+    requestType: AnalysisResponseKind;
     data: any;
 }
 

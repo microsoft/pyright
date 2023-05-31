@@ -180,6 +180,18 @@ test('folder that contains no file but whose parent has __init__ has changed', (
     testSourceFileWatchChange(code, /* expected */ true, /* isFile */ false);
 });
 
+test('program containsSourceFileIn', () => {
+    const code = `
+// @ignoreCase: true
+
+// @filename: myLib/__init__.py
+//// # empty
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    assert(state.workspace.service.test_program.containsSourceFileIn(state.activeFile.fileName));
+});
+
 function testSourceFileWatchChange(code: string, expected = true, isFile = true) {
     const state = parseAndGetTestState(code, '/projectRoot').state;
     const marker = state.getMarkerByName('marker');
