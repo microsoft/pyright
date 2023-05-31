@@ -881,6 +881,21 @@ export function populateTypeVarContextBasedOnExpectedType(
                         /* narrowBoundNoLiterals */ undefined,
                         variance === Variance.Contravariant ? undefined : typeArgValue
                     );
+
+                    if (entry.tupleTypes) {
+                        typeVarContext.setTupleTypeVar(
+                            entry.typeVar,
+                            entry.tupleTypes.map((tupleEntry) => {
+                                let tupleType = tupleEntry.type;
+
+                                if (liveTypeVarScopes) {
+                                    tupleType = transformExpectedType(tupleEntry.type, liveTypeVarScopes);
+                                }
+
+                                return { type: tupleType, isUnbounded: tupleEntry.isUnbounded };
+                            })
+                        );
+                    }
                 }
             });
         return true;
