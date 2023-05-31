@@ -544,8 +544,14 @@ export class Program {
     }
 
     containsSourceFileIn(folder: string): boolean {
-        const normalized = normalizePathCase(this.fileSystem, folder);
-        return this._sourceFileList.some((i) => i.sourceFile.getFilePath().startsWith(normalized));
+        const normalizedFolder = normalizePathCase(this.fileSystem, folder);
+        for (const normalizedSourceFilePath of this._sourceFileMap.keys()) {
+            if (normalizedSourceFilePath.startsWith(normalizedFolder)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     owns(filePath: string) {
