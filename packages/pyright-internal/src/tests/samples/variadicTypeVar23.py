@@ -1,10 +1,12 @@
 # This sample tests a complex combination of TypeVarTuple,
 # unpacking, bidirectional type inference, and recursive calls.
 
-from typing import TypeVar, TypeVarTuple, Callable
+from dataclasses import dataclass
+from typing import Generic, TypeVar, TypeVarTuple, Callable
 
 X = TypeVar("X")
 Y = TypeVar("Y")
+Z = TypeVar("Z")
 Xs = TypeVarTuple("Xs")
 Ys = TypeVarTuple("Ys")
 
@@ -31,3 +33,21 @@ def star(f: Callable[[X], Y]) -> Callable[[*tuple[X, ...]], tuple[Y, ...]]:
         return cons(f, star(f))(*xs)
 
     return wrapped
+
+
+@dataclass(frozen=True)
+class Tree(Generic[X, Y]):
+    left: X
+    right: Y
+
+
+def lift(
+    f: Callable[[*Xs], tuple[*Ys]]
+) -> Callable[[Tree[Z, tuple[*Xs]]], Tree[Z, tuple[*Ys]]]:
+    ...
+
+
+def test(
+    f: Callable[[X], Y]
+) -> Callable[[Tree[Z, tuple[X, ...]]], Tree[Z, tuple[Y, ...]]]:
+    return lift(star(f))

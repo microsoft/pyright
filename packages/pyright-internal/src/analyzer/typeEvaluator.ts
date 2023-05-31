@@ -21136,18 +21136,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return isAssignable;
     }
 
-    function assignTupleTypeArgs(
-        destType: ClassType,
-        srcType: ClassType,
-        diag: DiagnosticAddendum | undefined,
-        destTypeVarContext: TypeVarContext | undefined,
-        srcTypeVarContext: TypeVarContext | undefined,
-        flags: AssignTypeFlags,
-        recursionCount: number
-    ) {
-        const destTypeArgs = [...(destType.tupleTypeArguments ?? [])];
-        const srcTypeArgs = [...(srcType.tupleTypeArguments ?? [])];
-
+    // Adjusts the source type arguments list to match the length of the
+    // dest type arguments list if the dest list contains an unbounded
+    // or variadic entry.
+    function adjustSourceTupleTypeArgs(destTypeArgs: TupleTypeArgument[], srcTypeArgs: TupleTypeArgument[]) {
         const destVariadicIndex = destTypeArgs.findIndex((t) => isVariadicTypeVar(t.type));
         const destUnboundedIndex = destTypeArgs.findIndex((t) => t.isUnbounded);
         const srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
@@ -21202,6 +21194,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     });
                 }
             }
+        }
+    }
+
+    function assignTupleTypeArgs(
+        destType: ClassType,
+        srcType: ClassType,
+        diag: DiagnosticAddendum | undefined,
+        destTypeVarContext: TypeVarContext | undefined,
+        srcTypeVarContext: TypeVarContext | undefined,
+        flags: AssignTypeFlags,
+        recursionCount: number
+    ) {
+        const destTypeArgs = [...(destType.tupleTypeArguments ?? [])];
+        const srcTypeArgs = [...(srcType.tupleTypeArguments ?? [])];
+        let srcUnboundedIndex: number;
+
+        if (flags & AssignTypeFlags.ReverseTypeVarMatching) {
+            adjustSourceTupleTypeArgs(srcTypeArgs, destTypeArgs);
+            srcUnboundedIndex = destTypeArgs.findIndex((t) => t.isUnbounded);
+        } else {
+            adjustSourceTupleTypeArgs(destTypeArgs, srcTypeArgs);
+            srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
         }
 
         if (srcTypeArgs.length === destTypeArgs.length) {
