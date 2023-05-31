@@ -827,6 +827,17 @@ test('MethodOverride5', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('MethodOverride6', () => {
+    const configOptions = new ConfigOptions('.');
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['methodOverride6.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0);
+
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['methodOverride6.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 2);
+});
+
 test('Enums1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums1.py']);
 

@@ -24138,7 +24138,46 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return false;
         }
 
-        // TODO - need to implement the case where the base method is overloaded
+        // For a non-overloaded method overriding an overloaded method, the
+        // override must match all of the overloads.
+        if (isFunction(overrideMethod)) {
+            return OverloadedFunctionType.getOverloads(baseMethod).every((overload) =>
+                validateOverrideMethodInternal(overload, overrideMethod, diag?.createAddendum(), enforceParamNames)
+            );
+        }
+
+        // For an overloaded method overriding an overloaded method, the overrides
+        // must all match and be in the correct order. It is OK if the base method
+        // has additional overloads that are not present in the override.
+
+        let previousMatchIndex = -1;
+        let overrideOverloadIndex = 0;
+        for (const overrideOverload of OverloadedFunctionType.getOverloads(overrideMethod)) {
+            const matchIndex = OverloadedFunctionType.getOverloads(baseMethod).findIndex((baseOverload) => {
+                return validateOverrideMethodInternal(
+                    baseOverload,
+                    overrideOverload,
+                    /* diag */ undefined,
+                    enforceParamNames
+                );
+            });
+
+            if (matchIndex < 0) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.overrideOverloadNoMatch().format({ index: overrideOverloadIndex })
+                );
+                return false;
+            }
+
+            if (matchIndex < previousMatchIndex) {
+                diag.addMessage(Localizer.DiagnosticAddendum.overrideOverloadOrder());
+                return false;
+            }
+
+            previousMatchIndex = matchIndex;
+            overrideOverloadIndex++;
+        }
+
         return true;
     }
 
