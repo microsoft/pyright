@@ -24120,9 +24120,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             // For an overload overriding a base method, at least one overload
-            // must be compatible with the base method.
+            // or the implementation must be compatible with the base method.
             if (
-                OverloadedFunctionType.getOverloads(overrideMethod).some((overrideOverload) => {
+                overrideMethod.overloads.some((overrideOverload) => {
                     return validateOverrideMethodInternal(
                         baseMethod,
                         overrideOverload,
@@ -24132,21 +24132,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 })
             ) {
                 return true;
-            }
-
-            // Or the implementation must be compatible.
-            const overrideImplementation = OverloadedFunctionType.getImplementation(overrideMethod);
-            if (overrideImplementation) {
-                if (
-                    validateOverrideMethodInternal(
-                        baseMethod,
-                        overrideImplementation,
-                        /* diag */ undefined,
-                        enforceParamNames
-                    )
-                ) {
-                    return true;
-                }
             }
 
             diag.addMessage(Localizer.DiagnosticAddendum.overrideNoOverloadMatches());
