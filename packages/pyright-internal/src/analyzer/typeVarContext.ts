@@ -25,6 +25,14 @@ import {
     WildcardTypeVarScopeId,
 } from './types';
 
+// The maximum number of signature contexts that can be associated
+// with a TypeVarContext. This equates to the number of overloads
+// that can be captured by a ParamSpec (or multiple ParamSpecs).
+// We should never hit this limit in practice, but there are certain
+// pathological cases where we could, and we need to protect against
+// this so it doesn't completely exhaust memory.
+const maxSignatureContextCount = 64;
+
 export interface TypeVarMapEntry {
     typeVar: TypeVarType;
 
@@ -325,7 +333,11 @@ export class TypeVarContext {
     copySignatureContexts(contexts: TypeVarSignatureContext[]) {
         assert(contexts.length > 0);
 
-        this._signatureContexts = Array.from(contexts);
+        // Limit the number of signature contexts. There are rare circumstances
+        // where this can grow to unbounded numbers and exhaust memory.
+        if (contexts.length < maxSignatureContextCount) {
+            this._signatureContexts = Array.from(contexts);
+        }
     }
 
     // Returns the list of scopes this type var map is "solving".
