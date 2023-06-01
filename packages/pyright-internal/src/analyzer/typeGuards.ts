@@ -1283,7 +1283,8 @@ function narrowTypeForIsInstance(
                                         unspecializedFilterType,
                                         varType,
                                         typeVarContext,
-                                        /* liveTypeVarScopes */ undefined
+                                        /* liveTypeVarScopes */ undefined,
+                                        errorNode.start
                                     )
                                 ) {
                                     specializedFilterType = applySolvedTypeVars(

@@ -826,7 +826,8 @@ export function populateTypeVarContextBasedOnExpectedType(
     type: ClassType,
     expectedType: Type,
     typeVarContext: TypeVarContext,
-    liveTypeVarScopes: TypeVarScopeId[] | undefined
+    liveTypeVarScopes: TypeVarScopeId[] | undefined,
+    usageOffset: number | undefined = undefined
 ): boolean {
     if (isAny(expectedType)) {
         type.details.typeParameters.forEach((typeParam) => {
@@ -869,7 +870,7 @@ export function populateTypeVarContextBasedOnExpectedType(
                 let typeArgValue = sameClassTypeVarContext.getPrimarySignature().getTypeVarType(entry.typeVar);
 
                 if (typeArgValue && liveTypeVarScopes) {
-                    typeArgValue = transformExpectedType(typeArgValue, liveTypeVarScopes);
+                    typeArgValue = transformExpectedType(typeArgValue, liveTypeVarScopes, usageOffset);
                 }
 
                 if (typeArgValue) {
@@ -889,7 +890,7 @@ export function populateTypeVarContextBasedOnExpectedType(
                                 let tupleType = tupleEntry.type;
 
                                 if (liveTypeVarScopes) {
-                                    tupleType = transformExpectedType(tupleEntry.type, liveTypeVarScopes);
+                                    tupleType = transformExpectedType(tupleEntry.type, liveTypeVarScopes, usageOffset);
                                 }
 
                                 return { type: tupleType, isUnbounded: tupleEntry.isUnbounded };
@@ -958,7 +959,7 @@ export function populateTypeVarContextBasedOnExpectedType(
                     let typeArgValue: Type | undefined = transformPossibleRecursiveTypeAlias(expectedTypeArgs[index]);
 
                     if (liveTypeVarScopes) {
-                        typeArgValue = transformExpectedType(typeArgValue, liveTypeVarScopes);
+                        typeArgValue = transformExpectedType(typeArgValue, liveTypeVarScopes, usageOffset);
                     }
 
                     if (typeArgValue) {

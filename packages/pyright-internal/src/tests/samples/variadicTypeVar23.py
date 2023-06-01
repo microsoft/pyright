@@ -51,3 +51,21 @@ def test(
     f: Callable[[X], Y]
 ) -> Callable[[Tree[Z, tuple[X, ...]]], Tree[Z, tuple[Y, ...]]]:
     return lift(star(f))
+
+
+def parallel(
+    f: Callable[[X], Y],
+    g: Callable[[*Xs], tuple[*Ys]],
+) -> Callable[[X, *Xs], tuple[Y, *Ys]]:
+    def wrapped(a: X, *bs: *Xs):
+        return f(a), *g(*bs)
+
+    return wrapped
+
+
+def identity(x: X) -> X:
+    return x
+
+
+def parallel_identity(*xs: *Xs) -> tuple[*Xs]:
+    return xs

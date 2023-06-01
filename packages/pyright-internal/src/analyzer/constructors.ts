@@ -431,7 +431,8 @@ function validateInitMethod(
                     ClassType.cloneAsInstance(type),
                     expectedSubType,
                     typeVarContext,
-                    getTypeVarScopesForNode(errorNode)
+                    getTypeVarScopesForNode(errorNode),
+                    errorNode.start
                 )
             ) {
                 const specializedConstructor = applySolvedTypeVars(initMethodType, typeVarContext);
@@ -564,7 +565,8 @@ function validateFallbackConstructorCall(
             ClassType.cloneAsInstance(type),
             inferenceContext.expectedType,
             typeVarContext,
-            getTypeVarScopesForNode(errorNode)
+            getTypeVarScopesForNode(errorNode),
+            errorNode.start
         );
     }
 

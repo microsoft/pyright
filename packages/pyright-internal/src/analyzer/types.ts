@@ -2380,14 +2380,24 @@ export namespace TypeVarType {
         return newInstance;
     }
 
-    export function cloneAsInScopePlaceholder(type: TypeVarType): TypeVarType {
+    export function cloneAsInScopePlaceholder(type: TypeVarType, usageOffset?: number): TypeVarType {
         if (type.isInScopePlaceholder) {
             return type;
+        }
+
+        // If the caller specified a usage offset, append it to the TypeVar
+        // internal name. This allows us to distinguish it from other uses
+        // of the same TypeVar. For example nested calls to a generic
+        // function like `foo(foo(1))`.
+        let newNameWithScope = type.nameWithScope;
+        if (usageOffset) {
+            newNameWithScope = `${type.nameWithScope}-${usageOffset}`;
         }
 
         const newInstance = TypeBase.cloneType(type);
         newInstance.isInScopePlaceholder = true;
         newInstance.scopeId = InScopePlaceholderScopeId;
+        newInstance.nameWithScope = newNameWithScope;
         return newInstance;
     }
 

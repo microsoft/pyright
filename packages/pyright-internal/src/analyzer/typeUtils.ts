@@ -1133,8 +1133,12 @@ export function validateTypeVarDefault(
 // expected type uses TypeVars that are not part of the context of the
 // class we are constructing. We'll replace these type variables with dummy
 // type variables.
-export function transformExpectedType(expectedType: Type, liveTypeVarScopes: TypeVarScopeId[]): Type {
-    const transformer = new ExpectedTypeTransformer(liveTypeVarScopes);
+export function transformExpectedType(
+    expectedType: Type,
+    liveTypeVarScopes: TypeVarScopeId[],
+    usageOffset: number | undefined
+): Type {
+    const transformer = new ExpectedTypeTransformer(liveTypeVarScopes, usageOffset);
     return transformer.apply(expectedType, 0);
 }
 
@@ -3830,13 +3834,13 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 }
 
 class ExpectedTypeTransformer extends TypeVarTransformer {
-    constructor(private _liveTypeVarScopes: TypeVarScopeId[]) {
+    constructor(private _liveTypeVarScopes: TypeVarScopeId[], private _usageOffset: number | undefined) {
         super();
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
         if (!this._isTypeVarLive(typeVar)) {
-            return TypeVarType.cloneAsInScopePlaceholder(typeVar);
+            return TypeVarType.cloneAsInScopePlaceholder(typeVar, this._usageOffset);
         }
 
         return typeVar;
@@ -3844,7 +3848,7 @@ class ExpectedTypeTransformer extends TypeVarTransformer {
 
     override transformParamSpec(paramSpec: TypeVarType): FunctionType | undefined {
         if (!this._isTypeVarLive(paramSpec)) {
-            return convertTypeToParamSpecValue(TypeVarType.cloneAsInScopePlaceholder(paramSpec));
+            return convertTypeToParamSpecValue(TypeVarType.cloneAsInScopePlaceholder(paramSpec, this._usageOffset));
         }
 
         return undefined;

@@ -7431,7 +7431,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ClassType.cloneAsInstance(tupleClassType),
                     inferenceContext.expectedType,
                     tupleTypeVarContext,
-                    ParseTreeUtils.getTypeVarScopesForNode(node)
+                    ParseTreeUtils.getTypeVarScopesForNode(node),
+                    node.start
                 )
             ) {
                 return undefined;
@@ -10357,7 +10358,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         effectiveReturnType,
                         effectiveExpectedType,
                         tempTypeVarContext,
-                        liveTypeVarScopes
+                        liveTypeVarScopes,
+                        errorNode.start
                     );
 
                     const genericReturnType = ClassType.cloneForSpecialization(
@@ -10378,7 +10380,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            effectiveExpectedType = transformExpectedType(effectiveExpectedType, liveTypeVarScopes);
+            effectiveExpectedType = transformExpectedType(effectiveExpectedType, liveTypeVarScopes, errorNode.start);
 
             assignType(
                 effectiveReturnType,
@@ -10464,7 +10466,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // example of this is the built-in "map" method whose first parameter is
             // a lambda and second parameter indicates what type the lambda should accept.
             // In practice, we will limit the number of passes to 2 because it can get
-            // very expensive to go beyond this, and we don't see generally see cases
+            // very expensive to go beyond this, and we don't generally see cases
             // where more than two passes are needed.
             let passCount = Math.min(typeVarMatchingCount, 2);
             for (let i = 0; i < passCount; i++) {
@@ -10958,7 +10960,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const argResult = validateArgType(
                         {
                             paramCategory: ParameterCategory.Simple,
-                            paramType: transformExpectedType(paramType, liveTypeVarScopes),
+                            paramType: transformExpectedType(paramType, liveTypeVarScopes, /* usageOffset */ undefined),
                             requiresTypeVarMatching: false,
                             argument: arg,
                             errorNode: arg.valueExpression || errorNode,
@@ -11303,7 +11305,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const simplifiedType = removeUnbound(argType);
             const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
 
-            const getDiagAddendum = () => {
+            function getDiagAddendum() {
                 const diagAddendum = new DiagnosticAddendum();
                 if (argParam.paramName) {
                     diagAddendum.addMessage(
@@ -11317,7 +11319,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 }
                 return diagAddendum;
-            };
+            }
 
             // Do not check for unknown types if the expected type is "Any".
             // Don't print types if reportUnknownArgumentType is disabled for performance.
@@ -12288,7 +12290,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 builtInDict,
                 inferenceContext.expectedType,
                 dictTypeVarContext,
-                ParseTreeUtils.getTypeVarScopesForNode(node)
+                ParseTreeUtils.getTypeVarScopesForNode(node),
+                node.start,
             )
         ) {
             return undefined;
@@ -12691,7 +12694,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 builtInListOrSet,
                 inferenceContext.expectedType,
                 typeVarContext,
-                ParseTreeUtils.getTypeVarScopesForNode(node)
+                ParseTreeUtils.getTypeVarScopesForNode(node),
+                node.start,
             )
         ) {
             return undefined;
@@ -24011,7 +24015,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ),
                 declaredType,
                 typeVarContext,
-                ParseTreeUtils.getTypeVarScopesForNode(node)
+                ParseTreeUtils.getTypeVarScopesForNode(node),
+                node.start,
             );
 
             let replacedTypeArg = false;
