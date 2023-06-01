@@ -12291,7 +12291,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 inferenceContext.expectedType,
                 dictTypeVarContext,
                 ParseTreeUtils.getTypeVarScopesForNode(node),
-                node.start,
+                node.start
             )
         ) {
             return undefined;
@@ -12695,7 +12695,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 inferenceContext.expectedType,
                 typeVarContext,
                 ParseTreeUtils.getTypeVarScopesForNode(node),
-                node.start,
+                node.start
             )
         ) {
             return undefined;
@@ -24016,7 +24016,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 declaredType,
                 typeVarContext,
                 ParseTreeUtils.getTypeVarScopesForNode(node),
-                node.start,
+                node.start
             );
 
             let replacedTypeArg = false;
