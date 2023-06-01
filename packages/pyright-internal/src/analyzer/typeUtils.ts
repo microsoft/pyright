@@ -2485,6 +2485,30 @@ export function requiresSpecialization(
     }
     recursionCount++;
 
+    // Is the answer cached?
+    const canUseCache = !ignorePseudoGeneric && !ignoreSelf;
+    if (canUseCache && type.cached?.requiresSpecialization !== undefined) {
+        return type.cached.requiresSpecialization;
+    }
+
+    const result = _requiresSpecialization(type, ignorePseudoGeneric, ignoreSelf, recursionCount);
+
+    if (canUseCache) {
+        if (type.cached === undefined) {
+            type.cached = {};
+        }
+        type.cached.requiresSpecialization = result;
+    }
+
+    return result;
+}
+
+function _requiresSpecialization(
+    type: Type,
+    ignorePseudoGeneric = false,
+    ignoreSelf = false,
+    recursionCount = 0
+): boolean {
     switch (type.category) {
         case TypeCategory.Class: {
             if (ClassType.isPseudoGenericClass(type) && ignorePseudoGeneric) {
@@ -2492,10 +2516,8 @@ export function requiresSpecialization(
             }
 
             if (type.typeArguments) {
-                return (
-                    type.typeArguments.find((typeArg) =>
-                        requiresSpecialization(typeArg, ignorePseudoGeneric, ignoreSelf, recursionCount)
-                    ) !== undefined
+                return type.typeArguments.some((typeArg) =>
+                    requiresSpecialization(typeArg, ignorePseudoGeneric, ignoreSelf, recursionCount)
                 );
             }
 
@@ -2538,18 +2560,14 @@ export function requiresSpecialization(
         }
 
         case TypeCategory.OverloadedFunction: {
-            return (
-                type.overloads.find((overload) =>
-                    requiresSpecialization(overload, ignorePseudoGeneric, ignoreSelf, recursionCount)
-                ) !== undefined
+            return type.overloads.some((overload) =>
+                requiresSpecialization(overload, ignorePseudoGeneric, ignoreSelf, recursionCount)
             );
         }
 
         case TypeCategory.Union: {
-            return (
-                findSubtype(type, (subtype) =>
-                    requiresSpecialization(subtype, ignorePseudoGeneric, ignoreSelf, recursionCount)
-                ) !== undefined
+            return type.subtypes.some((subtype) =>
+                requiresSpecialization(subtype, ignorePseudoGeneric, ignoreSelf, recursionCount)
             );
         }
 

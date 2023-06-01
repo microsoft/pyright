@@ -155,6 +155,9 @@ interface TypeBase {
         // Type converted to instantiable and instance (cached)
         instantiableType?: Type;
         instanceType?: Type;
+
+        // Requires specialization flag (cached)
+        requiresSpecialization?: boolean;
     };
 }
 
