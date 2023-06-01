@@ -33,9 +33,9 @@ class Container(Generic[T]):
 
     @classmethod
     def create(cls) -> "Container[T]":
-        # This should generate an error but it doesn't
-        # currently because Container[T] being constructed
-        # is different from the current Container[T].
+        # This should generate an error if strictParameterNoneValue
+        # is true because Container[T] being constructed is different
+        # from the current Container[T].
         return Container[T]()
 
     def on_next(self, value: T):

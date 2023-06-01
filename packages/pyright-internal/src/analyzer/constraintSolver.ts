@@ -508,7 +508,7 @@ export function assignTypeToTypeVar(
                     curNarrowTypeBound,
                     adjSrcType,
                     diagAddendum,
-                    new TypeVarContext(destType.scopeId),
+                    /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
                     flags,
                     recursionCount
@@ -524,7 +524,7 @@ export function assignTypeToTypeVar(
                         adjSrcType,
                         curNarrowTypeBound,
                         /* diag */ undefined,
-                        new TypeVarContext(destType.scopeId),
+                        /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
                         flags & AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount
@@ -551,7 +551,7 @@ export function assignTypeToTypeVar(
                         adjSrcType,
                         curNarrowTypeBound,
                         /* diag */ undefined,
-                        new TypeVarContext(destType.scopeId),
+                        /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
                         flags & AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount
