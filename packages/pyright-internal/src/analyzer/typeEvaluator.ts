@@ -20622,6 +20622,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             FunctionType.hasUnannotatedParams(type) &&
             !FunctionType.isStubDefinition(type) &&
             !FunctionType.isPyTypedDefinition(type) &&
+            !FunctionType.isWrapReturnTypeInAwait(type) &&
             args
         ) {
             const contextualReturnType = getFunctionInferredReturnTypeUsingArguments(type, args);
