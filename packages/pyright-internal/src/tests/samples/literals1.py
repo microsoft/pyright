@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-ValidResponses = Literal["a", b"b", "c" "c", True, None]
+ValidResponses = Literal["a", b"b", Literal["c" "c", True, None]]
 
 
 def foo(a: ValidResponses):

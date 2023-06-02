@@ -13674,7 +13674,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     doForEachSubtype(exprType.type, (subtype) => {
                         if (!isInstantiableClass(subtype) || subtype.literalValue === undefined) {
-                            isLiteralType = false;
+                            if (!isNoneTypeClass(subtype)) {
+                                isLiteralType = false;
+                            }
                         }
                     });
 
