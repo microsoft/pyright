@@ -2103,32 +2103,42 @@ export function getMembersForModule(moduleType: ModuleType, symbolTable: SymbolT
     });
 }
 
-// Determines if the type is an Any or Unknown or a union that
-// contains one of these. It does not look at type arguments.
-export function containsAnyOrUnknown(type: Type) {
-    let foundAnyOrUnknown = false;
+// Determines if the type contains an Any or Unknown type. If so,
+// it returns the Any or Unknown type. Unknowns are preferred over
+// Any if both are present. If recurse is true, it will recurse
+// through type arguments and parameters.
+export function containsAnyOrUnknown(type: Type, recurse: boolean): AnyType | UnknownType | undefined {
+    class AnyOrUnknownWalker extends TypeWalker {
+        anyOrUnknownType: AnyType | UnknownType | undefined;
 
-    doForEachSubtype(type, (subtype) => {
-        if (isAnyOrUnknown(subtype)) {
-            foundAnyOrUnknown = true;
+        constructor(private _recurse: boolean) {
+            super();
         }
-    });
 
-    return foundAnyOrUnknown;
-}
-
-// Determines if the type is an Unknown or a union that contains an Unknown.
-// It does not look at type arguments.
-export function containsUnknown(type: Type) {
-    let foundUnknown = false;
-
-    doForEachSubtype(type, (subtype) => {
-        if (isUnknown(subtype)) {
-            foundUnknown = true;
+        override visitUnknown(type: UnknownType) {
+            this.anyOrUnknownType = this.anyOrUnknownType ? preserveUnknown(this.anyOrUnknownType, type) : type;
         }
-    });
 
-    return foundUnknown;
+        override visitAny(type: AnyType) {
+            this.anyOrUnknownType = this.anyOrUnknownType ? preserveUnknown(this.anyOrUnknownType, type) : type;
+        }
+
+        override visitClass(type: ClassType) {
+            if (this._recurse) {
+                super.visitClass(type);
+            }
+        }
+
+        override visitFunction(type: FunctionType) {
+            if (this._recurse) {
+                super.visitFunction(type);
+            }
+        }
+    }
+
+    const walker = new AnyOrUnknownWalker(recurse);
+    walker.walk(type);
+    return walker.anyOrUnknownType;
 }
 
 // Determines if any part of the type contains "Unknown", including any type arguments.

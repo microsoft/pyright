@@ -198,7 +198,6 @@ import {
     computeMroLinearization,
     containsAnyOrUnknown,
     containsLiteralType,
-    containsUnknown,
     convertParamSpecValueToType,
     convertToInstance,
     convertToInstantiable,
@@ -8218,16 +8217,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         for (let dedupedIndex = 0; dedupedIndex < dedupedMatchResults.length; dedupedIndex++) {
                             if (assignType(dedupedMatchResults[dedupedIndex], result.returnType)) {
-                                if (!containsAnyOrUnknown(dedupedMatchResults[dedupedIndex])) {
+                                const anyOrUnknown = containsAnyOrUnknown(
+                                    dedupedMatchResults[dedupedIndex],
+                                    /* recurse */ false
+                                );
+                                if (!anyOrUnknown) {
                                     isSubtypeSubsumed = true;
-                                } else if (!containsUnknown(dedupedMatchResults[dedupedIndex])) {
+                                } else if (isAny(anyOrUnknown)) {
                                     dedupedResultsIncludeAny = true;
                                 }
                                 break;
                             } else if (assignType(result.returnType, dedupedMatchResults[dedupedIndex])) {
-                                if (!containsAnyOrUnknown(result.returnType)) {
+                                const anyOrUnknown = containsAnyOrUnknown(result.returnType, /* recurse */ false);
+                                if (!anyOrUnknown) {
                                     dedupedMatchResults[dedupedIndex] = NeverType.createNever();
-                                } else if (!containsUnknown(dedupedMatchResults[dedupedIndex])) {
+                                } else if (isAny(anyOrUnknown)) {
                                     dedupedResultsIncludeAny = true;
                                 }
                                 break;
@@ -15433,7 +15437,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const decorator = node.decorators[i];
 
             const newDecoratedType = applyClassDecorator(decoratedType, classType, decorator);
-            if (containsUnknown(newDecoratedType)) {
+            const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
+
+            if (unknownOrAny && isUnknown(unknownOrAny)) {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
                     addDiagnostic(
@@ -16547,7 +16553,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const decorator = node.decorators[i];
 
             const newDecoratedType = applyFunctionDecorator(decoratedType, functionType, decorator, node);
-            if (containsUnknown(newDecoratedType)) {
+            const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
+
+            if (unknownOrAny && isUnknown(unknownOrAny)) {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
                     addDiagnostic(
