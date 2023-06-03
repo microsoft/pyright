@@ -113,7 +113,7 @@ export interface TypeSameOptions {
     treatAnySameAsUnknown?: boolean;
 }
 
-interface TypeAliasInfo {
+export interface TypeAliasInfo {
     name: string;
     fullName: string;
     typeVarScopeId: TypeVarScopeId;
