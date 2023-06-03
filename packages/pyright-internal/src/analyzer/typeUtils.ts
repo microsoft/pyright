@@ -3564,14 +3564,20 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
             // Create new type variables with the same scope but with
             // different (unique) names.
             sourceType.details.typeParameters.forEach((typeParam) => {
-                const replacement = TypeVarType.cloneForNewName(
+                let replacement: Type = TypeVarType.cloneForNewName(
                     typeParam,
                     `${typeParam.details.name}(${existingSignature.count})`
                 );
-                typeVarContext.setTypeVarType(typeParam, replacement);
 
-                updatedSourceType = applySolvedTypeVars(sourceType, typeVarContext);
+                if (replacement.details.isParamSpec) {
+                    replacement = convertTypeToParamSpecValue(replacement);
+                }
+
+                typeVarContext.setTypeVarType(typeParam, replacement);
             });
+
+            updatedSourceType = applySolvedTypeVars(sourceType, typeVarContext);
+            assert(isFunction(updatedSourceType) || isOverloadedFunction(updatedSourceType));
         }
 
         this._signatureTracker.addSignature(sourceType);

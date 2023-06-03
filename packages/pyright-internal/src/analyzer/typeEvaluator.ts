@@ -10471,6 +10471,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let passCount = Math.min(typeVarMatchingCount, 2);
             for (let i = 0; i < passCount; i++) {
                 const signatureTracker = new UniqueSignatureTracker();
+                signatureTracker.addSignature(type);
 
                 useSpeculativeMode(errorNode, () => {
                     matchResults.argParams.forEach((argParam) => {
@@ -10531,6 +10532,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const argResults: ArgResult[] = [];
 
         const signatureTracker = new UniqueSignatureTracker();
+        signatureTracker.addSignature(type);
+
         matchResults.argParams.forEach((argParam) => {
             const argResult = validateArgType(
                 argParam,
