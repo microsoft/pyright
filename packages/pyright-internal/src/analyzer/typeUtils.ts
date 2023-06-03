@@ -796,66 +796,31 @@ export function isLiteralTypeOrUnion(type: Type): boolean {
     return false;
 }
 
-export function containsType(
-    type: Type,
-    predicate: (t: Type) => boolean,
-    includeTypeArgs = false,
-    recursionCount = 0
-): boolean {
-    if (recursionCount > maxTypeRecursionCount) {
-        return false;
-    }
-    recursionCount++;
+export function containsLiteralType(type: Type, includeTypeArgs = false): boolean {
+    class ContainsLiteralTypeWalker extends TypeWalker {
+        foundLiteral = false;
 
-    if (predicate(type)) {
-        return true;
-    }
-
-    if (includeTypeArgs && isClass(type)) {
-        const typeArgs = type.tupleTypeArguments?.map((t) => t.type) || type.typeArguments;
-        if (typeArgs) {
-            return typeArgs.some((typeArg) => containsType(typeArg, predicate, includeTypeArgs, recursionCount));
-        }
-    }
-
-    if (isUnion(type)) {
-        return type.subtypes.some((subtype) => containsType(subtype, predicate, includeTypeArgs, recursionCount));
-    }
-
-    if (isOverloadedFunction(type)) {
-        return type.overloads.some((overload) => containsType(overload, predicate, includeTypeArgs, recursionCount));
-    }
-
-    if (isFunction(type)) {
-        const returnType = FunctionType.getSpecializedReturnType(type);
-        if (returnType && containsType(returnType, predicate, includeTypeArgs, recursionCount)) {
-            return true;
+        constructor(private _includeTypeArgs: boolean) {
+            super();
         }
 
-        for (let i = 0; i < type.details.parameters.length; i++) {
-            const paramType = FunctionType.getEffectiveParameterType(type, i);
-            if (containsType(paramType, predicate, includeTypeArgs, recursionCount)) {
-                return true;
+        override visitClass(classType: ClassType): void {
+            if (isClassInstance(classType)) {
+                if (isLiteralType(classType) || ClassType.isBuiltIn(classType, 'LiteralString')) {
+                    this.foundLiteral = true;
+                    this.cancelWalk();
+                }
+            }
+
+            if (this._includeTypeArgs) {
+                super.visitClass(classType);
             }
         }
     }
 
-    return false;
-}
-
-export function containsLiteralType(type: Type, includeTypeArgs = false, recursionCount = 0): boolean {
-    return containsType(
-        type,
-        (t) => {
-            if (!isClassInstance(t)) {
-                return false;
-            }
-
-            return isLiteralType(t) || ClassType.isBuiltIn(t, 'LiteralString');
-        },
-        includeTypeArgs,
-        recursionCount
-    );
+    const walker = new ContainsLiteralTypeWalker(includeTypeArgs);
+    walker.walk(type);
+    return walker.foundLiteral;
 }
 
 // If all of the subtypes are literals with the same built-in class (e.g.
