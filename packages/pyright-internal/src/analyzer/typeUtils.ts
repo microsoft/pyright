@@ -2283,6 +2283,40 @@ export function specializeTupleClass(
     return clonedClassType;
 }
 
+// If the array contains two or more class types that are all the same
+// generic type, return the common "erased" type — a type that
+// replaces all of the type arguments with Unknown.
+export function getCommonErasedType(types: Type[]): ClassType | undefined {
+    if (types.length < 2) {
+        return undefined;
+    }
+
+    if (!isClass(types[0])) {
+        return undefined;
+    }
+
+    for (let i = 1; i < types.length; i++) {
+        const candidate = types[i];
+        if (
+            !isClass(candidate) ||
+            TypeBase.isInstance(candidate) !== TypeBase.isInstance(types[0]) ||
+            !ClassType.isSameGenericClass(types[0], candidate)
+        ) {
+            return undefined;
+        }
+    }
+
+    if (isTupleClass(types[0])) {
+        return specializeTupleClass(types[0], [{ type: UnknownType.create(), isUnbounded: true }]);
+    }
+
+    return ClassType.cloneForSpecialization(
+        types[0],
+        types[0].details.typeParameters.map((t) => UnknownType.create()),
+        /* isTypeArgumentExplicit */ true
+    );
+}
+
 // If the type is a function or overloaded function that has a paramSpec
 // associated with it and P.args and P.kwargs at the end of the signature,
 // it removes these parameters from the function.
