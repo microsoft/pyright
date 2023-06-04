@@ -14995,7 +14995,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const initSubclassArgs: FunctionArgument[] = [];
         let metaclassNode: ExpressionNode | undefined;
-        let isMetaclassDeferred = false;
         let exprFlags =
             EvaluatorFlags.ExpectingType |
             EvaluatorFlags.AllowGenericClassType |
@@ -15060,7 +15059,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 dependency: argType,
                                 callback: () => completeClassTypeDeferred(classType, node, node.name),
                             });
-                            isMetaclassDeferred = true;
                         }
 
                         if (ClassType.isBuiltIn(argType, 'Protocol')) {
@@ -15585,12 +15583,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Update the decorated class type.
         writeTypeCache(node, { type: decoratedType }, EvaluatorFlags.None);
 
-        // Validate that arguments passed to `__init_subclass__` are of the correct type.
-        // Defer this if the metaclass calculation is deferred.
-        if (!isMetaclassDeferred) {
-            validateInitSubclassArgs(node, classType);
-        }
-
         return { classType, decoratedType };
     }
 
@@ -15995,8 +15987,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Recompute the effective metaclass.
         computeEffectiveMetaclass(type, errorNode);
-
-        validateInitSubclassArgs(node, type);
     }
 
     function validateInitSubclassArgs(node: ClassNode, classType: ClassType) {
@@ -19482,7 +19472,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // the corresponding named parameter can be determined from the context.
             const argNode = node.parent;
             const paramName = node.value;
-            if (argNode.parent && argNode.parent.nodeType === ParseNodeType.Call) {
+            if (argNode.parent?.nodeType === ParseNodeType.Call) {
                 const baseType = getType(argNode.parent.leftExpression);
 
                 if (baseType) {
@@ -19520,6 +19510,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                         }
                     }
+                }
+            } else if (argNode.parent?.nodeType === ParseNodeType.Class) {
+                const classTypeResult = getTypeOfClass(argNode.parent);
+
+                // Validate the init subclass args for this class so we can properly
+                // evaluate its custom keyword parameters.
+                if (classTypeResult) {
+                    validateInitSubclassArgs(argNode.parent, classTypeResult.classType);
                 }
             }
         } else {
@@ -25206,6 +25204,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         verifyRaiseExceptionType,
         verifyDeleteExpression,
         validateOverloadedFunctionArguments,
+        validateInitSubclassArgs,
         isAfterNodeReachable,
         isNodeReachable,
         isAsymmetricDescriptorAssignment: isAsymmetricAccessorAssignment,

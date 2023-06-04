@@ -405,6 +405,8 @@ export class Checker extends ParseTreeWalker {
             if (ClassType.isEnumClass(classTypeResult.classType)) {
                 this._validateEnumClassOverride(node, classTypeResult.classType);
             }
+
+            this._evaluator.validateInitSubclassArgs(node, classTypeResult.classType);
         }
 
         this._scopedNodes.push(node);

@@ -466,6 +466,7 @@ export interface TypeEvaluator {
         skipUnknownArgCheck: boolean,
         inferenceContext: InferenceContext | undefined
     ) => CallResult;
+    validateInitSubclassArgs: (node: ClassNode, classType: ClassType) => void;
 
     isAfterNodeReachable: (node: ParseNode) => boolean;
     isNodeReachable: (node: ParseNode, sourceNode?: ParseNode | undefined) => boolean;
