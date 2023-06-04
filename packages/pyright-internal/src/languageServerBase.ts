@@ -70,6 +70,7 @@ import {
     WorkspaceSymbol,
     WorkspaceSymbolParams,
 } from 'vscode-languageserver';
+import { InlayHint, InlayHintParams } from 'vscode-languageserver-protocol';
 import { ResultProgressReporter, attachWorkDone } from 'vscode-languageserver/lib/common/progress';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -114,6 +115,7 @@ import { Uri } from './common/uri/uri';
 import { deduplicateFolders, encodeUri, isFile } from './common/uri/uriUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CallHierarchyProvider } from './languageService/callHierarchyProvider';
+import { InlayHintsProvider } from './languageService/inlayHintsProvider';
 import { CompletionItemData, CompletionProvider } from './languageService/completionProvider';
 import { DefinitionFilter, DefinitionProvider, TypeDefinitionProvider } from './languageService/definitionProvider';
 import { DocumentHighlightProvider } from './languageService/documentHighlightProvider';
@@ -656,6 +658,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         callHierarchy.onIncomingCalls(async (params, token) => this.onCallHierarchyIncomingCalls(params, token));
         callHierarchy.onOutgoingCalls(async (params, token) => this.onCallHierarchyOutgoingCalls(params, token));
 
+        const inlayHints = this.connection.languages.inlayHint;
+        inlayHints.on(async (params, token) => this.onInlayHints(params, token));
+
         this.connection.onDidOpenTextDocument(async (params) => this.onDidOpenTextDocument(params));
         this.connection.onDidChangeTextDocument(async (params) => this.onDidChangeTextDocument(params));
         this.connection.onDidCloseTextDocument(async (params) => this.onDidCloseTextDocument(params));
@@ -761,6 +766,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                     workDoneProgress: true,
                 },
                 callHierarchyProvider: true,
+                inlayHintProvider: true,
                 workspace: {
                     workspaceFolders: {
                         supported: true,
@@ -1115,6 +1121,19 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 workspace.kinds.includes(WellKnownWorkspaceKinds.Default),
                 isUntitled
             );
+        }, token);
+    }
+
+    protected async onInlayHints(params: InlayHintParams, token: CancellationToken): Promise<InlayHint[] | null> {
+        const filePath = this.uriParser.decodeTextDocumentUri(params.textDocument.uri);
+
+        const workspace = await this.getWorkspaceForFile(filePath);
+        if (workspace.disableLanguageServices) {
+            return null;
+        }
+
+        return workspace.service.run((program) => {
+            return new InlayHintsProvider(program, filePath, token).onInlayHints();
         }, token);
     }
 
