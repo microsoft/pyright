@@ -425,6 +425,33 @@ export class ImportResolver {
         return this._cachedPythonSearchPaths.paths;
     }
 
+    getTypeshedStdlibExcludeList(execEnv: ExecutionEnvironment): string[] {
+        const typeshedStdlibPath = this.getTypeshedStdLibPath(execEnv);
+        const excludes: string[] = [];
+
+        if (!typeshedStdlibPath) {
+            return excludes;
+        }
+
+        if (!this._cachedTypeshedStdLibModuleVersions) {
+            this._cachedTypeshedStdLibModuleVersions = this._readTypeshedStdLibVersions(execEnv, []);
+        }
+
+        this._cachedTypeshedStdLibModuleVersions.forEach((versionRange, moduleName) => {
+            if (versionRange.max !== undefined && execEnv.pythonVersion > versionRange.max) {
+                // Add excludes for both the ".pyi" file and the directory that contains it
+                // (in case it's using a "__init__.pyi" file).
+                const moduleDirPath = combinePaths(typeshedStdlibPath, ...moduleName.split('.'));
+                excludes.push(moduleDirPath);
+
+                const moduleFilePath = moduleDirPath + '.pyi';
+                excludes.push(moduleFilePath);
+            }
+        });
+
+        return excludes;
+    }
+
     protected readdirEntriesCached(path: string): Dirent[] {
         const cachedValue = this._cachedEntriesForPath.get(path);
         if (cachedValue) {
