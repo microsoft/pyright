@@ -201,3 +201,43 @@ def overload6(*args: Any) -> tuple[Any, ...]:
 
 def func9(*args: int):
     reveal_type(overload6(*args), expected_text="tuple[int, ...]")
+
+
+@overload
+def overload7(a: float = ..., *, b: Literal[True] = ...) -> float:
+    ...
+
+
+@overload
+def overload7(a: float = ..., *, b: bool) -> str:
+    ...
+
+
+def overload7(a: float = 1.0, *, b: bool = True) -> float | str:
+    ...
+
+
+def func10(kwargs_dict: dict[Any, Any]):
+    reveal_type(overload7(**kwargs_dict), expected_text="Unknown")
+
+
+def func11(kwargs_dict: dict[str, Any]):
+    reveal_type(overload7(**kwargs_dict), expected_text="Unknown")
+
+
+def func12(kwargs_dict: dict[str, bool]):
+    reveal_type(overload7(**kwargs_dict), expected_text="str")
+
+
+def func13(kwargs_dict: dict[str, Literal[True]]):
+    reveal_type(overload7(**kwargs_dict), expected_text="float")
+
+
+def func14():
+    reveal_type(overload7(), expected_text="float")
+
+
+def func15(kwargs_dict: dict[str, str]):
+    # This should generate an error because str isn't a valid type for
+    # the b parameter.
+    overload7(1.0, **kwargs_dict)

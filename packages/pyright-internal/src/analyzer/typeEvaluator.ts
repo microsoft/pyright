@@ -8487,9 +8487,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { argumentErrors: true, isTypeIncomplete: false, overloadsUsedForCall: [] };
         }
 
-        // Create a helper lambda that evaluates the overload that matches
+        // Create a helper function that evaluates the overload that matches
         // the arg/param lists.
-        const evaluateUsingLastMatchingOverload = (skipUnknownArgCheck: boolean) => {
+        function evaluateUsingLastMatchingOverload(skipUnknownArgCheck: boolean) {
             // Find the match with the largest overload index (i.e. the last overload
             // that was in the overload list).
             const lastMatch = filteredMatchResults.reduce((previous, current) => {
@@ -8507,7 +8507,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 skipUnknownArgCheck,
                 inferenceContext
             );
-        };
+        }
 
         // If there is only one possible arg/param match among the overloads,
         // use the normal type matching mechanism because it is faster and
@@ -10075,7 +10075,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         paramIndex >= paramDetails.firstPositionOrKeywordIndex &&
                         param.category === ParameterCategory.Simple &&
                         param.name &&
-                        !param.hasDefault &&
                         paramMap.has(param.name) &&
                         paramMap.get(param.name)!.argsReceived === 0
                     ) {
