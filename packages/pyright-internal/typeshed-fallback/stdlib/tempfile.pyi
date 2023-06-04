@@ -33,7 +33,51 @@ template: str
 _StrMode: TypeAlias = Literal["r", "w", "a", "x", "r+", "w+", "a+", "x+", "rt", "wt", "at", "xt", "r+t", "w+t", "a+t", "x+t"]
 _BytesMode: TypeAlias = Literal["rb", "wb", "ab", "xb", "r+b", "w+b", "a+b", "x+b"]
 
-if sys.version_info >= (3, 8):
+if sys.version_info >= (3, 12):
+    @overload
+    def NamedTemporaryFile(
+        mode: _StrMode,
+        buffering: int = -1,
+        encoding: str | None = None,
+        newline: str | None = None,
+        suffix: AnyStr | None = None,
+        prefix: AnyStr | None = None,
+        dir: GenericPath[AnyStr] | None = None,
+        delete: bool = True,
+        *,
+        errors: str | None = None,
+        delete_on_close: bool = True,
+    ) -> _TemporaryFileWrapper[str]: ...
+    @overload
+    def NamedTemporaryFile(
+        mode: _BytesMode = "w+b",
+        buffering: int = -1,
+        encoding: str | None = None,
+        newline: str | None = None,
+        suffix: AnyStr | None = None,
+        prefix: AnyStr | None = None,
+        dir: GenericPath[AnyStr] | None = None,
+        delete: bool = True,
+        *,
+        errors: str | None = None,
+        delete_on_close: bool = True,
+    ) -> _TemporaryFileWrapper[bytes]: ...
+    @overload
+    def NamedTemporaryFile(
+        mode: str = "w+b",
+        buffering: int = -1,
+        encoding: str | None = None,
+        newline: str | None = None,
+        suffix: AnyStr | None = None,
+        prefix: AnyStr | None = None,
+        dir: GenericPath[AnyStr] | None = None,
+        delete: bool = True,
+        *,
+        errors: str | None = None,
+        delete_on_close: bool = True,
+    ) -> _TemporaryFileWrapper[Any]: ...
+
+elif sys.version_info >= (3, 8):
     @overload
     def NamedTemporaryFile(
         mode: _StrMode,
@@ -185,7 +229,11 @@ class _TemporaryFileWrapper(Generic[AnyStr], IO[AnyStr]):
     file: IO[AnyStr]  # io.TextIOWrapper, io.BufferedReader or io.BufferedWriter
     name: str
     delete: bool
-    def __init__(self, file: IO[AnyStr], name: str, delete: bool = True) -> None: ...
+    if sys.version_info >= (3, 12):
+        def __init__(self, file: IO[AnyStr], name: str, delete: bool = True, delete_on_close: bool = True) -> None: ...
+    else:
+        def __init__(self, file: IO[AnyStr], name: str, delete: bool = True) -> None: ...
+
     def __enter__(self) -> Self: ...
     def __exit__(self, exc: type[BaseException] | None, value: BaseException | None, tb: TracebackType | None) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
@@ -425,7 +473,28 @@ class SpooledTemporaryFile(IO[AnyStr], _SpooledTemporaryFileBase):
 
 class TemporaryDirectory(Generic[AnyStr]):
     name: AnyStr
-    if sys.version_info >= (3, 10):
+    if sys.version_info >= (3, 12):
+        @overload
+        def __init__(
+            self: TemporaryDirectory[str],
+            suffix: str | None = None,
+            prefix: str | None = None,
+            dir: StrPath | None = None,
+            ignore_cleanup_errors: bool = False,
+            *,
+            delete: bool = True,
+        ) -> None: ...
+        @overload
+        def __init__(
+            self: TemporaryDirectory[bytes],
+            suffix: bytes | None = None,
+            prefix: bytes | None = None,
+            dir: BytesPath | None = None,
+            ignore_cleanup_errors: bool = False,
+            *,
+            delete: bool = True,
+        ) -> None: ...
+    elif sys.version_info >= (3, 10):
         @overload
         def __init__(
             self: TemporaryDirectory[str],

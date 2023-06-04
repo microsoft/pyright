@@ -17,7 +17,7 @@ from importlib.machinery import ModuleSpec
 
 # pytype crashes if types.MappingProxyType inherits from collections.abc.Mapping instead of typing.Mapping
 from typing import Any, ClassVar, Generic, Mapping, Protocol, TypeVar, overload  # noqa: Y022
-from typing_extensions import Literal, ParamSpec, final
+from typing_extensions import Literal, ParamSpec, TypeVarTuple, final
 
 __all__ = [
     "FunctionType",
@@ -94,6 +94,8 @@ class FunctionType:
     if sys.version_info >= (3, 10):
         @property
         def __builtins__(self) -> dict[str, Any]: ...
+    if sys.version_info >= (3, 12):
+        __type_params__: tuple[TypeVar | ParamSpec | TypeVarTuple, ...]
 
     __module__: str
     def __init__(
