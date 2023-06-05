@@ -422,14 +422,17 @@ export function assignTypeToTypeVar(
 
     if ((flags & AssignTypeFlags.PopulatingExpectedType) !== 0) {
         // If we're populating the expected type, constrain either the
-        // narrow type bound, wide type bound or both.
-        if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
-            newNarrowTypeBound = adjSrcType;
-            newWideTypeBound = adjSrcType;
-        } else if (isContravariant) {
-            newNarrowTypeBound = adjSrcType;
-        } else {
-            newWideTypeBound = adjSrcType;
+        // narrow type bound, wide type bound or both. Don't overwrite
+        // an existing entry.
+        if (!curEntry) {
+            if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+                newNarrowTypeBound = adjSrcType;
+                newWideTypeBound = adjSrcType;
+            } else if (isContravariant) {
+                newNarrowTypeBound = adjSrcType;
+            } else {
+                newWideTypeBound = adjSrcType;
+            }
         }
     } else if (isContravariant) {
         // Update the wide type bound.
