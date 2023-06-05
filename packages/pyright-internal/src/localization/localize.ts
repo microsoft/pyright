@@ -468,9 +468,11 @@ export namespace Localizer {
         export const functionInConditionalExpression = () => getRawString('Diagnostic.functionInConditionalExpression');
         export const functionTypeParametersIllegal = () => getRawString('Diagnostic.functionTypeParametersIllegal');
         export const futureImportLocationNotAllowed = () => getRawString('Diagnostic.futureImportLocationNotAllowed');
-        export const generatorAsyncReturnType = () => getRawString('Diagnostic.generatorAsyncReturnType');
+        export const generatorAsyncReturnType = () =>
+            new ParameterizedString<{ yieldType: string }>(getRawString('Diagnostic.generatorAsyncReturnType'));
         export const generatorNotParenthesized = () => getRawString('Diagnostic.generatorNotParenthesized');
-        export const generatorSyncReturnType = () => getRawString('Diagnostic.generatorSyncReturnType');
+        export const generatorSyncReturnType = () =>
+            new ParameterizedString<{ yieldType: string }>(getRawString('Diagnostic.generatorSyncReturnType'));
         export const genericBaseClassNotAllowed = () => getRawString('Diagnostic.genericBaseClassNotAllowed');
         export const genericClassAssigned = () => getRawString('Diagnostic.genericClassAssigned');
         export const genericClassDeleted = () => getRawString('Diagnostic.genericClassDeleted');
@@ -1065,10 +1067,6 @@ export namespace Localizer {
         export const yieldFromIllegal = () => getRawString('Diagnostic.yieldFromIllegal');
         export const yieldFromOutsideAsync = () => getRawString('Diagnostic.yieldFromOutsideAsync');
         export const yieldOutsideFunction = () => getRawString('Diagnostic.yieldOutsideFunction');
-        export const yieldTypeMismatch = () =>
-            new ParameterizedString<{ exprType: string; yieldType: string }>(
-                getRawString('Diagnostic.yieldTypeMismatch')
-            );
         export const yieldWithinListCompr = () => getRawString('Diagnostic.yieldWithinListCompr');
         export const zeroCaseStatementsFound = () => getRawString('Diagnostic.zeroCaseStatementsFound');
         export const zeroLengthTupleNotAllowed = () => getRawString('Diagnostic.zeroLengthTupleNotAllowed');

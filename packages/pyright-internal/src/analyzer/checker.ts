@@ -130,7 +130,6 @@ import {
     getClassFieldsRecursive,
     getDeclaredGeneratorReturnType,
     getGeneratorTypeArgs,
-    getGeneratorYieldType,
     getProtocolSymbols,
     getProtocolSymbolsRecursive,
     getTypeVarArgumentsRecursive,
@@ -6210,55 +6209,74 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
+    // Determines whether a yield or yield from node is compatible with the
+    // return type annotation of the containing function.
     private _validateYieldType(node: YieldNode | YieldFromNode, yieldType: Type) {
-        let declaredReturnType: Type | undefined;
-        let declaredYieldType: Type | undefined;
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
-
-        if (enclosingFunctionNode) {
-            const functionTypeResult = this._evaluator.getTypeOfFunction(enclosingFunctionNode);
-            if (functionTypeResult) {
-                assert(isFunction(functionTypeResult.functionType));
-                declaredReturnType = FunctionType.getSpecializedReturnType(functionTypeResult.functionType);
-                if (declaredReturnType) {
-                    declaredYieldType = getGeneratorYieldType(declaredReturnType, !!enclosingFunctionNode.isAsync);
-                }
-
-                if (declaredReturnType && !declaredYieldType && enclosingFunctionNode.returnTypeAnnotation) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        enclosingFunctionNode.isAsync
-                            ? Localizer.Diagnostic.generatorAsyncReturnType()
-                            : Localizer.Diagnostic.generatorSyncReturnType(),
-                        enclosingFunctionNode.returnTypeAnnotation
-                    );
-                }
-            }
+        if (!enclosingFunctionNode || !enclosingFunctionNode.returnTypeAnnotation) {
+            return;
         }
 
-        if (this._evaluator.isNodeReachable(node, /* sourceNode */ undefined)) {
-            if (declaredReturnType && isNever(declaredReturnType)) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.noReturnContainsYield(),
-                    node
-                );
-            } else if (declaredYieldType) {
-                const diagAddendum = new DiagnosticAddendum();
-                if (!this._evaluator.assignType(declaredYieldType, yieldType, diagAddendum)) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.yieldTypeMismatch().format({
-                            exprType: this._evaluator.printType(yieldType),
-                            yieldType: this._evaluator.printType(declaredYieldType),
-                        }) + diagAddendum.getString(),
-                        node.expression || node
-                    );
-                }
-            }
+        const functionTypeResult = this._evaluator.getTypeOfFunction(enclosingFunctionNode);
+        if (!functionTypeResult) {
+            return;
+        }
+
+        const declaredReturnType = FunctionType.getSpecializedReturnType(functionTypeResult.functionType);
+        if (!declaredReturnType) {
+            return;
+        }
+
+        let generatorType: Type | undefined;
+        if (
+            !enclosingFunctionNode.isAsync &&
+            isClassInstance(declaredReturnType) &&
+            ClassType.isBuiltIn(declaredReturnType, 'AwaitableGenerator')
+        ) {
+            // Handle the old-style (pre-await) generator case
+            // if the return type explicitly uses AwaitableGenerator.
+            generatorType = this._evaluator.getTypingType(node, 'AwaitableGenerator');
+        } else {
+            generatorType = this._evaluator.getTypingType(
+                node,
+                enclosingFunctionNode.isAsync ? 'AsyncGenerator' : 'Generator'
+            );
+        }
+
+        if (!generatorType || !isInstantiableClass(generatorType)) {
+            return;
+        }
+
+        if (!this._evaluator.isNodeReachable(node, /* sourceNode */ undefined)) {
+            return;
+        }
+
+        if (isNever(declaredReturnType)) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.noReturnContainsYield(),
+                node
+            );
+            return;
+        }
+
+        const specializedGenerator = ClassType.cloneAsInstance(
+            ClassType.cloneForSpecialization(generatorType, [yieldType], /* isTypeArgumentExplicit */ true)
+        );
+
+        const diagAddendum = new DiagnosticAddendum();
+        if (!this._evaluator.assignType(declaredReturnType, specializedGenerator, diagAddendum)) {
+            const errorMessage = enclosingFunctionNode.isAsync
+                ? Localizer.Diagnostic.generatorAsyncReturnType()
+                : Localizer.Diagnostic.generatorSyncReturnType();
+
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                errorMessage.format({ yieldType: this._evaluator.printType(yieldType) }) + diagAddendum.getString(),
+                node.expression ?? node
+            );
         }
     }
 

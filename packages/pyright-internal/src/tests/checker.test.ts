@@ -128,7 +128,7 @@ test('Constants1', () => {
 test('NoReturn1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['noreturn1.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('NoReturn2', () => {

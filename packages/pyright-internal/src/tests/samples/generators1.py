@@ -1,7 +1,17 @@
 # This sample tests various type checking operations relating to
 # generator functions (those with a "yield" method).
 
-from typing import Any, Generator, Dict, Iterable, Iterator, List, TypedDict
+from typing import (
+    Any,
+    Awaitable,
+    Generator,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Protocol,
+    TypedDict,
+)
 
 
 class ClassA:
@@ -124,3 +134,21 @@ def generator13() -> Generator[TD1, None, None]:
 
 def generator14() -> Iterator[TD1]:
     yield {"x": "x"}
+
+
+class IntIterator(Protocol):
+    def __next__(self, /) -> int:
+        ...
+
+
+def generator15() -> IntIterator:
+    yield 0
+
+
+class AsyncIntIterator(Protocol):
+    def __anext__(self, /) -> Awaitable[int]:
+        ...
+
+
+async def generator16() -> AsyncIntIterator:
+    yield 0

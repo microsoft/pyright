@@ -29,8 +29,6 @@ def func4(x: bool) -> str:
         func3()
 
 
-# This should generate an error because a generator
-# function must return an iterable type.
 def func5(x: bool) -> NoReturn:
     if x:
         # This should generate an error because the function
