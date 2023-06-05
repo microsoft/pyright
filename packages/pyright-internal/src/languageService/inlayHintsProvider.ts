@@ -2,27 +2,81 @@ import { CancellationToken, Hover, MarkupContent } from 'vscode-languageserver';
 import { InlayHint, InlayHintLabelPart } from 'vscode-languageserver-protocol';
 import { ProgramView } from '../common/extensibility';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { ArgumentNode, CallNode, FunctionNode, MemberAccessNode, ModuleNode, NameNode } from '../parser/parseNodes';
+import {
+    ArgumentNode,
+    CallNode,
+    FunctionNode,
+    MemberAccessNode,
+    NameNode,
+    ParameterCategory,
+} from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
-import { printParseNodeType } from '../analyzer/parseTreeUtils';
+import { getCallNodeAndActiveParameterIndex, printParseNodeType } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
-import { ConsoleInterface } from '../common/console';
 import { Position, getEmptyPosition } from '../common/textRange';
-import { ParseNodeType } from '../parser/parseNodes';
+import { ParameterNode, ParseNodeType } from '../parser/parseNodes';
 import { HoverProvider } from './hoverProvider';
+import { CallSignature } from '../analyzer/typeEvaluatorTypes';
 
 type TypeInlayHintsItemType = {
-    inlayHintType: 'variable' | 'functionReturn';
+    inlayHintType: 'variable' | 'functionReturn' | 'parameter';
     startOffset: number;
     endOffset: number;
     value?: string;
 };
 
+// Don't generate inlay hints for arguments to builtin types and functions
+
+const ignoredBuiltinTypes = [
+    'builtins.bool',
+    'builtins.bytes',
+    'builtins.bytearray',
+    'builtins.float',
+    'builtins.int',
+    'builtins.list',
+    'builtins.memoryview',
+    'builtins.str',
+    'builtins.tuple',
+    'builtins.range',
+    'builtins.enumerate',
+    'builtins.map',
+    'builtins.filter',
+    'builtins.slice',
+    'builtins.type',
+    'builtins.reversed',
+    'builtins.zip',
+];
+const ignoredBuiltinFunctions = [
+    'builtins.len',
+    'builtins.max',
+    'builtins.min',
+    'builtins.next',
+    'builtins.repr',
+    'builtins.setattr',
+    'builtins.getattr',
+    'builtins.hasattr',
+    'builtins.sorted',
+    'builtins.isinstance',
+    'builtins.id',
+    'builtins.iter',
+];
+
+function isIgnoredBuiltin(sig: CallSignature): boolean {
+    if (sig.type.details.moduleName !== 'builtins') {
+        return false;
+    }
+    const funcName = sig.type.details.name;
+    if (funcName === '__new__' || funcName === '__init__') {
+        return ignoredBuiltinTypes.some((v) => `${v}.${funcName}` === sig.type.details.fullName);
+    }
+    return ignoredBuiltinFunctions.some((v) => v === sig.type.details.fullName);
+}
+
 class TypeInlayHintsWalker extends ParseTreeWalker {
     featureItems: TypeInlayHintsItemType[] = [];
 
-    constructor() {
+    constructor(private readonly _program: ProgramView, private readonly _parseResults: ParseResults) {
         super();
     }
 
@@ -56,25 +110,64 @@ class TypeInlayHintsWalker extends ParseTreeWalker {
         return super.visitMemberAccess(node);
     }
 
+    getFunctionParametersFromNode(node: CallNode): ParameterNode[] | undefined {
+        const funcName = (node.leftExpression as NameNode).value;
+        const result = this._program.evaluator?.lookUpSymbolRecursive(node.leftExpression, funcName, false);
+        const declarations = result?.symbol.getTypedDeclarations();
+        if (!declarations || declarations.length === 0) {
+            return undefined;
+        }
+        const decl = declarations[0];
+        if (decl.node.nodeType === ParseNodeType.Function) {
+            return decl.node.parameters;
+        }
+        return undefined;
+    }
+
+    private getParameterNameHint(node: ArgumentNode): string | undefined {
+        const result = getCallNodeAndActiveParameterIndex(node, node.start, this._parseResults.tokenizerOutput.tokens);
+        if (!result?.callNode || result.callNode.arguments[result.activeIndex].name) {
+            return undefined;
+        }
+
+        const signatureInfo = this._program.evaluator?.getCallSignatureInfo(
+            result.callNode,
+            result.activeIndex,
+            result.activeOrFake
+        );
+        if (!signatureInfo) {
+            return undefined;
+        }
+
+        const sig = signatureInfo.signatures[0];
+        if (isIgnoredBuiltin(sig)) {
+            return undefined;
+        }
+
+        const activeParam = sig.activeParam;
+        if (activeParam?.category !== ParameterCategory.Simple) {
+            return undefined;
+        }
+
+        return activeParam.name;
+    }
+
     override visitArgument(node: ArgumentNode): boolean {
         if (node.parent) {
-            const parentNodeType = printParseNodeType(node.parent.nodeType);
-            if (parentNodeType === 'Assignment') {
+            if (node.parent.nodeType === ParseNodeType.Assignment) {
                 return false;
+            }
+            const paramName = this.getParameterNameHint(node);
+            if (paramName) {
+                this.featureItems.push({
+                    inlayHintType: 'parameter',
+                    startOffset: node.start,
+                    endOffset: node.start + node.length - 1,
+                    value: paramName,
+                });
             }
         }
         return super.visitArgument(node);
-    }
-
-    override visitCall(node: CallNode): boolean {
-        function f(t: ParseNodeType) {
-            return printParseNodeType(t);
-        }
-        const x = f(node.nodeType);
-        if (x === 'Continue') {
-            return false;
-        }
-        return super.visitCall(node);
     }
 
     override visitFunction(node: FunctionNode): boolean {
@@ -93,11 +186,7 @@ class TypeInlayHintsWalker extends ParseTreeWalker {
 export class InlayHintsProvider {
     private readonly _parseResults: ParseResults | undefined;
 
-    constructor(
-        private _program: ProgramView,
-        private _filePath: string,
-        private _token: CancellationToken
-    ) {
+    constructor(private _program: ProgramView, private _filePath: string, private _token: CancellationToken) {
         this._parseResults = this._program.getParseResults(this._filePath);
     }
 
@@ -106,25 +195,29 @@ export class InlayHintsProvider {
             return null;
         }
 
-        const walker = new TypeInlayHintsWalker();
+        const walker = new TypeInlayHintsWalker(this._program, this._parseResults);
         walker.walk(this._parseResults.parseTree);
 
         const inlayHints: InlayHint[] = [];
         for (const item of walker.featureItems) {
             const startPosition = convertOffsetToPosition(item.startOffset, this._parseResults.tokenizerOutput.lines);
             const endPosition = convertOffsetToPosition(item.endOffset, this._parseResults.tokenizerOutput.lines);
-            const hoverResponse = await this.getHoverAtOffset(startPosition);
-            if (!hoverResponse) {
+            const hoverResponse =
+                item.inlayHintType === 'parameter' ? null : await this.getHoverAtOffset(startPosition);
+            if (!hoverResponse && item.inlayHintType !== 'parameter') {
                 continue;
             }
 
             let inlayHintLabelValue: string | undefined = undefined;
             let inlayHintPosition: Position | undefined = undefined;
             if (item.inlayHintType === 'variable') {
-                inlayHintLabelValue = this.getVariableHintAtHover(hoverResponse);
+                inlayHintLabelValue = this.getVariableHintAtHover(hoverResponse!);
             }
             if (item.inlayHintType === 'functionReturn') {
-                inlayHintLabelValue = this.getFunctionReturnHintAtHover(hoverResponse);
+                inlayHintLabelValue = this.getFunctionReturnHintAtHover(hoverResponse!);
+            }
+            if (item.inlayHintType === 'parameter') {
+                inlayHintLabelValue = item.value + '=';
             }
 
             if (inlayHintLabelValue) {
@@ -138,6 +231,11 @@ export class InlayHintsProvider {
                     case 'functionReturn':
                         inlayHintPosition = endPosition;
                         break;
+                    case 'parameter':
+                        inlayHintPosition = getEmptyPosition();
+                        inlayHintPosition.line = startPosition.line;
+                        inlayHintPosition.character = startPosition.character;
+                        break;
                     default:
                         break;
                 }
@@ -147,6 +245,7 @@ export class InlayHintsProvider {
                         label: inlayHintLabelPart,
                         position: inlayHintPosition,
                         paddingLeft: item.inlayHintType == 'functionReturn' ?? true,
+                        kind: item.inlayHintType == 'parameter' ? 2 : 1,
                     };
                     inlayHints.push(inlayHint);
                 }
