@@ -652,6 +652,18 @@ test('Strings: f-string with single right brace', () => {
     assert.equal(fStringEndToken.length, 1);
 });
 
+test('Strings: f-string with backslash escape', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize(`f'\\\\'`);
+    assert.equal(results.tokens.count, 3 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.FStringStart);
+    const fStringMiddleToken = results.tokens.getItemAt(1) as FStringMiddleToken;
+    assert.equal(fStringMiddleToken.type, TokenType.FStringMiddle);
+    assert.equal(fStringMiddleToken.length, 2);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.FStringEnd);
+});
+
 test('Strings: f-string with new line escape', () => {
     const t = new Tokenizer();
     const results = t.tokenize(`f'x \\\ny'`);

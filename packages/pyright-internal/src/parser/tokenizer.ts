@@ -1572,8 +1572,9 @@ export class Tokenizer {
                     const isEscapedNewLine =
                         this._cs.getCurrentChar() === Char.CarriageReturn ||
                         this._cs.getCurrentChar() === Char.LineFeed;
+                    const isEscapedBackslash = this._cs.getCurrentChar() === Char.Backslash;
 
-                    if (!isFString || isEscapedQuote || isEscapedNewLine) {
+                    if (!isFString || isEscapedBackslash || isEscapedQuote || isEscapedNewLine) {
                         if (isEscapedNewLine) {
                             if (
                                 this._cs.getCurrentChar() === Char.CarriageReturn &&
