@@ -1,6 +1,6 @@
 ## Typing Guidance for Python Libraries
 
-Much of Python’s popularity can be attributed to the rich collection of Python libraries available to developers. Authors of these libraries play an important role in improving the experience for Python developers. This document provides some recommendations and guidance for Python library authors.
+Much of Python’s popularity can be attributed to the rich collection of Python libraries. This document offers recommendations for library authors, aiming to provide benefits such as improved coding experience, reliable type information, and a well-defined interface contract.
 
 These recommendations are intended to provide the following benefits:
 
