@@ -21676,6 +21676,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         ) {
             // Use a smaller recursive limit in this case to prevent runaway recursion.
             if (recursionCount > maxRecursiveTypeAliasRecursionCount) {
+                // Add a special case for when the source is a str, which is itself
+                // a recursive type (since it derives from Sequence[str]).
+                if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'str') && isUnion(transformedDestType)) {
+                    return transformedDestType.subtypes.some(
+                        (subtype) => isClassInstance(subtype) && ClassType.isBuiltIn(subtype, ['object', 'str'])
+                    );
+                }
                 return true;
             }
         }
