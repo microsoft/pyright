@@ -1,15 +1,17 @@
-import { getCallNodeAndActiveParameterIndex, printParseNodeType } from '../analyzer/parseTreeUtils';
+import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { CallSignature } from '../analyzer/typeEvaluatorTypes';
 import { ProgramView } from '../common/extensibility';
 import {
     ArgumentNode,
+    AssignmentNode,
     CallNode,
     FunctionNode,
     MemberAccessNode,
     NameNode,
     ParameterCategory,
     ParameterNode,
+    ParseNode,
     ParseNodeType,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
@@ -66,6 +68,13 @@ function isIgnoredBuiltin(sig: CallSignature): boolean {
     return ignoredBuiltinFunctions.some((v) => v === sig.type.details.fullName);
 }
 
+function isLeftSideOfAssignment(node: ParseNode): boolean {
+    if (node.parent?.nodeType !== ParseNodeType.Assignment) {
+        return false;
+    }
+    return node.start < (node.parent as AssignmentNode).rightExpression.start;
+}
+
 export class TypeInlayHintsWalker extends ParseTreeWalker {
     featureItems: TypeInlayHintsItemType[] = [];
 
@@ -74,31 +83,25 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
     }
 
     override visitName(node: NameNode): boolean {
-        if (node.parent) {
-            const parentNodeType = printParseNodeType(node.parent.nodeType);
-            if (parentNodeType === 'Assignment') {
-                this.featureItems.push({
-                    inlayHintType: 'variable',
-                    startOffset: node.start,
-                    endOffset: node.start + node.length - 1,
-                    value: node.value,
-                });
-            }
+        if (isLeftSideOfAssignment(node)) {
+            this.featureItems.push({
+                inlayHintType: 'variable',
+                startOffset: node.start,
+                endOffset: node.start + node.length - 1,
+                value: node.value,
+            });
         }
         return super.visitName(node);
     }
 
     override visitMemberAccess(node: MemberAccessNode): boolean {
-        if (node.parent) {
-            const parentNodeType = printParseNodeType(node.parent.nodeType);
-            if (parentNodeType === 'Assignment') {
-                this.featureItems.push({
-                    inlayHintType: 'variable',
-                    startOffset: node.memberName.start,
-                    endOffset: node.memberName.start + node.memberName.length - 1,
-                    value: node.memberName.value,
-                });
-            }
+        if (isLeftSideOfAssignment(node)) {
+            this.featureItems.push({
+                inlayHintType: 'variable',
+                startOffset: node.memberName.start,
+                endOffset: node.memberName.start + node.memberName.length - 1,
+                value: node.memberName.value,
+            });
         }
         return super.visitMemberAccess(node);
     }
