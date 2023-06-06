@@ -149,6 +149,13 @@ class TypeInlayHintsWalker extends ParseTreeWalker {
             return undefined;
         }
 
+        // Arguments starting with double underscores usually come from type stubs,
+        // they're probably not very informative. If necessary, an option can be added
+        // whether to hide such names or not.
+        if (activeParam.name?.startsWith('__')) {
+            return undefined;
+        }
+
         return activeParam.name;
     }
 
