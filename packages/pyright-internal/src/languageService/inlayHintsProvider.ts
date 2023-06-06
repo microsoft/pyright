@@ -287,7 +287,8 @@ export class InlayHintsProvider {
     private getFunctionReturnHintAtHover(hover: Hover): string | undefined {
         const contents = hover.contents as MarkupContent;
         if (contents && (contents.value.includes('(function)') || contents.value.includes('(method)'))) {
-            const text = contents.value.split('->')[1].split('\n')[0].trim();
+            const retvalIdx = contents.value.indexOf('->') + 2;
+            const text = contents.value.substring(retvalIdx).split('\n')[0].trim();
             return '-> ' + text;
         }
         return undefined;
