@@ -68,6 +68,10 @@ function isIgnoredBuiltin(sig: CallSignature): boolean {
     return ignoredBuiltinFunctions.some((v) => v === sig.type.details.fullName);
 }
 
+function isDunder(name: string): boolean {
+    return name.length != 2 && name.startsWith('__') && name.endsWith('__');
+}
+
 function isLeftSideOfAssignment(node: ParseNode): boolean {
     if (node.parent?.nodeType !== ParseNodeType.Assignment) {
         return false;
@@ -83,7 +87,7 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
     }
 
     override visitName(node: NameNode): boolean {
-        if (isLeftSideOfAssignment(node)) {
+        if (isLeftSideOfAssignment(node) && !isDunder(node.value)) {
             this.featureItems.push({
                 inlayHintType: 'variable',
                 startOffset: node.start,
@@ -95,7 +99,7 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
     }
 
     override visitMemberAccess(node: MemberAccessNode): boolean {
-        if (isLeftSideOfAssignment(node)) {
+        if (isLeftSideOfAssignment(node) && !isDunder(node.memberName.value)) {
             this.featureItems.push({
                 inlayHintType: 'variable',
                 startOffset: node.memberName.start,
