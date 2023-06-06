@@ -206,32 +206,41 @@ export interface ApplyTypeVarOptions {
 export interface InferenceContext {
     expectedType: Type;
     isTypeIncomplete?: boolean;
+    signatureTracker?: UniqueSignatureTracker;
 }
 
-export interface SignatureWithCount {
+export interface SignatureWithOffsets {
     type: FunctionType;
-    count: number;
+    expressionOffsets: number[];
 }
 
+// Tracks whether a function signature has been seen before within
+// an expression. For example, in the expression "foo(foo, foo)", the
+// signature for "foo" will be seen three times at three different
+// file offsets. If the signature is generic, we need to create unique
+// type variables for each instance because they are independent of
+// each other.
 export class UniqueSignatureTracker {
-    signaturesSeen: SignatureWithCount[];
+    private _signaturesSeen: SignatureWithOffsets[];
 
     constructor() {
-        this.signaturesSeen = [];
+        this._signaturesSeen = [];
     }
 
-    findSignature(signature: FunctionType): SignatureWithCount | undefined {
-        return this.signaturesSeen.find((s) => {
+    findSignature(signature: FunctionType): SignatureWithOffsets | undefined {
+        return this._signaturesSeen.find((s) => {
             return isTypeSame(signature, s.type);
         });
     }
 
-    addSignature(signature: FunctionType) {
+    addSignature(signature: FunctionType, offset: number) {
         const existingSignature = this.findSignature(signature);
         if (existingSignature) {
-            existingSignature.count++;
+            if (!existingSignature.expressionOffsets.some((o) => o === offset)) {
+                existingSignature.expressionOffsets.push(offset);
+            }
         } else {
-            this.signaturesSeen.push({ type: signature, count: 1 });
+            this._signaturesSeen.push({ type: signature, expressionOffsets: [offset] });
         }
     }
 }
@@ -284,22 +293,32 @@ export function isTypeVarSame(type1: TypeVarType, type2: Type) {
     return isCompatible;
 }
 
-export function makeInferenceContext(expectedType: undefined, isTypeIncomplete?: boolean): undefined;
-export function makeInferenceContext(expectedType: Type, isTypeIncomplete?: boolean): InferenceContext;
+export function makeInferenceContext(
+    expectedType: undefined,
+    isTypeIncomplete?: boolean,
+    signatureTracker?: UniqueSignatureTracker
+): undefined;
+export function makeInferenceContext(
+    expectedType: Type,
+    isTypeIncomplete?: boolean,
+    signatureTracker?: UniqueSignatureTracker
+): InferenceContext;
 export function makeInferenceContext(
     expectedType: Type | undefined,
-    isTypeIncomplete?: boolean
+    isTypeIncomplete?: boolean,
+    signatureTracker?: UniqueSignatureTracker
 ): InferenceContext | undefined;
 
 export function makeInferenceContext(
     expectedType: Type | undefined,
-    isTypeIncomplete?: boolean
+    isTypeIncomplete?: boolean,
+    signatureTracker?: UniqueSignatureTracker
 ): InferenceContext | undefined {
     if (!expectedType) {
         return undefined;
     }
 
-    return { expectedType, isTypeIncomplete };
+    return { expectedType, isTypeIncomplete, signatureTracker };
 }
 
 // Calls a callback for each subtype and combines the results
@@ -973,8 +992,12 @@ export function populateTypeVarContextForSelfType(
 
 // Looks for duplicate function types within the type and ensures that
 // if they are generic, they have unique type variables.
-export function ensureFunctionSignaturesAreUnique(type: Type, signatureTracker: UniqueSignatureTracker): Type {
-    const transformer = new UniqueFunctionSignatureTransformer(signatureTracker);
+export function ensureFunctionSignaturesAreUnique(
+    type: Type,
+    signatureTracker: UniqueSignatureTracker,
+    expressionOffset: number
+): Type {
+    const transformer = new UniqueFunctionSignatureTransformer(signatureTracker, expressionOffset);
     return transformer.apply(type, 0);
 }
 
@@ -3498,8 +3521,18 @@ class TypeVarDefaultValidator extends TypeVarTransformer {
 }
 
 class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
-    constructor(private _signatureTracker: UniqueSignatureTracker) {
+    constructor(private _signatureTracker: UniqueSignatureTracker, private _expressionOffset: number) {
         super();
+    }
+
+    override transformGenericTypeAlias(type: Type, recursionCount: number): Type {
+        // Don't transform type aliases.
+        return type;
+    }
+
+    override transformTypeVarsInClassType(classType: ClassType, recursionCount: number): ClassType {
+        // Don't transform classes.
+        return classType;
     }
 
     override transformTypeVarsInFunctionType(
@@ -3516,26 +3549,35 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
         if (existingSignature) {
             const typeVarContext = new TypeVarContext(getTypeVarScopeId(sourceType));
 
-            // Create new type variables with the same scope but with
-            // different (unique) names.
-            sourceType.details.typeParameters.forEach((typeParam) => {
-                let replacement: Type = TypeVarType.cloneForNewName(
-                    typeParam,
-                    `${typeParam.details.name}(${existingSignature.count})`
-                );
+            let offsetIndex = existingSignature.expressionOffsets.findIndex(
+                (offset) => offset === this._expressionOffset
+            );
+            if (offsetIndex < 0) {
+                offsetIndex = existingSignature.expressionOffsets.length;
+            }
 
-                if (replacement.details.isParamSpec) {
-                    replacement = convertTypeToParamSpecValue(replacement);
-                }
+            if (offsetIndex > 0) {
+                // Create new type variables with the same scope but with
+                // different (unique) names.
+                sourceType.details.typeParameters.forEach((typeParam) => {
+                    let replacement: Type = TypeVarType.cloneForNewName(
+                        typeParam,
+                        `${typeParam.details.name}(${offsetIndex})`
+                    );
 
-                typeVarContext.setTypeVarType(typeParam, replacement);
-            });
+                    if (replacement.details.isParamSpec) {
+                        replacement = convertTypeToParamSpecValue(replacement);
+                    }
 
-            updatedSourceType = applySolvedTypeVars(sourceType, typeVarContext);
-            assert(isFunction(updatedSourceType) || isOverloadedFunction(updatedSourceType));
+                    typeVarContext.setTypeVarType(typeParam, replacement);
+                });
+
+                updatedSourceType = applySolvedTypeVars(sourceType, typeVarContext);
+                assert(isFunction(updatedSourceType) || isOverloadedFunction(updatedSourceType));
+            }
         }
 
-        this._signatureTracker.addSignature(sourceType);
+        this._signatureTracker.addSignature(sourceType, this._expressionOffset);
 
         return updatedSourceType;
     }

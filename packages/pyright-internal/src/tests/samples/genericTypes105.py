@@ -1,12 +1,14 @@
 # This sample tests the case where a generic function is passed
 # as an argument to another generic function multiple times.
 
-from typing import TypeVar, Callable
+from dataclasses import dataclass
+from typing import Generic, TypeVar, Callable
 
 T = TypeVar("T")
 A = TypeVar("A")
 B = TypeVar("B")
 C = TypeVar("C")
+D = TypeVar("D")
 X = TypeVar("X")
 Y = TypeVar("Y")
 Z = TypeVar("Z")
@@ -79,3 +81,34 @@ class ClassA:
         )
 
         return val
+
+
+@dataclass(frozen=True)
+class Pair(Generic[A, B]):
+    left: A
+    right: B
+
+
+def func1(f: Callable[[A], B]) -> Callable[[Pair[A, X]], Pair[B, X]]:
+    ...
+
+
+def test_3(pair: Pair[Pair[A, B], C]) -> Pair[Pair[A, B], C]:
+    val1 = func1(func1(identity))
+    reveal_type(
+        val1,
+        expected_text="(Pair[Pair[T@identity, X(1)@func1], X@func1]) -> Pair[Pair[T@identity, X(1)@func1], X@func1]",
+    )
+    val2 = val1(pair)
+    reveal_type(val2, expected_text="Pair[Pair[A@test_3, B@test_3], C@test_3]")
+    return val2
+
+
+def test_4(pair: Pair[Pair[Pair[A, B], C], D]) -> Pair[Pair[Pair[A, B], C], D]:
+    val1 = func1(func1(func1(identity)))
+    reveal_type(
+        val1,
+        expected_text="(Pair[Pair[Pair[T@identity, X(2)@func1], X(1)@func1], X@func1]) -> Pair[Pair[Pair[T@identity, X(2)@func1], X(1)@func1], X@func1]",
+    )
+    val2 = val1(pair)
+    return val2

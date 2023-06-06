@@ -1157,6 +1157,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         ) {
             expectedTypeCache.set(node.id, inferenceContext.expectedType);
 
+            // If this is a generic function and there is a signature tracker,
+            // make sure the signature is unique.
+            if (inferenceContext.signatureTracker && isFunction(typeResult.type)) {
+                typeResult.type = ensureFunctionSignaturesAreUnique(
+                    typeResult.type,
+                    inferenceContext.signatureTracker,
+                    node.start
+                );
+            }
+
             if (!typeResult.isIncomplete && !typeResult.expectedTypeDiagAddendum) {
                 const diag = new DiagnosticAddendum();
 
@@ -7377,7 +7387,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
         if (effectiveExpectedType) {
-            const result = getTypeOfTupleWithContext(node, makeInferenceContext(effectiveExpectedType));
+            const result = getTypeOfTupleWithContext(
+                node,
+                makeInferenceContext(
+                    effectiveExpectedType,
+                    /* isTypeIncomplete */ false,
+                    inferenceContext?.signatureTracker
+                )
+            );
+
             if (result && !result.typeErrors) {
                 return result;
             }
@@ -7453,7 +7471,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             getTypeOfExpression(
                 expr,
                 /* flags */ undefined,
-                makeInferenceContext(index < expectedTypes.length ? expectedTypes[index] : undefined)
+                makeInferenceContext(
+                    index < expectedTypes.length ? expectedTypes[index] : undefined,
+                    inferenceContext.isTypeIncomplete,
+                    inferenceContext.signatureTracker
+                )
             )
         );
         const isIncomplete = entryTypeResults.some((result) => result.isIncomplete);
@@ -7570,6 +7592,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         let typeResult: TypeResult = { type: UnknownType.create() };
+
+        // If the inference context has an associated signature tracker, make sure
+        // the base type of this call is not the same as one of the tracked signatures.
+        // This is important for nested generic calls (e.g. "foo(foo(x))").
+        if (inferenceContext?.signatureTracker) {
+            baseTypeResult.type = ensureFunctionSignaturesAreUnique(
+                baseTypeResult.type,
+                inferenceContext.signatureTracker,
+                node.leftExpression.start
+            );
+        }
 
         if (!isTypeAliasPlaceholder(baseTypeResult.type)) {
             if (node.leftExpression.nodeType === ParseNodeType.Name && node.leftExpression.value === 'super') {
@@ -8371,6 +8404,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): FunctionType | undefined {
         let overloadIndex = 0;
         let matches: MatchArgsToParamsResult[] = [];
+        const signatureTracker = new UniqueSignatureTracker();
 
         // Create a list of potential overload matches based on arguments.
         OverloadedFunctionType.getOverloads(typeResult.type).forEach((overload) => {
@@ -8401,6 +8435,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         errorNode,
                         match,
                         new TypeVarContext(getTypeVarScopeId(match.overload)),
+                        signatureTracker,
                         /* skipUnknownArgCheck */ true
                     );
 
@@ -10300,6 +10335,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         inferenceContext: InferenceContext | undefined
     ): CallResult {
         const type = matchResults.overload;
+        const signatureTracker = inferenceContext?.signatureTracker ?? new UniqueSignatureTracker();
+        matchResults.overload = ensureFunctionSignaturesAreUnique(
+            matchResults.overload,
+            signatureTracker,
+            errorNode.start
+        ) as FunctionType;
 
         // Can we safely ignore the inference context (either because it's not provided
         // or will have no effect)? If so, we can eliminate a bunch of extra work.
@@ -10310,7 +10351,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !type.details.declaredReturnType ||
             !requiresSpecialization(FunctionType.getSpecializedReturnType(type) ?? UnknownType.create())
         ) {
-            return validateFunctionArgumentTypes(errorNode, matchResults, typeVarContext, skipUnknownArgCheck);
+            return validateFunctionArgumentTypes(
+                errorNode,
+                matchResults,
+                typeVarContext,
+                signatureTracker,
+                skipUnknownArgCheck
+            );
         }
 
         const effectiveReturnType = getFunctionEffectiveReturnType(type);
@@ -10339,6 +10386,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     errorNode,
                     matchResults,
                     typeVarContextCopy,
+                    signatureTracker,
                     skipUnknownArgCheck
                 );
 
@@ -10412,13 +10460,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        return validateFunctionArgumentTypes(errorNode, matchResults, typeVarContext, skipUnknownArgCheck);
+        return validateFunctionArgumentTypes(
+            errorNode,
+            matchResults,
+            typeVarContext,
+            signatureTracker,
+            skipUnknownArgCheck
+        );
     }
 
     function validateFunctionArgumentTypes(
         errorNode: ExpressionNode,
         matchResults: MatchArgsToParamsResult,
         typeVarContext: TypeVarContext,
+        signatureTracker: UniqueSignatureTracker,
         skipUnknownArgCheck = false
     ): CallResult {
         const type = matchResults.overload;
@@ -10490,9 +10545,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // where more than two passes are needed.
             let passCount = Math.min(typeVarMatchingCount, 2);
             for (let i = 0; i < passCount; i++) {
-                const signatureTracker = new UniqueSignatureTracker();
-                signatureTracker.addSignature(type);
-
                 useSpeculativeMode(errorNode, () => {
                     matchResults.argParams.forEach((argParam) => {
                         if (!argParam.requiresTypeVarMatching) {
@@ -10550,9 +10602,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let condition: TypeCondition[] = [];
         const argResults: ArgResult[] = [];
-
-        const signatureTracker = new UniqueSignatureTracker();
-        signatureTracker.addSignature(type);
 
         matchResults.argParams.forEach((argParam) => {
             const argResult = validateArgType(
@@ -11120,7 +11169,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const exprTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
                     flags,
-                    makeInferenceContext(expectedType, !!typeResult?.isIncomplete)
+                    makeInferenceContext(expectedType, !!typeResult?.isIncomplete, signatureTracker)
                 );
 
                 argType = exprTypeResult.type;
@@ -11128,7 +11177,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // If the type includes multiple instances of a generic function
                 // signature, force the type arguments for the duplicates to have
                 // unique names.
-                argType = ensureFunctionSignaturesAreUnique(argType, signatureTracker);
+                argType = ensureFunctionSignaturesAreUnique(
+                    argType,
+                    signatureTracker,
+                    argParam.argument.valueExpression.start
+                );
 
                 if (exprTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
