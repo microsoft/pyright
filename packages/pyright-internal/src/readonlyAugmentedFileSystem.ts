@@ -95,6 +95,10 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
         return this.realFS.statSync(this.getOriginalPath(path));
     }
 
+    rmdirSync(path: string): void {
+        throw new Error('Operation is not allowed.');
+    }
+
     unlinkSync(path: string): void {
         throw new Error('Operation is not allowed.');
     }

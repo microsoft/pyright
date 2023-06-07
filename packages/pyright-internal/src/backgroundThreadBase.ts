@@ -10,23 +10,48 @@ import { MessagePort, parentPort, TransferListItem } from 'worker_threads';
 
 import { OperationCanceledException, setCancellationFolderName } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
-import { LogLevel } from './common/console';
+import { ConsoleInterface, LogLevel } from './common/console';
 import * as debug from './common/debug';
 import { FileSystem } from './common/fileSystem';
 import { FileSpec } from './common/pathUtils';
 import { createFromRealFileSystem } from './common/realFileSystem';
 import { PyrightFileSystem } from './pyrightFileSystem';
 
+export class BackgroundConsole implements ConsoleInterface {
+    // We always generate logs in the background. For the foreground,
+    // we'll decide decide based on user setting whether.
+    get level() {
+        return LogLevel.Log;
+    }
+
+    log(msg: string) {
+        this.post(LogLevel.Log, msg);
+    }
+    info(msg: string) {
+        this.post(LogLevel.Info, msg);
+    }
+    warn(msg: string) {
+        this.post(LogLevel.Warn, msg);
+    }
+    error(msg: string) {
+        this.post(LogLevel.Error, msg);
+    }
+    protected post(level: LogLevel, msg: string) {
+        parentPort?.postMessage({ requestType: 'log', data: { level: level, message: msg } });
+    }
+}
+
 export class BackgroundThreadBase {
+    private _console = new BackgroundConsole();
     protected fs: FileSystem;
 
-    protected constructor(data: InitializationData) {
+    protected constructor(data: InitializationData, fileSystem?: FileSystem) {
         setCancellationFolderName(data.cancellationFolderName);
 
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = data.rootDirectory;
 
-        this.fs = new PyrightFileSystem(createFromRealFileSystem(this.getConsole()));
+        this.fs = fileSystem ?? new PyrightFileSystem(createFromRealFileSystem(this.getConsole()));
     }
 
     protected log(level: LogLevel, msg: string) {
@@ -34,23 +59,7 @@ export class BackgroundThreadBase {
     }
 
     protected getConsole() {
-        return {
-            log: (msg: string) => {
-                this.log(LogLevel.Log, msg);
-            },
-            info: (msg: string) => {
-                this.log(LogLevel.Info, msg);
-            },
-            warn: (msg: string) => {
-                this.log(LogLevel.Warn, msg);
-            },
-            error: (msg: string) => {
-                this.log(LogLevel.Error, msg);
-            },
-            // We always generate logs in the background. For the foreground,
-            // we'll decide decide based on user setting whether.
-            level: LogLevel.Log,
-        };
+        return this._console;
     }
 
     protected handleShutdown() {

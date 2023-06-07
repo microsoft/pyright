@@ -173,6 +173,7 @@ export interface LanguageServerInterface {
     readonly window: WindowInterface;
     readonly supportAdvancedEdits: boolean;
 
+    getWorkspaces(): Promise<Workspace[]>;
     getWorkspaceForFile(filePath: string): Promise<Workspace>;
     getSettings(workspace: Workspace): Promise<ServerSettings>;
     createBackgroundAnalysis(serviceId: string): BackgroundAnalysisBase | undefined;
@@ -200,7 +201,7 @@ export interface WorkspaceServices {
     backgroundAnalysis: BackgroundAnalysisBase | undefined;
 }
 
-interface ClientCapabilities {
+export interface ClientCapabilities {
     hasConfigurationCapability: boolean;
     hasVisualStudioExtensionsCapability: boolean;
     hasWorkspaceFoldersCapability: boolean;
@@ -376,7 +377,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         // the extension directory. Otherwise the execution of
         // python can have unintended and surprising results.
         const moduleDirectory = this.fs.getModulePath();
-        if (moduleDirectory) {
+        if (moduleDirectory && this.fs.existsSync(moduleDirectory)) {
             this.fs.chdir(moduleDirectory);
         }
 
@@ -437,7 +438,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return service;
     }
 
-    async test_getWorkspaces() {
+    async getWorkspaces(): Promise<Workspace[]> {
         const workspaces = [...this.workspaceFactory.items()];
         for (const workspace of workspaces) {
             await workspace.isInitialized.promise;

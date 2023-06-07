@@ -296,11 +296,26 @@ export class WorkspaceFactory {
         return workspace;
     }
 
+    getWorkspaceForFileSync(filePath: string, pythonPath: string | undefined): Workspace {
+        // Find or create best match.
+        return this._getOrCreateBestWorkspaceFileSync(filePath, pythonPath);
+    }
+
     async getContainingWorkspacesForFile(filePath: string): Promise<Workspace[]> {
         // Wait for all workspaces to be initialized before attempting to find the best workspace. Otherwise
         // the list of files won't be complete and the `contains` check might fail.
         await Promise.all(this.items().map((w) => w.isInitialized.promise));
 
+        // Find or create best match.
+        const workspaces = this.getContainingWorkspacesForFileSync(filePath);
+
+        // The workspaces may have just been created, wait for them all to be initialized
+        await Promise.all(workspaces.map((w) => w.isInitialized.promise));
+
+        return workspaces;
+    }
+
+    getContainingWorkspacesForFileSync(filePath: string): Workspace[] {
         // All workspaces that track the file should be considered.
         let workspaces = this.items().filter((w) => w.service.isTracked(filePath));
 
@@ -313,9 +328,6 @@ export class WorkspaceFactory {
         if (this._isPythonPathImmutable(filePath)) {
             workspaces = workspaces.filter((w) => w.pythonPathKind === WorkspacePythonPathKind.Immutable);
         }
-
-        // The workspaces may have just been created, wait for them all to be initialized
-        await Promise.all(workspaces.map((w) => w.isInitialized.promise));
 
         return workspaces;
     }

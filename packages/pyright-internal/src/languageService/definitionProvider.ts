@@ -34,6 +34,102 @@ export enum DefinitionFilter {
     PreferStubs = 'preferStubs',
 }
 
+export function addDeclarationsToDefinitions(
+    evaluator: TypeEvaluator,
+    sourceMapper: SourceMapper,
+    declarations: Declaration[] | undefined,
+    definitions: DocumentRange[]
+) {
+    if (!declarations) {
+        return;
+    }
+
+    declarations.forEach((decl) => {
+        let resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true, {
+            allowExternallyHiddenAccess: true,
+        });
+
+        if (!resolvedDecl || !resolvedDecl.path) {
+            return;
+        }
+
+        // If the decl is an unresolved import, skip it.
+        if (resolvedDecl.type === DeclarationType.Alias && resolvedDecl.isUnresolved) {
+            return;
+        }
+
+        // If the resolved decl is still an alias, it means it
+        // resolved to a module. We need to apply loader actions
+        // to determine its path.
+        if (
+            resolvedDecl.type === DeclarationType.Alias &&
+            resolvedDecl.symbolName &&
+            resolvedDecl.submoduleFallback &&
+            resolvedDecl.submoduleFallback.path
+        ) {
+            resolvedDecl = resolvedDecl.submoduleFallback;
+        }
+
+        _addIfUnique(definitions, {
+            path: resolvedDecl.path,
+            range: resolvedDecl.range,
+        });
+
+        if (isFunctionDeclaration(resolvedDecl)) {
+            // Handle overloaded function case
+            const functionType = evaluator.getTypeForDeclaration(resolvedDecl)?.type;
+            if (functionType && isOverloadedFunction(functionType)) {
+                for (const overloadDecl of functionType.overloads.map((o) => o.details.declaration).filter(isDefined)) {
+                    _addIfUnique(definitions, {
+                        path: overloadDecl.path,
+                        range: overloadDecl.range,
+                    });
+                }
+            }
+        }
+
+        if (!isStubFile(resolvedDecl.path)) {
+            return;
+        }
+
+        if (resolvedDecl.type === DeclarationType.Alias) {
+            // Add matching source module
+            sourceMapper
+                .findModules(resolvedDecl.path)
+                .map((m) => getFileInfo(m)?.filePath)
+                .filter(isDefined)
+                .forEach((f) => _addIfUnique(definitions, _createModuleEntry(f)));
+            return;
+        }
+
+        const implDecls = sourceMapper.findDeclarations(resolvedDecl);
+        for (const implDecl of implDecls) {
+            if (implDecl && implDecl.path) {
+                _addIfUnique(definitions, {
+                    path: implDecl.path,
+                    range: implDecl.range,
+                });
+            }
+        }
+    });
+}
+
+export function filterDefinitions(filter: DefinitionFilter, definitions: DocumentRange[]) {
+    if (filter === DefinitionFilter.All) {
+        return definitions;
+    }
+
+    // If go-to-declaration is supported, attempt to only show only pyi files in go-to-declaration
+    // and none in go-to-definition, unless filtering would produce an empty list.
+    const preferStubs = filter === DefinitionFilter.PreferStubs;
+    const wantedFile = (v: DocumentRange) => preferStubs === isStubFile(v.path);
+    if (definitions.find(wantedFile)) {
+        return definitions.filter(wantedFile);
+    }
+
+    return definitions;
+}
+
 class DefinitionProviderBase {
     protected constructor(
         protected readonly sourceMapper: SourceMapper,
@@ -78,88 +174,11 @@ class DefinitionProviderBase {
             return undefined;
         }
 
-        if (this._filter === DefinitionFilter.All) {
-            return definitions;
-        }
-
-        // If go-to-declaration is supported, attempt to only show only pyi files in go-to-declaration
-        // and none in go-to-definition, unless filtering would produce an empty list.
-        const preferStubs = this._filter === DefinitionFilter.PreferStubs;
-        const wantedFile = (v: DocumentRange) => preferStubs === isStubFile(v.path);
-        if (definitions.find(wantedFile)) {
-            return definitions.filter(wantedFile);
-        }
-
-        return definitions;
+        return filterDefinitions(this._filter, definitions);
     }
 
     protected resolveDeclarations(declarations: Declaration[] | undefined, definitions: DocumentRange[]) {
-        if (declarations) {
-            declarations.forEach((decl) => {
-                let resolvedDecl = this.evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true, {
-                    allowExternallyHiddenAccess: true,
-                });
-                if (resolvedDecl && resolvedDecl.path) {
-                    // If the decl is an unresolved import, skip it.
-                    if (resolvedDecl.type === DeclarationType.Alias && resolvedDecl.isUnresolved) {
-                        return;
-                    }
-
-                    // If the resolved decl is still an alias, it means it
-                    // resolved to a module. We need to apply loader actions
-                    // to determine its path.
-                    if (
-                        resolvedDecl.type === DeclarationType.Alias &&
-                        resolvedDecl.symbolName &&
-                        resolvedDecl.submoduleFallback &&
-                        resolvedDecl.submoduleFallback.path
-                    ) {
-                        resolvedDecl = resolvedDecl.submoduleFallback;
-                    }
-
-                    _addIfUnique(definitions, {
-                        path: resolvedDecl.path,
-                        range: resolvedDecl.range,
-                    });
-
-                    if (isFunctionDeclaration(resolvedDecl)) {
-                        // Handle overloaded function case
-                        const functionType = this.evaluator.getTypeForDeclaration(resolvedDecl)?.type;
-                        if (functionType && isOverloadedFunction(functionType)) {
-                            for (const overloadDecl of functionType.overloads
-                                .map((o) => o.details.declaration)
-                                .filter(isDefined)) {
-                                _addIfUnique(definitions, {
-                                    path: overloadDecl.path,
-                                    range: overloadDecl.range,
-                                });
-                            }
-                        }
-                    }
-
-                    if (isStubFile(resolvedDecl.path)) {
-                        if (resolvedDecl.type === DeclarationType.Alias) {
-                            // Add matching source module
-                            this.sourceMapper
-                                .findModules(resolvedDecl.path)
-                                .map((m) => getFileInfo(m)?.filePath)
-                                .filter(isDefined)
-                                .forEach((f) => _addIfUnique(definitions, _createModuleEntry(f)));
-                        } else {
-                            const implDecls = this.sourceMapper.findDeclarations(resolvedDecl);
-                            for (const implDecl of implDecls) {
-                                if (implDecl && implDecl.path) {
-                                    _addIfUnique(definitions, {
-                                        path: implDecl.path,
-                                        range: implDecl.range,
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
+        addDeclarationsToDefinitions(this.evaluator, this.sourceMapper, declarations, definitions);
     }
 }
 

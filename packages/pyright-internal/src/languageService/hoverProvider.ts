@@ -46,23 +46,87 @@ import {
     getTypeForToolTip,
 } from './tooltipUtils';
 
+export interface HoverTextPart {
+    python?: boolean;
+    text: string;
+}
+
+export interface HoverResults {
+    parts: HoverTextPart[];
+    range: Range;
+}
+
+export function convertHoverResults(hoverResults: HoverResults | null, format: MarkupKind): Hover | null {
+    if (!hoverResults) {
+        return null;
+    }
+
+    const markupString = hoverResults.parts
+        .map((part) => {
+            if (part.python) {
+                if (format === MarkupKind.Markdown) {
+                    return '```python\n' + part.text + '\n```\n';
+                } else if (format === MarkupKind.PlainText) {
+                    return part.text + '\n\n';
+                } else {
+                    fail(`Unsupported markup type: ${format}`);
+                }
+            }
+            return part.text;
+        })
+        .join('')
+        .trimEnd();
+
+    return {
+        contents: {
+            kind: format,
+            value: markupString,
+        },
+        range: hoverResults.range,
+    };
+}
+
+export function addDocumentationResultsPart(docString: string | undefined, format: MarkupKind, parts: HoverTextPart[]) {
+    if (!docString) {
+        return;
+    }
+
+    if (format === MarkupKind.Markdown) {
+        const markDown = convertDocStringToMarkdown(docString);
+
+        if (parts.length > 0 && markDown.length > 0) {
+            parts.push({ text: '---\n' });
+        }
+
+        parts.push({ text: markDown, python: false });
+        return;
+    }
+
+    if (format === MarkupKind.PlainText) {
+        parts.push({ text: convertDocStringToPlainText(docString), python: false });
+        return;
+    }
+
+    fail(`Unsupported markup type: ${format}`);
+}
+
 export class HoverProvider {
     private readonly _parseResults: ParseResults | undefined;
     private readonly _sourceMapper: SourceMapper;
 
     constructor(
-        private _program: ProgramView,
-        private _filePath: string,
-        private _position: Position,
-        private _format: MarkupKind,
-        private _token: CancellationToken
+        private readonly _program: ProgramView,
+        private readonly _filePath: string,
+        private readonly _position: Position,
+        private readonly _format: MarkupKind,
+        private readonly _token: CancellationToken
     ) {
         this._parseResults = this._program.getParseResults(this._filePath);
         this._sourceMapper = this._program.getSourceMapper(this._filePath, this._token, /* mapCompiled */ true);
     }
 
     getHover(): Hover | null {
-        return this._convertHoverResults(this._getHoverResult());
+        return convertHoverResults(this._getHoverResult(), this._format);
     }
 
     static getPrimaryDeclaration(declarations: Declaration[]) {
@@ -469,30 +533,9 @@ export class HoverProvider {
         const docString = getDocumentationPartsForTypeAndDecl(this._sourceMapper, type, resolvedDecl, this._evaluator, {
             name,
         });
-        if (docString) {
-            this._addDocumentationResultsPart(parts, docString);
-            return true;
-        }
 
-        return false;
-    }
-
-    private _addDocumentationResultsPart(parts: HoverTextPart[], docString?: string) {
-        if (docString) {
-            if (this._format === MarkupKind.Markdown) {
-                const markDown = convertDocStringToMarkdown(docString);
-
-                if (parts.length > 0 && markDown.length > 0) {
-                    parts.push({ text: '---\n' });
-                }
-
-                this._addResultsPart(parts, markDown);
-            } else if (this._format === MarkupKind.PlainText) {
-                this._addResultsPart(parts, convertDocStringToPlainText(docString));
-            } else {
-                fail(`Unsupported markup type: ${this._format}`);
-            }
-        }
+        addDocumentationResultsPart(docString, this._format, parts);
+        return !!docString;
     }
 
     private _addResultsPart(parts: HoverTextPart[], text: string, python = false) {
@@ -501,44 +544,4 @@ export class HoverProvider {
             text,
         });
     }
-
-    private _convertHoverResults(hoverResults: HoverResults | null): Hover | null {
-        if (!hoverResults) {
-            return null;
-        }
-
-        const markupString = hoverResults.parts
-            .map((part) => {
-                if (part.python) {
-                    if (this._format === MarkupKind.Markdown) {
-                        return '```python\n' + part.text + '\n```\n';
-                    } else if (this._format === MarkupKind.PlainText) {
-                        return part.text + '\n\n';
-                    } else {
-                        fail(`Unsupported markup type: ${this._format}`);
-                    }
-                }
-                return part.text;
-            })
-            .join('')
-            .trimEnd();
-
-        return {
-            contents: {
-                kind: this._format,
-                value: markupString,
-            },
-            range: hoverResults.range,
-        };
-    }
-}
-
-interface HoverTextPart {
-    python?: boolean;
-    text: string;
-}
-
-interface HoverResults {
-    parts: HoverTextPart[];
-    range: Range;
 }
