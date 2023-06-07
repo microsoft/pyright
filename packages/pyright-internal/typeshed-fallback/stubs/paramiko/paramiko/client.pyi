@@ -1,13 +1,14 @@
 from collections.abc import Iterable, Mapping
 from typing import NoReturn, Protocol
 
-from paramiko.auth_strategy import AuthStrategy
 from paramiko.channel import Channel, ChannelFile, ChannelStderrFile, ChannelStdinFile
 from paramiko.hostkeys import HostKeys
 from paramiko.pkey import PKey
 from paramiko.sftp_client import SFTPClient
-from paramiko.transport import Transport, _SocketLike
+from paramiko.transport import Transport
 from paramiko.util import ClosingContextManager
+
+from .transport import _SocketLike
 
 class _TransportFactory(Protocol):
     def __call__(
@@ -46,12 +47,10 @@ class SSHClient(ClosingContextManager):
         gss_host: str | None = None,
         banner_timeout: float | None = None,
         auth_timeout: float | None = None,
-        channel_timeout: float | None = None,
         gss_trust_dns: bool = True,
         passphrase: str | None = None,
         disabled_algorithms: Mapping[str, Iterable[str]] | None = None,
         transport_factory: _TransportFactory | None = None,
-        auth_strategy: AuthStrategy | None = None,
     ) -> None: ...
     def close(self) -> None: ...
     def exec_command(

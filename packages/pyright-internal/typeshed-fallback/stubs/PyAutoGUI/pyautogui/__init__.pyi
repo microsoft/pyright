@@ -6,6 +6,7 @@ from typing_extensions import Final, ParamSpec, SupportsIndex, TypeAlias
 
 from pyscreeze import (
     center as center,
+    grab as grab,
     locate as locate,
     locateAll as locateAll,
     locateAllOnScreen as locateAllOnScreen,
@@ -67,9 +68,6 @@ def getPointOnLine(x1: float, y1: float, x2: float, y2: float, n: float) -> tupl
 def linear(n: float) -> float: ...
 def position(x: int | None = None, y: int | None = None) -> Point: ...
 def size() -> Size: ...
-
-resolution = size
-
 def onScreen(x: _NormalizeableXArg | None, y: SupportsInt | None = None) -> bool: ...
 def mouseDown(
     x: _NormalizeableXArg | None = None,
@@ -237,9 +235,6 @@ def typewrite(
 write = typewrite
 
 def hotkey(*args: str, logScreenshot: bool | None = None, interval: float = 0.0) -> None: ...
-
-shortcut = hotkey
-
 def failSafeCheck() -> None: ...
 def displayMousePosition(xOffset: float = 0, yOffset: float = 0) -> None: ...
 def sleep(seconds: float) -> None: ...

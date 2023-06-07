@@ -1,5 +1,4 @@
 version = "1.15.*"
-requires = ["types-setuptools"]
 
 [tool.stubtest]
 # linux and darwin are mostly equivalent, except for a single `RTLD_DEEPBIND` variable

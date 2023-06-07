@@ -1,14 +1,13 @@
 import sys
-import typing_extensions
 from typing import Any, ClassVar
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
 PyCF_ONLY_AST: Literal[1024]
 if sys.version_info >= (3, 8):
     PyCF_TYPE_COMMENTS: Literal[4096]
     PyCF_ALLOW_TOP_LEVEL_AWAIT: Literal[8192]
 
-_Identifier: typing_extensions.TypeAlias = str
+_Identifier: TypeAlias = str
 
 class AST:
     if sys.version_info >= (3, 10):
@@ -60,43 +59,31 @@ class Expression(mod):
 class stmt(AST): ...
 
 class FunctionDef(stmt):
-    if sys.version_info >= (3, 12):
-        __match_args__ = ("name", "args", "body", "decorator_list", "returns", "type_comment", "type_params")
-    elif sys.version_info >= (3, 10):
+    if sys.version_info >= (3, 10):
         __match_args__ = ("name", "args", "body", "decorator_list", "returns", "type_comment")
     name: _Identifier
     args: arguments
     body: list[stmt]
     decorator_list: list[expr]
     returns: expr | None
-    if sys.version_info >= (3, 12):
-        type_params: list[type_param]
 
 class AsyncFunctionDef(stmt):
-    if sys.version_info >= (3, 12):
-        __match_args__ = ("name", "args", "body", "decorator_list", "returns", "type_comment", "type_params")
-    elif sys.version_info >= (3, 10):
+    if sys.version_info >= (3, 10):
         __match_args__ = ("name", "args", "body", "decorator_list", "returns", "type_comment")
     name: _Identifier
     args: arguments
     body: list[stmt]
     decorator_list: list[expr]
     returns: expr | None
-    if sys.version_info >= (3, 12):
-        type_params: list[type_param]
 
 class ClassDef(stmt):
-    if sys.version_info >= (3, 12):
-        __match_args__ = ("name", "bases", "keywords", "body", "decorator_list", "type_params")
-    elif sys.version_info >= (3, 10):
+    if sys.version_info >= (3, 10):
         __match_args__ = ("name", "bases", "keywords", "body", "decorator_list")
     name: _Identifier
     bases: list[expr]
     keywords: list[keyword]
     body: list[stmt]
     decorator_list: list[expr]
-    if sys.version_info >= (3, 12):
-        type_params: list[type_param]
 
 class Return(stmt):
     if sys.version_info >= (3, 10):
@@ -379,10 +366,10 @@ class Attribute(expr):
     ctx: expr_context
 
 if sys.version_info >= (3, 9):
-    _Slice: typing_extensions.TypeAlias = expr
+    _Slice: TypeAlias = expr
 else:
     class slice(AST): ...
-    _Slice: typing_extensions.TypeAlias = slice
+    _Slice: TypeAlias = slice
 
 class Slice(_Slice):
     if sys.version_info >= (3, 10):
@@ -539,7 +526,7 @@ if sys.version_info >= (3, 10):
 
     class pattern(AST): ...
     # Without the alias, Pyright complains variables named pattern are recursively defined
-    _Pattern: typing_extensions.TypeAlias = pattern
+    _Pattern: TypeAlias = pattern
 
     class match_case(AST):
         __match_args__ = ("pattern", "guard", "body")
@@ -584,25 +571,3 @@ if sys.version_info >= (3, 10):
     class MatchOr(pattern):
         __match_args__ = ("patterns",)
         patterns: list[pattern]
-
-if sys.version_info >= (3, 12):
-    class type_param(AST): ...
-
-    class TypeVar(type_param):
-        __match_args__ = ("name", "bound")
-        name: _Identifier
-        bound: expr | None
-
-    class ParamSpec(type_param):
-        __match_args__ = ("name",)
-        name: _Identifier
-
-    class TypeVarTuple(type_param):
-        __match_args__ = ("name",)
-        name: _Identifier
-
-    class TypeAlias(stmt):
-        __match_args__ = ("name", "typeparams", "value")
-        name: Name
-        type_params: list[type_param]
-        value: expr

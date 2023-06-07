@@ -1,4 +1,4 @@
-version = "23.6.5"
+version = "23.5.9"
 partial_stub = true
 
 [tool.stubtest]

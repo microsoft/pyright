@@ -1,5 +1,5 @@
 version = "2.11.*"
-requires = ["types-pytz", "types-setuptools"]
+requires = ["types-pytz"]
 obsolete_since = "2.12.1" # Released on 2023-02-28
 partial_stub = true
 
