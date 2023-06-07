@@ -46,9 +46,9 @@ module.exports = (_, { mode }) => {
             rules: [
                 {
                     test: /\.ts$/,
-                    loader: 'ts-loader',
+                    loader: 'esbuild-loader',
                     options: {
-                        configFile: 'tsconfig.json',
+                        tsconfig: 'tsconfig.json',
                     },
                 },
                 {

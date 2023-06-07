@@ -10,8 +10,7 @@
  * Utility routines used by tokenizer.
  */
 
-import Char from 'typescript-char';
-
+import { Char } from '../common/charCodes';
 import * as unicode from './unicode';
 
 enum CharCategory {
