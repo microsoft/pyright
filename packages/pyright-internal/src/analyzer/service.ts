@@ -26,6 +26,7 @@ import { defaultStubsDirectory } from '../common/pathConsts';
 import {
     FileSpec,
     combinePaths,
+    comparePaths,
     forEachAncestorDirectory,
     getDirectoryPath,
     getFileExtension,
@@ -681,19 +682,6 @@ export class AnalyzerService {
             configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
         }
 
-        // If the caller specified that "typeshedPath" is the root of the project,
-        // then we're presumably running in the typeshed project itself. Auto-exclude
-        // stdlib packages that don't match the current Python version.
-        if (configOptions.typeshedPath === projectRoot && configOptions.defaultPythonVersion !== undefined) {
-            const excludeList = this.getImportResolver().getTypeshedStdlibExcludeList(
-                configOptions.getDefaultExecEnvironment()
-            );
-
-            excludeList.forEach((exclude) => {
-                configOptions.exclude.push(getFileSpec(this.fs, commandLineOptions.executionRoot, exclude));
-            });
-        }
-
         // Override the analyzeUnannotatedFunctions setting based on the command-line setting.
         if (commandLineOptions.analyzeUnannotatedFunctions !== undefined) {
             configOptions.diagnosticRuleSet.analyzeUnannotatedFunctions =
@@ -728,6 +716,26 @@ export class AnalyzerService {
             } else {
                 reportDuplicateSetting('typeshedPath', configOptions.typeshedPath);
             }
+        }
+
+        // If the caller specified that "typeshedPath" is the root of the project,
+        // then we're presumably running in the typeshed project itself. Auto-exclude
+        // stdlib packages that don't match the current Python version.
+        if (
+            configOptions.typeshedPath &&
+            comparePaths(configOptions.typeshedPath, projectRoot) === 0 &&
+            configOptions.defaultPythonVersion !== undefined
+        ) {
+            const excludeList = this.getImportResolver().getTypeshedStdlibExcludeList(
+                configOptions.typeshedPath,
+                configOptions.defaultPythonVersion
+            );
+
+            this._console.info(`Excluding typeshed stdlib stubs according to VERSIONS file:`);
+            excludeList.forEach((exclude) => {
+                this._console.info(`    ${exclude}`);
+                configOptions.exclude.push(getFileSpec(this.fs, commandLineOptions.executionRoot, exclude));
+            });
         }
 
         configOptions.verboseOutput = commandLineOptions.verboseOutput ?? configOptions.verboseOutput;
