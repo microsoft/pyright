@@ -10,8 +10,7 @@
  * Class that represents a stream of characters.
  */
 
-import Char from 'typescript-char';
-
+import { Char } from '../common/charCodes';
 import { isLineBreak, isWhiteSpace } from './characters';
 
 export class CharacterStream {

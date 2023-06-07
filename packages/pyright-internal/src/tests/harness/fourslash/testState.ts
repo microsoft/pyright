@@ -8,7 +8,6 @@
  */
 import assert from 'assert';
 import * as path from 'path';
-import Char from 'typescript-char';
 import {
     CancellationToken,
     CodeAction,
@@ -31,6 +30,7 @@ import { findNodeByOffset } from '../../../analyzer/parseTreeUtils';
 import { Program } from '../../../analyzer/program';
 import { AnalyzerService } from '../../../analyzer/service';
 import { CommandResult } from '../../../commands/commandResult';
+import { Char } from '../../../common/charCodes';
 import { ConfigOptions, SignatureDisplayType } from '../../../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../../../common/console';
 import { Comparison, isNumber, isString, toBoolean } from '../../../common/core';
@@ -50,6 +50,7 @@ import {
 import { convertOffsetToPosition, convertPositionToOffset } from '../../../common/positionUtils';
 import { DocumentRange, Position, Range as PositionRange, TextRange, rangesAreEqual } from '../../../common/textRange';
 import { TextRangeCollection } from '../../../common/textRangeCollection';
+import { convertToWorkspaceEdit } from '../../../common/workspaceEditUtils';
 import { LanguageServerInterface } from '../../../languageServerBase';
 import { CallHierarchyProvider } from '../../../languageService/callHierarchyProvider';
 import { CompletionOptions, CompletionProvider } from '../../../languageService/completionProvider';
@@ -62,6 +63,7 @@ import { DocumentHighlightProvider } from '../../../languageService/documentHigh
 import { HoverProvider } from '../../../languageService/hoverProvider';
 import { convertDocumentRangesToLocation } from '../../../languageService/navigationUtils';
 import { ReferencesProvider } from '../../../languageService/referencesProvider';
+import { RenameProvider } from '../../../languageService/renameProvider';
 import { SignatureHelpProvider } from '../../../languageService/signatureHelpProvider';
 import { ParseNode } from '../../../parser/parseNodes';
 import { ParseResults } from '../../../parser/parser';
@@ -92,8 +94,6 @@ import {
 import { TestFeatures, TestLanguageService } from './testLanguageService';
 import { createVfsInfoFromFourSlashData, getMarkerByName, getMarkerName, getMarkerNames } from './testStateUtils';
 import { verifyWorkspaceEdit } from './workspaceEditTestUtils';
-import { RenameProvider } from '../../../languageService/renameProvider';
-import { convertToWorkspaceEdit } from '../../../common/workspaceEditUtils';
 
 export interface TextChange {
     span: TextRange;

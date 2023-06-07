@@ -8,8 +8,7 @@
  * literal values.
  */
 
-import Char from 'typescript-char';
-
+import { Char } from '../common/charCodes';
 import { FStringMiddleToken, StringToken, StringTokenFlags } from './tokenizerTypes';
 
 export const enum UnescapeErrorType {

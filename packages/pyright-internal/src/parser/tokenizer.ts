@@ -10,10 +10,9 @@
  * Converts a Python program text stream into a stream of tokens.
  */
 
-import Char from 'typescript-char';
-
 import { isWhitespace } from '../analyzer/parseTreeUtils';
 import { IPythonMode } from '../analyzer/sourceFile';
+import { Char } from '../common/charCodes';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import {

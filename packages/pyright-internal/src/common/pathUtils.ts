@@ -9,9 +9,9 @@
 
 import type { Dirent } from 'fs';
 import * as path from 'path';
-import Char from 'typescript-char';
 import { URI } from 'vscode-uri';
 
+import { Char } from './charCodes';
 import { some } from './collectionUtils';
 import { compareValues, Comparison, GetCanonicalFileName, identity } from './core';
 import { randomBytesHex } from './crypto';
