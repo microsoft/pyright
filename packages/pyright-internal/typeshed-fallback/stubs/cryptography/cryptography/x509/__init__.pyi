@@ -1,5 +1,9 @@
 import datetime
+<<<<<<< Updated upstream
 from _typeshed import Self
+=======
+from _typeshed import Incomplete, Self
+>>>>>>> Stashed changes
 from abc import ABCMeta, abstractmethod
 from collections.abc import Generator, Iterable, Sequence
 from enum import Enum
@@ -477,4 +481,8 @@ def load_der_x509_crl(data: bytes, backend: X509Backend | None = ...) -> Certifi
 def load_pem_x509_crl(data: bytes, backend: X509Backend | None = ...) -> CertificateRevocationList: ...
 def load_der_x509_csr(data: bytes, backend: X509Backend | None = ...) -> CertificateSigningRequest: ...
 def load_pem_x509_csr(data: bytes, backend: X509Backend | None = ...) -> CertificateSigningRequest: ...
+<<<<<<< Updated upstream
 def __getattr__(name: str) -> Any: ...  # incomplete
+=======
+def __getattr__(name: str) -> Incomplete: ...
+>>>>>>> Stashed changes

@@ -1,2 +1,9 @@
 version = "3.3.*"
 obsolete_since = "3.4.4"
+<<<<<<< Updated upstream
+=======
+
+[tool.stubtest]
+# See https://github.com/python/typeshed/issues/9127
+skip = true
+>>>>>>> Stashed changes
