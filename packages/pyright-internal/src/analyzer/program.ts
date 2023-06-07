@@ -1678,7 +1678,7 @@ export class Program {
             const implicitPath = nextImplicitImport.sourceFile.getFilePath();
             if (implicitSet.has(implicitPath)) {
                 // We've found a cycle. Break out of the loop.
-                debug.fail(`Found a cycle in implicit imports files for ${implicitPath}`);
+                debug.fail(`Found a cycle in implicit imports files`);
             }
 
             implicitSet.add(implicitPath);
@@ -1891,20 +1891,14 @@ export class Program {
                 return false;
             }
 
-            this._bindFile(fileToCheck);
-
-            if (this._preCheckCallback) {
-                const parseResults = fileToCheck.sourceFile.getParseResults();
-                if (parseResults) {
-                    this._preCheckCallback(parseResults, this._evaluator!);
-                }
-            }
-
             if (!this._disableChecker) {
                 // For ipython, make sure we check all its dependent files first since
                 // their results can affect this file's result.
                 let dependentFiles: ParseResults[] | undefined = undefined;
                 if (fileToCheck.sourceFile.getIPythonMode() === IPythonMode.CellDocs) {
+                    // Parse file to get up to date dependency graph.
+                    this._parseFile(fileToCheck);
+
                     dependentFiles = [];
                     const importedByFiles = collectImportedByFiles(fileToCheck);
                     for (const file of importedByFiles) {
@@ -1927,6 +1921,15 @@ export class Program {
                         if (parseResults) {
                             dependentFiles.push(parseResults);
                         }
+                    }
+                }
+
+                this._bindFile(fileToCheck);
+
+                if (this._preCheckCallback) {
+                    const parseResults = fileToCheck.sourceFile.getParseResults();
+                    if (parseResults) {
+                        this._preCheckCallback(parseResults, this._evaluator!);
                     }
                 }
 

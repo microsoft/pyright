@@ -77,6 +77,10 @@ export class PyrightFileSystem
         this.realFS.writeFileSync(this.getOriginalPath(path), data, encoding);
     }
 
+    override rmdirSync(path: string): void {
+        this.realFS.rmdirSync(this.getOriginalPath(path));
+    }
+
     override unlinkSync(path: string): void {
         this.realFS.unlinkSync(this.getOriginalPath(path));
     }

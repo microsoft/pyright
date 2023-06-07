@@ -108,8 +108,13 @@ export class TestLanguageService implements LanguageServerInterface {
             searchPathsToWatch: [],
         };
     }
+
     decodeTextDocumentUri(uriString: string): string {
         return this._uriParser.decodeTextDocumentUri(uriString);
+    }
+
+    getWorkspaces(): Promise<Workspace[]> {
+        return Promise.resolve([this._workspace, this._defaultWorkspace]);
     }
 
     getWorkspaceForFile(filePath: string): Promise<Workspace> {

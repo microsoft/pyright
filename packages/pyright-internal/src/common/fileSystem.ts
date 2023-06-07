@@ -86,7 +86,10 @@ export interface ReadOnlyFileSystem {
 export interface FileSystem extends ReadOnlyFileSystem {
     mkdirSync(path: string, options?: MkDirOptions): void;
     writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null): void;
+
     unlinkSync(path: string): void;
+    rmdirSync(path: string): void;
+
     createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher;
     createReadStream(path: string): fs.ReadStream;
     createWriteStream(path: string): fs.WriteStream;
@@ -95,7 +98,6 @@ export interface FileSystem extends ReadOnlyFileSystem {
     // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
     tmpdir(): string;
     tmpfile(options?: TmpfileOptions): string;
-
     dispose(): void;
 }
 

@@ -264,8 +264,8 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     protected importResolver: ImportResolver;
     protected logTracker: LogTracker;
 
-    protected constructor() {
-        super(workerData as InitializationData);
+    protected constructor(fileSystem?: FileSystem) {
+        super(workerData as InitializationData, fileSystem);
 
         // Stash the base directory into a global variable.
         const data = workerData as InitializationData;

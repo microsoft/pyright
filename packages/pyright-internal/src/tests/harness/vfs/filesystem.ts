@@ -14,6 +14,7 @@ import {
     FileSystem,
     FileWatcher,
     FileWatcherEventHandler,
+    FileWatcherEventType,
     MkDirOptions,
     TmpfileOptions,
 } from '../../../common/fileSystem';
@@ -29,6 +30,25 @@ let inoCount = 0; // A monotonically increasing count of inodes
 
 export interface DiffOptions {
     includeChangedFileWithSameContent?: boolean;
+}
+
+export class TestFileSystemWatcher implements FileWatcher {
+    private _paths: string[] = [];
+    constructor(paths: string[], private _listener: FileWatcherEventHandler) {
+        this._paths = paths.map((p) => pathUtil.normalizePath(p));
+    }
+    close() {
+        // Do nothing.
+    }
+
+    fireFileChange(path: string, eventType: FileWatcherEventType): boolean {
+        const normalized = pathUtil.normalizePath(path);
+        if (this._paths.some((p) => normalized.startsWith(p))) {
+            this._listener(eventType, normalized);
+            return true;
+        }
+        return false;
+    }
 }
 
 /**
@@ -53,8 +73,12 @@ export class TestFileSystem implements FileSystem {
     private _shadowRoot: TestFileSystem | undefined;
     private _dirStack: string[] | undefined;
     private _tmpfileCounter = 0;
+    private _watchers: TestFileSystemWatcher[] = [];
+    private _id: number;
+    private static _nextId = 1;
 
     constructor(ignoreCase: boolean, options: FileSystemOptions = {}) {
+        this._id = TestFileSystem._nextId++;
         const { time = -1, files, meta } = options;
         this.ignoreCase = ignoreCase;
         this.stringComparer = this.ignoreCase
@@ -315,11 +339,17 @@ export class TestFileSystem implements FileSystem {
     }
 
     createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
-        return {
-            close: () => {
-                /* left empty */
-            },
-        };
+        const watcher = new TestFileSystemWatcher(paths, listener);
+        this._watchers.push(watcher);
+        return watcher;
+    }
+
+    fireFileWatcherEvent(path: string, event: FileWatcherEventType) {
+        for (const watcher of this._watchers) {
+            if (watcher.fireFileChange(path, event)) {
+                break;
+            }
+        }
     }
 
     getModulePath(): string {

@@ -288,6 +288,10 @@ class RealFileSystem implements FileSystem {
         return stat;
     }
 
+    rmdirSync(path: string): void {
+        yarnFS.rmdirSync(path);
+    }
+
     unlinkSync(path: string) {
         yarnFS.unlinkSync(path);
     }
