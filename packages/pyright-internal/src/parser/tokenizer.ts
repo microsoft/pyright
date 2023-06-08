@@ -312,6 +312,15 @@ export class Tokenizer {
         // Add the final line range.
         this._addLineRange();
 
+        // If the last line ended in a line-end character, add an empty line.
+        if (this._lineRanges.length > 0) {
+            const lastLine = this._lineRanges[this._lineRanges.length - 1];
+            const lastCharOfLastLine = text.charCodeAt(lastLine.start + lastLine.length - 1);
+            if (lastCharOfLastLine === Char.CarriageReturn || lastCharOfLastLine === Char.LineFeed) {
+                this._lineRanges.push({ start: this._cs.position, length: 0 });
+            }
+        }
+
         let predominantEndOfLineSequence = '\n';
         if (this._crCount > this._crLfCount && this._crCount > this._lfCount) {
             predominantEndOfLineSequence = '\r';
