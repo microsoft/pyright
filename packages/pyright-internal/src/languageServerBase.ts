@@ -1240,14 +1240,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         const executeCommand = async (token: CancellationToken) => {
             const result = await this.executeCommand(params, token);
             if (WorkspaceEdit.is(result)) {
-                // Tell client to apply edits.
-                // Do not await; the client isn't expecting a result.
+                // Tell client to apply edits. Do not await because the client
+                // isn't expecting a result.
                 this.connection.workspace.applyEdit({ label: `Command '${params.command}'`, edit: result });
             }
 
             if (CommandResult.is(result)) {
-                // Tell client to apply edits.
-                // Await so that we return after the edit is complete.
+                // Tell client to apply edits. Await so we return after the edit is complete.
                 await this.connection.workspace.applyEdit({ label: result.label, edit: result.edits });
             }
 
