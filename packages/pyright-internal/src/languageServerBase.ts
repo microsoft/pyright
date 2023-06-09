@@ -700,7 +700,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this.client.supportsDeprecatedDiagnosticTag = supportedDiagnosticTags.some(
             (tag) => tag === DiagnosticTag.Deprecated
         );
-        // if the client is running in VS, it always supports task item diagnostics
+
+        // If the client is running in VS, it always supports task item diagnostics.
         this.client.supportsTaskItemDiagnosticTag = this.client.hasVisualStudioExtensionsCapability;
         this.client.hasWindowProgressCapability = !!capabilities.window?.workDoneProgress;
         this.client.hasGoToDeclarationCapability = !!capabilities.textDocument?.declaration;
