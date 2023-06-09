@@ -3,9 +3,9 @@ name: Run mypy_primer
 on:
   pull_request:
     paths:
-    - 'pyright/**'
-    - 'pyright-internal/src/**'
-    - 'pyright-internal/typeshed-fallback/**'
+    - 'packages/pyright/**'
+    - 'packages/pyright-internal/src/**'
+    - 'packages/pyright-internal/typeshed-fallback/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
