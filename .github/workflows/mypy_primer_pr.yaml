@@ -1,4 +1,4 @@
-name: Run mypy_primer
+name: Run mypy_primer on PR
 
 on:
   pull_request:
@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   mypy_primer:
-    name: Run mypy_primer
+    name: Run mypy_primer on PR
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -53,7 +53,7 @@ jobs:
             --repo pyright_to_test \
             --type-checker pyright \
             --new $GITHUB_SHA --old base_commit \
-            --num-shards 2 --shard-index ${{ matrix.shard-index }} \
+            --num-shards 1 --shard-index ${{ matrix.shard-index }} \
             --debug \
             --output concise \
             | tee diff_${{ matrix.shard-index }}.txt
