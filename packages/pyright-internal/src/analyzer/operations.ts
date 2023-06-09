@@ -619,6 +619,17 @@ export function getTypeOfBinaryOperation(
                 return { type: UnknownType.create() };
             }
 
+            adjustedLeftType = evaluator.reportMissingTypeArguments(
+                node.leftExpression,
+                adjustedLeftType,
+                flags | EvaluatorFlags.ExpectingType
+            );
+            adjustedRightType = evaluator.reportMissingTypeArguments(
+                node.rightExpression,
+                adjustedRightType,
+                flags | EvaluatorFlags.ExpectingType
+            );
+
             const newUnion = combineTypes([adjustedLeftType, adjustedRightType]);
             if (isUnion(newUnion)) {
                 TypeBase.setSpecialForm(newUnion);

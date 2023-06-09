@@ -612,7 +612,7 @@ test('TypeAlias17', () => {
 
     configOptions.diagnosticRuleSet.reportMissingTypeArgument = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['typeAlias17.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 8);
+    TestUtils.validateResults(analysisResults2, 11);
 });
 
 test('TypeAlias18', () => {

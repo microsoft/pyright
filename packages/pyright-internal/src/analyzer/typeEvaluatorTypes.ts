@@ -616,6 +616,7 @@ export interface TypeEvaluator {
         flags: AssignTypeFlags,
         recursionCount: number
     ) => boolean;
+    reportMissingTypeArguments: (node: ExpressionNode, type: Type, flags: EvaluatorFlags) => Type;
 
     isFinalVariable: (symbol: Symbol) => boolean;
     isFinalVariableDeclaration: (decl: Declaration) => boolean;
