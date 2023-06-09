@@ -33,6 +33,7 @@ job_name:
     - npm i -g pyright-to-gitlab-ci
   script:
    - pyright <python source> --outputjson > report_raw.json
+  after_script:
    - pyright-to-gitlab-ci --src report_raw.json --output report.json --base_path .
   artifacts:
     paths:
