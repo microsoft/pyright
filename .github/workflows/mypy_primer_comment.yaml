@@ -1,3 +1,6 @@
+# This workflow runs when the "Run mypy_primer on PR" workflow completes.
+# It downloads the diff from the other workflow instances and creates
+# a summary comment in the PR.
 name: Comment with mypy_primer diff
 
 on:

@@ -1,6 +1,11 @@
+# This workflow runs mypy_primer, a tool that runs pyright on a variety
+# of open-source Python projects that are known to type check with pyright.
+# It builds pyright from the latest commit and the last release tag and
+# compares the output of both. It uploads the diffs as an artifact.
 name: Run mypy_primer on push
 
 on:
+  # Run on all pushes to main.
   push:
     branches:
       - main
@@ -8,6 +13,7 @@ on:
       - 'packages/pyright/**'
       - 'packages/pyright-internal/src/**'
       - 'packages/pyright-internal/typeshed-fallback/**'
+  # Also run manually if requested.
   workflow_dispatch:
 
 concurrency:
