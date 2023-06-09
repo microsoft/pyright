@@ -116,12 +116,12 @@ import { DocumentSymbolProvider } from './languageService/documentSymbolProvider
 import { HoverProvider } from './languageService/hoverProvider';
 import { canNavigateToFile } from './languageService/navigationUtils';
 import { ReferencesProvider } from './languageService/referencesProvider';
+import { RenameProvider } from './languageService/renameProvider';
 import { SignatureHelpProvider } from './languageService/signatureHelpProvider';
+import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
 import { PyrightFileSystem } from './pyrightFileSystem';
 import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
-import { RenameProvider } from './languageService/renameProvider';
-import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvider';
 
 export interface ServerSettings {
     venvPath?: string | undefined;
@@ -601,8 +601,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     }
 
     protected setupConnection(supportedCommands: string[], supportedCodeActions: string[]): void {
-        // After the server has started the client sends an initialize request. The server receives
-        // in the passed params the rootPath of the workspace plus the client capabilities.
+        // After the server has started the client sends an initialize request.
+        // The server receives in the passed params the rootPath of the workspace
+        // plus the client capabilities.
         this.connection.onInitialize((params) => this.initialize(params, supportedCommands, supportedCodeActions));
 
         this.connection.onInitialized(() => this.onInitialized());
