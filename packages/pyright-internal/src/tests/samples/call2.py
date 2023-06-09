@@ -118,12 +118,24 @@ func9(0, *args4, **kwargs3)
 # This should generate an error.
 func9(*args4, **kwargs3)
 
-def func10(x: int): ...
+
+def func10(x: int):
+    ...
+
 
 func10(1, *())
 
 # This should generate an error.
-func10(1, *(1, ))
+func10(1, *(1,))
+
+func10(*(1,))
+
+# This should generate an error.
+func10(*(1, 1))
+
+# This should generate an error.
+func10(*("",))
+
 
 def func11(y: tuple[int, ...]):
     func10(1, *y)
