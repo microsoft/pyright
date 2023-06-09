@@ -19,7 +19,7 @@ jobs:
       contents: read
     strategy:
       matrix:
-        shard-index: [0, 1, 2]
+        shard-index: [0, 1]
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -38,6 +38,12 @@ jobs:
         run: |
           cd pyright_to_test
           echo "new commit"
+          git rev-list --format=%s --max-count=1 $GITHUB_SHA
+
+          MERGE_BASE=$(git merge-base $GITHUB_SHA origin/$GITHUB_BASE_REF)
+          git checkout -b base_commit $MERGE_BASE
+          echo "base commit"
+          git rev-list --format=%s --max-count=1 base_commit
 
           echo ''
           cd ..
@@ -46,8 +52,8 @@ jobs:
             mypy_primer \
             --repo pyright_to_test \
             --type-checker pyright \
-            --new $GITHUB_SHA \
-            --num-shards 3 --shard-index ${{ matrix.shard-index }} \
+            --new $GITHUB_SHA --old base_commit \
+            --num-shards 2 --shard-index ${{ matrix.shard-index }} \
             --debug \
             --output concise \
             | tee diff_${{ matrix.shard-index }}.txt
