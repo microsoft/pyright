@@ -9298,7 +9298,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isClassInstance(combinedArgType) && isTupleClass(combinedArgType)) {
                     const tupleTypeArgs = combinedArgType.tupleTypeArguments ?? [];
 
-                    if (tupleTypeArgs.length !== 1) {
+                    if (tupleTypeArgs.length !== 1 || !tupleTypeArgs[0].isUnbounded) {
                         for (const tupleTypeArg of tupleTypeArgs) {
                             if (tupleTypeArg.isUnbounded) {
                                 expandedArgList.push({
