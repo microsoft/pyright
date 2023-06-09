@@ -4604,15 +4604,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Is this a generic class that needs to be specialized?
         if (isInstantiableClass(type)) {
             if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
-                if (requiresTypeArguments(type) && !type.typeArguments) {
-                    addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportMissingTypeArgument,
-                        DiagnosticRule.reportMissingTypeArgument,
-                        Localizer.Diagnostic.typeArgsMissingForClass().format({
-                            name: type.aliasName || type.details.name,
-                        }),
-                        node
-                    );
+                if (!type.typeAliasInfo && requiresTypeArguments(type)) {
+                    if (!type.typeArguments || !type.isTypeArgumentExplicit) {
+                        addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportMissingTypeArgument,
+                            DiagnosticRule.reportMissingTypeArgument,
+                            Localizer.Diagnostic.typeArgsMissingForClass().format({
+                                name: type.aliasName || type.details.name,
+                            }),
+                            node
+                        );
+                    }
                 }
             }
             if (!type.typeArguments) {
@@ -25291,6 +25293,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getBuiltInObject,
         getTypingType,
         verifyTypeArgumentsAssignable,
+        reportMissingTypeArguments,
         inferReturnTypeIfNecessary,
         inferTypeParameterVarianceForClass,
         isFinalVariable,
