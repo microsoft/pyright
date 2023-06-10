@@ -1,4 +1,6 @@
+import { ParameterStructures } from 'vscode-languageserver-protocol';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
+import { isDunderName } from '../analyzer/symbolNameUtils';
 import { FunctionType } from '../analyzer/types';
 import { ProgramView } from '../common/extensibility';
 import {
@@ -12,7 +14,6 @@ import {
     ParseNodeType,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { isDunderName } from '../analyzer/symbolNameUtils';
 
 type TypeInlayHintsItemType = {
     inlayHintType: 'variable' | 'functionReturn' | 'parameter';
@@ -123,15 +124,16 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
         }
 
         for (const p of result.match.argParams) {
-            const argNode = p.argument.valueExpression;
-            if (!argNode) {
-                continue;
-            }
             // If the argument is specified as a keyword argument, there is no need to generate a hint
             if (p.argument.name) {
                 continue;
             }
-            if (p.paramCategory !== ParameterCategory.Simple) {
+            const argNode = p.argument.valueExpression;
+            if (!argNode) {
+                continue;
+            }
+            const funcParam = result.type.details.parameters.find((a) => a.name && a.name === p.paramName);
+            if (funcParam?.category !== ParameterCategory.Simple) {
                 continue;
             }
             // Arguments starting with double underscores usually come from type stubs,
