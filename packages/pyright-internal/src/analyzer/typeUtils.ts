@@ -2165,31 +2165,89 @@ export function containsAnyOrUnknown(type: Type, recurse: boolean): AnyType | Un
 }
 
 // Determines if any part of the type contains "Unknown", including any type arguments.
-export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = false): boolean {
-    class PartlyUnknownWalker extends TypeWalker {
-        isPartlyUnknown = false;
+// This function does not use the TypeWalker because it is called very frequently,
+// and allocating a memory walker object for every call significantly increases
+// peak memory usage.
+export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = false, recursionCount = 0): boolean {
+    if (recursionCount > maxTypeRecursionCount) {
+        return false;
+    }
+    recursionCount++;
 
-        constructor(private _allowUnknownTypeArgsForClasses: boolean) {
-            super();
-        }
+    if (isUnknown(type)) {
+        return true;
+    }
 
-        override visitUnknown(type: UnknownType) {
-            this.isPartlyUnknown = true;
-
-            // No need to keep walking.
-            this.cancelWalk();
-        }
-
-        override visitClass(type: ClassType) {
-            if (!this._allowUnknownTypeArgsForClasses || !TypeBase.isInstantiable(type)) {
-                super.visitClass(type);
-            }
+    // If this is a generic type alias, see if any of its type arguments
+    // are either unspecified or are partially known.
+    if (type.typeAliasInfo?.typeArguments) {
+        if (
+            type.typeAliasInfo.typeArguments.some((typeArg) =>
+                isPartlyUnknown(typeArg, allowUnknownTypeArgsForClasses, recursionCount)
+            )
+        ) {
+            return true;
         }
     }
 
-    const walker = new PartlyUnknownWalker(allowUnknownTypeArgsForClasses);
-    walker.walk(type);
-    return walker.isPartlyUnknown;
+    // See if a union contains an unknown type.
+    if (isUnion(type)) {
+        return (
+            findSubtype(type, (subtype) => isPartlyUnknown(subtype, allowUnknownTypeArgsForClasses, recursionCount)) !==
+            undefined
+        );
+    }
+
+    // See if an object or class has an unknown type argument.
+    if (isClass(type)) {
+        if (TypeBase.isInstance(type)) {
+            allowUnknownTypeArgsForClasses = false;
+        }
+
+        if (!allowUnknownTypeArgsForClasses && !ClassType.isPseudoGenericClass(type)) {
+            const typeArgs = type.tupleTypeArguments?.map((t) => t.type) || type.typeArguments;
+            if (typeArgs) {
+                for (const argType of typeArgs) {
+                    if (isPartlyUnknown(argType, allowUnknownTypeArgsForClasses, recursionCount)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    // See if a function has an unknown type.
+    if (isOverloadedFunction(type)) {
+        return OverloadedFunctionType.getOverloads(type).some((overload) => {
+            return isPartlyUnknown(overload, /* allowUnknownTypeArgsForClasses */ false, recursionCount);
+        });
+    }
+
+    if (isFunction(type)) {
+        for (let i = 0; i < type.details.parameters.length; i++) {
+            // Ignore parameters such as "*" that have no name.
+            if (type.details.parameters[i].name) {
+                const paramType = FunctionType.getEffectiveParameterType(type, i);
+                if (isPartlyUnknown(paramType, /* allowUnknownTypeArgsForClasses */ false, recursionCount)) {
+                    return true;
+                }
+            }
+        }
+
+        if (
+            type.details.declaredReturnType &&
+            !FunctionType.isParamSpecValue(type) &&
+            isPartlyUnknown(type.details.declaredReturnType, /* allowUnknownTypeArgsForClasses */ false, recursionCount)
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    return false;
 }
 
 // If the specified type is a generic class with a single type argument
