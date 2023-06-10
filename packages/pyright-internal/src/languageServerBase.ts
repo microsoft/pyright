@@ -1127,12 +1127,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected async onInlayHints(params: InlayHintParams, token: CancellationToken): Promise<InlayHint[] | null> {
         const uri = Uri.parse(params.textDocument.uri, this.fs.isCaseSensitive);
         const workspace = await this.getWorkspaceForFile(uri);
+
         if (workspace.disableLanguageServices) {
             return null;
         }
 
+        const range = params.range;
         return workspace.service.run((program) => {
-            return new InlayHintsProvider(program, uri, token).onInlayHints();
+            return new InlayHintsProvider(program, uri, range, token).onInlayHints();
         }, token);
     }
 

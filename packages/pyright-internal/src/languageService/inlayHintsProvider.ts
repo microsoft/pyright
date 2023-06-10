@@ -5,15 +5,25 @@ import { convertOffsetToPosition } from '../common/positionUtils';
 import { ParseResults } from '../parser/parser';
 
 import { TypeInlayHintsWalker } from '../analyzer/typeInlayHintsWalker';
-import { Position, getEmptyPosition } from '../common/textRange';
+import { Position, getEmptyPosition, Range } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { HoverProvider } from './hoverProvider';
 
 export class InlayHintsProvider {
     private readonly _parseResults: ParseResults | undefined;
 
-    constructor(private _program: ProgramView, private _fileUri: Uri, private _token: CancellationToken) {
+    constructor(private _program: ProgramView, private _fileUri: Uri, private _range: Range, private _token: CancellationToken) {
         this._parseResults = this._program.getParseResults(this._fileUri);
+    }
+
+    _itemInRange(start: Position, end: Position): boolean {
+        if (start.line > this._range.end.line) {
+            return false;
+        }
+        if (end.line < this._range.start.line) {
+            return false;
+        }
+        return true;
     }
 
     async onInlayHints(): Promise<InlayHint[] | null> {
@@ -28,6 +38,10 @@ export class InlayHintsProvider {
         for (const item of walker.featureItems) {
             const startPosition = convertOffsetToPosition(item.startOffset, this._parseResults.tokenizerOutput.lines);
             const endPosition = convertOffsetToPosition(item.endOffset, this._parseResults.tokenizerOutput.lines);
+            if (!this._itemInRange(startPosition, endPosition)) {
+                continue;
+            }
+
             const hoverResponse =
                 item.inlayHintType === 'parameter' ? null : await this.getHoverAtOffset(startPosition);
             if (!hoverResponse && item.inlayHintType !== 'parameter') {
