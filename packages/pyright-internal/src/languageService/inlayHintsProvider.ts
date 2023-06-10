@@ -91,6 +91,7 @@ export class InlayHintsProvider {
                 }
             }
         }
+
         return inlayHints;
     }
 

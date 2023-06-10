@@ -1,5 +1,5 @@
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
-import { CallSignature } from '../analyzer/typeEvaluatorTypes';
+import { FunctionType } from '../analyzer/types';
 import { ProgramView } from '../common/extensibility';
 import {
     AssignmentNode,
@@ -8,11 +8,11 @@ import {
     MemberAccessNode,
     NameNode,
     ParameterCategory,
-    ParameterNode,
     ParseNode,
     ParseNodeType,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { isDunderName } from '../analyzer/symbolNameUtils';
 
 type TypeInlayHintsItemType = {
     inlayHintType: 'variable' | 'functionReturn' | 'parameter';
@@ -21,7 +21,7 @@ type TypeInlayHintsItemType = {
     value?: string;
 };
 // Don't generate inlay hints for arguments to builtin types and functions
-const ignoredBuiltinTypes = [
+const ignoredBuiltinTypes = new Set([
     'builtins.bool',
     'builtins.bytes',
     'builtins.bytearray',
@@ -39,8 +39,8 @@ const ignoredBuiltinTypes = [
     'builtins.type',
     'builtins.reversed',
     'builtins.zip',
-];
-const ignoredBuiltinFunctions = [
+].flatMap((v) => [`${v}.__new__`, `${v}.__init__`]));
+const ignoredBuiltinFunctions = new Set([
     'builtins.len',
     'builtins.max',
     'builtins.min',
@@ -53,21 +53,17 @@ const ignoredBuiltinFunctions = [
     'builtins.isinstance',
     'builtins.id',
     'builtins.iter',
-];
+]);
 
-function isIgnoredBuiltin(sig: CallSignature): boolean {
-    if (sig.type.details.moduleName !== 'builtins') {
+function isIgnoredBuiltin(type: FunctionType): boolean {
+    if (type.details.moduleName !== 'builtins') {
         return false;
     }
-    const funcName = sig.type.details.name;
+    const funcName = type.details.name;
     if (funcName === '__new__' || funcName === '__init__') {
-        return ignoredBuiltinTypes.some((v) => `${v}.${funcName}` === sig.type.details.fullName);
+        return ignoredBuiltinTypes.has(type.details.fullName);
     }
-    return ignoredBuiltinFunctions.some((v) => v === sig.type.details.fullName);
-}
-
-function isDunder(name: string): boolean {
-    return name.length != 2 && name.startsWith('__') && name.endsWith('__');
+    return ignoredBuiltinFunctions.has(type.details.fullName);
 }
 
 function isLeftSideOfAssignment(node: ParseNode): boolean {
@@ -85,7 +81,7 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
     }
 
     override visitName(node: NameNode): boolean {
-        if (isLeftSideOfAssignment(node) && !isDunder(node.value)) {
+        if (isLeftSideOfAssignment(node) && !isDunderName (node.value)) {
             this.featureItems.push({
                 inlayHintType: 'variable',
                 startOffset: node.start,
@@ -97,7 +93,7 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
     }
 
     override visitMemberAccess(node: MemberAccessNode): boolean {
-        if (isLeftSideOfAssignment(node) && !isDunder(node.memberName.value)) {
+        if (isLeftSideOfAssignment(node) && !isDunderName(node.memberName.value)) {
             this.featureItems.push({
                 inlayHintType: 'variable',
                 startOffset: node.memberName.start,
@@ -108,34 +104,23 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
         return super.visitMemberAccess(node);
     }
 
-    getFunctionParametersFromNode(node: CallNode): ParameterNode[] | undefined {
-        const funcName = (node.leftExpression as NameNode).value;
-        const result = this._program.evaluator?.lookUpSymbolRecursive(node.leftExpression, funcName, false);
-        const declarations = result?.symbol.getTypedDeclarations();
-        if (!declarations || declarations.length === 0) {
-            return undefined;
-        }
-        const decl = declarations[0];
-        if (decl.node.nodeType === ParseNodeType.Function) {
-            return decl.node.parameters;
-        }
-        return undefined;
-    }
-
     _generateHintsForCallNode(node: CallNode) {
         const matchedArgs = this._program.evaluator?.matchCallArgsToParams(node);
         if (!matchedArgs) {
             return;
         }
         // sort matches by relevance and use the most relevant match
-        matchedArgs.sort((r1, r2) => r2.relevance - r1.relevance);
-        const match = matchedArgs[0];
+        matchedArgs.sort((r1, r2) => r2.match.relevance - r1.match.relevance);
+        const result = matchedArgs[0];
 
-        if (match.argumentErrors) {
+        if (result.match.argumentErrors) {
+            return;
+        }
+        if (isIgnoredBuiltin(result.type)) {
             return;
         }
 
-        for (const p of match.argParams) {
+        for (const p of result.match.argParams) {
             const argNode = p.argument.valueExpression;
             if (!argNode) {
                 continue;
