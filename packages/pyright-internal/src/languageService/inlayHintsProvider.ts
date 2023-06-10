@@ -12,7 +12,12 @@ import { HoverProvider } from './hoverProvider';
 export class InlayHintsProvider {
     private readonly _parseResults: ParseResults | undefined;
 
-    constructor(private _program: ProgramView, private _fileUri: Uri, private _range: Range, private _token: CancellationToken) {
+    constructor(
+        private _program: ProgramView,
+        private _fileUri: Uri,
+        private _range: Range,
+        private _token: CancellationToken
+    ) {
         this._parseResults = this._program.getParseResults(this._fileUri);
     }
 

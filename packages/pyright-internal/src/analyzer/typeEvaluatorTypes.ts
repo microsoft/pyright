@@ -467,8 +467,8 @@ export interface MatchArgsToParamsResult {
 }
 
 export interface MatchCallArgsToParams {
-    match: MatchArgsToParamsResult,
-    type: FunctionType,
+    match: MatchArgsToParamsResult;
+    type: FunctionType;
 }
 
 export interface TypeEvaluator {

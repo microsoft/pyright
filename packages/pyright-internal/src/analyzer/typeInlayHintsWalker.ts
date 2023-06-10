@@ -21,25 +21,27 @@ type TypeInlayHintsItemType = {
     value?: string;
 };
 // Don't generate inlay hints for arguments to builtin types and functions
-const ignoredBuiltinTypes = new Set([
-    'builtins.bool',
-    'builtins.bytes',
-    'builtins.bytearray',
-    'builtins.float',
-    'builtins.int',
-    'builtins.list',
-    'builtins.memoryview',
-    'builtins.str',
-    'builtins.tuple',
-    'builtins.range',
-    'builtins.enumerate',
-    'builtins.map',
-    'builtins.filter',
-    'builtins.slice',
-    'builtins.type',
-    'builtins.reversed',
-    'builtins.zip',
-].flatMap((v) => [`${v}.__new__`, `${v}.__init__`]));
+const ignoredBuiltinTypes = new Set(
+    [
+        'builtins.bool',
+        'builtins.bytes',
+        'builtins.bytearray',
+        'builtins.float',
+        'builtins.int',
+        'builtins.list',
+        'builtins.memoryview',
+        'builtins.str',
+        'builtins.tuple',
+        'builtins.range',
+        'builtins.enumerate',
+        'builtins.map',
+        'builtins.filter',
+        'builtins.slice',
+        'builtins.type',
+        'builtins.reversed',
+        'builtins.zip',
+    ].flatMap((v) => [`${v}.__new__`, `${v}.__init__`])
+);
 const ignoredBuiltinFunctions = new Set([
     'builtins.len',
     'builtins.max',
@@ -81,7 +83,7 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
     }
 
     override visitName(node: NameNode): boolean {
-        if (isLeftSideOfAssignment(node) && !isDunderName (node.value)) {
+        if (isLeftSideOfAssignment(node) && !isDunderName(node.value)) {
             this.featureItems.push({
                 inlayHintType: 'variable',
                 startOffset: node.start,
