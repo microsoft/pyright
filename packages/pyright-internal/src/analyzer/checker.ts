@@ -6174,6 +6174,15 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // If the method starts with a `*args: P.args`, skip the check.
+        if (
+            paramInfo.category === ParameterCategory.ArgsList &&
+            isParamSpec(paramInfo.type) &&
+            paramInfo.type.paramSpecAccess === 'args'
+        ) {
+            return;
+        }
+
         // Don't enforce this for an overloaded method because the "self" param
         // annotation can be used as a filter for the overload. This differs from
         // mypy, which enforces this check for overloads, but there are legitimate
