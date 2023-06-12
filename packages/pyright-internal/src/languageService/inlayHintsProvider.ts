@@ -114,7 +114,7 @@ export class InlayHintsProvider {
                     .substring(firstIdx + 2)
                     .split('\n')[0]
                     .trim();
-                if (text.startsWith('Literal[')) {
+                if (text === 'Any' || text.startsWith('Literal[')) {
                     return undefined;
                 }
                 return ': ' + text;
