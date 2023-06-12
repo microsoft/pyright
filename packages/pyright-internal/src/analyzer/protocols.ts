@@ -15,6 +15,7 @@ import { assignProperty } from './properties';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
+    isAnyOrUnknown,
     isClassInstance,
     isFunction,
     isInstantiableClass,
@@ -23,7 +24,9 @@ import {
     maxTypeRecursionCount,
     ModuleType,
     Type,
+    TypeVarType,
     UnknownType,
+    Variance,
 } from './types';
 import {
     applySolvedTypeVars,
@@ -36,6 +39,7 @@ import {
     partiallySpecializeType,
     populateTypeVarContextForSelfType,
     removeParamSpecVariadicsFromSignature,
+    requiresSpecialization,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
@@ -145,10 +149,7 @@ function assignClassToProtocolInternal(
         return isTypeSame(destType, srcType);
     }
 
-    // Strip the type arguments off the dest protocol if they are provided.
-    const genericDestType = ClassType.cloneForSpecialization(destType, undefined, /* isTypeArgumentExplicit */ false);
-    const genericDestTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
-
+    const protocolTypeVarContext = createProtocolTypeVarContext(evaluator, destType, destTypeVarContext);
     const selfTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
     const noLiteralSrcType = evaluator.stripLiteralValue(srcType) as ClassType;
     populateTypeVarContextForSelfType(selfTypeVarContext, destType, noLiteralSrcType);
@@ -346,7 +347,7 @@ function assignClassToProtocolInternal(
                             mroClass,
                             srcType,
                             subDiag?.createAddendum(),
-                            genericDestTypeVarContext,
+                            protocolTypeVarContext,
                             selfTypeVarContext,
                             recursionCount
                         )
@@ -368,7 +369,7 @@ function assignClassToProtocolInternal(
                             getterType,
                             srcMemberType,
                             subDiag?.createAddendum(),
-                            genericDestTypeVarContext,
+                            protocolTypeVarContext,
                             /* srcTypeVarContext */ undefined,
                             assignTypeFlags,
                             recursionCount
@@ -389,7 +390,7 @@ function assignClassToProtocolInternal(
                         destMemberType,
                         srcMemberType,
                         subDiag?.createAddendum(),
-                        genericDestTypeVarContext,
+                        protocolTypeVarContext,
                         /* srcTypeVarContext */ undefined,
                         isInvariant ? assignTypeFlags | AssignTypeFlags.EnforceInvariance : assignTypeFlags,
                         recursionCount
@@ -431,13 +432,18 @@ function assignClassToProtocolInternal(
     if (typesAreConsistent && destType.details.typeParameters.length > 0) {
         // Create a specialized version of the protocol defined by the dest and
         // make sure the resulting type args can be assigned.
-        const specializedDestProtocol = applySolvedTypeVars(genericDestType, genericDestTypeVarContext) as ClassType;
+        const genericProtocolType = ClassType.cloneForSpecialization(
+            destType,
+            undefined,
+            /* isTypeArgumentExplicit */ false
+        );
+        const specializedProtocolType = applySolvedTypeVars(genericProtocolType, protocolTypeVarContext) as ClassType;
 
         if (destType.typeArguments) {
             if (
                 !evaluator.verifyTypeArgumentsAssignable(
                     destType,
-                    specializedDestProtocol,
+                    specializedProtocolType,
                     diag,
                     destTypeVarContext,
                     srcTypeVarContext,
@@ -447,22 +453,18 @@ function assignClassToProtocolInternal(
             ) {
                 typesAreConsistent = false;
             }
-        } else if (
-            destTypeVarContext &&
-            destType.details.typeParameters.length > 0 &&
-            specializedDestProtocol.typeArguments &&
-            !destTypeVarContext.isLocked()
-        ) {
-            // Populate the typeVar map with type arguments of the source.
-            const srcTypeArgs = specializedDestProtocol.typeArguments;
-            for (let i = 0; i < destType.details.typeParameters.length; i++) {
-                const typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
-                destTypeVarContext.setTypeVarType(
-                    destType.details.typeParameters[i],
-                    /* narrowBound */ undefined,
-                    /* narrowBoundNoLiterals */ undefined,
-                    typeArgType
-                );
+        } else if (destTypeVarContext && !destTypeVarContext.isLocked()) {
+            for (const typeParam of destType.details.typeParameters) {
+                const typeArgEntry = protocolTypeVarContext.getPrimarySignature().getTypeVar(typeParam);
+
+                if (typeArgEntry) {
+                    destTypeVarContext.setTypeVarType(
+                        typeParam,
+                        typeArgEntry?.narrowBound,
+                        typeArgEntry?.narrowBoundNoLiterals,
+                        typeArgEntry?.wideBound
+                    );
+                }
             }
         }
     }
@@ -475,7 +477,7 @@ export function assignModuleToProtocol(
     destType: ClassType,
     srcType: ModuleType,
     diag: DiagnosticAddendum | undefined,
-    typeVarContext: TypeVarContext | undefined,
+    destTypeVarContext: TypeVarContext | undefined,
     flags: AssignTypeFlags,
     recursionCount: number
 ): boolean {
@@ -486,10 +488,7 @@ export function assignModuleToProtocol(
 
     let typesAreConsistent = true;
     const checkedSymbolSet = new Set<string>();
-
-    // Strip the type arguments off the dest protocol if they are provided.
-    const genericDestType = ClassType.cloneForSpecialization(destType, undefined, /* isTypeArgumentExplicit */ false);
-    const genericDestTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
+    const protocolTypeVarContext = createProtocolTypeVarContext(evaluator, destType, destTypeVarContext);
 
     destType.details.mro.forEach((mroClass) => {
         if (!isInstantiableClass(mroClass) || !ClassType.isProtocolClass(mroClass)) {
@@ -544,7 +543,7 @@ export function assignModuleToProtocol(
                     destMemberType,
                     srcMemberType,
                     subDiag?.createAddendum(),
-                    genericDestTypeVarContext,
+                    protocolTypeVarContext,
                     /* srcTypeVarContext */ undefined,
                     AssignTypeFlags.Default,
                     recursionCount
@@ -562,14 +561,19 @@ export function assignModuleToProtocol(
     if (typesAreConsistent && destType.details.typeParameters.length > 0 && destType.typeArguments) {
         // Create a specialized version of the protocol defined by the dest and
         // make sure the resulting type args can be assigned.
-        const specializedSrcProtocol = applySolvedTypeVars(genericDestType, genericDestTypeVarContext) as ClassType;
+        const genericProtocolType = ClassType.cloneForSpecialization(
+            destType,
+            undefined,
+            /* isTypeArgumentExplicit */ false
+        );
+        const specializedProtocolType = applySolvedTypeVars(genericProtocolType, protocolTypeVarContext) as ClassType;
 
         if (
             !evaluator.verifyTypeArgumentsAssignable(
                 destType,
-                specializedSrcProtocol,
+                specializedProtocolType,
                 diag,
-                typeVarContext,
+                destTypeVarContext,
                 /* srcTypeVarContext */ undefined,
                 flags,
                 recursionCount
@@ -580,4 +584,39 @@ export function assignModuleToProtocol(
     }
 
     return typesAreConsistent;
+}
+
+function createProtocolTypeVarContext(
+    evaluator: TypeEvaluator,
+    destType: ClassType,
+    destTypeVarContext: TypeVarContext | undefined
+) {
+    const protocolTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
+    if (destTypeVarContext && destType?.typeArguments) {
+        // Infer the type parameter variance because we need it below.
+        evaluator.inferTypeParameterVarianceForClass(destType);
+
+        // Populate the typeVarContext with any concrete constraints that
+        // have already been solved.
+        const specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, {
+            useNarrowBoundOnly: true,
+        }) as ClassType;
+        destType.details.typeParameters.forEach((typeParam, index) => {
+            if (index < specializedDestType.typeArguments!.length) {
+                const typeArg = specializedDestType.typeArguments![index];
+
+                if (!requiresSpecialization(typeArg) && !isAnyOrUnknown(typeArg)) {
+                    const typeParamVariance = TypeVarType.getVariance(typeParam);
+                    protocolTypeVarContext.setTypeVarType(
+                        typeParam,
+                        typeParamVariance !== Variance.Contravariant ? typeArg : undefined,
+                        /* narrowBoundNoLiterals */ undefined,
+                        typeParamVariance !== Variance.Covariant ? typeArg : undefined
+                    );
+                }
+            }
+        });
+    }
+
+    return protocolTypeVarContext;
 }
