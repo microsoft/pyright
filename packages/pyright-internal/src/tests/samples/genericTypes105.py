@@ -2,7 +2,7 @@
 # as an argument to another generic function multiple times.
 
 from dataclasses import dataclass
-from typing import Generic, TypeVar, Callable
+from typing import Any, Generic, Literal, ParamSpec, TypeVar, Callable, overload
 
 T = TypeVar("T")
 A = TypeVar("A")
@@ -12,6 +12,7 @@ D = TypeVar("D")
 X = TypeVar("X")
 Y = TypeVar("Y")
 Z = TypeVar("Z")
+P = ParamSpec("P")
 
 
 def identity(x: T) -> T:
@@ -112,3 +113,31 @@ def test_4(pair: Pair[Pair[Pair[A, B], C], D]) -> Pair[Pair[Pair[A, B], C], D]:
     )
     val2 = val1(pair)
     return val2
+
+
+@overload
+def test_5(
+    a: type[Callable[P, type[T]]], *, b: Literal[False, None] = ...
+) -> type[list[type[T]]]:
+    ...
+
+
+@overload
+def test_5(a: T, *args: int, b: Literal[False, None] = ...) -> type[list[T]]:
+    ...
+
+
+@overload
+def test_5(a: T, *args: int, b: Literal[True] = ...) -> type[list[T]]:
+    ...
+
+
+def test_5(a: Any, *args: int, b: Any = ...) -> Any:
+    ...
+
+
+val3 = test_5(test_5, **{})
+reveal_type(
+    val3,
+    expected_text="Type[list[Overload[(a: Type[(**P(1)@test_5) -> Type[T(1)@test_5]], *, b: Literal[False] | None = ...) -> Type[list[Type[T(1)@test_5]]], (a: T(1)@test_5, *args: int, b: Literal[False] | None = ...) -> Type[list[T(1)@test_5]], (a: T(1)@test_5, *args: int, b: Literal[True] = ...) -> Type[list[T(1)@test_5]], (a: Any, *args: int, b: Any = ...) -> Any]]]",
+)
