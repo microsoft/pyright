@@ -1,8 +1,8 @@
 ---
 name: Bug report
-about: Create a report to help us improve pyright
+about: Report incorrect or unintended behaviors
 title: ''
-labels: ''
+labels: bug
 assignees: ''
 
 ---
@@ -20,7 +20,7 @@ Steps to reproduce the behavior.
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
-**Screenshots or Code**
+**Code or Screenshots**
 If possible, provide a minimal, self-contained code sample (surrounded by triple back ticks) to demonstrate the issue. The code should define or imports all referenced symbols.
 
 ```python
@@ -31,7 +31,7 @@ def foo(self) -> str:
 If your code relies on symbols that are imported from a third-party library, include the associated import statements and specify which versions of those libraries you have installed.
 
 **VS Code extension or command-line**
-Are you running pyright as a VS Code extension or a command-line tool? Which version? You can find the version of the VS Code extension by clicking on the Pyright icon in the extensions panel.
+Are you running pyright as a VS Code extension, a language server in another editor, or the command-line tool? Which version?
 
 **Additional context**
 Add any other context about the problem here.
