@@ -972,7 +972,7 @@ export function partiallySpecializeType(
     }
 
     // Partially specialize the type using the specialized class type vars.
-    const typeVarContext = buildTypeVarContextFromSpecializedClass(contextClassType, /* makeConcrete */ undefined);
+    const typeVarContext = buildTypeVarContextFromSpecializedClass(contextClassType);
 
     if (selfClass) {
         populateTypeVarContextForSelfType(typeVarContext, contextClassType, selfClass);
@@ -1732,18 +1732,10 @@ export function setTypeArgumentsRecursive(
 // types. For example, if the generic type is Dict[_T1, _T2] and the
 // specialized type is Dict[str, int], it returns a map that associates
 // _T1 with str and _T2 with int.
-export function buildTypeVarContextFromSpecializedClass(classType: ClassType, makeConcrete = true): TypeVarContext {
+export function buildTypeVarContextFromSpecializedClass(classType: ClassType): TypeVarContext {
     const typeParameters = ClassType.getTypeParameters(classType);
-    let typeArguments = classType.typeArguments;
 
-    // If there are no type arguments, we can either use the type variables
-    // from the type parameters (keeping the type arguments generic) or
-    // fill in concrete types.
-    if (!typeArguments && !makeConcrete) {
-        typeArguments = typeParameters;
-    }
-
-    const typeVarContext = buildTypeVarContext(typeParameters, typeArguments, getTypeVarScopeId(classType));
+    const typeVarContext = buildTypeVarContext(typeParameters, classType.typeArguments, getTypeVarScopeId(classType));
     if (ClassType.isTupleClass(classType) && classType.tupleTypeArguments && typeParameters.length >= 1) {
         typeVarContext.setTupleTypeVar(typeParameters[0], classType.tupleTypeArguments);
     }
@@ -1757,11 +1749,12 @@ export function buildTypeVarContext(
     typeVarScopeId: TypeVarScopeId | undefined
 ): TypeVarContext {
     const typeVarContext = new TypeVarContext(typeVarScopeId);
+
     typeParameters.forEach((typeParam, index) => {
         let typeArgType: Type;
 
         if (typeArgs) {
-            if (isParamSpec(typeParam)) {
+            if (typeParam.details.isParamSpec) {
                 if (index < typeArgs.length) {
                     typeArgType = typeArgs[index];
                     if (isFunction(typeArgType) && FunctionType.isParamSpecValue(typeArgType)) {
@@ -2714,7 +2707,7 @@ export function computeMroLinearization(classType: ClassType): boolean {
 
     filteredBaseClasses.forEach((baseClass) => {
         if (isInstantiableClass(baseClass)) {
-            const typeVarContext = buildTypeVarContextFromSpecializedClass(baseClass, /* makeConcrete */ false);
+            const typeVarContext = buildTypeVarContextFromSpecializedClass(baseClass);
             classListsToMerge.push(
                 baseClass.details.mro.map((mroClass) => {
                     return applySolvedTypeVars(mroClass, typeVarContext);
@@ -2727,13 +2720,13 @@ export function computeMroLinearization(classType: ClassType): boolean {
 
     classListsToMerge.push(
         filteredBaseClasses.map((baseClass) => {
-            const typeVarContext = buildTypeVarContextFromSpecializedClass(classType, /* makeConcrete */ false);
+            const typeVarContext = buildTypeVarContextFromSpecializedClass(classType);
             return applySolvedTypeVars(baseClass, typeVarContext);
         })
     );
 
     // The first class in the MRO is the class itself.
-    const typeVarContext = buildTypeVarContextFromSpecializedClass(classType, /* makeConcrete */ false);
+    const typeVarContext = buildTypeVarContextFromSpecializedClass(classType);
     classType.details.mro.push(applySolvedTypeVars(classType, typeVarContext));
 
     // Helper function that returns true if the specified searchClass
