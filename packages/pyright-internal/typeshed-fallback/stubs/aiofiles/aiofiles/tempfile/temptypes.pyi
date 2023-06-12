@@ -1,7 +1,7 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, OpenBinaryMode
 from asyncio import AbstractEventLoop
 from collections.abc import Generator, Iterable
-from tempfile import TemporaryDirectory, _BytesMode
+from tempfile import TemporaryDirectory
 from types import coroutine as coroutine
 from typing import TypeVar
 
@@ -33,7 +33,7 @@ class AsyncSpooledTemporaryFile(AsyncBase[_T]):
     @property
     def encoding(self) -> str: ...
     @property
-    def mode(self) -> _BytesMode: ...
+    def mode(self) -> OpenBinaryMode: ...
     @property
     def name(self) -> str: ...
     @property

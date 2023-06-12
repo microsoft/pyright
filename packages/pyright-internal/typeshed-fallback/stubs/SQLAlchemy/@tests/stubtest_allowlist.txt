@@ -1,0 +1,85 @@
+# mypy plugin not supported in typeshed
+sqlalchemy.ext.mypy.*
+# test suites
+sqlalchemy.testing.suite
+# Leaked re-exports from the compat module
+sqlalchemy.util.quote
+
+# Expanding keyword arguments in stubs
+sqlalchemy.ext.declarative.as_declarative
+
+# not always present
+sqlalchemy.engine.Engine.logging_name  # initialized if not None
+sqlalchemy.engine.base.Engine.logging_name  # initialized if not None
+sqlalchemy.sql.lambdas.PyWrapper.__clause_element__
+sqlalchemy.testing.util.non_refcount_gc_collect
+
+# potentially replaced at runtime
+sqlalchemy.engine.Row.count
+sqlalchemy.engine.Row.index
+sqlalchemy.engine.row.Row.count
+sqlalchemy.engine.row.Row.index
+
+# abstract fields not present at runtime
+sqlalchemy.engine.Transaction.connection
+sqlalchemy.engine.Transaction.is_active
+sqlalchemy.engine.base.Transaction.connection
+sqlalchemy.engine.base.Transaction.is_active
+
+# initialized to None during class construction, but overridden during __init__() or __new__()
+sqlalchemy.engine.base.Connection.engine
+sqlalchemy.engine.Connection.engine
+sqlalchemy.orm.Mapper.single
+sqlalchemy.orm.mapper.Mapper.single
+
+# Uses @memoized_property at runtime, but we use @property for compatibility
+sqlalchemy.engine.URL.normalized_query
+sqlalchemy.engine.url.URL.normalized_query
+# Uses @memoized_property, but that causes regr_test to raise 'Cannot determine type of "..." in base class "..."  [misc]'
+sqlalchemy.schema.SchemaItem.info
+sqlalchemy.sql.elements.AnnotatedColumnElement.info
+sqlalchemy.sql.elements.AnnotatedColumnElement.key
+sqlalchemy.sql.elements.AnnotatedColumnElement.name
+sqlalchemy.sql.elements.AnnotatedColumnElement.table
+sqlalchemy.sql.schema.SchemaItem.info
+
+# runtime has extra internal arguments that are inconsistent across micro versions
+sqlalchemy.testing.engines.testing_engine
+
+# __new__ signature conflicts with __init__ signature (which is more precise),
+# so __new__ is deliberately omitted in the stub
+sqlalchemy.sql.annotation.Annotated.__new__
+
+# At runtime __new__ is defined, but we define __init__ in the stub
+# because otherwise all subclasses would be identified by pyright
+# as having conflicting __new__/__init__ methods
+sqlalchemy.orm.unitofwork.PostSortRec.__new__
+
+# KeyError/AttributeError on import due to dynamic initialization from a different module
+sqlalchemy.testing.fixtures
+sqlalchemy.testing.pickleable
+sqlalchemy.testing.plugin.bootstrap
+
+# method arguments starting with double underscores in the implementation trips up stubtest
+sqlalchemy.testing.resolve_lambda
+sqlalchemy.testing.util.resolve_lambda
+sqlalchemy.orm.collections.MappedCollection.update
+
+# stubtest thinks __slots__ are always members
+# https://github.com/python/mypy/issues/13906
+sqlalchemy.sql.elements.quoted_name.lower
+sqlalchemy.sql.elements.quoted_name.upper
+sqlalchemy.sql.expression.quoted_name.lower
+sqlalchemy.sql.expression.quoted_name.upper
+sqlalchemy.sql.quoted_name.lower
+sqlalchemy.sql.quoted_name.upper
+sqlalchemy.orm.ColumnProperty.Comparator.__clause_element__
+sqlalchemy.orm.properties.ColumnProperty.Comparator.__clause_element__
+
+# Same error as in stdlib due to it being re-exported
+sqlalchemy.dialects.mysql.asyncmy.AsyncAdapt_asyncmy_dbapi.Binary
+sqlalchemy.util.compat.StringIO.seek
+sqlalchemy.util.compat.StringIO.truncate
+sqlalchemy.util.StringIO.seek
+sqlalchemy.util.StringIO.truncate
+sqlalchemy.testing.mock.patch

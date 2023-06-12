@@ -29,7 +29,7 @@ TA6 = TypeAliasType("TA6", int, 3)
 # This should generate two errors because type_params is not a tuple.
 TA7 = TypeAliasType("TA7", int, type_params=[1])
 
-# This should generate an error because type_params is not a tuple of TypeVars.
+# This should generate two errors because type_params is not a tuple of TypeVars.
 TA8 = TypeAliasType("TA8", int, type_params=(int,))
 
 
@@ -41,5 +41,5 @@ TA9 = TypeAliasType("TA9", list[S], type_params=(T,))
 
 my_tuple = (S, T)
 
-# This should generate an error because type_params is not a tuple.
+# This should generate two errors because type_params is not a tuple.
 TA10 = TypeAliasType("TA10", int, type_params=my_tuple)

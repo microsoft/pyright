@@ -36,7 +36,6 @@ from typing import (  # noqa: Y022
     IO,
     Any,
     BinaryIO,
-    ByteString,
     ClassVar,
     Generic,
     Mapping,
@@ -54,7 +53,18 @@ from typing import (  # noqa: Y022
     overload,
     type_check_only,
 )
-from typing_extensions import Concatenate, Literal, LiteralString, ParamSpec, Self, SupportsIndex, TypeAlias, TypeGuard, final
+from typing_extensions import (  # type: ignore
+    Concatenate,
+    Literal,
+    LiteralString,
+    ParamSpec,
+    Self,
+    SupportsIndex,
+    TypeAlias,
+    TypeGuard,
+    TypeVarTuple,
+    final,
+)
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias
@@ -188,6 +198,8 @@ class type:
     if sys.version_info >= (3, 10):
         def __or__(self, __value: Any) -> types.UnionType: ...
         def __ror__(self, __value: Any) -> types.UnionType: ...
+    if sys.version_info >= (3, 12):
+        __type_params__: tuple[TypeVar | ParamSpec | TypeVarTuple, ...]
 
 class super:
     @overload
@@ -244,6 +256,9 @@ class int:
             *,
             signed: bool = False,
         ) -> Self: ...
+
+    if sys.version_info >= (3, 12):
+        def is_integer(self) -> Literal[True]: ...
 
     def __add__(self, __value: int) -> int: ...
     def __sub__(self, __value: int) -> int: ...
@@ -450,7 +465,7 @@ class str(Sequence[str]):
     @overload
     def format(self: LiteralString, *args: LiteralString, **kwargs: LiteralString) -> LiteralString: ...
     @overload
-    def format(self, *args: object, **kwargs: object) -> str: ...
+    def format(self, *args: object, **kwargs: object) -> str: ...  # type: ignore
     def format_map(self, map: _FormatMapMapping) -> str: ...
     def index(self, __sub: str, __start: SupportsIndex | None = ..., __end: SupportsIndex | None = ...) -> int: ...
     def isalnum(self) -> bool: ...
@@ -580,7 +595,7 @@ class str(Sequence[str]):
     @overload
     def __mod__(self: LiteralString, __value: LiteralString | tuple[LiteralString, ...]) -> LiteralString: ...
     @overload
-    def __mod__(self, __value: Any) -> str: ...
+    def __mod__(self, __value: Any) -> str: ...  # type: ignore
     @overload
     def __mul__(self: LiteralString, __value: SupportsIndex) -> LiteralString: ...
     @overload
@@ -592,7 +607,7 @@ class str(Sequence[str]):
     def __rmul__(self, __value: SupportsIndex) -> str: ...  # type: ignore[misc]
     def __getnewargs__(self) -> tuple[str]: ...
 
-class bytes(ByteString):
+class bytes(Sequence[int]):
     @overload
     def __new__(cls, __o: Iterable[SupportsIndex] | SupportsIndex | SupportsBytes | ReadableBuffer) -> Self: ...
     @overload
@@ -695,7 +710,9 @@ class bytes(ByteString):
     if sys.version_info >= (3, 11):
         def __bytes__(self) -> bytes: ...
 
-class bytearray(MutableSequence[int], ByteString):
+    def __buffer__(self, __flags: int) -> memoryview: ...
+
+class bytearray(MutableSequence[int]):
     @overload
     def __init__(self) -> None: ...
     @overload
@@ -810,6 +827,8 @@ class bytearray(MutableSequence[int], ByteString):
     def __gt__(self, __value: ReadableBuffer) -> bool: ...
     def __ge__(self, __value: ReadableBuffer) -> bool: ...
     def __alloc__(self) -> int: ...
+    def __buffer__(self, __flags: int) -> memoryview: ...
+    def __release_buffer__(self, __buffer: memoryview) -> None: ...
 
 @final
 class memoryview(Sequence[int]):
@@ -870,6 +889,9 @@ class memoryview(Sequence[int]):
         def hex(self, sep: str | bytes = ..., bytes_per_sep: SupportsIndex = ...) -> str: ...
     else:
         def hex(self) -> str: ...
+
+    def __buffer__(self, __flags: int) -> memoryview: ...
+    def __release_buffer__(self, __buffer: memoryview) -> None: ...
 
 @final
 class bool(int):
@@ -960,6 +982,8 @@ class function:
     if sys.version_info >= (3, 10):
         @property
         def __builtins__(self) -> dict[str, Any]: ...
+    if sys.version_info >= (3, 12):
+        __type_params__: tuple[TypeVar | ParamSpec | TypeVarTuple, ...]
 
     __module__: str
     # mypy uses `builtins.function.__get__` to represent methods, properties, and getset_descriptors so we type the return as Any.
@@ -1912,6 +1936,8 @@ class ImportError(Exception):
     name: str | None
     path: str | None
     msg: str  # undocumented
+    if sys.version_info >= (3, 12):
+        name_from: str | None  # undocumented
 
 class LookupError(Exception): ...
 class MemoryError(Exception): ...

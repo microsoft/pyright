@@ -1,4 +1,3 @@
-import distutils.core
 import sys
 import types
 from _typeshed import Incomplete, ReadableBuffer, WriteableBuffer
@@ -7,6 +6,7 @@ from typing import Any, TypeVar, overload
 from typing_extensions import Literal, TypeAlias
 
 import _cffi_backend
+from setuptools._distutils.extension import Extension
 
 _T = TypeVar("_T")
 
@@ -93,7 +93,7 @@ class FFI:
     def set_source_pkgconfig(
         self, module_name: str, pkgconfig_libs: list[str], source: str, source_extension: str = ".c", **kwds: Any
     ) -> None: ...
-    def distutils_extension(self, tmpdir: str = "build", verbose: bool = True) -> distutils.core.Extension: ...
+    def distutils_extension(self, tmpdir: str = "build", verbose: bool = True) -> Extension: ...
     def emit_c_code(self, filename: str) -> None: ...
     def emit_python_code(self, filename: str) -> None: ...
     def compile(self, tmpdir: str = ".", verbose: int = 0, target: str | None = None, debug: bool | None = None) -> str: ...
