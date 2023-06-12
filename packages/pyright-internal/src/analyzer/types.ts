@@ -1351,6 +1351,10 @@ export interface FunctionType extends TypeBase {
 
     // The type var scope for the class that the function was bound to
     boundTypeVarScopeId?: TypeVarScopeId | undefined;
+
+    // If this function is part of an overloaded function, this
+    // refers back to the overloaded function type.
+    overloaded?: OverloadedFunctionType;
 }
 
 export namespace FunctionType {
@@ -1894,14 +1898,20 @@ export namespace OverloadedFunctionType {
     export function create(overloads: FunctionType[]) {
         const newType: OverloadedFunctionType = {
             category: TypeCategory.OverloadedFunction,
-            overloads,
+            overloads: [],
             flags: TypeFlags.Instance,
         };
+
+        overloads.forEach((overload) => {
+            OverloadedFunctionType.addOverload(newType, overload);
+        });
+
         return newType;
     }
 
     // Adds a new overload or an implementation.
     export function addOverload(type: OverloadedFunctionType, functionType: FunctionType) {
+        functionType.overloaded = type;
         type.overloads.push(functionType);
     }
 

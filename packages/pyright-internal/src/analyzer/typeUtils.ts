@@ -210,7 +210,7 @@ export interface InferenceContext {
 }
 
 export interface SignatureWithOffsets {
-    type: FunctionType;
+    type: FunctionType | OverloadedFunctionType;
     expressionOffsets: number[];
 }
 
@@ -227,20 +227,29 @@ export class UniqueSignatureTracker {
         this._signaturesSeen = [];
     }
 
-    findSignature(signature: FunctionType): SignatureWithOffsets | undefined {
+    findSignature(signature: FunctionType | OverloadedFunctionType): SignatureWithOffsets | undefined {
+        // Use the associated overload type if this is a function associated with an overload.
+        let effectiveSignature = signature;
+        if (isFunction(signature) && signature.overloaded) {
+            effectiveSignature = signature.overloaded;
+        }
+
         return this._signaturesSeen.find((s) => {
-            return isTypeSame(signature, s.type);
+            return isTypeSame(effectiveSignature, s.type);
         });
     }
 
     addSignature(signature: FunctionType, offset: number) {
-        const existingSignature = this.findSignature(signature);
+        // If this function is part of a broader overload, use the overload instead.
+        const effectiveSignature = signature.overloaded ?? signature;
+
+        const existingSignature = this.findSignature(effectiveSignature);
         if (existingSignature) {
             if (!existingSignature.expressionOffsets.some((o) => o === offset)) {
                 existingSignature.expressionOffsets.push(offset);
             }
         } else {
-            this._signaturesSeen.push({ type: signature, expressionOffsets: [offset] });
+            this._signaturesSeen.push({ type: effectiveSignature, expressionOffsets: [offset] });
         }
     }
 }
