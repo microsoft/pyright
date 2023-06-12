@@ -24250,7 +24250,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     baseOverload,
                     overrideOverload,
                     /* diag */ undefined,
-                    enforceParamNames
+                    enforceParamNames,
+                    /* exemptSelfClsParam */ false
                 );
             });
 
@@ -24273,11 +24274,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return true;
     }
 
+    // Determines whether the override method is compatible with the base method.
+    // If enforceParamNames is true, the parameter names of non-positional-only
+    // parameters are enforced. If exemptSelfClsParam is true, the "self" and "cls"
+    // parameters are exempted from type checks. This is normally the case except
+    // with overloaded method overrides where the "self" or "cls" parameter type
+    // must be honored to differentiate between overloads.
     function validateOverrideMethodInternal(
         baseMethod: FunctionType,
         overrideMethod: FunctionType,
         diag: DiagnosticAddendum | undefined,
-        enforceParamNames: boolean
+        enforceParamNames: boolean,
+        exemptSelfClsParam = true
     ): boolean {
         const baseParamDetails = getParameterListDetails(baseMethod);
         const overrideParamDetails = getParameterListDetails(overrideMethod);
@@ -24377,7 +24385,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // If the first parameter is a "self" or "cls" parameter, skip the
                 // test because these are allowed to violate the Liskov substitution
                 // principle.
-                if (i === 0) {
+                if (i === 0 && exemptSelfClsParam) {
                     if (
                         FunctionType.isInstanceMethod(overrideMethod) ||
                         FunctionType.isClassMethod(overrideMethod) ||
@@ -24438,7 +24446,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const baseIsSynthesizedTypeVar = isTypeVar(baseParamType) && baseParamType.details.isSynthesized;
                     const overrideIsSynthesizedTypeVar =
                         isTypeVar(overrideParamType) && overrideParamType.details.isSynthesized;
-                    if (!baseIsSynthesizedTypeVar && !overrideIsSynthesizedTypeVar) {
+                    if (!exemptSelfClsParam || (!baseIsSynthesizedTypeVar && !overrideIsSynthesizedTypeVar)) {
                         if (
                             baseParam.category !== overrideParam.category ||
                             !assignType(
