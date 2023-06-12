@@ -763,7 +763,10 @@ function assignTypeToParamSpec(
             });
 
             const existingType = signatureContext.getParamSpecType(destType);
-            if (existingType) {
+
+            // Allow replacement of the existing type if it's a default signature
+            // (*args, **kwargs). This is the equivalent of "Unknown" for a ParamSpec.
+            if (existingType && !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(existingType)) {
                 if (existingType.details.paramSpec === srcType.details.paramSpec) {
                     // Convert the remaining portion of the signature to a function
                     // for comparison purposes.

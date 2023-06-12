@@ -1732,10 +1732,19 @@ export function setTypeArgumentsRecursive(
 // types. For example, if the generic type is Dict[_T1, _T2] and the
 // specialized type is Dict[str, int], it returns a map that associates
 // _T1 with str and _T2 with int.
-export function buildTypeVarContextFromSpecializedClass(classType: ClassType): TypeVarContext {
+export function buildTypeVarContextFromSpecializedClass(
+    classType: ClassType,
+    honorTypeParamVariance = false
+): TypeVarContext {
     const typeParameters = ClassType.getTypeParameters(classType);
 
-    const typeVarContext = buildTypeVarContext(typeParameters, classType.typeArguments, getTypeVarScopeId(classType));
+    const typeVarContext = buildTypeVarContext(
+        typeParameters,
+        classType.typeArguments,
+        getTypeVarScopeId(classType),
+        honorTypeParamVariance
+    );
+
     if (ClassType.isTupleClass(classType) && classType.tupleTypeArguments && typeParameters.length >= 1) {
         typeVarContext.setTupleTypeVar(typeParameters[0], classType.tupleTypeArguments);
     }
@@ -1743,10 +1752,16 @@ export function buildTypeVarContextFromSpecializedClass(classType: ClassType): T
     return typeVarContext;
 }
 
+// Builds a TypeVarContext from a set of type parameters and corresponding type arguments.
+// If honorTypeParamVariance is true, the variance of the type parameter is used to determine
+// whether the type argument should act as a wide or narrow constraint. If a caller passes
+// true for honorTypeParamVariance, it should call make sure that the variance for the specified
+// type parameters has been inferred if necessary.
 export function buildTypeVarContext(
     typeParameters: TypeVarType[],
     typeArgs: Type[] | undefined,
-    typeVarScopeId: TypeVarScopeId | undefined
+    typeVarScopeId: TypeVarScopeId | undefined,
+    honorTypeParamVariance = false
 ): TypeVarContext {
     const typeVarContext = new TypeVarContext(typeVarScopeId);
 
@@ -1782,11 +1797,16 @@ export function buildTypeVarContext(
                     typeArgType = typeArgs[index];
                 }
 
+                const setNarrowBound =
+                    !honorTypeParamVariance || TypeVarType.getVariance(typeParam) !== Variance.Contravariant;
+                const setWideBound =
+                    !honorTypeParamVariance || TypeVarType.getVariance(typeParam) !== Variance.Covariant;
+
                 typeVarContext.setTypeVarType(
                     typeParam,
-                    typeArgType,
+                    setNarrowBound ? typeArgType : undefined,
                     /* narrowBoundNoLiterals */ undefined,
-                    typeArgType
+                    setWideBound ? typeArgType : undefined
                 );
             }
         }
