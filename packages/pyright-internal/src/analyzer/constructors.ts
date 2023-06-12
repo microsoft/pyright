@@ -483,7 +483,7 @@ function validateInitMethod(
 
     if (!returnType) {
         const typeVarContext = type.typeArguments
-            ? buildTypeVarContextFromSpecializedClass(type, /* makeConcrete */ false)
+            ? buildTypeVarContextFromSpecializedClass(type)
             : new TypeVarContext(getTypeVarScopeId(type));
 
         typeVarContext.addSolveForScope(getTypeVarScopeId(initMethodType));

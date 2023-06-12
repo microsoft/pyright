@@ -835,7 +835,7 @@ function addInheritedDataClassEntries(classType: ClassType, entries: DataClassEn
 
     ClassType.getReverseMro(classType).forEach((mroClass) => {
         if (isInstantiableClass(mroClass)) {
-            const typeVarContext = buildTypeVarContextFromSpecializedClass(mroClass, /* makeConcrete */ false);
+            const typeVarContext = buildTypeVarContextFromSpecializedClass(mroClass);
             const dataClassEntries = ClassType.getDataClassEntries(mroClass);
 
             // Add the entries to the end of the list, replacing same-named

@@ -2445,7 +2445,7 @@ export namespace TypeVarType {
         const variance = type.computedVariance ?? type.details.declaredVariance;
 
         // By this point, the variance should have been inferred.
-        assert(variance !== Variance.Auto);
+        assert(variance !== Variance.Auto, 'Expected variance to be inferred');
 
         return variance;
     }
