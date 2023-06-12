@@ -15,6 +15,7 @@ import { assignProperty } from './properties';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
+    isAnyOrUnknown,
     isClassInstance,
     isFunction,
     isInstantiableClass,
@@ -23,7 +24,9 @@ import {
     maxTypeRecursionCount,
     ModuleType,
     Type,
+    TypeVarType,
     UnknownType,
+    Variance,
 } from './types';
 import {
     applySolvedTypeVars,
@@ -36,6 +39,7 @@ import {
     partiallySpecializeType,
     populateTypeVarContextForSelfType,
     removeParamSpecVariadicsFromSignature,
+    requiresSpecialization,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
@@ -145,7 +149,7 @@ function assignClassToProtocolInternal(
         return isTypeSame(destType, srcType);
     }
 
-    const protocolTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
+    const protocolTypeVarContext = createProtocolTypeVarContext(evaluator, destType, destTypeVarContext);
     const selfTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
     const noLiteralSrcType = evaluator.stripLiteralValue(srcType) as ClassType;
     populateTypeVarContextForSelfType(selfTypeVarContext, destType, noLiteralSrcType);
@@ -484,7 +488,7 @@ export function assignModuleToProtocol(
 
     let typesAreConsistent = true;
     const checkedSymbolSet = new Set<string>();
-    const protocolTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
+    const protocolTypeVarContext = createProtocolTypeVarContext(evaluator, destType, destTypeVarContext);
 
     destType.details.mro.forEach((mroClass) => {
         if (!isInstantiableClass(mroClass) || !ClassType.isProtocolClass(mroClass)) {
@@ -580,4 +584,39 @@ export function assignModuleToProtocol(
     }
 
     return typesAreConsistent;
+}
+
+function createProtocolTypeVarContext(
+    evaluator: TypeEvaluator,
+    destType: ClassType,
+    destTypeVarContext: TypeVarContext | undefined
+) {
+    const protocolTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
+    if (destTypeVarContext && destType?.typeArguments) {
+        // Infer the type parameter variance because we need it below.
+        evaluator.inferTypeParameterVarianceForClass(destType);
+
+        // Populate the typeVarContext with any concrete constraints that
+        // have already been solved.
+        const specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, {
+            useNarrowBoundOnly: true,
+        }) as ClassType;
+        destType.details.typeParameters.forEach((typeParam, index) => {
+            if (index < specializedDestType.typeArguments!.length) {
+                const typeArg = specializedDestType.typeArguments![index];
+
+                if (!requiresSpecialization(typeArg) && !isAnyOrUnknown(typeArg)) {
+                    const typeParamVariance = TypeVarType.getVariance(typeParam);
+                    protocolTypeVarContext.setTypeVarType(
+                        typeParam,
+                        typeParamVariance !== Variance.Contravariant ? typeArg : undefined,
+                        /* narrowBoundNoLiterals */ undefined,
+                        typeParamVariance !== Variance.Covariant ? typeArg : undefined
+                    );
+                }
+            }
+        });
+    }
+
+    return protocolTypeVarContext;
 }
