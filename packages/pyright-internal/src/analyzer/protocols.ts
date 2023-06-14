@@ -15,7 +15,6 @@ import { assignProperty } from './properties';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
-    isAnyOrUnknown,
     isClassInstance,
     isFunction,
     isInstantiableClass,
@@ -605,7 +604,7 @@ function createProtocolTypeVarContext(
             if (index < specializedDestType.typeArguments!.length) {
                 const typeArg = specializedDestType.typeArguments![index];
 
-                if (!requiresSpecialization(typeArg) && !isAnyOrUnknown(typeArg)) {
+                if (!requiresSpecialization(typeArg)) {
                     const typeParamVariance = TypeVarType.getVariance(typeParam);
                     protocolTypeVarContext.setTypeVarType(
                         typeParam,
