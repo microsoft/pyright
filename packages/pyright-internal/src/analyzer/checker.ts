@@ -5328,6 +5328,7 @@ export class Checker extends ParseTreeWalker {
                     !this._evaluator.validateOverrideMethod(
                         overriddenType,
                         overrideFunction,
+                        /* baseClass */ undefined,
                         diagAddendum,
                         /* enforceParamNameMatch */ true
                     )
@@ -5613,6 +5614,7 @@ export class Checker extends ParseTreeWalker {
                         !this._evaluator.validateOverrideMethod(
                             baseType,
                             overrideType,
+                            childClassType,
                             diagAddendum,
                             enforceParamNameMatch
                         )
@@ -5768,6 +5770,7 @@ export class Checker extends ParseTreeWalker {
                                         !this._evaluator.validateOverrideMethod(
                                             baseClassMethodType,
                                             subclassMethodType,
+                                            childClassType,
                                             diagAddendum.createAddendum()
                                         )
                                     ) {

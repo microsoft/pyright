@@ -584,6 +584,7 @@ export interface TypeEvaluator {
     validateOverrideMethod: (
         baseMethod: Type,
         overrideMethod: FunctionType | OverloadedFunctionType,
+        baseClass: ClassType | undefined,
         diag: DiagnosticAddendum,
         enforceParamNames?: boolean
     ) => boolean;
