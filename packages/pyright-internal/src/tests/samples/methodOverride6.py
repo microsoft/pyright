@@ -102,3 +102,104 @@ class Child1_6(Parent1[bytes]):
 
     def m1(self, x: bool | bytes) -> int | float | bytes:
         return x
+
+
+class Parent2(Generic[_T]):
+    @overload
+    def method1(self: "Parent2[int]", x: list[int]) -> list[int]:
+        ...
+
+    @overload
+    def method1(self, x: str) -> dict[str, str]:
+        ...
+
+    def method1(self, x: Any) -> Any:
+        ...
+
+    @overload
+    def method2(self: "Parent2[int]", x: list[int]) -> list[int]:
+        ...
+
+    @overload
+    def method2(self, x: str) -> dict[str, str]:
+        ...
+
+    @overload
+    def method2(self, x: int) -> int:
+        ...
+
+    def method2(self, x: Any) -> Any:
+        ...
+
+    @overload
+    @classmethod
+    def method3(cls: "type[Parent2[int]]", x: list[int]) -> list[int]:
+        ...
+
+    @overload
+    @classmethod
+    def method3(cls, x: str) -> dict[str, str]:
+        ...
+
+    @classmethod
+    def method3(cls, x: Any) -> Any:
+        ...
+
+    @overload
+    @classmethod
+    def method4(cls: "type[Parent2[int]]", x: list[int]) -> list[int]:
+        ...
+
+    @overload
+    @classmethod
+    def method4(cls, x: str) -> dict[str, str]:
+        ...
+
+    @overload
+    @classmethod
+    def method4(cls, x: int) -> int:
+        ...
+
+    @classmethod
+    def method4(cls, x: Any) -> Any:
+        ...
+
+
+class Child2_1(Parent2[str]):
+    def method1(self, x: str) -> dict[str, str]:
+        ...
+
+
+class Child2_2(Parent2[str]):
+    @overload
+    def method2(self, x: str) -> dict[str, str]:
+        ...
+
+    @overload
+    def method2(self, x: int) -> int:
+        ...
+
+    def method2(self, x: Any) -> Any:
+        ...
+
+
+class Child2_3(Parent2[str]):
+    @classmethod
+    def method3(cls, x: str) -> dict[str, str]:
+        ...
+
+
+class Child2_4(Parent2[str]):
+    @overload
+    @classmethod
+    def method4(cls, x: str) -> dict[str, str]:
+        ...
+
+    @overload
+    @classmethod
+    def method4(cls, x: int) -> int:
+        ...
+
+    @classmethod
+    def method4(cls, x: Any) -> Any:
+        ...

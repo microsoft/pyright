@@ -24197,6 +24197,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function validateOverrideMethod(
         baseMethod: Type,
         overrideMethod: FunctionType | OverloadedFunctionType,
+        baseClass: ClassType | undefined,
         diag: DiagnosticAddendum,
         enforceParamNames = true
     ): boolean {
@@ -24235,9 +24236,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // For a non-overloaded method overriding an overloaded method, the
         // override must match all of the overloads.
         if (isFunction(overrideMethod)) {
-            return OverloadedFunctionType.getOverloads(baseMethod).every((overload) =>
-                validateOverrideMethodInternal(overload, overrideMethod, diag?.createAddendum(), enforceParamNames)
-            );
+            return OverloadedFunctionType.getOverloads(baseMethod).every((overload) => {
+                // If the override isn't applicable for this base class, skip the check.
+                if (baseClass && !isOverrideMethodApplicable(overload, baseClass)) {
+                    return true;
+                }
+
+                return validateOverrideMethodInternal(
+                    overload,
+                    overrideMethod,
+                    diag?.createAddendum(),
+                    enforceParamNames
+                );
+            });
         }
 
         // For an overloaded method overriding an overloaded method, the overrides
@@ -24246,8 +24257,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let previousMatchIndex = -1;
         let overrideOverloadIndex = 0;
+        const baseOverloads = OverloadedFunctionType.getOverloads(baseMethod);
+
         for (const overrideOverload of OverloadedFunctionType.getOverloads(overrideMethod)) {
-            const matchIndex = OverloadedFunctionType.getOverloads(baseMethod).findIndex((baseOverload) => {
+            const matchIndex = baseOverloads.findIndex((baseOverload) => {
+                // If the override isn't applicable for this base class, skip the check.
+                if (baseClass && !isOverrideMethodApplicable(baseOverload, baseClass)) {
+                    return false;
+                }
+
                 return validateOverrideMethodInternal(
                     baseOverload,
                     overrideOverload,
@@ -24276,12 +24294,62 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return true;
     }
 
-    // Determines whether the override method is compatible with the base method.
+    // Determines whether a child class override is applicable to a parent
+    // class method signature. This is important in cases where the parent
+    // class defines an overload where some of the overload signatures supply
+    // explicit type annotations for the "self" or "cls" parameter and some
+    // of these do not apply to the child class.
+    function isOverrideMethodApplicable(baseMethod: FunctionType, childClass: ClassType): boolean {
+        if (
+            !FunctionType.isInstanceMethod(baseMethod) &&
+            !FunctionType.isClassMethod(baseMethod) &&
+            !FunctionType.isConstructorMethod(baseMethod)
+        ) {
+            return true;
+        }
+
+        const baseParamDetails = getParameterListDetails(baseMethod);
+        if (baseParamDetails.params.length === 0) {
+            return true;
+        }
+
+        const baseParamType = baseParamDetails.params[0].param;
+
+        if (baseParamType.category !== ParameterCategory.Simple || !baseParamType.hasDeclaredType) {
+            return true;
+        }
+
+        // If this is a self or cls parameter, determine whether the override
+        // class can be assigned to the base parameter type. If not, then this
+        // override doesn't apply. This is important for overloads where the
+        // base class contains some overload signatures that are not applicable
+        // to the child class.
+        const childSelfOrClsType = FunctionType.isInstanceMethod(baseMethod)
+            ? ClassType.cloneAsInstance(childClass)
+            : childClass;
+
+        return assignType(
+            baseParamType.type,
+            childSelfOrClsType,
+            /* diag */ undefined,
+            /* destTypeVarContext */ undefined,
+            /* srcTypeVarContext */ undefined,
+            AssignTypeFlags.SkipSolveTypeVars
+        );
+    }
+
+    // Determines whether the override method is compatible with the overridden method.
+    // This is used both for parent/child overrides and implicit overrides for peer
+    // classes in a multi-inheritance case.
     // If enforceParamNames is true, the parameter names of non-positional-only
-    // parameters are enforced. If exemptSelfClsParam is true, the "self" and "cls"
-    // parameters are exempted from type checks. This is normally the case except
-    // with overloaded method overrides where the "self" or "cls" parameter type
-    // must be honored to differentiate between overloads.
+    // parameters are enforced.
+    // If exemptSelfClsParam is true, the "self" and "cls" parameters are exempted
+    // from type checks. This is normally the case except with overloaded method
+    // overrides where the "self" or "cls" parameter type must be honored to
+    // differentiate between overloads.
+    // If childClass is provided, it assumes that the override is a child class.
+    // In this case, if the self/cls parameter in the base method isn't applicable
+    // to the child class, the remaining parameters are not checked.
     function validateOverrideMethodInternal(
         baseMethod: FunctionType,
         overrideMethod: FunctionType,
@@ -24310,13 +24378,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     diag?.addMessage(Localizer.DiagnosticAddendum.overrideNotClassMethod());
                     canOverride = false;
                 }
-            }
-            if (FunctionType.isInstanceMethod(baseMethod)) {
+            } else if (FunctionType.isInstanceMethod(baseMethod)) {
                 if (!FunctionType.isInstanceMethod(overrideMethod)) {
                     diag?.addMessage(Localizer.DiagnosticAddendum.overrideNotInstanceMethod());
                     canOverride = false;
                 }
             }
+
+            const isFirstParamSelfOrCls =
+                FunctionType.isInstanceMethod(overrideMethod) ||
+                FunctionType.isClassMethod(overrideMethod) ||
+                FunctionType.isConstructorMethod(overrideMethod);
 
             // Verify that the positional param count matches exactly or that the override
             // adds only params that preserve the original signature.
@@ -24384,18 +24456,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
 
             for (let i = 0; i < positionalParamCount; i++) {
-                // If the first parameter is a "self" or "cls" parameter, skip the
-                // test because these are allowed to violate the Liskov substitution
-                // principle.
-                if (i === 0 && exemptSelfClsParam) {
-                    if (
-                        FunctionType.isInstanceMethod(overrideMethod) ||
-                        FunctionType.isClassMethod(overrideMethod) ||
-                        FunctionType.isConstructorMethod(overrideMethod)
-                    ) {
-                        continue;
-                    }
-                }
+                const isSelfOrClsParam = i === 0 && isFirstParamSelfOrCls;
+
+                // If the first parameter is a "self" or "cls" parameter, we may
+                // skip the type compatibility test because these are allowed to
+                // violate the Liskov substitution principle.
+                const isParamTypeExempt = isSelfOrClsParam && exemptSelfClsParam;
 
                 const baseParam = baseParamDetails.params[i].param;
                 const overrideParam = overrideParamDetails.params[i].param;
@@ -24408,7 +24474,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     baseParam.name !== overrideParam.name
                 ) {
                     if (overrideParam.category === ParameterCategory.Simple) {
-                        if (enforceParamNames && !baseParam.isNameSynthesized) {
+                        if (enforceParamNames && !baseParam.isNameSynthesized && !isSelfOrClsParam) {
                             if (overrideParamDetails.params[i].source === ParameterSource.PositionOnly) {
                                 diag?.addMessage(
                                     Localizer.DiagnosticAddendum.overrideParamNamePositionOnly().format({
@@ -24432,7 +24498,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     i < overrideParamDetails.positionOnlyParamCount &&
                     i >= baseParamDetails.positionOnlyParamCount
                 ) {
-                    if (!baseParam.isNameSynthesized) {
+                    if (!baseParam.isNameSynthesized && !isSelfOrClsParam) {
                         diag?.addMessage(
                             Localizer.DiagnosticAddendum.overrideParamNamePositionOnly().format({
                                 index: i + 1,
@@ -24445,12 +24511,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const baseParamType = baseParamDetails.params[i].type;
                     const overrideParamType = overrideParamDetails.params[i].type;
 
-                    const baseIsSynthesizedTypeVar = isTypeVar(baseParamType) && baseParamType.details.isSynthesized;
-                    const overrideIsSynthesizedTypeVar =
-                        isTypeVar(overrideParamType) && overrideParamType.details.isSynthesized;
-                    if (!exemptSelfClsParam || (!baseIsSynthesizedTypeVar && !overrideIsSynthesizedTypeVar)) {
+                    if (baseParam.category !== overrideParam.category) {
+                        diag?.addMessage(
+                            Localizer.DiagnosticAddendum.overrideParamType().format({
+                                index: i + 1,
+                                baseType: printType(baseParamType),
+                                overrideType: printType(overrideParamType),
+                            })
+                        );
+                        canOverride = false;
+                    } else {
                         if (
-                            baseParam.category !== overrideParam.category ||
                             !assignType(
                                 overrideParamType,
                                 baseParamType,
@@ -24460,14 +24531,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 AssignTypeFlags.SkipSolveTypeVars
                             )
                         ) {
-                            diag?.addMessage(
-                                Localizer.DiagnosticAddendum.overrideParamType().format({
-                                    index: i + 1,
-                                    baseType: printType(baseParamType),
-                                    overrideType: printType(overrideParamType),
-                                })
-                            );
-                            canOverride = false;
+                            if (!isParamTypeExempt) {
+                                diag?.addMessage(
+                                    Localizer.DiagnosticAddendum.overrideParamType().format({
+                                        index: i + 1,
+                                        baseType: printType(baseParamType),
+                                        overrideType: printType(overrideParamType),
+                                    })
+                                );
+                                canOverride = false;
+                            }
                         }
                     }
 
@@ -24526,14 +24599,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     paramInfo.source === ParameterSource.KeywordOnly &&
                     paramInfo.param.category === ParameterCategory.Simple
             );
-            const overrideWkOnlyParams = overrideParamDetails.params.filter(
+            const overrideKwOnlyParams = overrideParamDetails.params.filter(
                 (paramInfo) =>
                     paramInfo.source === ParameterSource.KeywordOnly &&
                     paramInfo.param.category === ParameterCategory.Simple
             );
 
             baseKwOnlyParams.forEach((paramInfo) => {
-                const overrideParamInfo = overrideWkOnlyParams.find((pi) => paramInfo.param.name === pi.param.name);
+                const overrideParamInfo = overrideKwOnlyParams.find((pi) => paramInfo.param.name === pi.param.name);
 
                 if (!overrideParamInfo && overrideParamDetails.kwargsIndex === undefined) {
                     diag?.addMessage(
@@ -24583,7 +24656,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Verify that any keyword-only parameters added by the overload are compatible
             // with the **kwargs in the base.
-            overrideWkOnlyParams.forEach((paramInfo) => {
+            overrideKwOnlyParams.forEach((paramInfo) => {
                 const baseParamInfo = baseKwOnlyParams.find((pi) => paramInfo.param.name === pi.param.name);
 
                 if (!baseParamInfo) {
