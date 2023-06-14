@@ -98,15 +98,26 @@ export interface ProgramView {
         preferStubs?: boolean
     ): SourceMapper;
 
-    // See whether we can get rid of these 2 methods
+    // Consider getDiagnosticsForRange to call `analyzeFile` automatically if the file is not analyzed.
+    analyzeFile(filePath: string, token: CancellationToken): boolean;
+    getDiagnosticsForRange(filePath: string, range: Range): Diagnostic[];
+
+    // See whether we can get rid of these methods
     getBoundSourceFileInfo(file: string, content?: string, force?: boolean): prog.SourceFileInfo | undefined;
     handleMemoryHighUsage(): void;
     clone(): prog.Program;
-    analyzeFile(filePath: string, token: CancellationToken): boolean;
-    getDiagnosticsForRange(filePath: string, range: Range): Diagnostic[];
+}
+
+// This exposes some APIs to mutate program. Unlike ProgramMutator, this will only mutate this program
+// and doesn't forward the request to the BG thread.
+// One can use this when edits are temporary such as `runEditMode` or `test`
+export interface EditableProgram extends ProgramView {
+    addInterimFile(file: string): void;
+    setFileOpened(filePath: string, version: number | null, contents: string, options?: prog.OpenFileOptions): void;
 }
 
 // Mutable wrapper around a program. Allows the FG thread to forward this request to the BG thread
+// Any edits made to this program will persist and mutate the program's state permanently.
 export interface ProgramMutator {
     addInterimFile(file: string): void;
     setFileOpened(

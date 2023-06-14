@@ -19,7 +19,7 @@ import { ConfigOptions, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, LogLevel, StandardConsole, log } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditAction } from '../common/editAction';
-import { Extensions, ProgramMutator, ProgramView } from '../common/extensibility';
+import { EditableProgram, Extensions, ProgramMutator, ProgramView } from '../common/extensibility';
 import { FileSystem, FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileSystem';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
 import { defaultStubsDirectory } from '../common/pathConsts';
@@ -231,20 +231,16 @@ export class AnalyzerService {
         return service;
     }
 
-    runEditMode(callback: (v: ProgramView, m: ProgramMutator) => void, token: CancellationToken) {
+    runEditMode(callback: (e: EditableProgram) => void, token: CancellationToken) {
         let edits: FileEditAction[] = [];
-        const disposable = token.onCancellationRequested(() => {
-            edits = [];
-            this._backgroundAnalysisProgram.exitEditMode();
-        });
         this._backgroundAnalysisProgram.enterEditMode();
         try {
-            this._program.runWithMutation(callback, token);
+            this._program.runEditMode(callback, token);
         } finally {
-            disposable.dispose();
             edits = this._backgroundAnalysisProgram.exitEditMode();
         }
-        return edits;
+
+        return token.isCancellationRequested ? [] : edits;
     }
 
     dispose() {

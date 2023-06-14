@@ -23,7 +23,7 @@ import { convertPathToUri, convertUriToPath } from '../common/pathUtils';
 import { createMapFromItems } from './collectionUtils';
 import { isArray } from './core';
 import { assertNever } from './debug';
-import { ProgramMutator, ProgramView, SourceFileInfo } from './extensibility';
+import { EditableProgram, SourceFileInfo } from './extensibility';
 import { ReadOnlyFileSystem } from './fileSystem';
 import { convertRangeToTextRange, convertTextRangeToRange } from './positionUtils';
 import { TextRange } from './textRange';
@@ -101,22 +101,17 @@ export function applyTextEditsToString(
     return current;
 }
 
-export function applyWorkspaceEdit(
-    view: ProgramView,
-    mutator: ProgramMutator,
-    edits: WorkspaceEdit,
-    filesChanged: Set<string>
-) {
+export function applyWorkspaceEdit(program: EditableProgram, edits: WorkspaceEdit, filesChanged: Set<string>) {
     if (edits.changes) {
         for (const kv of Object.entries(edits.changes)) {
-            const filePath = convertUriToPath(view.fileSystem, kv[0]);
-            const fileInfo = view.getSourceFileInfo(filePath);
+            const filePath = convertUriToPath(program.fileSystem, kv[0]);
+            const fileInfo = program.getSourceFileInfo(filePath);
             if (!fileInfo || !fileInfo.isTracked) {
                 // We don't allow non user file being modified.
                 continue;
             }
 
-            applyDocumentChanges(mutator, fileInfo, kv[1]);
+            applyDocumentChanges(program, fileInfo, kv[1]);
             filesChanged.add(filePath);
         }
     }
@@ -125,14 +120,14 @@ export function applyWorkspaceEdit(
     if (edits.documentChanges) {
         for (const change of edits.documentChanges) {
             if (TextDocumentEdit.is(change)) {
-                const filePath = convertUriToPath(view.fileSystem, change.textDocument.uri);
-                const fileInfo = view.getSourceFileInfo(filePath);
+                const filePath = convertUriToPath(program.fileSystem, change.textDocument.uri);
+                const fileInfo = program.getSourceFileInfo(filePath);
                 if (!fileInfo || !fileInfo.isTracked) {
                     // We don't allow non user file being modified.
                     continue;
                 }
 
-                applyDocumentChanges(mutator, fileInfo, change.edits);
+                applyDocumentChanges(program, fileInfo, change.edits);
                 filesChanged.add(filePath);
             }
 
@@ -142,29 +137,27 @@ export function applyWorkspaceEdit(
     }
 }
 
-export function applyDocumentChanges(mutator: ProgramMutator, fileInfo: SourceFileInfo, edits: TextEdit[]) {
+export function applyDocumentChanges(program: EditableProgram, fileInfo: SourceFileInfo, edits: TextEdit[]) {
     if (!fileInfo.isOpenByClient) {
         const fileContent = fileInfo.sourceFile.getFileContent();
-        mutator.setFileOpened(
-            fileInfo.sourceFile.getFilePath(),
-            0,
-            fileContent ?? '',
-            fileInfo.sourceFile.getIPythonMode(),
-            fileInfo.sourceFile.getRealFilePath()
-        );
+        program.setFileOpened(fileInfo.sourceFile.getFilePath(), 0, fileContent ?? '', {
+            isTracked: fileInfo.isTracked,
+            ipythonMode: fileInfo.sourceFile.getIPythonMode(),
+            chainedFilePath: fileInfo.chainedSourceFile?.sourceFile.getFilePath(),
+            realFilePath: fileInfo.sourceFile.getRealFilePath(),
+        });
     }
 
     const version = fileInfo.sourceFile.getClientVersion() ?? 0;
     const filePath = fileInfo.sourceFile.getFilePath();
     const sourceDoc = TextDocument.create(filePath, 'python', version, fileInfo.sourceFile.getOpenFileContents() ?? '');
 
-    mutator.updateOpenFileContents(
-        filePath,
-        version + 1,
-        TextDocument.applyEdits(sourceDoc, edits),
-        fileInfo.sourceFile.getIPythonMode(),
-        fileInfo.sourceFile.getRealFilePath()
-    );
+    program.setFileOpened(filePath, version + 1, TextDocument.applyEdits(sourceDoc, edits), {
+        isTracked: fileInfo.isTracked,
+        ipythonMode: fileInfo.sourceFile.getIPythonMode(),
+        chainedFilePath: fileInfo.chainedSourceFile?.sourceFile.getFilePath(),
+        realFilePath: fileInfo.sourceFile.getRealFilePath(),
+    });
 }
 
 export function generateWorkspaceEdit(

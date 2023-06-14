@@ -315,9 +315,8 @@ test('test generateWorkspaceEdits', async () => {
 });
 
 function applyWorkspaceEditToService(service: AnalyzerService, edits: WorkspaceEdit, filesChanged: Set<string>) {
-    const view = service.backgroundAnalysisProgram.program;
-    const mutator = service;
-    applyWorkspaceEdit(view, mutator, edits, filesChanged);
+    const program = service.backgroundAnalysisProgram.program;
+    applyWorkspaceEdit(program, edits, filesChanged);
 }
 
 async function getClonedService(state: TestState) {
