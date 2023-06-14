@@ -4603,7 +4603,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Is this a generic class that needs to be specialized?
         if (isInstantiableClass(type)) {
-            if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
+            if ((flags & EvaluatorFlags.ExpectingType) !== 0 && (flags & EvaluatorFlags.AllowMissingTypeArgs) === 0) {
                 if (!type.typeAliasInfo && requiresTypeArguments(type)) {
                     if (!type.typeArguments || !type.isTypeArgumentExplicit) {
                         addDiagnostic(
@@ -4617,6 +4617,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
             }
+
             if (!type.typeArguments) {
                 type = createSpecializedClassType(type, /* typeArgs */ undefined, flags, node)?.type;
             }
@@ -10293,7 +10294,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ['isinstance', 'issubclass'].some((name) => name === typeResult.type.details.builtInName) &&
             validateArgTypeParams.length === 2
         ) {
-            validateArgTypeParams[1].expectingType = true;
+            validateArgTypeParams[1].isinstanceParam = true;
         }
 
         return {
@@ -11142,8 +11143,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (argParam.argType) {
                 argType = argParam.argType;
             } else {
-                const flags = argParam.expectingType
-                    ? EvaluatorFlags.EvaluateStringLiteralAsType |
+                const flags = argParam.isinstanceParam
+                    ? EvaluatorFlags.AllowMissingTypeArgs |
+                      EvaluatorFlags.EvaluateStringLiteralAsType |
                       EvaluatorFlags.DisallowParamSpec |
                       EvaluatorFlags.DisallowTypeVarTuple
                     : EvaluatorFlags.None;
@@ -11195,7 +11197,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Was the argument's type precomputed by the caller?
             if (argParam.argType) {
                 argType = argParam.argType;
-            } else if (argParam.expectingType && !argParam.argument.typeResult && argParam.argument.valueExpression) {
+            } else if (argParam.isinstanceParam && !argParam.argument.typeResult && argParam.argument.valueExpression) {
                 const argTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
                     EvaluatorFlags.EvaluateStringLiteralAsType |
