@@ -5,6 +5,7 @@
     "version": "1.1.314",
     "license": "MIT",
     "private": true,
+    "publisher": "ms-pyright",
     "files": [
         "dist"
     ],
@@ -36,6 +37,7 @@
         "@types/jest": "^27.5.2",
         "@types/node": "^17.0.45",
         "@types/tmp": "^0.2.3",
+        "@vscode/l10n-dev": "^0.0.26",
         "jest": "^27.5.1",
         "jest-junit": "^13.2.0",
         "shx": "^0.3.4",
