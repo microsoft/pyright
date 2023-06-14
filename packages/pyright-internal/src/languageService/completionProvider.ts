@@ -617,6 +617,9 @@ export class CompletionProvider {
         completionMap: CompletionMap,
         detail: SymbolDetail
     ) {
+        // Make sure we don't crash due to OOM.
+        this.program.handleMemoryHighUsage();
+
         let primaryDecl = getLastTypedDeclaredForSymbol(symbol);
         if (!primaryDecl) {
             const declarations = symbol.getDeclarations();

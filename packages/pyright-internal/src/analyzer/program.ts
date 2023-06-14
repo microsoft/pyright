@@ -19,7 +19,7 @@ import { assert } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction } from '../common/editAction';
-import { Extensions, ProgramMutator, ProgramView } from '../common/extensibility';
+import { EditableProgram, Extensions, ProgramView } from '../common/extensibility';
 import { LogTracker } from '../common/logTracker';
 import {
     combinePaths,
@@ -672,33 +672,10 @@ export class Program {
 
     // This will allow the callback to execute a type evaluator with an associated
     // cancellation token and provide a mutable program. Should already be in edit mode when called.
-    runWithMutation(callback: (v: ProgramView, m: ProgramMutator) => void, token: CancellationToken): void {
+    runEditMode(callback: (v: EditableProgram) => void, token: CancellationToken): void {
         if (this._isEditMode) {
-            // Create a temporary mutator that doesn't talk to the
-            // background thread. In edit mode there is no background thread.
-            const mutator: ProgramMutator = {
-                addInterimFile: (f) => {
-                    return this.addInterimFile(f);
-                },
-                setFileOpened: (p, v, c, i, ch, r) => {
-                    this.setFileOpened(p, v, c, {
-                        isTracked: this.owns(p),
-                        ipythonMode: i,
-                        chainedFilePath: ch,
-                        realFilePath: r,
-                    });
-                },
-                updateOpenFileContents: (p, v, c, i, r) => {
-                    this.setFileOpened(p, v, c, {
-                        isTracked: this.owns(p),
-                        ipythonMode: i,
-                        chainedFilePath: undefined,
-                        realFilePath: r,
-                    });
-                },
-            };
             const evaluator = this._evaluator ?? this._createNewEvaluator();
-            evaluator.runWithCancellationToken(token, () => callback(this, mutator));
+            evaluator.runWithCancellationToken(token, () => callback(this));
         }
     }
 
