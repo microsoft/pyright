@@ -89,6 +89,9 @@ export const enum EvaluatorFlags {
     // flagged as errors.
     ExpectingTypeAnnotation = 1 << 8,
 
+    // Suppress the reportMissingTypeArgument diagnostic in this context.
+    AllowMissingTypeArgs = 1 << 9,
+
     // The Generic class type is allowed in this context. It is
     // normally not allowed if ExpectingType is set.
     AllowGenericClassType = 1 << 10,
@@ -266,7 +269,7 @@ export interface ValidateArgTypeParams {
     paramName?: string | undefined;
     isParamNameSynthesized?: boolean;
     mapsToVarArgList?: boolean | undefined;
-    expectingType?: boolean;
+    isinstanceParam?: boolean;
 }
 
 export interface AnnotationTypeOptions {
