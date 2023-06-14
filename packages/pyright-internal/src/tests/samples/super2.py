@@ -27,3 +27,38 @@ reveal_type(b1, expected_text="B")
 
 b2 = B.factoryB()
 reveal_type(b2, expected_text="B")
+
+
+class C:
+    def __init__(self) -> None:
+        ...
+
+
+class CChild(C):
+    def __init__(self, name: str) -> None:
+        ...
+
+
+class D:
+    def __init__(self, name: str, num: int):
+        ...
+
+
+class DChild1(CChild, D):
+    def __init__(self, name: str, num: int) -> None:
+        super(C, self).__init__(name, num)
+
+
+class DChild2(CChild, D):
+    def __init__(self, name: str) -> None:
+        super(DChild2, self).__init__(name)
+
+
+class DChild3(CChild, D):
+    def __init__(self) -> None:
+        super(CChild, self).__init__()
+
+
+d1 = DChild1("", 1)
+d2 = DChild2("")
+d3 = DChild3()

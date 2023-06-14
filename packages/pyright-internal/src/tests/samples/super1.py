@@ -36,7 +36,7 @@ class Bar(Foo1, Foo2):
         super().goodbye()
 
 
-super(Bar).aaa()
+super(Bar)
 
 # This should generate an error
 super(Bar).bbb()
