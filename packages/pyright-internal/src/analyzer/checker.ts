@@ -5450,6 +5450,7 @@ export class Checker extends ParseTreeWalker {
                     continue;
                 }
 
+                assert(isClass(mroBaseClass));
                 const baseClassAndSymbol = lookUpClassMember(mroBaseClass, name, ClassMemberLookupFlags.Default);
                 if (!baseClassAndSymbol) {
                     continue;

@@ -8089,11 +8089,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const parentNode = node.parent!;
         if (parentNode.nodeType === ParseNodeType.MemberAccess) {
             const memberName = parentNode.memberName.value;
-            const lookupResults = lookUpClassMember(
-                targetClassType,
-                memberName,
-                ClassMemberLookupFlags.SkipOriginalClass
-            );
+            const effectiveTargetClass = isClass(targetClassType) ? targetClassType : undefined;
+
+            const lookupResults = bindToType
+                ? lookUpClassMember(bindToType, memberName, ClassMemberLookupFlags.Default, effectiveTargetClass)
+                : undefined;
             if (lookupResults && isInstantiableClass(lookupResults.classType)) {
                 return {
                     type: resultIsInstance
