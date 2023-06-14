@@ -2,7 +2,7 @@
 # a type variable can be matched if that type variable's type is
 # supplied by another argument in a call.
 
-from typing import Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
 
 _T_co = TypeVar("_T_co", covariant=True)
 _T_contra = TypeVar("_T_contra", contravariant=True)
@@ -40,9 +40,13 @@ class BufferedWriter:
         raise NotImplementedError
 
 
-def f(s: SupportsRead[MyAnyStr], t: SupportsWrite[MyAnyStr]) -> None:
+def func1(s: SupportsRead[MyAnyStr], t: SupportsWrite[MyAnyStr]) -> None:
     ...
 
 
-def h(src: SupportsRead[MyBytes], tgt: BufferedWriter) -> None:
-    f(src, tgt)
+def test1(src: SupportsRead[MyBytes], tgt: BufferedWriter) -> None:
+    func1(src, tgt)
+
+
+def test2(src: Any, tgt: BufferedWriter) -> None:
+    func1(src, tgt)

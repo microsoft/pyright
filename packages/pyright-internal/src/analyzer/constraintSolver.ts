@@ -451,7 +451,10 @@ export function assignTypeToTypeVar(
                 )
             ) {
                 // The srcType is narrower than the current wideTypeBound, so replace it.
-                newWideTypeBound = adjSrcType;
+                // If it's Any, don't replace it because Any is the narrowest type already.
+                if (!isAny(curWideTypeBound)) {
+                    newWideTypeBound = adjSrcType;
+                }
             } else if (
                 !evaluator.assignType(
                     adjSrcType,
