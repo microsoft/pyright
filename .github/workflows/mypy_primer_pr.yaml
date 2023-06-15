@@ -35,7 +35,7 @@ jobs:
       contents: read
     strategy:
       matrix:
-        shard-index: [0]
+        shard-index: [0, 1]
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -69,7 +69,7 @@ jobs:
             --repo pyright_to_test \
             --type-checker pyright \
             --new $GITHUB_SHA --old base_commit \
-            --num-shards 1 --shard-index ${{ matrix.shard-index }} \
+            --num-shards 2 --shard-index ${{ matrix.shard-index }} \
             --debug \
             --output concise \
             | tee diff_${{ matrix.shard-index }}.txt
