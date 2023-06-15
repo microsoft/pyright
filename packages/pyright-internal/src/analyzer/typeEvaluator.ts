@@ -16774,12 +16774,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 inferredParamType = combineTypes([defaultValueType, UnknownType.create()]);
             } else {
-                // Do not infer certain types like tuple because it's likely to be
-                // more restrictive (narrower) than intended.
-                if (
-                    !isClassInstance(defaultValueType) ||
-                    !ClassType.isBuiltIn(defaultValueType, ['tuple', 'list', 'set', 'dict'])
+                let skipInference = false;
+
+                if (isFunction(defaultValueType) || isOverloadedFunction(defaultValueType)) {
+                    // Do not infer parameter types that use a lambda or another function as a
+                    // default value. We're likely to generate false positives in this case.
+                    // It's not clear whether parameters should be positional-only or not.
+                    skipInference = true;
+                } else if (
+                    isClassInstance(defaultValueType) &&
+                    ClassType.isBuiltIn(defaultValueType, ['tuple', 'list', 'set', 'dict'])
                 ) {
+                    // Do not infer certain types like tuple because it's likely to be
+                    // more restrictive (narrower) than intended.
+                    skipInference = true;
+                }
+
+                if (!skipInference) {
                     inferredParamType = stripLiteralValue(defaultValueType);
                 }
             }
