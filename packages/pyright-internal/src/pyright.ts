@@ -727,7 +727,7 @@ function printUsage() {
             '  -v,--venvpath <DIRECTORY>          Directory that contains virtual environments\n' +
             '  --verbose                          Emit verbose diagnostics\n' +
             '  --verifytypes <PACKAGE>            Verify type completeness of a py.typed package\n' +
-            '  --version                          Print Pyright version\n' +
+            '  --version                          Print Pyright version and exit\n' +
             '  --warnings                         Use exit code of 1 if warnings are reported\n' +
             '  -w,--watch                         Continue to run and watch for changes\n'
     );

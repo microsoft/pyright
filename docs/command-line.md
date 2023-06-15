@@ -22,7 +22,7 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | -v, --venvpath `<DIRECTORY>`            | Directory that contains virtual environments (4)     |
 | --verbose                               | Emit verbose diagnostics                             |
 | --verifytypes `<IMPORT>`                | Verify completeness of types in py.typed package     |
-| --version                               | Print pyright version                                |
+| --version                               | Print pyright version and exit                       |
 | --warnings                              | Use exit code of 1 if warnings are reported          |
 | -w, --watch                             | Continue to run and watch for changes (5)            |
 
