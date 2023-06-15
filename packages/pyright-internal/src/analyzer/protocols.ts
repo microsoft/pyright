@@ -591,15 +591,19 @@ function createProtocolTypeVarContext(
     destTypeVarContext: TypeVarContext | undefined
 ) {
     const protocolTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
-    if (destTypeVarContext && destType?.typeArguments) {
+    if (destType?.typeArguments) {
         // Infer the type parameter variance because we need it below.
         evaluator.inferTypeParameterVarianceForClass(destType);
 
+        let specializedDestType = destType;
+        if (destTypeVarContext) {
+            specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, {
+                useNarrowBoundOnly: true,
+            }) as ClassType;
+        }
+
         // Populate the typeVarContext with any concrete constraints that
         // have already been solved.
-        const specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, {
-            useNarrowBoundOnly: true,
-        }) as ClassType;
         destType.details.typeParameters.forEach((typeParam, index) => {
             if (index < specializedDestType.typeArguments!.length) {
                 const typeArg = specializedDestType.typeArguments![index];
