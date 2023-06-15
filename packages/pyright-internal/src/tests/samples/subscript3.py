@@ -117,9 +117,15 @@ class ClassC:
     
 c_obj = ClassC()
 
-z1 = c_obj[1, *val_list, **val_dict]
+z1 = c_obj[1, *val_list]
 reveal_type(z1, expected_text="complex")
 
+# This should generate an error because dictionary unpack isn't allowed in subscript.
+z2 = c_obj[1, *val_list, **val_dict]
+
+c_obj[1, *val_list] = 4.3
+
+# This should generate an error because dictionary unpack isn't allowed in subscript.
 c_obj[1, *val_list, **val_dict] = 4.3
 
 # This should generate an error because complex isn't assignable.

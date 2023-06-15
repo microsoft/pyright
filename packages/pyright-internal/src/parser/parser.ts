@@ -3600,13 +3600,17 @@ export class Parser {
             }
 
             if (argType !== ArgumentCategory.Simple) {
-                const unpackAllowed =
+                const unpackListAllowed =
                     this._parseOptions.isStubFile ||
                     this._isParsingQuotedText ||
                     this._getLanguageVersion() >= PythonVersion.V3_11;
 
-                if (argType === ArgumentCategory.UnpackedDictionary || !unpackAllowed) {
+                if (argType === ArgumentCategory.UnpackedList && !unpackListAllowed) {
                     this._addError(Localizer.Diagnostic.unpackedSubscriptIllegal(), argNode);
+                }
+
+                if (argType === ArgumentCategory.UnpackedDictionary) {
+                    this._addError(Localizer.Diagnostic.unpackedDictSubscriptIllegal(), argNode);
                 }
             }
 
