@@ -3824,7 +3824,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         let useDefaultOrUnknown = false;
         if (this._options.unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
             const exemptTypeVars = this._options.unknownExemptTypeVars ?? [];
-            if (!exemptTypeVars.some((t) => isTypeSame(t, paramSpec))) {
+            if (!exemptTypeVars.some((t) => isTypeSame(t, paramSpec, { ignoreTypeFlags: true }))) {
                 useDefaultOrUnknown = true;
             }
         } else if (this._options.applyInScopePlaceholders && paramSpec.isInScopePlaceholder) {

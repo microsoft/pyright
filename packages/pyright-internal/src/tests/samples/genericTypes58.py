@@ -31,11 +31,11 @@ Callback = Callable[..., Awaitable[None]]
 _C = TypeVar("_C", bound=Callback)
 
 
-class UsesFoo(Generic[_C]):
+class ClassA(Generic[_C]):
     ...
 
 
-def decorator1() -> Callable[[_C | UsesFoo[_C]], UsesFoo[_C]]:
+def decorator1() -> Callable[[_C | ClassA[_C]], ClassA[_C]]:
     ...
 
 
@@ -61,3 +61,22 @@ def func6(x: int) -> str:
 
 
 reveal_type(func5()(func6), expected_text="(x: int) -> str")
+
+
+class ClassB(Generic[_P]):
+    def method1(self, val: str, *args: _P.args, **kwargs: _P.kwargs) -> None:
+        pass
+
+
+def decorator2() -> Callable[[Callable[_P, None]], ClassB[_P]]:
+    ...
+
+
+@decorator2()
+def func7(y: int) -> None:
+    pass
+
+
+reveal_type(func7, expected_text="ClassB[(y: int)]")
+reveal_type(func7.method1, expected_text="(val: str, y: int) -> None")
+reveal_type(func7.method1("", 1), expected_text="None")
