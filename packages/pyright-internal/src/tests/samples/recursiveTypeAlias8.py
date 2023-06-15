@@ -3,11 +3,11 @@
 
 from __future__ import annotations
 
-from typing import Union, TypedDict, List
+from typing import Union, TypedDict
 
 
 class _FooOptional(TypedDict, total=False):
-    options: List[AllBar]
+    options: list[AllBar]
     type: int
 
 
@@ -21,7 +21,7 @@ class BarA(TypedDict):
 
 
 class BarB(TypedDict):
-    options: List[AllBar]
+    options: list[AllBar]
     type: int
 
 
@@ -30,9 +30,9 @@ AllBar = Union[BarA, BarB]
 
 def foo(a: AllBar):
     reveal_type(a, expected_text="BarA | BarB")
-    options = a.get("options", [])
-    reveal_type(options, expected_text="Any | List[BarA | BarB]")
+    options = a.get("options", [{"type": 0}])
+    reveal_type(options, expected_text="Any | list[dict[str, int]] | list[BarA | BarB]")
 
     for option in options:
-        reveal_type(option, expected_text="Any | BarA | BarB")
+        reveal_type(option, expected_text="Any | dict[str, int] | BarA | BarB")
         reveal_type(option["type"], expected_text="Any | int")

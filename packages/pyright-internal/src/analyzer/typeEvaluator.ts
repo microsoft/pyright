@@ -206,6 +206,7 @@ import {
     doForEachSubtype,
     ensureFunctionSignaturesAreUnique,
     explodeGenericClass,
+    getCommonErasedType,
     getContainerDepth,
     getDeclaredGeneratorReturnType,
     getGeneratorTypeArgs,
@@ -8249,18 +8250,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         let isSubtypeSubsumed = false;
 
                         for (let dedupedIndex = 0; dedupedIndex < dedupedMatchResults.length; dedupedIndex++) {
-                            if (assignType(dedupedMatchResults[dedupedIndex], result.returnType)) {
+                            const isSubtype = assignType(dedupedMatchResults[dedupedIndex], result.returnType);
+                            const isSupertype = assignType(result.returnType, dedupedMatchResults[dedupedIndex]);
+
+                            if (isSubtype) {
                                 const anyOrUnknown = containsAnyOrUnknown(
                                     dedupedMatchResults[dedupedIndex],
                                     /* recurse */ false
                                 );
+
                                 if (!anyOrUnknown) {
-                                    isSubtypeSubsumed = true;
+                                    isSubtypeSubsumed = !isSupertype;
                                 } else if (isAny(anyOrUnknown)) {
                                     dedupedResultsIncludeAny = true;
                                 }
                                 break;
-                            } else if (assignType(result.returnType, dedupedMatchResults[dedupedIndex])) {
+                            }
+
+                            if (isSupertype) {
                                 const anyOrUnknown = containsAnyOrUnknown(result.returnType, /* recurse */ false);
                                 if (!anyOrUnknown) {
                                     dedupedMatchResults[dedupedIndex] = NeverType.createNever();
@@ -8289,10 +8296,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (dedupedResultsIncludeAny) {
                             effectiveReturnType = AnyType.create();
                         } else {
-                            effectiveReturnType = UnknownType.createPossibleType(
-                                combinedTypes,
-                                possibleMatchInvolvesIncompleteUnknown
-                            );
+                            // If all of the return types are the same generic class,
+                            // replace the type arguments with Unknown. Otherwise return
+                            // an Unknown type that has associated "possible types" to aid
+                            // with completion suggestions.
+                            effectiveReturnType =
+                                getCommonErasedType(dedupedMatchResults) ??
+                                UnknownType.createPossibleType(combinedTypes, possibleMatchInvolvesIncompleteUnknown);
                         }
                     }
 
@@ -8347,6 +8357,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return matches;
         }
 
+        // If the relevance of some matches differs, filter out the ones that
+        // are lower relevance. This favors *args parameters in cases where
+        // a *args argument is used.
+        if (matches[0].matchResults.relevance !== matches[matches.length - 1].matchResults.relevance) {
+            matches = matches.filter((m) => m.matchResults.relevance === matches[0].matchResults.relevance);
+
+            if (matches.length < 2) {
+                return matches;
+            }
+        }
+
         // If all of the return types match, select the first one.
         if (
             areTypesSame(
@@ -8362,19 +8383,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return matches;
         }
 
+        let foundAmbiguousAnyArg = false;
         for (let i = 0; i < firstArgResults.length; i++) {
-            // If the arg is Any or Unknown, see if the corresponding
+            // If the arg contains Any or Unknown, see if the corresponding
             // parameter types differ in any way.
-            if (isAnyOrUnknown(firstArgResults[i].argType)) {
+            const anyOrUnknownInArg = containsAnyOrUnknown(firstArgResults[i].argType, /* recurse */ true);
+
+            if (anyOrUnknownInArg) {
                 const paramTypes = matches.map((match) =>
                     i < match.matchResults.argParams.length
                         ? match.matchResults.argParams[i].paramType
                         : UnknownType.create()
                 );
+
+                // If the other parameter types are all the same, there's no possibility
+                // of an ambiguity based on this argument.
                 if (!areTypesSame(paramTypes, { treatAnySameAsUnknown: true })) {
-                    return matches;
+                    foundAmbiguousAnyArg = true;
                 }
             }
+        }
+
+        // If the first overload has a different number of effective arguments
+        // than latter overloads, don't filter any of them. This typically means
+        // that one of the arguments is an unpacked iterator, and it maps to
+        // an indeterminate number of parameters, which means that the overload
+        // selection is ambiguous.
+        if (foundAmbiguousAnyArg || matches.some((match) => match.argResults.length !== firstArgResults.length)) {
+            return matches;
         }
 
         return [matches[0]];
@@ -10476,7 +10512,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isTypeIncomplete = matchResults.isTypeIncomplete;
         let argumentErrors = false;
         let specializedInitSelfType: Type | undefined;
-        let anyOrUnknownArgument: UnknownType | AnyType | undefined;
+        let accumulatedAnyOrUnknownArg: UnknownType | AnyType | undefined;
         const typeCondition = getTypeCondition(type);
 
         if (type.boundTypeVarScopeId) {
@@ -10625,10 +10661,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 condition = TypeCondition.combine(condition, argResult.condition) ?? [];
             }
 
-            if (isAnyOrUnknown(argResult.argType)) {
-                anyOrUnknownArgument = anyOrUnknownArgument
-                    ? preserveUnknown(argResult.argType, anyOrUnknownArgument)
-                    : argResult.argType;
+            // Determine if the argument type contains an Any or Unknown. Accumulate
+            // these across all arguments.
+            const anyOrUnknownInArg = containsAnyOrUnknown(argResult.argType, /* recurs */ true);
+
+            if (anyOrUnknownInArg) {
+                accumulatedAnyOrUnknownArg = accumulatedAnyOrUnknownArg
+                    ? preserveUnknown(anyOrUnknownInArg, accumulatedAnyOrUnknownArg)
+                    : anyOrUnknownInArg;
             }
 
             if (type.details.paramSpec) {
@@ -10783,7 +10823,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return {
             argumentErrors,
             argResults,
-            anyOrUnknownArgument,
+            anyOrUnknownArgument: accumulatedAnyOrUnknownArg,
             returnType: specializedReturnType,
             isTypeIncomplete,
             activeParam: matchResults.activeParam,
