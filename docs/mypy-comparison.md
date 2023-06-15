@@ -373,7 +373,20 @@ Pyright’s approach gives developers more control. It provides a way to be expl
 
 ### Overload Resolution
 
-Overload resolution rules are under-specified in PEP 484. Pyright and mypy apply similar rules, but there are likely some complex edge cases where different results will be produced. For full documentation of pyright’s overload behaviors, refer to [this documentation](type-concepts-advanced.md#overloads).
+Overload resolution rules are under-specified in PEP 484. Pyright and mypy apply similar rules, but there are inevitably cases where different results will be produced. For full documentation of pyright’s overload behaviors, refer to [this documentation](type-concepts-advanced.md#overloads).
+
+One known difference is in the handling of ambiguous overloads due to `Any` argument types where one return type is the supertype of all other return types. In this case, pyright evaluates the resulting return type as the supertype, but mypy evaluates the return type as `Any`. Pyright’s behavior here tries to preserve as much type information as possible, which is important for completion suggestions.
+
+```python
+@overload
+def func1(x: int) -> int: ...
+
+@overload
+def func1(x: str) -> float: ...
+
+def func2(val: Any):
+    reveal_type(func1(val)) # mypy: Any, pyright: float
+```
 
 
 ### Import Statements
