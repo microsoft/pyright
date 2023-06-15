@@ -1025,6 +1025,7 @@ export namespace Localizer {
         export const unpackedArgInTypeArgument = () => getRawString('Diagnostic.unpackedArgInTypeArgument');
         export const unpackedArgWithVariadicParam = () => getRawString('Diagnostic.unpackedArgWithVariadicParam');
         export const unpackedDictArgumentNotMapping = () => getRawString('Diagnostic.unpackedDictArgumentNotMapping');
+        export const unpackedDictSubscriptIllegal = () => getRawString('Diagnostic.unpackedDictSubscriptIllegal');
         export const unpackedSubscriptIllegal = () => getRawString('Diagnostic.unpackedSubscriptIllegal');
         export const unpackedTypedDictArgument = () => getRawString('Diagnostic.unpackedTypedDictArgument');
         export const unpackedTypeVarTupleExpected = () =>

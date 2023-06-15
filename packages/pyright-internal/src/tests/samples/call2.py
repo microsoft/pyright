@@ -35,6 +35,8 @@ func2("hi")
 func2("hi", b=3, c=4, d=5)
 
 str_dict = {"a": "3", "b": "2"}
+
+# This should generate a type error
 func2("hi", **str_dict)
 
 

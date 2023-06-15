@@ -9950,6 +9950,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 }
                             }
 
+                            if (paramDetails.kwargsIndex !== undefined && unpackedDictionaryArgType) {
+                                const paramType = paramDetails.params[paramDetails.kwargsIndex].type;
+                                validateArgTypeParams.push({
+                                    paramCategory: ParameterCategory.Simple,
+                                    paramType,
+                                    requiresTypeVarMatching: requiresSpecialization(paramType),
+                                    argType: unpackedDictionaryArgType,
+                                    argument: argList[argIndex],
+                                    errorNode: argList[argIndex].valueExpression || errorNode,
+                                    paramName: paramDetails.params[paramDetails.kwargsIndex].param.name,
+                                });
+                            }
+
                             if (!isValidMappingType) {
                                 if (!isDiagnosticSuppressedForNode(errorNode)) {
                                     addDiagnostic(

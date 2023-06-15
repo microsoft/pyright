@@ -530,6 +530,7 @@
         "unpackedArgInTypeArgument": "Unpacked arguments cannot be used in type argument lists",
         "unpackedArgWithVariadicParam": "Unpacked argument cannot be used for TypeVarTuple parameter",
         "unpackedDictArgumentNotMapping": "Argument expression after ** must be a mapping with a \"str\" key type",
+        "unpackedDictSubscriptIllegal": "Dictionary unpack operator in subscript is not allowed",
         "unpackedSubscriptIllegal": "Unpack operator in subscript requires Python 3.11 or newer",
         "unpackedTypedDictArgument": "Unable to match unpacked TypedDict argument to parameters",
         "unpackedTypeVarTupleExpected": "Expected unpacked TypeVarTuple; use Unpack[{name1}] or *{name2}",
