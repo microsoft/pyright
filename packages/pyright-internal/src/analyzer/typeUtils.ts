@@ -121,21 +121,16 @@ export const enum ClassMemberLookupFlags {
 export const enum ClassIteratorFlags {
     Default = 0,
 
-    // By default, the original (derived) class is searched along
-    // with its base classes. If this flag is set, the original
-    // class is skipped and only the base classes are searched.
-    SkipOriginalClass = 1 << 0,
-
     // By default, base classes are searched as well as the
     // original (derived) class. If this flag is set, no recursion
     // is performed.
-    SkipBaseClasses = 1 << 1,
+    SkipBaseClasses = 1 << 0,
 
     // Skip the 'object' base class in particular.
-    SkipObjectBaseClass = 1 << 2,
+    SkipObjectBaseClass = 1 << 1,
 
     // Skip the 'type' base class in particular.
-    SkipTypeBaseClass = 1 << 3,
+    SkipTypeBaseClass = 1 << 2,
 }
 
 export const enum AssignTypeFlags {
@@ -1222,12 +1217,13 @@ export function getContainerDepth(type: Type, recursionCount = 0) {
 }
 
 export function lookUpObjectMember(
-    objectType: Type,
+    objectType: ClassType,
     memberName: string,
-    flags = ClassMemberLookupFlags.Default
+    flags = ClassMemberLookupFlags.Default,
+    skipMroClass?: ClassType | undefined
 ): ClassMember | undefined {
     if (isClassInstance(objectType)) {
-        return lookUpClassMember(objectType, memberName, flags);
+        return lookUpClassMember(objectType, memberName, flags, skipMroClass);
     }
 
     return undefined;
@@ -1236,11 +1232,12 @@ export function lookUpObjectMember(
 // Looks up a member in a class using the multiple-inheritance rules
 // defined by Python.
 export function lookUpClassMember(
-    classType: Type,
+    classType: ClassType,
     memberName: string,
-    flags = ClassMemberLookupFlags.Default
+    flags = ClassMemberLookupFlags.Default,
+    skipMroClass?: ClassType | undefined
 ): ClassMember | undefined {
-    const memberItr = getClassMemberIterator(classType, memberName, flags);
+    const memberItr = getClassMemberIterator(classType, memberName, flags, skipMroClass);
 
     return memberItr.next()?.value;
 }
@@ -1253,14 +1250,23 @@ export function lookUpClassMember(
 // ClassB[str] which inherits from Dict[_T1, int], a search for '__iter__'
 // would return a class type of Dict[str, int] and a symbolType of
 // (self) -> Iterator[str].
-export function* getClassMemberIterator(classType: Type, memberName: string, flags = ClassMemberLookupFlags.Default) {
+// If skipMroClass is defined, all MRO classes up to and including that class
+// are skipped.
+export function* getClassMemberIterator(
+    classType: ClassType | AnyType | UnknownType,
+    memberName: string,
+    flags = ClassMemberLookupFlags.Default,
+    skipMroClass?: ClassType | undefined
+) {
     const declaredTypesOnly = (flags & ClassMemberLookupFlags.DeclaredTypesOnly) !== 0;
     let skippedUndeclaredType = false;
 
     if (isClass(classType)) {
         let classFlags = ClassIteratorFlags.Default;
         if (flags & ClassMemberLookupFlags.SkipOriginalClass) {
-            classFlags = classFlags | ClassIteratorFlags.SkipOriginalClass;
+            if (isClass(classType)) {
+                skipMroClass = classType;
+            }
         }
         if (flags & ClassMemberLookupFlags.SkipBaseClasses) {
             classFlags = classFlags | ClassIteratorFlags.SkipBaseClasses;
@@ -1272,7 +1278,7 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
             classFlags = classFlags | ClassIteratorFlags.SkipTypeBaseClass;
         }
 
-        const classItr = getClassIterator(classType, classFlags);
+        const classItr = getClassIterator(classType, classFlags, skipMroClass);
 
         for (const [mroClass, specializedMroClass] of classItr) {
             if (!isInstantiableClass(mroClass)) {
@@ -1377,14 +1383,21 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
     return undefined;
 }
 
-export function* getClassIterator(classType: Type, flags = ClassIteratorFlags.Default) {
+export function* getClassIterator(classType: Type, flags = ClassIteratorFlags.Default, skipMroClass?: ClassType) {
     if (isClass(classType)) {
-        let skipMroEntry = (flags & ClassIteratorFlags.SkipOriginalClass) !== 0;
+        let foundSkipMroClass = skipMroClass === undefined;
 
         for (const mroClass of classType.details.mro) {
-            if (skipMroEntry) {
-                skipMroEntry = false;
-                continue;
+            // Are we still searching fro teh skipMroClass?
+            if (!foundSkipMroClass && skipMroClass) {
+                if (!isClass(mroClass)) {
+                    foundSkipMroClass = true;
+                } else if (ClassType.isSameGenericClass(mroClass, skipMroClass)) {
+                    foundSkipMroClass = true;
+                    continue;
+                } else {
+                    continue;
+                }
             }
 
             // If mroClass is an ancestor of classType, partially specialize

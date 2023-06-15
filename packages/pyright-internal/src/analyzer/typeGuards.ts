@@ -1932,7 +1932,7 @@ function narrowTypeForDiscriminatedLiteralFieldComparison(
 
             // Handle the case where the field is a property
             // that has a declared literal return type for its getter.
-            if (isClassInstance(subtype) && isProperty(memberType)) {
+            if (isClassInstance(subtype) && isClassInstance(memberType) && isProperty(memberType)) {
                 const getterInfo = lookUpObjectMember(memberType, 'fget');
 
                 if (getterInfo && getterInfo.isTypeDeclared) {

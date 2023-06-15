@@ -7958,6 +7958,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addError(Localizer.Diagnostic.superCallArgCount(), node.arguments[2]);
         }
 
+        const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
+        const enclosingClassType = enclosingClass ? getTypeOfClass(enclosingClass)?.classType : undefined;
+
         // Determine which class the "super" call is applied to. If
         // there is no first argument, then the class is implicit.
         let targetClassType: Type;
@@ -7974,10 +7977,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
             }
         } else {
-            const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
-            if (enclosingClass) {
-                const classTypeInfo = getTypeOfClass(enclosingClass);
-                targetClassType = classTypeInfo ? classTypeInfo.classType : UnknownType.create();
+            if (enclosingClassType) {
+                targetClassType = enclosingClassType ?? UnknownType.create();
             } else {
                 addError(Localizer.Diagnostic.superCallZeroArgForm(), node.leftExpression);
                 targetClassType = UnknownType.create();
@@ -8028,39 +8029,35 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     node.arguments[1].valueExpression
                 );
             }
-        } else {
+        } else if (enclosingClassType) {
+            bindToType = ClassType.cloneAsInstance(enclosingClassType);
+
+            // Get the type from the self or cls parameter if it is explicitly annotated.
+            // If it's a TypeVar, change the bindToType into a conditional type.
             const enclosingMethod = ParseTreeUtils.getEnclosingFunction(node);
             let implicitBindToType: Type | undefined;
 
-            // Get the type from the self or cls parameter if it is explicitly annotated.
             if (enclosingMethod) {
                 const methodTypeInfo = getTypeOfFunction(enclosingMethod);
                 if (methodTypeInfo) {
                     const methodType = methodTypeInfo.functionType;
-                    if (FunctionType.isClassMethod(methodType)) {
+                    if (
+                        FunctionType.isClassMethod(methodType) ||
+                        FunctionType.isConstructorMethod(methodType) ||
+                        FunctionType.isInstanceMethod(methodType)
+                    ) {
                         if (
                             methodType.details.parameters.length > 0 &&
                             methodType.details.parameters[0].hasDeclaredType
                         ) {
                             implicitBindToType = makeTopLevelTypeVarsConcrete(methodType.details.parameters[0].type);
                         }
-                    } else if (FunctionType.isInstanceMethod(methodType)) {
-                        if (
-                            methodType.details.parameters.length > 0 &&
-                            methodType.details.parameters[0].hasDeclaredType
-                        ) {
-                            implicitBindToType = makeTopLevelTypeVarsConcrete(
-                                convertToInstantiable(methodType.details.parameters[0].type)
-                            );
-                        }
                     }
                 }
             }
 
-            if (implicitBindToType && isInstantiableClass(implicitBindToType)) {
-                bindToType = implicitBindToType;
-            } else if (isInstantiableClass(targetClassType)) {
-                bindToType = targetClassType;
+            if (bindToType && implicitBindToType) {
+                bindToType = addConditionToType(bindToType, getTypeCondition(implicitBindToType)) as ClassType;
             }
         }
 
@@ -8089,11 +8086,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const parentNode = node.parent!;
         if (parentNode.nodeType === ParseNodeType.MemberAccess) {
             const memberName = parentNode.memberName.value;
-            const lookupResults = lookUpClassMember(
-                targetClassType,
-                memberName,
-                ClassMemberLookupFlags.SkipOriginalClass
-            );
+            const effectiveTargetClass = isClass(targetClassType) ? targetClassType : undefined;
+
+            const lookupResults = bindToType
+                ? lookUpClassMember(bindToType, memberName, ClassMemberLookupFlags.Default, effectiveTargetClass)
+                : undefined;
             if (lookupResults && isInstantiableClass(lookupResults.classType)) {
                 return {
                     type: resultIsInstance
