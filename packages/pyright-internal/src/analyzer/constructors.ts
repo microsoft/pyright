@@ -15,7 +15,7 @@
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
-import { ExpressionNode, ParameterCategory } from '../parser/parseNodes';
+import { ArgumentCategory, ExpressionNode, ParameterCategory } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
 import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
@@ -534,7 +534,8 @@ function validateFallbackConstructorCall(
 ): CallResult {
     let reportedErrors = false;
 
-    if (argList.length > 0) {
+    // It's OK if the argument list consists only of `*args` and `**kwargs`.
+    if (argList.length > 0 && argList.some((arg) => arg.argumentCategory === ArgumentCategory.Simple)) {
         const fileInfo = getFileInfo(errorNode);
         evaluator.addDiagnostic(
             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
