@@ -1569,6 +1569,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const decoratorTypeResult = getTypeOfExpression(node.expression, flags);
 
+        // Special-case typing.type_check_only. It's used in many stdlib
+        // functions, and pyright treats it as a no-op, so don't waste
+        // time evaluating it.
+        if (
+            isFunction(decoratorTypeResult.type) &&
+            decoratorTypeResult.type.details.builtInName === 'type_check_only'
+        ) {
+            return functionOrClassType;
+        }
+
         // Special-case the combination of a classmethod decorator applied
         // to a property. This is allowed in Python 3.9, but it's not reflected
         // in the builtins.pyi stub for classmethod.
@@ -10422,13 +10432,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Determine which type arguments are needed to match the expected type.
             if (isClassInstance(effectiveReturnType)) {
-                // If the return type is a class and the expected type is a union that contains
-                // that class, see if we can eliminate the other subtypes in the union.
+                // If the return type is a class and the expected type is a union
+                // that is type compatible with that class, filter the subtypes in
+                // the union to see if we can find one that is potentially compatible.
                 if (isUnion(effectiveExpectedType)) {
                     const filteredType = mapSubtypes(effectiveExpectedType, (subtype) => {
-                        return isClassInstance(subtype) && ClassType.isSameGenericClass(effectiveReturnType, subtype)
-                            ? subtype
-                            : undefined;
+                        if (!isClassInstance(subtype) || subtype.details.typeParameters.length === 0) {
+                            return undefined;
+                        }
+
+                        if (
+                            ClassType.isProtocolClass(subtype) ||
+                            subtype.details.mro.some((mroClass) => {
+                                return (
+                                    isClassInstance(mroClass) &&
+                                    mroClass.details.typeParameters.length > 0 &&
+                                    ClassType.isSameGenericClass(effectiveReturnType, mroClass)
+                                );
+                            })
+                        ) {
+                            return subtype;
+                        }
+
+                        return undefined;
                     });
 
                     if (isClassInstance(filteredType)) {
