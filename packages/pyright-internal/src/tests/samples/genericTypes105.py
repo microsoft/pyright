@@ -139,5 +139,11 @@ def test_5(a: Any, *args: int, b: Any = ...) -> Any:
 val3 = test_5(test_5, **{})
 reveal_type(
     val3,
+    expected_text="Unknown",
+)
+
+val4 = test_5(test_5, b=True)
+reveal_type(
+    val4,
     expected_text="Type[list[Overload[(a: Type[(**P(1)@test_5) -> Type[T(1)@test_5]], *, b: Literal[False] | None = ...) -> Type[list[Type[T(1)@test_5]]], (a: T(1)@test_5, *args: int, b: Literal[False] | None = ...) -> Type[list[T(1)@test_5]], (a: T(1)@test_5, *args: int, b: Literal[True] = ...) -> Type[list[T(1)@test_5]], (a: Any, *args: int, b: Any = ...) -> Any]]]",
 )

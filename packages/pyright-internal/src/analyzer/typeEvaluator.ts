@@ -1170,7 +1170,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const diag = new DiagnosticAddendum();
 
                 // Make sure the resulting type is assignable to the expected type.
-                if (!assignType(inferenceContext.expectedType, typeResult.type, diag)) {
+                if (
+                    !assignType(
+                        inferenceContext.expectedType,
+                        typeResult.type,
+                        diag,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
+                        AssignTypeFlags.IgnoreTypeVarScope
+                    )
+                ) {
                     typeResult.typeErrors = true;
                     typeResult.expectedTypeDiagAddendum = diag;
                     diag.addTextRange(node);
@@ -23234,9 +23243,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* diag */ undefined,
                     srcTypeVarContext,
                     destTypeVarContext,
-                    (flags ^ AssignTypeFlags.ReverseTypeVarMatching) |
-                        AssignTypeFlags.IgnoreTypeVarScope |
-                        AssignTypeFlags.RetainLiteralsForTypeVar,
+                    (flags ^ AssignTypeFlags.ReverseTypeVarMatching) | AssignTypeFlags.RetainLiteralsForTypeVar,
                     recursionCount
                 );
 
@@ -23252,9 +23259,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* diag */ undefined,
                     srcTypeVarContext,
                     destTypeVarContext,
-                    (flags ^ AssignTypeFlags.ReverseTypeVarMatching) |
-                        AssignTypeFlags.IgnoreTypeVarScope |
-                        AssignTypeFlags.RetainLiteralsForTypeVar,
+                    (flags ^ AssignTypeFlags.ReverseTypeVarMatching) | AssignTypeFlags.RetainLiteralsForTypeVar,
                     recursionCount
                 );
 
@@ -23979,11 +23984,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 const srcParamSpec = effectiveSrcType.details.paramSpec;
                 const destParamSpec = effectiveDestType.details.paramSpec;
-                const targetTypeVarContext =
-                    (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destTypeVarContext : srcTypeVarContext;
 
-                if (targetTypeVarContext.hasSolveForScope(destParamSpec.scopeId)) {
-                    // Synthesize a function based on the remaining parameters.
+                // If there are remaining parameters and the source and dest do not contain
+                // the same ParamSpec, synthesize a function for the remaining parameters.
+                if (
+                    remainingParams.length > 0 ||
+                    !srcParamSpec ||
+                    !isTypeSame(srcParamSpec, destParamSpec, { ignoreTypeFlags: true })
+                ) {
                     const remainingFunction = FunctionType.createInstance(
                         '',
                         '',
@@ -24000,12 +24008,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         : undefined;
 
                     if (
-                        !assignTypeToTypeVar(
-                            evaluatorInterface,
+                        !assignType(
                             destParamSpec,
                             remainingFunction,
                             /* diag */ undefined,
-                            targetTypeVarContext
+                            destTypeVarContext,
+                            srcTypeVarContext,
+                            flags
                         )
                     ) {
                         // If we couldn't assign the function to the ParamSpec, see if we can
@@ -24014,26 +24023,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (
                             remainingParams.length > 0 ||
                             !srcParamSpec ||
-                            !assignTypeToTypeVar(
-                                evaluatorInterface,
+                            !assignType(
                                 destParamSpec,
                                 convertToInstance(srcParamSpec) as TypeVarType,
                                 /* diag */ undefined,
-                                targetTypeVarContext
+                                destTypeVarContext,
+                                srcTypeVarContext,
+                                flags
                             )
                         ) {
                             canAssign = false;
                         }
-                    }
-                } else {
-                    // If there are any remaining parameters or the source doesn't include the
-                    // dest param spec itself, it is not assignable in this case.
-                    if (
-                        !srcParamSpec ||
-                        !isTypeSame(srcParamSpec, destParamSpec, { ignoreTypeFlags: true }) ||
-                        remainingParams.length > 0
-                    ) {
-                        canAssign = false;
                     }
                 }
             }
