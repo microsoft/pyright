@@ -25,10 +25,11 @@ import {
     TypeAnnotationNode,
 } from '../parser/parseNodes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { getFileInfo } from './analyzerNodeInfo';
 import { createFunctionFromConstructor } from './constructors';
 import { DeclarationType } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
-import { getEnclosingClassOrFunction, getScopeIdForNode } from './parseTreeUtils';
+import { getClassFullName, getEnclosingClassOrFunction, getScopeIdForNode, getTypeSourceId } from './parseTreeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName } from './symbolNameUtils';
@@ -513,7 +514,12 @@ export function synthesizeDataClassMethods(
                     effectiveType = transformDescriptorType(evaluator, effectiveType);
 
                     if (entry.converter) {
+                        const fieldType = effectiveType;
                         effectiveType = getConverterInputType(evaluator, entry.converter, effectiveType, entry.name);
+                        symbolTable.set(
+                            entry.name,
+                            getDescriptorForConverterField(evaluator, node, entry.name, fieldType, effectiveType)
+                        );
                     }
 
                     const effectiveName = entry.alias || entry.name;
@@ -797,6 +803,83 @@ function getConverterAsFunction(
     }
 
     return undefined;
+}
+
+function getDescriptorForConverterField(
+    evaluator: TypeEvaluator,
+    dataclassNode: ParseNode,
+    fieldName: string,
+    getType: Type,
+    setType: Type
+): Symbol {
+    // TODO: Behavior is different depending on frozen state of dataclass
+
+    const fileInfo = getFileInfo(dataclassNode);
+    const typeMetaclass = evaluator.getBuiltInType(dataclassNode, 'type');
+    const descriptorName = `__converterDescriptor_${fieldName}`;
+
+    const descriptorClass = ClassType.createInstantiable(
+        descriptorName,
+        getClassFullName(dataclassNode, fileInfo.moduleName, descriptorName),
+        fileInfo.moduleName,
+        fileInfo.filePath,
+        ClassTypeFlags.None,
+        getTypeSourceId(dataclassNode),
+        /* declaredMetaclass */ undefined,
+        isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
+    );
+    computeMroLinearization(descriptorClass);
+
+    const fields = descriptorClass.details.fields;
+
+    const setFunction = FunctionType.createSynthesizedInstance('__set__');
+    FunctionType.addParameter(setFunction, {
+        category: ParameterCategory.Simple,
+        name: 'self',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(setFunction, {
+        category: ParameterCategory.Simple,
+        name: 'obj',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(setFunction, {
+        category: ParameterCategory.Simple,
+        name: 'value',
+        type: setType,
+        hasDeclaredType: true,
+    });
+    const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
+    fields.set('__set__', setSymbol);
+
+    const getFunction = FunctionType.createSynthesizedInstance('__get__');
+    FunctionType.addParameter(getFunction, {
+        category: ParameterCategory.Simple,
+        name: 'self',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(getFunction, {
+        category: ParameterCategory.Simple,
+        name: 'obj',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(getFunction, {
+        category: ParameterCategory.Simple,
+        name: 'objtype',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+        // hasDefault: true,
+        // defaultType: AnyType.create(),
+    });
+    getFunction.details.declaredReturnType = getType;
+    const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunction);
+    fields.set('__get__', getSymbol);
+
+    return Symbol.createWithType(SymbolFlags.ClassMember, ClassType.cloneAsInstance(descriptorClass));
 }
 
 // If the specified type is a descriptor — in particular, if it implements a
