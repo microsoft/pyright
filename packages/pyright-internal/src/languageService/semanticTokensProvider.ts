@@ -20,6 +20,7 @@ export const tokenTypes: string[] = [
     SemanticTokenTypes.method,
     SemanticTokenTypes.decorator,
     SemanticTokenTypes.property,
+    SemanticTokenTypes.namespace,
 ];
 export const tokenModifiers: string[] = [
     SemanticTokenModifiers.definition,

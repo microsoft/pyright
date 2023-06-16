@@ -1,7 +1,7 @@
 import { ParseTreeWalker } from './parseTreeWalker';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import { FunctionType, OverloadedFunctionType, TypeCategory, TypeFlags } from './types';
-import { ClassNode, FunctionNode, MemberAccessNode } from '../parser/parseNodes';
+import { ClassNode, FunctionNode, ImportAsNode, ImportFromNode, ImportNode, MemberAccessNode, ModuleNameNode, ModuleNode } from '../parser/parseNodes';
 import { SemanticTokenModifiers, SemanticTokenTypes } from 'vscode-languageserver';
 
 type SemanticTokenItem = {
@@ -90,6 +90,28 @@ export class SemanticTokensWalker extends ParseTreeWalker {
                 this._addItem(node.memberName.start, node.memberName.length, SemanticTokenTypes.property, []);
                 break;
         }
+
+        const exprType = this._evaluator?.getType(node.leftExpression);
+        if (exprType?.category === TypeCategory.Module) {
+            this._addItem(node.leftExpression.start, node.leftExpression.length, SemanticTokenTypes.namespace, []);
+        }
         return super.visitMemberAccess(node);
+    }
+
+    override visitImportAs(node: ImportAsNode): boolean {
+        for (const part of node.module.nameParts) {
+            this._addItem(part.start, part.length, SemanticTokenTypes.namespace, []);
+        }
+        if (node.alias) {
+            this._addItem(node.alias.start, node.alias.length, SemanticTokenTypes.namespace, []);
+        }
+        return super.visitImportAs(node);
+    }
+
+    override visitImportFrom(node: ImportFromNode): boolean {
+        for (const part of node.module.nameParts) {
+            this._addItem(part.start, part.length, SemanticTokenTypes.namespace, []);
+        }
+        return super.visitImportFrom(node);
     }
 }
