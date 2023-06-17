@@ -12377,6 +12377,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     keyTypes,
                     valueTypes,
                     /* forceStrictInference */ true,
+                    /* isValueTypeInvariant */ true,
                     /* expectedKeyType */ undefined,
                     /* expectedValueType */ undefined,
                     expectedTypedDictEntries,
@@ -12437,6 +12438,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const expectedKeyType = specializedDict.typeArguments[0];
         const expectedValueType = specializedDict.typeArguments[1];
 
+        // Dict and MutableMapping types have invariant value types, so they
+        // cannot be narrowed further. Other super-types like Mapping, Collection,
+        // and Iterable use covariant value types, so they can be narrowed.
+        const isValueTypeInvariant =
+            isClassInstance(inferenceContext.expectedType) &&
+            (ClassType.isBuiltIn(inferenceContext.expectedType, 'dict') ||
+                ClassType.isBuiltIn(inferenceContext.expectedType, 'MutableMapping'));
+
         // Infer the key and value types if possible.
         if (
             getKeyAndValueTypesFromDictionary(
@@ -12444,6 +12453,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 keyTypes,
                 valueTypes,
                 /* forceStrictInference */ true,
+                isValueTypeInvariant,
                 expectedKeyType,
                 expectedValueType,
                 undefined,
@@ -12452,14 +12462,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         ) {
             isIncomplete = true;
         }
-
-        // Dict and MutableMapping types have invariant value types, so they
-        // cannot be narrowed further. Other super-types like Mapping, Collection,
-        // and Iterable use covariant value types, so they can be narrowed.
-        const isValueTypeInvariant =
-            isClassInstance(inferenceContext.expectedType) &&
-            (ClassType.isBuiltIn(inferenceContext.expectedType, 'dict') ||
-                ClassType.isBuiltIn(inferenceContext.expectedType, 'MutableMapping'));
 
         const specializedKeyType = inferTypeArgFromExpectedEntryType(
             makeInferenceContext(expectedKeyType),
@@ -12498,7 +12500,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 node,
                 keyTypeResults,
                 valueTypeResults,
-                /* forceStrictInference */ hasExpectedType
+                /* forceStrictInference */ hasExpectedType,
+                /* isValueTypeInvariant */ false
             )
         ) {
             isIncomplete = true;
@@ -12554,6 +12557,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         keyTypes: TypeResultWithNode[],
         valueTypes: TypeResultWithNode[],
         forceStrictInference: boolean,
+        isValueTypeInvariant: boolean,
         expectedKeyType?: Type,
         expectedValueType?: Type,
         expectedTypedDictEntries?: Map<string, TypedDictEntry>,
@@ -12589,6 +12593,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 let valueTypeResult: TypeResult;
+                let entryInferenceContext: InferenceContext | undefined;
 
                 if (
                     expectedTypedDictEntries &&
@@ -12598,19 +12603,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     expectedTypedDictEntries.has(keyType.literalValue as string)
                 ) {
                     const effectiveValueType = expectedTypedDictEntries.get(keyType.literalValue as string)!.valueType;
+                    entryInferenceContext = makeInferenceContext(effectiveValueType);
                     valueTypeResult = getTypeOfExpression(
                         entryNode.valueExpression,
                         /* flags */ undefined,
-                        makeInferenceContext(effectiveValueType)
+                        entryInferenceContext
                     );
                 } else {
                     const effectiveValueType =
                         expectedValueType ?? (forceStrictInference ? NeverType.createNever() : undefined);
+                    entryInferenceContext = makeInferenceContext(effectiveValueType);
                     valueTypeResult = getTypeOfExpression(
                         entryNode.valueExpression,
                         /* flags */ undefined,
-                        makeInferenceContext(effectiveValueType)
+                        entryInferenceContext
                     );
+                }
+
+                if (entryInferenceContext && !valueTypeResult.typeErrors) {
+                    valueTypeResult.type =
+                        inferTypeArgFromExpectedEntryType(
+                            entryInferenceContext,
+                            [valueTypeResult.type],
+                            !isValueTypeInvariant
+                        ) ?? valueTypeResult.type;
                 }
 
                 if (expectedDiagAddendum && valueTypeResult.expectedTypeDiagAddendum) {
@@ -12642,11 +12658,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
+                const entryInferenceContext = makeInferenceContext(expectedType);
                 const unexpandedTypeResult = getTypeOfExpression(
                     entryNode.expandExpression,
                     /* flags */ undefined,
-                    makeInferenceContext(expectedType)
+                    entryInferenceContext
                 );
+
+                if (entryInferenceContext && !unexpandedTypeResult.typeErrors) {
+                    unexpandedTypeResult.type =
+                        inferTypeArgFromExpectedEntryType(
+                            entryInferenceContext,
+                            [unexpandedTypeResult.type],
+                            !isValueTypeInvariant
+                        ) ?? unexpandedTypeResult.type;
+                }
 
                 if (unexpandedTypeResult.isIncomplete) {
                     isIncomplete = true;
@@ -13001,7 +13027,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return inferenceContext.expectedType;
         }
 
-        const typeVarContext = new TypeVarContext();
+        const typeVarContext = new TypeVarContext(getTypeVarScopeId(inferenceContext.expectedType));
         const expectedType = inferenceContext.expectedType;
         let isCompatible = true;
 
@@ -13022,7 +13048,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 : stripLiteralValue(combinedTypes);
         }
 
-        return applySolvedTypeVars(inferenceContext.expectedType, typeVarContext, { applyInScopePlaceholders: true });
+        return mapSubtypes(
+            applySolvedTypeVars(inferenceContext.expectedType, typeVarContext, { applyInScopePlaceholders: true }),
+            (subtype) => {
+                if (entryTypes.length !== 1) {
+                    return subtype;
+                }
+                const entryType = entryTypes[0];
+
+                // If the entry type is a TypedDict instance, clone it with additional information.
+                if (
+                    isTypeSame(subtype, entryType, { ignoreTypedDictNarrowEntries: true }) &&
+                    isClass(subtype) &&
+                    isClass(entryType) &&
+                    ClassType.isTypedDictClass(entryType)
+                ) {
+                    return ClassType.cloneForNarrowedTypedDictEntries(subtype, entryType.typedDictNarrowedEntries);
+                }
+
+                return subtype;
+            }
+        );
     }
 
     function getTypeOfYield(node: YieldNode): TypeResult {
@@ -21517,6 +21563,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             curDestTypeVarContext = new TypeVarContext(getTypeVarScopeId(ancestorType));
             effectiveFlags &= ~AssignTypeFlags.SkipSolveTypeVars;
             prevSrcType = curSrcType;
+        }
+
+        // If we're enforcing invariance, literal types must match as well.
+        if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+            const srcIsLiteral = srcType.literalValue !== undefined;
+            const destIsLiteral = destType.literalValue !== undefined;
+            if (srcIsLiteral !== destIsLiteral) {
+                return false;
+            }
         }
 
         if (destType.typeArguments) {
