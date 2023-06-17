@@ -75,7 +75,6 @@ class A:
     ...
 
 
-T = TypeVar("T")
 T_A = TypeVar("T_A", bound=A)
 
 
