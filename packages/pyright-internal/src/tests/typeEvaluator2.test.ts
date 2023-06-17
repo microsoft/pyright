@@ -1121,6 +1121,12 @@ test('GenericTypes116', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('GenericTypes117', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes117.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Protocol1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol1.py']);
 
@@ -1154,7 +1160,7 @@ test('Protocol5', () => {
 test('Protocol6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol6.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('Protocol7', () => {
