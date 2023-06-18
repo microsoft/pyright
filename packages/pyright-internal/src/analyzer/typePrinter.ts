@@ -34,6 +34,7 @@ import {
     TypeBase,
     TypeCategory,
     TypeVarType,
+    Variance,
 } from './types';
 import { convertToInstance, doForEachSubtype, isTupleClass } from './typeUtils';
 
@@ -78,6 +79,9 @@ export const enum PrintTypeFlags {
 
     // Expand TypedDict kwargs to show the keys from the TypedDict instead of **kwargs.
     ExpandTypedDictArgs = 1 << 10,
+
+    // Print the variance of a type parameter.
+    PrintTypeVarVariance = 1 << 11,
 }
 
 export type FunctionReturnTypeCallback = (type: FunctionType) => Type;
@@ -677,7 +681,14 @@ function printTypeInternal(
                 }
 
                 if (TypeBase.isInstantiable(type)) {
-                    return `${_printNestedInstantiable(type, typeVarName)}`;
+                    typeVarName = `${_printNestedInstantiable(type, typeVarName)}`;
+                }
+
+                if (!type.details.isVariadic && (printTypeFlags & PrintTypeFlags.PrintTypeVarVariance) !== 0) {
+                    const varianceText = _getTypeVarVarianceText(type);
+                    if (varianceText) {
+                        typeVarName = `${typeVarName} (${varianceText})`;
+                    }
                 }
 
                 return typeVarName;
@@ -1189,6 +1200,23 @@ function _getReadableTypeVarName(type: TypeVarType, usePythonSyntax: boolean) {
     }
 
     return TypeVarType.getReadableName(type);
+}
+
+function _getTypeVarVarianceText(type: TypeVarType) {
+    const computedVariance = type.computedVariance ?? type.details.declaredVariance;
+    if (computedVariance === Variance.Invariant) {
+        return 'invariant';
+    }
+
+    if (computedVariance === Variance.Covariant) {
+        return 'covariant';
+    }
+
+    if (computedVariance === Variance.Contravariant) {
+        return 'contravariant';
+    }
+
+    return '';
 }
 
 // Represents a map of named types (classes and type aliases) that appear within

@@ -373,6 +373,7 @@ export interface PrintTypeOptions {
     enforcePythonSyntax?: boolean;
     useTypingUnpack?: boolean;
     printUnknownWithAny?: boolean;
+    printTypeVarVariance?: boolean;
     omitTypeArgumentsIfUnknown?: boolean;
 }
 

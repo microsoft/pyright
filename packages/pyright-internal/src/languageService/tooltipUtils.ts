@@ -25,17 +25,17 @@ import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { ClassMemberLookupFlags, lookUpClassMember } from '../analyzer/typeUtils';
 import {
     ClassType,
-    combineTypes,
     FunctionType,
+    OverloadedFunctionType,
+    Type,
+    TypeCategory,
+    UnknownType,
+    combineTypes,
     isClassInstance,
     isFunction,
     isInstantiableClass,
     isModule,
     isOverloadedFunction,
-    OverloadedFunctionType,
-    Type,
-    TypeCategory,
-    UnknownType,
 } from '../analyzer/types';
 import { SignatureDisplayType } from '../common/configOptions';
 import { isDefined } from '../common/core';

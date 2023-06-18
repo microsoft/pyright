@@ -785,9 +785,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // context, logging any errors in the process. This may require the
     // type of surrounding statements to be evaluated.
     function getType(node: ExpressionNode): Type | undefined {
-        return evaluateTypeForSubnode(node, () => {
+        let type = evaluateTypeForSubnode(node, () => {
             evaluateTypesForExpressionInContext(node);
         })?.type;
+
+        // If this is a type parameter with a calculated variance, see if we
+        // can swap it out for a version that has a computed variance.
+        if (type && isTypeVar(type) && type.details.declaredVariance === Variance.Auto) {
+            const typeVarType = type;
+            const typeParamListNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.TypeParameterList);
+
+            if (typeParamListNode?.parent?.nodeType === ParseNodeType.Class) {
+                const classTypeResult = getTypeOfClass(typeParamListNode.parent);
+
+                if (classTypeResult) {
+                    inferTypeParameterVarianceForClass(classTypeResult.classType);
+                    const typeParam = classTypeResult.classType.details.typeParameters.find((param) =>
+                        isTypeSame(param, typeVarType, { ignoreTypeFlags: true })
+                    );
+
+                    if (typeParam) {
+                        type = TypeBase.isInstance(type) ? TypeVarType.cloneAsInstance(typeParam) : typeParam;
+                    }
+                }
+            }
+        }
+
+        return type;
     }
 
     function getTypeResult(node: ExpressionNode): TypeResult | undefined {
@@ -25340,6 +25364,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
         if (options?.printUnknownWithAny) {
             flags |= TypePrinter.PrintTypeFlags.PrintUnknownWithAny;
+        }
+        if (options?.printTypeVarVariance) {
+            flags |= TypePrinter.PrintTypeFlags.PrintTypeVarVariance;
         }
         if (options?.omitTypeArgumentsIfUnknown) {
             flags |= TypePrinter.PrintTypeFlags.OmitTypeArgumentsIfUnknown;

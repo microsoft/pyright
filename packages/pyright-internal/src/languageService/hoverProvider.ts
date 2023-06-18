@@ -15,7 +15,7 @@ import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
-import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
+import { PrintTypeOptions, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { doForEachSubtype, isMaybeDescriptorInstance } from '../analyzer/typeUtils';
 import {
     ClassType,
@@ -343,7 +343,7 @@ export class HoverProvider {
                         this._functionSignatureDisplay
                     );
                 } else {
-                    typeText = typeVarName || node.value + this._getTypeText(typeNode, expandTypeAlias);
+                    typeText = typeVarName || node.value + this._getTypeText(typeNode, { expandTypeAlias });
                     typeText = `(${label}) ` + typeText;
                 }
                 this._addResultsPart(parts, typeText, /* python */ true);
@@ -373,9 +373,14 @@ export class HoverProvider {
             }
 
             case DeclarationType.TypeParameter: {
+                // If the user is hovering over a type parameter name in a class type parameter
+                // list, display the computed variance of the type param.
+                const typeParamListNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.TypeParameterList);
+                const printTypeVarVariance = typeParamListNode?.parent?.nodeType === ParseNodeType.Class;
+
                 this._addResultsPart(
                     parts,
-                    '(type parameter) ' + node.value + this._getTypeText(node),
+                    '(type parameter) ' + node.value + this._getTypeText(node, { printTypeVarVariance }),
                     /* python */ true
                 );
                 this._addDocumentationPart(parts, node, resolvedDecl);
@@ -437,7 +442,7 @@ export class HoverProvider {
             }
 
             case DeclarationType.TypeAlias: {
-                const typeText = node.value + this._getTypeText(node, /* expandTypeAlias */ true);
+                const typeText = node.value + this._getTypeText(node, { expandTypeAlias: true });
                 this._addResultsPart(parts, `(type alias) ${typeText}`, /* python */ true);
                 this._addDocumentationPart(parts, node, resolvedDecl);
                 break;
@@ -509,14 +514,14 @@ export class HoverProvider {
         return getTypeForToolTip(this._evaluator, node);
     }
 
-    private _getTypeText(node: ExpressionNode, expandTypeAlias = false): string {
+    private _getTypeText(node: ExpressionNode, options?: PrintTypeOptions): string {
         const type = this._getType(node);
-        return ': ' + this._evaluator.printType(type, { expandTypeAlias });
+        return ': ' + this._evaluator.printType(type, options);
     }
 
-    private _getTypesText(nodes: ExpressionNode[], expandTypeAlias = false): string {
+    private _getTypesText(nodes: ExpressionNode[], options?: PrintTypeOptions): string {
         const type = combineExpressionTypes(nodes, this._evaluator);
-        return ': ' + this._evaluator.printType(type, { expandTypeAlias });
+        return ': ' + this._evaluator.printType(type, options);
     }
 
     private _addDocumentationPart(parts: HoverTextPart[], node: NameNode, resolvedDecl: Declaration | undefined) {
