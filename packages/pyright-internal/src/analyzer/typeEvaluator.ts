@@ -15151,7 +15151,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const initSubclassArgs: FunctionArgument[] = [];
         let metaclassNode: ExpressionNode | undefined;
         let exprFlags =
-            EvaluatorFlags.ExpectingInstantiableType |
             EvaluatorFlags.AllowGenericClassType |
             EvaluatorFlags.DisallowNakedGeneric |
             EvaluatorFlags.DisallowTypeVarsWithScopeId |
@@ -15177,7 +15176,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     getTypeOfExpression(arg.valueExpression);
                     argType = UnknownType.create();
                 } else {
-                    argType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(arg.valueExpression, exprFlags).type);
+                    const typeResult = getTypeOfExpression(arg.valueExpression, exprFlags);
+                    validateTypeIsInstantiable(typeResult, EvaluatorFlags.None, arg.valueExpression);
+                    argType = makeTopLevelTypeVarsConcrete(typeResult.type);
                 }
 
                 // In some stub files, classes are conditionally defined (e.g. based
