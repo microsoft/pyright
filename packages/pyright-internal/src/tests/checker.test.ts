@@ -261,7 +261,7 @@ test('UnnecessaryCast1', () => {
     // Turn on errors.
     configOptions.diagnosticRuleSet.reportUnnecessaryCast = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryCast1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('UnnecessaryContains1', () => {
