@@ -13231,17 +13231,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // For now, use only the first expected type.
         const expectedFunctionType = expectedFunctionTypes.length > 0 ? expectedFunctionTypes[0] : undefined;
         let paramsArePositionOnly = true;
+        const expectedParamDetails = expectedFunctionType ? getParameterListDetails(expectedFunctionType) : undefined;
 
         node.parameters.forEach((param, index) => {
-            let paramType: Type = UnknownType.create();
-            if (expectedFunctionType && index < expectedFunctionType.details.parameters.length) {
-                paramType = FunctionType.getEffectiveParameterType(expectedFunctionType, index);
+            let paramType: Type | undefined;
+            if (expectedParamDetails) {
+                if (index < expectedParamDetails.params.length) {
+                    paramType = expectedParamDetails.params[index].type;
+                } else if (param.defaultValue) {
+                    // If the lambda param has a default value but there is no associated
+                    // parameter in the expected type, assume that the default value is
+                    // being used to explicitly capture a value from an outer scope. Infer
+                    // its type from the default value expression.
+                    paramType = getTypeOfExpression(param.defaultValue, undefined, inferenceContext).type;
+                }
             }
 
             if (param.name) {
                 writeTypeCache(
                     param.name,
-                    { type: transformVariadicParamType(node, param.category, paramType) },
+                    { type: transformVariadicParamType(node, param.category, paramType ?? UnknownType.create()) },
                     EvaluatorFlags.None
                 );
             }
@@ -13288,7 +13297,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 hasDefault: !!param.defaultValue,
                 defaultValueExpression: param.defaultValue,
                 hasDeclaredType: true,
-                type: paramType,
+                type: paramType ?? UnknownType.create(),
             };
 
             FunctionType.addParameter(functionType, functionParam);
