@@ -620,14 +620,11 @@ test('GenericTypes34', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
-// This test is intentionally commented out for now. The functionality
-// that it tests relied on the looser handling of TypeVars.
+test('GenericTypes35', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes35.py']);
 
-// test('GenericTypes35', () => {
-//     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes35.py']);
-
-//     TestUtils.validateResults(analysisResults, 1);
-// });
+    TestUtils.validateResults(analysisResults, 1);
+});
 
 test('GenericTypes36', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes36.py']);
