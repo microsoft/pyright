@@ -23,4 +23,4 @@ MutualReference3: TypeAlias = "MutualReference3"
 
 
 RecursiveType: TypeAlias = list[Union[str, "RecursiveType"]]
-reveal_type(RecursiveType, expected_text="Type[list[str | RecursiveType]]")
+reveal_type(RecursiveType, expected_text="type[list[str | RecursiveType]]")

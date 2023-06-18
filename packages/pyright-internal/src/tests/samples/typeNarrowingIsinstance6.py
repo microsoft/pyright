@@ -27,11 +27,11 @@ def func2(
     a: Type[SomeClass[int]], b: Union[Type[SomeClass[str]], Type[SomeClass[complex]]]
 ) -> None:
     if issubclass(a, OtherClass):
-        reveal_type(a, expected_text="Type[OtherClass[int]]")
+        reveal_type(a, expected_text="type[OtherClass[int]]")
 
     if issubclass(b, OtherClass):
         reveal_type(
-            b, expected_text="Type[OtherClass[str]] | Type[OtherClass[complex]]"
+            b, expected_text="type[OtherClass[str]] | type[OtherClass[complex]]"
         )
 
 

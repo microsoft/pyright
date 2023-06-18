@@ -41,5 +41,5 @@ class Class3(Class2):
     ...
 
 
-reveal_type(Class2.prop1, expected_text="Type[Class2]")
-reveal_type(Class3.prop1, expected_text="Type[Class3]")
+reveal_type(Class2.prop1, expected_text="type[Class2]")
+reveal_type(Class3.prop1, expected_text="type[Class3]")

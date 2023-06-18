@@ -49,7 +49,7 @@ test('SimpleTypes', () => {
     assert.strictEqual(printType(noneInstanceType, PrintTypeFlags.None, returnTypeCallback), 'None');
 
     const noneInstantiableType = NoneType.createType();
-    assert.strictEqual(printType(noneInstantiableType, PrintTypeFlags.None, returnTypeCallback), 'Type[None]');
+    assert.strictEqual(printType(noneInstantiableType, PrintTypeFlags.None, returnTypeCallback), 'type[None]');
 
     const moduleType = ModuleType.create('Test', '');
     assert.strictEqual(printType(moduleType, PrintTypeFlags.None, returnTypeCallback), 'Module("Test")');
@@ -86,7 +86,7 @@ test('ClassTypes', () => {
 
     classTypeA.details.typeParameters.push(typeVarS, typeVarT);
 
-    assert.strictEqual(printType(classTypeA, PrintTypeFlags.None, returnTypeCallback), 'Type[A[S, T]]');
+    assert.strictEqual(printType(classTypeA, PrintTypeFlags.None, returnTypeCallback), 'type[A[S, T]]');
 
     const instanceA = ClassType.cloneAsInstance(classTypeA);
     assert.strictEqual(printType(instanceA, PrintTypeFlags.None, returnTypeCallback), 'A[S, T]');

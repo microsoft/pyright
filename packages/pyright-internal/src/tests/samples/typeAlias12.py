@@ -17,4 +17,4 @@ def fn2(x: List[Alias[V, V]]) -> List[V]:
     return x
 
 
-reveal_type(Alias[int, int], expected_text="Type[int]")
+reveal_type(Alias[int, int], expected_text="type[int]")

@@ -9,8 +9,8 @@ class MockProducer:
     produce: Type[Mock] = Mock
 
 
-reveal_type(MockProducer.produce, expected_text="Type[Mock]")
-reveal_type(MockProducer().produce, expected_text="Type[Mock]")
+reveal_type(MockProducer.produce, expected_text="type[Mock]")
+reveal_type(MockProducer().produce, expected_text="type[Mock]")
 
 
 reveal_type(MockProducer.produce(), expected_text="Mock")

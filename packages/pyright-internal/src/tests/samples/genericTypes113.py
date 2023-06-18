@@ -29,4 +29,4 @@ def func3(a: None) -> Callable[[type[_T1]], type[_T1]]:
 
 
 v3 = func3(None)
-reveal_type(v3, expected_text="(Type[_T1@func3]) -> Type[_T1@func3]")
+reveal_type(v3, expected_text="(type[_T1@func3]) -> type[_T1@func3]")

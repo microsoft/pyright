@@ -45,9 +45,9 @@ def func5(x: int | str | complex):
 
 def func6(x: Type[int] | Type[str] | Type[complex]):
     if issubclass(x, (int, str)):
-        reveal_type(x, expected_text="Type[int] | Type[str]")
+        reveal_type(x, expected_text="type[int] | type[str]")
     else:
-        reveal_type(x, expected_text="Type[complex]")
+        reveal_type(x, expected_text="type[complex]")
 
 
 def func7(x: Optional[Union[int, SomeTypedDict]]):

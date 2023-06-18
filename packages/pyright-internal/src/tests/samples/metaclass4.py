@@ -10,7 +10,7 @@ class MyMeta(type):
 
 MyCustomClass = MyMeta("MyCustomClass", (object,), {})
 
-reveal_type(MyCustomClass, expected_text="Type[MyCustomClass]")
+reveal_type(MyCustomClass, expected_text="type[MyCustomClass]")
 
 
 class DerivedCustomClass(MyCustomClass):

@@ -45,6 +45,6 @@ helper.verifyHover('markdown', {
     marker3: '```python\n(variable) y: Literal[2]\n```\n---\ntest y',
     marker4: '```python\n(variable) z: int\n```\n---\ntest z',
     marker5:
-        "```python\n(type alias) SomeType: Type[List[int | str]]\n```\n---\nHere's some documentation about SomeType",
+        "```python\n(type alias) SomeType: type[List[int | str]]\n```\n---\nHere's some documentation about SomeType",
     marker6: '```python\n(variable) x: Literal[123670029844611072]\n```',
 });

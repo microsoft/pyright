@@ -42,13 +42,13 @@ class Bar(Foo):
 def bar(value: _T1) -> Type[Foo[_T1]]:
     baz = Foo(value)
     qux = type(baz)
-    reveal_type(qux, expected_text="Type[Foo[_T1@bar]]")
+    reveal_type(qux, expected_text="type[Foo[_T1@bar]]")
     return qux
 
 
 d = Bar.get()
-reveal_type(d, expected_text="Type[Bar]")
-reveal_type(Bar.get(), expected_text="Type[Bar]")
+reveal_type(d, expected_text="type[Bar]")
+reveal_type(Bar.get(), expected_text="type[Bar]")
 
 
 def class_constructor(cls: type[_T1]) -> Callable[..., _T1]:

@@ -53,8 +53,8 @@ def func3():
     y = func2(x)
     z = func2(make_a(foo))
 
-    reveal_type(y, expected_text="Type[A[str, (x: int)]]")
-    reveal_type(z, expected_text="Type[A[str, (x: int)]]")
+    reveal_type(y, expected_text="type[A[str, (x: int)]]")
+    reveal_type(z, expected_text="type[A[str, (x: int)]]")
 
 
 def func4(my_dict: dict[str, str]):

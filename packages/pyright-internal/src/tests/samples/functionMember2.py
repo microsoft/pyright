@@ -30,13 +30,13 @@ s2 = A().method1.__self__
 reveal_type(s2, expected_text="A")
 
 s3 = A.method2.__self__
-reveal_type(s3, expected_text="Type[A]")
+reveal_type(s3, expected_text="type[A]")
 
 s3 = A.method2.__self__
-reveal_type(s3, expected_text="Type[A]")
+reveal_type(s3, expected_text="type[A]")
 
 s4 = A().method2.__self__
-reveal_type(s4, expected_text="Type[A]")
+reveal_type(s4, expected_text="type[A]")
 
 # This should generate an error because method3 is static.
 s5 = A().method3.__self__

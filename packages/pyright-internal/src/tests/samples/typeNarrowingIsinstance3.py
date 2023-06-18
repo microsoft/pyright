@@ -55,14 +55,14 @@ def func2(val: Type[A]):
         # This should generate an error
         val.c_val
 
-        reveal_type(val, expected_text="Type[<subclass of A and B>]")
+        reveal_type(val, expected_text="type[<subclass of A and B>]")
 
         if issubclass(val, C):
             val.a_val
             val.b_val
             val.c_val
             reveal_type(
-                val, expected_text="Type[<subclass of <subclass of A and B> and C>]"
+                val, expected_text="type[<subclass of <subclass of A and B> and C>]"
             )
 
     else:
@@ -71,7 +71,7 @@ def func2(val: Type[A]):
         # This should generate an error
         val.b_val
 
-        reveal_type(val, expected_text="Type[A]")
+        reveal_type(val, expected_text="type[A]")
 
 
 _T1 = TypeVar("_T1", bound=A)

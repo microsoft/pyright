@@ -20,5 +20,5 @@ func1(Exception)
 
 reveal_type(
     _MaybeSequence[type[HttpError]],
-    expected_text="Type[Type[HttpError]] | Type[Sequence[Type[HttpError]]]",
+    expected_text="type[type[HttpError]] | type[Sequence[type[HttpError]]]",
 )
