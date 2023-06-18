@@ -104,6 +104,8 @@ export function formatControlFlowGraph(flowNode: FlowNode) {
                 FlowFlags.WildcardImport |
                 FlowFlags.TrueCondition |
                 FlowFlags.FalseCondition |
+                FlowFlags.TrueNeverCondition |
+                FlowFlags.FalseNeverCondition |
                 FlowFlags.NarrowForPattern |
                 FlowFlags.ExhaustedMatch |
                 FlowFlags.Call |
@@ -114,7 +116,6 @@ export function formatControlFlowGraph(flowNode: FlowNode) {
                 | FlowAssignment
                 | FlowVariableAnnotation
                 | FlowWildcardImport
-                | FlowCondition
                 | FlowCondition
                 | FlowExhaustedMatch
                 | FlowCall
