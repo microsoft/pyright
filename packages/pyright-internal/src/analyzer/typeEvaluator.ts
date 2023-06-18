@@ -936,7 +936,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         initializedBasicTypes(node);
 
         let typeResult: TypeResult | undefined;
-        let reportExpectingTypeErrors = (flags & EvaluatorFlags.ExpectingType) !== 0;
+        let expectingInstantiable = (flags & EvaluatorFlags.ExpectingInstantiableType) !== 0;
 
         switch (node.nodeType) {
             case ParseNodeType.Name: {
@@ -976,7 +976,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isExpectingType) {
                     // Don't report expecting type errors again. We will have already
                     // reported them when analyzing the contents of the string.
-                    reportExpectingTypeErrors = false;
+                    expectingInstantiable = false;
                 }
 
                 typeResult = getTypeOfStringList(node, flags, isExpectingType);
@@ -1087,7 +1087,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             case ParseNodeType.TypeAnnotation: {
                 typeResult = getTypeOfExpression(
                     node.typeAnnotation,
-                    EvaluatorFlags.ExpectingType |
+                    EvaluatorFlags.ExpectingInstantiableType |
                         EvaluatorFlags.ExpectingTypeAnnotation |
                         EvaluatorFlags.EvaluateStringLiteralAsType |
                         EvaluatorFlags.DisallowParamSpec |
@@ -1124,26 +1124,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             fail(`Unhandled expression type '${ParseTreeUtils.printExpression(node)}'`);
         }
 
-        if (reportExpectingTypeErrors && !typeResult.isIncomplete) {
-            if (flags & EvaluatorFlags.DisallowTypeVarTuple) {
-                if (isVariadicTypeVar(typeResult.type) && !typeResult.type.isVariadicInUnion) {
-                    addError(Localizer.Diagnostic.typeVarTupleContext(), node);
-                    typeResult.type = UnknownType.create();
-                }
-            }
-
-            if (!isEffectivelyInstantiable(typeResult.type)) {
-                const isEmptyVariadic =
-                    isClassInstance(typeResult.type) &&
-                    ClassType.isTupleClass(typeResult.type) &&
-                    typeResult.type.tupleTypeArguments?.length === 0;
-
-                if (!isEmptyVariadic) {
-                    addExpectedClassDiagnostic(typeResult.type, node);
-                    typeResult.type = UnknownType.create();
-                    typeResult.typeErrors = true;
-                }
-            }
+        // Do we need to validate that the type is instantiable?
+        if (expectingInstantiable) {
+            validateTypeIsInstantiable(typeResult, flags, node);
         }
 
         writeTypeCache(node, typeResult, flags, inferenceContext, /* allowSpeculativeCaching */ true);
@@ -1197,6 +1180,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return typeResult;
+    }
+
+    function validateTypeIsInstantiable(typeResult: TypeResult, flags: EvaluatorFlags, node: ExpressionNode) {
+        // If the type is incomplete, don't log any diagnostics yet.
+        if (typeResult.isIncomplete) {
+            return;
+        }
+
+        if (flags & EvaluatorFlags.DisallowTypeVarTuple) {
+            if (isVariadicTypeVar(typeResult.type) && !typeResult.type.isVariadicInUnion) {
+                addError(Localizer.Diagnostic.typeVarTupleContext(), node);
+                typeResult.type = UnknownType.create();
+            }
+        }
+
+        if (!isEffectivelyInstantiable(typeResult.type)) {
+            const isEmptyVariadic =
+                isClassInstance(typeResult.type) &&
+                ClassType.isTupleClass(typeResult.type) &&
+                typeResult.type.tupleTypeArguments?.length === 0;
+
+            if (!isEmptyVariadic) {
+                addExpectedClassDiagnostic(typeResult.type, node);
+                typeResult.type = UnknownType.create();
+                typeResult.typeErrors = true;
+            }
+        }
     }
 
     function getTypeOfAwaitOperator(node: AwaitNode, flags: EvaluatorFlags, inferenceContext?: InferenceContext) {
@@ -1287,7 +1297,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let typeResult: TypeResult | undefined;
 
         if (isExpectingType) {
-            let updatedFlags = flags | EvaluatorFlags.AllowForwardReferences | EvaluatorFlags.ExpectingType;
+            let updatedFlags = flags | EvaluatorFlags.AllowForwardReferences | EvaluatorFlags.ExpectingInstantiableType;
 
             // In most cases, annotations within a string are not parsed by the interpreter.
             // There are a few exceptions (e.g. the "bound" value for a TypeVar constructor).
@@ -1486,7 +1496,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         let evaluatorFlags =
-            EvaluatorFlags.ExpectingType |
+            EvaluatorFlags.ExpectingInstantiableType |
             EvaluatorFlags.ExpectingTypeAnnotation |
             EvaluatorFlags.ConvertEllipsisToAny |
             EvaluatorFlags.EvaluateStringLiteralAsType;
@@ -4338,7 +4348,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isTypeVar(type) &&
             !type.details.isParamSpec &&
             !type.isVariadicInUnion &&
-            (flags & EvaluatorFlags.ExpectingType) === 0 &&
+            (flags & EvaluatorFlags.ExpectingInstantiableType) === 0 &&
             type.details.name === name
         ) {
             // Handle the special case of a PEP 604 union. These can appear within
@@ -4361,7 +4371,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
+        if ((flags & EvaluatorFlags.ExpectingInstantiableType) !== 0) {
             if ((flags & EvaluatorFlags.AllowGenericClassType) === 0) {
                 if (isInstantiableClass(type) && ClassType.isBuiltIn(type, 'Generic')) {
                     addDiagnostic(
@@ -4622,7 +4632,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Is this a generic class that needs to be specialized?
         if (isInstantiableClass(type)) {
-            if ((flags & EvaluatorFlags.ExpectingType) !== 0 && (flags & EvaluatorFlags.AllowMissingTypeArgs) === 0) {
+            if (
+                (flags & EvaluatorFlags.ExpectingInstantiableType) !== 0 &&
+                (flags & EvaluatorFlags.AllowMissingTypeArgs) === 0
+            ) {
                 if (!type.typeAliasInfo && requiresTypeArguments(type)) {
                     if (!type.typeArguments || !type.isTypeArgumentExplicit) {
                         addDiagnostic(
@@ -4644,7 +4657,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Is this a generic type alias that needs to be specialized?
         if (
-            (flags & EvaluatorFlags.ExpectingType) !== 0 &&
+            (flags & EvaluatorFlags.ExpectingInstantiableType) !== 0 &&
             type.typeAliasInfo &&
             type.typeAliasInfo.typeParameters &&
             type.typeAliasInfo.typeParameters.length > 0 &&
@@ -6126,7 +6139,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If this is meant to be a type and the base expression is a string expression,
         // emit an error because this will generate a runtime exception in Python versions
         // less than 3.10.
-        if (flags & EvaluatorFlags.ExpectingType) {
+        if (flags & EvaluatorFlags.ExpectingInstantiableType) {
             if (node.baseExpression.nodeType === ParseNodeType.StringList) {
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                 if (!fileInfo.isStubFile && fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_10) {
@@ -6606,7 +6619,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return concreteSubtype;
                 }
 
-                if (flags & EvaluatorFlags.ExpectingType) {
+                if (flags & EvaluatorFlags.ExpectingInstantiableType) {
                     if (isTypeVar(unexpandedSubtype)) {
                         addDiagnostic(
                             AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -6630,7 +6643,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         concreteSubtype.details.effectiveMetaclass &&
                         isInstantiableClass(concreteSubtype.details.effectiveMetaclass) &&
                         !ClassType.isBuiltIn(concreteSubtype.details.effectiveMetaclass, ['type', '_InitVarMeta']) &&
-                        (flags & EvaluatorFlags.ExpectingType) === 0
+                        (flags & EvaluatorFlags.ExpectingInstantiableType) === 0
                     ) {
                         const itemMethodType = getTypeOfClassMember(
                             node,
@@ -7314,7 +7327,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let adjustedFlags =
             flags |
-            EvaluatorFlags.ExpectingType |
+            EvaluatorFlags.ExpectingInstantiableType |
             EvaluatorFlags.ConvertEllipsisToAny |
             EvaluatorFlags.EvaluateStringLiteralAsType;
 
@@ -7375,7 +7388,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         flags: EvaluatorFlags,
         inferenceContext: InferenceContext | undefined
     ): TypeResult {
-        if ((flags & EvaluatorFlags.ExpectingType) !== 0 && node.expressions.length === 0 && !inferenceContext) {
+        if (
+            (flags & EvaluatorFlags.ExpectingInstantiableType) !== 0 &&
+            node.expressions.length === 0 &&
+            !inferenceContext
+        ) {
             return { type: makeTupleObject([]), isEmptyTupleShorthand: true };
         }
 
@@ -11930,7 +11947,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             typeParameters = [];
             let isTypeParamListValid = true;
             typeParamsExpr.expressions.map((expr) => {
-                let entryType = getTypeOfExpression(expr, EvaluatorFlags.ExpectingType).type;
+                let entryType = getTypeOfExpression(expr, EvaluatorFlags.ExpectingInstantiableType).type;
                 if (isTypeVar(entryType)) {
                     if (entryType.scopeId) {
                         isTypeParamListValid = false;
@@ -12147,7 +12164,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let type: Type | undefined;
 
         if (node.constType === KeywordType.None) {
-            type = (flags & EvaluatorFlags.ExpectingType) !== 0 ? NoneType.createType() : NoneType.createInstance();
+            type =
+                (flags & EvaluatorFlags.ExpectingInstantiableType) !== 0
+                    ? NoneType.createType()
+                    : NoneType.createInstance();
         } else if (
             node.constType === KeywordType.True ||
             node.constType === KeywordType.False ||
@@ -14720,7 +14740,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isDeclaredTypeAlias(node.leftExpression)) {
             flags |=
-                EvaluatorFlags.ExpectingType |
+                EvaluatorFlags.ExpectingInstantiableType |
                 EvaluatorFlags.ExpectingTypeAnnotation |
                 EvaluatorFlags.EvaluateStringLiteralAsType |
                 EvaluatorFlags.DisallowParamSpec |
@@ -15131,7 +15151,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const initSubclassArgs: FunctionArgument[] = [];
         let metaclassNode: ExpressionNode | undefined;
         let exprFlags =
-            EvaluatorFlags.ExpectingType |
+            EvaluatorFlags.ExpectingInstantiableType |
             EvaluatorFlags.AllowGenericClassType |
             EvaluatorFlags.DisallowNakedGeneric |
             EvaluatorFlags.DisallowTypeVarsWithScopeId |
@@ -19203,7 +19223,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfExpressionExpectingType(node: ExpressionNode, options?: ExpectedTypeOptions): TypeResult {
         let flags =
-            EvaluatorFlags.ExpectingType | EvaluatorFlags.EvaluateStringLiteralAsType | EvaluatorFlags.DisallowClassVar;
+            EvaluatorFlags.ExpectingInstantiableType |
+            EvaluatorFlags.EvaluateStringLiteralAsType |
+            EvaluatorFlags.DisallowClassVar;
 
         if (!options?.allowTypeVarsWithoutScopeId) {
             flags |= EvaluatorFlags.DisallowTypeVarsWithoutScopeId;

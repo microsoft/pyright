@@ -622,12 +622,12 @@ export function getTypeOfBinaryOperation(
             adjustedLeftType = evaluator.reportMissingTypeArguments(
                 node.leftExpression,
                 adjustedLeftType,
-                flags | EvaluatorFlags.ExpectingType
+                flags | EvaluatorFlags.ExpectingInstantiableType
             );
             adjustedRightType = evaluator.reportMissingTypeArguments(
                 node.rightExpression,
                 adjustedRightType,
-                flags | EvaluatorFlags.ExpectingType
+                flags | EvaluatorFlags.ExpectingInstantiableType
             );
 
             const newUnion = combineTypes([adjustedLeftType, adjustedRightType]);

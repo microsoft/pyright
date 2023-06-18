@@ -80,9 +80,9 @@ export const enum EvaluatorFlags {
     // A TypeVarTuple isn't allowed in this context.
     DisallowTypeVarTuple = 1 << 6,
 
-    // Expression is expected to be a type (class) rather
+    // Expression is expected to be an instantiable type rather
     // than an instance (object)
-    ExpectingType = 1 << 7,
+    ExpectingInstantiableType = 1 << 7,
 
     // A type annotation restricts the types of expressions that are
     // allowed. If this flag is set, illegal type expressions are
