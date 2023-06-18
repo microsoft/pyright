@@ -487,8 +487,8 @@ export function validateBinaryOperation(
 export function getTypeOfBinaryOperation(
     evaluator: TypeEvaluator,
     node: BinaryOperationNode,
-    inferenceContext: InferenceContext | undefined,
-    flags: EvaluatorFlags
+    flags: EvaluatorFlags,
+    inferenceContext: InferenceContext | undefined
 ): TypeResult {
     const leftExpression = node.leftExpression;
     let rightExpression = node.rightExpression;
@@ -505,7 +505,7 @@ export function getTypeOfBinaryOperation(
             operatorSupportsChaining(rightExpression.operator)
         ) {
             // Evaluate the right expression so it is type checked.
-            getTypeOfBinaryOperation(evaluator, rightExpression, inferenceContext, flags);
+            getTypeOfBinaryOperation(evaluator, rightExpression, flags, inferenceContext);
 
             // Use the left side of the right expression for comparison purposes.
             rightExpression = rightExpression.leftExpression;

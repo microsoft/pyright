@@ -955,12 +955,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Call: {
-                typeResult = getTypeOfCall(node, inferenceContext, flags);
+                typeResult = getTypeOfCall(node, flags, inferenceContext);
                 break;
             }
 
             case ParseNodeType.Tuple: {
-                typeResult = getTypeOfTuple(node, inferenceContext, flags);
+                typeResult = getTypeOfTuple(node, flags, inferenceContext);
                 break;
             }
 
@@ -999,7 +999,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.BinaryOperation: {
-                typeResult = getTypeOfBinaryOperation(evaluatorInterface, node, inferenceContext, flags);
+                typeResult = getTypeOfBinaryOperation(
+                    evaluatorInterface,
+                    node,
+                    flags & ~EvaluatorFlags.ExpectingType,
+                    inferenceContext
+                );
                 break;
             }
 
@@ -1025,7 +1030,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Ternary: {
-                typeResult = getTypeOfTernaryOperation(evaluatorInterface, node, flags, inferenceContext);
+                typeResult = getTypeOfTernaryOperation(
+                    evaluatorInterface,
+                    node,
+                    flags & ~EvaluatorFlags.ExpectingType,
+                    inferenceContext
+                );
                 break;
             }
 
@@ -7372,8 +7382,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfTuple(
         node: TupleNode,
-        inferenceContext: InferenceContext | undefined,
-        flags: EvaluatorFlags
+        flags: EvaluatorFlags,
+        inferenceContext: InferenceContext | undefined
     ): TypeResult {
         if ((flags & EvaluatorFlags.ExpectingType) !== 0 && node.expressions.length === 0 && !inferenceContext) {
             return { type: makeTupleObject([]), isEmptyTupleShorthand: true };
@@ -7590,8 +7600,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfCall(
         node: CallNode,
-        inferenceContext: InferenceContext | undefined,
-        flags: EvaluatorFlags
+        flags: EvaluatorFlags,
+        inferenceContext: InferenceContext | undefined
     ): TypeResult {
         let baseTypeResult: TypeResult | undefined;
 
