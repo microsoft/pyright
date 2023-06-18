@@ -5,7 +5,7 @@ from functools import partial
 from typing_extensions import Protocol, Self
 from typing import Any, Callable, Type, TypeVar
 
-_T = TypeVar("_T")
+_T = TypeVar("_T", covariant=True)
 
 
 class Partial(Protocol[_T]):
