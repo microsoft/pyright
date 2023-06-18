@@ -8913,9 +8913,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // Verify that the cast is necessary.
                             const castToType = getTypeOfArgumentExpectingType(argList[0]).type;
                             const castFromType = getTypeOfArgument(argList[1]).type;
-                            if (isInstantiableClass(castToType) && isClassInstance(castFromType)) {
+                            if (TypeBase.isInstantiable(castToType)) {
                                 if (
-                                    isTypeSame(castToType, ClassType.cloneAsInstantiable(castFromType), {
+                                    isTypeSame(convertToInstance(castToType), castFromType, {
                                         ignorePseudoGeneric: true,
                                     })
                                 ) {
