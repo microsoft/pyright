@@ -11263,19 +11263,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Was the argument's type precomputed by the caller?
             if (argParam.argType) {
                 argType = argParam.argType;
-            } else if (argParam.isinstanceParam && !argParam.argument.typeResult && argParam.argument.valueExpression) {
-                const argTypeResult = getTypeOfExpression(
-                    argParam.argument.valueExpression,
-                    EvaluatorFlags.EvaluateStringLiteralAsType |
-                        EvaluatorFlags.DisallowParamSpec |
-                        EvaluatorFlags.DisallowTypeVarTuple
-                );
-
-                argType = argTypeResult.type;
-
-                if (argTypeResult.isIncomplete) {
-                    isTypeIncomplete = true;
-                }
             } else {
                 const argTypeResult = getTypeOfArgument(argParam.argument);
                 argType = argTypeResult.type;

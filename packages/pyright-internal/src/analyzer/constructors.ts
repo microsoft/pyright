@@ -722,7 +722,7 @@ export function createFunctionFromConstructor(
         const initType = evaluator.getTypeOfMember(initInfo);
         const objectType = ClassType.cloneAsInstance(classType);
 
-        const convertInitToConstructor = (initSubtype: FunctionType) => {
+        function convertInitToConstructor(initSubtype: FunctionType) {
             let constructorFunction = evaluator.bindFunctionToClassOrObject(
                 objectType,
                 initSubtype,
@@ -747,7 +747,7 @@ export function createFunctionFromConstructor(
             }
 
             return constructorFunction;
-        };
+        }
 
         if (isFunction(initType)) {
             return convertInitToConstructor(initType);
