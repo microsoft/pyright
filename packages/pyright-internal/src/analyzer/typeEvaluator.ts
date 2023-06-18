@@ -11214,7 +11214,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                       EvaluatorFlags.EvaluateStringLiteralAsType |
                       EvaluatorFlags.DisallowParamSpec |
                       EvaluatorFlags.DisallowTypeVarTuple
-                    : EvaluatorFlags.None;
+                    : EvaluatorFlags.DoNotSpecialize;
                 const exprTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
                     flags,
@@ -22542,7 +22542,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         concreteSrcType,
                         diag?.createAddendum(),
                         destTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(destType)),
-                        srcTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(concreteSrcType)),
+                        srcTypeVarContext ?? new TypeVarContext(getTypeVarScopeIds(concreteSrcType)),
                         flags,
                         recursionCount
                     )
