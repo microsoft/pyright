@@ -8916,7 +8916,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (TypeBase.isInstantiable(castToType) && !isUnknown(castToType)) {
                                 if (
                                     isTypeSame(convertToInstance(castToType), castFromType, {
-                                        ignorePseudoGeneric: true
+                                        ignorePseudoGeneric: true,
                                     })
                                 ) {
                                     addDiagnostic(
