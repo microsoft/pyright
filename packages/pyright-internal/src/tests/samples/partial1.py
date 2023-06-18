@@ -4,7 +4,7 @@ from functools import partial
 from typing import Callable, Protocol, Self, TypeVar
 
 _T1 = TypeVar("_T1")
-_T2 = TypeVar("_T2", contravariant=True)
+_T2 = TypeVar("_T2", covariant=True)
 
 
 def func1():

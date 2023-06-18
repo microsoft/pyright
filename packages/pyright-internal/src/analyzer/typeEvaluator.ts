@@ -21207,58 +21207,65 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isAssignable = true;
 
         destType.details.fields.forEach((symbol, name) => {
-            if (isAssignable && symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch()) {
-                const memberInfo = lookUpClassMember(srcType, name);
-                assert(memberInfo !== undefined);
+            if (!isAssignable || !symbol.isClassMember() || symbol.isIgnoredForProtocolMatch()) {
+                return;
+            }
 
-                let destMemberType = getDeclaredTypeOfSymbol(symbol)?.type;
-                if (destMemberType) {
-                    const srcMemberType = getTypeOfMember(memberInfo!);
-                    destMemberType = partiallySpecializeType(destMemberType, destType);
+            // Constructor methods are exempt from variance calculations.
+            if (name === '__new__' || name === '__init__') {
+                return;
+            }
 
-                    // Properties require special processing.
+            const memberInfo = lookUpClassMember(srcType, name);
+            assert(memberInfo !== undefined);
+
+            let destMemberType = getDeclaredTypeOfSymbol(symbol)?.type;
+            if (destMemberType) {
+                const srcMemberType = getTypeOfMember(memberInfo!);
+                destMemberType = partiallySpecializeType(destMemberType, destType);
+
+                // Properties require special processing.
+                if (
+                    isClassInstance(destMemberType) &&
+                    ClassType.isPropertyClass(destMemberType) &&
+                    isClassInstance(srcMemberType) &&
+                    ClassType.isPropertyClass(srcMemberType)
+                ) {
                     if (
-                        isClassInstance(destMemberType) &&
-                        ClassType.isPropertyClass(destMemberType) &&
-                        isClassInstance(srcMemberType) &&
-                        ClassType.isPropertyClass(srcMemberType)
+                        !assignProperty(
+                            evaluatorInterface,
+                            ClassType.cloneAsInstantiable(destMemberType),
+                            ClassType.cloneAsInstantiable(srcMemberType),
+                            destType,
+                            srcType,
+                            diag,
+                            typeVarContext,
+                            /* selfTypeVarContext */ undefined,
+                            recursionCount
+                        )
                     ) {
-                        if (
-                            !assignProperty(
-                                evaluatorInterface,
-                                ClassType.cloneAsInstantiable(destMemberType),
-                                ClassType.cloneAsInstantiable(srcMemberType),
-                                destType,
-                                srcType,
-                                diag,
-                                typeVarContext,
-                                /* selfTypeVarContext */ undefined,
-                                recursionCount
-                            )
-                        ) {
-                            isAssignable = false;
-                        }
-                    } else {
-                        const primaryDecl = symbol.getDeclarations()[0];
-                        // Class and instance variables that are mutable need to
-                        // enforce invariance.
-                        const flags =
-                            primaryDecl?.type === DeclarationType.Variable && !isFinalVariableDeclaration(primaryDecl)
-                                ? AssignTypeFlags.EnforceInvariance
-                                : AssignTypeFlags.Default;
-                        if (
-                            !assignType(
-                                destMemberType,
-                                srcMemberType,
-                                diag,
-                                typeVarContext,
-                                /* srcTypeVarContext */ undefined,
-                                flags,
-                                recursionCount
-                            )
-                        ) {
-                            isAssignable = false;
-                        }
+                        isAssignable = false;
+                    }
+                } else {
+                    const primaryDecl = symbol.getDeclarations()[0];
+                    // Class and instance variables that are mutable need to
+                    // enforce invariance.
+                    const flags =
+                        primaryDecl?.type === DeclarationType.Variable && !isFinalVariableDeclaration(primaryDecl)
+                            ? AssignTypeFlags.EnforceInvariance
+                            : AssignTypeFlags.Default;
+                    if (
+                        !assignType(
+                            destMemberType,
+                            srcMemberType,
+                            diag,
+                            typeVarContext,
+                            /* srcTypeVarContext */ undefined,
+                            flags,
+                            recursionCount
+                        )
+                    ) {
+                        isAssignable = false;
                     }
                 }
             }
