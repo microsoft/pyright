@@ -10,9 +10,16 @@ class A:
         pass
 
 
-def dynamic_subclass(cls: type[T_A]):
+def dynamic_subclass1(cls: type[T_A]):
     class SubClass(cls):
         class SubInnerClass(cls.InnerA):
             pass
+
+    return SubClass
+
+
+def dynamic_subclass2(base: type[A] | None):
+    class SubClass(base or A):
+        ...
 
     return SubClass

@@ -999,7 +999,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.BinaryOperation: {
-                typeResult = getTypeOfBinaryOperation(evaluatorInterface, node, flags, inferenceContext);
+                let effectiveFlags = flags;
+
+                // If we're expecting an instantiable type and this isn't a union operator,
+                // don't require that the two operands are also instantiable types.
+                if (expectingInstantiable && node.operator !== OperatorType.BitwiseOr) {
+                    effectiveFlags &= ~EvaluatorFlags.ExpectingInstantiableType;
+                }
+
+                typeResult = getTypeOfBinaryOperation(evaluatorInterface, node, effectiveFlags, inferenceContext);
                 break;
             }
 
