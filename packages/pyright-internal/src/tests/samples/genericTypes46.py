@@ -62,5 +62,5 @@ def func7(t: type[_T5]) -> type[_T5]:
 val6 = func6(B)
 val7 = func7(B)
 
-reveal_type(val6, expected_text="Type[B]")
-reveal_type(val7, expected_text="Type[B]")
+reveal_type(val6, expected_text="type[B]")
+reveal_type(val7, expected_text="type[B]")

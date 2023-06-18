@@ -17,8 +17,8 @@ class Foo(metaclass=MetaFoo):
 
 
 def func1(a: Foo):
-    reveal_type(type(a), expected_text="Type[Foo]")
-    reveal_type(type("string1"), expected_text="Type[str]")
+    reveal_type(type(a), expected_text="type[Foo]")
+    reveal_type(type("string1"), expected_text="type[str]")
 
     reveal_type(type(a) == type("hi"), expected_text="bool")
     reveal_type(type("hi") == type("hi"), expected_text="bool")

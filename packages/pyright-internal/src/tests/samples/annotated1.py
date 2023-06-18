@@ -75,4 +75,4 @@ Alias1 = Annotated[_T, ""]
 Alias2 = str
 Alias3 = Alias1[Alias2]
 
-reveal_type(Alias3, expected_text="Type[str]")
+reveal_type(Alias3, expected_text="type[str]")

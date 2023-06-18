@@ -16,7 +16,7 @@ class ClassWithNoMeta2:
 
 NoMetaUnion = ClassWithNoMeta1 | ClassWithNoMeta2
 reveal_type(
-    NoMetaUnion, expected_text="Type[ClassWithNoMeta1] | Type[ClassWithNoMeta2]"
+    NoMetaUnion, expected_text="type[ClassWithNoMeta1] | type[ClassWithNoMeta2]"
 )
 
 _T = TypeVar("_T")

@@ -108,16 +108,16 @@ def is_obj5(d: D):
 
 def eq_class2(c: Union[Type[A], Type[B]]):
     if c.kind_class == "A":
-        reveal_type(c, expected_text="Type[A]")
+        reveal_type(c, expected_text="type[A]")
     else:
-        reveal_type(c, expected_text="Type[B]")
+        reveal_type(c, expected_text="type[B]")
 
 
 def is_class2(c: Union[Type[A], Type[B]]):
     if c.kind_class is "A":
-        reveal_type(c, expected_text="Type[A] | Type[B]")
+        reveal_type(c, expected_text="type[A] | type[B]")
     else:
-        reveal_type(c, expected_text="Type[A] | Type[B]")
+        reveal_type(c, expected_text="type[A] | type[B]")
 
 
 class E:

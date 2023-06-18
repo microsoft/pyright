@@ -27,6 +27,6 @@ class F(Generic[T]):
 
 f2 = F[A2](A2())
 
-reveal_type(F[A2], expected_text="Type[F[A]]")
+reveal_type(F[A2], expected_text="type[F[A]]")
 reveal_type(f2, expected_text="F[A]")
 reveal_type(f2.thing, expected_text="A")

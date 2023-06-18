@@ -18,7 +18,7 @@
 //// ''' Alias alone doc string '''
 
 helper.verifyHover('markdown', {
-    marker1: '```python\n(type alias) A: Type[Foo]\n```\n---\nAlias doc string\n\nOriginal doc string',
-    marker2: '```python\n(type alias) A: Type[Foo]\n```\n---\nAlias doc string\n\nOriginal doc string',
-    marker3: '```python\n(type alias) B: Type[Baz]\n```\n---\nAlias alone doc string',
+    marker1: '```python\n(type alias) A: type[Foo]\n```\n---\nAlias doc string\n\nOriginal doc string',
+    marker2: '```python\n(type alias) A: type[Foo]\n```\n---\nAlias doc string\n\nOriginal doc string',
+    marker3: '```python\n(type alias) B: type[Baz]\n```\n---\nAlias alone doc string',
 });

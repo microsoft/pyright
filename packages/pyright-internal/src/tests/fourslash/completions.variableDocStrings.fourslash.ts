@@ -66,7 +66,7 @@ await helper.verifyCompletion('includes', 'markdown', {
                 label: 'SomeType',
                 kind: Consts.CompletionItemKind.Variable,
                 documentation:
-                    "```python\nSomeType: Type[List[int | str]]\n```\n---\nHere's some documentation about SomeType",
+                    "```python\nSomeType: type[List[int | str]]\n```\n---\nHere's some documentation about SomeType",
             },
         ],
     },

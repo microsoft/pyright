@@ -35,7 +35,7 @@ DT = TypeVar("DT", bound=D)
 Error = CoroMaybeMethod[DT, [F, E], Any]
 reveal_type(
     Error,
-    expected_text="Type[(DT@Error, F, E) -> Coroutine[Any, Any, Any]] | Type[(F, E) -> Coroutine[Any, Any, Any]]",
+    expected_text="type[(DT@Error, F, E) -> Coroutine[Any, Any, Any]] | type[(F, E) -> Coroutine[Any, Any, Any]]",
 )
 
 
@@ -57,5 +57,5 @@ BT = TypeVar("BT", bound=B)
 Something = CoroMaybeMethod[A, [BT, C], Any]
 reveal_type(
     Something,
-    expected_text="Type[(A, BT@Something, C) -> Coroutine[Any, Any, Any]] | Type[(BT@Something, C) -> Coroutine[Any, Any, Any]]",
+    expected_text="type[(A, BT@Something, C) -> Coroutine[Any, Any, Any]] | type[(BT@Something, C) -> Coroutine[Any, Any, Any]]",
 )

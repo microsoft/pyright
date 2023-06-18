@@ -32,5 +32,5 @@ class B:
     a = A
 
 
-reveal_type(B.a, expected_text="Type[A]")
+reveal_type(B.a, expected_text="type[A]")
 reveal_type(B().a, expected_text="A")

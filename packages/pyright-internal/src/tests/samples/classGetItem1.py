@@ -13,7 +13,7 @@ class Foo:
         ...
 
 
-reveal_type(Foo[10, 63], expected_text="Type[Foo]")
+reveal_type(Foo[10, 63], expected_text="type[Foo]")
 
 
 _T = TypeVar("_T")
@@ -27,4 +27,4 @@ class Bar(Generic[_T, _S]):
         ...
 
 
-reveal_type(Bar[int, str], expected_text="Type[Bar[int, str]]")
+reveal_type(Bar[int, str], expected_text="type[Bar[int, str]]")

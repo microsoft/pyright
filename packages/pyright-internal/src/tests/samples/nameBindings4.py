@@ -7,4 +7,4 @@ def func1():
     from enum import Enum
 
 
-reveal_type(Enum, expected_text="Type[Enum]")
+reveal_type(Enum, expected_text="type[Enum]")

@@ -1,11 +1,11 @@
-# This sample checks that Type[None] is handled correctly.
+# This sample checks that type[None] is handled correctly.
 
 
 from typing import Type
 
 
 def func1(a: Type[None]) -> Type[str] | Type[None]:
-    reveal_type(a, expected_text="Type[None]")
+    reveal_type(a, expected_text="type[None]")
 
     # This should generate an error because None is
     # not compatible with Type[None].
@@ -15,7 +15,7 @@ def func1(a: Type[None]) -> Type[str] | Type[None]:
 val1 = func1(type(None))
 
 if val1 is not None:
-    reveal_type(val1, expected_text="Type[str] | Type[None]")
+    reveal_type(val1, expected_text="type[str] | type[None]")
 
 # This should generate an error because None isn't
 # assignable to Type[None].

@@ -434,7 +434,7 @@ function printTypeInternal(
                         recursionTypes,
                         recursionCount
                     );
-                    return `Type[${typeString}]`;
+                    return `type[${typeString}]`;
                 }
 
                 return printFunctionType(
@@ -589,7 +589,7 @@ function printTypeInternal(
                 if (literalClassStrings.size > 0) {
                     const literalStrings: string[] = [];
                     literalClassStrings.forEach((s) => literalStrings.push(s));
-                    dedupedSubtypeStrings.push(`Type[Literal[${literalStrings.join(', ')}]]`);
+                    dedupedSubtypeStrings.push(`type[Literal[${literalStrings.join(', ')}]]`);
                 }
 
                 if (dedupedSubtypeStrings.length === 1) {
@@ -1188,7 +1188,7 @@ function _printNestedInstantiable(type: Type, textToWrap: string) {
     const nestedTypes = (type.instantiableNestingLevel ?? 0) + 1;
 
     for (let nestLevel = 0; nestLevel < nestedTypes; nestLevel++) {
-        textToWrap = `Type[${textToWrap}]`;
+        textToWrap = `type[${textToWrap}]`;
     }
 
     return textToWrap;
