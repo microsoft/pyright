@@ -8,8 +8,8 @@ T = TypeVar("T")
 
 class Foo(Generic[T]):
     def __init__(self) -> None:
-        message_t = self.message_type()
-        reveal_type(message_t(), expected_text="T@Foo")
+        val = self.method1()
+        reveal_type(val(), expected_text="T@Foo")
 
-    def message_type(self) -> type[T]:
+    def method1(self) -> type[T]:
         ...

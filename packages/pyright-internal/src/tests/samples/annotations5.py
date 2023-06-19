@@ -1,9 +1,9 @@
 # This sample tests the handling of tuple expressions within a subscript
 # when used with type annotations.
 
-from typing import Dict, List
+a1: dict[(str, str)] = {"hi": "there"}
 
+# This should generate an error because there are too many type arguments.
+a2: dict[(str, str, str)] = {"hi": "there"}
 
-a: Dict[(str, str)] = {"hi": "there"}
-
-b: List[(int,)] = [3, 4, 5]
+b1: list[(int,)] = [3, 4, 5]

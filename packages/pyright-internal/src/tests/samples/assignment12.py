@@ -1,6 +1,7 @@
 # This sample tests the case where a variable with a declared type
 # is assigned an unknown value or partially-unknown value.
 
+
 def a_test(x: int):
     u = x.upper()  # type: ignore
     reveal_type(u, expected_text="Unknown")

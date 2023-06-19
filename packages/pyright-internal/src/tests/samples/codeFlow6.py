@@ -10,26 +10,26 @@ class C:
 
 
 @overload
-def func(v: Callable[[], int]) -> int:
+def func1(v: Callable[[], int]) -> int:
     ...
 
 
 @overload
-def func(v: Callable[[], list[C]]) -> list[C]:
+def func1(v: Callable[[], list[C]]) -> list[C]:
     ...
 
 
-def func(v: Any) -> Any:
+def func1(v: Any) -> Any:
     ...
 
 
-def f(v: list[C]):
+def func2(v: list[C]):
     ...
 
 
-t = func(lambda: second_func())
+t = func1(lambda: func3())
 t.append(C())
 
 
-def second_func() -> list[C]:
+def func3() -> list[C]:
     ...

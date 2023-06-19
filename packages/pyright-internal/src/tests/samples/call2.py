@@ -1,7 +1,7 @@
 # This sample tests function parameter matching logic.
 
 
-from typing import Any, Dict, List
+from typing import Any
 
 
 def func1(a: int, *b: int):
@@ -87,7 +87,7 @@ def func8(
     ...
 
 
-kwargs1: Dict[str, int] = {}
+kwargs1: dict[str, int] = {}
 # This should generate an error because int is not compatible with str.
 func8(z=False, **kwargs1)
 
@@ -96,7 +96,7 @@ class MyStr(str):
     ...
 
 
-kwargs2: Dict[MyStr, MyStr] = {}
+kwargs2: dict[MyStr, MyStr] = {}
 func8(z=False, **kwargs2)
 
 
@@ -111,10 +111,10 @@ def func9(
     ...
 
 
-kwargs3: Dict[str, str] = {}
+kwargs3: dict[str, str] = {}
 func9(0, "", **kwargs3)
 
-args4: List[str] = ["hi"]
+args4: list[str] = ["hi"]
 func9(0, *args4, **kwargs3)
 
 # This should generate an error.

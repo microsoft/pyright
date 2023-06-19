@@ -1,6 +1,7 @@
 # This sample tests that a call through a __call__ handles the case
 # where the __call__ is a callable object itself.
 
+
 class A:
     def __call__(self, v: int):
         print("Received", v)

@@ -12,6 +12,7 @@ class BaseClass(Generic[T]):
 
 IntBaseClass = BaseClass[int]
 
+
 # This should generate an error because the same
 # base class is used twice.
 class SubClass(BaseClass[float], IntBaseClass):

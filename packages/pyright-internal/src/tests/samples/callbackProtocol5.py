@@ -9,7 +9,7 @@ P = ParamSpec("P")
 R = TypeVar("R", covariant=True)
 
 
-class SomeFunc1(Protocol[P, R]):
+class CallbackProto1(Protocol[P, R]):
     __name__: str
 
     other_attribute: int
@@ -18,8 +18,8 @@ class SomeFunc1(Protocol[P, R]):
         ...
 
 
-def other_func1(f: Callable[P, R]) -> SomeFunc1[P, R]:
-    converted = cast(SomeFunc1, f)
+def decorator1(f: Callable[P, R]) -> CallbackProto1[P, R]:
+    converted = cast(CallbackProto1, f)
 
     print(converted.__name__)
 
@@ -34,22 +34,22 @@ def other_func1(f: Callable[P, R]) -> SomeFunc1[P, R]:
     return converted
 
 
-@other_func1
-def some_func1(x: int) -> str:
+@decorator1
+def func1(x: int) -> str:
     ...
 
 
-reveal_type(some_func1, expected_text="SomeFunc1[(x: int), str]")
+reveal_type(func1, expected_text="CallbackProto1[(x: int), str]")
 
-some_func1.other_attribute
+func1.other_attribute
 
 # This should generate an error
-some_func1.other_attribute2
+func1.other_attribute2
 
-some_func1(x=3)
+func1(x=3)
 
 
-class SomeFunc2(Protocol):
+class CallbackProto2(Protocol):
     __name__: str
     __module__: str
     __qualname__: str
@@ -59,8 +59,8 @@ class SomeFunc2(Protocol):
         ...
 
 
-def some_func2() -> None:
+def func2() -> None:
     ...
 
 
-v: SomeFunc2 = some_func2
+v: CallbackProto2 = func2

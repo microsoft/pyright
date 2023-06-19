@@ -1,7 +1,7 @@
 # This sample tests the reportIncompatibleVariableOverride
 # configuration option.
 
-from typing import Any, ClassVar, Final, List, Optional, Protocol, Type, Union
+from typing import Any, ClassVar, Final, Protocol
 
 
 class ParentClass1:
@@ -12,12 +12,12 @@ class ParentClass1:
 
     var1: int
     var2: str
-    var3: Union[int, str]
+    var3: int | str
     var4: int
     var5: int
     var6: int
-    var7: List[float]
-    var8: List[int]
+    var7: list[float]
+    var8: list[int]
     var9: int
 
     _var1: int
@@ -127,11 +127,11 @@ class SubclassDeclared2(ParentClass2):
 
     # This should generate an error if reportIncompatibleVariableOverride
     # is enabled.
-    cv_decl_3: Optional[float]
+    cv_decl_3: float | None
 
     cv_infer_1: int
     cv_infer_2: str
-    cv_infer_3: Optional[float]
+    cv_infer_3: float | None
 
     def __init__(self):
         self.cv_decl_4: int
@@ -142,11 +142,11 @@ class SubclassDeclared2(ParentClass2):
 
         # This should generate an error if reportIncompatibleVariableOverride
         # is enabled.
-        self.cv_decl_6: Optional[float]
+        self.cv_decl_6: float | None
 
         self.cv_infer_4: int
         self.cv_infer_5: str
-        self.cv_infer_6: Optional[float]
+        self.cv_infer_6: float | None
 
         self.iv_decl_1: int
 
@@ -156,11 +156,11 @@ class SubclassDeclared2(ParentClass2):
 
         # This should generate an error if reportIncompatibleVariableOverride
         # is enabled.
-        self.iv_decl_3: Optional[float]
+        self.iv_decl_3: float | None
 
         self.iv_infer_1: int
         self.iv_infer_2: str
-        self.iv_infer_3: Optional[float]
+        self.iv_infer_3: float | None
 
 
 class SubclassInferred2(ParentClass2):
@@ -216,8 +216,8 @@ class ConfigBase:
 
 
 class ParentClass3(Protocol):
-    Config1: ClassVar[Type[ConfigBase]]
-    Config2: ClassVar[Type[ConfigBase]]
+    Config1: ClassVar[type[ConfigBase]]
+    Config2: ClassVar[type[ConfigBase]]
 
 
 class ChildClass3(ParentClass3):
@@ -276,4 +276,3 @@ class ChildClass4(ParentClass4):
     # This should generate 1 error if reportIncompatibleVariableOverride
     # is enabled because it is overriding a non-final with a final.
     y: Final = 0
-

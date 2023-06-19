@@ -1,12 +1,8 @@
 # This sample tests expected diagnostics for augmented assignment
 # expressions.
 
-from typing import List, Optional
 
-
-def add_values(
-    values1: List[float] = [], values2: Optional[List[float]] = None
-) -> None:
+def func1(values1: list[float] = [], values2: list[float] | None = None) -> None:
     values3 = None
 
     # This should generate an error
@@ -20,4 +16,3 @@ def add_values(
 
     # This should generate an error
     values1 += values3
-

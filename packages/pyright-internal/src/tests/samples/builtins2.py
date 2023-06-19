@@ -4,5 +4,4 @@
 if input():
     print = lambda *x: None
 
-print('')
-
+print("")

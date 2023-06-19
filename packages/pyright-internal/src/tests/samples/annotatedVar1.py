@@ -18,5 +18,3 @@ def foo():
     b: float = 4.5
     c: str = ""
     d: int = yield 42
-
-

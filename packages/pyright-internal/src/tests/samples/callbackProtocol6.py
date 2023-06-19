@@ -1,7 +1,8 @@
 # This sample tests the case where a callback protocol uses a default argument
 # but the corresponding callable does not or vice versa.
 
-from typing import Protocol, Any
+from typing import Protocol
+
 
 # Callback with positional parameter with default arg value.
 class Callback1(Protocol):

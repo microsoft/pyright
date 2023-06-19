@@ -4,7 +4,7 @@
 from abc import ABC, abstractmethod
 from typing import TypeVar
 
-_ASub = TypeVar("_ASub", bound="A")
+T_A = TypeVar("T_A", bound="A")
 
 
 class A(ABC):
@@ -15,5 +15,5 @@ class A(ABC):
     def some_factory_method_1(self):
         return type(self)()
 
-    def some_factory_method_2(self: _ASub) -> _ASub:
+    def some_factory_method_2(self: T_A) -> T_A:
         return type(self)()

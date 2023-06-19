@@ -3,6 +3,6 @@
 
 
 class ClassA:
-    def a(self):
+    def method1(self):
         # This should generate an error.
         self.val1 += 3

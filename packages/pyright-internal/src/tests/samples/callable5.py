@@ -2,35 +2,35 @@
 # as a parameter along with another parameter that uses the same type variable
 # and a caller provides an overloaded function as an argument.
 
-from typing import Any, Callable, TypeVar, Union, overload
+from typing import Any, Callable, TypeVar, overload
 
 T = TypeVar("T")
 
 
 @overload
-def ff1(real: float):
+def func1(real: float):
     ...
 
 
 @overload
-def ff1(real: str):
+def func1(real: str):
     ...
 
 
-def ff1(real: Union[float, str]) -> None:
+def func1(real: float | str) -> None:
     ...
 
 
-def fun(f: Callable[[T], Any], p: T):
+def func2(f: Callable[[T], Any], p: T):
     return f(p)
 
 
-fun(ff1, 4)
-fun(ff1, "4")
+func2(func1, 4)
+func2(func1, "4")
 
 # This should generate an error because a "bytes" argument
 # doesn't match any of the overloads.
-fun(ff1, b"")
+func2(func1, b"")
 
 
 map(complex, ["3j", "4"])
