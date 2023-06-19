@@ -1,33 +1,33 @@
 # This sample tests that the NoReturn logic is able to handle
 # union types in call expressions.
 
-from typing import NoReturn, Union
+from typing import NoReturn
 
 
-def f() -> NoReturn:
+def func1() -> NoReturn:
     raise TypeError
 
 
-class B(object):
+class B:
     def always_noreturn(self) -> NoReturn:
-        f()
+        func1()
 
     def sometimes_noreturn(self) -> NoReturn:
         raise TypeError
 
 
-class C(object):
+class C:
     def always_noreturn(self) -> NoReturn:
-        f()
+        func1()
 
     def sometimes_noreturn(self) -> int:
         return 0
 
 
-class A(object):
+class A:
     def __init__(self):
         # Note the union type declaration here.
-        self._B_or_C: Union[B, C] = B()
+        self._B_or_C: B | C = B()
 
     def m3(self) -> NoReturn:
         self._B_or_C.always_noreturn()

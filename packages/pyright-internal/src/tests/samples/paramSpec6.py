@@ -2,16 +2,16 @@
 
 from typing import Callable, ParamSpec, TypeVar
 
-V = TypeVar("V")
 P = ParamSpec("P")
+R = TypeVar("R")
 
 
-def foo(fn: Callable[P, V]) -> Callable[P, V]:
+def func1(fn: Callable[P, R]) -> Callable[P, R]:
     ...
 
 
-def bar(baz: str, qux: str = "") -> str:
+def func2(a: str, b: str = "") -> str:
     ...
 
 
-foo(bar)("")
+func1(func2)("")

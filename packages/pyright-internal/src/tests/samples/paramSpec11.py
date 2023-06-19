@@ -21,16 +21,16 @@ class MyDecorator(Generic[_P, _R]):
 
 
 @MyDecorator
-def my_func1(x: int, y: int, *, z: int):
+def func1(x: int, y: int, *, z: int):
     return x + y
 
 
-my_func1(6, 6, z=6)
+func1(6, 6, z=6)
 
 
 @MyDecorator
-def my_func2(*, a: int):
+def func2(*, a: int):
     pass
 
 
-my_func2.do_stuff("hi", a=4)
+func2.do_stuff("hi", a=4)

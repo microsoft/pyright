@@ -1,7 +1,7 @@
 # This sample tests the type handler's handling of the
 # built-in NewType function.
 
-from typing import NewType, Type, TypeVar
+from typing import NewType, TypeVar
 
 MyString = NewType("MyString", str)
 
@@ -27,7 +27,7 @@ must_take_my_string("hello")
 _T = TypeVar("_T")
 
 
-def func1(x: Type[_T]) -> Type[_T]:
+def func1(x: type[_T]) -> type[_T]:
     return x
 
 

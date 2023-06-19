@@ -1,7 +1,7 @@
 # This sample tests the type checker's handling of named tuples.
 
-from collections import defaultdict, namedtuple
-from typing import NamedTuple, Tuple
+from collections import namedtuple
+from typing import NamedTuple
 
 NamedTuple1 = namedtuple("NamedTuple1", "field1 field2")
 NamedTuple1(1, 2)
@@ -19,10 +19,10 @@ NamedTuple1(1)
 # should be two parameters.
 NamedTuple1(1, 2, 3)
 
-s1: Tuple[float, float] = NamedTuple1(3, 4)
+s1: tuple[float, float] = NamedTuple1(3, 4)
 
 # This should generate an error because there are not enough entries.
-s2: Tuple[float, float, float] = NamedTuple1(3, 4)
+s2: tuple[float, float, float] = NamedTuple1(3, 4)
 
 NamedTuple2 = namedtuple("NamedTuple2", "field1,    field2")
 NamedTuple2.__new__.__defaults__ = ([],)
@@ -53,13 +53,13 @@ NamedTuple3("1", "2")
 # type mismatch.
 NamedTuple3(field2=1, field1=2)
 
-t1: Tuple[str, float] = NamedTuple3("hello", 2)
+t1: tuple[str, float] = NamedTuple3("hello", 2)
 
 # This should generate an error because the types are incompatible.
-t2: Tuple[float, float] = NamedTuple3("hello", 2)
+t2: tuple[float, float] = NamedTuple3("hello", 2)
 
 # This should generate an error because the lengths are incompatible.
-t3: Tuple[str, float, str] = NamedTuple3("hello", 2)
+t3: tuple[str, float, str] = NamedTuple3("hello", 2)
 
 t4: NamedTuple = NamedTuple3("hello", 2)
 

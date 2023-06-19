@@ -1,13 +1,13 @@
 # This sample tests the reportPropertyTypeMismatch diagnostic rule.
 
-from typing import Generic, List, Optional, TypeVar
+from typing import Generic, TypeVar
 
 _T = TypeVar("_T")
 
 
 class ClassA(Generic[_T]):
     @property
-    def prop_1(self) -> Optional[float]:
+    def prop_1(self) -> float | None:
         return 2
 
     @prop_1.setter
@@ -15,7 +15,7 @@ class ClassA(Generic[_T]):
         pass
 
     @property
-    def prop_2(self) -> Optional[int]:
+    def prop_2(self) -> int | None:
         return 2
 
     # This should generate an error because a float
@@ -25,7 +25,7 @@ class ClassA(Generic[_T]):
         pass
 
     @property
-    def prop_3(self) -> List[_T]:
+    def prop_3(self) -> list[_T]:
         return []
 
     # This should generate an error because _T is

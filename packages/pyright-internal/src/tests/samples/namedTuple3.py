@@ -3,7 +3,8 @@
 
 from typing import Generic, NamedTuple, TypeVar
 
-# This should generate an error
+
+# This should generate an error.
 class A(NamedTuple, object):
     x: int
 

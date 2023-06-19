@@ -2,7 +2,7 @@
 # are supported in Python 3.9 and newer.
 
 
-from typing import Type, TypeVar
+from typing import TypeVar
 
 
 class Class1:
@@ -33,7 +33,7 @@ T = TypeVar("T", bound="Class2")
 class Class2:
     @classmethod
     @property
-    def prop1(cls: Type[T]) -> Type[T]:
+    def prop1(cls: type[T]) -> type[T]:
         return cls
 
 

@@ -1,7 +1,7 @@
 # This sample tests the expansion of union types during overload matching.
 
 
-from typing import Literal, TypeVar, Union, overload
+from typing import Literal, TypeVar, overload
 
 
 class A:
@@ -29,11 +29,11 @@ def overloaded1(x: _T1) -> _T1:
     ...
 
 
-def overloaded1(x: Union[A, B]) -> Union[str, B]:
+def overloaded1(x: A | B) -> str | B:
     ...
 
 
-def func1(a: Union[A, B], b: Union[A, B, C]):
+def func1(a: A | B, b: A | B | C):
     v1 = overloaded1(a)
     reveal_type(v1, expected_text="str | B")
 
@@ -70,9 +70,7 @@ def overloaded2(a: LargeUnion, b: Literal[10]) -> float:
     ...
 
 
-def overloaded2(
-    a: LargeUnion, b: Union[LargeUnion, Literal[9, 10]]
-) -> Union[str, float]:
+def overloaded2(a: LargeUnion, b: LargeUnion | Literal[9, 10]) -> str | float:
     ...
 
 
@@ -112,14 +110,24 @@ def func3(y: _T2):
 
 _T3 = TypeVar("_T3")
 
+
 def func5(a: _T3) -> _T3:
     return a
 
-@overload
-def overloaded4(b: str) -> str: ...
-@overload
-def overloaded4(b: int) -> int: ...
-def overloaded4(b: Union[str, int]) -> Union[str, int]: ...
 
-def func6(x: Union[str, int]) -> None:
-    y: Union[str, int] = overloaded4(func5(x))
+@overload
+def overloaded4(b: str) -> str:
+    ...
+
+
+@overload
+def overloaded4(b: int) -> int:
+    ...
+
+
+def overloaded4(b: str | int) -> str | int:
+    ...
+
+
+def func6(x: str | int) -> None:
+    y: str | int = overloaded4(func5(x))

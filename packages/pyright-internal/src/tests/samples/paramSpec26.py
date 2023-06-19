@@ -11,15 +11,15 @@ class A(Generic[P]):
         ...
 
 
-def func1(baz: A[Concatenate[int, P]]) -> A[P]:
+def func1(a: A[Concatenate[int, P]]) -> A[P]:
     ...
 
 
-def test(a: int, b: str) -> str:
+def func2(a: int, b: str) -> str:
     ...
 
 
-val1 = A(test)
+val1 = A(func2)
 reveal_type(val1, expected_text="A[(a: int, b: str)]")
 val2 = func1(val1)
 reveal_type(val2, expected_text="A[(b: str)]")

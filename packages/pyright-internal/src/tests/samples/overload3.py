@@ -2,7 +2,7 @@
 # final function that omits the @overload decorator when matching
 # a caller against an overloaded function.
 
-from typing import Union, TypeVar, overload, Tuple, Optional
+from typing import TypeVar, overload
 
 T = TypeVar("T")
 
@@ -13,13 +13,13 @@ def mouse_event(x1: int, y1: int) -> int:
 
 
 @overload
-def mouse_event(x1: int, y1: int, x2: int, y2: int) -> Tuple[int, int]:
+def mouse_event(x1: int, y1: int, x2: int, y2: int) -> tuple[int, int]:
     ...
 
 
 def mouse_event(
-    x1: int, y1: int, x2: Optional[int] = None, y2: Optional[int] = None
-) -> Union[int, Tuple[int, int]]:
+    x1: int, y1: int, x2: int | None = None, y2: int | None = None
+) -> int | tuple[int, int]:
     return 1
 
 

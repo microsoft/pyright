@@ -5,7 +5,8 @@ from typing import Hashable, TypeVar, Sequence
 
 HashableT = TypeVar("HashableT", bound=Hashable)
 
-class Foo:
+
+class ClassA:
     def __init__(self):
         self._something = []
 
@@ -18,6 +19,5 @@ class Foo:
         self._something = thing
 
 
-f = Foo()
+f = ClassA()
 f.something = ["a", "b", "c"]
-

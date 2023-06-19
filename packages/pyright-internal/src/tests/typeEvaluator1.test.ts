@@ -1015,162 +1015,162 @@ test('CapturedVariable1', () => {
     TestUtils.validateResults(analysisResults, 5);
 });
 
-test('Properties1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties1.py']);
+test('Property1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property1.py']);
 
     TestUtils.validateResults(analysisResults, 5);
 });
 
-test('Properties2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties2.py']);
+test('Property2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property2.py']);
 
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('Properties3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties3.py']);
+test('Property3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property3.py']);
 
     TestUtils.validateResults(analysisResults, 4);
 });
 
-test('Properties4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties4.py']);
+test('Property4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property4.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Properties5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties5.py']);
+test('Property5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property5.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Properties6', () => {
+test('Property6', () => {
     const configOptions = new ConfigOptions('.');
 
     // Analyze with reportPropertyTypeMismatch enabled.
     configOptions.diagnosticRuleSet.reportPropertyTypeMismatch = 'error';
-    const analysisResult1 = TestUtils.typeAnalyzeSampleFiles(['properties6.py'], configOptions);
+    const analysisResult1 = TestUtils.typeAnalyzeSampleFiles(['property6.py'], configOptions);
     TestUtils.validateResults(analysisResult1, 2);
 
     // Analyze with reportPropertyTypeMismatch disabled.
     configOptions.diagnosticRuleSet.reportPropertyTypeMismatch = 'none';
-    const analysisResult2 = TestUtils.typeAnalyzeSampleFiles(['properties6.py'], configOptions);
+    const analysisResult2 = TestUtils.typeAnalyzeSampleFiles(['property6.py'], configOptions);
     TestUtils.validateResults(analysisResult2, 0);
 });
 
-test('Properties7', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties7.py']);
+test('Property7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property7.py']);
 
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('Properties8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties8.py']);
+test('Property8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property8.py']);
 
     TestUtils.validateResults(analysisResults, 4);
 });
 
-test('Properties9', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties9.py']);
+test('Property9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property9.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Properties10', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties10.py']);
+test('Property10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property10.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Properties11', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties11.py']);
+test('Property11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property11.py']);
 
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('Properties12', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties12.py']);
+test('Property12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property12.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Properties13', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties13.py']);
+test('Property13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property13.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Properties14', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties14.py']);
+test('Property14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property14.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Properties15', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties15.py']);
+test('Property15', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property15.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Operators1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators1.py']);
+test('Operator1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator1.py']);
 
     TestUtils.validateResults(analysisResults, 5);
 });
 
-test('Operators2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators2.py']);
+test('Operator2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator2.py']);
 
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('Operators4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators4.py']);
+test('Operator3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator3.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Operators5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators5.py']);
+test('Operator4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator4.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Operator5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator5.py']);
 
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('Operators6', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators6.py']);
+test('Operator6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator6.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Operators7', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators7.py']);
+test('Operator7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator7.py']);
 
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('Operators8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators8.py']);
+test('Operator8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator8.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Operators9', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators9.py']);
+test('Operator9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator9.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Operators10', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators10.py']);
+test('Operator10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator10.py']);
 
     TestUtils.validateResults(analysisResults, 1);
-});
-
-test('Operators11', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators11.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Optional1', () => {
@@ -1323,50 +1323,50 @@ test('Tuples18', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('NamedTuples1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuples1.py']);
+test('NamedTuple1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple1.py']);
 
     TestUtils.validateResults(analysisResults, 12);
 });
 
-test('NamedTuples2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuples2.py']);
+test('NamedTuple2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple2.py']);
 
     TestUtils.validateResults(analysisResults, 8);
 });
 
-test('NamedTuples3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuples3.py']);
+test('NamedTuple3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple3.py']);
 
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('NamedTuples4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuples4.py']);
+test('NamedTuple4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple4.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('NamedTuples5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuples5.py']);
+test('NamedTuple5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple5.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('NamedTuples6', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuples6.py']);
+test('NamedTuple6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple6.py']);
 
     TestUtils.validateResults(analysisResults, 3);
 });
 
-test('NamedTuples7', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuples7.py']);
+test('NamedTuple7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple7.py']);
 
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('NamedTuples8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuples8.py']);
+test('NamedTuple8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple8.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

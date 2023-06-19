@@ -2,7 +2,7 @@
 # used with property getters, setters and deleters.
 
 
-class Foo1:
+class ClassA:
     @property
     def legal1(self) -> None:
         pass

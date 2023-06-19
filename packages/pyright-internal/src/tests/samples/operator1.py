@@ -1,15 +1,13 @@
 # This sample tests the type checker's ability to check
 # custom operator overrides.
 
-from typing import Union
 
-
-class A(object):
+class A:
     def __eq__(self, Foo):
         return "equal"
 
 
-class B(object):
+class B:
     def __ne__(self, Bar):
         return self
 
@@ -30,7 +28,7 @@ def needs_a_string(val: str):
     pass
 
 
-def needs_a_string_or_bool(val: Union[bool, str]):
+def needs_a_string_or_bool(val: bool | str):
     pass
 
 

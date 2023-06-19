@@ -12,7 +12,7 @@ class SubClass(BaseClass):
     pass
 
 
-def func(base: BaseClass):
+def func_base(base: BaseClass):
     pass
 
 
@@ -26,6 +26,6 @@ def func_set(base: set[BaseClass]):
 
 sub = SubClass()
 
-partial(func, sub)
+partial(func_base, sub)
 partial(func_list, [sub])
 partial(func_set, {sub})

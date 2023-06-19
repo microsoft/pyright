@@ -2,7 +2,7 @@
 # and the type needs to be determined via inference.
 
 
-class C:
+class ClassA:
     def __init__(self):
         self._x = None
 
@@ -15,5 +15,5 @@ class C:
         self._x = value
 
 
-c = C()
+c = ClassA()
 reveal_type(c.x, expected_text="Unknown | None")

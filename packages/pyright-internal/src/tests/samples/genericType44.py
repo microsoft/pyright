@@ -16,7 +16,7 @@ def func1(future: Future[_T]) -> Future[_T]:
     ...
 
 
-def func2(coro: Awaitable[_T]) -> Future[_T]:
+def func2(cb: Awaitable[_T]) -> Future[_T]:
     ...
 
 

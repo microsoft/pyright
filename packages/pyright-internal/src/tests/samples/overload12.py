@@ -1,7 +1,6 @@
 # This sample tests overload matching in cases where the match
 # is ambiguous due to an Any or Unknown argument.
 
-from __future__ import annotations
 from typing import Any, Generic, Literal, TypeVar, overload
 from typing_extensions import LiteralString
 
@@ -144,14 +143,14 @@ def func6(y: list[Any]):
 
 class ClassA(Generic[_T]):
     @overload
-    def m1(self: ClassA[int]) -> ClassA[int]:
+    def m1(self: "ClassA[int]") -> "ClassA[int]":
         ...
 
     @overload
-    def m1(self: ClassA[str]) -> ClassA[str]:
+    def m1(self: "ClassA[str]") -> "ClassA[str]":
         ...
 
-    def m1(self) -> ClassA[Any]:
+    def m1(self) -> "ClassA[Any]":
         return self
 
 
@@ -161,14 +160,14 @@ def func7(a: ClassA[Any]):
 
 class ClassB(Generic[_T]):
     @overload
-    def m1(self: ClassB[int], obj: int | ClassB[int]) -> ClassB[int]:
+    def m1(self: "ClassB[int]", obj: "int | ClassB[int]") -> "ClassB[int]":
         ...
 
     @overload
-    def m1(self: ClassB[str], obj: str | ClassB[str]) -> ClassB[str]:
+    def m1(self: "ClassB[str]", obj: "str | ClassB[str]") -> "ClassB[str]":
         ...
 
-    def m1(self, obj: Any) -> ClassB[Any]:
+    def m1(self, obj: Any) -> "ClassB[Any]":
         return self
 
 

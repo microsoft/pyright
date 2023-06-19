@@ -5,21 +5,16 @@ from typing import (
     Any,
     Awaitable,
     Callable,
-    Dict,
     Generic,
     Iterable,
-    List,
     Literal,
     NoReturn,
-    Optional,
     ParamSpec,
     Protocol,
-    Tuple,
-    Type,
     TypeVar,
-    Union,
     overload,
 )
+
 
 # This should generate an error because its input parameter
 # type is incompatible.
@@ -51,7 +46,7 @@ def func2(a: None) -> str:
     ...
 
 
-def func2(a: Optional[int]) -> str:
+def func2(a: int | None) -> str:
     ...
 
 
@@ -78,11 +73,11 @@ def func4(a: None) -> None:
 
 
 @overload
-def func4(a: List[_T]) -> _T:
+def func4(a: list[_T]) -> _T:
     ...
 
 
-def func4(a: Optional[List[_T]]) -> Optional[_T]:
+def func4(a: list[_T] | None) -> _T | None:
     ...
 
 
@@ -92,15 +87,15 @@ class A:
         ...
 
     @overload
-    def method4(self, a: List[_T]) -> _T:
+    def method4(self, a: list[_T]) -> _T:
         ...
 
-    def method4(self, a: Optional[List[_T]]) -> Optional[_T]:
+    def method4(self, a: list[_T] | None) -> _T | None:
         ...
 
 
 @overload
-def func5(a: List[_T]) -> _T:
+def func5(a: list[_T]) -> _T:
     ...
 
 
@@ -110,7 +105,7 @@ def func5(a: None) -> None:
 
 
 # This should generate an error because List is not compatible with Dict.
-def func5(a: Optional[Dict[Any, Any]]) -> Optional[Any]:
+def func5(a: dict[Any, Any] | None) -> Any | None:
     ...
 
 
@@ -124,7 +119,7 @@ def func6(bar: str, /) -> int:
     ...
 
 
-def func6(p0: Union[int, str], /) -> int:
+def func6(p0: int | str, /) -> int:
     return 3
 
 
@@ -156,16 +151,16 @@ _T2 = TypeVar("_T2", ClassB, ClassC)
 
 
 @overload
-def func7(cls: Type[ClassB], var: int) -> ClassB:
+def func7(cls: type[ClassB], var: int) -> ClassB:
     ...
 
 
 @overload
-def func7(cls: Type[ClassC], var: str) -> ClassC:
+def func7(cls: type[ClassC], var: str) -> ClassC:
     ...
 
 
-def func7(cls: Type[_T2], var: Union[int, str]) -> _T2:
+def func7(cls: type[_T2], var: int | str) -> _T2:
     return cls()
 
 
@@ -178,11 +173,11 @@ def func8(foo: int) -> int:
 
 
 @overload
-def func8(foo: _T3) -> Tuple[_T3]:
+def func8(foo: _T3) -> tuple[_T3]:
     ...
 
 
-def func8(foo: Union[_T3, int]) -> Union[Tuple[_T3], int]:
+def func8(foo: _T3 | int) -> tuple[_T3] | int:
     ...
 
 
@@ -203,7 +198,7 @@ def func9(bar: _T4) -> _T4:
     ...
 
 
-def func9(bar: Optional[_T4] = None) -> Optional[_T4]:
+def func9(bar: _T4 | None = None) -> _T4 | None:
     raise NotImplementedError
 
 
@@ -229,7 +224,7 @@ class X:
     ...
 
 
-_T6 = TypeVar("_T6", bound=Type[X])
+_T6 = TypeVar("_T6", bound=type[X])
 
 
 @overload
@@ -242,7 +237,7 @@ def func11(var: int) -> int:
     ...
 
 
-def func11(var: Union[_T6, int]) -> Union[_T6, int]:
+def func11(var: _T6 | int) -> _T6 | int:
     ...
 
 
@@ -346,31 +341,20 @@ class ClassD(Protocol):
         x: Callable[P, R],
         *,
         sig: Literal[True] = ...,
-    ) -> BuildsWithSig[Type[R], P]:
+    ) -> BuildsWithSig[type[R], P]:
+        ...
+
+    @overload
+    def __call__(self, x: T2, *, sig: Literal[False] = ...) -> Builds[type[T2]]:
         ...
 
     @overload
     def __call__(
-        self,
-        x: T2,
-        *,
-        sig: Literal[False] = ...,
-    ) -> Builds[Type[T2]]:
-        ...
-
-    @overload
-    def __call__(
-        self,
-        x: Union[T2, Callable[P, R]],
-        *,
-        sig: bool,
-    ) -> Union[Builds[Type[T2]], BuildsWithSig[Type[R], P]]:
+        self, x: T2 | Callable[P, R], *, sig: bool
+    ) -> Builds[type[T2]] | BuildsWithSig[type[R], P]:
         ...
 
     def __call__(
-        self,
-        x: Union[T2, Callable[P, R]],
-        *,
-        sig: bool = False,
-    ) -> Union[Builds[Type[T2]], BuildsWithSig[Type[R], P]]:
+        self, x: T2 | Callable[P, R], *, sig: bool = False
+    ) -> Builds[type[T2]] | BuildsWithSig[type[R], P]:
         ...

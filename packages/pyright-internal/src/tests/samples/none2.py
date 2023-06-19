@@ -1,10 +1,7 @@
 # This sample checks that type[None] is handled correctly.
 
 
-from typing import Type
-
-
-def func1(a: Type[None]) -> Type[str] | Type[None]:
+def func1(a: type[None]) -> type[str] | type[None]:
     reveal_type(a, expected_text="type[None]")
 
     # This should generate an error because None is

@@ -14,10 +14,7 @@ CommandHandler = Callable[Concatenate[Context, P], Any]
 
 
 class Command(Generic[P]):
-    def __init__(
-        self,
-        handler: CommandHandler[P],
-    ) -> None:
+    def __init__(self, handler: CommandHandler[P]) -> None:
         ...
 
 

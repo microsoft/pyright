@@ -18,10 +18,12 @@ reveal_type(NT1(3, 4, []), expected_text="NT1[int]")
 reveal_type(NT1(3.4, 4, [1, 2]), expected_text="NT1[float]")
 reveal_type(NT1(3.4, 4, [2j]), expected_text="NT1[complex]")
 
-class NT2(NT1[str]): ...
+
+class NT2(NT1[str]):
+    ...
+
 
 reveal_type(NT2("", 4, []), expected_text="NT2")
 
 # This should generate an error.
 NT2(1, 4, [])
-

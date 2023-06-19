@@ -5,7 +5,7 @@
 # includes an overloaded method.
 
 from fractions import Fraction
-from typing import Any, Optional, Protocol, TypeVar, Union, overload
+from typing import Any, Optional, Protocol, TypeVar, overload
 
 v1 = round(Fraction(1))
 
@@ -52,7 +52,7 @@ class Proto2:
     def __round__(self, ndigits: None = ...) -> int:
         ...
 
-    def __round__(self, ndigits: Optional[int] = None) -> Union["Fraction", int]:
+    def __round__(self, ndigits: Optional[int] = None) -> "Fraction | int":
         ...
 
 

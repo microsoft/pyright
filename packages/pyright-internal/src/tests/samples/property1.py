@@ -2,7 +2,7 @@
 # properties.
 
 
-class ClassA(object):
+class ClassA:
     @property
     def read_only_prop(self):
         return 1
