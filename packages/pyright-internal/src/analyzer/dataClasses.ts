@@ -805,6 +805,10 @@ function getConverterAsFunction(
     return undefined;
 }
 
+// Synthesizes an asymmetric descriptor class to be used as the effective type
+// of a field with a converter. The descriptor's __get__ method returns the
+// declared type of the field and its __set__ method accepts the converter's
+// input type. Returns the symbol for an instance of this descriptor type.
 function getDescriptorForConverterField(
     evaluator: TypeEvaluator,
     dataclassNode: ParseNode,
@@ -812,8 +816,6 @@ function getDescriptorForConverterField(
     getType: Type,
     setType: Type
 ): Symbol {
-    // TODO: Behavior is different depending on frozen state of dataclass
-
     const fileInfo = getFileInfo(dataclassNode);
     const typeMetaclass = evaluator.getBuiltInType(dataclassNode, 'type');
     const descriptorName = `__converterDescriptor_${fieldName}`;
@@ -878,8 +880,6 @@ function getDescriptorForConverterField(
         name: 'objtype',
         type: AnyType.create(),
         hasDeclaredType: true,
-        // hasDefault: true,
-        // defaultType: AnyType.create(),
     });
     getFunction.details.declaredReturnType = getType;
     // Adopt the TypeVarScopeId of the dataclass in case __get__ has any
