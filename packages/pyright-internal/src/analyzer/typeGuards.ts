@@ -89,7 +89,7 @@ export interface TypeNarrowingResult {
     isIncomplete: boolean;
 }
 
-export type TypeNarrowingCallback = (type: Type) => TypeNarrowingResult | undefined;
+export type TypeNarrowingCallback = (type: Type, isIncomplete: boolean) => TypeNarrowingResult | undefined;
 
 // Given a reference expression and a test expression, returns a callback that
 // can be used to narrow the type described by the reference expression.
@@ -233,16 +233,17 @@ export function getTypeNarrowingCallback(
                         (ClassType.isEnumClass(rightType) || ClassType.isBuiltIn(rightType, 'bool')) &&
                         rightType.literalValue !== undefined
                     ) {
-                        return (type: Type) => {
+                        return (type: Type, isTypeIncomplete: boolean) => {
                             return {
                                 type: narrowTypeForLiteralComparison(
                                     evaluator,
                                     type,
+                                    isTypeIncomplete,
                                     rightType,
                                     adjIsPositiveTest,
                                     /* isIsOperator */ true
                                 ),
-                                isIncomplete: !!rightTypeResult.isIncomplete,
+                                isIncomplete: isTypeIncomplete || !!rightTypeResult.isIncomplete,
                             };
                         };
                     }
@@ -321,16 +322,17 @@ export function getTypeNarrowingCallback(
                     const rightType = rightTypeResult.type;
 
                     if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
-                        return (type: Type) => {
+                        return (type: Type, isTypeIncomplete: boolean) => {
                             return {
                                 type: narrowTypeForLiteralComparison(
                                     evaluator,
                                     type,
+                                    isTypeIncomplete,
                                     rightType,
                                     adjIsPositiveTest,
                                     /* isIsOperator */ false
                                 ),
-                                isIncomplete: !!rightTypeResult.isIncomplete,
+                                isIncomplete: isTypeIncomplete || !!rightTypeResult.isIncomplete,
                             };
                         };
                     }
@@ -2053,10 +2055,17 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: Cl
 function narrowTypeForLiteralComparison(
     evaluator: TypeEvaluator,
     referenceType: Type,
+    isTypeIncomplete: boolean,
     literalType: ClassType,
     isPositiveTest: boolean,
     isIsOperator: boolean
 ): Type {
+    // If the reference type is incomplete, don't attempt to narrow it. This can
+    // lead to incorrect analysis.
+    if (isTypeIncomplete) {
+        return referenceType;
+    }
+
     return mapSubtypes(referenceType, (subtype) => {
         subtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
         if (isClassInstance(subtype) && ClassType.isSameGenericClass(literalType, subtype)) {
