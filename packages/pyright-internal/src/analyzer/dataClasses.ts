@@ -839,15 +839,17 @@ function getDescriptorForConverterField(
         /* declaredMetaclass */ undefined,
         isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
     );
+    descriptorClass.details.baseClasses.push(evaluator.getBuiltInType(dataclassNode, 'object'));
     computeMroLinearization(descriptorClass);
 
     const fields = descriptorClass.details.fields;
+    const selfType = synthesizeTypeVarForSelfCls(descriptorClass, /* isClsParam */ false);
 
     const setFunction = FunctionType.createSynthesizedInstance('__set__');
     FunctionType.addParameter(setFunction, {
         category: ParameterCategory.Simple,
         name: 'self',
-        type: AnyType.create(),
+        type: selfType,
         hasDeclaredType: true,
     });
     FunctionType.addParameter(setFunction, {
@@ -859,7 +861,7 @@ function getDescriptorForConverterField(
     FunctionType.addParameter(setFunction, {
         category: ParameterCategory.Simple,
         name: 'value',
-        type: evaluator.makeTopLevelTypeVarsConcrete(setType),
+        type: setType,
         hasDeclaredType: true,
     });
     setFunction.details.declaredReturnType = NoneType.createInstance();
@@ -870,7 +872,7 @@ function getDescriptorForConverterField(
     FunctionType.addParameter(getFunction, {
         category: ParameterCategory.Simple,
         name: 'self',
-        type: AnyType.create(),
+        type: selfType,
         hasDeclaredType: true,
     });
     FunctionType.addParameter(getFunction, {
@@ -885,7 +887,7 @@ function getDescriptorForConverterField(
         type: AnyType.create(),
         hasDeclaredType: true,
     });
-    getFunction.details.declaredReturnType = evaluator.makeTopLevelTypeVarsConcrete(getType);
+    getFunction.details.declaredReturnType = getType;
     const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunction);
     fields.set('__get__', getSymbol);
 
