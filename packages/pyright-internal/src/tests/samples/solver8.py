@@ -1,5 +1,5 @@
-# This sample tests the special-case handling of Optional[T] within
-# a function.
+# This sample tests the constraint solver's special-case handling of
+# Optional[T] within a function.
 
 from typing import Optional, TypeVar
 

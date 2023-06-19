@@ -1,7 +1,7 @@
 # This sample tests a case where Type[X] and X are used within the
 # same class declaration.
 
-from typing import Dict, Generic, Type, TypeVar
+from typing import Generic, TypeVar
 from dataclasses import dataclass, field
 
 K = TypeVar("K")
@@ -11,7 +11,7 @@ V = TypeVar("V")
 @dataclass
 class Registry(Generic[K, V]):
     key: K
-    value: Dict[str, V] = field(default_factory=dict)
+    value: dict[str, V] = field(default_factory=dict)
 
 
 class Base:
@@ -21,7 +21,7 @@ class Base:
 BaseType = TypeVar("BaseType", bound=Base)
 
 
-class BaseTypeRegistry(Registry[Type[BaseType], BaseType]):
+class BaseTypeRegistry(Registry[type[BaseType], BaseType]):
     pass
 
 

@@ -19,9 +19,9 @@ class C(A):
 _T_A = TypeVar("_T_A", bound=A)
 
 
-def testFunc(value: dict[str, _T_A]) -> _T_A:
+def func1(value: dict[str, _T_A]) -> _T_A:
     return value["a"]
 
 
-x = testFunc({"b": B(), "c": C()})
+x = func1({"b": B(), "c": C()})
 reveal_type(x, expected_text="B | C")

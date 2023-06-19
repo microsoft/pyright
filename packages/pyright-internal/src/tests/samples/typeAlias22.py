@@ -1,4 +1,4 @@
-# This sample tests handling of user-defined type aliases.
+# This sample tests handling of type aliases.
 
 from datetime import datetime
 from typing import Any, Callable, Generic, TypeVar, Union

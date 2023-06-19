@@ -639,6 +639,12 @@ test('TypeAlias21', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeAlias22', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias22.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+});
+
 test('RecursiveTypeAlias1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias1.py']);
 
@@ -1449,6 +1455,42 @@ test('Constructor20', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor20.py']);
 
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('Constructor21', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor21.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Constructor22', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor22.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Constructor23', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor23.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Constructor24', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.diagnosticRuleSet.strictParameterNoneValue = false;
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor24.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 4);
+
+    configOptions.diagnosticRuleSet.strictParameterNoneValue = true;
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor24.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 5);
+});
+
+test('Constructor25', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor25.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('InconsistentConstructor1', () => {

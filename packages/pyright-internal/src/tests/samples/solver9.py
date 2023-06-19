@@ -1,5 +1,5 @@
 # This sample tests that Optional types can be matched
-# to Type[T] expressions.
+# to Type[T] expressions by the constraint solver.
 
 from typing import Callable, Generic, Optional, Type, TypeVar
 

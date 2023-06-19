@@ -1,5 +1,4 @@
-# This sample tests the type variable solving process when a
-# callable type is involved.
+# This sample tests the constraint solver when a callable type is involved.
 
 # pyright: strict
 
