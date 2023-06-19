@@ -1,53 +1,32 @@
-# This sample tests the synthesized comparison operators for dataclasses.
+# This sample tests the case where an inheritance chain of
+# dataclasses use generic types.
 
 from dataclasses import dataclass
+from typing import Generic, TypeVar
+
+Key0 = TypeVar("Key0")
+Key1 = TypeVar("Key1")
+Key2 = TypeVar("Key2")
+Value = TypeVar("Value")
 
 
-@dataclass(order=True)
-class DC1:
-    a: str
-    b: int
+@dataclass
+class MapTreeLeaf(Generic[Key0, Value]):
+    key: Key0
+    value: Value
 
 
-@dataclass(order=True)
-class DC2:
-    a: str
-    b: int
+@dataclass
+class MapTreeNode(MapTreeLeaf[Key1, Value]):
+    pass
 
 
-dc1_1 = DC1("hi", 2)
-dc1_2 = DC1("hi", 2)
+class Foo(Generic[Key2, Value]):
+    def add(self, key: Key2, value: Value):
+        return MapTreeNode(key=key, value=value)
 
-if dc1_1 < dc1_2:
-    print("")
-
-if dc1_1 <= dc1_2:
-    print("")
-
-if dc1_1 > dc1_2:
-    print("")
-
-if dc1_1 >= dc1_2:
-    print("")
-
-if dc1_1 == dc1_2:
-    print("")
-
-if dc1_1 != dc1_2:
-    print("")
-
-if dc1_1 == None:
-    print("")
-
-if dc1_1 != None:
-    print("")
-
-dc2_1 = DC2("hi", 2)
-
-# This should generate an error because the types are
-# incompatible.
-if dc1_1 < dc2_1:
-    print("")
-
-if dc1_1 != dc2_1:
-    print("")
+    def test1(self, a: Key2, b: Value):
+        v1 = self.add(a, b)
+        reveal_type(v1, expected_text="MapTreeNode[Key2@Foo, Value@Foo]")
+        reveal_type(v1.key, expected_text="Key2@Foo")
+        reveal_type(v1.value, expected_text="Value@Foo")

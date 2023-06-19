@@ -75,16 +75,19 @@ v2 = c2_1 < c2_2
 def create_model_frozen(cls: _T) -> _T:
     ...
 
+
 @create_model_frozen
 class Customer3:
     id: int
     name: str
+
 
 # This should generate an error because a non-frozen class
 # cannot inherit from a frozen class.
 @create_model
 class Customer3Subclass(Customer3):
     age: int
+
 
 c3_1 = Customer3(id=2, name="hi")
 

@@ -525,10 +525,22 @@ test('MemberAccess21', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('DataClassNamedTuple1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassNamedTuple1.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('DataClassNamedTuple2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassNamedTuple2.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('DataClass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass1.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('DataClass2', () => {
@@ -540,13 +552,13 @@ test('DataClass2', () => {
 test('DataClass3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass3.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('DataClass4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass4.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('DataClass5', () => {
@@ -558,13 +570,13 @@ test('DataClass5', () => {
 test('DataClass6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass6.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('DataClass7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass7.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('DataClass8', () => {
@@ -582,99 +594,87 @@ test('DataClass9', () => {
 test('DataClass10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass10.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('DataClass11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass11.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('DataClass12', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass12.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('DataClass13', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass13.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('DataClass14', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass14.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('DataClass15', () => {
-    const configOptions = new ConfigOptions('.');
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass15.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass15.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('DataClass16', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass16.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
-test('DataClass17', () => {
+test('DataClassFrozen1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassFrozen1.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
+test('DataClassKwOnly1', () => {
     const configOptions = new ConfigOptions('.');
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass17.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassKwOnly1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
+test('DataClassSlots1', () => {
+    const configOptions = new ConfigOptions('.');
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassSlots1.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 5);
 });
 
-test('DataClass18', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass18.py']);
+test('DataClassHash1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassHash1.py']);
 
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('DataClass19', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass19.py']);
+test('DataClassDescriptors1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassDescriptors1.py']);
 
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('DataClass20', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass20.py']);
+test('DataClassDescriptors2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassDescriptors2.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('DataClass21', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass21.py']);
-
-    TestUtils.validateResults(analysisResults, 1);
-});
-
-test('DataClass22', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass22.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('DataClass23', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass23.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('DataClass24', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass24.py']);
-
-    TestUtils.validateResults(analysisResults, 1);
-});
-
-test('DataClass25', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass25.py']);
+test('DataClassConverter1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassConverter1.py']);
 
     TestUtils.validateResults(analysisResults, 17);
 });

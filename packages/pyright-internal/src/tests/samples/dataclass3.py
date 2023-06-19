@@ -1,18 +1,29 @@
-# This sample validates the Python 3.7 data class feature, ensuring that
-# NamedTuple must be a direct base class.
+# This sample tests the type checker's handling of
+# synthesized __init__ and __new__ methods for
+# dataclass classes and their subclasses.
 
-from typing import NamedTuple
-
-
-class Parent(NamedTuple):
-    pass
+from dataclasses import dataclass
 
 
-class DataTuple2(Parent):
-    id: int
+@dataclass
+class A:
+    x: int
 
 
-# This should generate an error because DataTuple2 isn't considered
-# a data class and won't have the associated __new__ or __init__
-# method defined.
-data = DataTuple2(id=1)
+@dataclass(init=False)
+class B(A):
+    y: int
+
+    def __init__(self, a: A, y: int):
+        self.__dict__ = a.__dict__
+
+
+a = A(3)
+b = B(a, 5)
+
+
+# This should generate an error because there is an extra parameter
+a = A(3, 4)
+
+# This should generate an error because there is one too few parameters
+b = B(a)

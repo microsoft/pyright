@@ -1,4 +1,4 @@
-# This sample tests the use of field's coverter parameter
+# This sample tests the use of field's converter parameter
 # described in PEP 712.
 
 from dataclasses import dataclass, field
@@ -48,16 +48,22 @@ class ConverterClass:
 class Foo:
     # This should generate an error because "converter" is not an official property yet.
     field0: int = field(converter=converter_simple)
+
     # This should generate an error because "converter" is not an official property yet.
     field1: int = field(converter=converter_with_param_before_args)
+
     # This should generate an error because "converter" is not an official property yet.
     field2: int = field(converter=converter_with_args)
+
     # This should generate an error because "converter" is not an official property yet.
     field3: int = field(converter=converter_with_extra_defaulted_params)
+
     # This should generate an error because "converter" is not an official property yet.
     field4: int = field(converter=converter_with_default_for_first_param)
+
     # This should generate an error because "converter" is not an official property yet.
     field5: int | str = field(converter=converter_with_more_specialized_return_type)
+
     # This should generate an error because "converter" is not an official property yet.
     field6: ConverterClass = field(converter=ConverterClass)
 
@@ -127,8 +133,10 @@ callable_union: Callable[[str], int] | Callable[[int], str] = converter_simple
 class Callables:
     # This should generate an error because "converter" is not an official property yet.
     field0: int = field(converter=CallableObject())
+
     # This should generate an error because "converter" is not an official property yet.
     field1: int = field(converter=callable)
+
     # This should generate an error because "converter" is not an official property yet.
     field2: int = field(converter=callable_union)
 
@@ -166,9 +174,11 @@ class Errors:
     # This should generate an error because "converter" is not an official property yet
     # and a second error because the return type doesn't match the field type.
     field0: int = field(converter=wrong_return_type)
+
     # This should generate an error because "converter" is not an official property yet
     # and a second error because the converter has the wrong number of parameters.
     field1: int = field(converter=wrong_number_of_params)
+
     # This should generate an error because "converter" is not an official property yet
     # and a second error because none of the overloads match the field type.
     field2: int = field(converter=wrong_converter_overload)

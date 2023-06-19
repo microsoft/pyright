@@ -1,19 +1,19 @@
 # This sample tests the handling of the dataclass_transform mechanism
 # when applied to a metaclass.
 
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 from typing_extensions import dataclass_transform
 
 _T = TypeVar("_T")
 
 
 class ModelField:
-    def __init__(self, *, init: bool = True, default: Optional[Any] = None) -> None:
+    def __init__(self, *, init: bool = True, default: Any | None = None) -> None:
         ...
 
 
 def model_field(
-    *, init: bool = True, default: Optional[Any] = None, alias: Optional[str] = None
+    *, init: bool = True, default: Any | None = None, alias: str | None = None
 ) -> Any:
     ...
 
@@ -82,13 +82,14 @@ v2 = c2_1 < c2_2
 c2_3 = Customer2(0, "John")
 
 
-
 @dataclass_transform(frozen_default=True)
 class ModelMetaFrozen(type):
     pass
 
+
 class ModelBaseFrozen(metaclass=ModelMetaFrozen):
     ...
+
 
 class Customer3(ModelBaseFrozen):
     id: int

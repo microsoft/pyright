@@ -11,7 +11,7 @@ class A:
 
     def __init__(self, x: int):
         self.x = x
-        self.x_squared = x ** 2
+        self.x_squared = x**2
 
 
 a = A(3)
@@ -24,7 +24,7 @@ class B:
 
     def __init__(self, x: int):
         self.x = x
-        self.x_squared = x ** 2
+        self.x_squared = x**2
 
 
 b = B(3)
@@ -37,7 +37,7 @@ class C:
 
     def __init__(self, x: int):
         self.x = x
-        self.x_squared = x ** 2
+        self.x_squared = x**2
 
 
 c = C(3)

@@ -1,71 +1,105 @@
-# This sample tests the handling of the @dataclass decorator.
+# This sample tests the analyzer's ability to handle inherited
+# data classes.
 
-from dataclasses import dataclass, InitVar
-
-
-@dataclass
-class Bar:
-    bbb: int
-    ccc: str
-    aaa: str = "string"
+from dataclasses import dataclass, field
 
 
-bar1 = Bar(bbb=5, ccc="hello")
-bar2 = Bar(5, "hello")
-bar3 = Bar(5, "hello", "hello2")
-print(bar3.bbb)
-print(bar3.ccc)
-print(bar3.aaa)
+class C1:
+    ...
 
-# This should generate an error because ddd
-# isn't a declared value.
-bar = Bar(bbb=5, ddd=5, ccc="hello")
 
-# This should generate an error because the
-# parameter types don't match.
-bar = Bar("hello", "goodbye")
+class C2:
+    ...
 
-# This should generate an error because a parameter
-# is missing.
-bar = [Bar(2)]
 
-# This should generate an error because there are
-# too many parameters.
-bar = Bar(2, "hello", "hello", 4)
+class C3:
+    ...
 
 
 @dataclass
-class Baz1:
-    bbb: int
-    aaa: str = "string"
+class DC1:
+    aa: C1
+    bb: C2
+    cc: C3
 
-    # This should generate an error because variables
-    # with no default cannot come after those with
-    # defaults.
-    ccc: str
 
-    def __init__(self) -> None:
-        pass
+class NonDC2:
+    ff: int
 
 
 @dataclass
-class Baz2:
-    aaa: str
-    ddd: InitVar[int] = 3
+class DC2(NonDC2, DC1):
+    ee: C2
+    aa: C2
+    dd: C2
 
 
-@dataclass(init=False)
-class Baz3:
-    bbb: int
-    aaa: str = "string"
+dc2_1 = DC2(C2(), C2(), C3(), C2(), C2())
+
+# This should generate an error because the type
+# of parameter aa has been replaced with type C1.
+dc2_2 = DC2(C1(), C2(), C3(), C2(), C2())
+
+dc2_3 = DC2(ee=C2(), dd=C2(), aa=C2(), bb=C2(), cc=C3())
+
+
+@dataclass
+class DC3:
+    aa: C1
+    bb: C2 = C2()
+    cc: C3 = C3()
+
+
+@dataclass
+class DC4(DC3):
+    # This should generate an error because
+    # previous parameters have default values.
+    dd: C1
+
+
+@dataclass
+class DC5(DC3):
     # This should not generate an error because
-    # the ordering requirement is not enforced when
-    # init=False.
-    ccc: str
+    # aa replaces aa in DC3, and it's ordered
+    # before the params with default values.
+    aa: C2
 
 
 @dataclass
-class Baz4:
-    # Private names are not allowed, so this should
-    # generate an error.
-    __private: int
+class DC6:
+    a: int = 0
+
+
+@dataclass
+class DC7(DC6):
+    a: int
+
+    # This should generate an error because the default
+    # value for "a" is inherited from the base class.
+    b: str
+
+
+@dataclass
+class DC8:
+    a: int = field(default=0)
+
+
+@dataclass
+class DC9(DC8):
+    a: int
+
+    # This should generate an error because the default
+    # value for "a" is inherited from the base class.
+    b: str
+
+
+@dataclass
+class DC10:
+    a: str = field(init=False, default="s")
+    b: bool = field()
+
+
+@dataclass
+class DC11(DC10):
+    a: str = field()
+    b: bool = field()

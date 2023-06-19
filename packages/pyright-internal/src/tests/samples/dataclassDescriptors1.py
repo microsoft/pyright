@@ -41,4 +41,3 @@ f2 = Foo("hi")
 
 f3 = Foo()
 reveal_type(f3.y, expected_text="int")
-

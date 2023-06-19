@@ -1,32 +1,38 @@
-# This sample tests the case where an inheritance chain of
-# dataclasses use generic types.
+# This sample tests the case where a dataclass declares an instance
+# variable and a subclass redeclares it as a class variable.
 
 from dataclasses import dataclass
-from typing import Generic, TypeVar
-
-Key0 = TypeVar("Key0")
-Key1 = TypeVar("Key1")
-Key2 = TypeVar("Key2")
-Value = TypeVar("Value")
+from typing import ClassVar
 
 
 @dataclass
-class MapTreeLeaf(Generic[Key0, Value]):
-    key: Key0
-    value: Value
+class Base:
+    x: int
+    y: int
 
 
 @dataclass
-class MapTreeNode(MapTreeLeaf[Key1, Value]):
-    pass
+class Special(Base):
+    x: ClassVar[int] = 1
+    z: int
 
 
-class Foo(Generic[Key2, Value]):
-    def add(self, key: Key2, value: Value):
-        return MapTreeNode(key=key, value=value)
+@dataclass
+class VerySpecial(Special):
+    y: ClassVar[int] = 2
 
-    def test1(self, a: Key2, b: Value):
-        v1 = self.add(a, b)
-        reveal_type(v1, expected_text="MapTreeNode[Key2@Foo, Value@Foo]")
-        reveal_type(v1.key, expected_text="Key2@Foo")
-        reveal_type(v1.value, expected_text="Value@Foo")
+
+Base(x=1, y=2)
+Special(y=2, z=3)
+Special(2, 3)
+
+# This should generate an error
+Special(x=1, y=2, z=3)
+
+# This should generate an error
+Special(1, 2, 3)
+
+VerySpecial(z=3)
+
+# This should generate an error
+VerySpecial(x=1, z=3)

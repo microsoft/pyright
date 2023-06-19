@@ -1,45 +1,21 @@
-# This sample tests the case where a dataclass entry is
-# initialized with a "field" that uses "init=False". This
-# case needs to be handled specially because it means
-# that the synthesized __init__ method shouldn't include
-# this field in its parameter list.
+# This sample verifies that a generic dataclass works.
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import Generic, TypeVar, Union
 
-
-@dataclass
-class Parent:
-    prop_1: str = field(init=False)
-    prop_2: str = field(default="hello")
-    prop_3: str = field(default_factory=lambda: "hello")
-
-    # This should generate an error because it appears after
-    # a property with a default value.
-    prop_4: str = field()
-
-    def __post_init__(self):
-        self.prop_1 = "test"
+T = TypeVar("T")
 
 
 @dataclass
-class Child(Parent):
-    prop_2: str
+class Foo(Generic[T]):
+    value: Union[str, T]
 
 
-test = Child(prop_2="test", prop_4="hi")
-
-assert test.prop_1 == "test"
-assert test.prop_2 == "test"
+reveal_type(Foo(""), expected_text="Foo[Unknown]")
 
 
-@dataclass
-class HandshakeMessage:
-    reset_reason_hex: str
-    reset_data_hex: str
-    device_id: str = field(default="")
-    reset_reason: str = field(init=False)
-    reset_data: str = field(init=False)
+class Bar(Foo[int]):
+    pass
 
-    def __post_init__(self):
-        reset_reason = "calculated value"
-        reset_data = "calculated value"
+
+reveal_type(Bar(123), expected_text="Bar")
