@@ -1,10 +1,10 @@
 # This sample tests the case where a lambda is assigned to
 # a union type that contains multiple callables.
 
-from typing import Callable, Protocol, Union
+from typing import Callable, Protocol
 
 
-U1 = Union[Callable[[int, str], bool], Callable[[str], bool]]
+U1 = Callable[[int, str], bool] | Callable[[str], bool]
 
 
 def accepts_u1(cb: U1) -> U1:
@@ -54,7 +54,7 @@ class Callable4(Protocol):
         ...
 
 
-U2 = Union[Callable1, Callable2, Callable3, Callable4]
+U2 = Callable1 | Callable2 | Callable3 | Callable4
 
 
 def accepts_u2(cb: U2) -> U2:

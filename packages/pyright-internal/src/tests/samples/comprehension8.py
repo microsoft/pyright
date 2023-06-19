@@ -4,12 +4,12 @@
 # pyright: strict
 
 
-class Foo:
+class ClassA:
     input: str
     output: str
 
 
-def minify1(foo: Foo):
+def func1(foo: ClassA):
     foo.output = "".join(
         stripped for line in foo.input.splitlines() if (stripped := line.strip())
     )

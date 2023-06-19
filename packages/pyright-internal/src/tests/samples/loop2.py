@@ -1,10 +1,8 @@
 # This sample tests a piece of code that involves lots
 # of cyclical dependencies for type resolution.
 
-from typing import Tuple
 
-
-def needs_str(a: str) -> Tuple[str, str]:
+def needs_str(a: str) -> tuple[str, str]:
     ...
 
 

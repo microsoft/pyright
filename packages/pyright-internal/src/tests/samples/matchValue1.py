@@ -3,11 +3,11 @@
 
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Annotated, Tuple, TypeVar, Union
+from typing import Annotated, TypeVar
 from http import HTTPStatus
 
 
-def handle_reply(reply: Tuple[HTTPStatus, str] | Tuple[HTTPStatus]):
+def handle_reply(reply: tuple[HTTPStatus, str] | tuple[HTTPStatus]):
     match reply:
         case (HTTPStatus.OK as a1, a2):
             reveal_type(a1, expected_text="Literal[HTTPStatus.OK]")
@@ -53,7 +53,7 @@ def test_class_var(value_to_match: str):
 TInt = TypeVar("TInt", bound=MyEnum)
 
 
-def test_union(value_to_match: Union[TInt, MyEnum]) -> Union[TInt, MyEnum]:
+def test_union(value_to_match: TInt | MyEnum) -> TInt | MyEnum:
     match value_to_match:
         case MyEnum.V1 as a1:
             reveal_type(a1, expected_text="Literal[MyEnum.V1]")
@@ -74,7 +74,7 @@ class Color(Enum):
     green = 3
 
 
-def test_enum_narrowing(m: Union[Medal, Color, int]):
+def test_enum_narrowing(m: Medal | Color | int):
     match m:
         case Medal.gold as a1:
             reveal_type(a1, expected_text="Literal[Medal.gold]")

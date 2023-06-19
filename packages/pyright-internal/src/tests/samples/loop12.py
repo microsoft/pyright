@@ -2,7 +2,7 @@
 # within a loop body.
 
 
-class Foo:
+class ClassA:
     def non_property(self) -> int:
         ...
 

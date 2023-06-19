@@ -1,33 +1,31 @@
 # This sample tests the handling of metaclass magic methods for
 # binary operators.
 
-from typing import Type
 
-
-class MetaFoo(type):
-    def __eq__(self, a: "Type[Foo]") -> str:
+class MetaA(type):
+    def __eq__(self, a: "type[ClassA]") -> str:
         return "hi"
 
-    def __add__(self, a: "Type[Foo]") -> int:
+    def __add__(self, a: "type[ClassA]") -> int:
         return 0
 
 
-class Foo(metaclass=MetaFoo):
+class ClassA(metaclass=MetaA):
     pass
 
 
-def func1(a: Foo):
-    reveal_type(type(a), expected_text="type[Foo]")
+def func1(a: ClassA):
+    reveal_type(type(a), expected_text="type[ClassA]")
     reveal_type(type("string1"), expected_text="type[str]")
 
     reveal_type(type(a) == type("hi"), expected_text="bool")
     reveal_type(type("hi") == type("hi"), expected_text="bool")
     reveal_type(str != str, expected_text="bool")
-    reveal_type(Foo == type(a), expected_text="str")
-    reveal_type(Foo != type(a), expected_text="bool")
-    reveal_type(type(a) == Foo, expected_text="str")
+    reveal_type(ClassA == type(a), expected_text="str")
+    reveal_type(ClassA != type(a), expected_text="bool")
+    reveal_type(type(a) == ClassA, expected_text="str")
 
     # This should generate an error
     x = str + str
 
-    reveal_type(Foo + Foo, expected_text="int")
+    reveal_type(ClassA + ClassA, expected_text="int")

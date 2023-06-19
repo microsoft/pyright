@@ -1,12 +1,11 @@
 # This sample tests a member access when the member is a class
 # that inherits from Any.
 
-from typing import Type
 from unittest.mock import Mock
 
 
 class MockProducer:
-    produce: Type[Mock] = Mock
+    produce: type[Mock] = Mock
 
 
 reveal_type(MockProducer.produce, expected_text="type[Mock]")

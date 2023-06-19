@@ -6,7 +6,7 @@
 from typing import Iterable
 
 
-def test(parts: Iterable[str]):
+def func1(parts: Iterable[str]):
     x: list[str] = []
     ns = ""
     for part in parts:

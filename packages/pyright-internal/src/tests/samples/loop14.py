@@ -1,10 +1,8 @@
 # This sample tests a loop that modifies a variable through type narrowing.
 
-from typing import Union
-
 
 class State:
-    def confirm_dialog(self) -> Union["State", bool]:
+    def confirm_dialog(self) -> "State | bool":
         return False
 
 

@@ -5,10 +5,10 @@
 from typing import Optional
 
 
-class Foo:
+class ClassA:
     name: Optional[str]
 
-    def correct(self):
+    def method1(self):
         if self.name is not None:
             for _ in []:
                 self.name = self.name.replace("", "")

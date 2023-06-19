@@ -1,7 +1,7 @@
 # This sample tests the isinstance narrowing when the list
 # of classes includes a type defined by a type variable.
 
-from typing import Any, Type, TypeVar, Union
+from typing import Any, Type, TypeVar
 
 T = TypeVar("T")
 
@@ -16,7 +16,7 @@ v1 = func1(int, 3)
 reveal_type(v1, expected_text="int")
 
 
-def func2(klass: Type[T], obj: Union[T, int]) -> T:
+def func2(klass: Type[T], obj: T | int) -> T:
     assert isinstance(obj, klass)
     reveal_type(obj, expected_text="T@func2")
     return obj

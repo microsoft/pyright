@@ -1,4 +1,4 @@
-# This sample tests the handling of __getattr__, __setattr__, and 
+# This sample tests the handling of __getattr__, __setattr__, and
 # __delattr__ methods.
 
 from typing import Any, Literal, TypeVar, overload

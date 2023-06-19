@@ -2,7 +2,7 @@
 # like __get__ and __set__ are handled correctly.
 
 from contextlib import ExitStack
-from typing import Any, ContextManager, Generic, Optional, Type, TypeVar, overload
+from typing import Any, ContextManager, Generic, TypeVar, overload
 from functools import cached_property
 
 _T = TypeVar("_T")
@@ -41,7 +41,7 @@ d: int = ClassB().baz
 
 
 class Factory:
-    def __get__(self, obj: Any, cls: Type[_T]) -> _T:
+    def __get__(self, obj: Any, cls: type[_T]) -> _T:
         return cls()
 
 
@@ -55,7 +55,7 @@ reveal_type(ClassC.instance, expected_text="ClassC")
 class GenericDescriptor(Generic[_T]):
     value: _T
 
-    def __get__(self, instance: Optional[object], cls: Type[object]) -> _T:
+    def __get__(self, instance: object | None, cls: type[object]) -> _T:
         ...
 
     def __set__(self, instance: object, value: _T) -> None:

@@ -14,7 +14,7 @@ class B(A):
     pass
 
 
-def foo(v: A, s: Dict[B, A]) -> object:
+def func1(v: A, s: Dict[B, A]) -> object:
     if not isinstance(v, B):
         return v
     u = s.get(v)

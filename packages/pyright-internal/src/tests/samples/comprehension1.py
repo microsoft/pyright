@@ -1,6 +1,6 @@
 # This sample tests type checking for list comprehensions.
 
-from typing import Any, Generator, Iterable, List, Literal
+from typing import Generator, Iterable, Literal
 
 a = [1, 2, 3, 4]
 
@@ -10,12 +10,12 @@ def func1() -> Generator[int, None, None]:
     return b
 
 
-def func2() -> List[int]:
+def func2() -> list[int]:
     c = [elem for elem in a]
     return c
 
 
-def func3() -> List[str]:
+def func3() -> list[str]:
     c = [elem for elem in a]
 
     # This should generate an error because
@@ -37,7 +37,7 @@ s.close()
 FooOrBar = Literal["foo", "bar"]
 
 
-def to_list(values: Iterable[FooOrBar]) -> List[FooOrBar]:
+def to_list(values: Iterable[FooOrBar]) -> list[FooOrBar]:
     return [value for value in values]
 
 x = 3

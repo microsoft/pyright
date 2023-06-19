@@ -1,6 +1,7 @@
 # This sample tests the ability of the type checker to infer
 # the types of instance variables based on their assigned values.
 
+
 class ClassA:
     def __init__(self):
         self.value = None
@@ -13,4 +14,3 @@ class ClassA:
             self.value.bit_length()
 
         self.value = param
-

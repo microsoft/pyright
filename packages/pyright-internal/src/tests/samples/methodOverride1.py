@@ -6,14 +6,10 @@ from typing import (
     Callable,
     Generic,
     Iterable,
-    List,
-    Optional,
     ParamSpec,
     Sequence,
-    Type,
     TypedDict,
     TypeVar,
-    Union,
     overload,
 )
 
@@ -61,7 +57,7 @@ class ParentClass:
     def my_method11(self, a: int, b: int):
         return 1
 
-    def my_method12(self, a: Union[int, str]) -> Union[int, str]:
+    def my_method12(self, a: int | str) -> int | str:
         return 1
 
     def my_method13(self, a: int) -> int:
@@ -86,7 +82,7 @@ class ParentClass:
         ...
 
     @classmethod
-    def my_method20(cls: Type[T_ParentClass], a: str) -> T_ParentClass:
+    def my_method20(cls: type[T_ParentClass], a: str) -> T_ParentClass:
         ...
 
     def my_method21(self, var: int) -> None:
@@ -128,11 +124,11 @@ class ParentClass:
         ...
 
     @staticmethod
-    def my_method31(a: "Type[ParentClass]", /) -> None:
+    def my_method31(a: "type[ParentClass]", /) -> None:
         ...
 
     @staticmethod
-    def my_method32(a: "Type[ParentClass]", /) -> None:
+    def my_method32(a: "type[ParentClass]", /) -> None:
         ...
 
     def my_method33(self, /) -> None:
@@ -220,12 +216,12 @@ class ChildClass(ParentClass):
     def my_method12(self, a: int) -> int:
         return 1
 
-    def my_method13(self, a: Union[int, str]) -> int:
+    def my_method13(self, a: int | str) -> int:
         return 1
 
     # This should generate an error because the return type is
     # wider than in the original method.
-    def my_method14(self, a: int) -> Union[int, str]:
+    def my_method14(self, a: int) -> int | str:
         return 1
 
     # This should generate an error because we're overriding a
@@ -248,7 +244,7 @@ class ChildClass(ParentClass):
         ...
 
     @classmethod
-    def my_method20(cls: Type[T_ChildClass], a: str) -> T_ChildClass:
+    def my_method20(cls: type[T_ChildClass], a: str) -> T_ChildClass:
         ...
 
     # This should generate an error.
@@ -293,7 +289,7 @@ class ChildClass(ParentClass):
 
     # This should generate an error because it is not a classmethod.
     @staticmethod
-    def my_method30(a: Type[ParentClass], /) -> None:
+    def my_method30(a: type[ParentClass], /) -> None:
         ...
 
     # This should generate an error because it is not a staticmethod.
@@ -312,7 +308,7 @@ class ChildClass(ParentClass):
 
     # This should generate an error because it is not an instance method.
     @staticmethod
-    def my_method34(a: Type[ParentClass], /) -> None:
+    def my_method34(a: type[ParentClass], /) -> None:
         ...
 
     def my_method35(self, **kwargs: int) -> None:
@@ -366,14 +362,14 @@ class GeneralizedArgument(A):
 
 
 class NarrowerArgument(A):
-    # This should generate error because List[int] is narrower
+    # This should generate error because list[int] is narrower
     # than Iterable[int].
-    def test(self, t: List[int]) -> Sequence[str]:
+    def test(self, t: list[int]) -> Sequence[str]:
         ...
 
 
 class NarrowerReturn(A):
-    def test(self, t: Sequence[int]) -> List[str]:
+    def test(self, t: Sequence[int]) -> list[str]:
         ...
 
 
@@ -385,9 +381,9 @@ class GeneralizedReturn1(A):
 
 
 class GeneralizedReturn2(A):
-    # This should generate an error because List[int] is
+    # This should generate an error because list[int] is
     # incompatible with Sequence[str].
-    def test(self, t: Sequence[int]) -> List[int]:
+    def test(self, t: Sequence[int]) -> list[int]:
         ...
 
 
@@ -396,12 +392,12 @@ _T2 = TypeVar("_T2")
 
 
 class Base1:
-    def submit(self, fn: Callable[..., _T1], *args: Any, **kwargs: Any) -> List[_T1]:
+    def submit(self, fn: Callable[..., _T1], *args: Any, **kwargs: Any) -> list[_T1]:
         return []
 
 
 class Base2(Base1):
-    def submit(self, fn: Callable[..., _T2], *args: Any, **kwargs: Any) -> List[_T2]:
+    def submit(self, fn: Callable[..., _T2], *args: Any, **kwargs: Any) -> list[_T2]:
         return []
 
 
@@ -414,15 +410,15 @@ _T2B = TypeVar("_T2B", bound=Foo)
 
 
 class ClassA(Generic[_T2A]):
-    def func1(self) -> Optional[_T2A]:
+    def func1(self) -> _T2A | None:
         return None
 
     @property
-    def prop1(self) -> Optional[_T2A]:
+    def prop1(self) -> _T2A | None:
         return None
 
     @property
-    def prop2(self) -> Optional[_T2A]:
+    def prop2(self) -> _T2A | None:
         return None
 
     @prop2.setter
@@ -434,7 +430,7 @@ class ClassA(Generic[_T2A]):
         pass
 
     @property
-    def prop3(self) -> Optional[_T2A]:
+    def prop3(self) -> _T2A | None:
         return None
 
     @prop3.setter
@@ -442,7 +438,7 @@ class ClassA(Generic[_T2A]):
         pass
 
     @property
-    def prop4(self) -> Optional[_T2A]:
+    def prop4(self) -> _T2A | None:
         return None
 
     @prop4.deleter
@@ -459,7 +455,7 @@ class ClassB(ClassA[_T2B]):
     # cannot override a property.
     prop1: _T2B
 
-    def func1(self) -> Optional[_T2B]:
+    def func1(self) -> _T2B | None:
         return None
 
     @property
@@ -477,13 +473,13 @@ class ClassB(ClassA[_T2B]):
     # This should generate an error because it is missing
     # a setter (fset method).
     @property
-    def prop3(self) -> Optional[_T2B]:
+    def prop3(self) -> _T2B | None:
         return None
 
     # This should generate an error because it is missing
     # a deleter (fdel method).
     @property
-    def prop4(self) -> Optional[_T2B]:
+    def prop4(self) -> _T2B | None:
         return None
 
     # This should generate an error because prop4's getter
@@ -529,4 +525,4 @@ class C(Base4, Base5):
 
 
 class MyObject(TypedDict):
-    values: List[str]
+    values: list[str]

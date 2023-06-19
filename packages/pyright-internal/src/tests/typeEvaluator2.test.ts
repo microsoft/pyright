@@ -269,10 +269,7 @@ test('NewType6', () => {
 });
 
 test('isInstance1', () => {
-    // This test requires Python 3.10 because it uses PEP 604 notation for unions.
-    const configOptions = new ConfigOptions('.');
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance1.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance1.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
@@ -299,36 +296,6 @@ test('isInstance4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance4.py']);
 
     TestUtils.validateResults(analysisResults, 2);
-});
-
-test('isInstance5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance5.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('isInstance6', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance6.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('isInstance7', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance7.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('isInstance9', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance9.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('isInstance10', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance10.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Unbound1', () => {
@@ -385,32 +352,32 @@ test('AssertType1', () => {
     TestUtils.validateResults(analysisResults, 11);
 });
 
-test('NameBindings1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['nameBindings1.py']);
+test('NameBinding1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['nameBinding1.py']);
 
     TestUtils.validateResults(analysisResults, 5);
 });
 
-test('NameBindings2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['nameBindings2.py']);
+test('NameBinding2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['nameBinding2.py']);
 
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('NameBindings3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['nameBindings3.py']);
+test('NameBinding3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['nameBinding3.py']);
 
     TestUtils.validateResults(analysisResults, 3);
 });
 
-test('NameBindings4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['nameBindings4.py']);
+test('NameBinding4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['nameBinding4.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('NameBindings5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['nameBindings5.py']);
+test('NameBinding5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['nameBinding5.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

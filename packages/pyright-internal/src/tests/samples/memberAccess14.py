@@ -3,7 +3,7 @@
 # the descriptor.
 
 
-from typing import Any, Callable, Generic, TypeVar, Union, overload
+from typing import Any, Callable, Generic, TypeVar, overload
 
 T = TypeVar("T")
 T_contra = TypeVar("T_contra", contravariant=True)
@@ -28,8 +28,8 @@ class CachedSlotProperty(Generic[T_contra, V_co]):
         ...
 
     def __get__(
-        self: CachedSlotPropertyT, instance: Union[T_contra, None], owner: Any
-    ) -> Union[CachedSlotPropertyT, V_co]:
+        self: CachedSlotPropertyT, instance: T_contra | None, owner: Any
+    ) -> CachedSlotPropertyT | V_co:
         ...
 
 

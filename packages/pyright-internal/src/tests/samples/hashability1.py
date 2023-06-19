@@ -11,9 +11,11 @@ s1 = {{}, 2, dict, frozenset(), []}
 # This should generate two errors because {} and [] are not hashable.
 s2: set[Any] = {{}, 2, dict, frozenset(), []}
 
+
 class StrList(list[str]):
     def __hash__(self) -> int:
         ...
+
 
 s3 = {StrList()}
 
@@ -31,9 +33,11 @@ def func1(x: str | dict[Any, Any], y: Any, z: None):
 
     d4 = {y: "hi", z: "hi"}
 
+
 @dataclass
 class DC1:
     a: int
+
 
 @dataclass(frozen=True)
 class DC2:

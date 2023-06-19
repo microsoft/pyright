@@ -4,5 +4,6 @@
 
 # pyright: strict
 
+
 def func1(keys: list[str]):
     filter(lambda s: s.startswith(""), keys)

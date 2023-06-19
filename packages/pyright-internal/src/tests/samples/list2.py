@@ -4,6 +4,7 @@
 import random
 from typing_extensions import LiteralString
 
+
 # The join method is overloaded with both LiteralString and str variants.
 # We need to use the str overload here.
 def func(x: LiteralString):

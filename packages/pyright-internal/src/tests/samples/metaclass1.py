@@ -1,7 +1,7 @@
 # This sample tests pyright's ability to use metaclasses.
 
 from ctypes import Array, c_uint64
-from typing import Any, Generic, TypeAlias, TypeVar
+from typing import Any, TypeAlias, TypeVar
 
 myArray1 = (c_uint64 * 5)()
 
