@@ -10,7 +10,7 @@ class Class2:
     pass
 
 
-def my_decorator(fn):
+def decorator1(fn):
     # This decorator returns a value that is
     # inferred to be a union containing an Unknown type.
     if fn:
@@ -18,17 +18,17 @@ def my_decorator(fn):
     return Class2
 
 
-@my_decorator
-class Class1:
+@decorator1
+class ClassA:
     def __init__(self, a, b, c):
         pass
 
 
-v1 = Class1(1, 2, 3)
-reveal_type(v1, expected_text="Class1")
+v1 = ClassA(1, 2, 3)
+reveal_type(v1, expected_text="ClassA")
 
 
-@my_decorator
+@decorator1
 def func1() -> int:
     return 3
 

@@ -1,9 +1,7 @@
 # This sample tests the handling of "in" and "not in" operators.
 
-from typing import List, Set, Union
 
-
-def func1(a: Union[int, str]):
+def func1(a: int | str):
     # This should generate an error because a's type doesn't
     # support a __contains__ method.
     if 3 in a:
@@ -15,7 +13,7 @@ def func1(a: Union[int, str]):
         pass
 
 
-def func(a: Union[List[int], Set[float]]):
+def func(a: list[int] | set[float]):
     if 3 in a:
         pass
 

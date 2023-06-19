@@ -1,10 +1,10 @@
 # This sample tests the type checker's type inference logic for
 # dictionaries.
 
-from typing import Any, Callable, Dict, List, Literal, Sequence
+from typing import Any, Callable, Literal, Sequence
 
 
-def wantsIntDict(a: Dict[int, int]):
+def wantsIntDict(a: dict[int, int]):
     pass
 
 
@@ -31,11 +31,11 @@ reveal_type(d3, expected_text="dict[str, int]")
 
 LitChoices = Literal["ab", "bcd"]
 
-keys: List[LitChoices] = ["ab", "bcd"]
-d4: Dict[LitChoices, int] = {k: len(k) for k in keys}
+keys: list[LitChoices] = ["ab", "bcd"]
+d4: dict[LitChoices, int] = {k: len(k) for k in keys}
 
 
-d5: Dict[str, Callable[[Sequence[Any]], float]] = {
+d5: dict[str, Callable[[Sequence[Any]], float]] = {
     "min": min,
     "max": max,
     "sum": sum,

@@ -1,17 +1,7 @@
 # This sample tests various type checking operations relating to
 # generator functions (those with a "yield" method).
 
-from typing import (
-    Any,
-    Awaitable,
-    Generator,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Protocol,
-    TypedDict,
-)
+from typing import Any, Awaitable, Generator, Iterable, Iterator, Protocol, TypedDict
 
 
 class ClassA:
@@ -97,7 +87,7 @@ def generator7() -> Generator[None, None, None]:
     yield
 
 
-def generator8() -> Iterator[Dict[str, int]]:
+def generator8() -> Iterator[dict[str, int]]:
     # This tests the bidirectional type inference
     # of dict types. It should not generate an error.
     yield {"hello": 3}
@@ -115,7 +105,7 @@ async def generator10() -> int:
 
 
 # This should generate an error.
-def generator11() -> List[int]:
+def generator11() -> list[int]:
     yield 3
 
 

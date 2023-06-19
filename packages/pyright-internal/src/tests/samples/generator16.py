@@ -7,6 +7,8 @@ from typing import Any, AsyncIterable
 
 async def func1(n: int, fa: AsyncIterable[Any]):
     if n <= 0:
+        # This should generate an error because return statements
+        # are not allowed in async generators.
         return None
 
     g = aiter(fa)

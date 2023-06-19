@@ -1,82 +1,13 @@
-# This sample tests that the type checker properly handles
-# types of args and kwargs correctly.
+# This sample tests assignment of a function that uses
+# a synthesized TypeVar type for the "self" parameter.
 
-from typing import Any, Dict, Hashable, Mapping, Protocol, Tuple
-
-
-def requires_hashable_tuple(p1: Tuple[Hashable, ...]):
-    ...
+from typing import Callable
 
 
-def requires_hashable_dict(p1: Dict[str, Hashable]):
-    ...
+class TestClass:
+    def method(self) -> None:
+        pass
 
 
-def test_args(*args: Hashable):
-    if args:
-        aaa = list(args)
-        bbb = tuple(aaa)
-        args = bbb
-    requires_hashable_tuple(args)
-
-
-def test_kwargs(**kwargs: Hashable):
-    requires_hashable_dict(kwargs)
-
-
-class StrSubclass(str):
-    ...
-
-
-def test_kwargs2(
-    a: Mapping[str, Any],
-    b: Mapping[Any, Hashable],
-    c: Dict[StrSubclass, Hashable],
-    d: int,
-    e: Mapping[int, Hashable],
-    f: Tuple[str, ...],
-):
-    test_kwargs(**a)
-    test_kwargs(**b)
-    test_kwargs(**c)
-
-    # This should generate an error
-    test_kwargs(**d)
-
-    # This should generate an error
-    test_kwargs(**e)
-
-    # This should generate an error
-    test_kwargs(**f)
-
-
-class Callback1(Protocol):
-    def __call__(self) -> None:
-        ...
-
-
-def func1(
-    value: str = ...,
-    *args: object,
-) -> None:
-    ...
-
-
-def func2(
-    value: str = ...,
-    **kwargs: object,
-) -> None:
-    ...
-
-
-def func3(
-    value: str = ...,
-    *args: object,
-    **kwargs: object,
-) -> None:
-    ...
-
-
-v1: Callback1 = func1
-v2: Callback1 = func2
-v3: Callback1 = func3
+# This should generate an error.
+func1: Callable[[float], None] = TestClass.method

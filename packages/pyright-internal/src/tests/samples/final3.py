@@ -2,7 +2,7 @@
 # introduced in Python 3.8.
 
 import typing
-from typing import Any, Final, List
+from typing import Any, Final
 
 foo1: typing.Final = 3
 
@@ -108,7 +108,7 @@ def func1(a: Final[int]):
 
 # This should generate an error because Final must the outermost
 # type in assignments.
-b: List[Final[int]] = []
+b: list[Final[int]] = []
 
 
 class ClassA:

@@ -2,8 +2,6 @@
 
 # pyright: reportUnknownVariableType=true, reportUnknownArgumentType=true
 
-from typing import List
-
 
 def func1(a: bool):
     val1 = []
@@ -84,6 +82,6 @@ class A:
         reveal_type(self.val2, expected_text="dict[str, int]")
         reveal_type(self.val3, expected_text="list[Unknown]")
 
-    def method4(self) -> List[int]:
+    def method4(self) -> list[int]:
         # This should generate an error because of a type mismatch.
         return self.val1

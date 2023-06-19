@@ -7,28 +7,28 @@ import functools
 _T = TypeVar("_T")
 
 
-def decorator(func: Callable[[_T, str], None]) -> Callable[[_T, str], None]:
+def decorator1(func: Callable[[_T, str], None]) -> Callable[[_T, str], None]:
     @functools.wraps(func)
-    def func_wrapper(firstarg: _T, secondarg: str) -> None:
-        return func(firstarg, secondarg)
+    def func_wrapper(param1: _T, param2: str) -> None:
+        return func(param1, param2)
 
     return func_wrapper
 
 
-class Test:
+class ClassA:
     def __init__(self):
         self.test1(1, "a")
         self.test2("hi")
 
     @staticmethod
-    @decorator
-    def test1(firstarg: int, secondarg: str) -> None:
-        print(secondarg)
+    @decorator1
+    def test1(param1: int, param2: str) -> None:
+        print(param2)
 
     @classmethod
-    @decorator
-    def test2(cls, secondarg: str) -> None:
-        print(secondarg)
+    @decorator1
+    def test2(cls, param2: str) -> None:
+        print(param2)
 
 
-Test()
+ClassA()

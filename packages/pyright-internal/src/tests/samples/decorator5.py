@@ -3,7 +3,7 @@
 # function type (and docstring) to pass through unmodified.
 
 
-def simple_decorator(method):
+def decorator1(method):
     def wrapper(*args, **kw):
         result = method(*args, **kw)
         return result
@@ -11,19 +11,19 @@ def simple_decorator(method):
     return wrapper
 
 
-@simple_decorator
-def function(var: str, kvar: str):
+@decorator1
+def func1(var: str, kvar: str):
     return
 
 
-reveal_type(function, expected_text="(var: str, kvar: str) -> None")
+reveal_type(func1, expected_text="(var: str, kvar: str) -> None")
 
 
-class Foo:
-    @simple_decorator
-    def method(self, var: str, kvar: str):
+class ClassA:
+    @decorator1
+    def method1(self, var: str, kvar: str):
         return
 
 
-reveal_type(Foo().method, expected_text="(var: str, kvar: str) -> None")
-reveal_type(Foo.method, expected_text="(self: Foo, var: str, kvar: str) -> None")
+reveal_type(ClassA().method1, expected_text="(var: str, kvar: str) -> None")
+reveal_type(ClassA.method1, expected_text="(self: ClassA, var: str, kvar: str) -> None")

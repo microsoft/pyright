@@ -10,7 +10,7 @@ class Descriptor:
         return 3j
 
 
-class MyEnum(Enum):
+class EnumA(Enum):
     ENTRY = (123, "abc")
 
     desc = Descriptor()
@@ -25,9 +25,9 @@ class MyEnum(Enum):
         self.bar = bar
 
 
-baz = 123 + MyEnum.ENTRY.foo
+baz = 123 + EnumA.ENTRY.foo
 reveal_type(baz, expected_text="int")
 
-reveal_type(MyEnum._exempt_, expected_text="int")
+reveal_type(EnumA._exempt_, expected_text="int")
 
-reveal_type(MyEnum.desc, expected_text="complex")
+reveal_type(EnumA.desc, expected_text="complex")

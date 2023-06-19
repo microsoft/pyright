@@ -2,6 +2,7 @@
 
 from typing import Optional
 
+
 # This should generate an error if reportTypeCommentUsage is enabled.
 def func1a(a, b):
     # type: (int, str) -> str

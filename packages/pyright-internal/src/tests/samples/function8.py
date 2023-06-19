@@ -1,38 +1,20 @@
-# This sample verifies that functions are treated as though they
-# derive from object.
+# This sample tests bidirectional type inference for a function when
+# a union includes a "bare" TypeVar and another (non-generic) type.
 
-from typing import Callable, Union, overload
+from dataclasses import dataclass
+from typing import Generic, Sequence, TypeVar
 
-
-@overload
-def func1(a: str) -> str:
-    ...
+T = TypeVar("T")
 
 
-@overload
-def func1(a: int) -> int:
-    ...
+@dataclass
+class Container(Generic[T]):
+    values: Sequence[float | T]
 
 
-def func1(a: Union[str, int]) -> Union[str, int]:
-    ...
+def create_container(values: Sequence[float | T]) -> Container[T]:
+    return Container(values)
 
 
-def func2(a: Union[str, int]) -> Union[str, int]:
-    ...
-
-
-def takes_object(val: object) -> None:
-    ...
-
-
-takes_object(func1)
-takes_object(func2)
-
-
-def func3(b: Callable[[str], bool]) -> None:
-    if b == func1:
-        pass
-
-    if b != func2:
-        pass
+arg: Sequence[float | int] = (1, 2.0)
+x: Container[int] = create_container(arg)

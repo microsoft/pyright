@@ -27,101 +27,101 @@ test('Module2', () => {
 test('Ellipsis1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['ellipsis1.pyi']);
 
-    TestUtils.validateResults(analysisResults, 10);
+    TestUtils.validateResults(analysisResults, 11);
 });
 
-test('Generators1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators1.py']);
+test('Generator1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator1.py']);
 
     TestUtils.validateResults(analysisResults, 9);
 });
 
-test('Generators2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators2.py']);
+test('Generator2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator2.py']);
 
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('Generators3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators3.py']);
+test('Generator3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator3.py']);
 
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('Generators4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators4.py']);
+test('Generator4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator4.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Generators5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators5.py']);
+test('Generator5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator5.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Generators6', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators6.py']);
+test('Generator6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator6.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Generators7', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators7.py']);
+test('Generator7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator7.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Generators8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators8.py']);
+test('Generator8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator8.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Generators9', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators9.py']);
+test('Generator9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator9.py']);
 
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('Generators10', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators10.py']);
+test('Generator10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator10.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Generators11', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators11.py']);
+test('Generator11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator11.py']);
 
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('Generators12', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators12.py']);
+test('Generator12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator12.py']);
 
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('Generators13', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators13.py']);
+test('Generator13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator13.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Generators14', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators14.py']);
+test('Generator14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator14.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Generators15', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators15.py']);
+test('Generator15', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator15.py']);
 
     TestUtils.validateResults(analysisResults, 3);
 });
 
-test('Generators16', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators16.py']);
+test('Generator16', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator16.py']);
 
     TestUtils.validateResults(analysisResults, 1);
 });
@@ -850,62 +850,62 @@ test('MethodOverride6', () => {
     TestUtils.validateResults(analysisResults2, 2);
 });
 
-test('Enums1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums1.py']);
+test('Enum1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum1.py']);
 
     TestUtils.validateResults(analysisResults, 3);
 });
 
-test('Enums2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums2.py']);
+test('Enum2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum2.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Enums3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums3.py']);
+test('Enum3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum3.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Enums4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums4.py']);
+test('Enum4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum4.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Enums5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums5.py']);
+test('Enum5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum5.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Enums6', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums6.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('Enums7', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums7.py']);
+test('Enum6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum6.py']);
 
     TestUtils.validateResults(analysisResults, 4);
 });
 
-test('Enums8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums8.py']);
+test('Enum7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum7.py']);
 
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('Enums9', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums9.py']);
+test('Enum8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum8.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Enums10', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums10.py']);
+test('EnumAuto1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumAuto1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('EnumGenNextValue1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumGenNextValue1.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

@@ -513,56 +513,56 @@ test('Specialization2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Expressions1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions1.py']);
+test('Expression1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expression1.py']);
 
     TestUtils.validateResults(analysisResults, 4);
 });
 
-test('Expressions2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions2.py']);
+test('Expression2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expression2.py']);
 
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('Expressions3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions3.py']);
+test('Expression3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expression3.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Expressions4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions4.py']);
+test('Expression4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expression4.py']);
 
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('Expressions5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions5.py']);
+test('Expression5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expression5.py']);
 
     TestUtils.validateResults(analysisResults, 12);
 });
 
-test('Expressions6', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions6.py']);
+test('Expression6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expression6.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Expressions7', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions7.py']);
+test('Expression7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expression7.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Expressions8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions8.py']);
+test('Expression8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expression8.py']);
 
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('Expressions9', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions9.py']);
+test('Expression9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expression9.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
@@ -749,6 +749,12 @@ test('Call9', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Call10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call10.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('Function1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function1.py']);
 
@@ -764,13 +770,19 @@ test('Function2', () => {
 test('Function3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function3.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Function4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function4.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Function5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function5.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Function6', () => {
@@ -782,7 +794,7 @@ test('Function6', () => {
 test('Function7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function7.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Function8', () => {
@@ -794,23 +806,11 @@ test('Function8', () => {
 test('Function9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function9.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Function10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function10.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('Function11', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function11.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('Function12', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function12.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

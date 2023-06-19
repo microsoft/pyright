@@ -1,20 +1,20 @@
 # This sample tests the detection and handling of asymmetric descriptors
 # and properties. Type narrowing should be disabled in these cases.
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 
 class A:
     @property
-    def prop1(self) -> Optional[int]:
+    def prop1(self) -> int | None:
         ...
 
     @prop1.setter
-    def prop1(self, val: Optional[int]) -> None:
+    def prop1(self, val: int | None) -> None:
         ...
 
     @property
-    def prop2(self) -> Optional[int]:
+    def prop2(self) -> int | None:
         ...
 
     @prop2.setter
@@ -30,7 +30,7 @@ class A:
         ...
 
     @prop3.setter
-    def prop3(self, val: Optional[int]) -> None:
+    def prop3(self, val: int | None) -> None:
         ...
 
     @prop3.deleter
@@ -72,15 +72,15 @@ def func3(obj: A) -> Literal[3]:
 
 
 class Descriptor1:
-    def __get__(self, instance: Any, owner: Any) -> Optional[int]:
+    def __get__(self, instance: Any, owner: Any) -> int | None:
         ...
 
-    def __set__(self, owner: Any, value: Optional[int]) -> None:
+    def __set__(self, owner: Any, value: int | None) -> None:
         ...
 
 
 class Descriptor2:
-    def __get__(self, instance: Any, owner: Any) -> Optional[int]:
+    def __get__(self, instance: Any, owner: Any) -> int | None:
         ...
 
     def __set__(self, owner: Any, value: int) -> None:
@@ -91,7 +91,7 @@ class Descriptor3:
     def __get__(self, instance: Any, owner: Any) -> int:
         ...
 
-    def __set__(self, owner: Any, value: Optional[int]) -> None:
+    def __set__(self, owner: Any, value: int | None) -> None:
         ...
 
 

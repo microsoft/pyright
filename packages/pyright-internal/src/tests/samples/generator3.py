@@ -1,8 +1,6 @@
 # This sample tests various type checking operations relating to
 # generator functions where the return type is inferred.
 
-from typing import Optional
-
 
 class ClassA:
     pass
@@ -49,7 +47,7 @@ def consumer2() -> ClassA:
     return next(generator1())
 
 
-def consumer3() -> Optional[ClassA]:
+def consumer3() -> ClassA | None:
     value = next(generator2())
 
     if isinstance(value, str):

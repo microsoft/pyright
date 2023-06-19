@@ -1,75 +1,36 @@
-# This sample tests the case where a function type is compared to another
-# function type where one contains a positional-only marker and the
-# other does not.
+# This sample tests the case where a function type is assigned to another
+# and the source contains parameters that are annotated as literals and
+# the destination has corresponding TypeVars.
 
-from typing import Protocol
+from typing import Callable, TypeVar, Literal
 
-
-class _Writer1(Protocol):
-    def write(self, a: str, b: str) -> object:
-        pass
+_A = TypeVar("_A")
 
 
-class Writer1:
-    def write(self, a: str, /, b: str):
-        pass
+def wrapper1(fn: Callable[[_A], int]) -> _A:
+    ...
 
 
-def make_writer1(w: _Writer1):
-    pass
+def f1(a: Literal[0]) -> int:
+    ...
 
 
-# This should generate an error because the source function is positional-only.
-make_writer1(Writer1())
+reveal_type(wrapper1(f1), expected_text="Literal[0]")
 
 
-class _Writer2(Protocol):
-    def write(self, a: str, /, b: str) -> object:
-        pass
+def wrapper2(fn: Callable[..., _A]) -> Callable[..., _A]:
+    ...
 
 
-class Writer2:
-    def write(self, a: str, b: str):
-        pass
+def f2() -> Literal["Foo"]:
+    return "Foo"
 
 
-def make_writer2(w: _Writer2):
-    pass
+reveal_type(wrapper2(f2)(), expected_text="Literal['Foo']")
 
 
-make_writer2(Writer2())
+def f3():
+    return "Foo"
 
 
-class _Writer3(Protocol):
-    def write(self, a: str, b: str) -> object:
-        pass
-
-
-class Writer3:
-    def write(self, __a: str, b: str):
-        pass
-
-
-def make_writer3(w: _Writer3):
-    pass
-
-
-# This should generate an error because the source function is positional-only.
-make_writer3(Writer3())
-
-
-class _Writer4(Protocol):
-    def write(self, __a: str, b: str) -> object:
-        pass
-
-
-class Writer4:
-    def write(self, a: str, b: str):
-        pass
-
-
-def make_writer4(w: _Writer4):
-    pass
-
-
-make_writer4(Writer4())
+reveal_type(wrapper2(f3)(), expected_text="str")

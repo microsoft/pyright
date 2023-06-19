@@ -1,5 +1,6 @@
 # This sample tests support for comment-style function annotations.
 
+
 # Too few annotations
 def func1a(a, b):
     # type: (str) -> str

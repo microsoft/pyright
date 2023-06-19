@@ -1,7 +1,7 @@
 # This sample tests 'for' operations (both simple for loops
 # and list comprehension for loops).
 
-from typing import Union, overload
+from typing import overload
 
 
 def requires_int(val: int):
@@ -104,7 +104,7 @@ class C:
     def __getitem__(self, i: slice) -> list[str]:
         ...
 
-    def __getitem__(self, i: Union[int, slice]) -> Union[str, list[str]]:
+    def __getitem__(self, i: int | slice) -> str | list[str]:
         ...
 
 

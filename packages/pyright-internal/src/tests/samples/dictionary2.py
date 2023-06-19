@@ -1,9 +1,9 @@
 # This sample tests dictionary inference logic.
 
-from typing import Mapping, Union
+from typing import Mapping
 
 
-def f(mapping: Mapping[Union[str, bytes], int]):
+def f(mapping: Mapping[str | bytes, int]):
     return mapping
 
 

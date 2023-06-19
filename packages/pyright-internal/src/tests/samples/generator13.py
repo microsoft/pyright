@@ -1,15 +1,15 @@
 # This sample tests async generator and non-generator functions.
 
 import asyncio
-from typing import AsyncGenerator, AsyncIterator, List
+from typing import AsyncGenerator, AsyncIterator
 
 
-async def get_data() -> List[int]:
+async def get_data() -> list[int]:
     await asyncio.sleep(1)
     return [1, 2, 3]
 
 
-async def generate(nums: List[int]) -> AsyncGenerator[str, None]:
+async def generate(nums: list[int]) -> AsyncGenerator[str, None]:
     for n in nums:
         await asyncio.sleep(1)
         yield f"The number is {n}"
