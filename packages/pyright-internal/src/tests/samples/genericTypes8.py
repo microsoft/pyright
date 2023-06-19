@@ -1,5 +1,5 @@
-# This sample tests the type checker's ability to do type var
-# matching for callables, whose input parameters are contravariant.
+# This sample tests the constraint solver's handling of callables
+# whose input parameters are contravariant.
 
 from typing import TypeVar, Callable
 

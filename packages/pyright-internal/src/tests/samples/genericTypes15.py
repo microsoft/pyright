@@ -3,11 +3,9 @@
 # the "keys" method on "dict") based on the provided "self"
 # argument.
 
-from typing import Dict
-
-foo: Dict[str, str] = {}
+v1: dict[str, str] = {}
 
 # This should not result in an "Unknown", so no
 # error should be generated.
-result = dict.keys(foo)
+result = dict.keys(v1)
 reveal_type(result, expected_text="dict_keys[Unknown, Unknown]")

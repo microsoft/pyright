@@ -1,7 +1,7 @@
 # This sample tests the handling of a constrained TypeVar used with
 # a Type[T] annotation.
 
-from typing import Type, TypeVar, Any
+from typing import TypeVar, Any
 
 
 class A:
@@ -15,7 +15,7 @@ class A:
 T = TypeVar("T", str, int, A)
 
 
-def factory(desired_type: Type[T]) -> T:
+def factory(desired_type: type[T]) -> T:
     return desired_type(1)
 
 

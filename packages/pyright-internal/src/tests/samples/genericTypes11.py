@@ -1,4 +1,4 @@
-# This sample validates generic type matching for protocol
+# This sample validates constraint solving for protocol
 # classes where the protocol is partially specialized with a
 # type variable.
 
@@ -9,18 +9,18 @@ from typing import Callable, Iterator, Protocol, TypeVar
 _T = TypeVar("_T", covariant=True)
 
 
-class Foo(Iterator[_T], Protocol):
+class ProtoA(Iterator[_T], Protocol):
     pass
 
 
-def foo(func: Callable[..., Iterator[_T]]) -> Callable[..., Foo[_T]]:
+def decorator1(func: Callable[..., Iterator[_T]]) -> Callable[..., ProtoA[_T]]:
     ...
 
 
-@foo
-def f() -> Iterator[str]:
+@decorator1
+def func1() -> Iterator[str]:
     yield ""
 
 
-a = f()
-b: Foo[str] = a
+a = func1()
+b: ProtoA[str] = a

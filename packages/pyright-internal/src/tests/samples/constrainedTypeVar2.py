@@ -1,4 +1,4 @@
-# This sample tests type var matching for constrained type vars.
+# This sample tests constraint solving for constrained type vars.
 
 import pathlib
 import shutil

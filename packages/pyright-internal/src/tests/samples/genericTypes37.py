@@ -4,14 +4,14 @@
 from typing import Any, Generic, TypeVar
 
 
-class Bar:
+class ClassA:
     ...
 
 
-_T = TypeVar("_T", bound=Bar)
+_T = TypeVar("_T", bound=ClassA)
 
 
-class Foo(Generic[_T]):
+class ClassB(Generic[_T]):
     def func1(self, a: _T):
         pass
 

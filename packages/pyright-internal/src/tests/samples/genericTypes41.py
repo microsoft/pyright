@@ -3,14 +3,14 @@
 
 from typing import TypeVar
 
-_T1 = TypeVar("_T1", bound="P")
-_T2 = TypeVar("_T2", bound="P")
+_T1 = TypeVar("_T1", bound="ClassA")
+_T2 = TypeVar("_T2", bound="ClassA")
 
 
-class P:
+class ClassA:
     def chain(self: _T1) -> _T1:
         ...
 
 
-def func(p1: _T2) -> _T2:
+def func1(p1: _T2) -> _T2:
     return p1.chain()

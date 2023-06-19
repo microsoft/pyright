@@ -5,20 +5,20 @@ from typing import TypeVar, Generic
 T = TypeVar("T")
 
 
-class Foo(Generic[T]):
+class ClassA(Generic[T]):
     def __init__(self, bar: T):
         self._bar = bar
 
     @property
-    def bar(self) -> T:
+    def prop1(self) -> T:
         return self._bar
 
-    def bar_method(self) -> T:
-        reveal_type(self._bar, expected_text="T@Foo")
+    def method1(self) -> T:
+        reveal_type(self._bar, expected_text="T@ClassA")
         return self._bar
 
 
-foo = Foo[int](3)
+a = ClassA[int](3)
 
-# This should work fine because foo.bar should be an int
-foo.bar.bit_length()
+# This should work fine because a.bar should be an int
+a.prop1.bit_length()

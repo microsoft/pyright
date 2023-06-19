@@ -1,7 +1,7 @@
 # This sample tests the type checker's ability to do bidirectional
 # type inference when the expected type is defined by a bound TypeVar.
 
-from typing import Dict, TypeVar
+from typing import TypeVar
 
 
 class A:
@@ -19,7 +19,7 @@ class C(A):
 _T_A = TypeVar("_T_A", bound=A)
 
 
-def testFunc(value: Dict[str, _T_A]) -> _T_A:
+def testFunc(value: dict[str, _T_A]) -> _T_A:
     return value["a"]
 
 

@@ -1,5 +1,4 @@
-# This sample tests that various types can be assigned
-# to Type[Any].
+# This sample tests that various types can be assigned to Type[Any].
 
 from typing import Any, Type, TypeVar
 

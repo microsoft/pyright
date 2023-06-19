@@ -1,5 +1,5 @@
 # This sample tests the case that exercises some of the heuristics that
-# determine whether TypeVar matching should retain a literal type.
+# determine whether a solved TypeVar should retain a literal type.
 
 from typing import Callable, Dict, Generic, Literal, Tuple, TypeVar
 

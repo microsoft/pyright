@@ -6,9 +6,9 @@ from os import PathLike
 from typing import AnyStr
 
 
-def func(path: AnyStr | PathLike[AnyStr]) -> AnyStr:
+def func1(path: AnyStr | PathLike[AnyStr]) -> AnyStr:
     ...
 
 
-def thing(value: AnyStr) -> AnyStr:
-    return func(value)
+def func2(value: AnyStr) -> AnyStr:
+    return func1(value)

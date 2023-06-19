@@ -1,15 +1,15 @@
 # This sample tests the case where a constrained TypeVar is used
 # as an argument for a constructor or function call.
 
-from typing import TypeVar, Generic, Union
+from typing import TypeVar, Generic
 from dataclasses import dataclass
 
 
-class NDArray:
+class ClassA:
     ...
 
 
-_T = TypeVar("_T", Union[int, float], NDArray)
+_T = TypeVar("_T", int | float, ClassA)
 
 
 @dataclass
@@ -23,6 +23,6 @@ def func1(a: Data[_T]) -> _T:
         reveal_type(value, expected_text="int*")
     else:
         value = a.data
-        reveal_type(value, expected_text="NDArray*")
+        reveal_type(value, expected_text="ClassA*")
 
     return value

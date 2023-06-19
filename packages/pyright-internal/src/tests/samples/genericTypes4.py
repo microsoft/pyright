@@ -1,6 +1,4 @@
-# This sample tests type inference and TypeVar matching.
-
-from typing import Union
+# This sample tests bidirectional type inference and constraint solving.
 
 m = int(1)
 n = float(1.1)
@@ -34,4 +32,4 @@ e1: str = e["x"]
 # This should generate an error because d should be
 # typed as dict[Any, str].
 e2: float = e["x"]
-e3: Union[float, str] = e["x"]
+e3: float | str = e["x"]

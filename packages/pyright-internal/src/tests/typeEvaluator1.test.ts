@@ -1074,6 +1074,12 @@ test('Properties14', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Properties15', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties15.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Operators1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators1.py']);
 
@@ -1492,6 +1498,18 @@ test('TupleUnpack3', () => {
 
 test('PseudoGeneric1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['pseudoGeneric1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('PseudoGeneric2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['pseudoGeneric2.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('PseudoGeneric3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['pseudoGeneric3.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

@@ -1,15 +1,30 @@
-# This sample tests the case where a constrained type variable
-# includes a Literal[False] and Literal[True].
+# This sample tests for proper handling of bound TypeVars.
 
-from typing import TypeVar, Generic, Literal
-
-XOrY = TypeVar("XOrY", Literal[True], Literal[False])
+from typing import Generic, TypeVar
 
 
-class A(Generic[XOrY]):
-    pass
+class A:
+    ...
 
 
-class B(Generic[XOrY]):
-    def __init__(self, a: A[XOrY]):
-        self.a = a
+class B:
+    ...
+
+
+_T3 = TypeVar("_T3", bound=A | B)
+
+
+class Registry(Generic[_T3]):
+    def __init__(self) -> None:
+        self.registry = {}
+
+    @property
+    def registry(self) -> dict[str, _T3]:
+        ...
+
+    @registry.setter
+    def registry(self, registry: dict[str, _T3]) -> None:
+        ...
+
+    def get(self, _id: str) -> _T3 | None:
+        return self.registry.get(_id)

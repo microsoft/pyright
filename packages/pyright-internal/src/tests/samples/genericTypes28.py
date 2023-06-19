@@ -8,25 +8,25 @@ _T2 = TypeVar("_T2", bound=None)
 _T3 = TypeVar("_T3")
 
 
-def foo1(a: Type[_T1]) -> _T1:
+def func1(a: Type[_T1]) -> _T1:
     return a()
 
 
-a = foo1(Optional[int])
+a = func1(Optional[int])
 
 
-def foo2(a: Type[_T2]) -> Type[_T2]:
+def func2(a: Type[_T2]) -> Type[_T2]:
     return a
 
 
-b = foo2(type(None))
+b = func2(type(None))
 
 # This should generate an error because None is
 # not a type; it's an instance of the NoneType class.
-c = foo2(None)
+c = func2(None)
 
 
-class Foo(Generic[_T1]):
+class ClassA(Generic[_T1]):
     def __init__(self, value: _T1) -> None:
         ...
 
@@ -35,21 +35,21 @@ class Foo(Generic[_T1]):
         return cls
 
 
-class Bar(Foo):
+class ClassB(ClassA):
     pass
 
 
-def bar(value: _T1) -> Type[Foo[_T1]]:
-    baz = Foo(value)
-    qux = type(baz)
-    reveal_type(qux, expected_text="type[Foo[_T1@bar]]")
-    return qux
+def func3(value: _T1) -> Type[ClassA[_T1]]:
+    v1 = ClassA(value)
+    v2 = type(v1)
+    reveal_type(v2, expected_text="type[ClassA[_T1@func3]]")
+    return v2
 
 
-d = Bar.get()
-reveal_type(d, expected_text="type[Bar]")
-reveal_type(Bar.get(), expected_text="type[Bar]")
+d = ClassB.get()
+reveal_type(d, expected_text="type[ClassB]")
+reveal_type(ClassB.get(), expected_text="type[ClassB]")
 
 
-def class_constructor(cls: type[_T1]) -> Callable[..., _T1]:
+def func4(cls: type[_T1]) -> Callable[..., _T1]:
     return cls

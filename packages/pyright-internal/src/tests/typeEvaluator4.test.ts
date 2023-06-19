@@ -739,6 +739,18 @@ test('Generic1', () => {
     TestUtils.validateResults(analysisResults, 9);
 });
 
+test('Generic2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generic2.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
+test('Generic3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generic3.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('Unions1', () => {
     const configOptions = new ConfigOptions('.');
 
@@ -1205,4 +1217,10 @@ test('TryExcept10', () => {
 test('Del1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['del1.py']);
     TestUtils.validateResults(analysisResults, 6);
+});
+
+test('Del2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['del2.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
 });

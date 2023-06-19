@@ -4,7 +4,7 @@
 # that is typed as that TypeVar, we know that the code path is taken only
 # in the case where constraint is satisfied.
 
-from typing import AnyStr, Generic, List, Optional, ParamSpec, TypeVar, Union
+from typing import AnyStr, Generic, ParamSpec, TypeVar
 from typing_extensions import TypeVarTuple, Unpack
 
 _T1 = TypeVar("_T1", str, int)
@@ -44,7 +44,7 @@ def func2(val1: _T1) -> list[_T1]:
 class Class1(Generic[_T1, _T2, _T3, _P, Unpack[_Ts]]):
     def meth1(
         self, val1: _T1, val2: _T2, val3: _T3, cond: bool
-    ) -> Union[List[_T1], List[_T2], List[_T3]]:
+    ) -> list[_T1] | list[_T2] | list[_T3]:
         if cond:
             # This should generate an error.
             return [0]
@@ -98,7 +98,7 @@ class Class1(Generic[_T1, _T2, _T3, _P, Unpack[_Ts]]):
         raise BaseException()
 
 
-def func3(s: AnyStr, y: Optional[AnyStr] = None) -> AnyStr:
+def func3(s: AnyStr, y: AnyStr | None = None) -> AnyStr:
     if isinstance(s, str):
         if y is None:
             pass

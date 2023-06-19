@@ -1,17 +1,17 @@
 # This sample tests bidirectional inference when the type derives from the
 # expected type and both are generic.
 
-from typing import Generic, Iterable, Mapping, Optional, TypeVar, Union
+from typing import Generic, Iterable, Mapping, TypeVar
 
-v0: Optional[Mapping[str, Union[int, str]]] = dict([("test1", 1), ("test2", 2)])
+v0: Mapping[str, int | str] | None = dict([("test1", 1), ("test2", 2)])
 
-v1: Optional[Mapping[str, float]] = dict([("test1", 1), ("test2", 2)])
+v1: Mapping[str, float] | None = dict([("test1", 1), ("test2", 2)])
 
 # This should generate an error because of a type mismatch.
 v2: Mapping[str, str] = dict([("test1", 1), ("test2", 2)])
 
 
-options: dict[Union[int, str], int] = {}
+options: dict[int | str, int] = {}
 channel_types: dict[str, int] = {}
 
 keys = channel_types.keys()

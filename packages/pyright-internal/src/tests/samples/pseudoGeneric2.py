@@ -9,7 +9,7 @@
 from logging import Handler, NOTSET
 
 
-class Foo(Handler):
+class ClassA(Handler):
     def __init__(self, a, b="hello", level=NOTSET):
         super().__init__(level)
         self._foo_a = a
@@ -24,15 +24,15 @@ class Foo(Handler):
         return self._foo_b
 
 
-foo1 = Foo(27)
-reveal_type(foo1.value_a, expected_text="int")
-reveal_type(foo1.value_b, expected_text="str")
+a1 = ClassA(27)
+reveal_type(a1.value_a, expected_text="int")
+reveal_type(a1.value_b, expected_text="str")
 
 
-foo2 = Foo("hello", "27")
-reveal_type(foo2.value_a, expected_text="str")
-reveal_type(foo2.value_b, expected_text="str")
+a2 = ClassA("hello", "27")
+reveal_type(a2.value_a, expected_text="str")
+reveal_type(a2.value_b, expected_text="str")
 
 # This should generate an error because a pseudo-generic
 # class is not actually generic.
-foo3: Foo[int, str, int]
+a3: ClassA[int, str, int]

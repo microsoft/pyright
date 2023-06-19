@@ -1,4 +1,4 @@
-# This sample checks the handling of TypeVar matching
+# This sample checks the handling of constraint solving
 # in the case where list and tuple expressions are being
 # matched, and those expressions contain literal values.
 # We need to validate that the type inference for lists

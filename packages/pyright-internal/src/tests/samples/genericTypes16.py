@@ -1,15 +1,14 @@
-# This sample tests the type checker's ability to
-# perform TypeVar matching in the case where the first
+# This sample tests constraint solving where the first
 # encounter with the TypeVar is contravariant but later
 # encounters are covariant or invariant.
 
 
-def foo(value: object) -> bool:
+def func1(value: object) -> bool:
     ...
 
 
-# This should evaluate to a type of "Iterable[str]",
-# not "Iterable[object]".
-filtered_list = filter(foo, ["b", "a", "r"])
-should_be_str = next(filtered_list)
-a = len(should_be_str)
+v1 = filter(func1, ["b", "a", "r"])
+reveal_type(v1, expected_text="filter[str]")
+
+v2 = next(v1)
+reveal_type(v2, expected_text="str")

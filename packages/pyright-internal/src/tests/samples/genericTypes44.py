@@ -17,12 +17,12 @@ class ClassA(Iterator[T]):
         ...
 
 
-def bar(it: Iterable[T]) -> Iterator[T]:
-    return ClassA(it)
+def func1(val: Iterable[T]) -> Iterator[T]:
+    return ClassA(val)
 
 
-def baz(it_of_its: Iterable[Iterable[T]]) -> Iterator[T]:
-    return chain(*it_of_its)
+def func2(val: Iterable[Iterable[T]]) -> Iterator[T]:
+    return chain(*val)
 
 
 class ClassB(Generic[T]):

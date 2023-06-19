@@ -3,7 +3,7 @@
 
 # pyright: strict
 
-from typing import Callable, Dict, Literal, TypeVar
+from typing import Callable, Literal, TypeVar
 
 
 def filter_fn(value: object):
@@ -28,7 +28,7 @@ def func(v: Callable[[], _T]) -> _T:
     ...
 
 
-x1: Dict[Animal, int] = func(lambda: {"cat": 0})
+x1: dict[Animal, int] = func(lambda: {"cat": 0})
 
 
 def func1(factory: Callable[[], _T]) -> _T:

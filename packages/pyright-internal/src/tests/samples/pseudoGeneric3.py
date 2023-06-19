@@ -1,11 +1,11 @@
-# This sample is similar to genericTypes20.py in that it tests
+# This sample is similar to pseudoGeneric2.py in that it tests
 # the case where the class's constructor is unannotated. This
 # particular case was causing an internal crash.
 
 import abc
 
 
-class MyClass(metaclass=abc.ABCMeta):
+class ClassB(metaclass=abc.ABCMeta):
     def __init__(self, value=None):
         self._cache = {"value": value}
 
@@ -25,7 +25,6 @@ class MyClass(metaclass=abc.ABCMeta):
             return self.__getattribute__(attr)
 
 
-my_class = MyClass("test")
-print(my_class.value)
-del my_class.cache
-print(my_class.value)
+b1 = ClassB("test")
+reveal_type(b1.value, expected_text="Unknown | Any | None")
+del b1.cache

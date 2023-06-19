@@ -4,21 +4,21 @@
 from typing import Generic, List, Type, TypeVar
 
 
-class Foo:
+class ClassA:
     pass
 
 
-_TFoo = TypeVar("_TFoo", bound=Foo)
-_TAnything = TypeVar("_TAnything")
+T_A = TypeVar("T_A", bound=ClassA)
+T = TypeVar("T")
 
 
-class Bar(Generic[_TFoo, _TAnything]):
+class ClassB(Generic[T_A, T]):
     def __init__(
         self,
-        p1: Type[_TFoo] = Foo,
-        p2: List[_TAnything] = [],
+        p1: Type[T_A] = ClassA,
+        p2: List[T] = [],
         # This should generate an error.
-        p3: List[_TFoo] = [2],
-        p4: List[_TAnything] = [2],
+        p3: List[T_A] = [2],
+        p4: List[T] = [2],
     ):
         pass

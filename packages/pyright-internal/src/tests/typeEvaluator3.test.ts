@@ -633,6 +633,12 @@ test('TypeAlias20', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeAlias21', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias21.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('RecursiveTypeAlias1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias1.py']);
 
@@ -1437,6 +1443,12 @@ test('Constructor19', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor19.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Constructor20', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor20.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('InconsistentConstructor1', () => {
