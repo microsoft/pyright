@@ -27,19 +27,13 @@ _T = TypeVar("_T", bound=float)
 @dataclass
 class GenericFoo(Generic[_T]):
     @staticmethod
-    def getT() -> _T: ...
+    def convertFromT(x: _T) -> str: ...
 
     @staticmethod
-    def convertFromT(x: _T | None) -> str:
-        return str(x)
+    def passThru(x: _T) -> _T: ...
 
     @staticmethod
-    def passThru(x: _T) -> _T:
-        return x
-
-    @staticmethod
-    def convertToT(x: str) -> _T:
-        return x
+    def convertToT(x: str) -> _T: ...
 
     # This should generate an error because "converter" is not an official property yet.
     field0: str = field(converter=convertFromT)
@@ -48,13 +42,13 @@ class GenericFoo(Generic[_T]):
     # This should generate an error because "converter" is not an official property yet.
     field2: _T = field(converter=convertToT)
 
-g = GenericFoo[float](1, 1, 1)
+g = GenericFoo[float](1.0, 1.0, "1")
 
 reveal_type(g.field0, expected_text="str")
 g.field0 = 1.0
 
-reveal_type(g.field1, expected_text="float")
+reveal_type(g.field1, expected_text="float*")
 g.field1 = 1.0
 
-reveal_type(g.field2, expected_text="float")
+reveal_type(g.field2, expected_text="float*")
 g.field2 = "1"

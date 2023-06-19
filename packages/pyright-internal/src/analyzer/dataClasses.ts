@@ -828,7 +828,6 @@ function getDescriptorForConverterField(
     const fileInfo = getFileInfo(dataclassNode);
     const typeMetaclass = evaluator.getBuiltInType(dataclassNode, 'type');
     const descriptorName = `__converterDescriptor_${fieldName}`;
-    const typeVarScopeId = getScopeIdForNode(dataclassNode);
 
     const descriptorClass = ClassType.createInstantiable(
         descriptorName,
@@ -840,7 +839,6 @@ function getDescriptorForConverterField(
         /* declaredMetaclass */ undefined,
         isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
     );
-    descriptorClass.details.typeVarScopeId = typeVarScopeId;
     computeMroLinearization(descriptorClass);
 
     const fields = descriptorClass.details.fields;
@@ -861,13 +859,10 @@ function getDescriptorForConverterField(
     FunctionType.addParameter(setFunction, {
         category: ParameterCategory.Simple,
         name: 'value',
-        type: setType,
+        type: evaluator.makeTopLevelTypeVarsConcrete(setType),
         hasDeclaredType: true,
     });
     setFunction.details.declaredReturnType = NoneType.createInstance();
-    // Adopt the TypeVarScopeId of the dataclass in case __set__ has any
-    // TypeVars that need to be solved.
-    setFunction.details.typeVarScopeId = typeVarScopeId;
     const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
     fields.set('__set__', setSymbol);
 
@@ -890,10 +885,7 @@ function getDescriptorForConverterField(
         type: AnyType.create(),
         hasDeclaredType: true,
     });
-    getFunction.details.declaredReturnType = getType;
-    // Adopt the TypeVarScopeId of the dataclass in case __get__ has any
-    // TypeVars that need to be solved.
-    getFunction.details.typeVarScopeId = typeVarScopeId;
+    getFunction.details.declaredReturnType = evaluator.makeTopLevelTypeVarsConcrete(getType);
     const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunction);
     fields.set('__get__', getSymbol);
 
