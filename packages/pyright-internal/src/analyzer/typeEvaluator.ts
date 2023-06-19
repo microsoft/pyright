@@ -12009,7 +12009,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             nameNode,
             valueExpr,
             /* typeParamNodes */ undefined,
-            () => typeParameters
+            () => typeParameters ?? []
         );
     }
 

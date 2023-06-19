@@ -1,6 +1,6 @@
 # This sample tests the TypeAliasType constructor.
 
-from typing import Callable, ParamSpec, TypeVar, TypeVarTuple
+from typing import Callable, Generic, ParamSpec, TypeVar, TypeVarTuple
 from typing_extensions import TypeAliasType
 
 T1 = TypeVar("T1")
@@ -45,3 +45,7 @@ TA6 = TypeAliasType("TA6", TA7)
 TA7 = TypeAliasType("TA7", TA6)
 
 JSONNode = TypeAliasType("JSONNode", list[JSONNode] | dict[str, JSONNode] | str | float)
+
+
+class A(Generic[T]):
+    L = TypeAliasType("L", list[T])
