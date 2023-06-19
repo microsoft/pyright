@@ -518,7 +518,14 @@ export function synthesizeDataClassMethods(
                         effectiveType = getConverterInputType(evaluator, entry.converter, effectiveType, entry.name);
                         symbolTable.set(
                             entry.name,
-                            getDescriptorForConverterField(evaluator, node, entry.name, fieldType, effectiveType)
+                            getDescriptorForConverterField(
+                                evaluator,
+                                node,
+                                entry.converter,
+                                entry.name,
+                                fieldType,
+                                effectiveType
+                            )
                         );
                     }
 
@@ -805,13 +812,15 @@ function getConverterAsFunction(
     return undefined;
 }
 
-// Synthesizes an asymmetric descriptor class to be used as the effective type
-// of a field with a converter. The descriptor's __get__ method returns the
-// declared type of the field and its __set__ method accepts the converter's
-// input type. Returns the symbol for an instance of this descriptor type.
+// Synthesizes an asymmetric descriptor class to be used in place of the
+// annotated type of a field with a converter. The descriptor's __get__ method
+// returns the declared type of the field and its __set__ method accepts the
+// converter's input type. Returns the symbol for an instance of this descriptor
+// type.
 function getDescriptorForConverterField(
     evaluator: TypeEvaluator,
     dataclassNode: ParseNode,
+    converterNode: ParseNode,
     fieldName: string,
     getType: Type,
     setType: Type
@@ -823,11 +832,11 @@ function getDescriptorForConverterField(
 
     const descriptorClass = ClassType.createInstantiable(
         descriptorName,
-        getClassFullName(dataclassNode, fileInfo.moduleName, descriptorName),
+        getClassFullName(converterNode, fileInfo.moduleName, descriptorName),
         fileInfo.moduleName,
         fileInfo.filePath,
         ClassTypeFlags.None,
-        getTypeSourceId(dataclassNode),
+        getTypeSourceId(converterNode),
         /* declaredMetaclass */ undefined,
         isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
     );
