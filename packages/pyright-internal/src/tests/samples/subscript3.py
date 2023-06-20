@@ -1,7 +1,7 @@
 # This sample tests subscript forms specified in PEP 637 -
 # keyword and unpacked args.
 
-from typing import Any, Tuple, Union, overload
+from typing import Any, Union, overload
 
 
 class ClassA:
@@ -10,7 +10,7 @@ class ClassA:
         ...
 
     @overload
-    def __getitem__(self, index: Tuple[int, ...]) -> float:
+    def __getitem__(self, index: tuple[int, ...]) -> float:
         ...
 
     @overload
@@ -25,7 +25,7 @@ class ClassA:
         ...
 
     @overload
-    def __setitem__(self, index: Tuple[int, ...], value: float) -> None:
+    def __setitem__(self, index: tuple[int, ...], value: float) -> None:
         ...
 
     @overload
@@ -93,7 +93,7 @@ a_obj[1, *val_list] = 4.3j
 
 
 class ClassB:
-    def __getitem__(self, value: Tuple[()], *, v1: int) -> str:
+    def __getitem__(self, value: tuple[()], *, v1: int) -> str:
         ...
 
 b_obj = ClassB()

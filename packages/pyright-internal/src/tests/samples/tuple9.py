@@ -5,13 +5,10 @@
 
 # pyright: strict
 
-from typing import Tuple
-
-
 str_list = ["1", "2", "3"]
 left, right = tuple(str_list)
 
-check1: Tuple[str, str] = (left, right)
+check1: tuple[str, str] = (left, right)
 
 # This should generate an error
-check2: Tuple[str, int] = (left, right)
+check2: tuple[str, int] = (left, right)

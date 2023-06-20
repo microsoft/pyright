@@ -30,6 +30,3 @@ def func3(v: Optional[JsonVal1]):
     x: Optional[JsonVal2] = v
 
     return x
-
-
-  

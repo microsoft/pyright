@@ -1,10 +1,8 @@
 # This sample is used in conjunction with protocolModule2.py.
 
-from typing import Union
-
 
 var_1: int = 3
-var_2: Union[int, str] = "hello"
+var_2: int | str = "hello"
 
 
 def func_1(a: int, b: str) -> str:

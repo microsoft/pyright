@@ -1,6 +1,6 @@
 # This sample tests type checking for set comprehensions.
 
-from typing import Generator, Set
+from typing import Generator
 
 a = [1, 2, 3, 4]
 
@@ -10,12 +10,12 @@ def func1() -> Generator[int, None, None]:
     return b
 
 
-def func2() -> Set[int]:
+def func2() -> set[int]:
     c = {elem for elem in a}
     return c
 
 
-def func3() -> Set[str]:
+def func3() -> set[str]:
     c = {elem for elem in a}
 
     # This should generate an error because

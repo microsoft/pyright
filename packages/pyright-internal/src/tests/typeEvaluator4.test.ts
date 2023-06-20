@@ -727,12 +727,6 @@ test('Callable6', () => {
     TestUtils.validateResults(analysisResults, 9);
 });
 
-test('ThreePartVersion1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['threePartVersion1.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
 test('Generic1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generic1.py']);
 

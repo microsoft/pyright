@@ -22,7 +22,7 @@
 a = 1  # pyright: reportGeneralTypeIssues=false
 
 
-def foo():
+def func1():
     # This should generate an error because it's not on its own line.
     # pyright: reportGeneralTypeIssues=false
     pass

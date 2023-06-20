@@ -1,9 +1,7 @@
 # This sample tests indexing of tuples with slice expressions.
 
-from typing import Tuple
 
-
-def func1(val1: Tuple[int, str, None], val2: Tuple[int, ...]):
+def func1(val1: tuple[int, str, None], val2: tuple[int, ...]):
     x1 = val1[:2]
     reveal_type(x1, expected_text="tuple[int, str]")
 

@@ -1,6 +1,7 @@
 # This sample tests that type errors within a finally clause are
 # property detected.
 
+
 def func1() -> None:
     file = None
     try:

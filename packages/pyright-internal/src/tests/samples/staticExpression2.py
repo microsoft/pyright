@@ -1,5 +1,6 @@
-import sys
+# This sample tests a special form of a sys.version_info check.
 
+import sys
 from datetime import datetime, timezone, timedelta
 from typing import overload, Optional
 

@@ -1,7 +1,7 @@
 # This sample tests the handling of the "super" call when
 # used with a two-argument form that specifies the "bind to" type.
 
-from typing import Type, TypeVar
+from typing import TypeVar
 
 
 T = TypeVar("T", bound="A")
@@ -9,7 +9,7 @@ T = TypeVar("T", bound="A")
 
 class A:
     @classmethod
-    def factory(cls: Type[T]) -> T:
+    def factory(cls: type[T]) -> T:
         return cls()
 
 

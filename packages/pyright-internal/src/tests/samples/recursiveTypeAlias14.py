@@ -14,6 +14,7 @@ def func1() -> NestedIntList:
         result = [result]
     return result
 
+
 def func2() -> NestedIntList:
     # This should generate an error.
     result: NestedIntList = ""

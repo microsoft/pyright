@@ -1,11 +1,11 @@
 # This sample tests basic handling of nested finally clauses.
 
 
-def deallocate(i: int) -> None:
+def func1(i: int) -> None:
     pass
 
 
-def test():
+def func2():
     aaa = 3
     try:
         try:
@@ -13,4 +13,4 @@ def test():
         finally:
             pass
     finally:
-        deallocate(aaa)
+        func1(aaa)

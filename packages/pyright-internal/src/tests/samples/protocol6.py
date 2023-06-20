@@ -1,6 +1,6 @@
 # This sample tests nested protocol definitions.
 
-from typing import List, Literal, Protocol, TypeVar
+from typing import Literal, Protocol, TypeVar
 
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")
@@ -9,7 +9,7 @@ _T3 = TypeVar("_T3")
 
 class Animal(Protocol[_T1]):
     species: str
-    attributes: List[_T1]
+    attributes: list[_T1]
 
 
 class Mammal(Animal[_T2], Protocol):
@@ -26,12 +26,12 @@ class CamelLike(Ungulate[bytes], Protocol):
 
 class Sloth:
     species: str
-    attributes: List[str]
+    attributes: list[str]
 
 
 class Armadillo:
     species: str
-    attributes: List[bytes]
+    attributes: list[bytes]
 
 
 class Tapir:
@@ -40,13 +40,13 @@ class Tapir:
 
 class Camel:
     species: Literal["camel"]
-    attributes: List[bytes]
+    attributes: list[bytes]
     type_of_hooves: bytes
 
 
 class Cow:
     species: str
-    attributes: List[str]
+    attributes: list[str]
     type_of_hooves: str
 
 

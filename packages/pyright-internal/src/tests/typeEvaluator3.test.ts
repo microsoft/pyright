@@ -460,8 +460,8 @@ test('Comprehension9', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('SetComprehension1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['setComprehension1.py']);
+test('Comprehension10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['comprehension10.py']);
 
     TestUtils.validateResults(analysisResults, 1);
 });

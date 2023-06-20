@@ -1,7 +1,7 @@
 # This sample tests the case where the constraint solver's solution involves
 # a union of type variables.
 
-from typing import Generic, TypeVar, Union, cast
+from typing import Generic, TypeVar
 
 V = TypeVar("V")
 V_co = TypeVar("V_co", covariant=True)
@@ -17,7 +17,7 @@ class ClassB(Generic[V_co]):
         pass
 
 
-def func1(a: ClassA[V], b: ClassA[U], c: bool) -> ClassB[Union[V, U]]:
+def func1(a: ClassA[V], b: ClassA[U], c: bool) -> ClassB[V | U]:
     x: ClassA[V | U] = a
     reveal_type(x, expected_text="ClassA[V@func1]")
     if c:

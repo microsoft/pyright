@@ -6,6 +6,7 @@ from queue import Queue
 from collections import OrderedDict, deque
 from asyncio import Future, Task
 
+
 # These should generate errors for Python 3.8 and older.
 def func1(
     a1: Queue[int],

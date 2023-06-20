@@ -1,6 +1,7 @@
 # This sample tests a limiter that prevents infinite recursion
 # in the tuple inference logic.
 
+
 def func1(val: int):
     t = None
     while True:

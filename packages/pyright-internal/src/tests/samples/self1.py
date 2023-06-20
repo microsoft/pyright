@@ -1,10 +1,11 @@
 # This sample tests various error conditions for the Self type
 
-from typing import Callable, Generic, Type, TypeVar
+from typing import Callable, TypeVar
 from typing_extensions import Self
 
 
 T = TypeVar("T")
+
 
 # This should generate an error because Self can't be used in this context.
 class A(Self):
@@ -55,7 +56,7 @@ class B:
         return self
 
     @classmethod
-    def method5(cls) -> Type[Self]:
+    def method5(cls) -> type[Self]:
         return cls
 
     @classmethod
@@ -63,13 +64,13 @@ class B:
         ...
 
     @classmethod
-    def method7(cls: Type[Self]) -> Type[Self]:
+    def method7(cls: type[Self]) -> type[Self]:
         return cls
 
     # This should generate an error because Self can't be used with
     # methods that declare a non-Self type for "self".
     @classmethod
-    def method8(cls: Type[T], a: Self) -> Type[T]:
+    def method8(cls: type[T], a: Self) -> type[T]:
         # This should generate an error because Self can't be used with
         # methods that declare a non-Self type for "self".
         x: Self

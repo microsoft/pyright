@@ -11,14 +11,18 @@ class TraceFunctionProto(Protocol):
     def __call__(self, frame: FrameType, event: str, arg: Any) -> Self | None:
         ...
 
+
 TraceFunction: TypeAlias = Callable[[FrameType, str, Any], "TraceFunction | None"]
 
-def settrace(tf: TraceFunction | None) -> None: ...
+
+def settrace(tf: TraceFunction | None) -> None:
+    ...
+
 
 def func1(frame: FrameType, event: str, arg: Any) -> TraceFunction:
     ...
 
+
 def func2(tf: TraceFunctionProto | None):
     settrace(tf)
     settrace(func1)
-

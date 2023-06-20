@@ -1,8 +1,7 @@
 # This sample tests handling of tuples and tracking
 # of specific types within a tuple.
 
-from typing import Generic, List, Optional, Tuple, TypeVar
-from typing_extensions import Self
+from typing import Generic, TypeVar, Self
 
 _T = TypeVar("_T")
 
@@ -28,15 +27,13 @@ reveal_type(objA[3], expected_text="complex")
 
 # This should generate an error because the trailing
 # comma turns the index value into a tuple.
-e = objA[
-    0,
-]
+e = objA[0,]
 
 for aaa in objA:
     print(aaa)
 
 
-class ClassB(Tuple[_T, ...]):
+class ClassB(tuple[_T, ...]):
     def __new__(cls) -> Self:
         ...
 
@@ -54,11 +51,11 @@ yy2: complex = objB[1]
 zz2: complex = objB[2]
 
 
-def func1(lst: Optional[List[str]]) -> None:
+def func1(lst: list[str] | None) -> None:
     for item in lst or ():
         reveal_type(item, expected_text="str")
 
 
 class X(Generic[_T]):
     def __init__(self):
-        self._x: Tuple[_T, ...] = ()
+        self._x: tuple[_T, ...] = ()

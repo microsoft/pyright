@@ -1,10 +1,10 @@
 # This sample tests the case that exercises some of the heuristics that
 # determine whether a solved TypeVar should retain a literal type.
 
-from typing import Callable, Dict, Generic, Literal, Tuple, TypeVar
+from typing import Callable, Generic, Literal, TypeVar
 
 
-FileChanges = Dict[str, Literal["created", "edited", "removed"]]
+FileChanges = dict[str, Literal["created", "edited", "removed"]]
 
 changes: FileChanges = {}
 changes.update({filename: "removed" for filename in ["foo.py", "bar.py"]})
@@ -35,7 +35,7 @@ def func3(value: _T) -> Callable[[_T], None]:
     ...
 
 
-x: Callable[[Tuple[bool]], None] = func3((True,))
+x: Callable[[tuple[bool]], None] = func3((True,))
 
 
 def func4(v: _T, f: Callable[[_T], None]):

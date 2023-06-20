@@ -1,8 +1,8 @@
 # This sample tests Pyright's handling of recursive type aliases.
 
-from typing import Dict, List, Mapping, TypeVar, Union
+from typing import Mapping, TypeVar, Union
 
-MyTree = List[Union["MyTree", int]]
+MyTree = list[Union["MyTree", int]]
 
 t1: MyTree = [1, 2, 3, [3, 4], [[3], 5]]
 
@@ -22,7 +22,7 @@ i2: GenericUnion[float] = 3
 # This should generate an error because str isn't compatible.
 i2 = "hi"
 
-Foo = Union[bool, List["Foo"], Dict["Foo", "Foo"]]
+Foo = Union[bool, list["Foo"], dict["Foo", "Foo"]]
 
 bar1: Foo = [True, [True, False]]
 bar2: Foo = [True, [True], {True: False}]
@@ -33,7 +33,7 @@ baz1: Foo = [True, ["True", False]]
 baz2: Foo = [True, [True], {True: "False"}]
 baz4: Foo = {True: ["False"]}
 
-Json = Union[None, int, str, float, List["Json"], Dict[str, "Json"]]
+Json = Union[None, int, str, float, list["Json"], dict[str, "Json"]]
 
 # This should generate an error
 a1: Json = {"a": 1, "b": 3j}

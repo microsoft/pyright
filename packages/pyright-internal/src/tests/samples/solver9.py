@@ -1,21 +1,21 @@
 # This sample tests that Optional types can be matched
 # to Type[T] expressions by the constraint solver.
 
-from typing import Callable, Generic, Optional, Type, TypeVar
+from typing import Callable, Generic, Optional, TypeVar
 
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2", bound=None)
 _T3 = TypeVar("_T3")
 
 
-def func1(a: Type[_T1]) -> _T1:
+def func1(a: type[_T1]) -> _T1:
     return a()
 
 
 a = func1(Optional[int])
 
 
-def func2(a: Type[_T2]) -> Type[_T2]:
+def func2(a: type[_T2]) -> type[_T2]:
     return a
 
 
@@ -31,7 +31,7 @@ class ClassA(Generic[_T1]):
         ...
 
     @classmethod
-    def get(cls: Type[_T3]) -> Type[_T3]:
+    def get(cls: type[_T3]) -> type[_T3]:
         return cls
 
 
@@ -39,7 +39,7 @@ class ClassB(ClassA):
     pass
 
 
-def func3(value: _T1) -> Type[ClassA[_T1]]:
+def func3(value: _T1) -> type[ClassA[_T1]]:
     v1 = ClassA(value)
     v2 = type(v1)
     reveal_type(v2, expected_text="type[ClassA[_T1@func3]]")
