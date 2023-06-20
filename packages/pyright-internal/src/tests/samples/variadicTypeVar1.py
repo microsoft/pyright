@@ -3,7 +3,7 @@
 
 # pyright: reportMissingModuleSource=false
 
-from typing import Generic, List, Tuple, TypeVar, Union
+from typing import Generic, TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 
@@ -19,24 +19,24 @@ class ClassA(Generic[_T, Unpack[_Xs]]):
     def func2(self) -> Union[_Xs]:
         ...
 
-    def func3(self) -> Tuple[Unpack[_Xs]]:
+    def func3(self) -> tuple[Unpack[_Xs]]:
         ...
 
     # This should generate an error
-    def func4(self) -> Tuple[_Xs]:
+    def func4(self) -> tuple[_Xs]:
         ...
 
     def func5(self) -> "ClassA[int, str, Unpack[_Xs]]":
         ...
 
-    # This should be an error because List doesn't accept a variadic TypeVar.
-    x: List[_Xs] = []
+    # This should be an error because list doesn't accept a variadic TypeVar.
+    x: list[_Xs] = []
 
     # This should generate an error.
     y: _Xs = ()
 
     # This should generate an error.
-    z: Tuple[_Xs, ...]
+    z: tuple[_Xs, ...]
 
 
 # This should generate an error.
@@ -45,7 +45,7 @@ class ClassB(Generic[_Xs]):
 
 
 # This should generate an error.
-x: List[_Xs] = []
+x: list[_Xs] = []
 
 # This should generate an error.
 y: _Xs = ()

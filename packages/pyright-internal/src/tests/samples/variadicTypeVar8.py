@@ -2,7 +2,7 @@
 
 # pyright: reportMissingModuleSource=false
 
-from typing import List, TypeVar, Union
+from typing import TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 
@@ -35,11 +35,11 @@ def func6(*args: Unpack[_Xs]) -> Union[Unpack[_Xs]]:
     ...
 
 
-def func7(a: List[Union[Unpack[_Xs]]]) -> Union[Unpack[_Xs]]:
+def func7(a: list[Union[Unpack[_Xs]]]) -> Union[Unpack[_Xs]]:
     ...
 
 
-def test1(a: int, b: str, c: List[int], d: Union[complex, str]):
+def test1(a: int, b: str, c: list[int], d: Union[complex, str]):
     v1_1 = func1(a)
     reveal_type(v1_1, expected_text="int")
 
@@ -111,7 +111,7 @@ def test1(a: int, b: str, c: List[int], d: Union[complex, str]):
     v7_1 = func7([a])
     reveal_type(v7_1, expected_text="int")
 
-    x: List[Union[int, str]] = [a, b]
+    x: list[Union[int, str]] = [a, b]
     v7_2 = func7(x)
     reveal_type(v7_2, expected_text="int | str")
 

@@ -2,7 +2,7 @@
 # narrowing in the case where there is no overlap between the
 # value type and the test type.
 
-from typing import Type, TypeVar, final
+from typing import TypeVar, final
 
 
 class A:
@@ -47,7 +47,7 @@ def func1(val: A):
         reveal_type(val, expected_text="A")
 
 
-def func2(val: Type[A]):
+def func2(val: type[A]):
     if issubclass(val, B):
         val.a_val
         val.b_val

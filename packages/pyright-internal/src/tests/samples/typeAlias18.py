@@ -2,7 +2,7 @@
 # declaration. We want to ensure that the variance of type variables
 # is compatible with the usage within the type alias.
 
-from typing import Callable, Generic, TypeVar, TypeAlias
+from typing import Generic, TypeVar, TypeAlias
 
 T1 = TypeVar("T1")
 T2 = TypeVar("T2", covariant=True)

@@ -4,7 +4,7 @@
 
 # pyright: reportInvalidTypeVarUse=true
 
-from typing import AnyStr, Callable, Dict, Generic, List, overload
+from typing import AnyStr, Callable, Generic, overload
 from typing_extensions import TypeVar
 
 
@@ -33,7 +33,7 @@ def f1(v1: _T) -> None:
     ...
 
 
-def f2(v1: _T, v2: List[_T]) -> None:
+def f2(v1: _T, v2: list[_T]) -> None:
     ...
 
 
@@ -41,13 +41,13 @@ def f3(v1: _T) -> _T:
     ...
 
 
-def f4() -> Dict[_T, _T]:
+def f4() -> dict[_T, _T]:
     ...
 
 
 # This should generate an error because _T
 # is a local typeVar and appears only once.
-def f5() -> List[_T]:
+def f5() -> list[_T]:
     ...
 
 
@@ -67,13 +67,13 @@ def f7(v1: _T_Bound):
 
 # Bound TypeVars as type arguments are exempt when used in an
 # input parameter annotation.
-def f8(v1: List[_T_Bound]):
+def f8(v1: list[_T_Bound]):
     ...
 
 
 # Bound TypeVars as type arguments are not exempt when used in a
 # return annotation.
-def f9() -> List[_T_Bound]:
+def f9() -> list[_T_Bound]:
     ...
 
 
@@ -91,7 +91,7 @@ def f11(x: AnyStr = ...) -> AnyStr:
 
 
 # This should generate an error because AnyStr can go unsolved.
-def f12(x: AnyStr = ...) -> List[AnyStr]:
+def f12(x: AnyStr = ...) -> list[AnyStr]:
     ...
 
 
@@ -104,7 +104,7 @@ def f14(x: AnyStr = "") -> AnyStr:
 
 
 # This should generate an error because AnyStr can go unsolved.
-def f15(x: AnyStr = ...) -> List[AnyStr] | None:
+def f15(x: AnyStr = ...) -> list[AnyStr] | None:
     ...
 
 

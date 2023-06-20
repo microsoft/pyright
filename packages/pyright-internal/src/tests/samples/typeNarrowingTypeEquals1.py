@@ -1,11 +1,10 @@
 # This sample exercises the type analyzer's type narrowing
 # logic for tests of the form "type(X) == Y" or "type(X) != Y".
 
-from typing import Any, Dict, Generic, Optional, TypeVar, Union, final
+from typing import Any, Generic, TypeVar, final
 
 
-def func1(a: Union[str, int]) -> int:
-
+def func1(a: str | int) -> int:
     if type(a) != str:
         # This should generate an error because
         # "a" is potentially a subclass of str.
@@ -16,8 +15,7 @@ def func1(a: Union[str, int]) -> int:
     return a
 
 
-def func2(a: Optional[str]) -> str:
-
+def func2(a: str | None) -> str:
     if type(a) == str:
         return a
 
@@ -26,7 +24,7 @@ def func2(a: Optional[str]) -> str:
     return a
 
 
-def func3(a: Dict[str, Any]) -> str:
+def func3(a: dict[str, Any]) -> str:
     val = a.get("hello")
     if type(val) == str:
         return val
@@ -42,7 +40,7 @@ class B(A):
     pass
 
 
-def func4(a: Union[str, A]):
+def func4(a: str | A):
     if type(a) == B:
         reveal_type(a, expected_text="B")
     else:
@@ -61,7 +59,7 @@ class D:
     pass
 
 
-E = Union[C[T], D]
+E = C[T] | D
 
 
 def func5(x: E[T]) -> None:
@@ -79,7 +77,7 @@ class BFinal:
     pass
 
 
-def func6(val: Union[AFinal, BFinal]) -> None:
+def func6(val: AFinal | BFinal) -> None:
     if type(val) == AFinal:
         reveal_type(val, expected_text="AFinal")
     else:
@@ -94,13 +92,17 @@ def func7(val: Any):
 
     reveal_type(val, expected_text="int | Any")
 
+
 class CParent:
     ...
+
 
 class CChild(CParent):
     ...
 
+
 _TC = TypeVar("_TC", bound=CParent)
+
 
 def func8(a: _TC, b: _TC) -> _TC:
     if type(a) == CChild:

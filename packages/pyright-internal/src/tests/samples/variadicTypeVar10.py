@@ -2,7 +2,7 @@
 # in conjunction with unpacked tuples.
 
 from __future__ import annotations
-from typing import Any, Generic, NewType, Tuple, TypeVar, Union
+from typing import Any, Generic, NewType, TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 DType = TypeVar("DType")
@@ -24,7 +24,7 @@ class Array(Generic[DType, Unpack[Shape]]):
         ...
 
 
-def process_batch_channels(x: Array[Batch, Unpack[Tuple[Any, ...]], Channels]) -> None:
+def process_batch_channels(x: Array[Batch, Unpack[tuple[Any, ...]], Channels]) -> None:
     ...
 
 
@@ -32,7 +32,7 @@ def expect_variadic_array1(x: Array[Batch, Unpack[Shape]]) -> Union[Unpack[Shape
     ...
 
 
-def expect_variadic_array2(x: Array[Batch, Unpack[Tuple[Any, ...]]]) -> None:
+def expect_variadic_array2(x: Array[Batch, Unpack[tuple[Any, ...]]]) -> None:
     ...
 
 
@@ -58,7 +58,7 @@ def func3(z: Array[Batch]):
     process_batch_channels(z)
 
 
-def func4(y: Array[Any, Unpack[Tuple[Any, ...]]]):
+def func4(y: Array[Any, Unpack[tuple[Any, ...]]]):
     reveal_type(y, expected_text="Array[Any, *tuple[Any, ...]]")
     expect_variadic_array1(y)
     expect_variadic_array2(y)

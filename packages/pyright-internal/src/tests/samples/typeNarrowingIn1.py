@@ -1,6 +1,6 @@
 # This sample tests type narrowing for the "in" operator.
 
-from typing import Literal, Optional, Union
+from typing import Literal
 import random
 
 
@@ -16,8 +16,8 @@ def verify_none(p: None) -> None:
     ...
 
 
-x: Optional[str]
-y: Union[int, str]
+x: str | None
+y: int | str
 if random.random() < 0.5:
     x = None
     y = 1
@@ -40,7 +40,7 @@ if y in [2]:
     verify_str(y)
 
 
-def func1(x: Optional[Union[int, str]], y: Literal[1, 2, "b"], b: int):
+def func1(x: int | str | None, y: Literal[1, 2, "b"], b: int):
     if x in (1, 2, "a"):
         reveal_type(x, expected_text="Literal[1, 2, 'a']")
 

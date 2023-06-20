@@ -24,5 +24,3 @@ class Child(Base[int, str]):
 
 Child.method1(1, "")
 Child.method2(1, "")
-
-

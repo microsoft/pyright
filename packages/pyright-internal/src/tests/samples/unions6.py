@@ -11,7 +11,6 @@ from typing import (
     SupportsIndex,
     TypeGuard,
     TypeVar,
-    cast,
     overload,
 )
 

@@ -1,44 +1,44 @@
 # This sample tests type narrowing of tuples based on len(x) test.
 
-from typing import Tuple, TypeVar, Union
+from typing import TypeVar
 
 
-def func1(val: Union[Tuple[int], Tuple[int, int], Tuple[str, str]]):
+def func1(val: tuple[int] | tuple[int, int] | tuple[str, str]):
     if len(val) == 1:
-        reveal_type(val, expected_text="Tuple[int]")
+        reveal_type(val, expected_text="tuple[int]")
     else:
-        reveal_type(val, expected_text="Tuple[int, int] | Tuple[str, str]")
+        reveal_type(val, expected_text="tuple[int, int] | tuple[str, str]")
 
     if len(val) != 2:
-        reveal_type(val, expected_text="Tuple[int]")
+        reveal_type(val, expected_text="tuple[int]")
     else:
-        reveal_type(val, expected_text="Tuple[int, int] | Tuple[str, str]")
+        reveal_type(val, expected_text="tuple[int, int] | tuple[str, str]")
 
 
-def func2(val: Union[Tuple[int], Tuple[int, ...]]):
+def func2(val: tuple[int] | tuple[int, ...]):
     if len(val) == 1:
-        reveal_type(val, expected_text="Tuple[int] | Tuple[int, ...]")
+        reveal_type(val, expected_text="tuple[int] | tuple[int, ...]")
     else:
-        reveal_type(val, expected_text="Tuple[int, ...]")
+        reveal_type(val, expected_text="tuple[int, ...]")
 
     if len(val) != 2:
-        reveal_type(val, expected_text="Tuple[int] | Tuple[int, ...]")
+        reveal_type(val, expected_text="tuple[int] | tuple[int, ...]")
     else:
-        reveal_type(val, expected_text="Tuple[int, ...]")
+        reveal_type(val, expected_text="tuple[int, ...]")
 
 
-def func3(val: Union[Tuple[int], Tuple[()]]):
+def func3(val: tuple[int] | tuple[()]):
     if len(val) == 0:
-        reveal_type(val, expected_text="Tuple[()]")
+        reveal_type(val, expected_text="tuple[()]")
     else:
-        reveal_type(val, expected_text="Tuple[int]")
+        reveal_type(val, expected_text="tuple[int]")
 
 
-_T1 = TypeVar("_T1", bound=Tuple[int])
-_T2 = TypeVar("_T2", bound=Tuple[str, str])
+_T1 = TypeVar("_T1", bound=tuple[int])
+_T2 = TypeVar("_T2", bound=tuple[str, str])
 
 
-def func4(val: Union[_T1, _T2]) -> Union[_T1, _T2]:
+def func4(val: _T1 | _T2) -> _T1 | _T2:
     if len(val) == 1:
         reveal_type(val, expected_text="_T1@func4")
     else:

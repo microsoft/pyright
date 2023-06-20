@@ -1,37 +1,31 @@
 # This sample tests the type analyzer's type narrowing logic
 # relating to break and continue statements and while test expressions.
 
-from typing import List, Optional
-
 
 def only_int(a: int):
     return a < 3
 
 
 def test_break():
-    foo1 = None
+    val1 = None
     while True:
-        if foo1 is None:
-            foo1 = 5
+        if val1 is None:
+            val1 = 5
             break
         else:
-            foo1 = "hello"
+            val1 = "hello"
 
-    # This should not generate an error because foo1
-    # can only be an int type at this point.
-    only_int(foo1)
+    reveal_type(val1, expected_text="Literal[5]")
 
 
 def test_continue():
     bar1 = 1
-    my_list: List[Optional[int]] = [None, 3, 5]
+    my_list: list[int | None] = [None, 3, 5]
     for n in my_list:
         if n is None:
             continue
         bar1 = n
 
-    # This should not generate an error because bar1
-    # can only be an int type at this point.
     only_int(bar1)
 
 

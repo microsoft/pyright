@@ -2,11 +2,11 @@
 # even if that variable has a type declaration.
 
 
-def fn1():
+def func1():
     aaa: int
 
     # This should generate an error because aaa is unbound.
     return aaa
 
 
-fn1()
+func1()

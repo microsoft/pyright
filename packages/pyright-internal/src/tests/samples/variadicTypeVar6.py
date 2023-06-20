@@ -3,7 +3,7 @@
 
 # pyright: reportMissingModuleSource=false, reportMissingTypeArgument=true
 
-from typing import Dict, Generic, Optional, Tuple, TypeVar, Union
+from typing import Generic, TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 _Xs = TypeVarTuple("_Xs")
@@ -24,14 +24,14 @@ Alias2 = Array[_Xs]
 Alias3 = Array[_T, int, _Xs]
 
 # This should generate an error if reportMissingTypeArgument is enabled.
-x1: Optional[Alias1] = None
+x1: Alias1 | None = None
 
 x2: Alias1[int] = Array(3)
 
 # This should generate an error.
 x3: Alias1[int, str] = Array(3)
 
-x4: Alias1[int, Dict[str, str]] = Array(3, {})
+x4: Alias1[int, dict[str, str]] = Array(3, {})
 
 # This should generate an error.
 x5: Alias1[()] = Array(3)
@@ -65,14 +65,14 @@ z2 = func1(Array(3, 4.3, "hi", 3j))
 z3 = func1(Array(3.5, 4))
 reveal_type(z3, expected_text="float")
 
-Alias6 = Tuple[int, Unpack[_Xs]]
+Alias6 = tuple[int, Unpack[_Xs]]
 
 
 # The type annotation for y will generate an error if
 # reportMissingTypeArgument is enabled.
 def func2(x: Alias6[float, bool], y: Alias6, z: Alias6[()]):
-    reveal_type(x, expected_text="Tuple[int, float, bool]")
+    reveal_type(x, expected_text="tuple[int, float, bool]")
 
-    reveal_type(y, expected_text="Tuple[int, Unknown]")
+    reveal_type(y, expected_text="tuple[int, Unknown]")
 
-    reveal_type(z, expected_text="Tuple[int]")
+    reveal_type(z, expected_text="tuple[int]")

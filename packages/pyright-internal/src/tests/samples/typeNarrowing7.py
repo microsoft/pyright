@@ -1,13 +1,11 @@
 # This sample tests type narrowing for index operations.
 
-from typing import Dict, List, Optional, Union
-
 
 class Foo:
-    val: List[List[Optional[str]]] = []
+    val: list[list[str | None]] = []
 
 
-def func1(v1: List[Optional[complex]]):
+def func1(v1: list[complex | None]):
     if v1[0] and v1[1]:
         reveal_type(v1[0], expected_text="complex")
         reveal_type(v1[1], expected_text="complex")
@@ -40,17 +38,17 @@ def func1(v1: List[Optional[complex]]):
         reveal_type(v1[-1], expected_text="complex")
 
 
-def func2(v1: List[Union[Dict[str, str], List[str]]]):
+def func2(v1: list[dict[str, str] | list[str]]):
     if isinstance(v1[0], dict):
-        reveal_type(v1[0], expected_text="Dict[str, str]")
-        reveal_type(v1[1], expected_text="Dict[str, str] | List[str]")
+        reveal_type(v1[0], expected_text="dict[str, str]")
+        reveal_type(v1[1], expected_text="dict[str, str] | list[str]")
 
     if isinstance(v1[-1], list):
-        reveal_type(v1[-1], expected_text="List[str]")
+        reveal_type(v1[-1], expected_text="list[str]")
 
 
 def func3():
-    v1: Dict[str, int] = {}
+    v1: dict[str, int] = {}
 
     reveal_type(v1["x1"], expected_text="int")
     v1["x1"] = 3
@@ -62,7 +60,7 @@ def func3():
     v1 = {}
     reveal_type(v1["x1"], expected_text="int")
 
-    v2: Dict[str, Dict[str, int]] = {}
+    v2: dict[str, dict[str, int]] = {}
 
     reveal_type(v2["y1"]["y2"], expected_text="int")
     v2["y1"]["y2"] = 3

@@ -9,9 +9,12 @@ class ClassA(type):
     def __enter__(cls) -> Self:
         print("Enter A")
         return cls
-    
-    def __exit__(cls, exc_typ: type[Exception], exc_val: Exception, exc_tbc: TracebackType) -> None:
+
+    def __exit__(
+        cls, exc_typ: type[Exception], exc_val: Exception, exc_tbc: TracebackType
+    ) -> None:
         print("Exit A")
+
 
 class ClassB(metaclass=ClassA):
     ...
@@ -19,4 +22,3 @@ class ClassB(metaclass=ClassA):
 
 with ClassB as b:
     ...
-

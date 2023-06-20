@@ -1,7 +1,7 @@
 # This sample exercises the type analyzer's isinstance type narrowing logic.
 
 from types import NoneType
-from typing import List, Optional, Sized, Type, TypeVar, Union, Any
+from typing import Sized, TypeVar, Union, Any
 
 
 class UnrelatedClass:
@@ -52,7 +52,7 @@ def f(instance: Union[SuperClass, UnrelatedClass]) -> None:
         print(instance.property2)
 
 
-def g(cls: Union[Type[SuperClass], Type[UnrelatedClass]]) -> None:
+def g(cls: Union[type[SuperClass], type[UnrelatedClass]]) -> None:
     if issubclass(cls, (MyClass1, UnrelatedSubclass, Any)):
         print(cls.class_var1)
 
@@ -89,18 +89,18 @@ def func1(instance: TestClass2) -> None:
         print(instance.property)
 
 
-def func2(val: Union[int, None, str]) -> Optional[int]:
+def func2(val: Union[int, None, str]) -> int | None:
     return None if isinstance((z := val), str) else z
 
 
 # Test the special-case handling of isinstance with a
 # "type" class.
-def func3(ty: Type[int]) -> Type[int]:
+def func3(ty: type[int]) -> type[int]:
     assert isinstance(ty, (type, str))
     return ty
 
 
-def func4(ty: Type[int]) -> Type[int]:
+def func4(ty: type[int]) -> type[int]:
     assert not isinstance(ty, str)
     return ty
 
@@ -108,20 +108,20 @@ def func4(ty: Type[int]) -> Type[int]:
 T = TypeVar("T")
 
 
-def func5(ty: Type[T]) -> Type[T]:
+def func5(ty: type[T]) -> type[T]:
     assert isinstance(ty, (type, str))
     return ty
 
 
-def func6(ty: Type[T]) -> Type[T]:
+def func6(ty: type[T]) -> type[T]:
     assert not isinstance(ty, str)
     return ty
 
 
 # Test the handling of protocol classes that support runtime checking.
-def func7(a: Union[List[int], int]):
+def func7(a: Union[list[int], int]):
     if isinstance(a, Sized):
-        reveal_type(a, expected_text="List[int]")
+        reveal_type(a, expected_text="list[int]")
     else:
         reveal_type(a, expected_text="int")
 
@@ -135,12 +135,10 @@ class Base1:
 
 
 class Sub1(Base1):
-
     value: str
 
 
 class Sub2(Base1):
-
     value: Base1
 
 

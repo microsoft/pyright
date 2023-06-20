@@ -5,7 +5,7 @@ if True:
 
     class X:
         # This should generate an error because 'X' is not yet declared.
-        def foo(self) -> X:
+        def func1(self) -> X:
             return X()
 
     a: X

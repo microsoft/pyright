@@ -1,7 +1,7 @@
 # This sample tests bidirectional type inference when assigning
 # a value to a typedDict element.
 
-from typing import List, Optional, TypedDict, Union
+from typing import TypedDict
 
 
 class Thing(TypedDict):
@@ -10,8 +10,8 @@ class Thing(TypedDict):
 
 
 class Thing2(TypedDict):
-    v3: Optional[Thing]
-    v4: Optional[List[Union[str, int]]]
+    v3: Thing | None
+    v4: list[str | int] | None
 
 
 thing2: Thing2 = {"v3": None, "v4": None}

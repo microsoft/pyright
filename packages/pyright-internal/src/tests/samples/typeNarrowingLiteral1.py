@@ -4,7 +4,7 @@
 from typing import Literal, Union
 
 
-def func_1(p1: Literal["a", "b", "c"]):
+def func1(p1: Literal["a", "b", "c"]):
     if p1 != "b":
         if p1 == "c":
             reveal_type(p1, expected_text="Literal['c']")

@@ -5,11 +5,11 @@
 from typing import Any
 
 
-class my_class:
+class Class1:
     def __init__(self, v):
         self._v = v
 
 
 def test_bad_syntax(a: Any, b: Any):
-    r = my_class(a | b)
+    r = Class1(a | b)
     print(r)

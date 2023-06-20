@@ -10,6 +10,6 @@ def check_object(obj: object):
         reveal_type(obj, expected_text="object")
         return
     reveal_type(obj, expected_text="object")
-    
+
     if isinstance(obj, list):
         reveal_type(obj, expected_text="list[Unknown]")

@@ -3,7 +3,7 @@
 # pyright: reportMissingModuleSource=false
 
 
-from typing import Any, Callable, Dict, Generic, Tuple, TypeVar, Union
+from typing import Any, Callable, Generic, TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 _Xs = TypeVarTuple("_Xs")
@@ -17,25 +17,25 @@ class Class1(Generic[Unpack[_Ys], Unpack[_Xs]]):
 
 
 # This should generate an error because only one TypeVarTuple is allowed.
-class Class2(Dict[Tuple[Unpack[_Ys]], Tuple[Unpack[_Xs]]]):
+class Class2(dict[tuple[Unpack[_Ys]], tuple[Unpack[_Xs]]]):
     ...
 
 
-class Class3(Dict[Tuple[Unpack[_Ys]], _T1]):
+class Class3(dict[tuple[Unpack[_Ys]], _T1]):
     ...
 
 
-class Class4(Dict[_T1, Tuple[Unpack[_Ys]]], Generic[Unpack[_Ys], _T1]):
+class Class4(dict[_T1, tuple[Unpack[_Ys]]], Generic[Unpack[_Ys], _T1]):
     ...
 
 
-class Class5(Dict[Tuple[Unpack[_Ys]], _T1], Generic[_T1, Unpack[_Ys]]):
-    def func1(self, a: Tuple[Unpack[_Ys], int]):
+class Class5(dict[tuple[Unpack[_Ys]], _T1], Generic[_T1, Unpack[_Ys]]):
+    def func1(self, a: tuple[Unpack[_Ys], int]):
         pass
 
-    # This should generate an error because Tuple cannot contain multiple
+    # This should generate an error because tuple cannot contain multiple
     # TypeVarTuples.
-    def func2(self, *args: Unpack[_Xs]) -> Tuple[Unpack[_Ys], Unpack[_Xs]]:
+    def func2(self, *args: Unpack[_Xs]) -> tuple[Unpack[_Ys], Unpack[_Xs]]:
         ...
 
     def func3(self) -> Union[Unpack[_Ys], int]:
@@ -53,7 +53,7 @@ class Class5(Dict[Tuple[Unpack[_Ys]], _T1], Generic[_T1, Unpack[_Ys]]):
         pass
 
 
-Alias1 = Union[Tuple[int, Unpack[_Xs]], _T1]
+Alias1 = Union[tuple[int, Unpack[_Xs]], _T1]
 
 # This should generate an error because at most one TypeVarTuple is allowed.
-Alias2 = Union[Tuple[int, Unpack[_Xs]], Tuple[Unpack[_Ys]]]
+Alias2 = Union[tuple[int, Unpack[_Xs]], tuple[Unpack[_Ys]]]

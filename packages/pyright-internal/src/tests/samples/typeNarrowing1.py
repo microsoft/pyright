@@ -6,56 +6,56 @@
 from random import random
 
 
-class Foo:
-    def bar(self):
+class ClassA:
+    def x(self):
         return
 
 
 maybe = True
 
-a = None if maybe else Foo()
-b = None if maybe else Foo()
+a = None if maybe else ClassA()
+b = None if maybe else ClassA()
 
 if not a or not b:
-    a.bar()
-    b.bar()
+    a.x()
+    b.x()
 else:
-    a.bar()
-    b.bar()
+    a.x()
+    b.x()
 
 if not (not a or not b):
-    a.bar()
-    b.bar()
+    a.x()
+    b.x()
 else:
-    a.bar()
-    b.bar()
+    a.x()
+    b.x()
 
 if not a and not b:
     # This should be flagged as an error
-    a.bar()
+    a.x()
     # This should be flagged as an error
-    b.bar()
+    b.x()
 else:
-    a.bar()
-    b.bar()
+    a.x()
+    b.x()
 
 if not (not a and not b):
-    a.bar()
-    b.bar()
+    a.x()
+    b.x()
 else:
     # This should be flagged as an error
-    a.bar()
+    a.x()
     # This should be flagged as an error
-    b.bar()
+    b.x()
 
 if a or b:
-    a.bar()
-    b.bar()
+    a.x()
+    b.x()
 else:
     # This should be flagged as an error
-    a.bar()
+    a.x()
     # This should be flagged as an error
-    b.bar()
+    b.x()
 
 
 def func1(a: str, b: str | bool) -> bool:

@@ -1,6 +1,6 @@
 # This sample tests the reportUnusedCallResult diagnostic rule.
 
-from typing import Any, Iterable, List, Union
+from typing import Any, Iterable
 
 
 def func1():
@@ -19,7 +19,7 @@ def func4():
     return 3
 
 
-def func5(a: int) -> Union[int, List[int]]:
+def func5(a: int) -> int | list[int]:
     if a < 0:
         return 5
     return [3]
