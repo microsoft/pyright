@@ -2011,29 +2011,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        // If this is a protocol class X and we're accessing a non ClassVar,
-        // emit an error.
-        if (
-            memberInfo &&
-            memberInfo.classType &&
-            memberInfo.symbol &&
-            isClass(memberInfo.classType) &&
-            ClassType.isProtocolClass(memberInfo.classType)
-        ) {
-            const primaryDecl = getLastTypedDeclaredForSymbol(memberInfo.symbol);
-            if (primaryDecl && primaryDecl.type === DeclarationType.Variable && !memberInfo.isClassVar) {
-                addDiagnostic(
-                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.protocolMemberNotClassVar().format({
-                        memberName,
-                        className: memberInfo.classType.details.name,
-                    }),
-                    errorNode
-                );
-            }
-        }
-
         const isMemberPresentOnClass = memberInfo?.classType !== undefined;
 
         // If it wasn't found on the class, see if it's part of the metaclass.

@@ -723,10 +723,6 @@ export namespace Localizer {
             );
         export const protocolBaseClassWithTypeArgs = () => getRawString('Diagnostic.protocolBaseClassWithTypeArgs');
         export const protocolIllegal = () => getRawString('Diagnostic.protocolIllegal');
-        export const protocolMemberNotClassVar = () =>
-            new ParameterizedString<{ className: string; memberName: string }>(
-                getRawString('Diagnostic.protocolMemberNotClassVar')
-            );
         export const protocolNotAllowedInTypeArgument = () =>
             getRawString('Diagnostic.protocolNotAllowedInTypeArgument');
         export const protocolUsedInCall = () =>
