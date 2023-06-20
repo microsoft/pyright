@@ -427,7 +427,7 @@ function printTypeInternal(
             case TypeCategory.Function: {
                 if (TypeBase.isInstantiable(type)) {
                     const typeString = printFunctionType(
-                        TypeBase.cloneTypeAsInstance(type),
+                        FunctionType.cloneAsInstance(type),
                         printTypeFlags,
                         returnTypeCallback,
                         uniqueNameMap,

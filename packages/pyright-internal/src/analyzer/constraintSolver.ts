@@ -219,7 +219,7 @@ export function assignTypeToTypeVar(
                 constrainedType = srcType;
 
                 // If the source and dest are both instantiables (type[T]), then
-                // we need to convert to an instance (T) for the
+                // we need to convert to an instance (T).
                 if (TypeBase.isInstantiable(srcType)) {
                     constrainedType = convertToInstance(srcType, /* includeSubclasses */ false);
                 }

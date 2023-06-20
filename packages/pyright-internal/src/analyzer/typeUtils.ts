@@ -2067,11 +2067,13 @@ export function convertToInstantiable(type: Type): Type {
         );
     }
 
-    // Cache the converted value for next time.
-    if (!type.cached) {
-        type.cached = {};
+    if (type !== result) {
+        // Cache the converted value for next time.
+        if (!type.cached) {
+            type.cached = {};
+        }
+        type.cached.instantiableType = result;
     }
-    type.cached.instantiableType = result;
 
     return result;
 }
