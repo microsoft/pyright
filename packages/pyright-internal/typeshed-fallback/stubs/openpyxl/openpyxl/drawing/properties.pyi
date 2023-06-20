@@ -13,7 +13,7 @@ _GroupShapePropertiesBwMode: TypeAlias = Literal[
 ]
 
 class GroupShapeProperties(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     bwMode: NoneSet[_GroupShapePropertiesBwMode]
     xfrm: Typed[GroupTransform2D, Literal[True]]
     scene3d: Typed[Scene3D, Literal[True]]
@@ -27,8 +27,8 @@ class GroupShapeProperties(Serialisable):
     ) -> None: ...
 
 class GroupLocking(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     noGrp: Bool[Literal[True]]
     noUngrp: Bool[Literal[True]]
     noSelect: Bool[Literal[True]]
@@ -59,14 +59,14 @@ class GroupLocking(Serialisable):
     ) -> None: ...
 
 class NonVisualGroupDrawingShapeProps(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     grpSpLocks: Typed[GroupLocking, Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, grpSpLocks: Incomplete | None = None, extLst: Unused = None) -> None: ...
 
 class NonVisualDrawingShapeProps(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     spLocks: Typed[GroupLocking, Literal[True]]
     txBax: Bool[Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]
@@ -77,7 +77,7 @@ class NonVisualDrawingShapeProps(Serialisable):
     ) -> None: ...
 
 class NonVisualDrawingProps(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     id: Incomplete
     name: String[Literal[False]]
     descr: String[Literal[True]]
@@ -115,7 +115,7 @@ class NonVisualDrawingProps(Serialisable):
     ) -> None: ...
 
 class NonVisualGroupShape(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     cNvPr: Typed[NonVisualDrawingProps, Literal[False]]
     cNvGrpSpPr: Typed[NonVisualGroupDrawingShapeProps, Literal[False]]
     __elements__: ClassVar[tuple[str, ...]]

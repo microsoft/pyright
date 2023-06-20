@@ -1,6 +1,6 @@
 from _typeshed import Incomplete, Unused
 from typing import ClassVar, overload
-from typing_extensions import Literal, TypeAlias
+from typing_extensions import Final, Literal, TypeAlias
 
 from openpyxl.descriptors import Strict, String
 from openpyxl.descriptors.base import Alias, Bool, Integer, NoneSet, Typed, _ConvertibleToBool, _ConvertibleToInt
@@ -13,11 +13,11 @@ _TableColumnTotalsRowFunction: TypeAlias = Literal[
 ]
 _TableTableType: TypeAlias = Literal["worksheet", "xml", "queryTable"]
 
-TABLESTYLES: Incomplete
-PIVOTSTYLES: Incomplete
+TABLESTYLES: Final[tuple[str, ...]]
+PIVOTSTYLES: Final[tuple[str, ...]]
 
 class TableStyleInfo(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     name: String[Literal[True]]
     showFirstColumn: Bool[Literal[True]]
     showLastColumn: Bool[Literal[True]]
@@ -33,7 +33,7 @@ class TableStyleInfo(Serialisable):
     ) -> None: ...
 
 class XMLColumnProps(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     mapId: Integer[Literal[False]]
     xpath: String[Literal[False]]
     denormalized: Bool[Literal[True]]
@@ -61,14 +61,14 @@ class XMLColumnProps(Serialisable):
     ) -> None: ...
 
 class TableFormula(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     array: Bool[Literal[True]]
     attr_text: Incomplete
     text: Alias
     def __init__(self, array: _ConvertibleToBool | None = None, attr_text: Incomplete | None = None) -> None: ...
 
 class TableColumn(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     id: Integer[Literal[False]]
     uniqueName: String[Literal[True]]
     name: String[Literal[False]]
@@ -136,7 +136,7 @@ class TableNameDescriptor(String[Incomplete]):
 
 class Table(Serialisable):
     mime_type: str
-    tagname: str
+    tagname: ClassVar[str]
     id: Integer[Literal[False]]
     name: String[Literal[True]]
     displayName: Incomplete
@@ -202,7 +202,7 @@ class Table(Serialisable):
     def column_names(self): ...
 
 class TablePartList(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     # Overwritten by property below
     # count: Integer
     tablePart: Incomplete

@@ -30,10 +30,11 @@ class Descriptor(Generic[_T]):
     def __set__(self, instance: Serialisable | Strict, value: _T) -> None: ...
 
 class Typed(Descriptor[_T], Generic[_T, _N]):
+    __doc__: str
+    # Members optional in __init__
     expected_type: type[_T]
     allow_none: _N
     nested: bool
-    __doc__: Incomplete
 
     @overload
     def __init__(
@@ -265,7 +266,7 @@ class Bool(Convertible[bool, _N]):
     @overload
     def __init__(self: Bool[Literal[False]], name: str | None = None, *, allow_none: Literal[False] = False) -> None: ...
     def __set__(  # type:ignore[override]  # Different restrictions
-        self: Bool[Literal[True]], instance: Serialisable | Strict, value: _ConvertibleToBool | None
+        self, instance: Serialisable | Strict, value: _ConvertibleToBool
     ) -> None: ...
 
 class String(Typed[str, _N]):

@@ -4,6 +4,7 @@ from typing_extensions import Literal, TypeAlias
 
 from openpyxl.descriptors.base import Alias, Bool, Integer, NoneSet, String, Typed, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import NestedString
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.workbook.defined_name import DefinedNameList
 from openpyxl.workbook.function_group import FunctionGroupList
@@ -16,7 +17,7 @@ _ChildSheetState: TypeAlias = Literal["visible", "hidden", "veryHidden"]
 _WorkbookPackageConformance: TypeAlias = Literal["strict", "transitional"]
 
 class FileRecoveryProperties(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     autoRecover: Bool[Literal[True]]
     crashSave: Bool[Literal[True]]
     dataExtractLoad: Bool[Literal[True]]
@@ -30,7 +31,7 @@ class FileRecoveryProperties(Serialisable):
     ) -> None: ...
 
 class ChildSheet(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     name: String[Literal[False]]
     sheetId: Integer[Literal[False]]
     state: NoneSet[_ChildSheetState]
@@ -44,13 +45,13 @@ class ChildSheet(Serialisable):
     ) -> None: ...
 
 class PivotCache(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     cacheId: Integer[Literal[False]]
     id: Incomplete
     def __init__(self, cacheId: _ConvertibleToInt, id: Incomplete | None = None) -> None: ...
 
 class WorkbookPackage(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     conformance: NoneSet[_WorkbookPackageConformance]
     fileVersion: Typed[FileVersion, Literal[True]]
     fileSharing: Typed[FileSharing, Literal[True]]
@@ -63,7 +64,7 @@ class WorkbookPackage(Serialisable):
     externalReferences: Incomplete
     definedNames: Typed[DefinedNameList, Literal[True]]
     calcPr: Typed[CalcProperties, Literal[True]]
-    oleSize: Incomplete
+    oleSize: NestedString[Literal[True]]
     customWorkbookViews: Incomplete
     pivotCaches: Incomplete
     smartTagPr: Typed[SmartTagProperties, Literal[True]]
@@ -72,7 +73,7 @@ class WorkbookPackage(Serialisable):
     fileRecoveryPr: Typed[FileRecoveryProperties, Literal[True]]
     webPublishObjects: Typed[WebPublishObjectList, Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]
-    Ignorable: Incomplete
+    Ignorable: NestedString[Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
@@ -87,7 +88,7 @@ class WorkbookPackage(Serialisable):
         externalReferences=(),
         definedNames: DefinedNameList | None = None,
         calcPr: CalcProperties | None = None,
-        oleSize: Incomplete | None = None,
+        oleSize: object = None,
         customWorkbookViews=(),
         pivotCaches=(),
         smartTagPr: SmartTagProperties | None = None,

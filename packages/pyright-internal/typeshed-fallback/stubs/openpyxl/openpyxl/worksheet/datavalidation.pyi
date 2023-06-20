@@ -13,6 +13,7 @@ from openpyxl.descriptors.base import (
     _ConvertibleToInt,
     _ConvertibleToMultiCellRange,
 )
+from openpyxl.descriptors.nested import NestedText
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.worksheet.cell_range import MultiCellRange
 
@@ -39,7 +40,7 @@ def collapse_cell_addresses(cells, input_ranges=()): ...
 def expand_cell_ranges(range_string): ...
 
 class DataValidation(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     sqref: Convertible[MultiCellRange, Literal[False]]
     cells: Alias
     ranges: Alias
@@ -53,8 +54,8 @@ class DataValidation(Serialisable):
     error: String[Literal[True]]
     promptTitle: String[Literal[True]]
     prompt: String[Literal[True]]
-    formula1: Incomplete
-    formula2: Incomplete
+    formula1: NestedText[str, Literal[True]]
+    formula2: NestedText[str, Literal[True]]
     type: NoneSet[_DataValidationType]
     errorStyle: NoneSet[_DataValidationErrorStyle]
     imeMode: NoneSet[_DataValidationImeMode]
@@ -63,8 +64,8 @@ class DataValidation(Serialisable):
     def __init__(
         self,
         type: _DataValidationType | Literal["none"] | None = None,
-        formula1: Incomplete | None = None,
-        formula2: Incomplete | None = None,
+        formula1: object = None,
+        formula2: object = None,
         showErrorMessage: _ConvertibleToBool | None = False,
         showInputMessage: _ConvertibleToBool | None = False,
         showDropDown: _ConvertibleToBool | None = False,
@@ -83,7 +84,7 @@ class DataValidation(Serialisable):
     def __contains__(self, cell): ...
 
 class DataValidationList(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     disablePrompts: Bool[Literal[True]]
     xWindow: Integer[Literal[True]]
     yWindow: Integer[Literal[True]]
@@ -102,4 +103,4 @@ class DataValidationList(Serialisable):
     def count(self): ...
     def __len__(self) -> int: ...
     def append(self, dv) -> None: ...
-    def to_tree(self, tagname: Incomplete | None = None): ...  # type: ignore[override]
+    def to_tree(self, tagname: str | None = None): ...  # type: ignore[override]

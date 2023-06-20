@@ -1,19 +1,22 @@
 from _typeshed import Incomplete, Unused
 from typing import ClassVar
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
 from openpyxl.chart.axis import NumericAxis, TextAxis
 from openpyxl.chart.label import DataLabelList
-from openpyxl.descriptors.base import Alias, Typed
+from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import NestedBool, NestedSet, _HasTagAndGet
 
 from ._chart import ChartBase
 
+_RadarChartRadarStyle: TypeAlias = Literal["standard", "marker", "filled"]
+
 class RadarChart(ChartBase):
-    tagname: str
-    radarStyle: Incomplete
+    tagname: ClassVar[str]
+    radarStyle: NestedSet[_RadarChartRadarStyle]
     type: Alias
-    varyColors: Incomplete
+    varyColors: NestedBool[Literal[True]]
     ser: Incomplete
     dLbls: Typed[DataLabelList, Literal[True]]
     dataLabels: Alias
@@ -23,8 +26,8 @@ class RadarChart(ChartBase):
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        radarStyle: str = "standard",
-        varyColors: Incomplete | None = None,
+        radarStyle: _HasTagAndGet[_RadarChartRadarStyle] | _RadarChartRadarStyle = "standard",
+        varyColors: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
         ser=(),
         dLbls: DataLabelList | None = None,
         extLst: Unused = None,

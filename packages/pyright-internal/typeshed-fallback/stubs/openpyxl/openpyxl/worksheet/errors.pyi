@@ -6,18 +6,18 @@ from openpyxl.descriptors.base import Bool, String, Typed, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Extension(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     uri: String[Literal[True]]
     def __init__(self, uri: str | None = None) -> None: ...
 
 class ExtensionList(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     ext: Incomplete
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, ext=()) -> None: ...
 
 class IgnoredError(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     sqref: Incomplete
     evalError: Bool[Literal[True]]
     twoDigitTextYear: Bool[Literal[True]]
@@ -43,7 +43,7 @@ class IgnoredError(Serialisable):
     ) -> None: ...
 
 class IgnoredErrors(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     ignoredError: Incomplete
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]

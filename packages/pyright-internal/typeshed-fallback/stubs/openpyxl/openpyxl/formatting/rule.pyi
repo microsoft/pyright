@@ -71,7 +71,7 @@ class ValueDescriptor(Float[Incomplete]):
     def __set__(self, instance: Serialisable | Strict, value) -> None: ...  # type: ignore[override]
 
 class FormatObject(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     type: Set[_FormatObjectType]
     val: Incomplete
     gte: Bool[Literal[True]]
@@ -85,7 +85,7 @@ class RuleType(Serialisable):
     cfvo: Incomplete
 
 class IconSet(RuleType):
-    tagname: str
+    tagname: ClassVar[str]
     iconSet: NoneSet[_IconSetIconSet]
     showValue: Bool[Literal[True]]
     percent: Bool[Literal[True]]
@@ -102,7 +102,7 @@ class IconSet(RuleType):
     ) -> None: ...
 
 class DataBar(RuleType):
-    tagname: str
+    tagname: ClassVar[str]
     minLength: Integer[Literal[True]]
     maxLength: Integer[Literal[True]]
     showValue: Bool[Literal[True]]
@@ -119,14 +119,14 @@ class DataBar(RuleType):
     ) -> None: ...
 
 class ColorScale(RuleType):
-    tagname: str
+    tagname: ClassVar[str]
     color: Incomplete
     __elements__: ClassVar[tuple[str, ...]]
     cfvo: Incomplete
     def __init__(self, cfvo: Incomplete | None = None, color: Incomplete | None = None) -> None: ...
 
 class Rule(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     type: Set[_RuleType]
     dxfId: Integer[Literal[True]]
     priority: Integer[Literal[False]]

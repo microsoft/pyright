@@ -51,12 +51,12 @@ _FillsType: TypeAlias = Literal[
 fills: tuple[_FillsType, ...]
 
 class Fill(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     @classmethod
     def from_tree(cls, el): ...
 
 class PatternFill(Fill):
-    tagname: str
+    tagname: ClassVar[str]
     __elements__: ClassVar[tuple[str, ...]]
     patternType: NoneSet[_FillsType]
     fill_type: Alias
@@ -73,13 +73,13 @@ class PatternFill(Fill):
         start_color: Incomplete | None = None,
         end_color: Incomplete | None = None,
     ) -> None: ...
-    def to_tree(self, tagname: Incomplete | None = None, idx: Incomplete | None = None): ...  # type: ignore[override]
+    def to_tree(self, tagname: str | None = None, idx: Incomplete | None = None): ...  # type: ignore[override]
 
-DEFAULT_EMPTY_FILL: Incomplete
-DEFAULT_GRAY_FILL: Incomplete
+DEFAULT_EMPTY_FILL: Final[PatternFill]
+DEFAULT_GRAY_FILL: Final[PatternFill]
 
 class Stop(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     position: MinMax[float, Literal[False]]
     color: Incomplete
     def __init__(self, color, position: _ConvertibleToFloat) -> None: ...
@@ -89,7 +89,7 @@ class StopList(Sequence):
     def __set__(self, obj, values) -> None: ...
 
 class GradientFill(Fill):
-    tagname: str
+    tagname: ClassVar[str]
     type: Set[_GradientFillType]
     fill_type: Alias
     degree: Float[Literal[False]]
@@ -109,4 +109,4 @@ class GradientFill(Fill):
         stop=(),
     ) -> None: ...
     def __iter__(self): ...
-    def to_tree(self, tagname: Incomplete | None = None, namespace: Incomplete | None = None, idx: Incomplete | None = None): ...  # type: ignore[override]
+    def to_tree(self, tagname: str | None = None, namespace: str | None = None, idx: Incomplete | None = None): ...  # type: ignore[override]

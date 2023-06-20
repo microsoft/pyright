@@ -11,7 +11,7 @@ _CustomWorkbookViewShowComments: TypeAlias = Literal["commNone", "commIndicator"
 _CustomWorkbookViewShowObjects: TypeAlias = Literal["all", "placeholders"]
 
 class BookView(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     visibility: NoneSet[_BookViewVilibility]
     minimized: Bool[Literal[True]]
     showHorizontalScroll: Bool[Literal[True]]
@@ -46,7 +46,7 @@ class BookView(Serialisable):
     ) -> None: ...
 
 class CustomWorkbookView(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     name: String[Literal[False]]
     guid: Incomplete
     autoUpdate: Bool[Literal[True]]

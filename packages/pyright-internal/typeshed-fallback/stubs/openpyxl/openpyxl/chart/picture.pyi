@@ -1,21 +1,25 @@
-from _typeshed import Incomplete
 from typing import ClassVar
+from typing_extensions import Literal, TypeAlias
 
+from openpyxl.descriptors.base import _ConvertibleToBool, _ConvertibleToFloat
+from openpyxl.descriptors.nested import NestedBool, NestedFloat, NestedNoneSet, _HasTagAndGet, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
 
+_PictureOptionsPictureFormat: TypeAlias = Literal["stretch", "stack", "stackScale"]
+
 class PictureOptions(Serialisable):
-    tagname: str
-    applyToFront: Incomplete
-    applyToSides: Incomplete
-    applyToEnd: Incomplete
-    pictureFormat: Incomplete
-    pictureStackUnit: Incomplete
+    tagname: ClassVar[str]
+    applyToFront: NestedBool[Literal[True]]
+    applyToSides: NestedBool[Literal[True]]
+    applyToEnd: NestedBool[Literal[True]]
+    pictureFormat: NestedNoneSet[_PictureOptionsPictureFormat]
+    pictureStackUnit: NestedFloat[Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        applyToFront: Incomplete | None = None,
-        applyToSides: Incomplete | None = None,
-        applyToEnd: Incomplete | None = None,
-        pictureFormat: Incomplete | None = None,
-        pictureStackUnit: Incomplete | None = None,
+        applyToFront: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        applyToSides: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        applyToEnd: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        pictureFormat: _NestedNoneSetParam[_PictureOptionsPictureFormat] = None,
+        pictureStackUnit: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
     ) -> None: ...

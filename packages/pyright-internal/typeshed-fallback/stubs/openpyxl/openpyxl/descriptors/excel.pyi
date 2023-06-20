@@ -1,5 +1,5 @@
 from _typeshed import Incomplete
-from typing import TypeVar
+from typing import ClassVar, TypeVar
 from typing_extensions import Literal
 
 from . import Integer, MatchPattern, MinMax, Strict, String
@@ -36,7 +36,7 @@ class ExtensionList(Serialisable):
     def __init__(self, ext=()) -> None: ...
 
 class Relation(String[Incomplete]):
-    namespace: Incomplete
+    namespace: ClassVar[str]
     allow_none: bool
 
 class Base64Binary(MatchPattern[str, Incomplete]):

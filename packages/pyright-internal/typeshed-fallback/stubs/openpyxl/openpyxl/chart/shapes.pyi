@@ -2,7 +2,8 @@ from _typeshed import Incomplete, Unused
 from typing import ClassVar
 from typing_extensions import Literal, TypeAlias
 
-from openpyxl.descriptors.base import Alias, NoneSet, Typed
+from openpyxl.descriptors.base import Alias, NoneSet, Typed, _ConvertibleToBool
+from openpyxl.descriptors.nested import EmptyTag, _HasTagAndGet
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.drawing.fill import GradientFillProperties, PatternFillProperties
 from openpyxl.drawing.geometry import CustomGeometry2D, PresetGeometry2D, Scene3D, Shape3D, Transform2D
@@ -13,13 +14,13 @@ _GraphicalPropertiesBwMode: TypeAlias = Literal[
 ]
 
 class GraphicalProperties(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     bwMode: NoneSet[_GraphicalPropertiesBwMode]
     xfrm: Typed[Transform2D, Literal[True]]
     transform: Alias
     custGeom: Typed[CustomGeometry2D, Literal[True]]
     prstGeom: Typed[PresetGeometry2D, Literal[True]]
-    noFill: Incomplete
+    noFill: EmptyTag[Literal[False]]
     solidFill: Incomplete
     gradFill: Typed[GradientFillProperties, Literal[True]]
     pattFill: Typed[PatternFillProperties, Literal[True]]
@@ -34,7 +35,7 @@ class GraphicalProperties(Serialisable):
         self,
         bwMode: _GraphicalPropertiesBwMode | Literal["none"] | None = None,
         xfrm: Transform2D | None = None,
-        noFill: Incomplete | None = None,
+        noFill: _HasTagAndGet[_ConvertibleToBool] | _ConvertibleToBool = None,
         solidFill: Incomplete | None = None,
         gradFill: GradientFillProperties | None = None,
         pattFill: PatternFillProperties | None = None,

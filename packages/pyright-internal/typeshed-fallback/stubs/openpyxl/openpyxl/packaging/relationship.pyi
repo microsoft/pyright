@@ -1,13 +1,13 @@
 from _typeshed import Incomplete, Unused
 from collections.abc import Generator
-from typing import overload
+from typing import ClassVar, overload
 from typing_extensions import Literal
 
 from openpyxl.descriptors.base import Alias, String
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Relationship(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     Type: String[Literal[False]]
     Target: String[Literal[False]]
     target: Alias
@@ -26,7 +26,7 @@ class Relationship(Serialisable):
     ) -> None: ...
 
 class RelationshipList(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     Relationship: Incomplete
     def __init__(self, Relationship=()) -> None: ...
     def append(self, value) -> None: ...

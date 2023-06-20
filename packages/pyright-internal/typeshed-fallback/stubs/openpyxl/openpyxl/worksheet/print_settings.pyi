@@ -1,7 +1,7 @@
 from _typeshed import Incomplete, Unused
 from re import Pattern
 from typing import overload
-from typing_extensions import Literal, Self
+from typing_extensions import Final, Literal, Self
 
 from openpyxl.descriptors import Integer, Strict, String
 from openpyxl.descriptors.base import Typed, _ConvertibleToInt
@@ -9,12 +9,12 @@ from openpyxl.utils.cell import SHEETRANGE_RE as SHEETRANGE_RE
 
 from .cell_range import MultiCellRange
 
-COL_RANGE: str
-COL_RANGE_RE: Pattern[str]
-ROW_RANGE: str
-ROW_RANGE_RE: Pattern[str]
-TITLES_REGEX: Pattern[str]
-PRINT_AREA_RE: Pattern[str]
+COL_RANGE: Final[str]
+COL_RANGE_RE: Final[Pattern[str]]
+ROW_RANGE: Final[str]
+ROW_RANGE_RE: Final[Pattern[str]]
+TITLES_REGEX: Final[Pattern[str]]
+PRINT_AREA_RE: Final[Pattern[str]]
 
 class ColRange(Strict):
     min_col: String[Literal[False]]

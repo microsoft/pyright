@@ -1,6 +1,6 @@
 from _typeshed import Incomplete
 from typing import ClassVar
-from typing_extensions import Literal, TypeAlias
+from typing_extensions import Final, Literal, TypeAlias
 
 from openpyxl.descriptors.base import Alias, Bool, NoneSet, Typed, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable
@@ -21,23 +21,23 @@ _SideStyle: TypeAlias = Literal[
     "thin",
 ]
 
-BORDER_NONE: Incomplete
-BORDER_DASHDOT: str
-BORDER_DASHDOTDOT: str
-BORDER_DASHED: str
-BORDER_DOTTED: str
-BORDER_DOUBLE: str
-BORDER_HAIR: str
-BORDER_MEDIUM: str
-BORDER_MEDIUMDASHDOT: str
-BORDER_MEDIUMDASHDOTDOT: str
-BORDER_MEDIUMDASHED: str
-BORDER_SLANTDASHDOT: str
-BORDER_THICK: str
-BORDER_THIN: str
+BORDER_NONE: Final = None
+BORDER_DASHDOT: Final = "dashDot"
+BORDER_DASHDOTDOT: Final = "dashDotDot"
+BORDER_DASHED: Final = "dashed"
+BORDER_DOTTED: Final = "dotted"
+BORDER_DOUBLE: Final = "double"
+BORDER_HAIR: Final = "hair"
+BORDER_MEDIUM: Final = "medium"
+BORDER_MEDIUMDASHDOT: Final = "mediumDashDot"
+BORDER_MEDIUMDASHDOTDOT: Final = "mediumDashDotDot"
+BORDER_MEDIUMDASHED: Final = "mediumDashed"
+BORDER_SLANTDASHDOT: Final = "slantDashDot"
+BORDER_THICK: Final = "thick"
+BORDER_THIN: Final = "thin"
 
 class Side(Serialisable):
-    __fields__: Incomplete
+    __fields__: ClassVar[tuple[str, ...]]
     color: Incomplete
     style: NoneSet[_SideStyle]
     border_style: Alias
@@ -49,8 +49,8 @@ class Side(Serialisable):
     ) -> None: ...
 
 class Border(Serialisable):
-    tagname: str
-    __fields__: Incomplete
+    tagname: ClassVar[str]
+    __fields__: ClassVar[tuple[str, ...]]
     __elements__: ClassVar[tuple[str, ...]]
     start: Typed[Side, Literal[True]]
     end: Typed[Side, Literal[True]]
@@ -83,4 +83,4 @@ class Border(Serialisable):
     ) -> None: ...
     def __iter__(self): ...
 
-DEFAULT_BORDER: Incomplete
+DEFAULT_BORDER: Final[Border]

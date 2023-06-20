@@ -1,4 +1,5 @@
 from _typeshed import Incomplete, Unused
+from typing import ClassVar
 from typing_extensions import Literal
 
 from openpyxl.descriptors.base import Alias, Bool, Convertible, _ConvertibleToBool, _ConvertibleToMultiCellRange
@@ -6,7 +7,7 @@ from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.worksheet.cell_range import MultiCellRange
 
 class ConditionalFormatting(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     sqref: Convertible[MultiCellRange, Literal[False]]
     cells: Alias
     pivot: Bool[Literal[True]]

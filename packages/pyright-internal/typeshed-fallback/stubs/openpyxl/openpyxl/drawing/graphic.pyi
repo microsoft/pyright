@@ -30,33 +30,33 @@ class GraphicFrameLocking(Serialisable):
     ) -> None: ...
 
 class NonVisualGraphicFrameProperties(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     graphicFrameLocks: Typed[GraphicFrameLocking, Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]
     def __init__(self, graphicFrameLocks: GraphicFrameLocking | None = None, extLst: ExtensionList | None = None) -> None: ...
 
 class NonVisualGraphicFrame(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     cNvPr: Typed[ExtensionList, Literal[False]]
     cNvGraphicFramePr: Typed[ExtensionList, Literal[False]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, cNvPr: Incomplete | None = None, cNvGraphicFramePr: Incomplete | None = None) -> None: ...
 
 class GraphicData(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     uri: String[Literal[False]]
     chart: Typed[ChartRelation, Literal[True]]
     def __init__(self, uri: str = ..., chart: ChartRelation | None = None) -> None: ...
 
 class GraphicObject(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     graphicData: Typed[GraphicData, Literal[False]]
     def __init__(self, graphicData: GraphicData | None = None) -> None: ...
 
 class GraphicFrame(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     nvGraphicFramePr: Typed[NonVisualGraphicFrame, Literal[False]]
     xfrm: Typed[XDRTransform2D, Literal[False]]
     graphic: Typed[GraphicObject, Literal[False]]

@@ -100,7 +100,7 @@ _DynamicFilterType: TypeAlias = Literal[
 _DateGroupItemDateTimeGrouping: TypeAlias = Literal["year", "month", "day", "hour", "minute", "second"]
 
 class SortCondition(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     descending: Bool[Literal[True]]
     sortBy: NoneSet[_SortConditionSortBy]
     ref: Incomplete
@@ -120,7 +120,7 @@ class SortCondition(Serialisable):
     ) -> None: ...
 
 class SortState(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     columnSort: Bool[Literal[True]]
     caseSensitive: Bool[Literal[True]]
     sortMethod: NoneSet[_SortStateSortMethod]
@@ -140,19 +140,19 @@ class SortState(Serialisable):
     def __bool__(self) -> bool: ...
 
 class IconFilter(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     iconSet: Set[_IconSet]
     iconId: Integer[Literal[True]]
     def __init__(self, iconSet: _IconSet, iconId: _ConvertibleToInt | None = None) -> None: ...
 
 class ColorFilter(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     dxfId: Integer[Literal[True]]
     cellColor: Bool[Literal[True]]
     def __init__(self, dxfId: _ConvertibleToInt | None = None, cellColor: _ConvertibleToBool | None = None) -> None: ...
 
 class DynamicFilter(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     type: Set[_DynamicFilterType]
     val: Float[Literal[True]]
     valIso: DateTime[Literal[True]]
@@ -168,7 +168,7 @@ class DynamicFilter(Serialisable):
     ) -> None: ...
 
 class CustomFilter(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     operator: NoneSet[_CustomFilterOperator]
     val: Incomplete
     def __init__(
@@ -176,14 +176,14 @@ class CustomFilter(Serialisable):
     ) -> None: ...
 
 class CustomFilters(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     _and: Bool[Literal[True]]  # Not private. Avoids name clash
     customFilter: Incomplete
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, _and: _ConvertibleToBool | None = False, customFilter=()) -> None: ...
 
 class Top10(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     top: Bool[Literal[True]]
     percent: Bool[Literal[True]]
     val: Float[Literal[False]]
@@ -207,7 +207,7 @@ class Top10(Serialisable):
     ) -> None: ...
 
 class DateGroupItem(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     year: Integer[Literal[False]]
     month: MinMax[float, Literal[True]]
     day: MinMax[float, Literal[True]]
@@ -240,7 +240,7 @@ class DateGroupItem(Serialisable):
     ) -> None: ...
 
 class Filters(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     blank: Bool[Literal[True]]
     calendarType: NoneSet[_FiltersCalendarType]
     filter: Incomplete
@@ -255,7 +255,7 @@ class Filters(Serialisable):
     ) -> None: ...
 
 class FilterColumn(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     colId: Integer[Literal[False]]
     col_id: Alias
     hiddenButton: Bool[Literal[True]]
@@ -285,7 +285,7 @@ class FilterColumn(Serialisable):
     ) -> None: ...
 
 class AutoFilter(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     ref: Incomplete
     filterColumn: Incomplete
     sortState: Typed[SortState, Literal[True]]

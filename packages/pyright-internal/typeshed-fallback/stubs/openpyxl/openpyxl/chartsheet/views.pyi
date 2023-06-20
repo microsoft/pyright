@@ -7,7 +7,7 @@ from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
 
 class ChartsheetView(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     tabSelected: Bool[Literal[True]]
     zoomScale: Integer[Literal[True]]
     workbookViewId: Integer[Literal[False]]
@@ -24,7 +24,7 @@ class ChartsheetView(Serialisable):
     ) -> None: ...
 
 class ChartsheetViewList(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     sheetView: Incomplete
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]

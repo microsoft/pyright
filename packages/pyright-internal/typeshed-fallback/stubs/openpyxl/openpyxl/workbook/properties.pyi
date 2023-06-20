@@ -1,4 +1,5 @@
 from _typeshed import Incomplete
+from typing import ClassVar
 from typing_extensions import Literal, TypeAlias
 
 from openpyxl.descriptors.base import (
@@ -19,7 +20,7 @@ _CalcPropertiesCalcMode: TypeAlias = Literal["manual", "auto", "autoNoTable"]
 _CalcPropertiesRefMode: TypeAlias = Literal["A1", "R1C1"]
 
 class WorkbookProperties(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     date1904: Bool[Literal[True]]
     dateCompatibility: Bool[Literal[True]]
     showObjects: NoneSet[_WorkbookPropertiesShowObjects]
@@ -63,7 +64,7 @@ class WorkbookProperties(Serialisable):
     ) -> None: ...
 
 class CalcProperties(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     calcId: Integer[Literal[False]]
     calcMode: NoneSet[_CalcPropertiesCalcMode]
     fullCalcOnLoad: Bool[Literal[True]]
@@ -95,7 +96,7 @@ class CalcProperties(Serialisable):
     ) -> None: ...
 
 class FileVersion(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     appName: String[Literal[True]]
     lastEdited: String[Literal[True]]
     lowestEdited: String[Literal[True]]

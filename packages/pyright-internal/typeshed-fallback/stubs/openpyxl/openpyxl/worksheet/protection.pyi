@@ -13,7 +13,7 @@ class _Protected:
     def password(self, value) -> None: ...
 
 class SheetProtection(Serialisable, _Protected):
-    tagname: str
+    tagname: ClassVar[str]
     sheet: Bool[Literal[False]]
     enabled: Alias
     objects: Bool[Literal[False]]

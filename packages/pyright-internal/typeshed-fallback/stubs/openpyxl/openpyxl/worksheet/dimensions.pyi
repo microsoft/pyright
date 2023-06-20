@@ -120,7 +120,7 @@ class DimensionHolder(BoundDictionary[str, _DimT], Generic[_DimT]):
     def to_tree(self) -> Element | None: ...
 
 class SheetFormatProperties(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     baseColWidth: Integer[Literal[True]]
     defaultColWidth: Float[Literal[True]]
     defaultRowHeight: Float[Literal[False]]
@@ -144,7 +144,7 @@ class SheetFormatProperties(Serialisable):
     ) -> None: ...
 
 class SheetDimension(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     ref: String[Literal[False]]
     def __init__(self, ref: str) -> None: ...
     @property

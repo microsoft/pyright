@@ -1,21 +1,21 @@
-from _typeshed import Incomplete
+from re import Pattern
 from typing import ClassVar
-from typing_extensions import Literal
+from typing_extensions import Final, Literal
 
 from openpyxl.descriptors import Strict
 from openpyxl.descriptors.base import Alias, Bool, Integer, MatchPattern, String, Typed, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.serialisable import Serialisable
 
-FONT_PATTERN: str
-COLOR_PATTERN: str
-SIZE_REGEX: str
-FORMAT_REGEX: Incomplete
+FONT_PATTERN: Final = '&"(?P<font>.+)"'
+COLOR_PATTERN: Final = "&K(?P<color>[A-F0-9]{6})"
+SIZE_REGEX: Final = r"&(?P<size>\d+\s?)"
+FORMAT_REGEX: Final[Pattern[str]]
 
 class _HeaderFooterPart(Strict):
     text: String[Literal[True]]
     font: String[Literal[True]]
     size: Integer[Literal[True]]
-    RGB: str
+    RGB: ClassVar[str]
     color: MatchPattern[str, Literal[True]]
     def __init__(
         self, text: str | None = None, font: str | None = None, size: _ConvertibleToInt | None = None, color: str | None = None
@@ -41,7 +41,7 @@ class HeaderFooterItem(Strict):
     def from_tree(cls, node): ...
 
 class HeaderFooter(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     differentOddEven: Bool[Literal[True]]
     differentFirst: Bool[Literal[True]]
     scaleWithDoc: Bool[Literal[True]]

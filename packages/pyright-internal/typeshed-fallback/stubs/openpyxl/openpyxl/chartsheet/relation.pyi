@@ -1,11 +1,12 @@
 from _typeshed import Incomplete
+from typing import ClassVar
 from typing_extensions import Literal
 
 from openpyxl.descriptors.base import Alias, Integer, _ConvertibleToInt
 from openpyxl.descriptors.serialisable import Serialisable
 
 class SheetBackgroundPicture(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     id: Incomplete
     def __init__(self, id) -> None: ...
 

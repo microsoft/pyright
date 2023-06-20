@@ -1,10 +1,11 @@
 from _typeshed import Incomplete
-from typing import ClassVar
+from typing import Any, ClassVar, NoReturn
+from typing_extensions import Final
 
 from openpyxl.descriptors import MetaSerialisable
 
-KEYWORDS: Incomplete
-seq_types: Incomplete
+KEYWORDS: Final[frozenset[str]]
+seq_types: Final[tuple[type[list[Any]], type[tuple[Any, ...]]]]
 
 class Serialisable(metaclass=MetaSerialisable):
     # These dunders are always set at runtime by MetaSerialisable so they can't be None
@@ -13,14 +14,13 @@ class Serialisable(metaclass=MetaSerialisable):
     __elements__: ClassVar[tuple[str, ...]]
     __namespaced__: ClassVar[tuple[tuple[str, str], ...]]
     idx_base: int
+    # Needs overrides in many sub-classes. But a lot of subclasses are instanciated without overriding it, so can't be abstract
     @property
-    # TODO: needs overrides in many sub-classes
-    # @abstractmethod
-    def tagname(self) -> str: ...
-    namespace: Incomplete
+    def tagname(self) -> str | NoReturn: ...
+    namespace: ClassVar[str | None]
     @classmethod
     def from_tree(cls, node): ...
-    def to_tree(self, tagname: Incomplete | None = None, idx: Incomplete | None = None, namespace: Incomplete | None = None): ...
+    def to_tree(self, tagname: str | None = None, idx: Incomplete | None = None, namespace: str | None = None): ...
     def __iter__(self): ...
     def __eq__(self, other): ...
     def __ne__(self, other): ...

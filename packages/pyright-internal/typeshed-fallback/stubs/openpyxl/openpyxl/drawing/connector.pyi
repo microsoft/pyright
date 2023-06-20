@@ -39,7 +39,7 @@ class ConnectorNonVisual(Serialisable):
     def __init__(self, cNvPr: NonVisualDrawingProps, cNvCxnSpPr: NonVisualConnectorProperties) -> None: ...
 
 class ConnectorShape(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     nvCxnSpPr: Typed[ConnectorNonVisual, Literal[False]]
     spPr: Typed[GraphicalProperties, Literal[False]]
     style: Typed[ShapeStyle, Literal[True]]
@@ -55,7 +55,7 @@ class ConnectorShape(Serialisable):
     ) -> None: ...
 
 class ShapeMeta(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     cNvPr: Typed[NonVisualDrawingProps, Literal[False]]
     cNvSpPr: Typed[NonVisualDrawingShapeProps, Literal[False]]
     def __init__(self, cNvPr: NonVisualDrawingProps, cNvSpPr: NonVisualDrawingShapeProps) -> None: ...

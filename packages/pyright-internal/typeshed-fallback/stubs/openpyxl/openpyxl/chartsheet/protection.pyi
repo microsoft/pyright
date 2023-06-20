@@ -7,7 +7,7 @@ from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.worksheet.protection import _Protected
 
 class ChartsheetProtection(Serialisable, _Protected):
-    tagname: str
+    tagname: ClassVar[str]
     algorithmName: String[Literal[True]]
     hashValue: Incomplete
     saltValue: Incomplete

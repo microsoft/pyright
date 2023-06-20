@@ -11,7 +11,7 @@ from openpyxl.descriptors.excel import ExtensionList
 from ._chart import ChartBase
 
 class StockChart(ChartBase):
-    tagname: str
+    tagname: ClassVar[str]
     ser: Incomplete
     dLbls: Typed[DataLabelList, Literal[True]]
     dataLabels: Alias
