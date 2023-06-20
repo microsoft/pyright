@@ -25,3 +25,15 @@ foo.asymmetric = 2
 reveal_type(foo.symmetric, expected_text="str | int")
 foo.symmetric = "1"
 reveal_type(foo.symmetric, expected_text="Literal['1']") # Symmetric -- type narrowing should occur
+
+
+reveal_type(Foo.asymmetric, expected_text="int")
+Foo.asymmetric = "2"
+reveal_type(Foo.asymmetric, expected_text="int")
+# This should generate an error because only strs can be assigned to field0.
+Foo.asymmetric = 2
+reveal_type(Foo.asymmetric, expected_text="Literal[2]")
+
+reveal_type(Foo.symmetric, expected_text="str | int")
+Foo.symmetric = "1"
+reveal_type(Foo.symmetric, expected_text="Literal['1']")
