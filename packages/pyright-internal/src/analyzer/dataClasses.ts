@@ -25,10 +25,11 @@ import {
     TypeAnnotationNode,
 } from '../parser/parseNodes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { getFileInfo } from './analyzerNodeInfo';
 import { createFunctionFromConstructor } from './constructors';
 import { DeclarationType } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
-import { getEnclosingClassOrFunction, getScopeIdForNode } from './parseTreeUtils';
+import { getClassFullName, getEnclosingClassOrFunction, getScopeIdForNode, getTypeSourceId } from './parseTreeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName } from './symbolNameUtils';
@@ -513,7 +514,19 @@ export function synthesizeDataClassMethods(
                     effectiveType = transformDescriptorType(evaluator, effectiveType);
 
                     if (entry.converter) {
+                        const fieldType = effectiveType;
                         effectiveType = getConverterInputType(evaluator, entry.converter, effectiveType, entry.name);
+                        symbolTable.set(
+                            entry.name,
+                            getDescriptorForConverterField(
+                                evaluator,
+                                node,
+                                entry.converter,
+                                entry.name,
+                                fieldType,
+                                effectiveType
+                            )
+                        );
                     }
 
                     const effectiveName = entry.alias || entry.name;
@@ -797,6 +810,88 @@ function getConverterAsFunction(
     }
 
     return undefined;
+}
+
+// Synthesizes an asymmetric descriptor class to be used in place of the
+// annotated type of a field with a converter. The descriptor's __get__ method
+// returns the declared type of the field and its __set__ method accepts the
+// converter's input type. Returns the symbol for an instance of this descriptor
+// type.
+function getDescriptorForConverterField(
+    evaluator: TypeEvaluator,
+    dataclassNode: ParseNode,
+    converterNode: ParseNode,
+    fieldName: string,
+    getType: Type,
+    setType: Type
+): Symbol {
+    const fileInfo = getFileInfo(dataclassNode);
+    const typeMetaclass = evaluator.getBuiltInType(dataclassNode, 'type');
+    const descriptorName = `__converterDescriptor_${fieldName}`;
+
+    const descriptorClass = ClassType.createInstantiable(
+        descriptorName,
+        getClassFullName(converterNode, fileInfo.moduleName, descriptorName),
+        fileInfo.moduleName,
+        fileInfo.filePath,
+        ClassTypeFlags.None,
+        getTypeSourceId(converterNode),
+        /* declaredMetaclass */ undefined,
+        isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
+    );
+    descriptorClass.details.baseClasses.push(evaluator.getBuiltInType(dataclassNode, 'object'));
+    computeMroLinearization(descriptorClass);
+
+    const fields = descriptorClass.details.fields;
+    const selfType = synthesizeTypeVarForSelfCls(descriptorClass, /* isClsParam */ false);
+
+    const setFunction = FunctionType.createSynthesizedInstance('__set__');
+    FunctionType.addParameter(setFunction, {
+        category: ParameterCategory.Simple,
+        name: 'self',
+        type: selfType,
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(setFunction, {
+        category: ParameterCategory.Simple,
+        name: 'obj',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(setFunction, {
+        category: ParameterCategory.Simple,
+        name: 'value',
+        type: setType,
+        hasDeclaredType: true,
+    });
+    setFunction.details.declaredReturnType = NoneType.createInstance();
+    const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
+    fields.set('__set__', setSymbol);
+
+    const getFunction = FunctionType.createSynthesizedInstance('__get__');
+    FunctionType.addParameter(getFunction, {
+        category: ParameterCategory.Simple,
+        name: 'self',
+        type: selfType,
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(getFunction, {
+        category: ParameterCategory.Simple,
+        name: 'obj',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(getFunction, {
+        category: ParameterCategory.Simple,
+        name: 'objtype',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+    });
+    getFunction.details.declaredReturnType = getType;
+    const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunction);
+    fields.set('__get__', getSymbol);
+
+    return Symbol.createWithType(SymbolFlags.ClassMember, ClassType.cloneAsInstance(descriptorClass));
 }
 
 // If the specified type is a descriptor — in particular, if it implements a

@@ -679,6 +679,12 @@ test('DataClassConverter1', () => {
     TestUtils.validateResults(analysisResults, 17);
 });
 
+test('DataClassConverter2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassConverter2.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('DataClassPostInit1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassPostInit1.py']);
 
