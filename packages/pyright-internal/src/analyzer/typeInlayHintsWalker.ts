@@ -142,6 +142,9 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
             if (p.paramName?.startsWith('__')) {
                 continue;
             }
+            if (p.paramName === p.argument.name) {
+                continue;
+            }
             if (p.paramName) {
                 this.featureItems.push({
                     inlayHintType: 'parameter',
