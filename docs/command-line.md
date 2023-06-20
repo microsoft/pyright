@@ -25,6 +25,7 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | --version                               | Print pyright version and exit                       |
 | --warnings                              | Use exit code of 1 if warnings are reported          |
 | -w, --watch                             | Continue to run and watch for changes (5)            |
+| -                                       | Read file or directory list from stdin               |
 
 (1) If specific files are specified on the command line, it overrides the files or directories specified in the pyrightconfig.json or pyproject.toml file.
 
