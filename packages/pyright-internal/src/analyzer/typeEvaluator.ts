@@ -13676,11 +13676,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     });
                 });
 
-                FunctionType.addParameter(functionType, {
-                    category: ParameterCategory.Simple,
-                    isNameSynthesized: false,
-                    type: UnknownType.create(),
-                });
+                if (typeList.length > 0) {
+                    // Add a positional-only separator to the end of the parameter list.
+                    FunctionType.addParameter(functionType, {
+                        category: ParameterCategory.Simple,
+                        isNameSynthesized: false,
+                        type: UnknownType.create(),
+                    });
+                }
             } else if (isEllipsisType(typeArgs[0].type)) {
                 FunctionType.addDefaultParameters(functionType);
                 functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
