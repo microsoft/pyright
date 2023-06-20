@@ -16884,6 +16884,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 functionNode.parameters[paramIndex].category
                             );
 
+                            // If the parameter type is generic, specialize it in the context
+                            // of the child class.
+                            if (requiresSpecialization(inferredParamType) && isClass(baseClassMemberInfo.classType)) {
+                                const typeVarContext = buildTypeVarContextFromSpecializedClass(
+                                    baseClassMemberInfo.classType
+                                );
+                                inferredParamType = applySolvedTypeVars(inferredParamType, typeVarContext);
+                            }
+
                             const fileInfo = AnalyzerNodeInfo.getFileInfo(functionNode);
                             if (fileInfo.isInPyTypedPackage && !fileInfo.isStubFile) {
                                 inferredParamType = TypeBase.cloneForAmbiguousType(inferredParamType);

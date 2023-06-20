@@ -1571,6 +1571,12 @@ test('ParamInference1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('ParamInference2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramInference2.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Dictionary1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dictionary1.py']);
 
