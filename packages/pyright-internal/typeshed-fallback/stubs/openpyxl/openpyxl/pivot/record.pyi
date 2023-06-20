@@ -7,7 +7,7 @@ from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Record(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     m: Incomplete
     n: Incomplete
     b: Incomplete
@@ -30,7 +30,7 @@ class Record(Serialisable):
 class RecordList(Serialisable):
     mime_type: str
     rel_type: str
-    tagname: str
+    tagname: ClassVar[str]
     r: Incomplete
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]

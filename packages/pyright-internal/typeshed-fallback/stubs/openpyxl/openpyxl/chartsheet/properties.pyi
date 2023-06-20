@@ -6,7 +6,7 @@ from openpyxl.descriptors.serialisable import Serialisable as Serialisable
 from openpyxl.styles.colors import Color
 
 class ChartsheetProperties(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     published: Bool[Literal[True]]
     codeName: String[Literal[True]]
     tabColor: Typed[Color, Literal[True]]

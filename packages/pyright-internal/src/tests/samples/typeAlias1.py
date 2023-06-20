@@ -1,11 +1,11 @@
 # This sample tests that type aliasing works.
 
-from typing import Any, Literal, Tuple
+from typing import Any, Literal
 
 # Make sure it works with and without forward references.
-TupleAlias = Tuple["int", int]
+TupleAlias = tuple["int", int]
 
-foo1: Tuple[int, int]
+foo1: tuple[int, int]
 bar1: TupleAlias
 
 foo1 = (1, 2)

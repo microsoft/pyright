@@ -1,55 +1,54 @@
 from _typeshed import Incomplete, Unused
-from abc import abstractmethod
 from typing import ClassVar
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.text import RichText
-from openpyxl.descriptors.base import Alias, Typed
+from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import NestedBool, NestedInteger, NestedNoneSet, NestedString, _HasTagAndGet, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable as Serialisable
 
+_DataLabelBaseDLblPos: TypeAlias = Literal["bestFit", "b", "ctr", "inBase", "inEnd", "l", "outEnd", "r", "t"]
+
 class _DataLabelBase(Serialisable):
-    numFmt: Incomplete
+    numFmt: NestedString[Literal[True]]
     spPr: Typed[GraphicalProperties, Literal[True]]
     graphicalProperties: Alias
     txPr: Typed[RichText, Literal[True]]
     textProperties: Alias
-    dLblPos: Incomplete
+    dLblPos: NestedNoneSet[_DataLabelBaseDLblPos]
     position: Alias
-    showLegendKey: Incomplete
-    showVal: Incomplete
-    showCatName: Incomplete
-    showSerName: Incomplete
-    showPercent: Incomplete
-    showBubbleSize: Incomplete
-    showLeaderLines: Incomplete
-    separator: Incomplete
+    showLegendKey: NestedBool[Literal[True]]
+    showVal: NestedBool[Literal[True]]
+    showCatName: NestedBool[Literal[True]]
+    showSerName: NestedBool[Literal[True]]
+    showPercent: NestedBool[Literal[True]]
+    showBubbleSize: NestedBool[Literal[True]]
+    showLeaderLines: NestedBool[Literal[True]]
+    separator: NestedString[Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        numFmt: Incomplete | None = None,
+        numFmt: object = None,
         spPr: GraphicalProperties | None = None,
         txPr: RichText | None = None,
-        dLblPos: Incomplete | None = None,
-        showLegendKey: Incomplete | None = None,
-        showVal: Incomplete | None = None,
-        showCatName: Incomplete | None = None,
-        showSerName: Incomplete | None = None,
-        showPercent: Incomplete | None = None,
-        showBubbleSize: Incomplete | None = None,
-        showLeaderLines: Incomplete | None = None,
-        separator: Incomplete | None = None,
+        dLblPos: _NestedNoneSetParam[_DataLabelBaseDLblPos] = None,
+        showLegendKey: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        showVal: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        showCatName: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        showSerName: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        showPercent: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        showBubbleSize: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        showLeaderLines: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        separator: object = None,
         extLst: Unused = None,
     ) -> None: ...
-    @property
-    @abstractmethod
-    def tagname(self) -> str: ...
 
 class DataLabel(_DataLabelBase):
-    tagname: str
-    idx: Incomplete
+    tagname: ClassVar[str]
+    idx: NestedInteger[Literal[False]]
     numFmt: Incomplete
     spPr: Incomplete
     txPr: Incomplete
@@ -64,12 +63,12 @@ class DataLabel(_DataLabelBase):
     separator: Incomplete
     extLst: Incomplete
     __elements__: ClassVar[tuple[str, ...]]
-    def __init__(self, idx: int = 0, **kw) -> None: ...
+    def __init__(self, idx: _HasTagAndGet[_ConvertibleToInt] | _ConvertibleToInt = 0, **kw) -> None: ...
 
 class DataLabelList(_DataLabelBase):
-    tagname: str
+    tagname: ClassVar[str]
     dLbl: Incomplete
-    delete: Incomplete
+    delete: NestedBool[Literal[True]]
     numFmt: Incomplete
     spPr: Incomplete
     txPr: Incomplete
@@ -84,4 +83,6 @@ class DataLabelList(_DataLabelBase):
     separator: Incomplete
     extLst: Incomplete
     __elements__: ClassVar[tuple[str, ...]]
-    def __init__(self, dLbl=(), delete: Incomplete | None = None, **kw) -> None: ...
+    def __init__(
+        self, dLbl=(), delete: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None, **kw
+    ) -> None: ...

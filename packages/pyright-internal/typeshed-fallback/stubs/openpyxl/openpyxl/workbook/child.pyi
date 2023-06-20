@@ -1,6 +1,8 @@
 from _typeshed import Incomplete
+from re import Pattern
+from typing_extensions import Final
 
-INVALID_TITLE_REGEX: Incomplete
+INVALID_TITLE_REGEX: Final[Pattern[str]]
 
 def avoid_duplicate_name(names, value): ...
 

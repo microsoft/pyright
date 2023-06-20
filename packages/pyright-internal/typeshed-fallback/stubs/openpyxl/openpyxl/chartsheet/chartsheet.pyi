@@ -19,7 +19,7 @@ from openpyxl.worksheet.page import PageMargins, PrintPageSetup
 _ChartsheetSheetState: TypeAlias = Literal["visible", "hidden", "veryHidden"]
 
 class Chartsheet(_WorkbookChild, Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     mime_type: str
     sheetPr: Typed[ChartsheetProperties, Literal[True]]
     sheetViews: Typed[ChartsheetViewList, Literal[False]]

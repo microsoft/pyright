@@ -15,7 +15,7 @@ from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.worksheet.cell_range import MultiCellRange
 
 class InputCells(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     r: String[Literal[False]]
     deleted: Bool[Literal[True]]
     undone: Bool[Literal[True]]
@@ -43,7 +43,7 @@ class InputCells(Serialisable):
     ) -> None: ...
 
 class Scenario(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     inputCells: Incomplete
     name: String[Literal[False]]
     locked: Bool[Literal[True]]
@@ -79,7 +79,7 @@ class Scenario(Serialisable):
     def count(self): ...
 
 class ScenarioList(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     scenario: Incomplete
     current: Integer[Literal[True]]
     show: Integer[Literal[True]]

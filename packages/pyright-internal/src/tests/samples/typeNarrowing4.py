@@ -4,21 +4,19 @@
 
 # pyright: strict
 
-from typing import Optional
-
 
 class C:
-    def foo(self):
+    def method1(self):
         pass
 
 
-def good(b: Optional[C]) -> None:
+def good(b: C | None) -> None:
     a = b
     if a:
-        a.foo()
+        a.method1()
 
 
-def bad(b: Optional[C]) -> None:
+def bad(b: C | None) -> None:
     if c := b:
-        c.foo()
-        b.foo()
+        c.method1()
+        b.method1()

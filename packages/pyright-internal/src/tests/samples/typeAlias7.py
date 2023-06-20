@@ -3,7 +3,6 @@
 
 from typing import Awaitable, Callable, Generic, TypeVar
 
-
 TSource = TypeVar("TSource")
 TError = TypeVar("TError")
 TResult = TypeVar("TResult")

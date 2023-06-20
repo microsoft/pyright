@@ -8,7 +8,7 @@ from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
 
 class UpDownBars(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     gapWidth: Incomplete
     upBars: Typed[ChartLines, Literal[True]]
     downBars: Typed[ChartLines, Literal[True]]

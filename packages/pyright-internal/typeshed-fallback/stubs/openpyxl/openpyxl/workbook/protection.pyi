@@ -6,7 +6,7 @@ from openpyxl.descriptors.base import Alias, Bool, Integer, String, _Convertible
 from openpyxl.descriptors.serialisable import Serialisable
 
 class WorkbookProtection(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     workbook_password: Alias
     workbookPasswordCharacterSet: String[Literal[True]]
     revision_password: Alias
@@ -60,7 +60,7 @@ class WorkbookProtection(Serialisable):
 DocumentSecurity = WorkbookProtection
 
 class FileSharing(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     readOnlyRecommended: Bool[Literal[True]]
     userName: String[Literal[True]]
     reservationPassword: Incomplete

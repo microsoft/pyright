@@ -9,7 +9,7 @@ from openpyxl.styles import Alignment, Border, Fill, Font, Protection
 from openpyxl.styles.numbers import NumberFormat
 
 class DifferentialStyle(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     __elements__: ClassVar[tuple[str, ...]]
     font: Typed[Font, Literal[True]]
     numFmt: Typed[NumberFormat, Literal[True]]
@@ -30,7 +30,7 @@ class DifferentialStyle(Serialisable):
     ) -> None: ...
 
 class DifferentialStyleList(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     dxf: Incomplete
     styles: Alias
     __attrs__: ClassVar[tuple[str, ...]]

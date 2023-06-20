@@ -1,41 +1,42 @@
-from _typeshed import Incomplete, Unused
+from _typeshed import Unused
 from typing import ClassVar
 from typing_extensions import Literal
 
 from openpyxl.chart.picture import PictureOptions
 from openpyxl.chart.shapes import GraphicalProperties
-from openpyxl.descriptors.base import Alias, Typed
+from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import NestedBool, NestedInteger, NestedMinMax, _HasTagAndGet
 from openpyxl.descriptors.serialisable import Serialisable
 
 class View3D(Serialisable):
-    tagname: str
-    rotX: Incomplete
+    tagname: ClassVar[str]
+    rotX: NestedMinMax[float, Literal[True]]
     x_rotation: Alias
-    hPercent: Incomplete
+    hPercent: NestedMinMax[float, Literal[True]]
     height_percent: Alias
-    rotY: Incomplete
+    rotY: NestedInteger[Literal[True]]
     y_rotation: Alias
-    depthPercent: Incomplete
-    rAngAx: Incomplete
+    depthPercent: NestedInteger[Literal[True]]
+    rAngAx: NestedBool[Literal[True]]
     right_angle_axes: Alias
-    perspective: Incomplete
+    perspective: NestedInteger[Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        rotX: int = 15,
-        hPercent: Incomplete | None = None,
-        rotY: int = 20,
-        depthPercent: Incomplete | None = None,
-        rAngAx: bool = True,
-        perspective: Incomplete | None = None,
+        rotX: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = 15,
+        hPercent: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
+        rotY: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None = 20,
+        depthPercent: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None = None,
+        rAngAx: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = True,
+        perspective: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None = None,
         extLst: Unused = None,
     ) -> None: ...
 
 class Surface(Serialisable):
-    tagname: str
-    thickness: Incomplete
+    tagname: ClassVar[str]
+    thickness: NestedInteger[Literal[True]]
     spPr: Typed[GraphicalProperties, Literal[True]]
     graphicalProperties: Alias
     pictureOptions: Typed[PictureOptions, Literal[True]]
@@ -43,14 +44,14 @@ class Surface(Serialisable):
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        thickness: Incomplete | None = None,
+        thickness: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None = None,
         spPr: GraphicalProperties | None = None,
         pictureOptions: PictureOptions | None = None,
         extLst: Unused = None,
     ) -> None: ...
 
 class _3DBase(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     view3D: Typed[View3D, Literal[True]]
     floor: Typed[Surface, Literal[True]]
     sideWall: Typed[Surface, Literal[True]]

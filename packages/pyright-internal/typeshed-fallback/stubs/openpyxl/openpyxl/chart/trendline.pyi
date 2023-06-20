@@ -1,17 +1,20 @@
-from _typeshed import Incomplete, Unused
+from _typeshed import Unused
 from typing import ClassVar
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
 from openpyxl.chart.data_source import NumFmt
 from openpyxl.chart.layout import Layout
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.text import RichText, Text
-from openpyxl.descriptors.base import Alias, String, Typed
+from openpyxl.descriptors.base import Alias, String, Typed, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import NestedBool, NestedFloat, NestedInteger, NestedSet, _HasTagAndGet
 from openpyxl.descriptors.serialisable import Serialisable
 
+_TrendlineTrendlineType: TypeAlias = Literal["exp", "linear", "log", "movingAvg", "poly", "power"]
+
 class TrendlineLabel(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     layout: Typed[Layout, Literal[True]]
     tx: Typed[Text, Literal[True]]
     numFmt: Typed[NumFmt, Literal[True]]
@@ -32,18 +35,18 @@ class TrendlineLabel(Serialisable):
     ) -> None: ...
 
 class Trendline(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     name: String[Literal[True]]
     spPr: Typed[ExtensionList, Literal[True]]
     graphicalProperties: Alias
-    trendlineType: Incomplete
-    order: Incomplete
-    period: Incomplete
-    forward: Incomplete
-    backward: Incomplete
-    intercept: Incomplete
-    dispRSqr: Incomplete
-    dispEq: Incomplete
+    trendlineType: NestedSet[_TrendlineTrendlineType]
+    order: NestedInteger[Literal[True]]
+    period: NestedInteger[Literal[True]]
+    forward: NestedFloat[Literal[True]]
+    backward: NestedFloat[Literal[True]]
+    intercept: NestedFloat[Literal[True]]
+    dispRSqr: NestedBool[Literal[True]]
+    dispEq: NestedBool[Literal[True]]
     trendlineLbl: Typed[ExtensionList, Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
@@ -51,14 +54,14 @@ class Trendline(Serialisable):
         self,
         name: str | None = None,
         spPr: ExtensionList | None = None,
-        trendlineType: str = "linear",
-        order: Incomplete | None = None,
-        period: Incomplete | None = None,
-        forward: Incomplete | None = None,
-        backward: Incomplete | None = None,
-        intercept: Incomplete | None = None,
-        dispRSqr: Incomplete | None = None,
-        dispEq: Incomplete | None = None,
+        trendlineType: _HasTagAndGet[_TrendlineTrendlineType] | _TrendlineTrendlineType = "linear",
+        order: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None = None,
+        period: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None = None,
+        forward: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
+        backward: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
+        intercept: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
+        dispRSqr: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        dispEq: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
         trendlineLbl: ExtensionList | None = None,
         extLst: Unused = None,
     ) -> None: ...

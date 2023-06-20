@@ -15,6 +15,7 @@ import { timingStats } from './common/timing';
 
 import chalk from 'chalk';
 import commandLineArgs, { CommandLineOptions, OptionDefinition } from 'command-line-args';
+import * as fs from 'fs';
 
 import { PackageTypeReport, TypeKnownStatus } from './analyzer/packageTypeReport';
 import { PackageTypeVerifier } from './analyzer/packageTypeVerifier';
@@ -218,7 +219,24 @@ async function processArgs(): Promise<ExitStatus> {
 
     // Assume any relative paths are relative to the working directory.
     if (args.files && Array.isArray(args.files)) {
-        options.fileSpecs = args.files;
+        let fileSpecList = args.files;
+
+        // Has the caller indicated that the file list will be supplied by stdin?
+        if (args.files.length === 1 && args.files[0] === '-') {
+            try {
+                const stdText = fs.readFileSync(process.stdin.fd, 'utf-8');
+                fileSpecList = stdText
+                    .trim()
+                    .split(' ')
+                    .map((s) => s.trim())
+                    .filter((s) => !s);
+            } catch (e) {
+                console.error('Invalid file list specified by stdin input.');
+                return ExitStatus.ParameterError;
+            }
+        }
+
+        options.fileSpecs = fileSpecList;
         options.fileSpecs = options.fileSpecs.map((f) => combinePaths(process.cwd(), f));
     } else {
         options.fileSpecs = [];
@@ -729,7 +747,8 @@ function printUsage() {
             '  --verifytypes <PACKAGE>            Verify type completeness of a py.typed package\n' +
             '  --version                          Print Pyright version and exit\n' +
             '  --warnings                         Use exit code of 1 if warnings are reported\n' +
-            '  -w,--watch                         Continue to run and watch for changes\n'
+            '  -w,--watch                         Continue to run and watch for changes\n' +
+            '  -                                  Read files from stdin\n'
     );
 }
 

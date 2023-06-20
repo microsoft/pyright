@@ -10,7 +10,7 @@ _WebPublishItemSourceType: TypeAlias = Literal[
 ]
 
 class WebPublishItem(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     id: Integer[Literal[False]]
     divId: String[Literal[False]]
     sourceType: Set[_WebPublishItemSourceType]
@@ -46,7 +46,7 @@ class WebPublishItem(Serialisable):
     ) -> None: ...
 
 class WebPublishItems(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     count: Integer[Literal[True]]
     webPublishItem: Incomplete
     __elements__: ClassVar[tuple[str, ...]]

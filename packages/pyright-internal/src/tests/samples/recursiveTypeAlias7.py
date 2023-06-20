@@ -7,9 +7,9 @@ from typing import Dict, Union
 A = Union[str, Dict[str, "A"]]
 
 
-def foo(x: A):
+def func1(x: A):
     if isinstance(x, str):
         print(x)
     else:
         for _, v in x.items():
-            foo(v)
+            func1(v)

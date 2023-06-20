@@ -1,4 +1,5 @@
 from _typeshed import Incomplete
+from typing import ClassVar
 from typing_extensions import Literal, TypeAlias
 
 from openpyxl.descriptors.base import Bool, Float, Integer, NoneSet, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt
@@ -10,7 +11,7 @@ _PrintPageSetupCellComments: TypeAlias = Literal["asDisplayed", "atEnd"]
 _PrintPageSetupErrors: TypeAlias = Literal["displayed", "blank", "dash", "NA"]
 
 class PrintPageSetup(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     orientation: NoneSet[_PrintPageSetupOrientation]
     paperSize: Integer[Literal[True]]
     scale: Integer[Literal[True]]
@@ -68,7 +69,7 @@ class PrintPageSetup(Serialisable):
     def from_tree(cls, node): ...
 
 class PrintOptions(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     horizontalCentered: Bool[Literal[True]]
     verticalCentered: Bool[Literal[True]]
     headings: Bool[Literal[True]]
@@ -85,7 +86,7 @@ class PrintOptions(Serialisable):
     def __bool__(self) -> bool: ...
 
 class PageMargins(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     left: Float[Literal[False]]
     right: Float[Literal[False]]
     top: Float[Literal[False]]

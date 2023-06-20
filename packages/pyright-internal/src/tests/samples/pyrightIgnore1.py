@@ -1,10 +1,9 @@
 # This sample tests the # pyright: ignore comment.
 
 import sys
-from typing import Optional
 
 
-def foo(self, x: Optional[int]) -> str:
+def func1(self, x: int | None) -> str:
     # This should suppress the error
     x + "hi"  # pyright: ignore - test
 

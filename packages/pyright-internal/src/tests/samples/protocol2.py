@@ -2,7 +2,7 @@
 # generic protocols with invariant, constrained, and contravariant
 # type arguments.
 
-from typing import Optional, TypeVar, Protocol
+from typing import TypeVar, Protocol
 
 
 T = TypeVar("T")
@@ -24,11 +24,11 @@ def f(writer: Writer[bytes]):
     pass
 
 
-def g(writer: Writer[T], v: Optional[T] = None):
+def g(writer: Writer[T], v: T | None = None):
     pass
 
 
-def h(writer: Writer[StrLike], v: Optional[StrLike] = None):
+def h(writer: Writer[StrLike], v: StrLike | None = None):
     pass
 
 

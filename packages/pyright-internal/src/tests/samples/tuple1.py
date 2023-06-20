@@ -90,6 +90,7 @@ func9(func10())
 func9((2, 3, 4))
 func9((2,))
 
+
 # Tests for tuple assignments with unpack expressions.
 def func10_1() -> int:
     a = (3, 4, 5)

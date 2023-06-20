@@ -1,6 +1,6 @@
 # This sample tests that type variables chain properly.
 
-from typing import Generic, Iterable, Iterator, Tuple, TypeVar
+from typing import Generic, Iterable, Iterator, TypeVar
 from itertools import chain
 
 T = TypeVar("T")
@@ -29,5 +29,5 @@ class ClassB(Generic[T]):
     def __init__(self, xs: Iterable[T]) -> None:
         self.xs = xs
 
-    def indexed(self) -> "ClassB[Tuple[int, T]]":
+    def indexed(self) -> "ClassB[tuple[int, T]]":
         return ClassB(enumerate(self.xs))

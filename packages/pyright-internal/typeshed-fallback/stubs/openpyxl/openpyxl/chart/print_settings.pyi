@@ -7,7 +7,7 @@ from openpyxl.worksheet.header_footer import HeaderFooter
 from openpyxl.worksheet.page import PrintPageSetup
 
 class PageMargins(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     l: Float[Literal[False]]
     left: Alias
     r: Float[Literal[False]]
@@ -29,7 +29,7 @@ class PageMargins(Serialisable):
     ) -> None: ...
 
 class PrintSettings(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     headerFooter: Typed[HeaderFooter, Literal[True]]
     pageMargins: Typed[PageMargins, Literal[True]]
     pageSetup: Typed[PrintPageSetup, Literal[True]]

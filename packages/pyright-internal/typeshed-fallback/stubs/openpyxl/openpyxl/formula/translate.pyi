@@ -1,4 +1,6 @@
 from _typeshed import Incomplete
+from re import Pattern
+from typing_extensions import Final
 
 class TranslatorError(Exception): ...
 
@@ -6,9 +8,9 @@ class Translator:
     tokenizer: Incomplete
     def __init__(self, formula, origin) -> None: ...
     def get_tokens(self): ...
-    ROW_RANGE_RE: Incomplete
-    COL_RANGE_RE: Incomplete
-    CELL_REF_RE: Incomplete
+    ROW_RANGE_RE: Final[Pattern[str]]
+    COL_RANGE_RE: Final[Pattern[str]]
+    CELL_REF_RE: Final[Pattern[str]]
     @staticmethod
     def translate_row(row_str, rdelta): ...
     @staticmethod

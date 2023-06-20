@@ -1,10 +1,10 @@
 # This sample tests that certain type aliases cannot be used within
 # call expressions.
 
-from typing import Callable, Optional, Tuple, Type, TypeVar, Union
+from typing import Callable, TypeVar
 
 
-T_Union = Union[int, float]
+T_Union = int | float
 
 # This should generate an error
 T_Union(3)
@@ -15,7 +15,7 @@ T_Callable = Callable[[int], None]
 T_Callable(1)
 
 
-T_Type1 = Type[int]
+T_Type1 = type[int]
 
 # This should generate an error
 T_Type1(object)
@@ -23,7 +23,7 @@ T_Type1(object)
 T_Type2 = type
 T_Type2(object)
 
-T_Optional = Optional[str]
+T_Optional = str | None
 
 # This should generate an error
 T_Optional(3)

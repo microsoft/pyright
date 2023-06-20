@@ -1,5 +1,6 @@
 # This sample tests that super() calls use Self for binding.
 
+
 class A:
     def clone(self):
         return self

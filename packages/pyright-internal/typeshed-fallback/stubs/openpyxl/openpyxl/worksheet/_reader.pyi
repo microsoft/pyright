@@ -1,40 +1,41 @@
 import datetime
 from _typeshed import Incomplete
 from collections.abc import Container, Generator
+from typing_extensions import Final
 
 from .hyperlink import HyperlinkList
 from .pagebreak import ColBreak, RowBreak
 from .protection import SheetProtection
 from .table import TablePartList
 
-CELL_TAG: Incomplete
-VALUE_TAG: Incomplete
-FORMULA_TAG: Incomplete
-MERGE_TAG: Incomplete
-INLINE_STRING: Incomplete
-COL_TAG: Incomplete
-ROW_TAG: Incomplete
-CF_TAG: Incomplete
-LEGACY_TAG: Incomplete
-PROT_TAG: Incomplete
-EXT_TAG: Incomplete
-HYPERLINK_TAG: Incomplete
-TABLE_TAG: Incomplete
-PRINT_TAG: Incomplete
-MARGINS_TAG: Incomplete
-PAGE_TAG: Incomplete
-HEADER_TAG: Incomplete
-FILTER_TAG: Incomplete
-VALIDATION_TAG: Incomplete
-PROPERTIES_TAG: Incomplete
-VIEWS_TAG: Incomplete
-FORMAT_TAG: Incomplete
-ROW_BREAK_TAG: Incomplete
-COL_BREAK_TAG: Incomplete
-SCENARIOS_TAG: Incomplete
-DATA_TAG: Incomplete
-DIMENSION_TAG: Incomplete
-CUSTOM_VIEWS_TAG: Incomplete
+CELL_TAG: Final[str]
+VALUE_TAG: Final[str]
+FORMULA_TAG: Final[str]
+MERGE_TAG: Final[str]
+INLINE_STRING: Final[str]
+COL_TAG: Final[str]
+ROW_TAG: Final[str]
+CF_TAG: Final[str]
+LEGACY_TAG: Final[str]
+PROT_TAG: Final[str]
+EXT_TAG: Final[str]
+HYPERLINK_TAG: Final[str]
+TABLE_TAG: Final[str]
+PRINT_TAG: Final[str]
+MARGINS_TAG: Final[str]
+PAGE_TAG: Final[str]
+HEADER_TAG: Final[str]
+FILTER_TAG: Final[str]
+VALIDATION_TAG: Final[str]
+PROPERTIES_TAG: Final[str]
+VIEWS_TAG: Final[str]
+FORMAT_TAG: Final[str]
+ROW_BREAK_TAG: Final[str]
+COL_BREAK_TAG: Final[str]
+SCENARIOS_TAG: Final[str]
+DATA_TAG: Final[str]
+DIMENSION_TAG: Final[str]
+CUSTOM_VIEWS_TAG: Final[str]
 
 class WorkSheetParser:
     min_row: Incomplete | None

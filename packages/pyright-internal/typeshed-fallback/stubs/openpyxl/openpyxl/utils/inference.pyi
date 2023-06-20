@@ -1,8 +1,9 @@
-from _typeshed import Incomplete
+from re import Pattern
+from typing_extensions import Final
 
-PERCENT_REGEX: Incomplete
-TIME_REGEX: Incomplete
-NUMBER_REGEX: Incomplete
+PERCENT_REGEX: Final[Pattern[str]]
+TIME_REGEX: Final[Pattern[str]]
+NUMBER_REGEX: Final[Pattern[str]]
 
 def cast_numeric(value): ...
 def cast_percentage(value): ...

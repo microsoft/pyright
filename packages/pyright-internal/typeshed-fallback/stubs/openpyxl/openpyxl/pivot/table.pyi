@@ -106,12 +106,12 @@ _ItemType: TypeAlias = Literal[
 _PivotFieldSortType: TypeAlias = Literal["manual", "ascending", "descending"]
 
 class HierarchyUsage(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     hierarchyUsage: Integer[Literal[False]]
     def __init__(self, hierarchyUsage: _ConvertibleToInt) -> None: ...
 
 class ColHierarchiesUsage(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     colHierarchyUsage: Incomplete
     __elements__: ClassVar[tuple[str, ...]]
     __attrs__: ClassVar[tuple[str, ...]]
@@ -120,7 +120,7 @@ class ColHierarchiesUsage(Serialisable):
     def count(self): ...
 
 class RowHierarchiesUsage(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     rowHierarchyUsage: Incomplete
     __elements__: ClassVar[tuple[str, ...]]
     __attrs__: ClassVar[tuple[str, ...]]
@@ -129,7 +129,7 @@ class RowHierarchiesUsage(Serialisable):
     def count(self): ...
 
 class PivotFilter(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     fld: Integer[Literal[False]]
     mpFld: Integer[Literal[True]]
     type: Set[_PivotFilterType]
@@ -187,7 +187,7 @@ class PivotFilters(Serialisable):
     def __init__(self, count: _ConvertibleToInt, filter: PivotFilter | None = None) -> None: ...
 
 class PivotTableStyle(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     name: String[Literal[True]]
     showRowHeaders: Bool[Literal[False]]
     showColHeaders: Bool[Literal[False]]
@@ -205,7 +205,7 @@ class PivotTableStyle(Serialisable):
     ) -> None: ...
 
 class MemberList(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     level: Integer[Literal[True]]
     member: Incomplete
     __elements__: ClassVar[tuple[str, ...]]
@@ -214,7 +214,7 @@ class MemberList(Serialisable):
     def count(self): ...
 
 class MemberProperty(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     name: String[Literal[True]]
     showCell: Bool[Literal[True]]
     showTip: Bool[Literal[True]]
@@ -253,7 +253,7 @@ class MemberProperty(Serialisable):
     ) -> None: ...
 
 class PivotHierarchy(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     outline: Bool[Literal[False]]
     multipleItemSelectionAllowed: Bool[Literal[False]]
     subtotalTop: Bool[Literal[False]]
@@ -288,7 +288,7 @@ class PivotHierarchy(Serialisable):
     ) -> None: ...
 
 class Reference(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     field: Integer[Literal[True]]
     selected: Bool[Literal[True]]
     byPosition: Bool[Literal[True]]
@@ -334,7 +334,7 @@ class Reference(Serialisable):
     def count(self): ...
 
 class PivotArea(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     references: Incomplete
     extLst: Typed[ExtensionList, Literal[True]]
     field: Integer[Literal[True]]
@@ -369,7 +369,7 @@ class PivotArea(Serialisable):
     ) -> None: ...
 
 class ChartFormat(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     chart: Integer[Literal[False]]
     format: Integer[Literal[False]]
     series: Bool[Literal[False]]
@@ -385,7 +385,7 @@ class ChartFormat(Serialisable):
     ) -> None: ...
 
 class ConditionalFormat(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     scope: Set[_ConditionalFormatScope]
     type: NoneSet[_ConditionalFormatType]
     priority: Integer[Literal[False]]
@@ -413,17 +413,17 @@ class ConditionalFormat(Serialisable):
     ) -> None: ...
 
 class ConditionalFormatList(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     conditionalFormat: Incomplete
     __attrs__: ClassVar[tuple[str, ...]]
     def __init__(self, conditionalFormat=..., count: Incomplete | None = ...) -> None: ...
     def by_priority(self): ...
     @property
     def count(self): ...
-    def to_tree(self, tagname: Incomplete | None = ...): ...  # type: ignore[override]
+    def to_tree(self, tagname: str | None = None): ...  # type: ignore[override]
 
 class Format(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     action: NoneSet[_FormatAction]
     dxfId: Integer[Literal[True]]
     pivotArea: Typed[PivotArea, Literal[False]]
@@ -448,7 +448,7 @@ class Format(Serialisable):
     ) -> None: ...
 
 class DataField(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     name: String[Literal[True]]
     fld: Integer[Literal[False]]
     subtotal: Set[_DataFieldSubtotal]
@@ -485,7 +485,7 @@ class DataField(Serialisable):
     ) -> None: ...
 
 class PageField(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     fld: Integer[Literal[False]]
     item: Integer[Literal[True]]
     hier: Integer[Literal[True]]
@@ -504,7 +504,7 @@ class PageField(Serialisable):
     ) -> None: ...
 
 class RowColItem(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     t: Set[_ItemType]
     r: Integer[Literal[False]]
     i: Integer[Literal[False]]
@@ -513,7 +513,7 @@ class RowColItem(Serialisable):
     def __init__(self, t: _ItemType = "data", r: _ConvertibleToInt = 0, i: _ConvertibleToInt = 0, x=()) -> None: ...
 
 class RowColField(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     x: Integer[Literal[False]]
     def __init__(self, x: _ConvertibleToInt) -> None: ...
 
@@ -523,7 +523,7 @@ class AutoSortScope(Serialisable):
     def __init__(self, pivotArea: PivotArea) -> None: ...
 
 class FieldItem(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     n: String[Literal[True]]
     t: Set[_ItemType]
     h: Bool[Literal[True]]
@@ -551,7 +551,7 @@ class FieldItem(Serialisable):
     ) -> None: ...
 
 class PivotField(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     items: Incomplete
     autoSortScope: Typed[AutoSortScope, Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]
@@ -660,7 +660,7 @@ class PivotField(Serialisable):
     ) -> None: ...
 
 class Location(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     ref: String[Literal[False]]
     firstHeaderRow: Integer[Literal[False]]
     firstDataRow: Integer[Literal[False]]
@@ -680,7 +680,7 @@ class Location(Serialisable):
 class TableDefinition(Serialisable):
     mime_type: str
     rel_type: str
-    tagname: str
+    tagname: ClassVar[str]
     cache: Incomplete
     name: String[Literal[False]]
     cacheId: Integer[Literal[False]]

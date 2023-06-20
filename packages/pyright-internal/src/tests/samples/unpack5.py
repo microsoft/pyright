@@ -1,6 +1,7 @@
 # This sample tests unpacking of tuples that contain PEP 646-style
 # tuples with unknown length within them.
 
+
 def suffix() -> tuple[int, str, *tuple[bool, ...]]:
     return 1, "a", True
 

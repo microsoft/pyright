@@ -1,7 +1,7 @@
 # This sample tests the type narrowing case for unions of NamedTuples
 # where one or more of the entries is tested against type None by attribute.
 
-from typing import NamedTuple, Optional, Union
+from typing import NamedTuple, Union
 
 IntFirst = NamedTuple(
     "IntFirst",
@@ -47,13 +47,13 @@ def func2(a: Union[UnionFirst, StrSecond]):
 
 class A:
     @property
-    def prop1(self) -> Optional[int]:
+    def prop1(self) -> int | None:
         ...
 
     member1: None
-    member2: Optional[int]
-    member3: Optional[int]
-    member4: Optional[int]
+    member2: int | None
+    member3: int | None
+    member4: int | None
 
 
 class B:
@@ -62,7 +62,7 @@ class B:
         ...
 
     member1: int
-    member2: Optional[int]
+    member2: int | None
     member3: None
     member4: int
 

@@ -2,8 +2,18 @@ from _typeshed import Incomplete, Unused
 from typing import ClassVar
 from typing_extensions import Literal, TypeAlias
 
-from openpyxl.descriptors.base import Alias, Integer, MinMax, NoneSet, Typed, _ConvertibleToFloat, _ConvertibleToInt
+from openpyxl.descriptors.base import (
+    Alias,
+    Integer,
+    MinMax,
+    NoneSet,
+    Typed,
+    _ConvertibleToBool,
+    _ConvertibleToFloat,
+    _ConvertibleToInt,
+)
 from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import EmptyTag, NestedInteger, NestedNoneSet, _HasTagAndGet, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.drawing.fill import GradientFillProperties, PatternFillProperties
 
@@ -12,10 +22,13 @@ _LineEndPropertiesWLen: TypeAlias = Literal["sm", "med", "lg"]
 _LinePropertiesCap: TypeAlias = Literal["rnd", "sq", "flat"]
 _LinePropertiesCmpd: TypeAlias = Literal["sng", "dbl", "thickThin", "thinThick", "tri"]
 _LinePropertiesAlgn: TypeAlias = Literal["ctr", "in"]
+_LinePropertiesPrstDash: TypeAlias = Literal[
+    "solid", "dot", "dash", "lgDash", "dashDot", "lgDashDot", "lgDashDotDot", "sysDash", "sysDot", "sysDashDot", "sysDashDotDot"
+]
 
 class LineEndProperties(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     type: NoneSet[_LineEndPropertiesType]
     w: NoneSet[_LineEndPropertiesWLen]
     len: NoneSet[_LineEndPropertiesWLen]
@@ -27,8 +40,8 @@ class LineEndProperties(Serialisable):
     ) -> None: ...
 
 class DashStop(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     d: Integer[Literal[False]]
     length: Alias
     sp: Integer[Literal[False]]
@@ -40,23 +53,23 @@ class DashStopList(Serialisable):
     def __init__(self, ds: Incomplete | None = None) -> None: ...
 
 class LineProperties(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     w: MinMax[float, Literal[True]]
     width: Alias
     cap: NoneSet[_LinePropertiesCap]
     cmpd: NoneSet[_LinePropertiesCmpd]
     algn: NoneSet[_LinePropertiesAlgn]
-    noFill: Incomplete
+    noFill: EmptyTag[Literal[False]]
     solidFill: Incomplete
     gradFill: Typed[GradientFillProperties, Literal[True]]
     pattFill: Typed[PatternFillProperties, Literal[True]]
-    prstDash: Incomplete
+    prstDash: NestedNoneSet[_LinePropertiesPrstDash]
     dashStyle: Alias
     custDash: Typed[DashStop, Literal[True]]
-    round: Incomplete
-    bevel: Incomplete
-    miter: Incomplete
+    round: EmptyTag[Literal[False]]
+    bevel: EmptyTag[Literal[False]]
+    miter: NestedInteger[Literal[True]]
     headEnd: Typed[LineEndProperties, Literal[True]]
     tailEnd: Typed[LineEndProperties, Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]
@@ -67,15 +80,15 @@ class LineProperties(Serialisable):
         cap: _LinePropertiesCap | Literal["none"] | None = None,
         cmpd: _LinePropertiesCmpd | Literal["none"] | None = None,
         algn: _LinePropertiesAlgn | Literal["none"] | None = None,
-        noFill: Incomplete | None = None,
+        noFill: _HasTagAndGet[_ConvertibleToBool] | _ConvertibleToBool = None,
         solidFill: Incomplete | None = None,
         gradFill: GradientFillProperties | None = None,
         pattFill: PatternFillProperties | None = None,
-        prstDash: Incomplete | None = None,
+        prstDash: _NestedNoneSetParam[_LinePropertiesPrstDash] = None,
         custDash: DashStop | None = None,
-        round: Incomplete | None = None,
-        bevel: Incomplete | None = None,
-        miter: Incomplete | None = None,
+        round: _HasTagAndGet[_ConvertibleToBool] | _ConvertibleToBool = None,
+        bevel: _HasTagAndGet[_ConvertibleToBool] | _ConvertibleToBool = None,
+        miter: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None = None,
         headEnd: LineEndProperties | None = None,
         tailEnd: LineEndProperties | None = None,
         extLst: Unused = None,

@@ -1,30 +1,39 @@
 from _typeshed import Incomplete, Unused
 from typing import ClassVar
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
 from openpyxl.chart.layout import Layout
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.text import RichText
-from openpyxl.descriptors.base import Alias, Typed
+from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import NestedBool, NestedInteger, NestedSet, _HasTagAndGet
 from openpyxl.descriptors.serialisable import Serialisable
 
+_LegendLegendPos: TypeAlias = Literal["b", "tr", "l", "r", "t"]
+
 class LegendEntry(Serialisable):
-    tagname: str
-    idx: Incomplete
-    delete: Incomplete
+    tagname: ClassVar[str]
+    idx: NestedInteger[Literal[False]]
+    delete: NestedBool[Literal[False]]
     txPr: Typed[RichText, Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
-    def __init__(self, idx: int = 0, delete: bool = False, txPr: RichText | None = None, extLst: Unused = None) -> None: ...
+    def __init__(
+        self,
+        idx: _HasTagAndGet[_ConvertibleToInt] | _ConvertibleToInt = 0,
+        delete: _HasTagAndGet[_ConvertibleToBool] | _ConvertibleToBool = False,
+        txPr: RichText | None = None,
+        extLst: Unused = None,
+    ) -> None: ...
 
 class Legend(Serialisable):
-    tagname: str
-    legendPos: Incomplete
+    tagname: ClassVar[str]
+    legendPos: NestedSet[_LegendLegendPos]
     position: Alias
     legendEntry: Incomplete
     layout: Typed[Layout, Literal[True]]
-    overlay: Incomplete
+    overlay: NestedBool[Literal[True]]
     spPr: Typed[GraphicalProperties, Literal[True]]
     graphicalProperties: Alias
     txPr: Typed[RichText, Literal[True]]
@@ -33,10 +42,10 @@ class Legend(Serialisable):
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        legendPos: str = "r",
+        legendPos: _HasTagAndGet[_LegendLegendPos] | _LegendLegendPos = "r",
         legendEntry=(),
         layout: Layout | None = None,
-        overlay: Incomplete | None = None,
+        overlay: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
         spPr: GraphicalProperties | None = None,
         txPr: RichText | None = None,
         extLst: Unused = None,

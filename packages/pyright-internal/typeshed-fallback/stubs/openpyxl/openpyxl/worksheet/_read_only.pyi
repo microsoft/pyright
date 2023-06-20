@@ -1,5 +1,7 @@
 from _typeshed import Incomplete
 
+from openpyxl.worksheet.worksheet import Worksheet
+
 def read_dimension(source): ...
 
 class ReadOnlyWorksheet:
@@ -9,8 +11,8 @@ class ReadOnlyWorksheet:
     def values(self): ...
     @property
     def rows(self): ...
-    __getitem__: Incomplete
-    __iter__: Incomplete
+    __getitem__ = Worksheet.__getitem__
+    __iter__ = Worksheet.__iter__
     parent: Incomplete
     title: Incomplete
     sheet_state: str

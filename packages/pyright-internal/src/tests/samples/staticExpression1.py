@@ -51,10 +51,12 @@ if DEFINED_STR == "hi!":
 else:
     x = "error!"
 
+
 class Dummy:
     DEFINED_FALSE: bool
     DEFINED_TRUE: bool
     DEFINED_STR: str
+
 
 dummy = Dummy()
 

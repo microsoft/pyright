@@ -1,9 +1,9 @@
 # This sample tests the case where a type variable is bound to a union.
 
-from typing import Callable, TypeVar, Union
+from typing import Callable, TypeVar
 
 T = TypeVar("T")
-IntStr = Union[str, int]
+IntStr = str | int
 T1 = TypeVar("T1", bound=IntStr)
 T2 = TypeVar("T2", bound=IntStr)
 

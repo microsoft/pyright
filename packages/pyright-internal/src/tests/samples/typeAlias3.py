@@ -4,13 +4,13 @@
 
 # pyright: strict
 
-from typing import Callable, Generic, Tuple, Optional, TypeVar
+from typing import Callable, Generic, Optional, TypeVar
 from typing_extensions import ParamSpec
 
 T = TypeVar("T")
 P = ParamSpec("P")
 
-ValidationResult = Tuple[bool, Optional[T]]
+ValidationResult = tuple[bool, Optional[T]]
 
 
 def foo() -> ValidationResult[str]:

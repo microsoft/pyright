@@ -50,7 +50,7 @@ class Selection(Serialisable):
     ) -> None: ...
 
 class SheetView(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     windowProtection: Bool[Literal[True]]
     showFormulas: Bool[Literal[True]]
     showGridLines: Bool[Literal[True]]
@@ -100,7 +100,7 @@ class SheetView(Serialisable):
     ) -> None: ...
 
 class SheetViewList(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     sheetView: Incomplete
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]

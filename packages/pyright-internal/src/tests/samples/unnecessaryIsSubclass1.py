@@ -1,9 +1,7 @@
 # This sample tests unnecessary issubclass error reporting.
 
-from typing import Union, Type
 
-
-def foo(p1: Type[int], p2: Union[Type[int], Type[str]]):
+def func1(p1: type[int], p2: type[int] | type[str]):
     a = issubclass(p2, str)
 
     b = issubclass(p2, (int, float))

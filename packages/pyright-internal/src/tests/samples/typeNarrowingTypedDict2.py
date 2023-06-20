@@ -1,7 +1,7 @@
 # This sample tests type narrowing based on key accesses
 # to unions of TypedDicts that have fields with literal types.
 
-from typing import Literal, TypedDict, Union
+from typing import Literal, TypedDict
 
 
 class NewJobEvent(TypedDict):
@@ -20,7 +20,7 @@ class OtherEvent(TypedDict):
     message: str
 
 
-Event = Union[NewJobEvent, CancelJobEvent, OtherEvent]
+Event = NewJobEvent | CancelJobEvent | OtherEvent
 
 
 def process_event1(event: Event) -> None:

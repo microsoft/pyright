@@ -4,8 +4,9 @@
 from typing import Callable, TypeVar
 from typing_extensions import TypeVarTuple
 
-Ts = TypeVarTuple('Ts')
-R = TypeVar('R')
+Ts = TypeVarTuple("Ts")
+R = TypeVar("R")
+
 
 def call_with_params(func: Callable[[*Ts], R], *params: *Ts) -> R:
     # This should generate an error because it's missing a *.
@@ -13,11 +14,14 @@ def call_with_params(func: Callable[[*Ts], R], *params: *Ts) -> R:
 
     return func(*params)
 
+
 def callback1(*args: int) -> int:
     ...
 
-def callback2(*args: *tuple[int, int]) -> int:
+
+def callback2(*args: * tuple[int, int]) -> int:
     ...
+
 
 call_with_params(callback1)
 call_with_params(callback1, 1, 2, 3)
@@ -33,8 +37,10 @@ call_with_params(callback2, 1, 1)
 # This should generate an error.
 call_with_params(callback2, 1, "")
 
-def callback3(*args: *tuple[int, *tuple[str, ...], int]) -> int:
+
+def callback3(*args: * tuple[int, *tuple[str, ...], int]) -> int:
     ...
+
 
 # This should generate an error.
 call_with_params(callback3)
@@ -53,7 +59,6 @@ class Foo:
     @classmethod
     def foo(cls, *shape: *Ts) -> tuple[*Ts]:
         ...
-
 
 
 def call_with_params2(target: Callable[[*Ts], int]) -> tuple[*Ts]:

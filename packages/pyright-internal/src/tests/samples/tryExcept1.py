@@ -3,7 +3,6 @@
 
 
 def func1():
-
     try:
         pass
     except:

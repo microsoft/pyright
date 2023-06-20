@@ -1,8 +1,8 @@
-from _typeshed import Incomplete
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from re import Pattern
 from typing import overload
-from typing_extensions import TypeAlias
+from typing_extensions import Final, TypeAlias
 
 from openpyxl.cell.rich_text import CellRichText
 from openpyxl.comments.comments import Comment
@@ -12,26 +12,30 @@ from openpyxl.worksheet.formula import ArrayFormula, DataTableFormula
 from openpyxl.worksheet.hyperlink import Hyperlink
 from openpyxl.worksheet.worksheet import Worksheet
 
+_TimeTypes: TypeAlias = datetime | date | time | timedelta
 _CellValue: TypeAlias = (  # if numpy is installed also numpy bool and number types
-    bool | float | Decimal | str | CellRichText | date | time | timedelta | DataTableFormula | ArrayFormula
+    bool | float | Decimal | str | CellRichText | _TimeTypes | DataTableFormula | ArrayFormula
 )
 
-__docformat__: str
-TIME_TYPES: Incomplete
-TIME_FORMATS: Incomplete
-STRING_TYPES: Incomplete
-KNOWN_TYPES: Incomplete
-ILLEGAL_CHARACTERS_RE: Incomplete
-ERROR_CODES: Incomplete
-TYPE_STRING: str
-TYPE_FORMULA: str
-TYPE_NUMERIC: str
-TYPE_BOOL: str
-TYPE_NULL: str
-TYPE_INLINE: str
-TYPE_ERROR: str
-TYPE_FORMULA_CACHE_STRING: str
-VALID_TYPES: Incomplete
+__docformat__: Final = "restructuredtext en"
+TIME_TYPES: Final[tuple[type, ...]]
+TIME_FORMATS: Final[dict[type[_TimeTypes], str]]
+STRING_TYPES: Final[tuple[type, ...]]
+KNOWN_TYPES: Final[tuple[type, ...]]
+
+ILLEGAL_CHARACTERS_RE: Final[Pattern[str]]
+ERROR_CODES: Final[tuple[str, ...]]
+
+TYPE_STRING: Final = "s"
+TYPE_FORMULA: Final = "f"
+TYPE_NUMERIC: Final = "n"
+TYPE_BOOL: Final = "b"
+TYPE_NULL: Final = "n"
+TYPE_INLINE: Final = "inlineStr"
+TYPE_ERROR: Final = "e"
+TYPE_FORMULA_CACHE_STRING: Final = "str"
+
+VALID_TYPES: Final[tuple[str, ...]]
 
 def get_type(t: type, value: object) -> str | None: ...
 def get_time_format(t: datetime) -> str: ...

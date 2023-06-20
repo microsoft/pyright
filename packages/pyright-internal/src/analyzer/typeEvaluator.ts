@@ -2011,29 +2011,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        // If this is a protocol class X and we're accessing a non ClassVar,
-        // emit an error.
-        if (
-            memberInfo &&
-            memberInfo.classType &&
-            memberInfo.symbol &&
-            isClass(memberInfo.classType) &&
-            ClassType.isProtocolClass(memberInfo.classType)
-        ) {
-            const primaryDecl = getLastTypedDeclaredForSymbol(memberInfo.symbol);
-            if (primaryDecl && primaryDecl.type === DeclarationType.Variable && !memberInfo.isClassVar) {
-                addDiagnostic(
-                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.protocolMemberNotClassVar().format({
-                        memberName,
-                        className: memberInfo.classType.details.name,
-                    }),
-                    errorNode
-                );
-            }
-        }
-
         const isMemberPresentOnClass = memberInfo?.classType !== undefined;
 
         // If it wasn't found on the class, see if it's part of the metaclass.
@@ -13699,11 +13676,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     });
                 });
 
-                FunctionType.addParameter(functionType, {
-                    category: ParameterCategory.Simple,
-                    isNameSynthesized: false,
-                    type: UnknownType.create(),
-                });
+                if (typeList.length > 0) {
+                    // Add a positional-only separator to the end of the parameter list.
+                    FunctionType.addParameter(functionType, {
+                        category: ParameterCategory.Simple,
+                        isNameSynthesized: false,
+                        type: UnknownType.create(),
+                    });
+                }
             } else if (isEllipsisType(typeArgs[0].type)) {
                 FunctionType.addDefaultParameters(functionType);
                 functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
@@ -16906,6 +16886,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 baseClassParamAnnotation,
                                 functionNode.parameters[paramIndex].category
                             );
+
+                            // If the parameter type is generic, specialize it in the context
+                            // of the child class.
+                            if (requiresSpecialization(inferredParamType) && isClass(baseClassMemberInfo.classType)) {
+                                const typeVarContext = buildTypeVarContextFromSpecializedClass(
+                                    baseClassMemberInfo.classType
+                                );
+                                inferredParamType = applySolvedTypeVars(inferredParamType, typeVarContext);
+                            }
 
                             const fileInfo = AnalyzerNodeInfo.getFileInfo(functionNode);
                             if (fileInfo.isInPyTypedPackage && !fileInfo.isStubFile) {

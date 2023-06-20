@@ -37,7 +37,7 @@ _TableStyleElementType: TypeAlias = Literal[
 ]
 
 class TableStyleElement(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     type: Set[_TableStyleElementType]
     size: Integer[Literal[True]]
     dxfId: Integer[Literal[True]]
@@ -46,7 +46,7 @@ class TableStyleElement(Serialisable):
     ) -> None: ...
 
 class TableStyle(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     name: String[Literal[False]]
     pivot: Bool[Literal[True]]
     table: Bool[Literal[True]]
@@ -63,7 +63,7 @@ class TableStyle(Serialisable):
     ) -> None: ...
 
 class TableStyleList(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     defaultTableStyle: String[Literal[True]]
     defaultPivotStyle: String[Literal[True]]
     tableStyle: Incomplete

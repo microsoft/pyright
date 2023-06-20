@@ -1,4 +1,5 @@
 from _typeshed import Incomplete, StrPath, SupportsRead
+from typing_extensions import Final, Literal, TypeAlias
 from zipfile import ZipFile
 
 from openpyxl.chartsheet.chartsheet import Chartsheet
@@ -7,7 +8,8 @@ from openpyxl.packaging.relationship import Relationship
 from openpyxl.reader.workbook import WorkbookParser
 from openpyxl.workbook import Workbook
 
-SUPPORTED_FORMATS: Incomplete
+_SupportedFormats: TypeAlias = Literal[".xlsx", ".xlsm", ".xltx", ".xltm"]
+SUPPORTED_FORMATS: Final[tuple[_SupportedFormats, ...]]
 
 class ExcelReader:
     archive: ZipFile

@@ -1,12 +1,9 @@
 # This sample tests the handling of bidirectional type inference
 # for unions of tuples.
 
-from typing import Dict, Tuple, Union
-
-
 # The following two unions are the same but declared in different orders.
-TupleUnion1 = Union[Tuple[int, str], Tuple[int, str, Dict[str, Union[str, int]]]]
-TupleUnion2 = Union[Tuple[int, str, Dict[str, Union[str, int]]], Tuple[int, str]]
+TupleUnion1 = tuple[int, str] | tuple[int, str, dict[str, str | int]]
+TupleUnion2 = tuple[int, str, dict[str, str | int]] | tuple[int, str]
 
 v1: TupleUnion1 = 1, "two", {"hey": "three"}
 v2: TupleUnion2 = 1, "two", {"hey": "three"}

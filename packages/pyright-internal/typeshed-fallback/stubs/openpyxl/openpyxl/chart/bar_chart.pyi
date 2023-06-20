@@ -1,40 +1,41 @@
 from _typeshed import Incomplete, Unused
-from abc import abstractmethod
 from typing import ClassVar
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
 from openpyxl.chart.axis import ChartLines, NumericAxis, SeriesAxis, TextAxis
 from openpyxl.chart.label import DataLabelList
-from openpyxl.descriptors.base import Alias, Typed
+from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import NestedBool, NestedNoneSet, NestedSet, _HasTagAndGet, _NestedNoneSetParam
 
 from ._3d import _3DBase
 from ._chart import ChartBase
 
+_BarChartBaseBarDir: TypeAlias = Literal["bar", "col"]
+_BarChartBaseGrouping: TypeAlias = Literal["percentStacked", "clustered", "standard", "stacked"]
+_BarChart3DShape: TypeAlias = Literal["cone", "coneToMax", "box", "cylinder", "pyramid", "pyramidToMax"]
+
 class _BarChartBase(ChartBase):
-    barDir: Incomplete
+    barDir: NestedSet[_BarChartBaseBarDir]
     type: Alias
-    grouping: Incomplete
-    varyColors: Incomplete
+    grouping: NestedSet[_BarChartBaseGrouping]
+    varyColors: NestedBool[Literal[True]]
     ser: Incomplete
     dLbls: Typed[DataLabelList, Literal[True]]
     dataLabels: Alias
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        barDir: str = "col",
-        grouping: str = "clustered",
-        varyColors: Incomplete | None = None,
+        barDir: _HasTagAndGet[_BarChartBaseBarDir] | _BarChartBaseBarDir = "col",
+        grouping: _HasTagAndGet[_BarChartBaseGrouping] | _BarChartBaseGrouping = "clustered",
+        varyColors: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
         ser=(),
         dLbls: DataLabelList | None = None,
         **kw,
     ) -> None: ...
-    @property
-    @abstractmethod
-    def tagname(self) -> str: ...
 
 class BarChart(_BarChartBase):
-    tagname: str
+    tagname: ClassVar[str]
     barDir: Incomplete
     grouping: Incomplete
     varyColors: Incomplete
@@ -58,7 +59,7 @@ class BarChart(_BarChartBase):
     ) -> None: ...
 
 class BarChart3D(_BarChartBase, _3DBase):
-    tagname: str
+    tagname: ClassVar[str]
     barDir: Incomplete
     grouping: Incomplete
     varyColors: Incomplete
@@ -70,7 +71,7 @@ class BarChart3D(_BarChartBase, _3DBase):
     backWall: Incomplete
     gapWidth: Incomplete
     gapDepth: Incomplete
-    shape: Incomplete
+    shape: NestedNoneSet[_BarChart3DShape]
     serLines: Typed[ChartLines, Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]
     x_axis: Typed[TextAxis, Literal[False]]
@@ -81,7 +82,7 @@ class BarChart3D(_BarChartBase, _3DBase):
         self,
         gapWidth: int = 150,
         gapDepth: int = 150,
-        shape: Incomplete | None = None,
+        shape: _NestedNoneSetParam[_BarChart3DShape] = None,
         serLines: ChartLines | None = None,
         extLst: Unused = None,
         **kw,

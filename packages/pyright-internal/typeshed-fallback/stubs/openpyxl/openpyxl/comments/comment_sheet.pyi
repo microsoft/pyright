@@ -74,7 +74,7 @@ class Properties(Serialisable):
     ) -> None: ...
 
 class CommentRecord(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     ref: String[Literal[False]]
     authorId: Integer[Literal[False]]
     guid: Incomplete
@@ -104,7 +104,7 @@ class CommentRecord(Serialisable):
     def content(self): ...
 
 class CommentSheet(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     authors: Typed[AuthorList, Literal[False]]
     commentList: Incomplete
     extLst: Typed[ExtensionList, Literal[True]]

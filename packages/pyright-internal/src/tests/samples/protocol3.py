@@ -4,13 +4,13 @@
 from typing import ContextManager, Protocol, TypeVar
 
 
-class Foo1(Protocol):
+class Class1(Protocol):
     @property
     def batch_shape(self) -> int:
         return 0
 
 
-class MockFoo1:
+class MockClass1:
     def __init__(self, batch_shape: int):
         self._batch_shape = batch_shape
 
@@ -20,16 +20,16 @@ class MockFoo1:
 
 
 # This should not generate an error.
-d: Foo1 = MockFoo1(batch_shape=1)
+d: Class1 = MockClass1(batch_shape=1)
 
 
-class Foo2(Protocol):
+class Class2(Protocol):
     @property
     def batch_shape(self) -> int:
         return 0
 
 
-class MockFoo2:
+class MockClass2:
     def __init__(self, batch_shape: int):
         self._batch_shape = batch_shape
 
@@ -40,10 +40,10 @@ class MockFoo2:
 
 # This should generate an error because the
 # type of the batch_shape property is not compatible.
-e: Foo2 = MockFoo2(batch_shape=1)
+e: Class2 = MockClass2(batch_shape=1)
 
 
-class Foo3(Protocol):
+class Class3(Protocol):
     @property
     def batch_shape(self) -> int:
         return 0
@@ -53,7 +53,7 @@ class Foo3(Protocol):
         pass
 
 
-class MockFoo3:
+class MockClass3:
     def __init__(self, batch_shape: int):
         self._batch_shape = batch_shape
 
@@ -64,10 +64,10 @@ class MockFoo3:
 
 # This should generate an error because it is missing
 # a setter.
-f: Foo3 = MockFoo3(batch_shape=1)
+f: Class3 = MockClass3(batch_shape=1)
 
 
-class Foo4(Protocol):
+class Class4(Protocol):
     @property
     def batch_shape(self) -> int:
         return 0
@@ -77,7 +77,7 @@ class Foo4(Protocol):
         pass
 
 
-class MockFoo4:
+class MockClass4:
     def __init__(self, batch_shape: int):
         self._batch_shape = batch_shape
 
@@ -92,35 +92,43 @@ class MockFoo4:
 
 # This should generate an error because it is missing
 # a deleter.
-g: Foo4 = MockFoo4(batch_shape=1)
+g: Class4 = MockClass4(batch_shape=1)
 
 
 _T_co = TypeVar("_T_co", covariant=True)
 _Self = TypeVar("_Self")
 
-class Foo5:
+
+class Class5:
     @property
-    def real(self: _Self) -> _Self: ...
+    def real(self: _Self) -> _Self:
+        ...
 
-class MockFoo5(Protocol[_T_co]):
+
+class MockClass5(Protocol[_T_co]):
     @property
-    def real(self) -> _T_co: ...
-
-foo5 = Foo5()
-h: MockFoo5[Foo5] = foo5
+    def real(self) -> _T_co:
+        ...
 
 
-_MockFoo6 = TypeVar("_MockFoo6", bound="MockFoo6")
-_Foo6 = TypeVar("_Foo6", bound="Foo6")
+foo5 = Class5()
+h: MockClass5[Class5] = foo5
 
 
-class MockFoo6(Protocol):
+P6 = TypeVar("P6", bound="MockClass6")
+C6 = TypeVar("C6", bound="Class6")
+
+
+class MockClass6(Protocol):
     @property
-    def bar(self: _MockFoo6) -> ContextManager[_MockFoo6]: ...
+    def bar(self: P6) -> ContextManager[P6]:
+        ...
 
-class Foo6():
+
+class Class6:
     @property
-    def bar(self: _Foo6) -> ContextManager[_Foo6]: ...
+    def bar(self: C6) -> ContextManager[C6]:
+        ...
 
 
-i: MockFoo6 = Foo6()
+i: MockClass6 = Class6()

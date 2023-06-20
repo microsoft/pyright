@@ -10,7 +10,7 @@ Example1 = TypedDict(
 
 v1_0: Example1 = {"required": 1}
 
-# This should generage an error.
+# This should generate an error.
 v1_1: Example1 = {"not_required": 1}
 
 Example2 = TypedDict("Example", required=Required[int], not_required=NotRequired[int])
@@ -18,5 +18,5 @@ Example2 = TypedDict("Example", required=Required[int], not_required=NotRequired
 
 v2_0: Example2 = {"required": 1}
 
-# This should generage an error.
+# This should generate an error.
 v2_1: Example2 = {"not_required": 1}

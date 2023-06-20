@@ -1,12 +1,12 @@
 # This sample tests various forms of subscript expressions for
 # syntax and semantic (type) errors.
 
-from typing import List, TypeVar
+from typing import TypeVar
 
 
 _T = TypeVar("_T", list, tuple)
 
-def func1(p1: List[int], p2: _T):
+def func1(p1: list[int], p2: _T):
     a1 = p1[0]
     reveal_type(a1, expected_text="int")
 

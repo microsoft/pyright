@@ -1,7 +1,7 @@
 # This sample tests the translation of a heterogeneous tuple
 # into an Iterable.
 
-from typing import Iterable, TypeVar, Union
+from typing import Iterable, TypeVar
 
 _T = TypeVar("_T")
 
@@ -10,7 +10,7 @@ def foo(x: Iterable[_T]) -> Iterable[_T]:
     return x
 
 
-def bar(x: Iterable[Union[int, str]]):
+def bar(x: Iterable[int | str]):
     pass
 
 

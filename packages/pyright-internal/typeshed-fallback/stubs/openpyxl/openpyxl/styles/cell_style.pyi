@@ -17,7 +17,7 @@ class ArrayDescriptor:
     def __set__(self, instance: Serialisable | Strict, value) -> None: ...
 
 class StyleArray(array[Incomplete]):
-    tagname: str
+    tagname: ClassVar[str]
     fontId: Incomplete
     fillId: Incomplete
     borderId: Incomplete
@@ -33,7 +33,7 @@ class StyleArray(array[Incomplete]):
     def __deepcopy__(self, memo): ...
 
 class CellStyle(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     numFmtId: Integer[Literal[False]]
     fontId: Integer[Literal[False]]
     fillId: Integer[Literal[False]]
@@ -81,7 +81,7 @@ class CellStyle(Serialisable):
     def applyAlignment(self): ...
 
 class CellStyleList(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     __attrs__: ClassVar[tuple[str, ...]]
     # Overwritten by property below
     # count: Integer

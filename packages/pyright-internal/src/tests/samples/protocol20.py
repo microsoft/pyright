@@ -1,7 +1,7 @@
 # This sample tests the case where a TypeVar is bound to a
 # protocol class.
 
-from typing import Protocol, Type, TypeVar
+from typing import Protocol, TypeVar
 
 
 class ClsProtocol(Protocol):
@@ -14,7 +14,7 @@ T1 = TypeVar("T1", bound="ClsProtocol")
 
 class Sample:
     @classmethod
-    def test(cls: Type[T1]) -> T1:
+    def test(cls: type[T1]) -> T1:
         return cls()
 
 

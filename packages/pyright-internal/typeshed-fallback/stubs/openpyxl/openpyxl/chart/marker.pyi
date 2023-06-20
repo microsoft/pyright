@@ -1,36 +1,41 @@
-from _typeshed import Incomplete, Unused
+from _typeshed import Unused
 from typing import ClassVar
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
 from openpyxl.chart.picture import PictureOptions
 from openpyxl.chart.shapes import GraphicalProperties
-from openpyxl.descriptors.base import Alias, Typed
+from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import NestedBool, NestedInteger, NestedMinMax, NestedNoneSet, _HasTagAndGet, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
 
+_MarkerSymbol: TypeAlias = Literal[
+    "circle", "dash", "diamond", "dot", "picture", "plus", "square", "star", "triangle", "x", "auto"
+]
+
 class Marker(Serialisable):
-    tagname: str
-    symbol: Incomplete
-    size: Incomplete
+    tagname: ClassVar[str]
+    symbol: NestedNoneSet[_MarkerSymbol]
+    size: NestedMinMax[float, Literal[True]]
     spPr: Typed[GraphicalProperties, Literal[True]]
     graphicalProperties: Alias
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        symbol: Incomplete | None = None,
-        size: Incomplete | None = None,
+        symbol: _NestedNoneSetParam[_MarkerSymbol] = None,
+        size: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
         spPr: GraphicalProperties | None = None,
         extLst: Unused = None,
     ) -> None: ...
 
 class DataPoint(Serialisable):
-    tagname: str
-    idx: Incomplete
-    invertIfNegative: Incomplete
+    tagname: ClassVar[str]
+    idx: NestedInteger[Literal[False]]
+    invertIfNegative: NestedBool[Literal[True]]
     marker: Typed[Marker, Literal[True]]
-    bubble3D: Incomplete
-    explosion: Incomplete
+    bubble3D: NestedBool[Literal[True]]
+    explosion: NestedInteger[Literal[True]]
     spPr: Typed[GraphicalProperties, Literal[True]]
     graphicalProperties: Alias
     pictureOptions: Typed[PictureOptions, Literal[True]]
@@ -38,11 +43,11 @@ class DataPoint(Serialisable):
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        idx: Incomplete | None = None,
-        invertIfNegative: Incomplete | None = None,
+        idx: _HasTagAndGet[_ConvertibleToInt] | _ConvertibleToInt,
+        invertIfNegative: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
         marker: Marker | None = None,
-        bubble3D: Incomplete | None = None,
-        explosion: Incomplete | None = None,
+        bubble3D: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        explosion: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None = None,
         spPr: GraphicalProperties | None = None,
         pictureOptions: PictureOptions | None = None,
         extLst: Unused = None,

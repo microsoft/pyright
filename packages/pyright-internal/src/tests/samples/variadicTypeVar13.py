@@ -28,8 +28,9 @@ def invoke_keyed(fn: CallbackKeyed[Unpack[Ts]], *args: *Ts) -> tuple[Unpack[Ts]]
     return fn(*args, keyed=True)
 
 
-def invoke_keyed_should_fail(fn: CallbackKeyed[Unpack[Ts]], *args: *Ts) -> tuple[Unpack[Ts]]:
+def invoke_keyed_should_fail(
+    fn: CallbackKeyed[Unpack[Ts]], *args: *Ts
+) -> tuple[Unpack[Ts]]:
     # This should generate an error because "keyed" should
     # be interpreted as a keyword-only parameter.
     return fn(*args, True)
-

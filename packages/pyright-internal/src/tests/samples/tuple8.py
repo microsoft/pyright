@@ -1,8 +1,7 @@
 # This sample verifies that the "tuple" type is treated
 # analogously to "Tuple" type.
 
-from typing import Iterable, Tuple, TypeVar
-from typing_extensions import Self
+from typing import Iterable, TypeVar, Self
 
 
 _T = TypeVar("_T")
@@ -90,7 +89,7 @@ t3_2: TupleTypeAlias2 = (3, 4)
 T = TypeVar("T")
 
 
-def baz(v: Iterable[T]) -> Tuple[T]:
+def baz(v: Iterable[T]) -> tuple[T]:
     ...
 
 

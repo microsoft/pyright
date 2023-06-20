@@ -6,7 +6,7 @@ from openpyxl.descriptors.base import Bool, Integer, _ConvertibleToBool, _Conver
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Break(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     id: Integer[Literal[True]]
     min: Integer[Literal[True]]
     max: Integer[Literal[True]]
@@ -22,7 +22,7 @@ class Break(Serialisable):
     ) -> None: ...
 
 class RowBreak(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     # Overwritten by properties below
     # count: Integer
     # manualBreakCount: Integer
@@ -41,7 +41,7 @@ class RowBreak(Serialisable):
 PageBreak = RowBreak
 
 class ColBreak(RowBreak):
-    tagname: str
+    tagname: ClassVar[str]
     @property
     def count(self): ...
     @property

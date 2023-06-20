@@ -44,13 +44,13 @@ _PresetShadowEffectPrst: TypeAlias = Literal[
 ]
 
 class TintEffect(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     hue: Integer[Literal[False]]
     amt: Integer[Literal[False]]
     def __init__(self, hue: _ConvertibleToInt = 0, amt: _ConvertibleToInt = 0) -> None: ...
 
 class LuminanceEffect(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     bright: Integer[Literal[False]]
     contrast: Integer[Literal[False]]
     def __init__(self, bright: _ConvertibleToInt = 0, contrast: _ConvertibleToInt = 0) -> None: ...
@@ -62,7 +62,7 @@ class HSLEffect(Serialisable):
     def __init__(self, hue: _ConvertibleToInt, sat: _ConvertibleToInt, lum: _ConvertibleToInt) -> None: ...
 
 class GrayscaleEffect(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
 
 class FillOverlayEffect(Serialisable):
     blend: Set[_FillOverlayEffectBlend]
@@ -140,7 +140,7 @@ class InnerShadowEffect(ColorChoice):
     def __init__(self, blurRad: _ConvertibleToFloat, dist: _ConvertibleToFloat, dir: _ConvertibleToInt, **kw) -> None: ...
 
 class OuterShadow(ColorChoice):
-    tagname: str
+    tagname: ClassVar[str]
     blurRad: Float[Literal[True]]
     dist: Float[Literal[True]]
     dir: Integer[Literal[True]]

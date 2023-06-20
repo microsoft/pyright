@@ -1,7 +1,7 @@
 # This sample tests the handling of a TypeVar symbol that is
 # not representing another type.
 
-from typing import TypeVar, Union
+from typing import TypeVar
 
 
 T = TypeVar("T")
@@ -14,7 +14,7 @@ S.__name__
 S.__bound__
 
 
-def func1(x: bool, a: T, b: S) -> Union[T, S]:
+def func1(x: bool, a: T, b: S) -> T | S:
     reveal_type(T.__name__, expected_text="str")
     reveal_type(S.__name__, expected_text="str")
 

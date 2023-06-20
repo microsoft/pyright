@@ -6,12 +6,12 @@ from openpyxl.descriptors.base import Integer, String, _ConvertibleToInt
 from openpyxl.descriptors.serialisable import Serialisable
 
 class FunctionGroup(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     name: String[Literal[False]]
     def __init__(self, name: str) -> None: ...
 
 class FunctionGroupList(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     builtInGroupCount: Integer[Literal[True]]
     functionGroup: Incomplete
     __elements__: ClassVar[tuple[str, ...]]

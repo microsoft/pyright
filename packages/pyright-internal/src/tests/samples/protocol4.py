@@ -1,7 +1,7 @@
 # This sample tests that instance and class variables
 # assigned within a Protocol method are flagged as errors.
 
-from typing import ClassVar, List, Protocol
+from typing import ClassVar, Protocol
 
 
 class ProtoA(Protocol):
@@ -12,7 +12,7 @@ class ProtoA(Protocol):
         self.a = 3
 
         # This should be an error
-        self.temp: List[int] = []
+        self.temp: list[int] = []
 
     @classmethod
     def cls_method(cls) -> None:

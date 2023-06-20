@@ -6,7 +6,7 @@ from openpyxl.descriptors.base import Bool, String, Typed, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Outline(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     applyStyles: Bool[Literal[True]]
     summaryBelow: Bool[Literal[True]]
     summaryRight: Bool[Literal[True]]
@@ -20,13 +20,13 @@ class Outline(Serialisable):
     ) -> None: ...
 
 class PageSetupProperties(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     autoPageBreaks: Bool[Literal[True]]
     fitToPage: Bool[Literal[True]]
     def __init__(self, autoPageBreaks: _ConvertibleToBool | None = None, fitToPage: _ConvertibleToBool | None = None) -> None: ...
 
 class WorksheetProperties(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     codeName: String[Literal[True]]
     enableFormatConditionsCalculation: Bool[Literal[True]]
     filterMode: Bool[Literal[True]]

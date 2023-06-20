@@ -2,7 +2,7 @@
 # perform bidirectional type inference involving TypedDict
 # classes and dict literal expressions.
 
-from typing import List, TypedDict
+from typing import TypedDict
 
 
 class Entry(TypedDict):
@@ -10,10 +10,10 @@ class Entry(TypedDict):
     value: str
 
 
-entries1: List[Entry] = [{"index": 2, "value": "a"}, {"index": 5, "value": "b"}]
+entries1: list[Entry] = [{"index": 2, "value": "a"}, {"index": 5, "value": "b"}]
 
 # This should generate an error
-entries2: List[Entry] = [{"index": 2, "value": "a"}, {"index": "2", "value": "b"}]
+entries2: list[Entry] = [{"index": 2, "value": "a"}, {"index": "2", "value": "b"}]
 
 # This should generate an error
-entries3: List[Entry] = [{"index": 2, "value": "a"}, 3]
+entries3: list[Entry] = [{"index": 2, "value": "a"}, 3]

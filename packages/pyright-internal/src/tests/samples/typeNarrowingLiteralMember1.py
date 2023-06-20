@@ -1,7 +1,7 @@
 # This sample tests type narrowing based on member accesses
 # to members that have literal types.
 
-from typing import ClassVar, Literal, Type, Union
+from typing import ClassVar, Literal, Union
 
 
 class A:
@@ -106,14 +106,14 @@ def is_obj5(d: D):
         reveal_type(d, expected_text="D")
 
 
-def eq_class2(c: Union[Type[A], Type[B]]):
+def eq_class2(c: Union[type[A], type[B]]):
     if c.kind_class == "A":
         reveal_type(c, expected_text="type[A]")
     else:
         reveal_type(c, expected_text="type[B]")
 
 
-def is_class2(c: Union[Type[A], Type[B]]):
+def is_class2(c: Union[type[A], type[B]]):
     if c.kind_class is "A":
         reveal_type(c, expected_text="type[A] | type[B]")
     else:
@@ -138,11 +138,14 @@ def test(x: E | F) -> None:
     else:
         reveal_type(x, expected_type="E")
 
+
 class G:
     type: Literal[0]
 
+
 class H:
     type: Literal[1]
+
 
 class I:
     thing: G | H
@@ -154,4 +157,3 @@ class I:
         local = self.thing
         if local.type == 1:
             reveal_type(local, expected_text="H")
-

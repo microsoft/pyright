@@ -6,7 +6,7 @@ from openpyxl.descriptors.base import String
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Hyperlink(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     ref: String[Literal[False]]
     location: String[Literal[True]]
     tooltip: String[Literal[True]]
@@ -25,7 +25,7 @@ class Hyperlink(Serialisable):
     ) -> None: ...
 
 class HyperlinkList(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     hyperlink: Incomplete
     def __init__(self, hyperlink=()) -> None: ...
     def __bool__(self) -> bool: ...

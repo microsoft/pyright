@@ -7,7 +7,7 @@ from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.worksheet.ole import ObjectAnchor
 
 class ControlProperty(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     anchor: Typed[ObjectAnchor, Literal[False]]
     locked: Bool[Literal[True]]
     defaultSize: Bool[Literal[True]]
@@ -46,7 +46,7 @@ class ControlProperty(Serialisable):
     ) -> None: ...
 
 class Control(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     controlPr: Typed[ControlProperty, Literal[True]]
     shapeId: Integer[Literal[False]]
     name: String[Literal[True]]
@@ -59,7 +59,7 @@ class Control(Serialisable):
     def __init__(self, controlPr: ControlProperty | None, shapeId: _ConvertibleToInt, name: str | None = None) -> None: ...
 
 class Controls(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     control: Incomplete
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, control=()) -> None: ...

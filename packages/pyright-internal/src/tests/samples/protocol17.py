@@ -1,6 +1,6 @@
 # This sample tests for generic protocol variance consistency.
 
-from typing import Protocol, TypeVar, Union
+from typing import Protocol, TypeVar
 from typing_extensions import ParamSpec
 
 # pyright: strict
@@ -13,7 +13,7 @@ _T1_contra = TypeVar("_T1_contra", contravariant=True)
 
 
 class Protocol1(Protocol[_T1, _T2, _T3]):
-    def m1(self, p0: _T1, p1: _T2, p2: _T3) -> Union[_T1, _T2]:
+    def m1(self, p0: _T1, p1: _T2, p2: _T3) -> _T1 | _T2:
         ...
 
     def m2(self) -> _T1:
@@ -92,6 +92,7 @@ class Protocol9(Protocol[_T1_co]):
     @property
     def prop1(self) -> _T1_co:
         ...
+
 
 class Protocol10(Protocol[_T1_co]):
     def m1(self) -> type[_T1_co]:

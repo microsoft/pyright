@@ -4,7 +4,7 @@
 from typing import Callable, Generic, TypeVar, Union
 
 
-def foo2(a: int | str):
+def func1(a: int | str):
     if isinstance(a, int):
         return 1
     else:
@@ -15,21 +15,21 @@ B = bytes | None | Callable[[], None]
 A = int | str | B
 
 
-def foo3(a: A) -> B:
+def func2(a: A) -> B:
     if a == 3 or a is None:
         return b""
     elif not isinstance(a, (int, str, bytes)):
         a()
 
 
-def foo4(A: "int | str"):
+def func3(A: "int | str"):
     return 1
 
 
 T = TypeVar("T")
 
 
-def foo5(a: str):
+def func4(a: str):
     def helper(value: T) -> T | None:
         ...
 

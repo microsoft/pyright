@@ -1,6 +1,6 @@
 # This sample tests the usage of the Self type.
 
-from typing import Callable, Dict, Generic, ParamSpec, Protocol, Type, TypeVar
+from typing import Callable, Generic, ParamSpec, Protocol, TypeVar
 from typing_extensions import Self
 from dataclasses import dataclass
 
@@ -22,11 +22,11 @@ class A(Generic[_P, _R]):
         return self
 
     @classmethod
-    def method3(cls: Type[Self]) -> Type[Self]:
+    def method3(cls: type[Self]) -> type[Self]:
         return cls
 
     @classmethod
-    def method4(cls) -> Type[Self]:
+    def method4(cls) -> type[Self]:
         return cls
 
 
@@ -44,7 +44,7 @@ class Shape1:
         return self
 
     @classmethod
-    def from_config(cls, config: Dict[str, float]) -> Self:
+    def from_config(cls, config: dict[str, float]) -> Self:
         return cls()
 
 
@@ -65,7 +65,7 @@ class Shape2:
         return self
 
     @classmethod
-    def from_config(cls: Type[Self], config: Dict[str, float]) -> Self:
+    def from_config(cls: type[Self], config: dict[str, float]) -> Self:
         return cls()
 
     def difference(self: Self, other: Self) -> float:

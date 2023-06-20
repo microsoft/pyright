@@ -1,12 +1,12 @@
 # This sample tests Pyright's handling of recursive type aliases
 # that are also generic.
 
-from typing import List, TypeVar, Union
+from typing import TypeVar, Union
 
 _T1 = TypeVar("_T1", str, int)
 _T2 = TypeVar("_T2")
 
-GenericTypeAlias1 = List[Union["GenericTypeAlias1[_T1]", _T1]]
+GenericTypeAlias1 = list[Union["GenericTypeAlias1[_T1]", _T1]]
 
 SpecializedTypeAlias1 = GenericTypeAlias1[str]
 
@@ -22,7 +22,7 @@ b1: GenericTypeAlias1[str] = ["hi", "bye", [""], [["hi"]]]
 b2: GenericTypeAlias1[str] = ["hi", [2.4]]
 
 
-GenericTypeAlias2 = List[Union["GenericTypeAlias2[_T1, _T2]", _T1, _T2]]
+GenericTypeAlias2 = list[Union["GenericTypeAlias2[_T1, _T2]", _T1, _T2]]
 
 c2: GenericTypeAlias2[str, int] = [[3, ["hi"]], "hi"]
 

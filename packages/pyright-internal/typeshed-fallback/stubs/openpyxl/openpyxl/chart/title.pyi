@@ -6,16 +6,17 @@ from openpyxl.chart.layout import Layout
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.text import RichText, Text
 from openpyxl.descriptors import Strict, Typed
-from openpyxl.descriptors.base import Alias
+from openpyxl.descriptors.base import Alias, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import NestedBool, _HasTagAndGet
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Title(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     tx: Typed[Text, Literal[True]]
     text: Alias
     layout: Typed[Layout, Literal[True]]
-    overlay: Incomplete
+    overlay: NestedBool[Literal[True]]
     spPr: Typed[GraphicalProperties, Literal[True]]
     graphicalProperties: Alias
     txPr: Typed[RichText, Literal[True]]
@@ -26,7 +27,7 @@ class Title(Serialisable):
         self,
         tx: Text | None = None,
         layout: Layout | None = None,
-        overlay: Incomplete | None = None,
+        overlay: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
         spPr: GraphicalProperties | None = None,
         txPr: RichText | None = None,
         extLst: Unused = None,

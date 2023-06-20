@@ -1,6 +1,6 @@
 # This sample tests type narrowing for falsey and truthy values.
 
-from typing import AnyStr, Iterable, List, Literal, NamedTuple, Optional, Union
+from typing import AnyStr, Iterable, Literal, NamedTuple, Union
 
 
 class A:
@@ -22,21 +22,21 @@ class D:
         ...
 
 
-def func1(x: Union[int, List[int], A, B, C, D, None]) -> None:
+def func1(x: Union[int, list[int], A, B, C, D, None]) -> None:
     if x:
-        reveal_type(x, expected_text="int | List[int] | A | B | D")
+        reveal_type(x, expected_text="int | list[int] | A | B | D")
     else:
-        reveal_type(x, expected_text="List[int] | B | C | Literal[0] | None")
+        reveal_type(x, expected_text="list[int] | B | C | Literal[0] | None")
 
 
-def func2(maybe_int: Optional[int]):
+def func2(maybe_int: int | None):
     if bool(maybe_int):
         reveal_type(maybe_int, expected_text="int")
     else:
         reveal_type(maybe_int, expected_text="Literal[0] | None")
 
 
-def func3(maybe_a: Optional[A]):
+def func3(maybe_a: A | None):
     if bool(maybe_a):
         reveal_type(maybe_a, expected_text="A")
     else:
@@ -106,10 +106,10 @@ class E:
             self.value += 1
 
 
-def func10(val: Optional[AnyStr]):
+def func10(val: AnyStr | None):
     return 1
 
 
-def func11(val: Optional[AnyStr]):
+def func11(val: AnyStr | None):
     assert val
     reveal_type(val, expected_text="AnyStr@func11")

@@ -15,8 +15,9 @@ from openpyxl.descriptors.base import (
     _ConvertibleToInt,
 )
 from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import NestedNoneSet, NestedValue, _HasTagAndGet, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
-from openpyxl.drawing.colors import ColorChoice, HSLColor, RGBPercent as _RGBPercent, SchemeColor, SystemColor
+from openpyxl.drawing.colors import ColorChoice, HSLColor, RGBPercent as _RGBPercent, SchemeColor, SystemColor, _PresetColors
 from openpyxl.drawing.effect import (
     AlphaBiLevelEffect,
     AlphaCeilingEffect,
@@ -99,8 +100,8 @@ _BlipCstate: TypeAlias = Literal["email", "screen", "print", "hqprint"]
 _PathShadePropertiesPath: TypeAlias = Literal["shape", "circle", "rect"]
 
 class PatternFillProperties(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     prst: NoneSet[_PatternFillPropertiesPrst]
     preset: Alias
     fgClr: Typed[ColorChoice, Literal[True]]
@@ -116,8 +117,8 @@ class PatternFillProperties(Serialisable):
     ) -> None: ...
 
 class RelativeRect(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     l: Incomplete
     left: Alias
     t: Incomplete
@@ -131,52 +132,52 @@ class RelativeRect(Serialisable):
     ) -> None: ...
 
 class StretchInfoProperties(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     fillRect: Typed[RelativeRect, Literal[True]]
     def __init__(self, fillRect: RelativeRect = ...) -> None: ...
 
 class GradientStop(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     pos: MinMax[float, Literal[True]]
     scrgbClr: Typed[_RGBPercent, Literal[True]]
     RGBPercent: Alias
-    srgbClr: Incomplete
+    srgbClr: NestedValue[_RGBPercent, Literal[True]]
     RGB: Alias
     hslClr: Typed[HSLColor, Literal[True]]
     sysClr: Typed[SystemColor, Literal[True]]
     schemeClr: Typed[SchemeColor, Literal[True]]
-    prstClr: Incomplete
+    prstClr: NestedNoneSet[_PresetColors]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
         pos: _ConvertibleToFloat | None = None,
         scrgbClr: _RGBPercent | None = None,
-        srgbClr: Incomplete | None = None,
+        srgbClr: _HasTagAndGet[_RGBPercent | None] | _RGBPercent | None = None,
         hslClr: HSLColor | None = None,
         sysClr: SystemColor | None = None,
         schemeClr: SchemeColor | None = None,
-        prstClr: Incomplete | None = None,
+        prstClr: _NestedNoneSetParam[_PresetColors] = None,
     ) -> None: ...
 
 class LinearShadeProperties(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     ang: Integer[Literal[False]]
     scaled: Bool[Literal[True]]
     def __init__(self, ang: _ConvertibleToInt, scaled: _ConvertibleToBool | None = None) -> None: ...
 
 class PathShadeProperties(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     path: Set[_PathShadePropertiesPath]
     fillToRect: Typed[RelativeRect, Literal[True]]
     def __init__(self, path: _PathShadePropertiesPath, fillToRect: RelativeRect | None = None) -> None: ...
 
 class GradientFillProperties(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     flip: NoneSet[_PropertiesFlip]
     rotWithShape: Bool[Literal[True]]
     gsLst: Incomplete
@@ -197,29 +198,29 @@ class GradientFillProperties(Serialisable):
     ) -> None: ...
 
 class SolidColorFillProperties(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     scrgbClr: Typed[_RGBPercent, Literal[True]]
     RGBPercent: Alias
-    srgbClr: Incomplete
+    srgbClr: NestedValue[_RGBPercent, Literal[True]]
     RGB: Alias
     hslClr: Typed[HSLColor, Literal[True]]
     sysClr: Typed[SystemColor, Literal[True]]
     schemeClr: Typed[SchemeColor, Literal[True]]
-    prstClr: Incomplete
+    prstClr: NestedNoneSet[_PresetColors]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
         scrgbClr: _RGBPercent | None = None,
-        srgbClr: Incomplete | None = None,
+        srgbClr: _HasTagAndGet[_RGBPercent | None] | _RGBPercent | None = None,
         hslClr: HSLColor | None = None,
         sysClr: SystemColor | None = None,
         schemeClr: SchemeColor | None = None,
-        prstClr: Incomplete | None = None,
+        prstClr: _NestedNoneSetParam[_PresetColors] = None,
     ) -> None: ...
 
 class Blip(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     cstate: NoneSet[_BlipCstate]
     embed: Incomplete
     link: Incomplete
@@ -306,7 +307,7 @@ class TileInfoProperties(Serialisable):
     ) -> None: ...
 
 class BlipFillProperties(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     dpi: Integer[Literal[True]]
     rotWithShape: Bool[Literal[True]]
     blip: Typed[Blip, Literal[True]]

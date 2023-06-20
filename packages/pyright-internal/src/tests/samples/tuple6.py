@@ -1,14 +1,14 @@
 # This sample tests tuple parameter matching for
 # cases where an unpack operator is used in the target.
 
-from typing import Iterable, Tuple, Union
+from typing import Iterable
 
 a: int
 b: int
 c: str
 d: str
 e: Iterable[int]
-f: Iterable[Union[str, int]]
+f: Iterable[str | int]
 
 # This should generate an error because an unpack
 # operator must be within a tuple.
@@ -44,7 +44,7 @@ a, b = 3, 2, 3
 a, b, *e, c, d = 3, 4, 5, "a", "b", "c"
 
 
-def func1(p1: Tuple[str, ...]):
+def func1(p1: tuple[str, ...]):
     global a, b, c, d
 
     c, d = p1

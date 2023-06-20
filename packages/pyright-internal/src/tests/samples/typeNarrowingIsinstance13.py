@@ -6,7 +6,7 @@
 from typing import Any, Iterable, Sized
 
 
-def f(v: Any) -> bool:
+def func1(v: Any) -> bool:
     if isinstance(v, Iterable):
         reveal_type(v, expected_text="Iterable[Unknown]")
         if isinstance(v, Sized):

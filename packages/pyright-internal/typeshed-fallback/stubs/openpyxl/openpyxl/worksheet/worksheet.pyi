@@ -23,25 +23,28 @@ from openpyxl.worksheet.views import SheetView, SheetViewList
 
 class Worksheet(_WorkbookChild):
     mime_type: str
-    BREAK_NONE: int
-    BREAK_ROW: int
-    BREAK_COLUMN: int
+    BREAK_NONE: Final = 0
+    BREAK_ROW: Final = 1
+    BREAK_COLUMN: Final = 2
+
     SHEETSTATE_VISIBLE: Final = "visible"
     SHEETSTATE_HIDDEN: Final = "hidden"
     SHEETSTATE_VERYHIDDEN: Final = "veryHidden"
-    PAPERSIZE_LETTER: str
-    PAPERSIZE_LETTER_SMALL: str
-    PAPERSIZE_TABLOID: str
-    PAPERSIZE_LEDGER: str
-    PAPERSIZE_LEGAL: str
-    PAPERSIZE_STATEMENT: str
-    PAPERSIZE_EXECUTIVE: str
-    PAPERSIZE_A3: str
-    PAPERSIZE_A4: str
-    PAPERSIZE_A4_SMALL: str
-    PAPERSIZE_A5: str
-    ORIENTATION_PORTRAIT: str
-    ORIENTATION_LANDSCAPE: str
+
+    PAPERSIZE_LETTER: Final = "1"
+    PAPERSIZE_LETTER_SMALL: Final = "2"
+    PAPERSIZE_TABLOID: Final = "3"
+    PAPERSIZE_LEDGER: Final = "4"
+    PAPERSIZE_LEGAL: Final = "5"
+    PAPERSIZE_STATEMENT: Final = "6"
+    PAPERSIZE_EXECUTIVE: Final = "7"
+    PAPERSIZE_A3: Final = "8"
+    PAPERSIZE_A4: Final = "9"
+    PAPERSIZE_A4_SMALL: Final = "10"
+    PAPERSIZE_A5: Final = "11"
+
+    ORIENTATION_PORTRAIT: Final = "portrait"
+    ORIENTATION_LANDSCAPE: Final = "landscape"
 
     row_dimensions: DimensionHolder[RowDimension]
     column_dimensions: DimensionHolder[ColumnDimension]

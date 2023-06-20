@@ -1,7 +1,7 @@
 # This sample tests the synthesized methods get, setdefault
 # pop, __delitem__, clear, and popitem for a TypedDict.
 
-from typing import Optional, TypedDict, Union, final
+from typing import TypedDict, Union, final
 from typing_extensions import NotRequired, Required
 
 
@@ -16,7 +16,7 @@ class TD2(TD1):
 td1: TD1 = {}
 td2: TD2 = {"foo": "hi"}
 
-v1: Optional[str] = td1.get("bar")
+v1: str | None = td1.get("bar")
 
 v2: str = td1.get("bar", "")
 
@@ -56,7 +56,7 @@ class TD4(TypedDict):
 C = Union[TD3, TD4]
 
 
-def test(a: TD3, b: TD4, c: C, s: str) -> Optional[int]:
+def func1(a: TD3, b: TD4, c: C, s: str) -> int | None:
     a1 = a.get("foo")
     reveal_type(a1, expected_text="int")
     a2 = a.get("foo", 1.0)

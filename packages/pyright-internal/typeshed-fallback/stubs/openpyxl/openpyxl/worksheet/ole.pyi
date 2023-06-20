@@ -10,7 +10,7 @@ _OleObjectDvAspect: TypeAlias = Literal["DVASPECT_CONTENT", "DVASPECT_ICON"]
 _OleObjectOleUpdate: TypeAlias = Literal["OLEUPDATE_ALWAYS", "OLEUPDATE_ONCALL"]
 
 class ObjectAnchor(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     _from: Typed[AnchorMarker, Literal[False]]  # Not private. Avoids name clash
     to: Typed[AnchorMarker, Literal[False]]
     moveWithCells: Bool[Literal[True]]
@@ -26,7 +26,7 @@ class ObjectAnchor(Serialisable):
     ) -> None: ...
 
 class ObjectPr(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     anchor: Typed[ObjectAnchor, Literal[False]]
     locked: Bool[Literal[True]]
     defaultSize: Bool[Literal[True]]
@@ -75,7 +75,7 @@ class ObjectPr(Serialisable):
     ) -> None: ...
 
 class OleObject(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     objectPr: Typed[ObjectPr, Literal[True]]
     progId: String[Literal[True]]
     dvAspect: Set[_OleObjectDvAspect]
@@ -109,7 +109,7 @@ class OleObject(Serialisable):
     ) -> None: ...
 
 class OleObjects(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     oleObject: Incomplete
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, oleObject=()) -> None: ...

@@ -1,6 +1,6 @@
 from _typeshed import Incomplete, Unused
 from typing import ClassVar, overload
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
 from openpyxl.chart.legend import Legend
 from openpyxl.chart.pivot import PivotSource
@@ -9,15 +9,18 @@ from openpyxl.chart.print_settings import PrintSettings
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.text import RichText
 from openpyxl.chart.title import Title
-from openpyxl.descriptors.base import Alias, String, Typed
+from openpyxl.descriptors.base import Alias, String, Typed, _ConvertibleToBool, _ConvertibleToFloat
 from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import NestedBool, NestedMinMax, NestedNoneSet, NestedString, _HasTagAndGet, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.drawing.colors import ColorMapping
 
+_ChartContainerDispBlanksAs: TypeAlias = Literal["span", "gap", "zero"]
+
 class ChartContainer(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     title: Typed[Title, Literal[True]]
-    autoTitleDeleted: Incomplete
+    autoTitleDeleted: NestedBool[Literal[True]]
     pivotFmts: Incomplete
     view3D: Incomplete
     floor: Incomplete
@@ -25,15 +28,15 @@ class ChartContainer(Serialisable):
     backWall: Incomplete
     plotArea: Typed[PlotArea, Literal[False]]
     legend: Typed[Legend, Literal[True]]
-    plotVisOnly: Incomplete
-    dispBlanksAs: Incomplete
-    showDLblsOverMax: Incomplete
+    plotVisOnly: NestedBool[Literal[False]]
+    dispBlanksAs: NestedNoneSet[_ChartContainerDispBlanksAs]
+    showDLblsOverMax: NestedBool[Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
         title: Title | None = None,
-        autoTitleDeleted: Incomplete | None = None,
+        autoTitleDeleted: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
         pivotFmts=(),
         view3D: Incomplete | None = None,
         floor: Incomplete | None = None,
@@ -41,44 +44,46 @@ class ChartContainer(Serialisable):
         backWall: Incomplete | None = None,
         plotArea: PlotArea | None = None,
         legend: Legend | None = None,
-        plotVisOnly: bool = True,
-        dispBlanksAs: str = "gap",
-        showDLblsOverMax: Incomplete | None = None,
+        plotVisOnly: _HasTagAndGet[_ConvertibleToBool] | _ConvertibleToBool = True,
+        dispBlanksAs: _NestedNoneSetParam[_ChartContainerDispBlanksAs] = "gap",
+        showDLblsOverMax: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
         extLst: Unused = None,
     ) -> None: ...
 
 class Protection(Serialisable):
-    tagname: str
-    chartObject: Incomplete
-    data: Incomplete
-    formatting: Incomplete
-    selection: Incomplete
-    userInterface: Incomplete
+    tagname: ClassVar[str]
+    chartObject: NestedBool[Literal[True]]
+    data: NestedBool[Literal[True]]
+    formatting: NestedBool[Literal[True]]
+    selection: NestedBool[Literal[True]]
+    userInterface: NestedBool[Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        chartObject: Incomplete | None = None,
-        data: Incomplete | None = None,
-        formatting: Incomplete | None = None,
-        selection: Incomplete | None = None,
-        userInterface: Incomplete | None = None,
+        chartObject: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        data: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        formatting: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        selection: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        userInterface: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
     ) -> None: ...
 
 class ExternalData(Serialisable):
-    tagname: str
-    autoUpdate: Incomplete
+    tagname: ClassVar[str]
+    autoUpdate: NestedBool[Literal[True]]
     id: String[Literal[False]]
     @overload
-    def __init__(self, autoUpdate: Incomplete | None = None, *, id: str) -> None: ...
+    def __init__(
+        self, autoUpdate: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None, *, id: str
+    ) -> None: ...
     @overload
     def __init__(self, autoUpdate: Incomplete | None, id: str) -> None: ...
 
 class ChartSpace(Serialisable):
-    tagname: str
-    date1904: Incomplete
-    lang: Incomplete
-    roundedCorners: Incomplete
-    style: Incomplete
+    tagname: ClassVar[str]
+    date1904: NestedBool[Literal[True]]
+    lang: NestedString[Literal[True]]
+    roundedCorners: NestedBool[Literal[True]]
+    style: NestedMinMax[float, Literal[True]]
     clrMapOvr: Typed[ColorMapping, Literal[True]]
     pivotSource: Typed[PivotSource, Literal[True]]
     protection: Typed[Protection, Literal[True]]
@@ -95,10 +100,10 @@ class ChartSpace(Serialisable):
     @overload
     def __init__(
         self,
-        date1904: Incomplete | None = None,
-        lang: Incomplete | None = None,
-        roundedCorners: Incomplete | None = None,
-        style: Incomplete | None = None,
+        date1904: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        lang: object = None,
+        roundedCorners: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        style: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
         clrMapOvr: ColorMapping | None = None,
         pivotSource: PivotSource | None = None,
         protection: Protection | None = None,
@@ -114,10 +119,10 @@ class ChartSpace(Serialisable):
     @overload
     def __init__(
         self,
-        date1904: Incomplete | None,
-        lang: Incomplete | None,
-        roundedCorners: Incomplete | None,
-        style: Incomplete | None,
+        date1904: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None,
+        lang: object,
+        roundedCorners: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None,
+        style: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None,
         clrMapOvr: ColorMapping | None,
         pivotSource: PivotSource | None,
         protection: Protection | None,
@@ -129,4 +134,4 @@ class ChartSpace(Serialisable):
         userShapes: Incomplete | None = None,
         extLst: Unused = None,
     ) -> None: ...
-    def to_tree(self, tagname: Incomplete | None = None, idx: Incomplete | None = None, namespace: Incomplete | None = None): ...
+    def to_tree(self, tagname: Incomplete | None = None, idx: Incomplete | None = None, namespace: str | None = None): ...

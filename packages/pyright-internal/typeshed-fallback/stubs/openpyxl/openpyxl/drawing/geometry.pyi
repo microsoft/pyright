@@ -338,15 +338,15 @@ _PresetGeometry2DPrst: TypeAlias = Literal[
 ]
 
 class Point2D(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     x: Incomplete
     y: Incomplete
     def __init__(self, x: Incomplete | None = None, y: Incomplete | None = None) -> None: ...
 
 class PositiveSize2D(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     cx: Integer[Literal[False]]
     width: Alias
     cy: Integer[Literal[False]]
@@ -354,8 +354,8 @@ class PositiveSize2D(Serialisable):
     def __init__(self, cx: _ConvertibleToInt, cy: _ConvertibleToInt) -> None: ...
 
 class Transform2D(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     rot: Integer[Literal[True]]
     flipH: Bool[Literal[True]]
     flipV: Bool[Literal[True]]
@@ -376,8 +376,8 @@ class Transform2D(Serialisable):
     ) -> None: ...
 
 class GroupTransform2D(Serialisable):
-    tagname: str
-    namespace: Incomplete
+    tagname: ClassVar[str]
+    namespace: ClassVar[str]
     rot: Integer[Literal[True]]
     flipH: Bool[Literal[True]]
     flipV: Bool[Literal[True]]
@@ -398,14 +398,14 @@ class GroupTransform2D(Serialisable):
     ) -> None: ...
 
 class SphereCoords(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     lat: Integer[Literal[False]]
     lon: Integer[Literal[False]]
     rev: Integer[Literal[False]]
     def __init__(self, lat: _ConvertibleToInt, lon: _ConvertibleToInt, rev: _ConvertibleToInt) -> None: ...
 
 class Camera(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     prst: Set[_CameraPrst]
     fov: Integer[Literal[True]]
     zoom: Typed[Percentage, Literal[True]]
@@ -419,21 +419,21 @@ class Camera(Serialisable):
     ) -> None: ...
 
 class LightRig(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     rig: Set[_LightRigRig]
     dir: Set[_LightRigDir]
     rot: Typed[SphereCoords, Literal[True]]
     def __init__(self, rig: _LightRigRig, dir: _LightRigDir, rot: SphereCoords | None = None) -> None: ...
 
 class Vector3D(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     dx: Integer[Literal[False]]
     dy: Integer[Literal[False]]
     dz: Integer[Literal[False]]
     def __init__(self, dx: _ConvertibleToInt, dy: _ConvertibleToInt, dz: _ConvertibleToInt) -> None: ...
 
 class Point3D(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     x: Integer[Literal[False]]
     y: Integer[Literal[False]]
     z: Integer[Literal[False]]
@@ -456,14 +456,14 @@ class Scene3D(Serialisable):
     ) -> None: ...
 
 class Bevel(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     w: Integer[Literal[False]]
     h: Integer[Literal[False]]
     prst: NoneSet[_BevelPrst]
     def __init__(self, w: _ConvertibleToInt, h: _ConvertibleToInt, prst: _BevelPrst | Literal["none"] | None = None) -> None: ...
 
 class Shape3D(Serialisable):
-    namespace: Incomplete
+    namespace: ClassVar[str]
     z: Typed[Coordinate[bool], Literal[True]]
     extrusionH: Integer[Literal[True]]
     contourW: Integer[Literal[True]]
@@ -569,7 +569,7 @@ class CustomGeometry2D(Serialisable):
     ) -> None: ...
 
 class PresetGeometry2D(Serialisable):
-    namespace: Incomplete
+    namespace: ClassVar[str]
     prst: Set[_PresetGeometry2DPrst]
     avLst: Typed[GeomGuideList, Literal[True]]
     def __init__(self, prst: _PresetGeometry2DPrst, avLst: GeomGuideList | None = None) -> None: ...

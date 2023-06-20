@@ -3,7 +3,6 @@
 # These are sometimes referred to as "aliased conditional expressions".
 
 
-from typing import Optional, Union
 import random
 
 
@@ -15,7 +14,7 @@ class B:
     b: int
 
 
-def func1(x: Union[A, B]) -> None:
+def func1(x: A | B) -> None:
     is_a = not not isinstance(x, A)
 
     if not is_a:
@@ -24,7 +23,7 @@ def func1(x: Union[A, B]) -> None:
         reveal_type(x, expected_text="A")
 
 
-def func2(x: Union[A, B]) -> None:
+def func2(x: A | B) -> None:
     is_a = isinstance(x, A)
 
     if random.random() < 0.5:
@@ -36,7 +35,7 @@ def func2(x: Union[A, B]) -> None:
         reveal_type(x, expected_text="B | A")
 
 
-def func3(x: Optional[int]):
+def func3(x: int | None):
     is_number = x != None
 
     if is_number:
@@ -45,7 +44,7 @@ def func3(x: Optional[int]):
         reveal_type(x, expected_text="None")
 
 
-def func4() -> Optional[A]:
+def func4() -> A | None:
     return A() if random.random() < 0.5 else None
 
 
@@ -73,7 +72,7 @@ else:
     reveal_type(maybe_a2, expected_text="A | None")
 
 
-def func6(x: Union[A, B]) -> None:
+def func6(x: A | B) -> None:
     is_a = isinstance(x, A)
 
     for y in range(1):
@@ -90,11 +89,11 @@ def get_string() -> str:
     ...
 
 
-def get_optional_string() -> Optional[str]:
+def get_optional_string() -> str | None:
     ...
 
 
-def func7(val: Optional[str] = None):
+def func7(val: str | None = None):
     val = get_optional_string()
 
     val_is_none = val is None
@@ -105,7 +104,7 @@ def func7(val: Optional[str] = None):
     reveal_type(val, expected_text="str")
 
 
-def func8(val: Optional[str] = None):
+def func8(val: str | None = None):
     val = get_optional_string()
 
     val_is_none = val is None
@@ -118,7 +117,7 @@ def func8(val: Optional[str] = None):
     reveal_type(val, expected_text="str | None")
 
 
-def func9(var: Optional[str] = None):
+def func9(var: str | None = None):
     if var_not_None := not (var is None):
         reveal_type(var, expected_text="str")
 

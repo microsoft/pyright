@@ -3,7 +3,7 @@
 
 # pyright: strict, reportMissingModuleSource=false
 
-from typing import Any, Callable, List, Sequence, TypeVar, overload
+from typing import Any, Callable, Sequence, TypeVar, overload
 from typing_extensions import TypeGuard
 
 
@@ -18,26 +18,26 @@ def cb2(obj: object) -> bool:
     ...
 
 
-def simple_filter(list: Sequence[object], fn: Callable[[object], bool]) -> List[object]:
+def simple_filter(val: Sequence[object], fn: Callable[[object], bool]) -> list[object]:
     ...
 
 
 @overload
 def overloaded_filter(
-    list: Sequence[object], fn: Callable[[object], TypeGuard[_T]]
+    val: Sequence[object], fn: Callable[[object], TypeGuard[_T]]
 ) -> Sequence[_T]:
     ...
 
 
 @overload
 def overloaded_filter(
-    list: Sequence[object], fn: Callable[[object], bool]
+    val: Sequence[object], fn: Callable[[object], bool]
 ) -> Sequence[object]:
     ...
 
 
 def overloaded_filter(
-    list: Sequence[object], fn: Callable[[object], Any]
+    val: Sequence[object], fn: Callable[[object], Any]
 ) -> Sequence[Any]:
     ...
 
@@ -46,10 +46,10 @@ x1 = cb1(1)
 reveal_type(x1, expected_text="bool")
 
 sf1 = simple_filter([], cb1)
-reveal_type(sf1, expected_text="List[object]")
+reveal_type(sf1, expected_text="list[object]")
 
 sf2 = simple_filter([], cb2)
-reveal_type(sf2, expected_text="List[object]")
+reveal_type(sf2, expected_text="list[object]")
 
 of1 = overloaded_filter([], cb1)
 reveal_type(of1, expected_text="Sequence[int]")

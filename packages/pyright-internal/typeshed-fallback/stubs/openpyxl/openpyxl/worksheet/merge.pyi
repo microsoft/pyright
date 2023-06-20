@@ -6,7 +6,7 @@ from openpyxl.descriptors.serialisable import Serialisable
 from .cell_range import CellRange
 
 class MergeCell(CellRange):
-    tagname: str
+    tagname: ClassVar[str]
     @property
     def ref(self): ...
     __attrs__: ClassVar[tuple[str, ...]]
@@ -14,7 +14,7 @@ class MergeCell(CellRange):
     def __copy__(self): ...
 
 class MergeCells(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     # Overwritten by property below
     # count: Integer
     mergeCell: Incomplete

@@ -1,12 +1,12 @@
 # This sample tests the constraint solver's special-case handling of
 # Optional[T] within a function.
 
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 _T = TypeVar("_T")
 
 
-def func1(v: Optional[_T]) -> _T:
+def func1(v: _T | None) -> _T:
     if v is None:
         raise ValueError
     return v
@@ -18,7 +18,7 @@ def func2(v: _T) -> _T:
     return v
 
 
-f: Optional[int] = None
+f: int | None = None
 
 a: int = func1(f)
 

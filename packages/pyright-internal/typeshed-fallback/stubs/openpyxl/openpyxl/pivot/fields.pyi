@@ -17,7 +17,7 @@ from openpyxl.descriptors.base import (
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Index(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     v: Integer[Literal[True]]
     def __init__(self, v: _ConvertibleToInt | None = 0) -> None: ...
 
@@ -37,7 +37,7 @@ class TupleList(Serialisable):
     def __init__(self, c: _ConvertibleToInt | None, tpl: Tuple) -> None: ...
 
 class Missing(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     tpls: Incomplete
     x: Incomplete
     u: Bool[Literal[True]]
@@ -70,7 +70,7 @@ class Missing(Serialisable):
     ) -> None: ...
 
 class Number(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     tpls: Incomplete
     x: Incomplete
     v: Float[Literal[False]]
@@ -125,7 +125,7 @@ class Number(Serialisable):
     ) -> None: ...
 
 class Error(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     tpls: Typed[TupleList, Literal[True]]
     x: Incomplete
     v: String[Literal[False]]
@@ -180,7 +180,7 @@ class Error(Serialisable):
     ) -> None: ...
 
 class Boolean(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     x: Incomplete
     v: Bool[Literal[False]]
     u: Bool[Literal[True]]
@@ -199,7 +199,7 @@ class Boolean(Serialisable):
     ) -> None: ...
 
 class Text(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     tpls: Incomplete
     x: Incomplete
     v: String[Literal[False]]
@@ -234,7 +234,7 @@ class Text(Serialisable):
     ) -> None: ...
 
 class DateTimeField(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     x: Incomplete
     v: DateTime[Literal[False]]
     u: Bool[Literal[True]]

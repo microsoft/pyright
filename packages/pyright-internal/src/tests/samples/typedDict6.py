@@ -76,7 +76,9 @@ movie5: MovieNotTotal = {"name": "Blade Runner"}
 def foo(unknown_str_value: str):
     a = movie5[unknown_str_value]
 
-Movie12 = TypedDict("Movie12", {"title": Required[str], "predecessor": NotRequired["Movie12"]})
+
+Movie12 = TypedDict(
+    "Movie12", {"title": Required[str], "predecessor": NotRequired["Movie12"]}
+)
 
 movie12: Movie12 = {"title": "Two Towers", "predecessor": {"title": "Fellowship"}}
-
