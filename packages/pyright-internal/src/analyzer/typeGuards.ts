@@ -562,7 +562,8 @@ export function getTypeNarrowingCallback(
                     const isInstanceCheck = callType.details.builtInName === 'isinstance';
                     const arg1TypeResult = evaluator.getTypeOfExpression(
                         arg1Expr,
-                        EvaluatorFlags.EvaluateStringLiteralAsType |
+                        EvaluatorFlags.AllowMissingTypeArgs |
+                            EvaluatorFlags.EvaluateStringLiteralAsType |
                             EvaluatorFlags.DisallowParamSpec |
                             EvaluatorFlags.DisallowTypeVarTuple
                     );

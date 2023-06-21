@@ -51,3 +51,10 @@ def func2(obj: object):
         pass
     if isinstance(obj, Class1 | Class2):
         pass
+
+
+class ClassA:
+    @staticmethod
+    def method1(data: int | str | dict[str, str]):
+        if isinstance(data, dict | str):
+            return data
