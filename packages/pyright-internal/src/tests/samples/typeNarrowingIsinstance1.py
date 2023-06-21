@@ -1,7 +1,10 @@
 # This sample exercises the type analyzer's isinstance type narrowing logic.
 
 from types import NoneType
-from typing import Sized, TypeVar, Union, Any
+from typing import Generic, Sized, TypeVar, Union, Any
+
+S = TypeVar("S")
+T = TypeVar("T")
 
 
 class UnrelatedClass:
@@ -105,9 +108,6 @@ def func4(ty: type[int]) -> type[int]:
     return ty
 
 
-T = TypeVar("T")
-
-
 def func5(ty: type[T]) -> type[T]:
     assert isinstance(ty, (type, str))
     return ty
@@ -134,21 +134,21 @@ class Base1:
     ...
 
 
-class Sub1(Base1):
+class Sub1_1(Base1):
     value: str
 
 
-class Sub2(Base1):
+class Sub1_2(Base1):
     value: Base1
 
 
 def handler(node: Base1) -> Any:
-    if isinstance(node, Sub1):
+    if isinstance(node, Sub1_1):
         reveal_type(node.value, expected_text="str")
-    elif isinstance(node, Sub2):
+    elif isinstance(node, Sub1_2):
         reveal_type(node.value, expected_text="Base1")
-        if isinstance(node.value, Sub1):
-            reveal_type(node.value, expected_text="Sub1")
+        if isinstance(node.value, Sub1_1):
+            reveal_type(node.value, expected_text="Sub1_1")
 
 
 def func8(a: int | list[int] | dict[str, int] | None):
@@ -166,3 +166,16 @@ def func9(a: int | None):
         reveal_type(a, expected_text="int")
     else:
         reveal_type(a, expected_text="None")
+
+
+class Base2(Generic[S, T]):
+    pass
+
+
+class Sub2(Base2[T, T]):
+    pass
+
+
+def func10(val: Sub2[str] | Base2[str, float]):
+    if isinstance(val, Sub2):
+        reveal_type(val, expected_text="Sub2[str] | Sub2[Unknown]")
