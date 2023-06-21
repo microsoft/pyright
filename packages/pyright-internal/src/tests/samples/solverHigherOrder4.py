@@ -8,11 +8,22 @@ _T1 = TypeVar("_T1")
 _T_co = TypeVar("_T_co", covariant=True)
 _U = TypeVar("_U")
 
-class MyIterable(Protocol[_T_co]): ...
-class MySupportsAbs(Protocol[_T_co]): ...
 
-def my_abs(x: MySupportsAbs[_T], /) -> _T: ...
-def my_map(a: Callable[[_T], _U], b: MyIterable[_T]) -> MyIterable[_U]: ...
+class MyIterable(Protocol[_T_co]):
+    ...
+
+
+class MySupportsAbs(Protocol[_T_co]):
+    ...
+
+
+def my_abs(x: MySupportsAbs[_T], /) -> _T:
+    ...
+
+
+def my_map(a: Callable[[_T], _U], b: MyIterable[_T]) -> MyIterable[_U]:
+    ...
+
 
 def func1(xs: MyIterable[MySupportsAbs[int]]):
     ys0 = my_map(a=my_abs, b=xs)
@@ -25,8 +36,10 @@ def func1(xs: MyIterable[MySupportsAbs[int]]):
 def ident(x: _U) -> _U:
     return x
 
+
 def func2(__cb: Callable[[_T1], _T], __arg0: _T1) -> _T:
     ...
+
 
 x1_0 = func2(ident, "hi")
 reveal_type(x1_0, expected_text="str")
@@ -37,8 +50,11 @@ reveal_type(x1_1, expected_text="int")
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
+
+
 def func3(__obj: Callable[_P, _R], *args: _P.args, **kwargs: _P.kwargs) -> _R:
     ...
+
 
 x2_0 = func3(ident, "hi")
 reveal_type(x2_0, expected_text="str")
