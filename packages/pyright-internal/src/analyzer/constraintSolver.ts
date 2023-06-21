@@ -971,6 +971,14 @@ export function populateTypeVarContextBasedOnExpectedType(
                     if (typeArgValue) {
                         const variance = TypeVarType.getVariance(typeVar);
 
+                        // If this type variable already has a type, don't overwrite it. This can
+                        // happen if a single type variable in the derived class is used multiple times
+                        // in the specialized base class type (e.g. Mapping[T, T]).
+                        if (typeVarContext.getPrimarySignature().getTypeVarType(targetTypeVar)) {
+                            isResultValid = false;
+                            typeArgValue = UnknownType.create();
+                        }
+
                         typeVarContext.setTypeVarType(
                             targetTypeVar,
                             variance === Variance.Covariant ? undefined : typeArgValue,
