@@ -442,10 +442,13 @@ test('TypeNarrowingIsinstance16', () => {
 });
 
 test('TypeNarrowingIsinstance17', () => {
-    // This test requires Python 3.10 because it uses PEP 604 notation for unions.
-    const configOptions = new ConfigOptions('.');
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance17.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance17.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingIsinstance18', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance18.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

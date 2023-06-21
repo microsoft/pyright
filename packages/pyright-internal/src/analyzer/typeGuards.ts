@@ -1258,45 +1258,47 @@ function narrowTypeForIsInstance(
                         // we haven't learned anything new about the variable type.
                         filteredTypes.push(addConditionToType(varType, constraints));
                     } else if (filterIsSubclass) {
-                        // If the variable type is a superclass of the isinstance
-                        // filter, we can narrow the type to the subclass.
-                        let specializedFilterType = filterType;
+                        if (evaluator.assignType(varType, filterType)) {
+                            // If the variable type is a superclass of the isinstance
+                            // filter, we can narrow the type to the subclass.
+                            let specializedFilterType = filterType;
 
-                        // Try to retain the type arguments for the filter type. This is
-                        // important because a specialized version of the filter cannot
-                        // be passed to isinstance or issubclass.
-                        if (isClass(filterType)) {
-                            if (
-                                ClassType.isSpecialBuiltIn(filterType) ||
-                                filterType.details.typeParameters.length > 0
-                            ) {
-                                const typeVarContext = new TypeVarContext(getTypeVarScopeId(filterType));
-                                const unspecializedFilterType = ClassType.cloneForSpecialization(
-                                    filterType,
-                                    /* typeArguments */ undefined,
-                                    /* isTypeArgumentExplicit */ false
-                                );
-
+                            // Try to retain the type arguments for the filter type. This is
+                            // important because a specialized version of the filter cannot
+                            // be passed to isinstance or issubclass.
+                            if (isClass(filterType)) {
                                 if (
-                                    populateTypeVarContextBasedOnExpectedType(
-                                        evaluator,
-                                        unspecializedFilterType,
-                                        varType,
-                                        typeVarContext,
-                                        /* liveTypeVarScopes */ undefined,
-                                        errorNode.start
-                                    )
+                                    ClassType.isSpecialBuiltIn(filterType) ||
+                                    filterType.details.typeParameters.length > 0
                                 ) {
-                                    specializedFilterType = applySolvedTypeVars(
-                                        unspecializedFilterType,
-                                        typeVarContext,
-                                        { unknownIfNotFound: true }
-                                    ) as ClassType;
+                                    const typeVarContext = new TypeVarContext(getTypeVarScopeId(filterType));
+                                    const unspecializedFilterType = ClassType.cloneForSpecialization(
+                                        filterType,
+                                        /* typeArguments */ undefined,
+                                        /* isTypeArgumentExplicit */ false
+                                    );
+
+                                    if (
+                                        populateTypeVarContextBasedOnExpectedType(
+                                            evaluator,
+                                            unspecializedFilterType,
+                                            varType,
+                                            typeVarContext,
+                                            /* liveTypeVarScopes */ undefined,
+                                            errorNode.start
+                                        )
+                                    ) {
+                                        specializedFilterType = applySolvedTypeVars(
+                                            unspecializedFilterType,
+                                            typeVarContext,
+                                            { unknownIfNotFound: true }
+                                        ) as ClassType;
+                                    }
                                 }
                             }
-                        }
 
-                        filteredTypes.push(addConditionToType(specializedFilterType, constraints));
+                            filteredTypes.push(addConditionToType(specializedFilterType, constraints));
+                        }
                     } else if (
                         allowIntersections &&
                         !ClassType.isFinal(varType) &&
