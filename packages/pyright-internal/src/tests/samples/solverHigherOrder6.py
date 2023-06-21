@@ -1,7 +1,7 @@
 # This sample tests the handling of nested calls to generic functions
 # when bidirectional type inference is involved.
 
-from typing import Callable, Generic, Literal, ParamSpec, TypeVar
+from typing import Any, Callable, Generic, Literal, ParamSpec, Protocol, TypeVar
 
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
@@ -46,3 +46,16 @@ def func4(a: int, b: int) -> str:
 reveal_type(func1(func2(func3)), expected_text="Future[int]")
 reveal_type(func1(func2(func4, 1, 2)), expected_text="Future[str]")
 reveal_type(func1(func2(func4, a=1, b=2)), expected_text="Future[str]")
+
+
+class Proto(Protocol):
+    def __call__(self, func: _T) -> _T:
+        ...
+
+
+def func5(cb: Proto, names: Any):
+    val1 = cb(cb(names))
+    reveal_type(val1, expected_text="Any")
+
+    val2 = cb(cb(1))
+    reveal_type(val2, expected_text="int")

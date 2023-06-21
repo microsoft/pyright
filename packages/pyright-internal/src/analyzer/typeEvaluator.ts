@@ -10936,6 +10936,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         skipUnknownArgCheck = false,
         inferenceContext?: InferenceContext
     ): CallResult {
+        const signatureTracker = inferenceContext?.signatureTracker ?? new UniqueSignatureTracker();
+        typeResult.type = ensureFunctionSignaturesAreUnique(
+            typeResult.type,
+            signatureTracker,
+            errorNode.start
+        ) as FunctionType;
+
         const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, typeResult, 0);
 
         if (matchResults.argumentErrors) {
@@ -10959,7 +10966,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             matchResults,
             typeVarContext,
             skipUnknownArgCheck,
-            inferenceContext
+            makeInferenceContext(inferenceContext?.expectedType, inferenceContext?.isTypeIncomplete, signatureTracker)
         );
     }
 
