@@ -61,6 +61,7 @@ export interface ParameterListDetails {
     // Other information
     hasUnpackedVariadicTypeVar: boolean;
     hasUnpackedTypedDict: boolean;
+    unpackedKwargsTypedDictType?: ClassType;
 }
 
 // Examines the input parameters within a function signature and creates a
@@ -248,6 +249,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                 });
 
                 result.hasUnpackedTypedDict = true;
+                result.unpackedKwargsTypedDictType = paramType;
             } else if (param.name) {
                 if (result.kwargsIndex === undefined) {
                     result.kwargsIndex = result.params.length;

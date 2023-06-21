@@ -9888,7 +9888,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             while (argIndex < argList.length) {
                 if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedDictionary) {
                     // Verify that the type used in this expression is a SupportsKeysAndGetItem[str, T].
-                    const argType = getTypeOfArgument(argList[argIndex]).type;
+                    const argType = getTypeOfArgument(
+                        argList[argIndex],
+                        makeInferenceContext(paramDetails.unpackedKwargsTypedDictType)
+                    ).type;
+
                     if (isAnyOrUnknown(argType)) {
                         unpackedDictionaryArgType = argType;
                     } else if (isClassInstance(argType) && ClassType.isTypedDictClass(argType)) {
@@ -19222,7 +19226,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { type: specializedClass };
     }
 
-    function getTypeOfArgument(arg: FunctionArgument): TypeResult {
+    function getTypeOfArgument(arg: FunctionArgument, inferenceContext?: InferenceContext): TypeResult {
         if (arg.typeResult) {
             return { type: arg.typeResult.type, isIncomplete: arg.typeResult.isIncomplete };
         }
@@ -19234,7 +19238,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // If there was no defined type provided, there should always
         // be a value expression from which we can retrieve the type.
-        return getTypeOfExpression(arg.valueExpression);
+        return getTypeOfExpression(arg.valueExpression, /* flags */ undefined, inferenceContext);
     }
 
     // This function is like getTypeOfArgument except that it is
