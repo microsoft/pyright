@@ -229,7 +229,7 @@ async function processArgs(): Promise<ExitStatus> {
                     .trim()
                     .split(' ')
                     .map((s) => s.trim())
-                    .filter((s) => !s);
+                    .filter((s) => !!s);
             } catch (e) {
                 console.error('Invalid file list specified by stdin input.');
                 return ExitStatus.ParameterError;
