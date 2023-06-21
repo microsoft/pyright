@@ -77,8 +77,6 @@ test('NewLines', () => {
 
     assert.equal(results.tokens.contains(5), true);
     assert.equal(results.tokens.contains(6), false);
-
-    assert.equal(results.lines.count, 4);
 });
 
 test('InvalidWithNewLine', () => {
@@ -1827,4 +1825,19 @@ test('Normalization', () => {
     assert.equal(idToken.type, TokenType.Identifier);
     assert.equal(idToken.length, 2);
     assert.equal(idToken.value, 'R');
+});
+
+test('Last empty line', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('\r\n');
+    assert.equal(results.tokens.count, _implicitTokenCount);
+
+    const newLineToken = results.tokens.getItemAt(0) as NewLineToken;
+    assert.equal(newLineToken.type, TokenType.NewLine);
+    assert.equal(newLineToken.length, 2);
+    assert.equal(newLineToken.newLineType, NewLineType.CarriageReturnLineFeed);
+
+    const eofToken = results.tokens.getItemAt(1);
+    assert.equal(eofToken.type, TokenType.EndOfStream);
+    assert.equal(eofToken.length, 0);
 });

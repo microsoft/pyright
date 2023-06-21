@@ -9,8 +9,9 @@
 import assert from 'assert';
 
 import { DiagnosticSink } from '../common/diagnosticSink';
-import { getLineEndPosition } from '../common/positionUtils';
+import { convertOffsetToPosition, convertPositionToOffset, getLineEndPosition } from '../common/positionUtils';
 import { ParseOptions, Parser } from '../parser/parser';
+import { Tokenizer } from '../parser/tokenizer';
 
 test('getLineEndOffset', () => {
     const code = 'a = 1';
@@ -48,6 +49,19 @@ test('getLineEndOffset with mixed style ending', () => {
     verifyLineEnding(code, 0, 5);
     verifyLineEnding(code, 1, 5);
     verifyLineEnding(code, 2, 5);
+});
+
+test('End of file position and offest conversion', () => {
+    const code = 'hello\n';
+
+    const t = new Tokenizer();
+    const results = t.tokenize(code);
+
+    const position = convertOffsetToPosition(code.length, results.lines);
+    assert.strictEqual(position.line, 1);
+
+    const offset = convertPositionToOffset(position, results.lines);
+    assert.strictEqual(offset, code.length);
 });
 
 function verifyLineEnding(code: string, line: number, expected: number) {

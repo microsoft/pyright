@@ -15,7 +15,7 @@ import * as prog from '../analyzer/program';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { Type } from '../analyzer/types';
-import { LanguageServerBase } from '../languageServerBase';
+import { LanguageServerBase, LanguageServerInterface } from '../languageServerBase';
 import { CompletionOptions } from '../languageService/completionProvider';
 import { FunctionNode, ParameterNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
@@ -139,7 +139,7 @@ export interface ProgramMutator {
 
 export interface ExtensionFactory {
     createProgramExtension?: (view: ProgramView, mutator: ProgramMutator) => ProgramExtension;
-    createLanguageServiceExtension?: (languageserver: LanguageServerBase) => LanguageServiceExtension;
+    createLanguageServiceExtension?: (languageserver: LanguageServerInterface) => LanguageServiceExtension;
 }
 
 export interface CommandExtension {
@@ -245,7 +245,7 @@ export namespace Extensions {
         programExtensions = programExtensions.filter((s) => s.view.id !== viewId);
     }
 
-    export function createLanguageServiceExtensions(languageServer: LanguageServerBase) {
+    export function createLanguageServiceExtensions(languageServer: LanguageServerInterface) {
         languageServiceExtensions.push(
             ...(factories
                 .map((s) => {
