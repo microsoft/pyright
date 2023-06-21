@@ -56,7 +56,8 @@ def func3():
     # This should generate an error because it's an untyped dict.
     func1(**my_dict)
 
-    func1(**{"v1": 2, "v3": "4", "v4": 4})
+    d1 = {"v1": 2, "v3": "4", "v4": 4}
+    func1(**d1)
 
     func2(**td2)
 
