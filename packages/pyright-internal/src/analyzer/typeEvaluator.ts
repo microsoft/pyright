@@ -25241,7 +25241,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     diag,
                     typeVarContext,
                     /* srcTypeVarContext */ undefined,
-                    AssignTypeFlags.Default,
+                    AssignTypeFlags.AllowUnspecifiedTypeArguments,
                     recursionCount
                 )
             ) {

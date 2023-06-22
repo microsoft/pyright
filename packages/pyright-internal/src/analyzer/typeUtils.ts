@@ -186,6 +186,12 @@ export const enum AssignTypeFlags {
     // so TypeVars should match the specified type exactly rather than
     // employing narrowing or widening, and don't strip literals.
     PopulatingExpectedType = 1 << 10,
+
+    // Normally, when a class type is assigned to a TypeVar and that class
+    // hasn't previously been specialized, it will be specialized with
+    // default type arguments (typically "Unknown"). This flag skips
+    // this step.
+    AllowUnspecifiedTypeArguments = 1 << 11,
 }
 
 export interface ApplyTypeVarOptions {
@@ -769,6 +775,22 @@ export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] | TypeVarScopeI
     }
 
     return scopeId;
+}
+
+// If the class type is generic and does not already have type arguments
+// specified, specialize it with default type arguments (Unknown or the
+// default type if provided).
+export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
+    if (type.details.typeParameters.length === 0 || type.typeArguments) {
+        return type;
+    }
+
+    return ClassType.cloneForSpecialization(
+        type,
+        type.details.typeParameters.map((param) => param.details.defaultType ?? UnknownType.create()),
+        /* isTypeArgumentExplicit */ false,
+        !!type.includeSubclasses
+    );
 }
 
 // Determines whether the type derives from tuple. If so, it returns

@@ -55,6 +55,7 @@ import {
     isPartlyUnknown,
     mapSubtypes,
     specializeTupleClass,
+    specializeWithDefaultTypeArgs,
     transformExpectedType,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
@@ -393,6 +394,14 @@ export function assignTypeToTypeVar(
     const diagAddendum = diag ? new DiagnosticAddendum() : undefined;
 
     let adjSrcType = srcType;
+
+    // If the source is a class that is missing type arguments, fill
+    // in missing type arguments with Unknown.
+    if ((flags & AssignTypeFlags.AllowUnspecifiedTypeArguments) === 0) {
+        if (isClass(adjSrcType) && adjSrcType.includeSubclasses) {
+            adjSrcType = specializeWithDefaultTypeArgs(adjSrcType);
+        }
+    }
 
     if (TypeBase.isInstantiable(destType)) {
         if (isEffectivelyInstantiable(adjSrcType)) {
