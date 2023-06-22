@@ -355,7 +355,7 @@ export function synthesizeTypedDictClassMethods(
 
         function createGetMethod(
             keyType: Type,
-            valueType: Type | undefined,
+            valueType: Type,
             includeDefault: boolean,
             isEntryRequired = false,
             defaultTypeMatchesField = false
@@ -379,14 +379,15 @@ export function synthesizeTypedDictClassMethods(
                     // If the entry is required, the type of the default param doesn't matter
                     // because the type will always come from the value.
                     defaultParamType = AnyType.create();
-                    returnType = valueType ?? AnyType.create();
+                    returnType = valueType;
                 } else {
-                    defaultParamType = defaultTypeMatchesField && valueType ? valueType : defaultTypeVar;
-                    if (valueType) {
-                        returnType = defaultTypeMatchesField ? valueType : combineTypes([valueType, defaultTypeVar]);
+                    if (defaultTypeMatchesField) {
+                        defaultParamType = valueType;
                     } else {
-                        returnType = defaultTypeVar;
+                        defaultParamType = combineTypes([valueType, defaultTypeVar]);
                     }
+
+                    returnType = defaultParamType;
                 }
 
                 FunctionType.addParameter(getOverload, {
@@ -399,7 +400,7 @@ export function synthesizeTypedDictClassMethods(
             } else {
                 getOverload.details.declaredReturnType = isEntryRequired
                     ? valueType
-                    : combineTypes([valueType ?? AnyType.create(), NoneType.createInstance()]);
+                    : combineTypes([valueType, NoneType.createInstance()]);
             }
             return getOverload;
         }
@@ -523,15 +524,6 @@ export function synthesizeTypedDictClassMethods(
                         entry.valueType,
                         /* includeDefault */ true,
                         /* isEntryRequired */ false,
-                        /* defaultTypeMatchesField */ true
-                    )
-                );
-                getOverloads.push(
-                    createGetMethod(
-                        nameLiteralType,
-                        entry.valueType,
-                        /* includeDefault */ true,
-                        /* isEntryRequired */ false,
                         /* defaultTypeMatchesField */ false
                     )
                 );
@@ -562,7 +554,11 @@ export function synthesizeTypedDictClassMethods(
                     )
                 );
                 getOverloads.push(
-                    createGetMethod(literalStringInstance, /* valueType */ undefined, /* includeDefault */ true)
+                    createGetMethod(
+                        literalStringInstance,
+                        /* valueType */ UnknownType.create(),
+                        /* includeDefault */ true
+                    )
                 );
             }
         }

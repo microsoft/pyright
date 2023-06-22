@@ -64,7 +64,7 @@ def func1(a: TD3, b: TD4, c: C, s: str) -> int | None:
     a3 = a.get("bar")
     reveal_type(a3, expected_text="None")
     a4 = a.get("bar", 1.0)
-    reveal_type(a4, expected_text="float")
+    reveal_type(a4, expected_text="Unknown | float")
     a5 = a.get("baz")
     reveal_type(a5, expected_text="int | None")
     a6 = a.get("baz", 1.0)
@@ -94,7 +94,7 @@ def func1(a: TD3, b: TD4, c: C, s: str) -> int | None:
     c3 = c.get("bar")
     reveal_type(c3, expected_text="str | None")
     c4 = c.get("bar", 1.0)
-    reveal_type(c4, expected_text="float | str")
+    reveal_type(c4, expected_text="Unknown | float | str")
     c5 = c.get("baz")
     reveal_type(c5, expected_text="int | Any | None")
     c6 = c.get("baz", 1.0)
@@ -126,3 +126,19 @@ td6.clear()
 
 # This should generate an error because not all elements are NotRequired.
 td6.popitem()
+
+
+class TD7(TypedDict, total=False):
+    a: dict[str, str]
+    b: list[str]
+
+
+def func2(td7: TD7):
+    v1 = td7.get("a", [])
+    reveal_type(v1, expected_text="dict[str, str] | list[Any]")
+
+    v2 = td7.get("a", {})
+    reveal_type(v2, expected_text="dict[str, str]")
+
+    v3 = td7.get("b", [])
+    reveal_type(v3, expected_text="list[str]")
