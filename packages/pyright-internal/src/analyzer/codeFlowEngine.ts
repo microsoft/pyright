@@ -1012,6 +1012,12 @@ export function getCodeFlowEngine(
                             return { type: effectiveType, isIncomplete: reportIncomplete };
                         }
 
+                        // If the first antecedent was pending, we skipped all of the other
+                        // antecedents, so the type is incomplete.
+                        if (firstAntecedentTypeIsPending) {
+                            return { type: effectiveType, isIncomplete: true };
+                        }
+
                         return setCacheEntry(loopNode, effectiveType, /* isIncomplete */ false);
                     }
 
