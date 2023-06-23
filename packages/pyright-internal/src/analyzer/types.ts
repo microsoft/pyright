@@ -1451,7 +1451,7 @@ export namespace FunctionType {
         );
 
         newFunction.details = { ...type.details };
-        newFunction.boundToType = boundToType;
+        newFunction.boundToType = boundToType ?? type.boundToType;
         newFunction.preBoundFlags = newFunction.details.flags;
 
         if (stripFirstParam) {
@@ -1491,7 +1491,7 @@ export namespace FunctionType {
         }
 
         newFunction.inferredReturnType = type.inferredReturnType;
-        newFunction.boundTypeVarScopeId = boundTypeVarScopeId;
+        newFunction.boundTypeVarScopeId = boundTypeVarScopeId ?? type.boundTypeVarScopeId;
 
         return newFunction;
     }

@@ -758,11 +758,14 @@ export function getTypeVarScopeId(type: Type): TypeVarScopeId | undefined {
 // This is similar to getTypeVarScopeId except that it includes
 // the secondary scope IDs for functions.
 export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] | TypeVarScopeId | undefined {
+    const scopeIds: TypeVarScopeId[] = [];
+
     const scopeId = getTypeVarScopeId(type);
+    if (scopeId) {
+        scopeIds.push(scopeId);
+    }
 
-    if (scopeId && isFunction(type)) {
-        const scopeIds: TypeVarScopeId[] = [scopeId];
-
+    if (isFunction(type)) {
         if (type.details.constructorTypeVarScopeId) {
             scopeIds.push(type.details.constructorTypeVarScopeId);
         }
@@ -770,11 +773,9 @@ export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] | TypeVarScopeI
         if (type.details.paramSpecTypeVarScopeId) {
             scopeIds.push(type.details.paramSpecTypeVarScopeId);
         }
-
-        return scopeIds;
     }
 
-    return scopeId;
+    return scopeIds;
 }
 
 // If the class type is generic and does not already have type arguments

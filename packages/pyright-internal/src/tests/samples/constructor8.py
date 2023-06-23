@@ -1,6 +1,7 @@
 # This sample verifies that a class can be assigned to a Callable
 # type if its constructor conforms to that type.
 
+from dataclasses import dataclass
 from typing import Any, Callable, Generic, Literal, TypeVar, Union, overload
 
 _T1 = TypeVar("_T1")
@@ -97,3 +98,18 @@ reveal_type(d4, expected_text="D[int | str]")
 
 d5 = func1(D[Union[int, str]], "3")
 reveal_type(d5, expected_text="D[int | str]")
+
+
+@dataclass(frozen=True, slots=True)
+class E(Generic[_T1]):
+    x: _T1
+
+
+e1: Callable[[int], E[int]] = E
+
+
+def func2(x: _T1) -> E[_T1]:
+    ...
+
+
+e2: Callable[[int], E[int]] = func2
