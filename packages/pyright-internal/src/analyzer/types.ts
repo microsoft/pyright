@@ -547,6 +547,14 @@ export interface DataClassBehaviors {
     fieldDescriptorNames: string[];
 }
 
+export interface ProtocolCompatibility {
+    srcType: Type;
+    destType: Type;
+    treatSourceAsInstantiable: boolean;
+    flags: number; // AssignTypeFlags
+    isCompatible: boolean;
+}
+
 interface ClassDetails {
     name: string;
     fullName: string;
@@ -570,8 +578,9 @@ interface ClassDetails {
     localSlotsNames?: string[];
 
     // A cache of protocol classes (indexed by the class full name)
-    // that have been determined to be compatible with this class.
-    compatibleProtocols?: Set<string>;
+    // that have been determined to be compatible or incompatible
+    // with this class.
+    protocolCompatibility?: Map<string, ProtocolCompatibility[]>;
 
     // Transforms to apply if this class is used as a metaclass
     // or a base class.
