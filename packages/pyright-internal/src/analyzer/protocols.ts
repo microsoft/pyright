@@ -440,7 +440,7 @@ function assignClassToProtocolInternal(
 
         if (destType.typeArguments) {
             if (
-                !evaluator.verifyTypeArgumentsAssignable(
+                !evaluator.assignTypeArguments(
                     destType,
                     specializedProtocolType,
                     diag,
@@ -568,7 +568,7 @@ export function assignModuleToProtocol(
         const specializedProtocolType = applySolvedTypeVars(genericProtocolType, protocolTypeVarContext) as ClassType;
 
         if (
-            !evaluator.verifyTypeArgumentsAssignable(
+            !evaluator.assignTypeArguments(
                 destType,
                 specializedProtocolType,
                 diag,

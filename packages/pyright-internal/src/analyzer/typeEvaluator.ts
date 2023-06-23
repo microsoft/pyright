@@ -21449,7 +21449,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
-    function assignTupleTypeArgs(
+    function assignTupleTypeArguments(
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum | undefined,
@@ -21585,7 +21585,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Handle tuple, which supports a variable number of type arguments.
         if (destType.tupleTypeArguments && curSrcType.tupleTypeArguments) {
-            return assignTupleTypeArgs(
+            return assignTupleTypeArguments(
                 destType,
                 curSrcType,
                 diag,
@@ -21599,7 +21599,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (destType.typeArguments) {
             // If the dest type is specialized, make sure the specialized source
             // type arguments are assignable to the dest type arguments.
-            return verifyTypeArgumentsAssignable(
+            return assignTypeArguments(
                 destType,
                 curSrcType,
                 diag,
@@ -21649,7 +21649,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return undefined;
     }
 
-    function verifyTypeArgumentsAssignable(
+    function assignTypeArguments(
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum | undefined,
@@ -25510,7 +25510,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getObjectType,
         getBuiltInObject,
         getTypingType,
-        verifyTypeArgumentsAssignable,
+        assignTypeArguments,
         reportMissingTypeArguments,
         inferReturnTypeIfNecessary,
         inferTypeParameterVarianceForClass,

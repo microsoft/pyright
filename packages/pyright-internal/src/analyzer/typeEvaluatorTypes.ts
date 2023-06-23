@@ -612,7 +612,7 @@ export interface TypeEvaluator {
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
     inferReturnTypeIfNecessary: (type: Type) => void;
     inferTypeParameterVarianceForClass: (type: ClassType) => void;
-    verifyTypeArgumentsAssignable: (
+    assignTypeArguments: (
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum | undefined,
