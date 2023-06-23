@@ -734,6 +734,7 @@ export function createFunctionFromConstructor(
             if (constructorFunction) {
                 constructorFunction = FunctionType.clone(constructorFunction);
                 constructorFunction.details.declaredReturnType = objectType;
+                constructorFunction.details.typeVarScopeId = initSubtype.details.typeVarScopeId;
 
                 if (constructorFunction.specializedTypes) {
                     constructorFunction.specializedTypes.returnType = objectType;
@@ -744,6 +745,7 @@ export function createFunctionFromConstructor(
                 }
 
                 constructorFunction.details.flags &= ~FunctionTypeFlags.StaticMethod;
+                constructorFunction.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
             }
 
             return constructorFunction;
@@ -792,6 +794,7 @@ export function createFunctionFromConstructor(
 
             if (constructorFunction) {
                 constructorFunction = FunctionType.clone(constructorFunction);
+                constructorFunction.details.typeVarScopeId = newSubtype.details.typeVarScopeId;
 
                 if (!constructorFunction.details.docString && classType.details.docString) {
                     constructorFunction.details.docString = classType.details.docString;
@@ -800,6 +803,7 @@ export function createFunctionFromConstructor(
                 constructorFunction.details.flags &= ~(
                     FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod
                 );
+                constructorFunction.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
             }
 
             return constructorFunction;
