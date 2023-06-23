@@ -37,7 +37,6 @@ import {
     CaseNode,
     ClassNode,
     ConstantNode,
-    DecoratorNode,
     DictionaryNode,
     ExceptNode,
     ExpressionNode,
@@ -93,11 +92,8 @@ import { assignTypeToTypeVar, populateTypeVarContextBasedOnExpectedType } from '
 import { createFunctionFromConstructor, validateConstructorArguments } from './constructors';
 import {
     applyDataClassClassBehaviorOverrides,
-    applyDataClassDecorator,
     applyDataClassDefaultBehaviors,
-    getDataclassDecoratorBehaviors,
     synthesizeDataClassMethods,
-    validateDataClassTransformDecorator,
 } from './dataClasses';
 import {
     ClassDeclaration,
@@ -113,6 +109,12 @@ import {
     getNameNodeForDeclaration,
     resolveAliasDeclaration as resolveAliasDeclarationUtil,
 } from './declarationUtils';
+import {
+    addOverloadsToFunctionType,
+    applyClassDecorator,
+    applyFunctionDecorator,
+    getFunctionFlagsFromDecorators,
+} from './decorators';
 import {
     createEnumType,
     getEnumAutoValueType,
@@ -137,13 +139,7 @@ import {
 } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { assignTypeToPatternTargets, checkForUnusedPattern, narrowTypeBasedOnPattern } from './patternMatching';
-import {
-    assignProperty,
-    clonePropertyWithDeleter,
-    clonePropertyWithSetter,
-    createProperty,
-    validatePropertyMethod,
-} from './properties';
+import { assignProperty } from './properties';
 import { assignClassToProtocol, assignModuleToProtocol } from './protocols';
 import { Scope, ScopeType, SymbolWithScope } from './scope';
 import * as ScopeUtils from './scopeUtils';
@@ -1607,95 +1603,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return convertToInstance(annotationType);
-    }
-
-    function getTypeOfDecorator(node: DecoratorNode, functionOrClassType: Type): Type {
-        // Evaluate the type of the decorator expression.
-        let flags = AnalyzerNodeInfo.getFileInfo(node).isStubFile
-            ? EvaluatorFlags.AllowForwardReferences
-            : EvaluatorFlags.None;
-        if (node.expression.nodeType !== ParseNodeType.Call) {
-            flags |= EvaluatorFlags.DoNotSpecialize;
-        }
-
-        const decoratorTypeResult = getTypeOfExpression(node.expression, flags);
-
-        // Special-case typing.type_check_only. It's used in many stdlib
-        // functions, and pyright treats it as a no-op, so don't waste
-        // time evaluating it.
-        if (
-            isFunction(decoratorTypeResult.type) &&
-            decoratorTypeResult.type.details.builtInName === 'type_check_only'
-        ) {
-            return functionOrClassType;
-        }
-
-        // Special-case the combination of a classmethod decorator applied
-        // to a property. This is allowed in Python 3.9, but it's not reflected
-        // in the builtins.pyi stub for classmethod.
-        if (
-            isInstantiableClass(decoratorTypeResult.type) &&
-            ClassType.isBuiltIn(decoratorTypeResult.type, 'classmethod') &&
-            isProperty(functionOrClassType)
-        ) {
-            return functionOrClassType;
-        }
-
-        const argList: FunctionArgument[] = [
-            {
-                argumentCategory: ArgumentCategory.Simple,
-                typeResult: { type: functionOrClassType },
-            },
-        ];
-
-        const returnType =
-            validateCallArguments(
-                node.expression,
-                argList,
-                decoratorTypeResult,
-                /* typeVarContext */ undefined,
-                /* skipUnknownArgCheck */ true
-            ).returnType || UnknownType.create();
-
-        // If the return type is a function that has no annotations
-        // and just *args and **kwargs parameters, assume that it
-        // preserves the type of the input function.
-        if (isFunction(returnType) && !returnType.details.declaredReturnType) {
-            if (
-                !returnType.details.parameters.some((param, index) => {
-                    // Don't allow * or / separators or params with declared types.
-                    if (!param.name || param.hasDeclaredType) {
-                        return true;
-                    }
-
-                    // Allow *args or **kwargs parameters.
-                    if (param.category !== ParameterCategory.Simple) {
-                        return false;
-                    }
-
-                    // Allow inferred "self" or "cls" parameters.
-                    return index !== 0 || !param.isTypeInferred;
-                })
-            ) {
-                return functionOrClassType;
-            }
-        }
-
-        // If the decorator is completely unannotated and the return type
-        // includes unknowns, assume that it preserves the type of the input
-        // function.
-        if (isPartlyUnknown(returnType)) {
-            if (isFunction(decoratorTypeResult.type)) {
-                if (
-                    !decoratorTypeResult.type.details.parameters.find((param) => param.typeAnnotation !== undefined) &&
-                    decoratorTypeResult.type.details.declaredReturnType === undefined
-                ) {
-                    return functionOrClassType;
-                }
-            }
-        }
-
-        return returnType;
     }
 
     function canBeFalsy(type: Type, recursionCount = 0): boolean {
@@ -14012,7 +13919,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(errorNode);
         if (enclosingFunction) {
-            const functionFlags = getFunctionFlagsFromDecorators(enclosingFunction, /* isInClass */ true);
+            const functionFlags = getFunctionFlagsFromDecorators(
+                evaluatorInterface,
+                enclosingFunction,
+                /* isInClass */ true
+            );
 
             const isInnerFunction = !!ParseTreeUtils.getEnclosingFunction(enclosingFunction);
             if (!isInnerFunction) {
@@ -15641,7 +15552,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         for (let i = node.decorators.length - 1; i >= 0; i--) {
             const decorator = node.decorators[i];
 
-            const newDecoratedType = applyClassDecorator(decoratedType, classType, decorator);
+            const newDecoratedType = applyClassDecorator(evaluatorInterface, decoratedType, classType, decorator);
             const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
 
             if (unknownOrAny && isUnknown(unknownOrAny)) {
@@ -16018,138 +15929,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
-    function applyClassDecorator(
-        inputClassType: Type,
-        originalClassType: ClassType,
-        decoratorNode: DecoratorNode
-    ): Type {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(decoratorNode);
-        let flags = fileInfo.isStubFile ? EvaluatorFlags.AllowForwardReferences : EvaluatorFlags.None;
-        if (decoratorNode.expression.nodeType !== ParseNodeType.Call) {
-            flags |= EvaluatorFlags.DoNotSpecialize;
-        }
-        const decoratorType = getTypeOfExpression(decoratorNode.expression, flags).type;
-
-        if (decoratorNode.expression.nodeType === ParseNodeType.Call) {
-            const decoratorCallType = getTypeOfExpression(
-                decoratorNode.expression.leftExpression,
-                flags | EvaluatorFlags.DoNotSpecialize
-            ).type;
-
-            if (isFunction(decoratorCallType)) {
-                if (
-                    decoratorCallType.details.name === '__dataclass_transform__' ||
-                    decoratorCallType.details.builtInName === 'dataclass_transform'
-                ) {
-                    originalClassType.details.classDataClassTransform = validateDataClassTransformDecorator(
-                        evaluatorInterface,
-                        decoratorNode.expression
-                    );
-                } else if (decoratorCallType.details.builtInName === 'deprecated') {
-                    originalClassType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
-                    return inputClassType;
-                }
-            }
-
-            if (isOverloadedFunction(decoratorCallType)) {
-                if (
-                    decoratorCallType.overloads.length > 0 &&
-                    decoratorCallType.overloads[0].details.builtInName === 'deprecated'
-                ) {
-                    originalClassType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
-                    return inputClassType;
-                }
-            }
-        }
-
-        if (isOverloadedFunction(decoratorType)) {
-            const dataclassBehaviors = getDataclassDecoratorBehaviors(decoratorType);
-            if (dataclassBehaviors) {
-                applyDataClassDecorator(
-                    evaluatorInterface,
-                    decoratorNode,
-                    originalClassType,
-                    dataclassBehaviors,
-                    /* callNode */ undefined
-                );
-                return inputClassType;
-            }
-
-            if (decoratorType.overloads.length > 0 && decoratorType.overloads[0].details.builtInName === 'deprecated') {
-                originalClassType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
-                return inputClassType;
-            }
-        } else if (isFunction(decoratorType)) {
-            if (decoratorType.details.builtInName === 'final') {
-                originalClassType.details.flags |= ClassTypeFlags.Final;
-
-                // Don't call getTypeOfDecorator for final. We'll hard-code its
-                // behavior because its function definition results in a cyclical
-                // dependency between builtins, typing and _typeshed stubs.
-                return inputClassType;
-            }
-
-            if (decoratorType.details.builtInName === 'deprecated') {
-                originalClassType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
-                return inputClassType;
-            }
-
-            if (decoratorType.details.builtInName === 'runtime_checkable') {
-                originalClassType.details.flags |= ClassTypeFlags.RuntimeCheckable;
-
-                // Don't call getTypeOfDecorator for runtime_checkable. It appears
-                // frequently in stubs, and it's a waste of time to validate its
-                // parameters.
-                return inputClassType;
-            }
-
-            // Is this a dataclass decorator?
-            let dataclassBehaviors: DataClassBehaviors | undefined;
-            let callNode: CallNode | undefined;
-
-            if (decoratorNode.expression.nodeType === ParseNodeType.Call) {
-                callNode = decoratorNode.expression;
-                const decoratorCallType = getTypeOfExpression(
-                    callNode.leftExpression,
-                    flags | EvaluatorFlags.DoNotSpecialize
-                ).type;
-                dataclassBehaviors = getDataclassDecoratorBehaviors(decoratorCallType);
-            } else {
-                const decoratorType = getTypeOfExpression(decoratorNode.expression, flags).type;
-                dataclassBehaviors = getDataclassDecoratorBehaviors(decoratorType);
-            }
-
-            if (dataclassBehaviors) {
-                applyDataClassDecorator(
-                    evaluatorInterface,
-                    decoratorNode,
-                    originalClassType,
-                    dataclassBehaviors,
-                    callNode
-                );
-                return inputClassType;
-            }
-        }
-
-        return getTypeOfDecorator(decoratorNode, inputClassType);
-    }
-
-    // Given a @typing.deprecated decorator node, returns either '' or a custom
-    // deprecation message if one is provided.
-    function getCustomDeprecationMessage(decorator: DecoratorNode): string {
-        if (
-            decorator.expression.nodeType === ParseNodeType.Call &&
-            decorator.expression.arguments.length > 0 &&
-            decorator.expression.arguments[0].argumentCategory === ArgumentCategory.Simple &&
-            decorator.expression.arguments[0].valueExpression.nodeType === ParseNodeType.StringList &&
-            decorator.expression.arguments[0].valueExpression.strings.length === 1
-        ) {
-            return decorator.expression.arguments[0].valueExpression.strings[0].value;
-        }
-
-        return '';
-    }
-
     // Runs any registered "callback hooks" that depend on the specified class type.
     // This allows us to complete any work that requires dependent classes to be
     // completed.
@@ -16350,7 +16129,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             containingClassType = classInfo.classType;
         }
 
-        let functionFlags = getFunctionFlagsFromDecorators(node, !!containingClassNode);
+        let functionFlags = getFunctionFlagsFromDecorators(evaluatorInterface, node, !!containingClassNode);
         if (functionDecl?.isGenerator) {
             functionFlags |= FunctionTypeFlags.Generator;
         }
@@ -16749,7 +16528,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         for (let i = node.decorators.length - 1; i >= 0; i--) {
             const decorator = node.decorators[i];
 
-            const newDecoratedType = applyFunctionDecorator(decoratedType, functionType, decorator, node);
+            const newDecoratedType = applyFunctionDecorator(
+                evaluatorInterface,
+                decoratedType,
+                functionType,
+                decorator,
+                node
+            );
             const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
 
             if (unknownOrAny && isUnknown(unknownOrAny)) {
@@ -16779,7 +16564,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
             }
 
-            decoratedType = addOverloadsToFunctionType(node, decoratedType);
+            decoratedType = addOverloadsToFunctionType(evaluatorInterface, node, decoratedType);
         }
 
         writeTypeCache(node.name, { type: functionType }, EvaluatorFlags.None);
@@ -17026,335 +16811,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return UnknownType.create();
             }
         }
-    }
-
-    // Scans through the decorators to find a few built-in decorators
-    // that affect the function flags.
-    function getFunctionFlagsFromDecorators(node: FunctionNode, isInClass: boolean) {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-        let flags = FunctionTypeFlags.None;
-
-        if (isInClass) {
-            // The "__new__" magic method is not an instance method.
-            // It acts as a static method instead.
-            if (node.name.value === '__new__') {
-                flags |= FunctionTypeFlags.ConstructorMethod;
-            }
-
-            // Several magic methods are treated as class methods implicitly
-            // by the runtime. Check for these here.
-            const implicitClassMethods = ['__init_subclass__', '__class_getitem__'];
-            if (implicitClassMethods.some((name) => node.name.value === name)) {
-                flags |= FunctionTypeFlags.ClassMethod;
-            }
-        }
-
-        for (const decoratorNode of node.decorators) {
-            // Some stub files (e.g. builtins.pyi) rely on forward declarations of decorators.
-            let evaluatorFlags = fileInfo.isStubFile ? EvaluatorFlags.AllowForwardReferences : EvaluatorFlags.None;
-            if (decoratorNode.expression.nodeType !== ParseNodeType.Call) {
-                evaluatorFlags |= EvaluatorFlags.DoNotSpecialize;
-            }
-
-            const decoratorTypeResult = getTypeOfExpression(decoratorNode.expression, evaluatorFlags);
-            const decoratorType = decoratorTypeResult.type;
-
-            if (isFunction(decoratorType)) {
-                if (decoratorType.details.builtInName === 'abstractmethod') {
-                    if (isInClass) {
-                        flags |= FunctionTypeFlags.AbstractMethod;
-                    }
-                } else if (decoratorType.details.builtInName === 'final') {
-                    flags |= FunctionTypeFlags.Final;
-                } else if (decoratorType.details.builtInName === 'override') {
-                    flags |= FunctionTypeFlags.Overridden;
-                }
-            } else if (isInstantiableClass(decoratorType)) {
-                if (ClassType.isBuiltIn(decoratorType, 'staticmethod')) {
-                    if (isInClass) {
-                        flags |= FunctionTypeFlags.StaticMethod;
-                    }
-                } else if (ClassType.isBuiltIn(decoratorType, 'classmethod')) {
-                    if (isInClass) {
-                        flags |= FunctionTypeFlags.ClassMethod;
-                    }
-                }
-            }
-        }
-
-        return flags;
-    }
-
-    // Transforms the input function type into an output type based on the
-    // decorator function described by the decoratorNode.
-    function applyFunctionDecorator(
-        inputFunctionType: Type,
-        undecoratedType: FunctionType,
-        decoratorNode: DecoratorNode,
-        functionNode: FunctionNode
-    ): Type {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(decoratorNode);
-
-        // Some stub files (e.g. builtins.pyi) rely on forward declarations of decorators.
-        let evaluatorFlags = fileInfo.isStubFile ? EvaluatorFlags.AllowForwardReferences : EvaluatorFlags.None;
-        if (decoratorNode.expression.nodeType !== ParseNodeType.Call) {
-            evaluatorFlags |= EvaluatorFlags.DoNotSpecialize;
-        }
-
-        const decoratorTypeResult = getTypeOfExpression(decoratorNode.expression, evaluatorFlags);
-        const decoratorType = decoratorTypeResult.type;
-
-        // Special-case the "overload" because it has no definition. Older versions of typeshed
-        // defined "overload" as an object, but newer versions define it as a function.
-        if (
-            (isInstantiableClass(decoratorType) && ClassType.isSpecialBuiltIn(decoratorType, 'overload')) ||
-            (isFunction(decoratorType) && decoratorType.details.builtInName === 'overload')
-        ) {
-            if (isFunction(inputFunctionType)) {
-                inputFunctionType.details.flags |= FunctionTypeFlags.Overloaded;
-                undecoratedType.details.flags |= FunctionTypeFlags.Overloaded;
-                return inputFunctionType;
-            }
-        }
-
-        if (decoratorNode.expression.nodeType === ParseNodeType.Call) {
-            const decoratorCallType = getTypeOfExpression(
-                decoratorNode.expression.leftExpression,
-                evaluatorFlags | EvaluatorFlags.DoNotSpecialize
-            ).type;
-
-            if (isFunction(decoratorCallType)) {
-                if (
-                    decoratorCallType.details.name === '__dataclass_transform__' ||
-                    decoratorCallType.details.builtInName === 'dataclass_transform'
-                ) {
-                    undecoratedType.details.decoratorDataClassBehaviors = validateDataClassTransformDecorator(
-                        evaluatorInterface,
-                        decoratorNode.expression
-                    );
-                    return inputFunctionType;
-                }
-
-                if (decoratorCallType.details.builtInName === 'deprecated') {
-                    undecoratedType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
-                    return inputFunctionType;
-                }
-            }
-
-            if (isOverloadedFunction(decoratorCallType)) {
-                if (
-                    decoratorCallType.overloads.length > 0 &&
-                    decoratorCallType.overloads[0].details.builtInName === 'deprecated'
-                ) {
-                    undecoratedType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
-                    return inputFunctionType;
-                }
-            }
-        }
-
-        let returnType = getTypeOfDecorator(decoratorNode, inputFunctionType);
-
-        // Check for some built-in decorator types with known semantics.
-        if (isFunction(decoratorType)) {
-            if (decoratorType.details.builtInName === 'abstractmethod') {
-                return inputFunctionType;
-            }
-
-            if (decoratorType.details.builtInName === 'deprecated') {
-                undecoratedType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
-                return inputFunctionType;
-            }
-
-            // Handle property setters and deleters.
-            if (decoratorNode.expression.nodeType === ParseNodeType.MemberAccess) {
-                const baseType = getTypeOfExpression(
-                    decoratorNode.expression.leftExpression,
-                    evaluatorFlags | EvaluatorFlags.DoNotSpecialize
-                ).type;
-
-                if (isProperty(baseType)) {
-                    const memberName = decoratorNode.expression.memberName.value;
-                    if (memberName === 'setter') {
-                        if (isFunction(inputFunctionType)) {
-                            validatePropertyMethod(evaluatorInterface, inputFunctionType, decoratorNode);
-                            return clonePropertyWithSetter(
-                                evaluatorInterface,
-                                baseType,
-                                inputFunctionType,
-                                functionNode
-                            );
-                        } else {
-                            return inputFunctionType;
-                        }
-                    } else if (memberName === 'deleter') {
-                        if (isFunction(inputFunctionType)) {
-                            validatePropertyMethod(evaluatorInterface, inputFunctionType, decoratorNode);
-                            return clonePropertyWithDeleter(
-                                evaluatorInterface,
-                                baseType,
-                                inputFunctionType,
-                                functionNode
-                            );
-                        } else {
-                            return inputFunctionType;
-                        }
-                    }
-                }
-            }
-        } else if (isOverloadedFunction(decoratorType)) {
-            if (decoratorType.overloads.length > 0 && decoratorType.overloads[0].details.builtInName === 'deprecated') {
-                undecoratedType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
-                return inputFunctionType;
-            }
-        } else if (isInstantiableClass(decoratorType)) {
-            if (ClassType.isBuiltIn(decoratorType)) {
-                switch (decoratorType.details.name) {
-                    case 'classmethod':
-                    case 'staticmethod': {
-                        const requiredFlag =
-                            decoratorType.details.name === 'classmethod'
-                                ? FunctionTypeFlags.ClassMethod
-                                : FunctionTypeFlags.StaticMethod;
-
-                        // If the function isn't currently a class method or static method
-                        // (which can happen if the function was wrapped in a decorator),
-                        // add the appropriate flag.
-                        if (isFunction(inputFunctionType) && (inputFunctionType.details.flags & requiredFlag) === 0) {
-                            const newFunction = FunctionType.clone(inputFunctionType);
-                            newFunction.details.flags &= ~(
-                                FunctionTypeFlags.ConstructorMethod |
-                                FunctionTypeFlags.StaticMethod |
-                                FunctionTypeFlags.ClassMethod
-                            );
-                            newFunction.details.flags |= requiredFlag;
-                            return newFunction;
-                        }
-
-                        return inputFunctionType;
-                    }
-                }
-            }
-
-            // Handle properties and subclasses of properties specially.
-            if (ClassType.isPropertyClass(decoratorType)) {
-                if (isFunction(inputFunctionType)) {
-                    validatePropertyMethod(evaluatorInterface, inputFunctionType, decoratorNode);
-                    return createProperty(evaluatorInterface, decoratorNode, decoratorType, inputFunctionType);
-                } else if (isClassInstance(inputFunctionType)) {
-                    const boundMethod = getBoundMethod(inputFunctionType, '__call__');
-                    if (boundMethod && isFunction(boundMethod)) {
-                        return createProperty(evaluatorInterface, decoratorNode, decoratorType, boundMethod);
-                    }
-
-                    return UnknownType.create();
-                }
-            }
-        }
-
-        if (isFunction(inputFunctionType) && isFunction(returnType)) {
-            returnType = FunctionType.clone(returnType);
-
-            // Copy the overload flag from the input function type.
-            if (FunctionType.isOverloaded(inputFunctionType)) {
-                returnType.details.flags |= FunctionTypeFlags.Overloaded;
-            }
-
-            // Copy the docstrings from the input function type if the
-            // decorator didn't have its own docstring.
-            if (!returnType.details.docString) {
-                returnType.details.docString = inputFunctionType.details.docString;
-            }
-        }
-
-        return returnType;
-    }
-
-    // Given a function node and the function type associated with it, this
-    // method searches for prior function nodes that are marked as @overload
-    // and creates an OverloadedFunctionType that includes this function and
-    // all previous ones.
-    function addOverloadsToFunctionType(node: FunctionNode, type: FunctionType): Type {
-        let functionDecl: FunctionDeclaration | undefined;
-        const decl = AnalyzerNodeInfo.getDeclaration(node);
-        if (decl) {
-            functionDecl = decl as FunctionDeclaration;
-        }
-        const symbolWithScope = lookUpSymbolRecursive(node, node.name.value, /* honorCodeFlow */ false);
-        if (symbolWithScope) {
-            const decls = symbolWithScope.symbol.getDeclarations();
-
-            // Find this function's declaration.
-            const declIndex = decls.findIndex((decl) => decl === functionDecl);
-            if (declIndex > 0) {
-                // Evaluate all of the previous function declarations. They will
-                // be cached. We do it in this order to avoid a stack overflow due
-                // to recursion if there is a large number (1000's) of overloads.
-                for (let i = 0; i < declIndex; i++) {
-                    const decl = decls[i];
-                    if (decl.type === DeclarationType.Function) {
-                        getTypeOfFunction(decl.node);
-                    }
-                }
-
-                let overloadedTypes: FunctionType[] = [];
-
-                // Look at the previous declaration's type.
-                const prevDecl = decls[declIndex - 1];
-                if (prevDecl.type === DeclarationType.Function) {
-                    const prevDeclDeclTypeInfo = getTypeOfFunction(prevDecl.node);
-                    if (prevDeclDeclTypeInfo) {
-                        if (isFunction(prevDeclDeclTypeInfo.decoratedType)) {
-                            if (FunctionType.isOverloaded(prevDeclDeclTypeInfo.decoratedType)) {
-                                overloadedTypes.push(prevDeclDeclTypeInfo.decoratedType);
-                            }
-                        } else if (isOverloadedFunction(prevDeclDeclTypeInfo.decoratedType)) {
-                            // If the previous declaration was itself an overloaded function,
-                            // copy the entries from it.
-                            appendArray(overloadedTypes, prevDeclDeclTypeInfo.decoratedType.overloads);
-                        }
-                    }
-                }
-
-                overloadedTypes.push(type);
-
-                if (overloadedTypes.length === 1) {
-                    return overloadedTypes[0];
-                }
-
-                // Apply the implementation's docstring to any overloads that don't
-                // have their own docstrings.
-                const implementation = overloadedTypes.find((signature) => !FunctionType.isOverloaded(signature));
-                if (implementation?.details.docString) {
-                    overloadedTypes = overloadedTypes.map((overload) => {
-                        if (FunctionType.isOverloaded(overload) && !overload.details.docString) {
-                            return FunctionType.cloneWithDocString(overload, implementation.details.docString);
-                        }
-                        return overload;
-                    });
-                }
-
-                // Create a new overloaded type that copies the contents of the previous
-                // one and adds a new function.
-                const newOverload = OverloadedFunctionType.create(overloadedTypes);
-
-                const prevOverload = overloadedTypes[overloadedTypes.length - 2];
-                const isPrevOverloadAbstract = FunctionType.isAbstractMethod(prevOverload);
-                const isCurrentOverloadAbstract = FunctionType.isAbstractMethod(type);
-
-                if (isPrevOverloadAbstract !== isCurrentOverloadAbstract) {
-                    addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.overloadAbstractMismatch().format({ name: node.name.value }),
-                        node.name
-                    );
-                }
-
-                return newOverload;
-            }
-        }
-
-        return type;
     }
 
     function createAsyncFunction(node: FunctionNode, functionType: FunctionType): FunctionType {
@@ -18572,7 +18028,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // See if the function is a method in a child class. We may be able to
         // infer the type of the parameter from a method of the same name in
         // a parent class if it has an annotated type.
-        const functionFlags = getFunctionFlagsFromDecorators(functionNode, /* isInClass */ true);
+        const functionFlags = getFunctionFlagsFromDecorators(evaluatorInterface, functionNode, /* isInClass */ true);
         const inferredParamType = inferParameterType(functionNode, functionFlags, paramIndex, classInfo?.classType);
 
         writeTypeCache(
@@ -24994,7 +24450,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         const decl = getLastTypedDeclaredForSymbol(symbol);
                         if (decl && decl.type === DeclarationType.Function) {
-                            const functionFlags = getFunctionFlagsFromDecorators(decl.node, true);
+                            const functionFlags = getFunctionFlagsFromDecorators(evaluatorInterface, decl.node, true);
                             isAbstract = !!(functionFlags & FunctionTypeFlags.AbstractMethod);
                         } else {
                             // If a symbol is overridden by a non-function, it is no longer
