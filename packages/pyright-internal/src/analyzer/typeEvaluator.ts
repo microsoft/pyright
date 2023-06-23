@@ -21525,27 +21525,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): boolean {
         let curSrcType = srcType;
         let prevSrcType: ClassType | undefined;
-        let curDestTypeVarContext = destTypeVarContext;
-        let effectiveFlags = flags;
 
         inferTypeParameterVarianceForClass(destType);
 
-        effectiveFlags |= AssignTypeFlags.SkipSolveTypeVars;
-
-        if (!destTypeVarContext) {
-            curDestTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
-            effectiveFlags &= ~AssignTypeFlags.SkipSolveTypeVars;
-        } else {
-            // If we're using the caller's type var context, don't solve the
-            // type vars in this pass. We'll do this after we're done looping
-            // through the inheritance chain.
-            effectiveFlags |= AssignTypeFlags.SkipSolveTypeVars;
-        }
-
         for (let ancestorIndex = inheritanceChain.length - 1; ancestorIndex >= 0; ancestorIndex--) {
             const ancestorType = inheritanceChain[ancestorIndex];
-
-            const curSrcTypeVarContext = new TypeVarContext(getTypeVarScopeId(curSrcType));
 
             // If we've hit an "unknown", all bets are off, and we need to assume
             // that the type is assignable.
@@ -21576,20 +21560,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 curSrcType = specializeForBaseClass(effectiveCurSrcType, ancestorType);
             }
 
-            // Handle built-in types that support arbitrary numbers
-            // of type parameters like Tuple.
-            if (ancestorIndex === 0 && destType.tupleTypeArguments && curSrcType.tupleTypeArguments) {
-                return assignTupleTypeArgs(
-                    destType,
-                    curSrcType,
-                    diag,
-                    destTypeVarContext,
-                    srcTypeVarContext,
-                    flags,
-                    recursionCount
-                );
-            }
-
             // If there are no type parameters on this class, we're done.
             const ancestorTypeParams = ClassType.getTypeParameters(ancestorType);
             if (ancestorTypeParams.length === 0) {
@@ -21601,24 +21571,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return true;
             }
 
-            // Validate that the type arguments match.
-            if (
-                !verifyTypeArgumentsAssignable(
-                    ancestorType,
-                    curSrcType,
-                    diag,
-                    curDestTypeVarContext,
-                    curSrcTypeVarContext,
-                    effectiveFlags,
-                    recursionCount
-                )
-            ) {
-                return false;
-            }
-
-            // Allocate a new type var map for the next time through the loop.
-            curDestTypeVarContext = new TypeVarContext(getTypeVarScopeId(ancestorType));
-            effectiveFlags &= ~AssignTypeFlags.SkipSolveTypeVars;
             prevSrcType = curSrcType;
         }
 
@@ -21631,23 +21583,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // Handle tuple, which supports a variable number of type arguments.
+        if (destType.tupleTypeArguments && curSrcType.tupleTypeArguments) {
+            return assignTupleTypeArgs(
+                destType,
+                curSrcType,
+                diag,
+                destTypeVarContext,
+                srcTypeVarContext,
+                flags,
+                recursionCount
+            );
+        }
+
         if (destType.typeArguments) {
             // If the dest type is specialized, make sure the specialized source
             // type arguments are assignable to the dest type arguments.
-            if (
-                !verifyTypeArgumentsAssignable(
-                    destType,
-                    curSrcType,
-                    diag,
-                    destTypeVarContext,
-                    srcTypeVarContext,
-                    flags,
-                    recursionCount
-                )
-            ) {
-                return false;
-            }
-        } else if (
+            return verifyTypeArgumentsAssignable(
+                destType,
+                curSrcType,
+                diag,
+                destTypeVarContext,
+                srcTypeVarContext,
+                flags,
+                recursionCount
+            );
+        }
+
+        if (
             destTypeVarContext &&
             destType.details.typeParameters.length > 0 &&
             curSrcType.typeArguments &&
