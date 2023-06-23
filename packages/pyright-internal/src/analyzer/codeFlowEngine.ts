@@ -268,15 +268,8 @@ export function getCodeFlowEngine(
                 evaluationCount: number
             ) {
                 const cachedEntry = flowNodeTypeCache.cache.get(flowNode.id);
-                if (cachedEntry === undefined) {
-                    fail('setIncompleteSubtype can be called only on a valid cache entry');
-                }
-
-                if (!isIncompleteType(cachedEntry)) {
-                    // This condition should rarely happen, but it's possible in the case where we
-                    // have a nested loop and getTypeFromLoopFlowNode is called recursively when
-                    // the first antecedent is already marked as pending.
-                    return;
+                if (cachedEntry === undefined || !isIncompleteType(cachedEntry)) {
+                    fail('setIncompleteSubtype can be called only on a valid incomplete cache entry');
                 }
 
                 const incompleteEntries = cachedEntry.incompleteSubtypes;
