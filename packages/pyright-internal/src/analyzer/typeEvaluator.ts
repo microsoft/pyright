@@ -579,7 +579,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // This function should be called immediately prior to discarding
-    // the type evaluator. It forcibly replacing existing cache maps
+    // the type evaluator. It forcibly replaces existing cache maps
     // with empty equivalents. This shouldn't be necessary, but there
     // is apparently a bug in the v8 GC where it is unable to detect
     // circular references in complex data structures, so it fails
