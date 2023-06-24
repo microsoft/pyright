@@ -20984,17 +20984,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         inferTypeParameterVarianceForClass(destType);
 
+        // If we're enforcing invariance, literal types must match.
+        if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+            const srcIsLiteral = srcType.literalValue !== undefined;
+            const destIsLiteral = destType.literalValue !== undefined;
+            if (srcIsLiteral !== destIsLiteral) {
+                return false;
+            }
+        } else {
+            // If the dest is an 'object', it's assignable.
+            if (ClassType.isBuiltIn(destType, 'object')) {
+                return true;
+            }
+        }
+
         for (let ancestorIndex = inheritanceChain.length - 1; ancestorIndex >= 0; ancestorIndex--) {
             const ancestorType = inheritanceChain[ancestorIndex];
 
             // If we've hit an "unknown", all bets are off, and we need to assume
             // that the type is assignable.
             if (isUnknown(ancestorType)) {
-                return true;
-            }
-
-            // If we've hit an 'object', it's assignable.
-            if (ClassType.isBuiltIn(ancestorType, 'object')) {
                 return true;
             }
 
@@ -21066,12 +21075,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        if (
-            destTypeVarContext &&
-            destType.details.typeParameters.length > 0 &&
-            curSrcType.typeArguments &&
-            !destTypeVarContext.isLocked()
-        ) {
+        if (destTypeVarContext && curSrcType.typeArguments && !destTypeVarContext.isLocked()) {
             // Populate the typeVar map with type arguments of the source.
             const srcTypeArgs = curSrcType.typeArguments;
             for (let i = 0; i < destType.details.typeParameters.length; i++) {
