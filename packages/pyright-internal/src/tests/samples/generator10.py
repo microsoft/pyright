@@ -10,9 +10,10 @@ class MyAwaitable(Awaitable):
         yield from (sleep(0.1).__await__())
 
 
-async def test():
+async def func1():
     x: None = await MyAwaitable()
 
 
 loop = get_event_loop()
-loop.run_until_complete(test())
+loop.run_until_complete(func1())
+

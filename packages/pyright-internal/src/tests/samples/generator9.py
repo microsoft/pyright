@@ -4,7 +4,7 @@
 a = lambda: (yield)
 
 
-def foo(a: bool):
+def func1(a: bool):
     if a:
         yield 3
     yield 5

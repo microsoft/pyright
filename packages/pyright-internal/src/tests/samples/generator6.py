@@ -4,11 +4,11 @@
 from typing import Iterable, AsyncIterable
 
 
-def foo() -> Iterable[str]:
+def func1() -> Iterable[str]:
     return
     yield ""
 
 
-async def afoo() -> AsyncIterable[str]:
+async def func2() -> AsyncIterable[str]:
     return
     yield ""

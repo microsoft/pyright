@@ -7,6 +7,6 @@ ints1 = [1, 2]
 ints2 = [3, 4]
 
 
-def foo() -> Generator[int, None, None]:
+def func1() -> Generator[int, None, None]:
     yield from ints1
     yield from ints2
