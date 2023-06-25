@@ -7873,7 +7873,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Stop when we get a valid scope that's not a list comprehension
             // scope. That includes lambdas, functions, classes, and modules.
-            if (scope && scope.type !== ScopeType.ListComprehension) {
+            if (scope && scope.type !== ScopeType.Comprehension && scope.type !== ScopeType.Generator) {
                 break;
             }
 
@@ -18797,10 +18797,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let symbolWithScope = scope?.lookUpSymbolRecursive(name);
         const scopeType = scope?.type ?? ScopeType.Module;
 
-        // Functions and list comprehensions don't allow access to implicitly
-        // aliased symbols in outer scopes if they haven't yet been assigned
-        // within the local scope.
-        const scopeTypeHonorsCodeFlow = scopeType !== ScopeType.Function && scopeType !== ScopeType.ListComprehension;
+        // Functions, list comprehensions, and generators don't allow access to
+        // implicitly aliased symbols in outer scopes if they haven't yet been
+        // assigned within the local scope.
+        const scopeTypeHonorsCodeFlow =
+            scopeType !== ScopeType.Function &&
+            scopeType !== ScopeType.Comprehension &&
+            scopeType !== ScopeType.Generator;
 
         if (symbolWithScope && honorCodeFlow && scopeTypeHonorsCodeFlow) {
             // Filter the declarations based on flow reachability.

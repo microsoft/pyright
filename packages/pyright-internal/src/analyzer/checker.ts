@@ -3738,7 +3738,11 @@ export class Checker extends ParseTreeWalker {
     private _isSymbolPrivate(nameValue: string, scopeType: ScopeType) {
         // All variables within the scope of a function or a list
         // comprehension are considered private.
-        if (scopeType === ScopeType.Function || scopeType === ScopeType.ListComprehension) {
+        if (
+            scopeType === ScopeType.Function ||
+            scopeType === ScopeType.Comprehension ||
+            scopeType === ScopeType.Generator
+        ) {
             return true;
         }
 

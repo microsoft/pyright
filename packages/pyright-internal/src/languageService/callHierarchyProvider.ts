@@ -545,7 +545,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
             return;
         }
 
-        let callSource: CallHierarchyItem;
+        let callSource: CallHierarchyItem | undefined;
         if (executionNode.nodeType === ParseNodeType.Module) {
             const moduleRange = convertOffsetsToRange(0, 0, this._parseResults.tokenizerOutput.lines);
             const fileName = getFileName(this._filePath);
@@ -571,7 +571,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                 range: lambdaRange,
                 selectionRange: lambdaRange,
             };
-        } else {
+        } else if (executionNode.nodeType === ParseNodeType.Function) {
             const functionRange = convertOffsetsToRange(
                 executionNode.name.start,
                 executionNode.name.start + executionNode.name.length,
@@ -590,10 +590,10 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         // Is there already a call recorded for this caller? If so,
         // we'll simply add a new range. Otherwise, we'll create a new entry.
         let incomingCall: CallHierarchyIncomingCall | undefined = this._incomingCalls.find(
-            (incoming) => incoming.from.uri === callSource.uri && rangesAreEqual(incoming.from.range, callSource.range)
+            (incoming) => incoming.from.uri === callSource?.uri && rangesAreEqual(incoming.from.range, callSource.range)
         );
 
-        if (!incomingCall) {
+        if (!incomingCall && callSource) {
             incomingCall = {
                 from: callSource,
                 fromRanges: [],
@@ -606,6 +606,6 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
             nameNode.start + nameNode.length,
             this._parseResults.tokenizerOutput.lines
         );
-        incomingCall.fromRanges.push(fromRange);
+        incomingCall?.fromRanges.push(fromRange);
     }
 }

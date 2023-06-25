@@ -14,8 +14,11 @@ import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 
 export const enum ScopeType {
-    // Used for list comprehension nodes.
-    ListComprehension,
+    // Used for comprehension nodes.
+    Comprehension,
+
+    // Used for generator expression nodes.
+    Generator,
 
     // Function scopes are used for lambdas and functions.
     Function,
@@ -111,10 +114,10 @@ export class Scope {
     }
 
     // Independently-executable scopes are those that are executed independently
-    // of their parent scopes. Classes are executed in the context of their parent
-    // scope, so they don't fit this category.
+    // of their parent scopes. Classes and list comprehensions are executed in
+    // the context of their parent scope, so they don't fit this category.
     isIndependentlyExecutable(): boolean {
-        return this.type === ScopeType.Module || this.type === ScopeType.Function;
+        return this.type === ScopeType.Module || this.type === ScopeType.Function || this.type === ScopeType.Generator;
     }
 
     lookUpSymbol(name: string): Symbol | undefined {

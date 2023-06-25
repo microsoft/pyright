@@ -891,12 +891,22 @@ export function getExecutionScopeNode(node: ParseNode): ExecutionScopeNode {
     let evaluationScope = getEvaluationScopeNode(node);
 
     // Classes are not considered execution scope because they are executed
-    // within the context of their containing module or function. Likewise, list
-    // comprehensions are executed within their container.
-    while (
-        evaluationScope.nodeType === ParseNodeType.Class ||
-        evaluationScope.nodeType === ParseNodeType.ListComprehension
-    ) {
+    // within the context of their containing module or function. List
+    // comprehensions are executed within their container unless they're
+    // a generator.
+    while (true) {
+        if (
+            evaluationScope.nodeType === ParseNodeType.Lambda ||
+            evaluationScope.nodeType === ParseNodeType.Function ||
+            evaluationScope.nodeType === ParseNodeType.Module
+        ) {
+            break;
+        }
+
+        if (evaluationScope.nodeType === ParseNodeType.ListComprehension && evaluationScope.isGenerator) {
+            break;
+        }
+
         evaluationScope = getEvaluationScopeNode(evaluationScope.parent!);
     }
 

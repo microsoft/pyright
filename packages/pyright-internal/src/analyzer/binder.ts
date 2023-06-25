@@ -2106,57 +2106,82 @@ export class Binder extends ParseTreeWalker {
     override visitListComprehension(node: ListComprehensionNode): boolean {
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
 
-        this._createNewScope(ScopeType.ListComprehension, this._getNonClassParentScope(), () => {
-            AnalyzerNodeInfo.setScope(node, this._currentScope);
+        // The first iterable is executed outside of the comprehension scope.
+        if (node.forIfNodes.length > 0 && node.forIfNodes[0].nodeType === ParseNodeType.ListComprehensionFor) {
+            this.walk(node.forIfNodes[0].iterableExpression);
+        }
 
-            const falseLabel = this._createBranchLabel();
+        this._createNewScope(
+            node.isGenerator ? ScopeType.Generator : ScopeType.Comprehension,
+            this._getNonClassParentScope(),
+            () => {
+                AnalyzerNodeInfo.setScope(node, this._currentScope);
 
-            // We'll walk the forIfNodes list twice. The first time we'll
-            // bind targets of for statements. The second time we'll walk
-            // expressions and create the control flow graph.
-            for (let i = 0; i < node.forIfNodes.length; i++) {
-                const compr = node.forIfNodes[i];
-                const addedSymbols = new Map<string, Symbol>();
-                if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
-                    this._bindPossibleTupleNamedTarget(compr.targetExpression, addedSymbols);
-                    this._addInferredTypeAssignmentForVariable(compr.targetExpression, compr);
+                const prevFlowNode = this._currentFlowNode;
+                if (node.isGenerator) {
+                    // Create a start node for the generator.
+                    this._currentFlowNode = this._createStartFlowNode();
+                }
 
-                    // Async for is not allowed outside of an async function
-                    // unless we're in ipython mode.
-                    if (compr.asyncToken && !this._fileInfo.ipythonMode) {
-                        if (!enclosingFunction || !enclosingFunction.isAsync) {
-                            // Allow if it's within a generator expression. Execution of
-                            // generator expressions is deferred and therefore can be
-                            // run within the context of an async function later.
-                            if (node.parent?.nodeType === ParseNodeType.List) {
-                                this._addError(Localizer.Diagnostic.asyncNotInAsyncFunction(), compr.asyncToken);
+                const falseLabel = this._createBranchLabel();
+
+                // We'll walk the forIfNodes list twice. The first time we'll
+                // bind targets of for statements. The second time we'll walk
+                // expressions and create the control flow graph.
+                for (let i = 0; i < node.forIfNodes.length; i++) {
+                    const compr = node.forIfNodes[i];
+                    const addedSymbols = new Map<string, Symbol>();
+                    if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
+                        this._bindPossibleTupleNamedTarget(compr.targetExpression, addedSymbols);
+                        this._addInferredTypeAssignmentForVariable(compr.targetExpression, compr);
+
+                        // Async for is not allowed outside of an async function
+                        // unless we're in ipython mode.
+                        if (compr.asyncToken && !this._fileInfo.ipythonMode) {
+                            if (!enclosingFunction || !enclosingFunction.isAsync) {
+                                // Allow if it's within a generator expression. Execution of
+                                // generator expressions is deferred and therefore can be
+                                // run within the context of an async function later.
+                                if (node.parent?.nodeType === ParseNodeType.List) {
+                                    this._addError(Localizer.Diagnostic.asyncNotInAsyncFunction(), compr.asyncToken);
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            for (let i = 0; i < node.forIfNodes.length; i++) {
-                const compr = node.forIfNodes[i];
-                if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
-                    this.walk(compr.iterableExpression);
+                for (let i = 0; i < node.forIfNodes.length; i++) {
+                    const compr = node.forIfNodes[i];
+                    if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
+                        // We already walked the first iterable expression above,
+                        // so skip it here.
+                        if (i !== 0) {
+                            this.walk(compr.iterableExpression);
+                        }
 
-                    this._createAssignmentTargetFlowNodes(
-                        compr.targetExpression,
-                        /* walkTargets */ true,
-                        /* unbound */ false
-                    );
-                } else {
-                    const trueLabel = this._createBranchLabel();
-                    this._bindConditional(compr.testExpression, trueLabel, falseLabel);
-                    this._currentFlowNode = this._finishFlowLabel(trueLabel);
+                        this._createAssignmentTargetFlowNodes(
+                            compr.targetExpression,
+                            /* walkTargets */ true,
+                            /* unbound */ false
+                        );
+                    } else {
+                        const trueLabel = this._createBranchLabel();
+                        this._bindConditional(compr.testExpression, trueLabel, falseLabel);
+                        this._currentFlowNode = this._finishFlowLabel(trueLabel);
+                    }
+                }
+
+                this.walk(node.expression);
+                this._addAntecedent(falseLabel, this._currentFlowNode!);
+                this._currentFlowNode = this._finishFlowLabel(falseLabel);
+
+                if (node.isGenerator) {
+                    // Restore the previous flow node if this is a generator.
+                    this._currentFlowNode = prevFlowNode;
+                    AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
                 }
             }
-
-            this.walk(node.expression);
-            this._addAntecedent(falseLabel, this._currentFlowNode!);
-            this._currentFlowNode = this._finishFlowLabel(falseLabel);
-        });
+        );
 
         return false;
     }
