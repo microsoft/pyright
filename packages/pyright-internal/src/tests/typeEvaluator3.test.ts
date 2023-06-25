@@ -1484,13 +1484,19 @@ test('Constructor24', () => {
 
     configOptions.diagnosticRuleSet.strictParameterNoneValue = true;
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor24.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('Constructor25', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor25.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Constructor26', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor26.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('InconsistentConstructor1', () => {

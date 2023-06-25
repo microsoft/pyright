@@ -44,7 +44,7 @@ class Container(Generic[T]):
 
 class IntContainer(Container[int]):
     def increment(self):
-        # This should generate an error if strictParameterNoneValue is true.
+        # This should generate an error if strictParameterNoneValue is false.
         self.value += 1
 
 
@@ -57,10 +57,10 @@ class ContainerList(Generic[U]):
         Container()
         Container(123)
 
-        # This should generate an error if strictParameterNoneValue is false.
+        # This should generate an error if strictParameterNoneValue is true.
         Container[U]()
 
-        # This should generate an error if strictParameterNoneValue is false.
+        # This should generate an error if strictParameterNoneValue is true.
         Container[U](None)
 
     def method2(self):
@@ -68,6 +68,7 @@ class ContainerList(Generic[U]):
 
 
 def func1(obv: Container[T], default_value: T = None) -> None:
+    # This should generate an error if strictParameterNoneValue is false.
     obv.on_next(default_value)
 
 

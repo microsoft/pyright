@@ -422,6 +422,17 @@ function validateInitMethod(
         returnType = mapSubtypes(inferenceContext.expectedType, (expectedSubType) => {
             expectedSubType = transformPossibleRecursiveTypeAlias(expectedSubType);
 
+            // If the expected type is the same type as the class and the class
+            // is already explicitly specialized, don't override the explicit
+            // specialization.
+            if (
+                isClassInstance(expectedSubType) &&
+                ClassType.isSameGenericClass(type, expectedSubType) &&
+                type.typeArguments
+            ) {
+                return undefined;
+            }
+
             const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
             typeVarContext.addSolveForScope(getTypeVarScopeId(initMethodType));
 
@@ -663,6 +674,12 @@ function applyExpectedTypeForConstructor(
     typeVarContext: TypeVarContext
 ): Type {
     let unsolvedTypeVarsAreUnknown = true;
+
+    // If this isn't a generic type or it's a type that has already been
+    // explicitly specialized, the expected type isn't applicable.
+    if (type.details.typeParameters.length === 0 || type.typeArguments) {
+        return ClassType.cloneAsInstance(type);
+    }
 
     if (inferenceContext) {
         const specializedExpectedType = mapSubtypes(inferenceContext.expectedType, (expectedSubtype) => {
