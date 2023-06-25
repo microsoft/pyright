@@ -108,7 +108,7 @@ test('AssignmentExpr3', () => {
 
 test('AssignmentExpr4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr4.py']);
-    TestUtils.validateResults(analysisResults, 17);
+    TestUtils.validateResults(analysisResults, 16);
 });
 
 test('AssignmentExpr5', () => {

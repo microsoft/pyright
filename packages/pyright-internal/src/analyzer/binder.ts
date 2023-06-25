@@ -2106,6 +2106,11 @@ export class Binder extends ParseTreeWalker {
     override visitListComprehension(node: ListComprehensionNode): boolean {
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
 
+        // The first iterable is executed outside of the comprehension scope.
+        if (node.forIfNodes.length > 0 && node.forIfNodes[0].nodeType === ParseNodeType.ListComprehensionFor) {
+            this.walk(node.forIfNodes[0].iterableExpression);
+        }
+
         this._createNewScope(ScopeType.ListComprehension, this._getNonClassParentScope(), () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope);
 
@@ -2139,7 +2144,11 @@ export class Binder extends ParseTreeWalker {
             for (let i = 0; i < node.forIfNodes.length; i++) {
                 const compr = node.forIfNodes[i];
                 if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
-                    this.walk(compr.iterableExpression);
+                    // We already walked the first iterable expression above,
+                    // so skip it here.
+                    if (i !== 0) {
+                        this.walk(compr.iterableExpression);
+                    }
 
                     this._createAssignmentTargetFlowNodes(
                         compr.targetExpression,
