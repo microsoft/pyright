@@ -1571,7 +1571,7 @@ export class Parser {
     }
 
     // comp_iter: comp_for | comp_if
-    private _tryParseListComprehension(target: ParseNode): ListComprehensionNode | undefined {
+    private _tryParseListComprehension(target: ParseNode, isGenerator: boolean): ListComprehensionNode | undefined {
         const compFor = this._tryParseCompForStatement();
 
         if (!compFor) {
@@ -1584,7 +1584,7 @@ export class Parser {
             this._addError(Localizer.Diagnostic.dictExpandIllegalInComprehension(), target);
         }
 
-        const listCompNode = ListComprehensionNode.create(target);
+        const listCompNode = ListComprehensionNode.create(target, isGenerator);
 
         const forIfList: ListComprehensionForIfNode[] = [compFor];
         while (true) {
@@ -3761,7 +3761,7 @@ export class Parser {
                     this._addError(Localizer.Diagnostic.expectedParamName(), nameExpr);
                 }
             } else {
-                const listComp = this._tryParseListComprehension(valueExpr);
+                const listComp = this._tryParseListComprehension(valueExpr, /* isGenerator */ true);
                 if (listComp) {
                     valueExpr = listComp;
                 }
@@ -3979,7 +3979,7 @@ export class Parser {
             return yieldExpr;
         }
 
-        const exprListResult = this._parseTestListWithComprehension();
+        const exprListResult = this._parseTestListWithComprehension(/* isGenerator */ true);
         const tupleOrExpression = this._makeExpressionOrTuple(exprListResult, /* enclosedInParens */ true);
 
         extendRange(tupleOrExpression, startParen);
@@ -4004,7 +4004,7 @@ export class Parser {
         const startBracket = this._getNextToken();
         assert(startBracket.type === TokenType.OpenBracket);
 
-        const exprListResult = this._parseTestListWithComprehension();
+        const exprListResult = this._parseTestListWithComprehension(/* isGenerator */ false);
         const closeBracket: Token | undefined = this._peekToken();
         if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
             return this._handleExpressionParseError(
@@ -4036,13 +4036,13 @@ export class Parser {
         }
     }
 
-    private _parseTestListWithComprehension(): ListResult<ExpressionNode> {
+    private _parseTestListWithComprehension(isGenerator: boolean): ListResult<ExpressionNode> {
         let sawComprehension = false;
 
         return this._parseExpressionListGeneric(
             () => {
                 let expr = this._parseTestOrStarExpression(/* allowAssignmentExpression */ true);
-                const listComp = this._tryParseListComprehension(expr);
+                const listComp = this._tryParseListComprehension(expr, isGenerator);
                 if (listComp) {
                     expr = listComp;
                     sawComprehension = true;
@@ -4105,7 +4105,7 @@ export class Parser {
                 } else {
                     const keyEntryNode = DictionaryKeyEntryNode.create(keyExpression, valueExpression);
                     let dictEntry: DictionaryEntryNode = keyEntryNode;
-                    const listComp = this._tryParseListComprehension(keyEntryNode);
+                    const listComp = this._tryParseListComprehension(keyEntryNode, /* isGenerator */ false);
                     if (listComp) {
                         dictEntry = listComp;
                         sawListComprehension = true;
@@ -4124,7 +4124,7 @@ export class Parser {
                     const listEntryNode = DictionaryExpandEntryNode.create(doubleStarExpression);
                     extendRange(listEntryNode, doubleStar);
                     let expandEntryNode: DictionaryEntryNode = listEntryNode;
-                    const listComp = this._tryParseListComprehension(listEntryNode);
+                    const listComp = this._tryParseListComprehension(listEntryNode, /* isGenerator */ false);
                     if (listComp) {
                         expandEntryNode = listComp;
                         sawListComprehension = true;
@@ -4148,7 +4148,7 @@ export class Parser {
                         dictionaryEntries.push(keyEntryNode);
                         this._addError(Localizer.Diagnostic.dictKeyValuePairs(), keyExpression);
                     } else {
-                        const listComp = this._tryParseListComprehension(keyExpression);
+                        const listComp = this._tryParseListComprehension(keyExpression, /* isGenerator */ false);
                         if (listComp) {
                             keyExpression = listComp;
                             sawListComprehension = true;

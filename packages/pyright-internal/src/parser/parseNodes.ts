@@ -1268,11 +1268,12 @@ export interface ListComprehensionNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.ListComprehension;
     expression: ParseNode;
     forIfNodes: ListComprehensionForIfNode[];
+    isGenerator: boolean;
     isParenthesized?: boolean;
 }
 
 export namespace ListComprehensionNode {
-    export function create(expression: ParseNode) {
+    export function create(expression: ParseNode, isGenerator: boolean) {
         const node: ListComprehensionNode = {
             start: expression.start,
             length: expression.length,
@@ -1280,6 +1281,7 @@ export namespace ListComprehensionNode {
             id: _nextNodeId++,
             expression,
             forIfNodes: [],
+            isGenerator,
         };
 
         expression.parent = node;
