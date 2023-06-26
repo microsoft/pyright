@@ -23559,7 +23559,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             remainingParams.length > 0 ||
                             !srcParamSpec ||
                             !assignType(
-                                destParamSpec,
+                                convertToInstance(destParamSpec) as TypeVarType,
                                 convertToInstance(srcParamSpec) as TypeVarType,
                                 /* diag */ undefined,
                                 destTypeVarContext,
