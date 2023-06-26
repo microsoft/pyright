@@ -226,6 +226,7 @@ async function processArgs(): Promise<ExitStatus> {
             try {
                 const stdText = fs.readFileSync(process.stdin.fd, 'utf-8');
                 fileSpecList = stdText
+                    .replace(/[\r\n]/g, ' ')
                     .trim()
                     .split(' ')
                     .map((s) => s.trim())
