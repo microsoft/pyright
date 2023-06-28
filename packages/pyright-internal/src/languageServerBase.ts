@@ -368,6 +368,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this.workspaceFactory = new WorkspaceFactory(
             this.console,
             this.uriParser,
+            /* isWeb */ false,
             this.createAnalyzerServiceForWorkspace.bind(this),
             this.isPythonPathImmutable.bind(this),
             this.onWorkspaceCreated.bind(this)

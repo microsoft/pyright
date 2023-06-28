@@ -44,7 +44,7 @@ import { ImportResult, ImportType } from './importResult';
 import { getDocString } from './parseTreeUtils';
 import { Scope } from './scope';
 import { IPythonMode, SourceFile } from './sourceFile';
-import { collectImportedByFiles, isUserCode } from './sourceFileInfoUtils';
+import { createChainedByList, isUserCode, verifyNoCyclesInChainedFiles } from './sourceFileInfoUtils';
 import { SourceMapper } from './sourceMapper';
 import { Symbol } from './symbol';
 import { createTracePrinter } from './tracePrinter';
@@ -402,6 +402,7 @@ export class Program {
             sourceFileInfo.diagnosticsVersion = 0;
         }
 
+        verifyNoCyclesInChainedFiles(sourceFileInfo);
         sourceFileInfo.sourceFile.setClientVersion(version, contents);
     }
 
@@ -412,12 +413,15 @@ export class Program {
 
     updateChainedFilePath(filePath: string, chainedFilePath: string | undefined) {
         const sourceFileInfo = this.getSourceFileInfo(filePath);
-        if (sourceFileInfo) {
-            sourceFileInfo.chainedSourceFile = chainedFilePath ? this.getSourceFileInfo(chainedFilePath) : undefined;
-
-            sourceFileInfo.sourceFile.markDirty();
-            this._markFileDirtyRecursive(sourceFileInfo, new Set<string>());
+        if (!sourceFileInfo) {
+            return;
         }
+
+        sourceFileInfo.chainedSourceFile = chainedFilePath ? this.getSourceFileInfo(chainedFilePath) : undefined;
+        sourceFileInfo.sourceFile.markDirty();
+        this._markFileDirtyRecursive(sourceFileInfo, new Set<string>());
+
+        verifyNoCyclesInChainedFiles(sourceFileInfo);
     }
 
     setFileClosed(filePath: string, isTracked?: boolean): FileDiagnostics[] {
@@ -1848,7 +1852,7 @@ export class Program {
         return false;
     }
 
-    private _checkTypes(fileToCheck: SourceFileInfo, token: CancellationToken) {
+    private _checkTypes(fileToCheck: SourceFileInfo, token: CancellationToken, chainedByList?: SourceFileInfo[]) {
         return this._logTracker.log(`analyzing: ${fileToCheck.sourceFile.getFilePath()}`, (logState) => {
             // If the file isn't needed because it was eliminated from the
             // transitive closure or deleted, skip the file rather than wasting
@@ -1871,38 +1875,9 @@ export class Program {
             if (!this._disableChecker) {
                 // For ipython, make sure we check all its dependent files first since
                 // their results can affect this file's result.
-                let dependentFiles: ParseResults[] | undefined = undefined;
-                if (fileToCheck.sourceFile.getIPythonMode() === IPythonMode.CellDocs) {
-                    // Parse file to get up to date dependency graph.
-                    this._parseFile(fileToCheck);
-
-                    dependentFiles = [];
-                    const importedByFiles = collectImportedByFiles(fileToCheck);
-                    for (const file of importedByFiles) {
-                        if (!isUserCode(file)) {
-                            continue;
-                        }
-
-                        // If the file is already analyzed, it will be no op.
-                        // And make sure we don't dump parse tree and etc while
-                        // recursively calling checker. Otherwise, inner check
-                        // can dump parse tree required by outer check.
-                        const handle = this._cacheManager.pauseTracking();
-                        try {
-                            this._checkTypes(file, token);
-                        } finally {
-                            handle.dispose();
-                        }
-
-                        const parseResults = file.sourceFile.getParseResults();
-                        if (parseResults) {
-                            dependentFiles.push(parseResults);
-                        }
-                    }
-                }
+                const dependentFiles = this._checkDependentFiles(fileToCheck, chainedByList, token);
 
                 this._bindFile(fileToCheck);
-
                 if (this._preCheckCallback) {
                     const parseResults = fileToCheck.sourceFile.getParseResults();
                     if (parseResults) {
@@ -1928,7 +1903,11 @@ export class Program {
             if (this._configOptions.diagnosticRuleSet.reportImportCycles !== 'none') {
                 // Don't detect import cycles when doing type stub generation. Some
                 // third-party modules are pretty convoluted.
-                if (!this._allowedThirdPartyImports) {
+                // Or if the file is the notebook cell. notebook cell can't have cycles.
+                if (
+                    !this._allowedThirdPartyImports &&
+                    fileToCheck.sourceFile.getIPythonMode() !== IPythonMode.CellDocs
+                ) {
                     // We need to force all of the files to be parsed and build
                     // a closure map for the files.
                     const closureMap = new Map<string, SourceFileInfo>();
@@ -1953,6 +1932,57 @@ export class Program {
 
             return true;
         });
+    }
+
+    private _checkDependentFiles(
+        fileToCheck: SourceFileInfo,
+        chainedByList: SourceFileInfo[] | undefined,
+        token: CancellationToken
+    ) {
+        if (fileToCheck.sourceFile.getIPythonMode() !== IPythonMode.CellDocs) {
+            return undefined;
+        }
+
+        // If we don't have chainedByList, it means none of them are checked yet.
+        const needToRunChecker = !chainedByList;
+
+        chainedByList = chainedByList ?? createChainedByList(this, fileToCheck);
+        const index = chainedByList.findIndex((v) => v === fileToCheck);
+        if (index < 0) {
+            return undefined;
+        }
+
+        const startIndex = index + 1;
+        if (startIndex >= chainedByList.length) {
+            return undefined;
+        }
+
+        if (needToRunChecker) {
+            // If the file is already analyzed, it will be no op.
+            // And make sure we don't dump parse tree and etc while
+            // calling checker. Otherwise, checkType can dump parse
+            // tree required by outer check.
+            const handle = this._cacheManager.pauseTracking();
+            try {
+                for (let i = chainedByList.length - 1; i >= startIndex; i--) {
+                    this._checkTypes(chainedByList[i], token, chainedByList);
+                }
+            } finally {
+                handle.dispose();
+            }
+        }
+
+        const dependentFiles = [];
+        for (let i = startIndex; i < chainedByList.length; i++) {
+            const file = chainedByList[i];
+
+            const parseResults = file.sourceFile.getParseResults();
+            if (parseResults) {
+                dependentFiles.push(parseResults);
+            }
+        }
+
+        return dependentFiles;
     }
 
     // Builds a map of files that includes the specified file and all of the files

@@ -6,26 +6,93 @@
  * Functions that operate on SourceFileInfo objects.
  */
 
-import { SourceFileInfo } from '../common/extensibility';
+import { assert, fail } from '../common/debug';
+import { ProgramView, SourceFileInfo } from '../common/extensibility';
+import { IPythonMode } from './sourceFile';
 
 export function isUserCode(fileInfo: SourceFileInfo | undefined) {
     return !!fileInfo && fileInfo.isTracked && !fileInfo.isThirdPartyImport && !fileInfo.isTypeshedFile;
 }
 
-export function collectImportedByFiles<T extends SourceFileInfo>(fileInfo: T): Set<T> {
-    const importedByFiles = new Set<T>();
-    _collectImportedByFiles(fileInfo, importedByFiles);
-    return importedByFiles;
+export function collectImportedByCells<T extends SourceFileInfo>(program: ProgramView, fileInfo: T): Set<T> {
+    // The ImportedBy only works when files are parsed. Due to the lazy-loading nature of our system,
+    // we can't ensure that all files within the program are parsed, which might lead to an incomplete dependency graph.
+    // Parsing all regular files goes against our lazy-nature, but for notebook cells, which we open by default,
+    // it makes sense to force complete parsing since they'll be parsed at some point anyway due to things like
+    // `semantic tokens` or `checkers`.
+    _parseAllOpenCells(program);
+
+    const importedByCells = new Set<T>();
+    _collectImportedByCells(fileInfo, importedByCells);
+    return importedByCells;
 }
 
-function _collectImportedByFiles(fileInfo: SourceFileInfo, importedByFiles: Set<SourceFileInfo>) {
+export function verifyNoCyclesInChainedFiles<T extends SourceFileInfo>(fileInfo: T): void {
+    let nextChainedFile = fileInfo.chainedSourceFile;
+    if (!nextChainedFile) {
+        return;
+    }
+
+    const set = new Set<string>([fileInfo.sourceFile.getFilePath()]);
+    while (nextChainedFile) {
+        const path = nextChainedFile.sourceFile.getFilePath();
+        if (set.has(path)) {
+            // We found a cycle.
+            fail(`Found a cycle in implicit imports files`);
+        }
+
+        set.add(path);
+        nextChainedFile = nextChainedFile.chainedSourceFile;
+    }
+}
+
+export function createChainedByList<T extends SourceFileInfo>(program: ProgramView, fileInfo: T): T[] {
+    // We want to create reverse map of all chained files.
+    const map = new Map<SourceFileInfo, SourceFileInfo>();
+    for (const file of program.getSourceFileInfoList()) {
+        if (!file.chainedSourceFile) {
+            continue;
+        }
+
+        map.set(file.chainedSourceFile, file);
+    }
+
+    const visited = new Set<SourceFileInfo>();
+
+    const chainedByList: SourceFileInfo[] = [fileInfo];
+    let current: SourceFileInfo | undefined = fileInfo;
+    while (current) {
+        assert(!visited.has(current), 'detected a cycle in chained files');
+        visited.add(current);
+
+        current = map.get(current);
+        if (current) {
+            chainedByList.push(current);
+        }
+    }
+
+    return chainedByList as T[];
+}
+
+function _parseAllOpenCells(program: ProgramView): void {
+    for (const file of program.getSourceFileInfoList()) {
+        if (file.sourceFile.getIPythonMode() !== IPythonMode.CellDocs) {
+            continue;
+        }
+
+        program.getParseResults(file.sourceFile.getFilePath());
+        program.handleMemoryHighUsage();
+    }
+}
+
+function _collectImportedByCells(fileInfo: SourceFileInfo, importedByCells: Set<SourceFileInfo>) {
     fileInfo.importedBy.forEach((dep) => {
-        if (importedByFiles.has(dep)) {
+        if (importedByCells.has(dep)) {
             // Already visited.
             return;
         }
 
-        importedByFiles.add(dep);
-        _collectImportedByFiles(dep, importedByFiles);
+        importedByCells.add(dep);
+        _collectImportedByCells(dep, importedByCells);
     });
 }

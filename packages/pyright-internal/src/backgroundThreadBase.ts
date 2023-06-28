@@ -51,7 +51,7 @@ export class BackgroundThreadBase {
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = data.rootDirectory;
 
-        this.fs = fileSystem ?? new PyrightFileSystem(createFromRealFileSystem(this.getConsole()));
+        this.fs = new PyrightFileSystem(fileSystem ?? createFromRealFileSystem(this.getConsole()));
     }
 
     protected log(level: LogLevel, msg: string) {

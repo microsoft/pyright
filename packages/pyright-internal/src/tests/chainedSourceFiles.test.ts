@@ -195,6 +195,64 @@ test('chained files with 1000s of files', async () => {
     assert.strictEqual(initialDiags.length, 0);
 });
 
+test('imported by files', async () => {
+    const code = `
+// @filename: test1.py
+//// import [|/*marker*/os|]
+
+// @filename: test2.py
+//// os.path.join()
+    `;
+
+    const basePath = normalizeSlashes('/');
+    const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
+    analyze(service.test_program);
+
+    const marker = data.markerPositions.get('marker')!;
+    const range = data.ranges.find((r) => r.marker === marker)!;
+
+    const parseResults = service.getParseResult(marker.fileName)!;
+    const diagnostics = await service.getDiagnosticsForRange(
+        marker.fileName,
+        convertOffsetsToRange(range.pos, range.end, parseResults.tokenizerOutput.lines),
+        CancellationToken.None
+    );
+
+    assert.strictEqual(diagnostics.length, 0);
+});
+
+test('re ordering cells', async () => {
+    const code = `
+// @filename: test1.py
+//// import [|/*marker*/os|]
+
+// @filename: test2.py
+//// /*bottom*/os.path.join()
+    `;
+
+    const basePath = normalizeSlashes('/');
+    const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
+    analyze(service.test_program);
+
+    const marker = data.markerPositions.get('marker')!;
+    const range = data.ranges.find((r) => r.marker === marker)!;
+
+    const bottom = data.markerPositions.get('bottom')!;
+
+    service.updateChainedFilePath(bottom.fileName, undefined);
+    service.updateChainedFilePath(marker.fileName, bottom.fileName);
+    analyze(service.test_program);
+
+    const parseResults = service.getParseResult(marker.fileName)!;
+    const diagnostics = await service.getDiagnosticsForRange(
+        marker.fileName,
+        convertOffsetsToRange(range.pos, range.end, parseResults.tokenizerOutput.lines),
+        CancellationToken.None
+    );
+
+    assert.strictEqual(diagnostics.length, 1);
+});
+
 function createServiceWithChainedSourceFiles(basePath: string, code: string) {
     const service = new AnalyzerService(
         'test service',
@@ -211,7 +269,7 @@ function createServiceWithChainedSourceFiles(basePath: string, code: string) {
 
     let chainedFilePath: string | undefined;
     for (const file of data.files) {
-        service.setFileOpened(file.fileName, 1, file.content, IPythonMode.None, chainedFilePath);
+        service.setFileOpened(file.fileName, 1, file.content, IPythonMode.CellDocs, chainedFilePath);
         chainedFilePath = file.fileName;
     }
     return { data, service };
