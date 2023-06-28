@@ -96,6 +96,7 @@ export class WorkspaceFactory {
     constructor(
         private readonly _console: ConsoleInterface,
         private readonly _uriParser: UriParser,
+        private readonly _isWeb: boolean,
         private readonly _createService: (
             name: string,
             rootPath: string,
@@ -387,7 +388,7 @@ export class WorkspaceFactory {
         kinds: string[]
     ) {
         // Update the kind based of the uri is local or not
-        if (!kinds.includes(WellKnownWorkspaceKinds.Default) && !this._uriParser.isLocal(rootUri)) {
+        if (!kinds.includes(WellKnownWorkspaceKinds.Default) && (!this._uriParser.isLocal(rootUri) || this._isWeb)) {
             // Web based workspace should be limited.
             kinds = [...kinds, WellKnownWorkspaceKinds.Limited];
         }

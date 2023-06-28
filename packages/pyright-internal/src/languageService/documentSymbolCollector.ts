@@ -30,7 +30,7 @@ import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { ScopeType } from '../analyzer/scope';
 import * as ScopeUtils from '../analyzer/scopeUtils';
 import { IPythonMode } from '../analyzer/sourceFile';
-import { collectImportedByFiles } from '../analyzer/sourceFileInfoUtils';
+import { collectImportedByCells } from '../analyzer/sourceFileInfoUtils';
 import { isStubFile } from '../analyzer/sourceMapper';
 import { Symbol } from '../analyzer/symbol';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
@@ -182,7 +182,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         });
 
         const sourceFileInfo = program.getSourceFileInfo(fileInfo.filePath);
-        if (sourceFileInfo && sourceFileInfo.sourceFile.getIPythonMode() !== IPythonMode.None) {
+        if (sourceFileInfo && sourceFileInfo.sourceFile.getIPythonMode() === IPythonMode.CellDocs) {
             // Add declarations from chained source files
             let builtinsScope = fileInfo.builtinsScope;
             while (builtinsScope && builtinsScope.type === ScopeType.Module) {
@@ -192,7 +192,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             }
 
             // Add declarations from files that implicitly import the target file.
-            const implicitlyImportedBy = collectImportedByFiles(sourceFileInfo);
+            const implicitlyImportedBy = collectImportedByCells(program, sourceFileInfo);
             implicitlyImportedBy.forEach((implicitImport) => {
                 const parseTree = program.getParseResults(implicitImport.sourceFile.getFilePath())?.parseTree;
                 if (parseTree) {
