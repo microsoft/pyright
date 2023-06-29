@@ -10952,7 +10952,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
 
-        const srcTypeVarContext = new TypeVarContext(paramSpecType.details.typeVarScopeId);
+        const srcTypeVarContext = new TypeVarContext(getTypeVarScopeIds(paramSpecType));
         let reportedArgError = false;
 
         // Build a map of all named parameters.
