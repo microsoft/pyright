@@ -82,6 +82,10 @@ export const enum PrintTypeFlags {
 
     // Print the variance of a type parameter.
     PrintTypeVarVariance = 1 << 11,
+
+    // Use the fully-qualified name of classes, type aliases, modules,
+    // and functions rather than short names.
+    UseFullyQualifiedNames = 1 << 12,
 }
 
 export type FunctionReturnTypeCallback = (type: FunctionType) => Type;
@@ -219,7 +223,10 @@ function printTypeInternal(
         if (!expandTypeAlias) {
             try {
                 recursionTypes.push(type);
-                let aliasName = type.typeAliasInfo.name;
+                let aliasName =
+                    (printTypeFlags & PrintTypeFlags.UseFullyQualifiedNames) !== 0
+                        ? type.typeAliasInfo.fullName
+                        : type.typeAliasInfo.name;
 
                 // Use the fully-qualified name if the name isn't unique.
                 if (!uniqueNameMap.isUnique(aliasName)) {
@@ -333,7 +340,10 @@ function printTypeInternal(
 
         if (type.typeAliasInfo) {
             if (!type.typeAliasInfo.typeParameters) {
-                let name = type.typeAliasInfo.name;
+                let name =
+                    (printTypeFlags & PrintTypeFlags.UseFullyQualifiedNames) !== 0
+                        ? type.typeAliasInfo.fullName
+                        : type.typeAliasInfo.name;
                 if (!uniqueNameMap.isUnique(name)) {
                     name = type.typeAliasInfo.fullName;
                 }
@@ -823,7 +833,11 @@ function printObjectTypeForClassInternal(
     recursionTypes: Type[],
     recursionCount: number
 ): string {
-    let objName = type.aliasName || type.details.name;
+    let objName = type.aliasName;
+    if (!objName) {
+        objName =
+            (printTypeFlags & PrintTypeFlags.UseFullyQualifiedNames) !== 0 ? type.details.fullName : type.details.name;
+    }
 
     // Use the fully-qualified name if the name isn't unique.
     if (!uniqueNameMap.isUnique(objName)) {
@@ -1244,7 +1258,11 @@ class UniqueNameMap {
             }
 
             if (!expandTypeAlias) {
-                this._addIfUnique(type.typeAliasInfo.name, type, /* useTypeAliasName */ true);
+                const typeAliasName =
+                    (this._printTypeFlags & PrintTypeFlags.UseFullyQualifiedNames) !== 0
+                        ? type.typeAliasInfo.fullName
+                        : type.typeAliasInfo.name;
+                this._addIfUnique(typeAliasName, type, /* useTypeAliasName */ true);
 
                 // Recursively add the type arguments if present.
                 if (type.typeAliasInfo.typeArguments) {
@@ -1290,7 +1308,15 @@ class UniqueNameMap {
                         break;
                     }
 
-                    this._addIfUnique(type.aliasName || type.details.name, type);
+                    let className = type.aliasName;
+                    if (!className) {
+                        className =
+                            (this._printTypeFlags & PrintTypeFlags.UseFullyQualifiedNames) !== 0
+                                ? type.details.fullName
+                                : type.details.name;
+                    }
+
+                    this._addIfUnique(className, type);
 
                     if (!ClassType.isPseudoGenericClass(type)) {
                         if (type.tupleTypeArguments) {

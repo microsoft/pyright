@@ -123,10 +123,9 @@ export function assignTypeToTypeVar(
         isTypeVarInScope = false;
         if (!destType.details.isSynthesized) {
             diag?.addMessage(
-                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                    sourceType: evaluator.printType(srcType),
-                    destType: evaluator.printType(destType),
-                })
+                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                    evaluator.printSrcDestTypes(srcType, destType)
+                )
             );
             return false;
         }
@@ -408,10 +407,9 @@ export function assignTypeToTypeVar(
             adjSrcType = convertToInstance(adjSrcType, /* includeSubclasses */ false);
         } else {
             diag?.addMessage(
-                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                    sourceType: evaluator.printType(adjSrcType),
-                    destType: evaluator.printType(destType),
-                })
+                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                    evaluator.printSrcDestTypes(srcType, destType)
+                )
             );
             return false;
         }
@@ -421,10 +419,9 @@ export function assignTypeToTypeVar(
         isTypeSame(convertToInstance(srcType), destType)
     ) {
         diag?.addMessage(
-            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                sourceType: evaluator.printType(adjSrcType),
-                destType: evaluator.printType(destType),
-            })
+            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                evaluator.printSrcDestTypes(adjSrcType, destType)
+            )
         );
         return false;
     }
@@ -477,10 +474,9 @@ export function assignTypeToTypeVar(
             ) {
                 if (diag && diagAddendum) {
                     diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: evaluator.printType(adjSrcType),
-                            destType: evaluator.printType(curWideTypeBound),
-                        })
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                            evaluator.printSrcDestTypes(adjSrcType, curWideTypeBound)
+                        )
                     );
                     diag.addAddendum(diagAddendum);
                 }
@@ -503,10 +499,9 @@ export function assignTypeToTypeVar(
             ) {
                 if (diag && diagAddendum) {
                     diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: evaluator.printType(adjSrcType),
-                            destType: evaluator.printType(curNarrowTypeBound),
-                        })
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                            evaluator.printSrcDestTypes(adjSrcType, curNarrowTypeBound)
+                        )
                     );
                     diag.addAddendum(diagAddendum);
                 }
@@ -553,10 +548,9 @@ export function assignTypeToTypeVar(
                 // We need to widen the type.
                 if (typeVarContext.isLocked()) {
                     diag?.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: evaluator.printType(curNarrowTypeBound),
-                            destType: evaluator.printType(adjSrcType),
-                        })
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                            evaluator.printSrcDestTypes(curNarrowTypeBound, adjSrcType)
+                        )
                     );
                     return false;
                 }
@@ -577,10 +571,9 @@ export function assignTypeToTypeVar(
                     const widenedType = widenTypeForVariadicTypeVar(curNarrowTypeBound, adjSrcType);
                     if (!widenedType) {
                         diag?.addMessage(
-                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                                sourceType: evaluator.printType(curNarrowTypeBound),
-                                destType: evaluator.printType(adjSrcType),
-                            })
+                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                                evaluator.printSrcDestTypes(curNarrowTypeBound, adjSrcType)
+                            )
                         );
                         return false;
                     }
@@ -652,10 +645,9 @@ export function assignTypeToTypeVar(
                 ) {
                     if (diag && diagAddendum) {
                         diag.addMessage(
-                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                                sourceType: evaluator.printType(adjSrcType),
-                                destType: evaluator.printType(curWideTypeBound),
-                            })
+                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                                evaluator.printSrcDestTypes(adjSrcType, curWideTypeBound)
+                            )
                         );
                     }
                     return false;
