@@ -475,7 +475,7 @@ export function assignTypeToTypeVar(
                 if (diag && diagAddendum) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
-                            evaluator.printSrcDestTypes(adjSrcType, curWideTypeBound)
+                            evaluator.printSrcDestTypes(curWideTypeBound, adjSrcType)
                         )
                     );
                     diag.addAddendum(diagAddendum);
@@ -500,7 +500,7 @@ export function assignTypeToTypeVar(
                 if (diag && diagAddendum) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
-                            evaluator.printSrcDestTypes(adjSrcType, curNarrowTypeBound)
+                            evaluator.printSrcDestTypes(curNarrowTypeBound, newWideTypeBound!)
                         )
                     );
                     diag.addAddendum(diagAddendum);
@@ -549,7 +549,7 @@ export function assignTypeToTypeVar(
                 if (typeVarContext.isLocked()) {
                     diag?.addMessage(
                         Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
-                            evaluator.printSrcDestTypes(curNarrowTypeBound, adjSrcType)
+                            evaluator.printSrcDestTypes(adjSrcType, curNarrowTypeBound)
                         )
                     );
                     return false;
@@ -646,7 +646,7 @@ export function assignTypeToTypeVar(
                     if (diag && diagAddendum) {
                         diag.addMessage(
                             Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
-                                evaluator.printSrcDestTypes(adjSrcType, curWideTypeBound)
+                                evaluator.printSrcDestTypes(newNarrowTypeBound, adjWideTypeBound)
                             )
                         );
                     }
