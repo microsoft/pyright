@@ -29,6 +29,8 @@ By default, pyright performs type checking for all code regardless of whether it
 
 By default, mypy skips all functions or methods that do not have type annotations. This is a common source of confusion for mypy users who are surprised when type violations in unannotated functions go unreported. If the option `--check-untyped-defs` is enabled, mypy performs type checking for all functions and methods.
 
+Mypy supports the `typing.no_type_check` decorator. This decorator does not make sense for language servers, so it is ignored by pyright.
+
 
 ### Inferred Return Types
 
