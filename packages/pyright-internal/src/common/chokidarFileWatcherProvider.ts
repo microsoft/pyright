@@ -44,7 +44,7 @@ export class ChokidarFileWatcherProvider implements FileWatcherProvider {
             watcherOptions.usePolling = false;
         }
 
-        const excludes: string[] = ['**/__pycache__/**'];
+        const excludes: string[] = ['**/node_modules/**', '**/__pycache__/**', '**/.*/**'];
         if (_isMacintosh || _isLinux) {
             if (paths.some((path) => path === '' || path === '/')) {
                 excludes.push('/dev/**');
