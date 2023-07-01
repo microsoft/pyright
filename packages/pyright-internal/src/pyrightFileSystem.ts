@@ -66,27 +66,31 @@ export class PyrightFileSystem
     }
 
     override mkdirSync(path: string, options?: MkDirOptions): void {
-        this._realFS.mkdirSync(path, options);
+        this.realFS.mkdirSync(path, options);
     }
 
     override chdir(path: string): void {
-        this._realFS.chdir(path);
+        this.realFS.chdir(path);
     }
 
     override writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null): void {
-        this._realFS.writeFileSync(this._getOriginalPath(path), data, encoding);
+        this.realFS.writeFileSync(this.getOriginalPath(path), data, encoding);
+    }
+
+    override rmdirSync(path: string): void {
+        this.realFS.rmdirSync(this.getOriginalPath(path));
     }
 
     override unlinkSync(path: string): void {
-        this._realFS.unlinkSync(this._getOriginalPath(path));
+        this.realFS.unlinkSync(this.getOriginalPath(path));
     }
 
     override createWriteStream(path: string): fs.WriteStream {
-        return this._realFS.createWriteStream(this._getOriginalPath(path));
+        return this.realFS.createWriteStream(this.getOriginalPath(path));
     }
 
     override copyFileSync(src: string, dst: string): void {
-        this._realFS.copyFileSync(this._getOriginalPath(src), this._getOriginalPath(dst));
+        this.realFS.copyFileSync(this.getOriginalPath(src), this.getOriginalPath(dst));
     }
 
     override getUri(originalPath: string): string {
@@ -95,7 +99,7 @@ export class PyrightFileSystem
             return entry.uri;
         }
 
-        return this._realFS.getUri(originalPath);
+        return this.realFS.getUri(originalPath);
     }
 
     hasUriMapEntry(uriString: string, mappedPath: string): boolean {
@@ -165,14 +169,14 @@ export class PyrightFileSystem
         for (const path of paths) {
             this._rootSearched.add(path);
 
-            if (!this._realFS.existsSync(path) || !isDirectory(this._realFS, path)) {
+            if (!this.realFS.existsSync(path) || !isDirectory(this.realFS, path)) {
                 continue;
             }
 
             let dirEntries: fs.Dirent[] = [];
 
             try {
-                dirEntries = this._realFS.readdirEntriesSync(path);
+                dirEntries = this.realFS.readdirEntriesSync(path);
             } catch {
                 // Leave empty set of dir entries to process.
             }
@@ -182,13 +186,13 @@ export class PyrightFileSystem
                 const partialStubPackagePath = combinePaths(path, entry.name);
                 const isDirectory = !entry.isSymbolicLink()
                     ? entry.isDirectory()
-                    : !!tryStat(this._realFS, partialStubPackagePath)?.isDirectory();
+                    : !!tryStat(this.realFS, partialStubPackagePath)?.isDirectory();
 
                 if (!isDirectory || !entry.name.endsWith(stubsSuffix)) {
                     continue;
                 }
 
-                const pyTypedInfo = getPyTypedInfo(this._realFS, partialStubPackagePath);
+                const pyTypedInfo = getPyTypedInfo(this.realFS, partialStubPackagePath);
                 if (!pyTypedInfo || !pyTypedInfo.isPartiallyTyped) {
                     // Stub-Package is fully typed.
                     continue;
@@ -203,7 +207,7 @@ export class PyrightFileSystem
                 for (const root of roots) {
                     const packagePath = combinePaths(root, packageName);
                     try {
-                        const stat = tryStat(this._realFS, packagePath);
+                        const stat = tryStat(this.realFS, packagePath);
                         if (!stat?.isDirectory()) {
                             continue;
                         }
@@ -211,7 +215,7 @@ export class PyrightFileSystem
                         if (isBundledStub) {
                             // If partial stub we found is from bundled stub and library installed is marked as py.typed
                             // ignore bundled partial stub.
-                            const packagePyTyped = getPyTypedInfo(this._realFS, packagePath);
+                            const packagePyTyped = getPyTypedInfo(this.realFS, packagePath);
                             if (packagePyTyped && !packagePyTyped.isPartiallyTyped) {
                                 // We have fully typed package.
                                 continue;
@@ -224,7 +228,7 @@ export class PyrightFileSystem
                             const originalPyiFile = combinePaths(partialStubPackagePath, partialStub);
                             const mappedPyiFile = combinePaths(packagePath, partialStub);
 
-                            this._recordMovedEntry(mappedPyiFile, originalPyiFile);
+                            this.recordMovedEntry(mappedPyiFile, originalPyiFile);
                         }
                     } catch {
                         // ignore
@@ -235,14 +239,18 @@ export class PyrightFileSystem
     }
 
     override dispose(): void {
-        this._realFS.dispose();
+        this.realFS.dispose();
     }
 
     clearPartialStubs(): void {
-        super._clear();
+        super.clear();
 
         this._rootSearched.clear();
         this._partialStubPackagePaths.clear();
+    }
+
+    protected override isMovedEntry(path: string) {
+        return this._partialStubPackagePaths.has(path) || super.isMovedEntry(path);
     }
 
     private _getRelativePathPartialStubs(path: string) {
@@ -250,13 +258,13 @@ export class PyrightFileSystem
 
         const partialStubPathLength = ensureTrailingDirectorySeparator(path).length;
         const searchAllStubs = (path: string) => {
-            for (const entry of this._realFS.readdirEntriesSync(path)) {
+            for (const entry of this.realFS.readdirEntriesSync(path)) {
                 const filePath = combinePaths(path, entry.name);
 
                 let isDirectory = entry.isDirectory();
                 let isFile = entry.isFile();
                 if (entry.isSymbolicLink()) {
-                    const stat = tryStat(this._realFS, filePath);
+                    const stat = tryStat(this.realFS, filePath);
                     if (stat) {
                         isDirectory = stat.isDirectory();
                         isFile = stat.isFile();
@@ -278,9 +286,5 @@ export class PyrightFileSystem
 
         searchAllStubs(path);
         return paths;
-    }
-
-    protected override _isMovedEntry(path: string) {
-        return this._partialStubPackagePaths.has(path) || super._isMovedEntry(path);
     }
 }

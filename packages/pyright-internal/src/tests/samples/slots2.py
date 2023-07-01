@@ -3,6 +3,7 @@
 
 from dataclasses import dataclass, field
 
+
 class NoSlots1:
     pass
 
@@ -30,9 +31,8 @@ class Slots2(Slots1):
 
 @dataclass
 class Slots3:
-    __slots__ = ('values',)
+    __slots__ = ("values",)
 
     # This should not generate an error because class variables
     # in a dataclass are replaced by instance variables.
     values: list[int] = field(default_factory=list)
-

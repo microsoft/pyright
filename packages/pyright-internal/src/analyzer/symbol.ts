@@ -57,6 +57,9 @@ export const enum SymbolFlags {
     // is modeled as an instance member but in some respects acts as a
     // class member.
     NamedTupleMember = 1 << 11,
+
+    // Indicates that the symbol should be exempt from override type checks.
+    IgnoredForOverrideChecks = 1 << 12,
 }
 
 let nextSymbolId = 1;
@@ -174,6 +177,10 @@ export class Symbol {
 
     isNamedTupleMemberMember() {
         return !!(this._flags & SymbolFlags.NamedTupleMember);
+    }
+
+    isIgnoredForOverrideChecks() {
+        return !!(this._flags & SymbolFlags.IgnoredForOverrideChecks);
     }
 
     addDeclaration(declaration: Declaration) {

@@ -280,6 +280,13 @@ Mypy infers the type of `self` and `cls` parameters in methods but otherwise doe
 Pyright implements several parameter type inference techniques that improve type checking and language service features in the absence of explicit parameter type annotations. For details, refer to [this documentation](type-inference.md#parameter-type-inference).
 
 
+### Constructor Calls
+
+When pyright evaluates a call to a constructor, it attempts to follow the runtime behavior as closely as possible. At runtime, when a constructor is called, it invokes the `__call__` method of the metaclass. Most classes use `type` as their metaclass. (Even when a different metaclasses is used, it typically does not override `type.__call__`.) The `type.__call__` method calls the `__new__` method for the class and passes all of the arguments (both positional and keyword) that were passed to the constructor call. If the `__new__` method returns an instance of the class (or a child class), `type.__call__` then calls the `__init__` method on the class. Pyright follows this same flow for evaluating the type of a constructor call. If a custom metaclass is present, pyright evaluates its `__call__` method to determine whether it returns an instance of the class. If not, it assumes that the metaclass has custom behavior that overrides `type.__call__`. Likewise, if a class provides a `__new__` method that returns a type other than the class being constructed (or a child class thereof), it assumes that `__init__` will not be called.
+
+By comparison, mypy first evaluates the `__init__` method if present, and it ignores the annotated return type of the `__new__` method.
+
+
 ### Constraint Solver Behaviors
 
 When evaluating a call expression that invokes a generic class constructor or a generic function, a type checker performs a process called “constraint solving” to solve the type variables found within the target function signature. The solved type variables are then applied to the return type of that function to determine the final type of the call expression. This process is called “constraint solving” because it takes into account various constraints that are specified for each type variable. These constraints include variance rules and type variable bounds.
@@ -339,6 +346,29 @@ def func2(x: list[int], y: list[str] | int):
     reveal_type(v2) # pyright: "list[int | str]" ("list[list[str] | int]" is also a valid answer)
 ```
 
+#### Constraint Solver: Higher-order Functions
+
+If a generic higher-order function is passed another generic callable as an argument, pyright is able to solve the type variables for both the target function and the argument. Mypy isn’t able to handle higher-order functions.
+
+```python
+def identity(val: T) -> T:
+    return val
+
+
+def higher_order1(cb: Callable[[S], T], arg: S) -> T:
+    return cb(arg)
+
+v1 = higher_order1(identity, 1.0)  # mypy generates an error
+reveal_type(v1)  # mypy: T, pyright: float
+
+
+def higher_order2(cb: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+    return cb(*args, **kwargs)
+
+v2 = higher_order2(identity, "")  # mypy generates an error
+reveal_type(v2)  # mypy: T, pyright: str
+```
+
 
 ### Constrained Type Variables
 
@@ -352,7 +382,7 @@ def func(a: AnyStr, b: T):
     return a + b # Mypy reports 4 errors
 ```
 
-Pyright cannot use the same multi-pass technique as mypy in this case. It needs to produce a single type for any given identifier to support language server features. Pyright instead uses a mechanism called [conditional types](type-concepts-advanced.md#constrained-type-variables-and-conditional-types). This approach allows pyright to handle some constrained TypeVar use cases that mypy cannot, but there are conversely other use cases that mypy can handle and pyright cannot.
+Pyright cannot use the same multi-pass technique as mypy in this case. It needs to produce a single type for any given identifier to support language server features. Pyright instead uses a mechanism called [conditional types](type-concepts-advanced.md#conditional-types-and-type-variables). This approach allows pyright to handle some constrained TypeVar use cases that mypy cannot, but there are conversely other use cases that mypy can handle and pyright cannot.
 
 
 ### “Unknown” Type and Strict Mode
@@ -366,7 +396,20 @@ Pyright’s approach gives developers more control. It provides a way to be expl
 
 ### Overload Resolution
 
-Overload resolution rules are under-specified in PEP 484. Pyright and mypy apply similar rules, but there are likely some complex edge cases where different results will be produced. For full documentation of pyright’s overload behaviors, refer to [this documentation](type-concepts-advanced.md#overloads).
+Overload resolution rules are under-specified in PEP 484. Pyright and mypy apply similar rules, but there are inevitably cases where different results will be produced. For full documentation of pyright’s overload behaviors, refer to [this documentation](type-concepts-advanced.md#overloads).
+
+One known difference is in the handling of ambiguous overloads due to `Any` argument types where one return type is the supertype of all other return types. In this case, pyright evaluates the resulting return type as the supertype, but mypy evaluates the return type as `Any`. Pyright’s behavior here tries to preserve as much type information as possible, which is important for completion suggestions.
+
+```python
+@overload
+def func1(x: int) -> int: ...
+
+@overload
+def func1(x: str) -> float: ...
+
+def func2(val: Any):
+    reveal_type(func1(val)) # mypy: Any, pyright: float
+```
 
 
 ### Import Statements

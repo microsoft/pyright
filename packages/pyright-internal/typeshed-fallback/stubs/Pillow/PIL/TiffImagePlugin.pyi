@@ -3,55 +3,63 @@ from collections.abc import MutableMapping
 from numbers import Rational
 from types import TracebackType
 from typing import Any, ClassVar
-from typing_extensions import Literal
+from typing_extensions import Final, Literal
 
+from ._imaging import _PixelAccessor
 from .ImageFile import ImageFile
 
-logger: Any
+# These are meant to be overridable
 READ_LIBTIFF: bool
 WRITE_LIBTIFF: bool
 IFD_LEGACY_API: bool
-II: bytes
-MM: bytes
-IMAGEWIDTH: int
-IMAGELENGTH: int
-BITSPERSAMPLE: int
-COMPRESSION: int
-PHOTOMETRIC_INTERPRETATION: int
-FILLORDER: int
-IMAGEDESCRIPTION: int
-STRIPOFFSETS: int
-SAMPLESPERPIXEL: int
-ROWSPERSTRIP: int
-STRIPBYTECOUNTS: int
-X_RESOLUTION: int
-Y_RESOLUTION: int
-PLANAR_CONFIGURATION: int
-RESOLUTION_UNIT: int
-TRANSFERFUNCTION: int
-SOFTWARE: int
-DATE_TIME: int
-ARTIST: int
-PREDICTOR: int
-COLORMAP: int
-TILEOFFSETS: int
-SUBIFD: int
-EXTRASAMPLES: int
-SAMPLEFORMAT: int
-JPEGTABLES: int
-REFERENCEBLACKWHITE: int
-COPYRIGHT: int
-IPTC_NAA_CHUNK: int
-PHOTOSHOP_CHUNK: int
-ICCPROFILE: int
-EXIFIFD: int
-XMP: int
-JPEGQUALITY: int
-IMAGEJ_META_DATA_BYTE_COUNTS: int
-IMAGEJ_META_DATA: int
+STRIP_SIZE: int
+
+II: Final = b"II"
+MM: Final = b"MM"
+IMAGEWIDTH: Final = 256
+IMAGELENGTH: Final = 257
+BITSPERSAMPLE: Final = 258
+COMPRESSION: Final = 259
+PHOTOMETRIC_INTERPRETATION: Final = 262
+FILLORDER: Final = 266
+IMAGEDESCRIPTION: Final = 270
+STRIPOFFSETS: Final = 273
+SAMPLESPERPIXEL: Final = 277
+ROWSPERSTRIP: Final = 278
+STRIPBYTECOUNTS: Final = 279
+X_RESOLUTION: Final = 282
+Y_RESOLUTION: Final = 283
+PLANAR_CONFIGURATION: Final = 284
+RESOLUTION_UNIT: Final = 296
+TRANSFERFUNCTION: Final = 301
+SOFTWARE: Final = 305
+DATE_TIME: Final = 306
+ARTIST: Final = 315
+PREDICTOR: Final = 317
+COLORMAP: Final = 320
+TILEWIDTH: Final = 322
+TILELENGTH: Final = 323
+TILEOFFSETS: Final = 324
+TILEBYTECOUNTS: Final = 325
+SUBIFD: Final = 330
+EXTRASAMPLES: Final = 338
+SAMPLEFORMAT: Final = 339
+JPEGTABLES: Final = 347
+YCBCRSUBSAMPLING: Final = 530
+REFERENCEBLACKWHITE: Final = 532
+COPYRIGHT: Final = 33432
+IPTC_NAA_CHUNK: Final = 33723
+PHOTOSHOP_CHUNK: Final = 34377
+ICCPROFILE: Final = 34675
+EXIFIFD: Final = 34665
+XMP: Final = 700
+JPEGQUALITY: Final = 65537
+IMAGEJ_META_DATA_BYTE_COUNTS: Final = 50838
+IMAGEJ_META_DATA: Final = 50839
 COMPRESSION_INFO: Any
 COMPRESSION_INFO_REV: Any
 OPEN_INFO: Any
+MAX_SAMPLESPERPIXEL: Final = 6
 PREFIXES: Any
 
 class IFDRational(Rational):
@@ -123,6 +131,22 @@ class ImageFileDirectory_v2(MutableMapping[int, Any]):
     def load(self, fp) -> None: ...
     def tobytes(self, offset: int = 0): ...
     def save(self, fp): ...
+    load_double: Incomplete
+    load_float: Incomplete
+    load_long: Incomplete
+    load_long8: Incomplete
+    load_short: Incomplete
+    load_signed_byte: Incomplete
+    load_signed_long: Incomplete
+    load_signed_short: Incomplete
+    write_double: Incomplete
+    write_float: Incomplete
+    write_long: Incomplete
+    write_long8: Incomplete
+    write_short: Incomplete
+    write_signed_byte: Incomplete
+    write_signed_long: Incomplete
+    write_signed_short: Incomplete
 
 class ImageFileDirectory_v1(ImageFileDirectory_v2):
     def __init__(self, *args, **kwargs) -> None: ...
@@ -153,7 +177,9 @@ class TiffImageFile(ImageFile):
     im: Any
     def seek(self, frame) -> None: ...
     def tell(self): ...
-    def load(self): ...
+    def getxmp(self): ...
+    def get_photoshop_blocks(self): ...
+    def load(self) -> _PixelAccessor: ...
     def load_end(self) -> None: ...
 
 SAVE_INFO: Any

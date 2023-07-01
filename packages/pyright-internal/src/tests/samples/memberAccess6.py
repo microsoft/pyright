@@ -3,18 +3,18 @@
 
 # pyright: strict
 
-from typing import Any, Generic, Optional, Type, TypeVar, overload
+from typing import Any, Generic, TypeVar, overload
 
 
 _T = TypeVar("_T")
 
 
-class FooBase:
+class ParentA:
     pass
 
 
 class Column(Generic[_T]):
-    def __init__(self: "Column[_T]", type: Type[_T]) -> None:
+    def __init__(self: "Column[_T]", type: type[_T]) -> None:
         ...
 
     @overload
@@ -22,31 +22,29 @@ class Column(Generic[_T]):
         ...
 
     @overload
-    def __get__(self: "Column[_T]", instance: FooBase, type: Any) -> _T:
+    def __get__(self: "Column[_T]", instance: ParentA, type: Any) -> _T:
         ...
 
-    def __get__(
-        self, instance: Optional[FooBase], type: Any
-    ) -> Optional[_T] | "Column[_T]":
+    def __get__(self, instance: ParentA | None, type: Any) -> _T | None | "Column[_T]":
         ...
 
 
-class Foo(FooBase):
-    bar: Column[str] = Column(str)
-    baz = Column(str)
+class ChildA(ParentA):
+    attr1: Column[str] = Column(str)
+    attr2 = Column(str)
 
 
-Foo.bar
-Foo().bar
-Foo.baz
-Foo().baz
+ChildA.attr1
+ChildA().attr1
+ChildA.attr2
+ChildA().attr2
 
-foo = Foo()
+foo = ChildA()
 
 # This should generate an error because bar is declared as containing a
 # Column[str], which doesn't provide a __set__ method.
-foo.bar = ""
+foo.attr1 = ""
 
 # This should generate an error because baz's inferred type is
 # Column[str], which doesn't provide a __set__ method.
-foo.baz = ""
+foo.attr2 = ""

@@ -5,7 +5,7 @@ from typing_extensions import Final
 
 from .annotations import AnnotationDict
 from .encryption import StandardSecurityHandler
-from .syntax import Name, PDFArray, PDFContentStream, PDFObject
+from .syntax import Name, PDFArray, PDFContentStream, PDFObject, PDFString
 
 LOGGER: Logger
 ZOOM_CONFIGS: Final[dict[str, tuple[str, ...]]]
@@ -53,10 +53,9 @@ class PDFFontDescriptor(PDFObject):
     def __init__(self, ascent, descent, cap_height, flags, font_b_box, italic_angle, stem_v, missing_width) -> None: ...
 
 class CIDSystemInfo(PDFObject):
-    registry: str
-    ordering: str
-    supplement: Incomplete
-    def __init__(self, registry: str | None, ordering: str | None, supplement) -> None: ...
+    registry: PDFString
+    ordering: PDFString
+    supplement: int
 
 class PDFInfo(PDFObject):
     title: str | None
@@ -144,6 +143,11 @@ class PDFXObject(PDFContentStream):
         decode: Incomplete | None = None,
         decode_parms: Incomplete | None = None,
     ) -> None: ...
+
+class PDFICCPObject(PDFContentStream):
+    n: Incomplete
+    alternate: Name
+    def __init__(self, contents: bytes, n, alternate: str) -> None: ...
 
 class PDFPage(PDFObject):
     type: Name

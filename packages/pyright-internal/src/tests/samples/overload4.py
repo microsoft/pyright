@@ -6,41 +6,41 @@ from typing import Protocol, overload
 
 # This should generate an error because there is only one overload.
 @overload
-def foo1() -> None:
+def func1() -> None:
     ...
 
 
-def foo1() -> None:
+def func1() -> None:
     ...
 
 
 # This should generate an error because there is only one overload.
 @overload
-def foo2(a: int) -> None:
+def func2(a: int) -> None:
     ...
 
 
-def foo2(a: int) -> None:
+def func2(a: int) -> None:
     pass
 
 
 class ClassA:
     # This should generate an error because there is no implementation.
     @overload
-    def foo3(self) -> None:
+    def func3(self) -> None:
         ...
 
     @overload
-    def foo3(self, a: int) -> None:
+    def func3(self, a: int) -> None:
         ...
 
 
 class ClassB(Protocol):
     # An implementation should not be required in a protocol class.
     @overload
-    def foo(self) -> None:
+    def func4(self) -> None:
         ...
 
     @overload
-    def foo(self, name: str) -> str:
+    def func4(self, name: str) -> str:
         ...

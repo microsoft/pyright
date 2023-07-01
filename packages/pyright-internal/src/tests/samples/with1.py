@@ -1,7 +1,6 @@
 # This sample tests various forms of the 'with' statement.
 
-from typing import Any, Generic, Optional, TypeVar
-from typing_extensions import Self
+from typing import Any, Generic, Optional, TypeVar, Self
 
 _T1 = TypeVar("_T1")
 

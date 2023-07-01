@@ -4,4 +4,3 @@
 import html.entities
 
 x = html.escape
-

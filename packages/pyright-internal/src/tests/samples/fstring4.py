@@ -1,9 +1,7 @@
 # This sample tests nested braces within an f-string.
 
-from typing import Dict
 
-
-def foo(spam, dictval: Dict):
+def foo(spam, dictval: dict):
     print(dictval)
     return "Done"
 

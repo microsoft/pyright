@@ -9,9 +9,9 @@
 
 import type { Dirent } from 'fs';
 import * as path from 'path';
-import Char from 'typescript-char';
 import { URI } from 'vscode-uri';
 
+import { Char } from './charCodes';
 import { some } from './collectionUtils';
 import { compareValues, Comparison, GetCanonicalFileName, identity } from './core';
 import { randomBytesHex } from './crypto';
@@ -205,7 +205,7 @@ export function makeDirectories(fs: FileSystem, dirPath: string, startingFromDir
     }
 }
 
-export function getFileSize(fs: FileSystem, path: string) {
+export function getFileSize(fs: ReadOnlyFileSystem, path: string) {
     const stat = tryStat(fs, path);
     if (stat?.isFile()) {
         return stat.size;
@@ -213,11 +213,11 @@ export function getFileSize(fs: FileSystem, path: string) {
     return 0;
 }
 
-export function fileExists(fs: FileSystem, path: string): boolean {
+export function fileExists(fs: ReadOnlyFileSystem, path: string): boolean {
     return fileSystemEntryExists(fs, path, FileSystemEntryKind.File);
 }
 
-export function directoryExists(fs: FileSystem, path: string): boolean {
+export function directoryExists(fs: ReadOnlyFileSystem, path: string): boolean {
     return fileSystemEntryExists(fs, path, FileSystemEntryKind.Directory);
 }
 
@@ -576,11 +576,11 @@ export function normalizePath(pathString: string): string {
     return normalizeSlashes(path.normalize(pathString));
 }
 
-export function isDirectory(fs: FileSystem, path: string): boolean {
+export function isDirectory(fs: ReadOnlyFileSystem, path: string): boolean {
     return tryStat(fs, path)?.isDirectory() ?? false;
 }
 
-export function isFile(fs: FileSystem, path: string, treatZipDirectoryAsFile = false): boolean {
+export function isFile(fs: ReadOnlyFileSystem, path: string, treatZipDirectoryAsFile = false): boolean {
     const stats = tryStat(fs, path);
     if (stats?.isFile()) {
         return true;
@@ -593,7 +593,7 @@ export function isFile(fs: FileSystem, path: string, treatZipDirectoryAsFile = f
     return stats?.isZipDirectory?.() ?? false;
 }
 
-export function tryStat(fs: FileSystem, path: string): Stats | undefined {
+export function tryStat(fs: ReadOnlyFileSystem, path: string): Stats | undefined {
     try {
         if (fs.existsSync(path)) {
             return fs.statSync(path);
@@ -604,7 +604,7 @@ export function tryStat(fs: FileSystem, path: string): Stats | undefined {
     return undefined;
 }
 
-export function tryRealpath(fs: FileSystem, path: string): string | undefined {
+export function tryRealpath(fs: ReadOnlyFileSystem, path: string): string | undefined {
     try {
         return fs.realpathSync(path);
     } catch (e: any) {
@@ -612,7 +612,7 @@ export function tryRealpath(fs: FileSystem, path: string): string | undefined {
     }
 }
 
-export function getFileSystemEntries(fs: FileSystem, path: string): FileSystemEntries {
+export function getFileSystemEntries(fs: ReadOnlyFileSystem, path: string): FileSystemEntries {
     try {
         return getFileSystemEntriesFromDirEntries(fs.readdirEntriesSync(path || '.'), fs, path);
     } catch (e: any) {
@@ -623,7 +623,7 @@ export function getFileSystemEntries(fs: FileSystem, path: string): FileSystemEn
 // Sorts the entires into files and directories, including any symbolic links.
 export function getFileSystemEntriesFromDirEntries(
     dirEntries: Dirent[],
-    fs: FileSystem,
+    fs: ReadOnlyFileSystem,
     path: string
 ): FileSystemEntries {
     const entries = dirEntries.sort((a, b) => {
@@ -925,7 +925,7 @@ const enum FileSystemEntryKind {
     Directory,
 }
 
-function fileSystemEntryExists(fs: FileSystem, path: string, entryKind: FileSystemEntryKind): boolean {
+function fileSystemEntryExists(fs: ReadOnlyFileSystem, path: string, entryKind: FileSystemEntryKind): boolean {
     try {
         const stat = fs.statSync(path);
         switch (entryKind) {
@@ -941,7 +941,7 @@ function fileSystemEntryExists(fs: FileSystem, path: string, entryKind: FileSyst
     }
 }
 
-export function convertUriToPath(fs: FileSystem, uriString: string): string {
+export function convertUriToPath(fs: ReadOnlyFileSystem, uriString: string): string {
     return fs.getMappedFilePath(extractPathFromUri(uriString));
 }
 
@@ -1022,7 +1022,7 @@ export function getLibraryPathWithoutExtension(libraryFilePath: string) {
 }
 
 export function getDirectoryChangeKind(
-    fs: FileSystem,
+    fs: ReadOnlyFileSystem,
     oldDirectory: string,
     newDirectory: string
 ): 'Same' | 'Renamed' | 'Moved' {

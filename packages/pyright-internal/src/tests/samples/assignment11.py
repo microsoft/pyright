@@ -11,5 +11,4 @@ my_list[a3] = a3 = 0
 
 # This should generate an error because type comments are not
 # allowed for chained assignments.
-x1 = x2 = x3 = [3] # type: list[float]
-
+x1 = x2 = x3 = [3]  # type: list[float]

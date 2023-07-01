@@ -6,6 +6,7 @@ from typing import Any, Callable, TypeVarTuple
 
 Ts = TypeVarTuple("Ts")
 
+
 def func1(f: Callable[[*Ts], Any], p: tuple[*Ts]):
     f(*p)
 
@@ -15,4 +16,3 @@ def func1(f: Callable[[*Ts], Any], p: tuple[*Ts]):
     for i in p:
         # This should generate an error.
         f(i)
- 

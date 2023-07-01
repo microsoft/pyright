@@ -1,7 +1,7 @@
 # This sample tests the handling of an unpacked TypedDict passed as
 # an argument to a function.
 
-from typing import TypedDict
+from typing import TypedDict, Unpack
 
 
 class TD1(TypedDict):
@@ -55,3 +55,17 @@ func4(**td1)
 # This should generate an error because "arg3" cannot be matched
 # due to the type of the **kwargs parameter.
 func4(**td2)
+
+
+class Options(TypedDict, total=False):
+    opt1: bool
+    opt2: str
+
+
+def func5(code: str | None = None, **options: Unpack[Options]):
+    pass
+
+
+func5(**{})
+func5(**{"opt1": True})
+func5(**{"opt2": "hi"})

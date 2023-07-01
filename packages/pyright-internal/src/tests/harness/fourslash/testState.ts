@@ -8,12 +8,12 @@
  */
 import assert from 'assert';
 import * as path from 'path';
-import Char from 'typescript-char';
 import {
     CancellationToken,
     CodeAction,
     Command,
     CompletionItem,
+    CompletionList,
     Diagnostic,
     DocumentHighlight,
     DocumentHighlightKind,
@@ -24,13 +24,13 @@ import {
     WorkspaceEdit,
 } from 'vscode-languageserver';
 
-import { BackgroundAnalysisProgramFactory } from '../../../analyzer/backgroundAnalysisProgram';
+import { BackgroundAnalysisProgramFactory, InvalidatedReason } from '../../../analyzer/backgroundAnalysisProgram';
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { findNodeByOffset } from '../../../analyzer/parseTreeUtils';
 import { Program } from '../../../analyzer/program';
 import { AnalyzerService } from '../../../analyzer/service';
 import { CommandResult } from '../../../commands/commandResult';
-import { appendArray } from '../../../common/collectionUtils';
+import { Char } from '../../../common/charCodes';
 import { ConfigOptions, SignatureDisplayType } from '../../../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../../../common/console';
 import { Comparison, isNumber, isString, toBoolean } from '../../../common/core';
@@ -50,10 +50,10 @@ import {
 import { convertOffsetToPosition, convertPositionToOffset } from '../../../common/positionUtils';
 import { DocumentRange, Position, Range as PositionRange, TextRange, rangesAreEqual } from '../../../common/textRange';
 import { TextRangeCollection } from '../../../common/textRangeCollection';
+import { convertToWorkspaceEdit } from '../../../common/workspaceEditUtils';
 import { LanguageServerInterface } from '../../../languageServerBase';
-import { AbbreviationInfo, ImportFormat } from '../../../languageService/autoImporter';
 import { CallHierarchyProvider } from '../../../languageService/callHierarchyProvider';
-import { CompletionOptions } from '../../../languageService/completionProvider';
+import { CompletionOptions, CompletionProvider } from '../../../languageService/completionProvider';
 import {
     DefinitionFilter,
     DefinitionProvider,
@@ -61,6 +61,9 @@ import {
 } from '../../../languageService/definitionProvider';
 import { DocumentHighlightProvider } from '../../../languageService/documentHighlightProvider';
 import { HoverProvider } from '../../../languageService/hoverProvider';
+import { convertDocumentRangesToLocation } from '../../../languageService/navigationUtils';
+import { ReferencesProvider } from '../../../languageService/referencesProvider';
+import { RenameProvider } from '../../../languageService/renameProvider';
 import { SignatureHelpProvider } from '../../../languageService/signatureHelpProvider';
 import { ParseNode } from '../../../parser/parseNodes';
 import { ParseResults } from '../../../parser/parser';
@@ -384,7 +387,7 @@ export class TestState {
         if (this.testData.rangesByText) {
             return this.testData.rangesByText;
         }
-        const result = this.createMultiMap<Range>(this.getRanges(), (r) => this._rangeText(r));
+        const result = this.createMultiMap<Range>(this.getRanges(), (r) => this.rangeText(r));
         this.testData.rangesByText = result;
 
         return result;
@@ -393,7 +396,7 @@ export class TestState {
     getFilteredRanges<T extends {}>(
         predicate: (m: Marker | undefined, d: T | undefined, text: string) => boolean
     ): Range[] {
-        return this.getRanges().filter((r) => predicate(r.marker, r.marker?.data as T | undefined, this._rangeText(r)));
+        return this.getRanges().filter((r) => predicate(r.marker, r.marker?.data as T | undefined, this.rangeText(r)));
     }
 
     getRangeByMarkerName(markerName: string): Range | undefined {
@@ -425,7 +428,7 @@ export class TestState {
         fileToOpen.fileName = normalizeSlashes(fileToOpen.fileName);
         this.activeFile = fileToOpen;
 
-        this.program.setFileOpened(this.activeFile.fileName, 1, [{ text: fileToOpen.content }]);
+        this.program.setFileOpened(this.activeFile.fileName, 1, fileToOpen.content);
     }
 
     openFiles(indexOrNames: (number | string)[]): void {
@@ -651,15 +654,15 @@ export class TestState {
     }
 
     async verifyCodeActions(
+        verifyMode: _.FourSlashVerificationMode,
         map: {
             [marker: string]: {
                 codeActions: { title: string; kind: string; command?: Command; edit?: WorkspaceEdit[] }[];
             };
-        },
-        verifyCodeActionCount?: boolean
+        }
     ): Promise<any> {
         // make sure we don't use cache built from other tests
-        this.workspace.service.invalidateAndForceReanalysis();
+        this.workspace.service.invalidateAndForceReanalysis(InvalidatedReason.Reanalyzed);
         this.analyze();
 
         for (const range of this.getRanges()) {
@@ -669,7 +672,7 @@ export class TestState {
             }
 
             const codeActions = await this._getCodeActions(range);
-            if (verifyCodeActionCount) {
+            if (verifyMode === 'exact') {
                 if (codeActions.length !== map[name].codeActions.length) {
                     this.raiseError(
                         `doesn't contain expected result: ${stringify(map[name])}, actual: ${stringify(codeActions)}`
@@ -701,12 +704,14 @@ export class TestState {
                     return (
                         a.title === expected.title &&
                         a.kind! === expected.kind &&
-                        this._deepEqual(actualCommand, expectedCommand) &&
-                        this._deepEqual(actualEdit, expected.edit)
+                        (expectedCommand ? this._deepEqual(actualCommand, expectedCommand) : true) &&
+                        (expected.edit ? this._deepEqual(actualEdit, expected.edit) : true)
                     );
                 });
 
-                if (matches.length !== 1) {
+                if (verifyMode === 'excluded' && matches.length > 0) {
+                    this.raiseError(`unexpected result: ${stringify(map[name])}`);
+                } else if (verifyMode !== 'excluded' && matches.length !== 1) {
                     this.raiseError(
                         `doesn't contain expected result: ${stringify(expected)}, actual: ${stringify(codeActions)}`
                     );
@@ -837,7 +842,6 @@ export class TestState {
                 range.fileName,
                 rangePos.start,
                 kind,
-                false,
                 CancellationToken.None
             );
             const actual = provider.getHover();
@@ -903,23 +907,23 @@ export class TestState {
     }
 
     verifyRangeIs(expectedText: string, includeWhiteSpace?: boolean) {
-        this._verifyTextMatches(this._rangeText(this._getOnlyRange()), !!includeWhiteSpace, expectedText);
+        this._verifyTextMatches(this.rangeText(this._getOnlyRange()), !!includeWhiteSpace, expectedText);
     }
 
     async verifyCompletion(
-        verifyMode: _.FourSlashCompletionVerificationMode,
+        verifyMode: _.FourSlashVerificationMode,
         docFormat: MarkupKind,
         map: {
             [marker: string]: {
                 completions: _.FourSlashCompletionItem[];
-                memberAccessInfo?: {
-                    lastKnownModule?: string;
-                    lastKnownMemberName?: string;
-                    unknownMemberName?: string;
-                };
             };
         },
-        abbrMap?: { [abbr: string]: AbbreviationInfo }
+        abbrMap?: {
+            [abbr: string]: {
+                readonly importFrom?: string;
+                readonly importName: string;
+            };
+        }
     ): Promise<void> {
         this.analyze();
 
@@ -931,43 +935,23 @@ export class TestState {
 
             this.lastKnownMarker = markerName;
 
-            const filePath = marker.fileName;
             const expectedCompletions = map[markerName].completions;
-            const completionPosition = this.convertOffsetToPosition(filePath, marker.position);
-
-            const options: CompletionOptions = {
-                format: docFormat,
-                snippet: true,
-                lazyEdit: true,
-                autoImport: true,
-                extraCommitChars: true,
-                importFormat: ImportFormat.Absolute,
-                includeUserSymbolsInAutoImport: false,
-            };
-            const nameMap = abbrMap ? new Map<string, AbbreviationInfo>(Object.entries(abbrMap)) : undefined;
-            const result = await this.workspace.service.getCompletionsForPosition(
-                filePath,
-                completionPosition,
-                this.workspace.rootPath,
-                options,
-                nameMap,
-                CancellationToken.None
-            );
-
-            if (result) {
+            const provider = this.getCompletionResults(this, marker, docFormat, abbrMap);
+            const results = provider.getCompletions();
+            if (results) {
                 if (verifyMode === 'exact') {
-                    if (result.completionList.items.length !== expectedCompletions.length) {
+                    if (results.items.length !== expectedCompletions.length) {
                         assert.fail(
                             `${markerName} - Expected ${expectedCompletions.length} items but received ${
-                                result.completionList.items.length
-                            }. Actual completions:\n${stringify(result.completionList.items.map((r) => r.label))}`
+                                results.items.length
+                            }. Actual completions:\n${stringify(results.items.map((r) => r.label))}`
                         );
                     }
                 }
 
                 for (let i = 0; i < expectedCompletions.length; i++) {
                     const expected = expectedCompletions[i];
-                    const actualIndex = result.completionList.items.findIndex(
+                    const actualIndex = results.items.findIndex(
                         (a) =>
                             a.label === expected.label &&
                             (expected.kind ? a.kind === expected.kind : true) &&
@@ -982,23 +966,15 @@ export class TestState {
                             assert.fail(
                                 `${markerName} - Completion item with label "${
                                     expected.label
-                                }" unexpected. Actual completions:\n${stringify(
-                                    result.completionList.items.map((r) => r.label)
-                                )}`
+                                }" unexpected. Actual completions:\n${stringify(results.items.map((r) => r.label))}`
                             );
                         }
 
-                        const actual: CompletionItem = result.completionList.items[actualIndex];
+                        const actual: CompletionItem = results.items[actualIndex];
 
                         if (expected.additionalTextEdits !== undefined) {
                             if (actual.additionalTextEdits === undefined) {
-                                this.workspace.service.resolveCompletionItem(
-                                    filePath,
-                                    actual,
-                                    options,
-                                    nameMap,
-                                    CancellationToken.None
-                                );
+                                provider.resolveCompletionItem(actual);
                             }
                         }
 
@@ -1006,13 +982,7 @@ export class TestState {
 
                         if (expected.documentation !== undefined) {
                             if (actual.documentation === undefined && actual.data) {
-                                this.workspace.service.resolveCompletionItem(
-                                    filePath,
-                                    actual,
-                                    options,
-                                    nameMap,
-                                    CancellationToken.None
-                                );
+                                provider.resolveCompletionItem(actual);
                             }
 
                             if (MarkupContent.is(actual.documentation)) {
@@ -1025,27 +995,25 @@ export class TestState {
                             }
                         }
 
-                        result.completionList.items.splice(actualIndex, 1);
+                        results.items.splice(actualIndex, 1);
                     } else {
                         if (verifyMode === 'included' || verifyMode === 'exact') {
                             // we're supposed to find all items passed to the test
                             assert.fail(
                                 `${markerName} - Completion item with label "${
                                     expected.label
-                                }" expected. Actual completions:\n${stringify(
-                                    result.completionList.items.map((r) => r.label)
-                                )}`
+                                }" expected. Actual completions:\n${stringify(results.items.map((r) => r.label))}`
                             );
                         }
                     }
                 }
 
                 if (verifyMode === 'exact') {
-                    if (result.completionList.items.length !== 0) {
+                    if (results.items.length !== 0) {
                         // we removed every item we found, there should not be any remaining
                         assert.fail(
                             `${markerName} - Completion items unexpected: ${stringify(
-                                result.completionList.items.map((r) => r.label)
+                                results.items.map((r) => r.label)
                             )}`
                         );
                     }
@@ -1053,25 +1021,6 @@ export class TestState {
             } else {
                 if (verifyMode !== 'exact' || expectedCompletions.length > 0) {
                     assert.fail(`${markerName} - Failed to get completions`);
-                }
-            }
-
-            if (map[markerName].memberAccessInfo !== undefined && result?.memberAccessInfo !== undefined) {
-                const expectedModule = map[markerName].memberAccessInfo?.lastKnownModule;
-                const expectedType = map[markerName].memberAccessInfo?.lastKnownMemberName;
-                const expectedName = map[markerName].memberAccessInfo?.unknownMemberName;
-                if (
-                    result?.memberAccessInfo?.lastKnownModule !== expectedModule ||
-                    result?.memberAccessInfo?.lastKnownMemberName !== expectedType ||
-                    result?.memberAccessInfo?.unknownMemberName !== expectedName
-                ) {
-                    assert.fail(
-                        `${markerName} - Expected completion results memberAccessInfo with \n    lastKnownModule: "${expectedModule}"\n    lastKnownMemberName: "${expectedType}"\n    unknownMemberName: "${expectedName}"\n  Actual memberAccessInfo:\n    lastKnownModule: "${
-                            result.memberAccessInfo?.lastKnownModule ?? ''
-                        }"\n    lastKnownMemberName: "${
-                            result.memberAccessInfo?.lastKnownMemberName ?? ''
-                        }\n    unknownMemberName: "${result.memberAccessInfo?.unknownMemberName ?? ''}" `
-                    );
                 }
             }
         }
@@ -1183,18 +1132,14 @@ export class TestState {
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
 
-            const actual: DocumentRange[] = [];
-            this.program.reportReferencesForPosition(
+            const actual = new ReferencesProvider(this.program, CancellationToken.None).reportReferences(
                 fileName,
                 position,
-                true,
-                (locs) => appendArray(actual, locs),
-                CancellationToken.None
+                /* includeDeclaration */ true
             );
-
             assert.strictEqual(actual?.length ?? 0, expected.length, `${name} has failed`);
 
-            for (const r of expected) {
+            for (const r of convertDocumentRangesToLocation(this.program.fileSystem, expected)) {
                 assert.equal(actual?.filter((d) => this._deepEqual(d, r)).length, 1);
             }
         }
@@ -1361,7 +1306,7 @@ export class TestState {
             if (!this.program.getSourceFileInfo(fileName)) {
                 const file = this.testData.files.find((v) => v.fileName === fileName);
                 if (file) {
-                    this.program.setFileOpened(fileName, file.version, [{ text: file.content }]);
+                    this.program.setFileOpened(fileName, file.version, file.content);
                 }
             }
 
@@ -1419,12 +1364,15 @@ export class TestState {
         }
     }
 
-    verifyRename(map: {
-        [marker: string]: {
-            newName: string;
-            changes: FileEditAction[];
-        };
-    }) {
+    verifyRename(
+        map: {
+            [marker: string]: {
+                newName: string;
+                changes: FileEditAction[];
+            };
+        },
+        isUntitled = false
+    ) {
         this.analyze();
 
         for (const marker of this.getMarkers()) {
@@ -1438,20 +1386,16 @@ export class TestState {
             const expected = map[name];
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
-            const actual = this.program.renameSymbolAtPosition(
-                fileName,
-                position,
+            const actual = new RenameProvider(this.program, fileName, position, CancellationToken.None).renameSymbol(
                 expected.newName,
                 /* isDefaultWorkspace */ false,
-                /* allowModuleRename */ false,
-                CancellationToken.None
+                isUntitled
             );
 
-            assert.equal(actual?.edits.length ?? 0, expected.changes.length);
-
-            for (const c of expected.changes) {
-                assert.equal(actual?.edits.filter((e) => this._deepEqual(e, c)).length, 1);
-            }
+            verifyWorkspaceEdit(
+                convertToWorkspaceEdit(this.program.fileSystem, { edits: expected.changes, fileOperations: [] }),
+                actual ?? { documentChanges: [] }
+            );
         }
     }
 
@@ -1461,6 +1405,134 @@ export class TestState {
 
     resetCancelled(): void {
         this._cancellationToken.resetCancelled();
+    }
+
+    convertPositionToOffset(fileName: string, position: Position): number {
+        const lines = this._getTextRangeCollection(fileName);
+        return convertPositionToOffset(position, lines)!;
+    }
+
+    convertOffsetToPosition(fileName: string, offset: number): Position {
+        const lines = this._getTextRangeCollection(fileName);
+
+        return convertOffsetToPosition(offset, lines);
+    }
+
+    analyze() {
+        while (this.program.analyze()) {
+            // Continue to call analyze until it completes. Since we're not
+            // specifying a timeout, it should complete the first time.
+        }
+    }
+
+    protected getCompletionResults(
+        state: TestState,
+        marker: Marker,
+        docFormat: MarkupKind,
+        abbrMap?: {
+            [abbr: string]: {
+                readonly importFrom?: string;
+                readonly importName: string;
+            };
+        }
+    ): { getCompletions(): CompletionList | null; resolveCompletionItem(item: CompletionItem): void } {
+        const filePath = marker.fileName;
+        const completionPosition = this.convertOffsetToPosition(filePath, marker.position);
+
+        const options: CompletionOptions = {
+            format: docFormat,
+            snippet: true,
+            lazyEdit: false,
+        };
+
+        return new CompletionProvider(
+            this.program,
+            this.workspace.rootPath,
+            filePath,
+            completionPosition,
+            options,
+            CancellationToken.None
+        );
+    }
+
+    protected getFileContent(fileName: string): string {
+        const files = this.testData.files.filter(
+            (f) => comparePaths(f.fileName, fileName, this.testFS.ignoreCase) === Comparison.EqualTo
+        );
+        return files[0].content;
+    }
+
+    protected convertOffsetsToRange(fileName: string, startOffset: number, endOffset: number): PositionRange {
+        const lines = this._getTextRangeCollection(fileName);
+
+        return {
+            start: convertOffsetToPosition(startOffset, lines),
+            end: convertOffsetToPosition(endOffset, lines),
+        };
+    }
+
+    protected raiseError(message: string): never {
+        throw new Error(this._messageAtLastKnownMarker(message));
+    }
+
+    protected createMultiMap<T>(values?: T[], getKey?: (t: T) => string): MultiMap<T> {
+        const map = new Map<string, T[]>() as MultiMap<T>;
+        map.add = multiMapAdd;
+        map.remove = multiMapRemove;
+
+        if (values && getKey) {
+            for (const value of values) {
+                map.add(getKey(value), value);
+            }
+        }
+
+        return map;
+
+        function multiMapAdd<T>(this: MultiMap<T>, key: string, value: T) {
+            let values = this.get(key);
+            if (values) {
+                values.push(value);
+            } else {
+                this.set(key, (values = [value]));
+            }
+            return values;
+        }
+
+        function multiMapRemove<T>(this: MultiMap<T>, key: string, value: T) {
+            const values = this.get(key);
+            if (values) {
+                values.forEach((v, i, arr) => {
+                    if (v === value) {
+                        arr.splice(i, 1);
+                    }
+                });
+                if (!values.length) {
+                    this.delete(key);
+                }
+            }
+        }
+    }
+
+    protected rangeText({ fileName, pos, end }: Range): string {
+        return this.getFileContent(fileName).slice(pos, end);
+    }
+
+    protected verifyCompletionItem(expected: _.FourSlashCompletionItem, actual: CompletionItem) {
+        assert.strictEqual(actual.label, expected.label);
+        assert.strictEqual(actual.detail, expected.detail);
+        assert.strictEqual(actual.kind, expected.kind);
+
+        assert.strictEqual(actual.insertText, expected.insertionText);
+        this._verifyEdit(actual.textEdit as TextEdit, expected.textEdit);
+        this._verifyEdits(actual.additionalTextEdits, expected.additionalTextEdits);
+
+        if (expected.detailDescription !== undefined) {
+            assert.strictEqual(actual.labelDetails?.description, expected.detailDescription);
+        }
+
+        if (expected.commitCharacters !== undefined) {
+            expect(expected.commitCharacters.sort()).toEqual(actual.commitCharacters?.sort() ?? []);
+        }
     }
 
     private _convertGlobalOptionsToConfigOptions(projectRoot: string, mountPaths?: Map<string, string>): ConfigOptions {
@@ -1505,33 +1577,6 @@ export class TestState {
         return configOptions;
     }
 
-    protected getFileContent(fileName: string): string {
-        const files = this.testData.files.filter(
-            (f) => comparePaths(f.fileName, fileName, this.testFS.ignoreCase) === Comparison.EqualTo
-        );
-        return files[0].content;
-    }
-
-    convertPositionToOffset(fileName: string, position: Position): number {
-        const lines = this._getTextRangeCollection(fileName);
-        return convertPositionToOffset(position, lines)!;
-    }
-
-    convertOffsetToPosition(fileName: string, offset: number): Position {
-        const lines = this._getTextRangeCollection(fileName);
-
-        return convertOffsetToPosition(offset, lines);
-    }
-
-    protected convertOffsetsToRange(fileName: string, startOffset: number, endOffset: number): PositionRange {
-        const lines = this._getTextRangeCollection(fileName);
-
-        return {
-            start: convertOffsetToPosition(startOffset, lines),
-            end: convertOffsetToPosition(endOffset, lines),
-        };
-    }
-
     private _getParseResult(fileName: string) {
         const file = this.program.getBoundSourceFile(fileName)!;
         return file.getParseResults()!;
@@ -1546,10 +1591,6 @@ export class TestState {
         const fileContents = this.fs.readFileSync(fileName, 'utf8');
         const tokenizer = new Tokenizer();
         return tokenizer.tokenize(fileContents).lines;
-    }
-
-    protected raiseError(message: string): never {
-        throw new Error(this._messageAtLastKnownMarker(message));
     }
 
     private _messageAtLastKnownMarker(message: string) {
@@ -1582,48 +1623,6 @@ export class TestState {
 
     private _removeWhitespace(text: string): string {
         return text.replace(/\s/g, '');
-    }
-
-    protected createMultiMap<T>(values?: T[], getKey?: (t: T) => string): MultiMap<T> {
-        const map = new Map<string, T[]>() as MultiMap<T>;
-        map.add = multiMapAdd;
-        map.remove = multiMapRemove;
-
-        if (values && getKey) {
-            for (const value of values) {
-                map.add(getKey(value), value);
-            }
-        }
-
-        return map;
-
-        function multiMapAdd<T>(this: MultiMap<T>, key: string, value: T) {
-            let values = this.get(key);
-            if (values) {
-                values.push(value);
-            } else {
-                this.set(key, (values = [value]));
-            }
-            return values;
-        }
-
-        function multiMapRemove<T>(this: MultiMap<T>, key: string, value: T) {
-            const values = this.get(key);
-            if (values) {
-                values.forEach((v, i, arr) => {
-                    if (v === value) {
-                        arr.splice(i, 1);
-                    }
-                });
-                if (!values.length) {
-                    this.delete(key);
-                }
-            }
-        }
-    }
-
-    protected _rangeText({ fileName, pos, end }: Range): string {
-        return this.getFileContent(fileName).slice(pos, end);
     }
 
     private _getOnlyRange() {
@@ -1778,13 +1777,6 @@ export class TestState {
         return position <= editStart ? position : position < editEnd ? -1 : position + length - +(editEnd - editStart);
     }
 
-    public analyze() {
-        while (this.program.analyze()) {
-            // Continue to call analyze until it completes. Since we're not
-            // specifying a timeout, it should complete the first time.
-        }
-    }
-
     private _getDiagnosticsPerFile() {
         const sourceFiles = this._files.map((f) => this.program.getSourceFile(f));
         const results = sourceFiles.map((sourceFile, index) => {
@@ -1925,24 +1917,6 @@ export class TestState {
 
         if (extra.length > 0 || left.length > 0) {
             this.raiseError(`doesn't contain expected result: ${stringify(extra)}, actual: ${stringify(left)}`);
-        }
-    }
-
-    protected verifyCompletionItem(expected: _.FourSlashCompletionItem, actual: CompletionItem) {
-        assert.strictEqual(actual.label, expected.label);
-        assert.strictEqual(actual.detail, expected.detail);
-        assert.strictEqual(actual.kind, expected.kind);
-
-        assert.strictEqual(actual.insertText, expected.insertionText);
-        this._verifyEdit(actual.textEdit as TextEdit, expected.textEdit);
-        this._verifyEdits(actual.additionalTextEdits, expected.additionalTextEdits);
-
-        if (expected.detailDescription !== undefined) {
-            assert.strictEqual(actual.labelDetails?.description, expected.detailDescription);
-        }
-
-        if (expected.commitCharacters !== undefined) {
-            expect(expected.commitCharacters.sort()).toEqual(actual.commitCharacters?.sort() ?? []);
         }
     }
 }

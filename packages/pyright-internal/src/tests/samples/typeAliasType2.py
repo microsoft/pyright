@@ -1,0 +1,51 @@
+# This sample tests the TypeAliasType constructor.
+
+from typing import Callable, Generic, ParamSpec, TypeVar, TypeVarTuple
+from typing_extensions import TypeAliasType
+
+T1 = TypeVar("T1")
+
+S = TypeVar("S", bound=int)
+T = TypeVar("T", bound=str)
+P = ParamSpec("P")
+Ts = TypeVarTuple("Ts")
+
+TA1 = TypeAliasType("TA1", T1 | list[TA1[T1]], type_params=(T1,))
+
+x1: TA1[int] = 1
+x2: TA1[int] = [1]
+
+TA2 = TypeAliasType(
+    "TA2",
+    Callable[P, T] | list[S] | list[TA2[S, T, P]] | tuple[*Ts],
+    type_params=(S, T, P, Ts),
+)
+
+
+# This should generate an error because str isn't compatible with S bound.
+x3: TA2[str, str, ..., int, str]
+
+x4: TA2[int, str, ..., int, str]
+
+# This should generate an error because int isn't compatible with T bound.
+x5: TA2[int, int, ...]
+
+x6: TA2[int, str, [int, str], *tuple[int, str, int]]
+
+# This should generate an error because it is unresolvable.
+TA3 = TypeAliasType("TA3", TA3)
+
+# This should generate an error because it is unresolvable.
+TA4 = TypeAliasType("TA4", T | TA4[str], type_params=(T,))
+
+TA5 = TypeAliasType("TA5", T | list[TA5[T]], type_params=(T,))
+
+# This should generate an error because it is unresolvable.
+TA6 = TypeAliasType("TA6", TA7)
+TA7 = TypeAliasType("TA7", TA6)
+
+JSONNode = TypeAliasType("JSONNode", list[JSONNode] | dict[str, JSONNode] | str | float)
+
+
+class A(Generic[T]):
+    L = TypeAliasType("L", list[T])

@@ -2,50 +2,50 @@
 
 # pyright: strict, reportUnusedVariable=false
 
-from typing import Dict, Generator, List, Optional, Union
+from typing import Generator
 
 
-JSONArray = List["JSONType"]
-JSONObject = Dict[str, "JSONType"]
+JSONArray = list["JSONType"]
+JSONObject = dict[str, "JSONType"]
 
-JSONPrimitive = Union[str, float, int, bool, None]
-JSONStructured = Union[JSONArray, JSONObject]
+JSONPrimitive = str | float | int | bool | None
+JSONStructured = JSONArray | JSONObject
 
-JSONType = Union[JSONPrimitive, JSONStructured]
+JSONType = JSONPrimitive | JSONStructured
 
 
 # Using type alias checking for list:
 def f2(args: JSONStructured):
-    if isinstance(args, List):
+    if isinstance(args, list):
         reveal_type(
             args,
-            expected_text="List[str | float | int | bool | JSONArray | Dict[str, JSONType] | None]",
+            expected_text="list[str | float | int | bool | JSONArray | dict[str, JSONType] | None]",
         )
     else:
         reveal_type(
             args,
-            expected_text="Dict[str, str | float | int | bool | List[JSONType] | JSONObject | None]",
+            expected_text="dict[str, str | float | int | bool | list[JSONType] | JSONObject | None]",
         )
         dargs: JSONObject = args
 
 
 # Using type alias checking for dict:
 def f3(args: JSONStructured):
-    if isinstance(args, Dict):
+    if isinstance(args, dict):
         reveal_type(
             args,
-            expected_text="Dict[str, str | float | int | bool | List[JSONType] | JSONObject | None]",
+            expected_text="dict[str, str | float | int | bool | list[JSONType] | JSONObject | None]",
         )
     else:
         reveal_type(
             args,
-            expected_text="List[str | float | int | bool | JSONArray | Dict[str, JSONType] | None]",
+            expected_text="list[str | float | int | bool | JSONArray | dict[str, JSONType] | None]",
         )
         largs: JSONArray = args
 
 
 # Using type alias for "is None" narrowing:
-LinkedList = Optional[tuple[int, "LinkedList"]]
+LinkedList = tuple[int, "LinkedList"] | None
 
 
 def g(xs: LinkedList) -> Generator[int, None, None]:

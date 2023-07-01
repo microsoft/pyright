@@ -4,12 +4,12 @@
 # variable statement.
 
 
-class Foo:
+class ClassA:
     bar: str = "hi"
 
-    def __init__(self, baz: str) -> None:
-        self.str = baz
+    def __init__(self, val: str) -> None:
+        self.str = val
 
     @classmethod
-    def from_baz(cls, baz: str) -> None:
-        cls.str = baz
+    def method1(cls, val: str) -> None:
+        cls.str = val

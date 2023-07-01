@@ -1,6 +1,7 @@
 # This sample tests the case where return type inference encounters
 # recursion.
 
+
 class Grammar:
     @staticmethod
     def A():

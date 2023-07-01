@@ -1,21 +1,21 @@
-# This sample verifies that a generic dataclass works.
+# This sample tests the generation of __init__ when some ancestor
+# classes are unknown.
 
 from dataclasses import dataclass
-from typing import Generic, TypeVar, Union
+import abc
+from random import random
 
-T = TypeVar("T")
+C = abc.ABC if random() else object
+
+
+class B(C):
+    def __init__(self, x: int):
+        pass
 
 
 @dataclass
-class Foo(Generic[T]):
-    value: Union[str, T]
+class A(B):
+    color: str
 
 
-reveal_type(Foo(""), expected_text="Foo[Unknown]")
-
-
-class Bar(Foo[int]):
-    pass
-
-
-reveal_type(Bar(123), expected_text="Bar")
+reveal_type(A.__init__, expected_text="(self: A, *args: Any, **kwargs: Any) -> None")

@@ -1,8 +1,16 @@
 from _typeshed import Incomplete
+from enum import IntEnum
 from typing import Any, ClassVar
 from typing_extensions import Literal
 
 from .ImageFile import ImageFile
+
+class LoadingStrategy(IntEnum):
+    RGB_AFTER_FIRST = 0
+    RGB_AFTER_DIFFERENT_PALETTE_ONLY = 1
+    RGB_ALWAYS = 2
+
+LOADING_STRATEGY: LoadingStrategy
 
 class GifImageFile(ImageFile):
     format: ClassVar[Literal["GIF"]]

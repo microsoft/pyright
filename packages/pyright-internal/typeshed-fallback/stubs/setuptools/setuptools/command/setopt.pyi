@@ -1,7 +1,9 @@
 from abc import abstractmethod
 from typing import Any
 
-from setuptools import Command
+from .. import Command
+
+__all__ = ["config_file", "edit_config", "option_base", "setopt"]
 
 def config_file(kind: str = "local"): ...
 def edit_config(filename, settings, dry_run: bool = False) -> None: ...

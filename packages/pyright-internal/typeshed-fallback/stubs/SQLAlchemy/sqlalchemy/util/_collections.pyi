@@ -88,11 +88,11 @@ class OrderedSet(set[_T], Generic[_T]):
     def union(self, other: Iterable[_S]) -> OrderedSet[_S | _T]: ...  # type: ignore[override]
     __or__ = union  # type: ignore[assignment]  # pyright: ignore[reportGeneralTypeIssues]
     def intersection(self, other: Iterable[Any]) -> Self: ...  # type: ignore[override]
-    __and__ = intersection
+    __and__ = intersection  # type: ignore[assignment]
     def symmetric_difference(self, other: Iterable[_S]) -> OrderedSet[_S | _T]: ...
     __xor__ = symmetric_difference  # type: ignore[assignment]  # pyright: ignore[reportGeneralTypeIssues]
     def difference(self, other: Iterable[Any]) -> Self: ...  # type: ignore[override]
-    __sub__ = difference
+    __sub__ = difference  # type: ignore[assignment]
     def intersection_update(self, other: Iterable[Any]) -> Self: ...  # type: ignore[override]
     __iand__ = intersection_update  # type: ignore[assignment]
     def symmetric_difference_update(self, other: Iterable[_T]) -> Self: ...  # type: ignore[override]

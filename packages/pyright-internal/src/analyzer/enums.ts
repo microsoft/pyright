@@ -7,6 +7,7 @@
  * Provides special-case logic for the Enum class.
  */
 
+import { assert } from '../common/debug';
 import { ArgumentCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { VariableDeclaration } from './declaration';
@@ -14,17 +15,20 @@ import { getClassFullName, getEnclosingClass, getTypeSourceId } from './parseTre
 import { Symbol, SymbolFlags } from './symbol';
 import { isSingleDunderName } from './symbolNameUtils';
 import { FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
+import { enumerateLiteralsForType } from './typeGuards';
+import { ClassMemberLookupFlags, computeMroLinearization, lookUpClassMember } from './typeUtils';
 import {
+    AnyType,
     ClassType,
     ClassTypeFlags,
     EnumLiteral,
+    Type,
+    combineTypes,
     isClass,
     isClassInstance,
     isFunction,
     isInstantiableClass,
-    Type,
 } from './types';
-import { computeMroLinearization } from './typeUtils';
 
 export function isKnownEnumType(className: string) {
     const knownEnumTypes = ['Enum', 'IntEnum', 'StrEnum', 'Flag', 'IntFlag'];
@@ -295,7 +299,21 @@ export function transformTypeForPossibleEnumClass(
         isMemberOfEnumeration = false;
     }
 
-    const valueType = getValueType();
+    let valueType: Type;
+
+    // If the class includes a __new__ method, we cannot assume that
+    // the value of each enum element is simply the value assigned to it.
+    // The __new__ method can transform the value in ways that we cannot
+    // determine statically.
+    const newMember = lookUpClassMember(enumClassInfo.classType, '__new__', ClassMemberLookupFlags.SkipBaseClasses);
+    if (newMember) {
+        // We may want to change this to UnknownType in the future, but
+        // for now, we'll leave it as Any which is consistent with the
+        // type specified in the Enum class definition in enum.pyi.
+        valueType = AnyType.create();
+    } else {
+        valueType = getValueType();
+    }
 
     // The spec excludes descriptors.
     if (isClassInstance(valueType) && valueType.details.fields.get('__get__')) {
@@ -342,23 +360,69 @@ export function getTypeOfEnumMember(
     }
 
     const literalValue = classType.literalValue;
-    if (!(literalValue instanceof EnumLiteral)) {
-        return undefined;
-    }
 
     if (memberName === 'name' || memberName === '_name_') {
         const strClass = evaluator.getBuiltInType(errorNode, 'str');
+        if (!isInstantiableClass(strClass)) {
+            return undefined;
+        }
 
-        if (isInstantiableClass(strClass)) {
+        const makeNameType = (value: EnumLiteral) => {
+            return ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strClass, value.itemName));
+        };
+
+        if (literalValue) {
+            assert(literalValue instanceof EnumLiteral);
+            return { type: makeNameType(literalValue), isIncomplete };
+        }
+
+        // The type wasn't associated with a particular enum literal, so return
+        // a union of all possible enum literals.
+        const literalValues = enumerateLiteralsForType(evaluator, classType);
+        if (literalValues) {
             return {
-                type: ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strClass, literalValue.itemName)),
+                type: combineTypes(
+                    literalValues.map((literalClass) => {
+                        const literalValue = literalClass.literalValue;
+                        assert(literalValue instanceof EnumLiteral);
+                        return makeNameType(literalValue);
+                    })
+                ),
                 isIncomplete,
             };
         }
     }
 
     if (memberName === 'value' || memberName === '_value_') {
-        return { type: literalValue.itemType, isIncomplete };
+        // If the enum class has a custom metaclass, it may implement some
+        // "magic" that computes different values for the "value" attribute.
+        // This occurs, for example, in the django TextChoices class. If we
+        // detect a custom metaclass, we'll assume the value is Any.
+        const metaclass = classType.details.effectiveMetaclass;
+        if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass)) {
+            return { type: AnyType.create(), isIncomplete };
+        }
+
+        if (literalValue) {
+            assert(literalValue instanceof EnumLiteral);
+            return { type: literalValue.itemType, isIncomplete };
+        }
+
+        // The type wasn't associated with a particular enum literal, so return
+        // a union of all possible enum literals.
+        const literalValues = enumerateLiteralsForType(evaluator, classType);
+        if (literalValues && literalValues.length > 0) {
+            return {
+                type: combineTypes(
+                    literalValues.map((literalClass) => {
+                        const literalValue = literalClass.literalValue;
+                        assert(literalValue instanceof EnumLiteral);
+                        return literalValue.itemType;
+                    })
+                ),
+                isIncomplete,
+            };
+        }
     }
 
     return undefined;

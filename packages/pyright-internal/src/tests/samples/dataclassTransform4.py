@@ -5,11 +5,7 @@ from typing import (
     Any,
     Callable,
     Literal,
-    Optional,
-    Tuple,
-    Type,
     TypeVar,
-    Union,
     overload,
 )
 
@@ -20,8 +16,8 @@ class ModelField:
     def __init__(
         self,
         *,
-        default: Optional[Any] = ...,
-        init: Optional[bool] = True,
+        default: Any | None = ...,
+        init: bool | None = True,
         **kwargs: Any,
     ) -> None:
         ...
@@ -30,7 +26,7 @@ class ModelField:
 @overload
 def field(
     *,
-    default: Optional[str] = None,
+    default: str | None = None,
     resolver: Callable[[], Any],
     init: Literal[False] = False,
 ) -> Any:
@@ -40,7 +36,7 @@ def field(
 @overload
 def field(
     *,
-    default: Optional[str] = None,
+    default: str | None = None,
     resolver: None = None,
     init: Literal[True] = True,
 ) -> Any:
@@ -49,8 +45,8 @@ def field(
 
 def field(
     *,
-    default: Optional[str] = None,
-    resolver: Optional[Callable[[], Any]] = None,
+    default: str | None = None,
+    resolver: Callable[[], Any] | None = None,
     init: bool = True,
 ) -> Any:
     ...
@@ -61,7 +57,7 @@ def __dataclass_transform__(
     eq_default: bool = True,
     order_default: bool = False,
     kw_only_default: bool = False,
-    field_specifiers: Tuple[Union[type, Callable[..., Any]], ...] = (()),
+    field_specifiers: tuple[type | Callable[..., Any], ...] = (()),
 ) -> Callable[[T], T]:
     # If used within a stub file, the following implementation can be
     # replaced with "...".
@@ -69,7 +65,7 @@ def __dataclass_transform__(
 
 
 @__dataclass_transform__(kw_only_default=True, field_specifiers=(field,))
-def create_model(*, init: bool = True) -> Callable[[Type[T]], Type[T]]:
+def create_model(*, init: bool = True) -> Callable[[type[T]], type[T]]:
     ...
 
 

@@ -4,7 +4,7 @@
 
 from os import DirEntry
 from types import TracebackType
-from typing import AnyStr, ContextManager, Iterator, Type
+from typing import AnyStr, ContextManager, Iterator
 from typing_extensions import Self
 
 
@@ -25,7 +25,7 @@ class _ScandirIterator(
 
     def __exit__(
         self,
-        __exc_type: Type[BaseException] | None,
+        __exc_type: type[BaseException] | None,
         __exc_value: BaseException | None,
         __traceback: TracebackType | None,
     ) -> bool | None:

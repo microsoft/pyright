@@ -2,23 +2,37 @@
 # and a base class with an annotated cls or self parameter that
 # relies on the subclass being passed as a parameter.
 
+from typing import Generic, TypeVar
 
-from __future__ import annotations
-import typing
-
-T = typing.TypeVar("T")
+_T1 = TypeVar("_T1")
+_T2 = TypeVar("_T2", bound="Parent2")
 
 
-class Base(typing.Generic[T]):
+class Parent1(Generic[_T1]):
     @classmethod
-    def construct(cls: typing.Type[T]) -> T:
+    def construct(cls: type[_T1]) -> _T1:
         return cls()
 
 
-class Derived(Base["Derived"]):
+class Child1(Parent1["Child1"]):
     @classmethod
-    def construct(cls) -> Derived:
+    def construct(cls) -> "Child1":
         return super().construct()
 
 
-d: Derived = Derived.construct()
+reveal_type(Child1.construct(), expected_text="Child1")
+
+
+class Parent2:
+    @classmethod
+    def construct(cls: type[_T2]) -> _T2:
+        ...
+
+
+class Child2(Parent2):
+    @classmethod
+    def construct(cls: type[_T2]) -> _T2:
+        return super().construct()
+
+
+reveal_type(Child2.construct(), expected_text="Child2")

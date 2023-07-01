@@ -1,28 +1,26 @@
 # This sample tests support for callback protocols (defined in PEP 544).
 
-from typing import Optional, List, Protocol
+from typing import Protocol
 
 
 class TestClass1(Protocol):
-    def __call__(self, *vals: bytes, maxlen: Optional[int] = None) -> List[bytes]:
+    def __call__(self, *vals: bytes, maxlen: int | None = None) -> list[bytes]:
         return []
 
 
-def good_cb(*vals: bytes, maxlen: Optional[int] = None) -> List[bytes]:
+def good_cb(*vals: bytes, maxlen: int | None = None) -> list[bytes]:
     return []
 
 
-def bad_cb1(
-    *vals: bytes, maxlen: Optional[int], maxitems: Optional[int]
-) -> List[bytes]:
+def bad_cb1(*vals: bytes, maxlen: int | None, maxitems: int | None) -> list[bytes]:
     return []
 
 
-def bad_cb2(*vals: bytes) -> List[bytes]:
+def bad_cb2(*vals: bytes) -> list[bytes]:
     return []
 
 
-def bad_cb3(*vals: bytes, maxlen: Optional[str]) -> List[bytes]:
+def bad_cb3(*vals: bytes, maxlen: str | None) -> list[bytes]:
     return []
 
 
@@ -119,7 +117,7 @@ f: TestClass5 = func7
 
 
 class TestClass6:
-    def __call__(self, *vals: bytes, maxlen: Optional[int] = None) -> List[bytes]:
+    def __call__(self, *vals: bytes, maxlen: int | None = None) -> list[bytes]:
         return []
 
 

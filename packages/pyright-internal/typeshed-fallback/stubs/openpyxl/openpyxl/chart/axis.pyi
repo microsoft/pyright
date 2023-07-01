@@ -1,110 +1,168 @@
-from _typeshed import Incomplete
-from abc import abstractmethod
+from _typeshed import Incomplete, Unused
+from typing import ClassVar, overload
+from typing_extensions import Literal, TypeAlias
 
+from openpyxl.chart.layout import Layout
+from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.chart.text import RichText, Text
+from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt
+from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import (
+    NestedBool,
+    NestedFloat,
+    NestedInteger,
+    NestedMinMax,
+    NestedNoneSet,
+    NestedSet,
+    _HasTagAndGet,
+    _NestedNoneSetParam,
+)
 from openpyxl.descriptors.serialisable import Serialisable
 
+_ScalingOrientation: TypeAlias = Literal["maxMin", "minMax"]
+_BaseAxisAxPos: TypeAlias = Literal["b", "l", "r", "t"]
+_BaseAxisTickMark: TypeAlias = Literal["cross", "in", "out"]
+_BaseAxisTickLblPos: TypeAlias = Literal["high", "low", "nextTo"]
+_BaseAxisCrosses: TypeAlias = Literal["autoZero", "max", "min"]
+_DisplayUnitsLabelListBuiltInUnit: TypeAlias = Literal[
+    "hundreds",
+    "thousands",
+    "tenThousands",
+    "hundredThousands",
+    "millions",
+    "tenMillions",
+    "hundredMillions",
+    "billions",
+    "trillions",
+]
+_NumericAxisCrossBetween: TypeAlias = Literal["between", "midCat"]
+_TextAxisLblAlgn: TypeAlias = Literal["ctr", "l", "r"]
+_DateAxisTimeUnit: TypeAlias = Literal["days", "months", "years"]
+
 class ChartLines(Serialisable):
-    tagname: str
-    spPr: Incomplete
-    graphicalProperties: Incomplete
-    def __init__(self, spPr: Incomplete | None = None) -> None: ...
+    tagname: ClassVar[str]
+    spPr: Typed[GraphicalProperties, Literal[True]]
+    graphicalProperties: Alias
+    def __init__(self, spPr: GraphicalProperties | None = None) -> None: ...
 
 class Scaling(Serialisable):
-    tagname: str
-    logBase: Incomplete
-    orientation: Incomplete
-    max: Incomplete
-    min: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    tagname: ClassVar[str]
+    logBase: NestedFloat[Literal[True]]
+    orientation: NestedSet[_ScalingOrientation]
+    max: NestedFloat[Literal[True]]
+    min: NestedFloat[Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        logBase: Incomplete | None = None,
-        orientation: str = "minMax",
-        max: Incomplete | None = None,
-        min: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        logBase: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
+        orientation: _HasTagAndGet[_ScalingOrientation] | _ScalingOrientation = "minMax",
+        max: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
+        min: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
+        extLst: Unused = None,
     ) -> None: ...
 
 class _BaseAxis(Serialisable):
-    axId: Incomplete
-    scaling: Incomplete
-    delete: Incomplete
-    axPos: Incomplete
-    majorGridlines: Incomplete
-    minorGridlines: Incomplete
+    axId: NestedInteger[Literal[False]]
+    scaling: Typed[Scaling, Literal[False]]
+    delete: NestedBool[Literal[True]]
+    axPos: NestedSet[_BaseAxisAxPos]
+    majorGridlines: Typed[ChartLines, Literal[True]]
+    minorGridlines: Typed[ChartLines, Literal[True]]
     title: Incomplete
     numFmt: Incomplete
-    number_format: Incomplete
-    majorTickMark: Incomplete
-    minorTickMark: Incomplete
-    tickLblPos: Incomplete
-    spPr: Incomplete
-    graphicalProperties: Incomplete
-    txPr: Incomplete
-    textProperties: Incomplete
-    crossAx: Incomplete
-    crosses: Incomplete
-    crossesAt: Incomplete
-    __elements__: Incomplete
+    number_format: Alias
+    majorTickMark: NestedNoneSet[_BaseAxisTickMark]
+    minorTickMark: NestedNoneSet[_BaseAxisTickMark]
+    tickLblPos: NestedNoneSet[_BaseAxisTickLblPos]
+    spPr: Typed[GraphicalProperties, Literal[True]]
+    graphicalProperties: Alias
+    txPr: Typed[RichText, Literal[True]]
+    textProperties: Alias
+    crossAx: NestedInteger[Literal[False]]
+    crosses: NestedNoneSet[_BaseAxisCrosses]
+    crossesAt: NestedFloat[Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
+    @overload
     def __init__(
         self,
-        axId: Incomplete | None = None,
-        scaling: Incomplete | None = None,
-        delete: Incomplete | None = None,
-        axPos: str = "l",
-        majorGridlines: Incomplete | None = None,
-        minorGridlines: Incomplete | None = None,
+        axId: _HasTagAndGet[_ConvertibleToInt] | _ConvertibleToInt,
+        scaling: Scaling | None,
+        delete: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None,
+        axPos: _HasTagAndGet[_BaseAxisAxPos] | _BaseAxisAxPos,
+        majorGridlines: ChartLines | None,
+        minorGridlines: ChartLines | None,
+        title: Incomplete | None,
+        numFmt: Incomplete | None,
+        majorTickMark: _NestedNoneSetParam[_BaseAxisTickMark],
+        minorTickMark: _NestedNoneSetParam[_BaseAxisTickMark],
+        tickLblPos: _NestedNoneSetParam[_BaseAxisTickLblPos],
+        spPr: GraphicalProperties | None,
+        txPr: RichText | None,
+        crossAx: _HasTagAndGet[_ConvertibleToInt] | _ConvertibleToInt,
+        crosses: _NestedNoneSetParam[_BaseAxisCrosses] = None,
+        crossesAt: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        axId: _HasTagAndGet[_ConvertibleToInt] | _ConvertibleToInt,
+        scaling: Scaling | None = None,
+        delete: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        axPos: _HasTagAndGet[_BaseAxisAxPos] | _BaseAxisAxPos = "l",
+        majorGridlines: ChartLines | None = None,
+        minorGridlines: ChartLines | None = None,
         title: Incomplete | None = None,
         numFmt: Incomplete | None = None,
         majorTickMark: Incomplete | None = None,
         minorTickMark: Incomplete | None = None,
         tickLblPos: Incomplete | None = None,
-        spPr: Incomplete | None = None,
-        txPr: Incomplete | None = None,
-        crossAx: Incomplete | None = None,
+        spPr: GraphicalProperties | None = None,
+        txPr: RichText | None = None,
+        *,
+        crossAx: _HasTagAndGet[_ConvertibleToInt] | _ConvertibleToInt,
         crosses: Incomplete | None = None,
-        crossesAt: Incomplete | None = None,
+        crossesAt: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
     ) -> None: ...
-    @property
-    @abstractmethod
-    def tagname(self) -> str: ...
 
 class DisplayUnitsLabel(Serialisable):
-    tagname: str
-    layout: Incomplete
-    tx: Incomplete
-    text: Incomplete
-    spPr: Incomplete
-    graphicalProperties: Incomplete
-    txPr: Incomplete
-    textPropertes: Incomplete
-    __elements__: Incomplete
+    tagname: ClassVar[str]
+    layout: Typed[Layout, Literal[True]]
+    tx: Typed[Text, Literal[True]]
+    text: Alias
+    spPr: Typed[GraphicalProperties, Literal[True]]
+    graphicalProperties: Alias
+    txPr: Typed[RichText, Literal[True]]
+    textPropertes: Alias
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        layout: Incomplete | None = None,
-        tx: Incomplete | None = None,
-        spPr: Incomplete | None = None,
-        txPr: Incomplete | None = None,
+        layout: Layout | None = None,
+        tx: Text | None = None,
+        spPr: GraphicalProperties | None = None,
+        txPr: RichText | None = None,
     ) -> None: ...
 
 class DisplayUnitsLabelList(Serialisable):
-    tagname: str
-    custUnit: Incomplete
-    builtInUnit: Incomplete
-    dispUnitsLbl: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    tagname: ClassVar[str]
+    custUnit: NestedFloat[Literal[True]]
+    builtInUnit: NestedNoneSet[_DisplayUnitsLabelListBuiltInUnit]
+    dispUnitsLbl: Typed[DisplayUnitsLabel, Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        custUnit: Incomplete | None = None,
-        builtInUnit: Incomplete | None = None,
-        dispUnitsLbl: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        custUnit: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
+        builtInUnit: _HasTagAndGet[_DisplayUnitsLabelListBuiltInUnit]
+        | _DisplayUnitsLabelListBuiltInUnit
+        | Literal["none"]
+        | None = None,
+        dispUnitsLbl: DisplayUnitsLabel | None = None,
+        extLst: Unused = None,
     ) -> None: ...
 
 class NumericAxis(_BaseAxis):
-    tagname: str
+    tagname: ClassVar[str]
     axId: Incomplete
     scaling: Incomplete
     delete: Incomplete
@@ -121,26 +179,26 @@ class NumericAxis(_BaseAxis):
     crossAx: Incomplete
     crosses: Incomplete
     crossesAt: Incomplete
-    crossBetween: Incomplete
-    majorUnit: Incomplete
-    minorUnit: Incomplete
-    dispUnits: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    crossBetween: NestedNoneSet[_NumericAxisCrossBetween]
+    majorUnit: NestedFloat[Literal[True]]
+    minorUnit: NestedFloat[Literal[True]]
+    dispUnits: Typed[DisplayUnitsLabelList, Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        crossBetween: Incomplete | None = None,
-        majorUnit: Incomplete | None = None,
-        minorUnit: Incomplete | None = None,
-        dispUnits: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        crossBetween: _NestedNoneSetParam[_NumericAxisCrossBetween] = None,
+        majorUnit: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
+        minorUnit: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
+        dispUnits: DisplayUnitsLabelList | None = None,
+        extLst: Unused = None,
         **kw,
     ) -> None: ...
     @classmethod
     def from_tree(cls, node): ...
 
 class TextAxis(_BaseAxis):
-    tagname: str
+    tagname: ClassVar[str]
     axId: Incomplete
     scaling: Incomplete
     delete: Incomplete
@@ -157,28 +215,28 @@ class TextAxis(_BaseAxis):
     crossAx: Incomplete
     crosses: Incomplete
     crossesAt: Incomplete
-    auto: Incomplete
-    lblAlgn: Incomplete
-    lblOffset: Incomplete
-    tickLblSkip: Incomplete
-    tickMarkSkip: Incomplete
-    noMultiLvlLbl: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    auto: NestedBool[Literal[True]]
+    lblAlgn: NestedNoneSet[_TextAxisLblAlgn]
+    lblOffset: NestedMinMax[float, Literal[False]]
+    tickLblSkip: NestedInteger[Literal[True]]
+    tickMarkSkip: NestedInteger[Literal[True]]
+    noMultiLvlLbl: NestedBool[Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        auto: Incomplete | None = None,
-        lblAlgn: Incomplete | None = None,
-        lblOffset: int = 100,
-        tickLblSkip: Incomplete | None = None,
-        tickMarkSkip: Incomplete | None = None,
-        noMultiLvlLbl: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        auto: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        lblAlgn: _NestedNoneSetParam[_TextAxisLblAlgn] = None,
+        lblOffset: _HasTagAndGet[_ConvertibleToFloat] | _ConvertibleToFloat = 100,
+        tickLblSkip: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None = None,
+        tickMarkSkip: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None = None,
+        noMultiLvlLbl: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        extLst: Unused = None,
         **kw,
     ) -> None: ...
 
 class DateAxis(TextAxis):
-    tagname: str
+    tagname: ClassVar[str]
     axId: Incomplete
     scaling: Incomplete
     delete: Incomplete
@@ -195,30 +253,30 @@ class DateAxis(TextAxis):
     crossAx: Incomplete
     crosses: Incomplete
     crossesAt: Incomplete
-    auto: Incomplete
-    lblOffset: Incomplete
-    baseTimeUnit: Incomplete
-    majorUnit: Incomplete
-    majorTimeUnit: Incomplete
-    minorUnit: Incomplete
-    minorTimeUnit: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    auto: NestedBool[Literal[True]]
+    lblOffset: NestedInteger[Literal[True]]  # type: ignore[assignment]
+    baseTimeUnit: NestedNoneSet[_DateAxisTimeUnit]
+    majorUnit: NestedFloat[Literal[True]]
+    majorTimeUnit: NestedNoneSet[_DateAxisTimeUnit]
+    minorUnit: NestedFloat[Literal[True]]
+    minorTimeUnit: NestedNoneSet[_DateAxisTimeUnit]
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        auto: Incomplete | None = None,
-        lblOffset: Incomplete | None = None,
-        baseTimeUnit: Incomplete | None = None,
-        majorUnit: Incomplete | None = None,
-        majorTimeUnit: Incomplete | None = None,
-        minorUnit: Incomplete | None = None,
-        minorTimeUnit: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        auto: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        lblOffset: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None = None,
+        baseTimeUnit: _NestedNoneSetParam[_DateAxisTimeUnit] = None,
+        majorUnit: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
+        majorTimeUnit: _NestedNoneSetParam[_DateAxisTimeUnit] = None,
+        minorUnit: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
+        minorTimeUnit: _NestedNoneSetParam[_DateAxisTimeUnit] = None,
+        extLst: Unused = None,
         **kw,
     ) -> None: ...
 
 class SeriesAxis(_BaseAxis):
-    tagname: str
+    tagname: ClassVar[str]
     axId: Incomplete
     scaling: Incomplete
     delete: Incomplete
@@ -235,14 +293,14 @@ class SeriesAxis(_BaseAxis):
     crossAx: Incomplete
     crosses: Incomplete
     crossesAt: Incomplete
-    tickLblSkip: Incomplete
-    tickMarkSkip: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    tickLblSkip: NestedInteger[Literal[True]]
+    tickMarkSkip: NestedInteger[Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        tickLblSkip: Incomplete | None = None,
-        tickMarkSkip: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        tickLblSkip: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None = None,
+        tickMarkSkip: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None = None,
+        extLst: Unused = None,
         **kw,
     ) -> None: ...

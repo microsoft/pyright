@@ -1,44 +1,48 @@
-from _typeshed import Incomplete
-from abc import abstractmethod
+from _typeshed import Incomplete, Unused
+from typing import ClassVar
+from typing_extensions import Literal, TypeAlias
 
+from openpyxl.chart.layout import Layout
+from openpyxl.chart.legend import Legend
+from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.descriptors.base import Alias, Bool, Integer, MinMax, Set, Typed, _ConvertibleToInt
 from openpyxl.descriptors.serialisable import Serialisable
 
-class AxId(Serialisable):  # type: ignore[misc]
-    val: Incomplete
-    def __init__(self, val) -> None: ...
+_ChartBaseDisplayBlanks: TypeAlias = Literal["span", "gap", "zero"]
+
+class AxId(Serialisable):
+    val: Integer[Literal[False]]
+    def __init__(self, val: _ConvertibleToInt) -> None: ...
 
 def PlotArea(): ...
 
 class ChartBase(Serialisable):
-    legend: Incomplete
-    layout: Incomplete
-    roundedCorners: Incomplete
+    legend: Typed[Legend, Literal[True]]
+    layout: Typed[Layout, Literal[True]]
+    roundedCorners: Bool[Literal[True]]
     axId: Incomplete
-    visible_cells_only: Incomplete
-    display_blanks: Incomplete
+    visible_cells_only: Bool[Literal[True]]
+    display_blanks: Set[_ChartBaseDisplayBlanks]
     ser: Incomplete
-    series: Incomplete
+    series: Alias
     title: Incomplete
     anchor: str
     width: int
     height: float
-    style: Incomplete
+    style: MinMax[float, Literal[True]]
     mime_type: str
-    graphical_properties: Incomplete
-    __elements__: Incomplete
+    graphical_properties: Typed[GraphicalProperties, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     plot_area: Incomplete
     pivotSource: Incomplete
     pivotFormats: Incomplete
     idx_base: int
-    def __init__(self, axId=(), **kw) -> None: ...
+    def __init__(self, axId=(), **kw: Unused) -> None: ...
     def __hash__(self) -> int: ...
     def __iadd__(self, other): ...
-    def to_tree(self, namespace: Incomplete | None = None, tagname: Incomplete | None = None, idx: Incomplete | None = None): ...  # type: ignore[override]
+    def to_tree(self, namespace: str | None = None, tagname: str | None = None, idx: Incomplete | None = None): ...  # type: ignore[override]
     def set_categories(self, labels) -> None: ...
     def add_data(self, data, from_rows: bool = False, titles_from_data: bool = False) -> None: ...
     def append(self, value) -> None: ...
     @property
     def path(self): ...
-    @property
-    @abstractmethod
-    def tagname(self) -> str: ...

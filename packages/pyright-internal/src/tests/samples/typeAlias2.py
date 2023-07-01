@@ -1,11 +1,11 @@
 # This sample tests that forward references to type aliases work.
 
-from typing import Dict, Any, Union
+from typing import Any, Union
 
 
 class Base:
     @staticmethod
-    def create(data: Dict[str, Any]) -> "Mix":
+    def create(data: dict[str, Any]) -> "Mix":
         return A()
 
 
@@ -22,5 +22,5 @@ Mix = Union[A, B]
 
 class S:
     @staticmethod
-    def create(data: Dict[str, Any]) -> "Mix":
+    def create(data: dict[str, Any]) -> "Mix":
         return A()

@@ -2,7 +2,6 @@
 # ParamSpec.
 
 from typing import Callable, Generic, TypeVar
-
 from typing_extensions import Concatenate, ParamSpec
 
 P = ParamSpec("P")
@@ -12,17 +11,17 @@ T = TypeVar("T")
 U = TypeVar("U")
 
 
-class Foo(Generic[P, T, Q, U]):
+class ClassA(Generic[P, T, Q, U]):
     ...
 
 
-def foo(func: Callable[Concatenate[Callable[P, T], Q], U]) -> Foo[P, T, Q, U]:
+def decorator1(func: Callable[Concatenate[Callable[P, T], Q], U]) -> ClassA[P, T, Q, U]:
     ...
 
 
-@foo
-def bar(func: Callable[[int], float], a: str) -> bool:
+@decorator1
+def func1(func: Callable[[int], float], a: str) -> bool:
     ...
 
 
-reveal_type(bar, expected_text="Foo[(int), float, (a: str), bool]")
+reveal_type(func1, expected_text="ClassA[(int), float, (a: str), bool]")

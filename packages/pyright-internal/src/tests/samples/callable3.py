@@ -2,27 +2,23 @@
 # callable type as an input parameter, and the latter callable
 # contains generic types.
 
-from typing import Callable, Generic, Optional, Tuple, TypeVar
+from typing import Callable, Generic, TypeVar
 
-Msg = TypeVar("Msg")
-Reply = TypeVar("Reply")
+T = TypeVar("T")
+R = TypeVar("R")
 
 
-class AsyncReplyChannel(Generic[Reply]):
+class ClassA(Generic[R]):
     ...
 
 
-class MailboxProcessor(Generic[Msg]):
-    def post_and_async_reply(
-        self, build_message: Callable[[AsyncReplyChannel[Reply]], Msg]
-    ) -> Optional[Reply]:
+class ClassB(Generic[T]):
+    def method1(self, val: Callable[[ClassA[R]], T]) -> R | None:
         return None
 
 
-agent: MailboxProcessor[Tuple[int, AsyncReplyChannel[str]]] = MailboxProcessor()
-build_message: Callable[
-    [AsyncReplyChannel[str]], Tuple[int, AsyncReplyChannel[str]]
-] = lambda r: (42, r)
-ret = agent.post_and_async_reply(build_message)
+b1: ClassB[tuple[int, ClassA[str]]] = ClassB()
+v1: Callable[[ClassA[str]], tuple[int, ClassA[str]]] = lambda r: (42, r)
 
+ret = b1.method1(v1)
 reveal_type(ret, expected_text="str | None")

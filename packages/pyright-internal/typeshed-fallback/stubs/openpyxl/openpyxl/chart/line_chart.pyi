@@ -1,77 +1,84 @@
-from _typeshed import Incomplete
-from abc import abstractmethod
+from _typeshed import Incomplete, Unused
+from typing import ClassVar
+from typing_extensions import Literal, TypeAlias
+
+from openpyxl.chart.axis import ChartLines, NumericAxis, _BaseAxis
+from openpyxl.chart.label import DataLabelList
+from openpyxl.chart.updown_bars import UpDownBars
+from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool
+from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import NestedBool, NestedSet, _HasTagAndGet
 
 from ._chart import ChartBase
 
+_LineChartBaseGrouping: TypeAlias = Literal["percentStacked", "standard", "stacked"]
+
 class _LineChartBase(ChartBase):
-    grouping: Incomplete
-    varyColors: Incomplete
+    grouping: NestedSet[_LineChartBaseGrouping]
+    varyColors: NestedBool[Literal[True]]
     ser: Incomplete
-    dLbls: Incomplete
-    dataLabels: Incomplete
-    dropLines: Incomplete
-    __elements__: Incomplete
+    dLbls: Typed[DataLabelList, Literal[True]]
+    dataLabels: Alias
+    dropLines: Typed[ChartLines, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        grouping: str = "standard",
-        varyColors: Incomplete | None = None,
+        grouping: _HasTagAndGet[_LineChartBaseGrouping] | _LineChartBaseGrouping = "standard",
+        varyColors: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
         ser=(),
-        dLbls: Incomplete | None = None,
-        dropLines: Incomplete | None = None,
+        dLbls: DataLabelList | None = None,
+        dropLines: ChartLines | None = None,
         **kw,
     ) -> None: ...
-    @property
-    @abstractmethod
-    def tagname(self) -> str: ...
 
 class LineChart(_LineChartBase):
-    tagname: str
+    tagname: ClassVar[str]
     grouping: Incomplete
     varyColors: Incomplete
     ser: Incomplete
     dLbls: Incomplete
     dropLines: Incomplete
-    hiLowLines: Incomplete
-    upDownBars: Incomplete
-    marker: Incomplete
-    smooth: Incomplete
-    extLst: Incomplete
-    x_axis: Incomplete
-    y_axis: Incomplete
-    __elements__: Incomplete
+    hiLowLines: Typed[ChartLines, Literal[True]]
+    upDownBars: Typed[UpDownBars, Literal[True]]
+    marker: NestedBool[Literal[True]]
+    smooth: NestedBool[Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    x_axis: Typed[_BaseAxis, Literal[False]]
+    y_axis: Typed[NumericAxis, Literal[False]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        hiLowLines: Incomplete | None = None,
-        upDownBars: Incomplete | None = None,
-        marker: Incomplete | None = None,
-        smooth: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        hiLowLines: ChartLines | None = None,
+        upDownBars: UpDownBars | None = None,
+        marker: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        smooth: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        extLst: Unused = None,
         **kw,
     ) -> None: ...
 
 class LineChart3D(_LineChartBase):
-    tagname: str
+    tagname: ClassVar[str]
     grouping: Incomplete
     varyColors: Incomplete
     ser: Incomplete
     dLbls: Incomplete
     dropLines: Incomplete
     gapDepth: Incomplete
-    hiLowLines: Incomplete
-    upDownBars: Incomplete
-    marker: Incomplete
-    smooth: Incomplete
-    extLst: Incomplete
-    x_axis: Incomplete
-    y_axis: Incomplete
-    z_axis: Incomplete
-    __elements__: Incomplete
+    hiLowLines: Typed[ChartLines, Literal[True]]
+    upDownBars: Typed[UpDownBars, Literal[True]]
+    marker: NestedBool[Literal[True]]
+    smooth: NestedBool[Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    x_axis: Typed[ExtensionList, Literal[False]]
+    y_axis: Typed[ExtensionList, Literal[False]]
+    z_axis: Typed[ExtensionList, Literal[False]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
         gapDepth: Incomplete | None = None,
-        hiLowLines: Incomplete | None = None,
-        upDownBars: Incomplete | None = None,
-        marker: Incomplete | None = None,
-        smooth: Incomplete | None = None,
+        hiLowLines: ChartLines | None = None,
+        upDownBars: UpDownBars | None = None,
+        marker: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
+        smooth: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
         **kw,
     ) -> None: ...

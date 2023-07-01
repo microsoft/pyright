@@ -3,17 +3,17 @@
 # is reassigned.
 
 
-class Foo1:
+class Class1:
     val0: int
 
 
-class Foo2:
+class Class2:
     val1: int
-    val2: Foo1
+    val2: Class1
 
 
-def func(a: bool):
-    foo2: Foo2 = Foo2()
+def func1(a: bool):
+    foo2: Class2 = Class2()
     foo2.val1 = 0
     foo2.val2.val0 = 4
 
@@ -21,7 +21,7 @@ def func(a: bool):
     reveal_type(foo2.val2.val0, expected_text="Literal[4]")
 
     if a:
-        foo2 = Foo2()
+        foo2 = Class2()
 
     reveal_type(foo2.val1, expected_text="int")
     reveal_type(foo2.val2.val0, expected_text="int")

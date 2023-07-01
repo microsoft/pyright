@@ -1,0 +1,65 @@
+# This workflow runs mypy_primer, a tool that runs pyright on a variety
+# of open-source Python projects that are known to type check with pyright.
+# It builds pyright from the latest commit and the last release tag and
+# compares the output of both. It uploads the diffs as an artifact.
+name: Run mypy_primer on push
+
+on:
+  # Run on all pushes to main.
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/pyright/**'
+      - 'packages/pyright-internal/src/**'
+      - 'packages/pyright-internal/typeshed-fallback/**'
+  # Also run manually if requested.
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  mypy_primer:
+    name: Run mypy_primer on push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          path: pyright_to_test
+          fetch-depth: 0
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          pip install git+https://github.com/hauntsaninja/mypy_primer.git
+      - name: Run mypy_primer
+        shell: bash
+        run: |
+          cd pyright_to_test
+          echo "new commit"
+          git rev-list --format=%s --max-count=1 $GITHUB_SHA
+
+          cd ..
+          # fail action if exit code isn't zero or one
+          (
+            mypy_primer \
+            --repo pyright_to_test \
+            --type-checker pyright \
+            --new $GITHUB_SHA \
+            --debug \
+            --output concise \
+            | tee diff.txt
+          ) || [ $? -eq 1 ]
+      - name: Upload mypy_primer diff
+        uses: actions/upload-artifact@v3
+        with:
+          name: mypy_primer_diffs
+          path: diff.txt

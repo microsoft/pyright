@@ -19,7 +19,7 @@ import { parseAndGetTestState } from './harness/fourslash/testState';
 test('Empty', () => {
     const filePath = combinePaths(process.cwd(), 'tests/samples/test_file1.py');
     const fs = createFromRealFileSystem();
-    const sourceFile = new SourceFile(fs, filePath, '', false, false);
+    const sourceFile = new SourceFile(fs, filePath, '', false, false, false);
     const configOptions = new ConfigOptions(process.cwd());
     const importResolver = new ImportResolver(fs, configOptions, new FullAccessHost(fs));
 
@@ -40,6 +40,6 @@ test('Empty Open file', () => {
         '# Content'
     );
 
-    state.workspace.service.updateOpenFileContents(marker.fileName, 1, [{ text: '' }]);
+    state.workspace.service.updateOpenFileContents(marker.fileName, 1, '');
     assert.strictEqual(state.workspace.service.test_program.getSourceFile(marker.fileName)?.getFileContent(), '');
 });

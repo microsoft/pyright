@@ -1,50 +1,71 @@
-# This sample validates the Python 3.7 data class feature.
+# This sample tests the handling of the @dataclass decorator.
 
-from typing import ClassVar, Final, Hashable, NamedTuple, Optional
-
-
-class Other:
-    pass
+from dataclasses import dataclass, InitVar
 
 
-def standalone(obj: object) -> None:
-    print(obj)
+@dataclass
+class Bar:
+    bbb: int
+    ccc: str
+    aaa: str = "string"
 
-class DataTuple(NamedTuple):
-    def _m(self):
+
+bar1 = Bar(bbb=5, ccc="hello")
+bar2 = Bar(5, "hello")
+bar3 = Bar(5, "hello", "hello2")
+print(bar3.bbb)
+print(bar3.ccc)
+print(bar3.aaa)
+
+# This should generate an error because ddd
+# isn't a declared value.
+bar = Bar(bbb=5, ddd=5, ccc="hello")
+
+# This should generate an error because the
+# parameter types don't match.
+bar = Bar("hello", "goodbye")
+
+# This should generate an error because a parameter
+# is missing.
+bar = [Bar(2)]
+
+# This should generate an error because there are
+# too many parameters.
+bar = Bar(2, "hello", "hello", 4)
+
+
+@dataclass
+class Baz1:
+    bbb: int
+    aaa: str = "string"
+
+    # This should generate an error because variables
+    # with no default cannot come after those with
+    # defaults.
+    ccc: str
+
+    def __init__(self) -> None:
         pass
 
-    # ClassVar variables should not be included.
-    class_var: ClassVar[int] = 4
 
-    id: int
-    aid: Other
-    value: str = ""
+@dataclass
+class Baz2:
+    aaa: str
+    ddd: InitVar[int] = 3
 
-    # Unannotated variables should not be included.
-    not_annotated = 5
 
-    name: Optional[str] = None
+@dataclass(init=False)
+class Baz3:
+    bbb: int
+    aaa: str = "string"
+    # This should not generate an error because
+    # the ordering requirement is not enforced when
+    # init=False.
+    ccc: str
 
-    name2: Final[Optional[str]] = None
 
-    not_a_method = standalone
-
-d1 = DataTuple(id=1, aid=Other(), name2="hi")
-d1.not_a_method()
-
-d2 = DataTuple(id=1, aid=Other(), value="v")
-d3 = DataTuple(id=1, aid=Other(), name="hello")
-d4 = DataTuple(id=1, aid=Other(), name=None)
-id = d1.id
-
-h4: Hashable = d4
-v = d3 == d4
-
-# This should generate an error because the name argument
-# is the incorrect type.
-d5 = DataTuple(id=1, aid=Other(), name=3)
-
-# This should generate an error because aid is a required
-# parameter and is missing an argument here.
-d6 = DataTuple(id=1, name=None)
+@dataclass
+class Baz4:
+    # Private names are not allowed, so this should
+    # generate an error.
+    __private: int

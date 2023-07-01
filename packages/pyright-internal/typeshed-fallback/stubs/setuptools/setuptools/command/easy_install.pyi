@@ -3,7 +3,10 @@ from collections.abc import Iterator
 from typing import Any
 
 from pkg_resources import Environment
-from setuptools import Command, SetuptoolsDeprecationWarning
+
+from .. import Command, SetuptoolsDeprecationWarning
+
+__all__ = ["easy_install", "PthDistributions", "extract_wininst_cfg", "get_exe_prefixes"]
 
 class easy_install(Command):
     description: str
@@ -96,6 +99,7 @@ class PthDistributions(Environment):
     filename: Any
     sitedirs: Any
     basedir: Any
+    paths: list[str]
     def __init__(self, filename, sitedirs=()) -> None: ...
     def save(self) -> None: ...
     def add(self, dist) -> None: ...

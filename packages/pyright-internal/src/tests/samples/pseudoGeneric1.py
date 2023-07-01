@@ -1,23 +1,17 @@
 # This sample tests type checking scenarios related to "pseudo generic"
 # classes - those whose constructors are unannotated.
 
-from typing import List
-
 _DEFAULT_VALUE = object()
 
 
 class ClassA:
-    def __init__(
-        self,
-        name,
-        description=_DEFAULT_VALUE,
-    ):
+    def __init__(self, name, description=_DEFAULT_VALUE):
         ...
 
 
-a1: List[ClassA] = [ClassA("a", description="b")]
-a2: List[ClassA] = [ClassA("c")]
-a3: List[ClassA] = a1 + a2
+a1: list[ClassA] = [ClassA("a", description="b")]
+a2: list[ClassA] = [ClassA("c")]
+a3: list[ClassA] = a1 + a2
 
 
 class ClassB:

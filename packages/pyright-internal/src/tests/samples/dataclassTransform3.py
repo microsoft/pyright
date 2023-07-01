@@ -1,7 +1,7 @@
 # This sample tests the handling of the dataclass_transform mechanism
 # when applied to a class.
 
-from typing import Any, Callable, Generic, Optional, Tuple, TypeVar, Union
+from typing import Any, Callable, Generic, TypeVar
 
 _T = TypeVar("_T")
 
@@ -12,18 +12,18 @@ def __dataclass_transform__(
     order_default: bool = False,
     kw_only_default: bool = False,
     frozen_default: bool = False,
-    field_specifiers: Tuple[Union[type, Callable[..., Any]], ...] = (()),
+    field_specifiers: tuple[type | Callable[..., Any], ...] = (()),
 ) -> Callable[[_T], _T]:
     return lambda a: a
 
 
 class ModelField:
-    def __init__(self, *, init: bool = True, default: Optional[Any] = None) -> None:
+    def __init__(self, *, init: bool = True, default: Any | None = None) -> None:
         ...
 
 
 def model_field(
-    *, init: bool = True, default: Optional[Any] = None, alias: Optional[str] = None
+    *, init: bool = True, default: Any | None = None, alias: str | None = None
 ) -> Any:
     ...
 

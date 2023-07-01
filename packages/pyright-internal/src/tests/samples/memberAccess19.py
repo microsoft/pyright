@@ -1,4 +1,4 @@
-# This sample tests the handling of __getattr__, __setattr__, and 
+# This sample tests the handling of __getattr__, __setattr__, and
 # __delattr__ methods.
 
 from typing import Any, Literal, TypeVar, overload
@@ -78,3 +78,18 @@ del a.e
 del a.g
 
 del a.h
+
+
+# Test asymmetric __getattr__ and __setattr__ methods. We should not
+# narrow the type on assignment in this case.
+class B:
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        pass
+
+    def __getattr__(self, __attr: str) -> int:
+        return 10
+
+
+a = B()
+a.test = "anything"
+reveal_type(a.test, expected_text="int")

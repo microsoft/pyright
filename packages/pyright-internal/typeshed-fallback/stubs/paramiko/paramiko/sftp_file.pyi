@@ -2,6 +2,7 @@ from collections.abc import Iterator, Sequence
 from typing import Any
 
 from paramiko.file import BufferedFile
+from paramiko.message import _LikeBytes
 from paramiko.sftp_attr import SFTPAttributes
 from paramiko.sftp_client import SFTPClient
 from paramiko.sftp_handle import SFTPHandle
@@ -11,7 +12,7 @@ class SFTPFile(BufferedFile[Any]):
     sftp: SFTPClient
     handle: SFTPHandle
     pipelined: bool
-    def __init__(self, sftp: SFTPClient, handle: bytes, mode: str = "r", bufsize: int = -1) -> None: ...
+    def __init__(self, sftp: SFTPClient, handle: _LikeBytes, mode: str = "r", bufsize: int = -1) -> None: ...
     def __del__(self) -> None: ...
     def close(self) -> None: ...
     def settimeout(self, timeout: float) -> None: ...

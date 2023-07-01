@@ -6,21 +6,21 @@ from typing import Callable, Generic, TypeVar
 from typing_extensions import Concatenate, ParamSpec
 
 P = ParamSpec("P")
-OUT = TypeVar("OUT")
+R = TypeVar("R")
 
 
-class MyPartial(Generic[P, OUT]):
-    def __init__(self, first: int, func: Callable[Concatenate[int, P], OUT]) -> None:
+class MyPartial(Generic[P, R]):
+    def __init__(self, first: int, func: Callable[Concatenate[int, P], R]) -> None:
         self.first = first
         self.func = func
 
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> OUT:
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
         ...
 
 
-class MyPartialCreator(Generic[P, OUT]):
-    def __init__(self, func: Callable[Concatenate[int, P], OUT]):
+class MyPartialCreator(Generic[P, R]):
+    def __init__(self, func: Callable[Concatenate[int, P], R]):
         self.func = func
 
-    def create_partial(self, first: int) -> Callable[P, OUT]:
-        return MyPartial[P, OUT](first=first, func=self.func)
+    def create_partial(self, first: int) -> Callable[P, R]:
+        return MyPartial[P, R](first=first, func=self.func)

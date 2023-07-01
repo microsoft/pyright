@@ -1,7 +1,7 @@
 # This sample tests function parameter matching logic.
 
 
-from typing import Any, Dict, List
+from typing import Any
 
 
 def func1(a: int, *b: int):
@@ -35,6 +35,8 @@ func2("hi")
 func2("hi", b=3, c=4, d=5)
 
 str_dict = {"a": "3", "b": "2"}
+
+# This should generate a type error
 func2("hi", **str_dict)
 
 
@@ -85,7 +87,7 @@ def func8(
     ...
 
 
-kwargs1: Dict[str, int] = {}
+kwargs1: dict[str, int] = {}
 # This should generate an error because int is not compatible with str.
 func8(z=False, **kwargs1)
 
@@ -94,7 +96,7 @@ class MyStr(str):
     ...
 
 
-kwargs2: Dict[MyStr, MyStr] = {}
+kwargs2: dict[MyStr, MyStr] = {}
 func8(z=False, **kwargs2)
 
 
@@ -109,21 +111,33 @@ def func9(
     ...
 
 
-kwargs3: Dict[str, str] = {}
+kwargs3: dict[str, str] = {}
 func9(0, "", **kwargs3)
 
-args4: List[str] = ["hi"]
+args4: list[str] = ["hi"]
 func9(0, *args4, **kwargs3)
 
 # This should generate an error.
 func9(*args4, **kwargs3)
 
-def func10(x: int): ...
+
+def func10(x: int):
+    ...
+
 
 func10(1, *())
 
 # This should generate an error.
-func10(1, *(1, ))
+func10(1, *(1,))
+
+func10(*(1,))
+
+# This should generate an error.
+func10(*(1, 1))
+
+# This should generate an error.
+func10(*("",))
+
 
 def func11(y: tuple[int, ...]):
     func10(1, *y)

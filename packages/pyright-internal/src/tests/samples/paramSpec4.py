@@ -34,6 +34,7 @@ takes_int_str("B", "A")
 # many parameters.
 takes_int_str(1, "A", 2)
 
+
 # This should generate an error because a ParamSpec can appear
 # only within the last type arg for Concatenate
 def decorator1(f: Callable[Concatenate[P, P], int]) -> Callable[P, int]:

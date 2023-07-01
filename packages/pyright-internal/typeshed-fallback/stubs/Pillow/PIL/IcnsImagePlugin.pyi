@@ -1,11 +1,13 @@
 from _typeshed import Incomplete
 from typing import Any, ClassVar
-from typing_extensions import Literal
+from typing_extensions import Final, Literal
 
+from ._imaging import _PixelAccessor
 from .ImageFile import ImageFile
 
 enable_jpeg2k: Any
-HEADERSIZE: int
+MAGIC: Final = b"icns"
+HEADERSIZE: Final = 8
 
 def nextheader(fobj): ...
 def read_32t(fobj, start_length, size): ...
@@ -33,4 +35,4 @@ class IcnsImageFile(ImageFile):
     best_size: Any
     im: Any
     mode: Any
-    def load(self) -> None: ...
+    def load(self) -> _PixelAccessor: ...

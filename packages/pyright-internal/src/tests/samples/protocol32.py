@@ -11,6 +11,7 @@ class Base1(Protocol[Value]):
     def method1(self, default: Value) -> Value:
         ...
 
+
 class Base2(Base1[Value], Protocol):
     def method2(self, default: Value) -> Value:
         ...
@@ -43,8 +44,9 @@ class Implementation2(Generic[Arg, Value]):
     def another(self, arg: Arg) -> None:
         return
 
+
 def func2(arg: Arg, value: Value) -> Interface[Arg, Value]:
-    # This should generate an error because 
+    # This should generate an error because
     # Implementation2 doesn't implement method2.
     return Implementation2[Arg, Value]()
 
@@ -59,8 +61,9 @@ class Implementation3(Generic[Arg, Value]):
     def another(self, arg: Arg) -> None:
         return
 
+
 def func3(arg: Arg, value: Value) -> Interface[Arg, Value]:
-    # This should generate an error because 
+    # This should generate an error because
     # Implementation3's signature doesn't match.
     return Implementation3[Arg, Value]()
 
@@ -77,6 +80,6 @@ class Base4(Protocol):
     def method3(self, message: str | int):
         return message
 
+
 class Implementation4(Base4):
     ...
-

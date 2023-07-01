@@ -1,4 +1,4 @@
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from logging import Logger
 from socket import socket
 from threading import Condition, Event, Lock, Thread
@@ -64,7 +64,7 @@ class Transport(Thread, ClosingContextManager):
     banner_timeout: float
     handshake_timeout: float
     auth_timeout: float
-    disabled_algorithms: dict[str, Iterable[str]] | None
+    disabled_algorithms: Mapping[str, Iterable[str]] | None
     server_mode: bool
     server_object: ServerInterface | None
     server_key_dict: dict[str, PKey]
@@ -79,7 +79,7 @@ class Transport(Thread, ClosingContextManager):
         default_max_packet_size: int = 32768,
         gss_kex: bool = False,
         gss_deleg_creds: bool = True,
-        disabled_algorithms: dict[str, Iterable[str]] | None = None,
+        disabled_algorithms: Mapping[str, Iterable[str]] | None = None,
         server_sig_algs: bool = True,
     ) -> None: ...
     @property

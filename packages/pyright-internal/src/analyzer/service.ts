@@ -10,28 +10,23 @@
 
 import * as TOML from '@iarna/toml';
 import * as JSONC from 'jsonc-parser';
-import {
-    AbstractCancellationTokenSource,
-    CancellationToken,
-    CompletionItem,
-    DocumentSymbol,
-} from 'vscode-languageserver';
-import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
+import { AbstractCancellationTokenSource, CancellationToken } from 'vscode-languageserver';
 
-import { BackgroundAnalysisBase, IndexOptions, RefreshOptions } from '../backgroundAnalysisBase';
+import { BackgroundAnalysisBase, RefreshOptions } from '../backgroundAnalysisBase';
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, LogLevel, StandardConsole, log } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
-import { FileEditActions, TextEditAction } from '../common/editAction';
-import { Extensions, ProgramView } from '../common/extensibility';
+import { FileEditAction } from '../common/editAction';
+import { EditableProgram, Extensions, ProgramMutator, ProgramView } from '../common/extensibility';
 import { FileSystem, FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileSystem';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
 import { defaultStubsDirectory } from '../common/pathConsts';
 import {
     FileSpec,
     combinePaths,
+    comparePaths,
     forEachAncestorDirectory,
     getDirectoryPath,
     getFileExtension,
@@ -48,14 +43,14 @@ import {
     tryRealpath,
     tryStat,
 } from '../common/pathUtils';
-import { Position, Range } from '../common/textRange';
+import { Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
-import { AutoImportOptions, ImportFormat } from '../languageService/autoImporter';
-import { AbbreviationMap, CompletionOptions, CompletionResultsList } from '../languageService/completionProvider';
-import { WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
-import { ReferenceCallback } from '../languageService/referencesProvider';
 import { AnalysisCompleteCallback } from './analysis';
-import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './backgroundAnalysisProgram';
+import {
+    BackgroundAnalysisProgram,
+    BackgroundAnalysisProgramFactory,
+    InvalidatedReason,
+} from './backgroundAnalysisProgram';
 import { CacheManager } from './cacheManager';
 import {
     ImportResolver,
@@ -154,6 +149,7 @@ export class AnalyzerService {
                       this._options.cacheManager
                   )
                 : new BackgroundAnalysisProgram(
+                      this._options.serviceId,
                       this._options.console,
                       this._options.configOptions,
                       importResolver,
@@ -163,9 +159,40 @@ export class AnalyzerService {
                       this._options.cacheManager
                   );
 
-        // Create the extensions tied to this program. This is where the mutating 'addTrackedFile' will actually
-        // mutate the local program and the BG thread one.
-        Extensions.createProgramExtensions(this._program, { addInterimFile: this.addInterimFile.bind(this) });
+        // Create the extensions tied to this program.
+
+        // Make a wrapper around the program for mutation situations. It
+        // will forward the requests to the background thread too.
+        const mutator: ProgramMutator = {
+            addInterimFile: this.addInterimFile.bind(this),
+            updateOpenFileContents: this.updateOpenFileContents.bind(this),
+            setFileOpened: this.setFileOpened.bind(this),
+        };
+        Extensions.createProgramExtensions(this._program, mutator);
+    }
+
+    get fs() {
+        return this._backgroundAnalysisProgram.importResolver.fileSystem;
+    }
+
+    get cancellationProvider() {
+        return this._options.cancellationProvider!;
+    }
+
+    get librarySearchPathsToWatch() {
+        return this._librarySearchPathsToWatch;
+    }
+
+    get backgroundAnalysisProgram(): BackgroundAnalysisProgram {
+        return this._backgroundAnalysisProgram;
+    }
+
+    get test_program() {
+        return this._program;
+    }
+
+    get id() {
+        return this._options.serviceId!;
     }
 
     clone(
@@ -204,6 +231,18 @@ export class AnalyzerService {
         return service;
     }
 
+    runEditMode(callback: (e: EditableProgram) => void, token: CancellationToken) {
+        let edits: FileEditAction[] = [];
+        this._backgroundAnalysisProgram.enterEditMode();
+        try {
+            this._program.runEditMode(callback, token);
+        } finally {
+            edits = this._backgroundAnalysisProgram.exitEditMode();
+        }
+
+        return token.isCancellationRequested ? [] : edits;
+    }
+
     dispose() {
         if (!this._disposed) {
             // Make sure we dispose program, otherwise, entire program
@@ -219,30 +258,6 @@ export class AnalyzerService {
         this._clearReloadConfigTimer();
         this._clearReanalysisTimer();
         this._clearLibraryReanalysisTimer();
-    }
-
-    private get _console() {
-        return this._options.console!;
-    }
-
-    private get _hostFactory() {
-        return this._options.hostFactory!;
-    }
-
-    private get _importResolverFactory() {
-        return this._options.importResolverFactory!;
-    }
-
-    get cancellationProvider() {
-        return this._options.cancellationProvider!;
-    }
-
-    get librarySearchPathsToWatch() {
-        return this._librarySearchPathsToWatch;
-    }
-
-    get backgroundAnalysisProgram(): BackgroundAnalysisProgram {
-        return this._backgroundAnalysisProgram;
     }
 
     static createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver {
@@ -323,7 +338,7 @@ export class AnalyzerService {
     updateOpenFileContents(
         path: string,
         version: number | null,
-        contents: TextDocumentContentChangeEvent[],
+        contents: string,
         ipythonMode = IPythonMode.None,
         realFilePath?: string
     ) {
@@ -334,10 +349,6 @@ export class AnalyzerService {
             realFilePath,
         });
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
-    }
-
-    startIndexing(indexOptions: IndexOptions) {
-        this._backgroundAnalysisProgram.startIndexing(indexOptions);
     }
 
     setFileClosed(path: string, isTracked?: boolean) {
@@ -353,57 +364,12 @@ export class AnalyzerService {
         return this._program.getBoundSourceFile(path)?.getParseResults();
     }
 
+    getSourceFile(path: string) {
+        return this._program.getBoundSourceFile(path);
+    }
+
     getTextOnRange(filePath: string, range: Range, token: CancellationToken) {
         return this._program.getTextOnRange(filePath, range, token);
-    }
-
-    getAutoImports(
-        filePath: string,
-        range: Range,
-        similarityLimit: number,
-        nameMap: AbbreviationMap | undefined,
-        options: AutoImportOptions,
-        token: CancellationToken
-    ) {
-        options.libraryMap = options.libraryMap ?? this._backgroundAnalysisProgram.getIndexing(filePath);
-        return this._program.getAutoImports(filePath, range, similarityLimit, nameMap, options, token);
-    }
-
-    reportReferencesForPosition(
-        filePath: string,
-        position: Position,
-        includeDeclaration: boolean,
-        reporter: ReferenceCallback,
-        token: CancellationToken
-    ) {
-        this._program.reportReferencesForPosition(filePath, position, includeDeclaration, reporter, token);
-    }
-
-    addSymbolsForDocument(filePath: string, symbolList: DocumentSymbol[], token: CancellationToken) {
-        this._program.addSymbolsForDocument(filePath, symbolList, token);
-    }
-
-    reportSymbolsForWorkspace(query: string, reporter: WorkspaceSymbolCallback, token: CancellationToken) {
-        this._program.reportSymbolsForWorkspace(query, reporter, token);
-    }
-
-    getCompletionsForPosition(
-        filePath: string,
-        position: Position,
-        workspacePath: string,
-        options: CompletionOptions,
-        nameMap: AbbreviationMap | undefined,
-        token: CancellationToken
-    ): Promise<CompletionResultsList | undefined> {
-        return this._program.getCompletionsForPosition(
-            filePath,
-            position,
-            workspacePath,
-            options,
-            nameMap,
-            this._backgroundAnalysisProgram.getIndexing(filePath),
-            token
-        );
     }
 
     getEvaluator(): TypeEvaluator | undefined {
@@ -412,80 +378,6 @@ export class AnalyzerService {
 
     run<T>(callback: (p: ProgramView) => T, token: CancellationToken): T {
         return this._program.run(callback, token);
-    }
-
-    resolveCompletionItem(
-        filePath: string,
-        completionItem: CompletionItem,
-        options: CompletionOptions,
-        nameMap: AbbreviationMap | undefined,
-        token: CancellationToken
-    ) {
-        this._program.resolveCompletionItem(
-            filePath,
-            completionItem,
-            options,
-            nameMap,
-            this._backgroundAnalysisProgram.getIndexing(filePath),
-            token
-        );
-    }
-
-    performQuickAction(
-        filePath: string,
-        command: string,
-        args: any[],
-        token: CancellationToken
-    ): TextEditAction[] | undefined {
-        return this._program.performQuickAction(filePath, command, args, token);
-    }
-
-    moveSymbolAtPosition(
-        filePath: string,
-        newFilePath: string,
-        position: Position,
-        options: { importFormat: ImportFormat },
-        token: CancellationToken
-    ): FileEditActions | undefined {
-        return this._program.moveSymbolAtPosition(filePath, newFilePath, position, options, token);
-    }
-
-    renameModule(filePath: string, newFilePath: string, token: CancellationToken): FileEditActions | undefined {
-        return this._program.renameModule(filePath, newFilePath, token);
-    }
-
-    canRenameSymbolAtPosition(
-        filePath: string,
-        position: Position,
-        isDefaultWorkspace: boolean,
-        allowModuleRename: boolean,
-        token: CancellationToken
-    ) {
-        return this._program.canRenameSymbolAtPosition(
-            filePath,
-            position,
-            isDefaultWorkspace,
-            allowModuleRename,
-            token
-        );
-    }
-
-    renameSymbolAtPosition(
-        filePath: string,
-        position: Position,
-        newName: string,
-        isDefaultWorkspace: boolean,
-        allowModuleRename: boolean,
-        token: CancellationToken
-    ): FileEditActions | undefined {
-        return this._program.renameSymbolAtPosition(
-            filePath,
-            position,
-            newName,
-            isDefaultWorkspace,
-            allowModuleRename,
-            token
-        );
     }
 
     printStats() {
@@ -529,11 +421,6 @@ export class AnalyzerService {
         }
     }
 
-    // test only APIs
-    get test_program() {
-        return this._program;
-    }
-
     test_getConfigOptions(commandLineOptions: CommandLineOptions): ConfigOptions {
         return this._getConfigOptions(this._backgroundAnalysisProgram.host, commandLineOptions);
     }
@@ -544,6 +431,84 @@ export class AnalyzerService {
 
     test_shouldHandleSourceFileWatchChanges(path: string, isFile: boolean) {
         return this._shouldHandleSourceFileWatchChanges(path, isFile);
+    }
+
+    writeTypeStub(token: CancellationToken): void {
+        const typingsSubdirPath = this._getTypeStubFolder();
+
+        this._program.writeTypeStub(
+            this._typeStubTargetPath ?? '',
+            this._typeStubTargetIsSingleFile,
+            typingsSubdirPath,
+            token
+        );
+    }
+
+    writeTypeStubInBackground(token: CancellationToken): Promise<any> {
+        const typingsSubdirPath = this._getTypeStubFolder();
+
+        return this._backgroundAnalysisProgram.writeTypeStub(
+            this._typeStubTargetPath ?? '',
+            this._typeStubTargetIsSingleFile,
+            typingsSubdirPath,
+            token
+        );
+    }
+
+    invalidateAndForceReanalysis(reason: InvalidatedReason) {
+        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(reason);
+    }
+
+    // Forces the service to stop all analysis, discard all its caches,
+    // and research for files.
+    restart() {
+        this._applyConfigOptions(this._hostFactory());
+
+        this._backgroundAnalysisProgram.restart();
+    }
+
+    private get _console() {
+        return this._options.console!;
+    }
+
+    private get _hostFactory() {
+        return this._options.hostFactory!;
+    }
+
+    private get _importResolverFactory() {
+        return this._options.importResolverFactory!;
+    }
+
+    private get _program() {
+        return this._backgroundAnalysisProgram.program;
+    }
+
+    private get _configOptions() {
+        return this._backgroundAnalysisProgram.configOptions;
+    }
+
+    private get _watchForSourceChanges() {
+        return !!this._commandLineOptions?.watchForSourceChanges;
+    }
+
+    private get _watchForLibraryChanges() {
+        return !!this._commandLineOptions?.watchForLibraryChanges && !!this._options.libraryReanalysisTimeProvider;
+    }
+
+    private get _watchForConfigChanges() {
+        return !!this._commandLineOptions?.watchForConfigChanges;
+    }
+
+    private get _typeCheckingMode() {
+        return this._commandLineOptions?.typeCheckingMode;
+    }
+
+    private get _verboseOutput(): boolean {
+        return !!this._configOptions.verboseOutput;
+    }
+
+    private get _typeStubTargetImportName() {
+        return this._commandLineOptions?.typeStubTargetImportName;
     }
 
     // Calculates the effective options based on the command-line options,
@@ -749,6 +714,26 @@ export class AnalyzerService {
             }
         }
 
+        // If the caller specified that "typeshedPath" is the root of the project,
+        // then we're presumably running in the typeshed project itself. Auto-exclude
+        // stdlib packages that don't match the current Python version.
+        if (
+            configOptions.typeshedPath &&
+            comparePaths(configOptions.typeshedPath, projectRoot) === 0 &&
+            configOptions.defaultPythonVersion !== undefined
+        ) {
+            const excludeList = this.getImportResolver().getTypeshedStdlibExcludeList(
+                configOptions.typeshedPath,
+                configOptions.defaultPythonVersion
+            );
+
+            this._console.info(`Excluding typeshed stdlib stubs according to VERSIONS file:`);
+            excludeList.forEach((exclude) => {
+                this._console.info(`    ${exclude}`);
+                configOptions.exclude.push(getFileSpec(this.fs, commandLineOptions.executionRoot, exclude));
+            });
+        }
+
         configOptions.verboseOutput = commandLineOptions.verboseOutput ?? configOptions.verboseOutput;
         configOptions.checkOnlyOpenFiles = !!commandLineOptions.checkOnlyOpenFiles;
         configOptions.autoImportCompletions = !!commandLineOptions.autoImportCompletions;
@@ -760,12 +745,12 @@ export class AnalyzerService {
         // If useLibraryCodeForTypes was not specified in the config, allow the settings
         // or command line to override it.
         if (configOptions.useLibraryCodeForTypes === undefined) {
-            configOptions.useLibraryCodeForTypes = !!commandLineOptions.useLibraryCodeForTypes;
+            configOptions.useLibraryCodeForTypes = commandLineOptions.useLibraryCodeForTypes;
         } else if (commandLineOptions.useLibraryCodeForTypes !== undefined) {
             reportDuplicateSetting('useLibraryCodeForTypes', configOptions.useLibraryCodeForTypes);
         }
 
-        // If useLibraryCodeForTypes is still unspecified, default it to true.
+        // If useLibraryCodeForTypes is unspecified, default it to true.
         if (configOptions.useLibraryCodeForTypes === undefined) {
             configOptions.useLibraryCodeForTypes = true;
         }
@@ -838,84 +823,6 @@ export class AnalyzerService {
         }
 
         return configOptions;
-    }
-
-    writeTypeStub(token: CancellationToken): void {
-        const typingsSubdirPath = this._getTypeStubFolder();
-
-        this._program.writeTypeStub(
-            this._typeStubTargetPath ?? '',
-            this._typeStubTargetIsSingleFile,
-            typingsSubdirPath,
-            token
-        );
-    }
-
-    writeTypeStubInBackground(token: CancellationToken): Promise<any> {
-        const typingsSubdirPath = this._getTypeStubFolder();
-
-        return this._backgroundAnalysisProgram.writeTypeStub(
-            this._typeStubTargetPath ?? '',
-            this._typeStubTargetIsSingleFile,
-            typingsSubdirPath,
-            token
-        );
-    }
-
-    invalidateAndForceReanalysis(
-        rebuildUserFileIndexing = true,
-        rebuildLibraryIndexing = true,
-        refreshOptions?: RefreshOptions
-    ) {
-        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(
-            rebuildUserFileIndexing,
-            rebuildLibraryIndexing,
-            refreshOptions
-        );
-    }
-
-    // Forces the service to stop all analysis, discard all its caches,
-    // and research for files.
-    restart() {
-        this._applyConfigOptions(this._hostFactory());
-
-        this._backgroundAnalysisProgram.restart();
-    }
-
-    get fs() {
-        return this._backgroundAnalysisProgram.importResolver.fileSystem;
-    }
-
-    private get _program() {
-        return this._backgroundAnalysisProgram.program;
-    }
-
-    private get _configOptions() {
-        return this._backgroundAnalysisProgram.configOptions;
-    }
-
-    private get _watchForSourceChanges() {
-        return !!this._commandLineOptions?.watchForSourceChanges;
-    }
-
-    private get _watchForLibraryChanges() {
-        return !!this._commandLineOptions?.watchForLibraryChanges && !!this._options.libraryReanalysisTimeProvider;
-    }
-
-    private get _watchForConfigChanges() {
-        return !!this._commandLineOptions?.watchForConfigChanges;
-    }
-
-    private get _typeCheckingMode() {
-        return this._commandLineOptions?.typeCheckingMode;
-    }
-
-    private get _verboseOutput(): boolean {
-        return !!this._configOptions.verboseOutput;
-    }
-
-    private get _typeStubTargetImportName() {
-        return this._commandLineOptions?.typeStubTargetImportName;
     }
 
     private _getTypeStubFolder() {
@@ -1017,7 +924,7 @@ export class AnalyzerService {
                 throw e;
             }
 
-            this._console.error(`Pyproject file "${pyprojectPath}" is missing "[tool.pyright]" section.`);
+            this._console.info(`Pyproject file "${pyprojectPath}" has no "[tool.pyright]" section.`);
             return undefined;
         });
     }
@@ -1085,7 +992,7 @@ export class AnalyzerService {
             .filter((f) => matchFileSpecs(this._program.configOptions, f))
             .forEach((f) => fileMap.set(f, f));
 
-        return [...fileMap.values()];
+        return Array.from(fileMap.values());
     }
 
     // If markFilesDirtyUnconditionally is true, we need to reparse
@@ -1349,27 +1256,23 @@ export class AnalyzerService {
                         return;
                     }
 
-                    // If the change is the content of 1 file, then it can't affect `import resolution` result. All we need to do is
-                    // reanalyzing related files (files that transitively depends on this file).
+                    // This is for performance optimization. If the change only pertains to the content of one file,
+                    // then it can't affect the 'import resolution' result. All we need to do is reanalyze the related files
+                    // (those that have a transitive dependency on this file).
                     if (eventInfo.isFile && eventInfo.event === 'change') {
                         this._backgroundAnalysisProgram.markFilesDirty([path], /* evenIfContentsAreSame */ false);
                         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
                         return;
                     }
 
-                    // fs events happened can impact import resolution result.
-                    // clear the import resolver cache and reanalyze everything.
+                    // When the file system structure changes, like when files are added or removed,
+                    // this can affect how we resolve imports. This requires us to reset caches and reanalyze everything.
                     //
-                    // Here we don't need to rebuild any indexing since this kind of change can't affect
-                    // indices. For library, since the changes are on workspace files, it won't affect library
-                    // indices. For user file, since user file indices don't contains import alias symbols,
-                    // it won't affect those indices. we only need to rebuild user file indices when symbols
-                    // defined in the file are changed. ex) user modified the file.
-                    // Newly added file will be scanned since it doesn't have existing indices.
-                    this.invalidateAndForceReanalysis(
-                        /* rebuildUserFileIndexing */ false,
-                        /* rebuildLibraryIndexing */ false
-                    );
+                    // However, we don't need to rebuild any indexes in this situation. Changes to workspace files don't affect library indices.
+                    // As for user files, their indices don't contain import alias symbols, so adding or removing user files won't affect the existing indices.
+                    // We only rebuild the indices for a user file when the symbols within the file are changed, like when a user edits the file.
+                    // The index scanner will index any new files during its next background run.
+                    this.invalidateAndForceReanalysis(InvalidatedReason.SourceWatcherChanged);
                     this._scheduleReanalysis(/* requireTrackedFileUpdate */ true);
                 });
             } catch {
@@ -1535,7 +1438,7 @@ export class AnalyzerService {
         if (this._libraryReanalysisTimer) {
             clearTimeout(this._libraryReanalysisTimer);
             this._libraryReanalysisTimer = undefined;
-            this._backgroundAnalysisProgram?.cancelIndexing();
+            this._backgroundAnalysisProgram?.libraryUpdated();
         }
     }
 
@@ -1564,9 +1467,11 @@ export class AnalyzerService {
 
             // Invalidate import resolver, mark all files dirty unconditionally,
             // and reanalyze.
-            this.invalidateAndForceReanalysis(/* rebuildUserFileIndexing */ false, /* rebuildLibraryIndexing */ true, {
-                changesOnly: this._pendingLibraryChanges.changesOnly,
-            });
+            this.invalidateAndForceReanalysis(
+                this._pendingLibraryChanges.changesOnly
+                    ? InvalidatedReason.LibraryWatcherContentOnlyChanged
+                    : InvalidatedReason.LibraryWatcherChanged
+            );
             this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
 
             // No more pending changes.

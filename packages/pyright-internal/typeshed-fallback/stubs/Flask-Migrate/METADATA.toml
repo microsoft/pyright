@@ -1,6 +1,7 @@
 version = "4.0.*"
 # Requires a version of flask with a `py.typed` file
 requires = ["Flask>=2.0.0", "types-Flask-SQLAlchemy"]
+partial_stub = true
 
 [tool.stubtest]
 ignore_missing_stub = true

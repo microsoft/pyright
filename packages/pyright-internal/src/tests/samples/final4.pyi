@@ -3,7 +3,7 @@
 
 from typing import Final
 
-class Foo:
+class ClassA:
     foo1: Final[int]
     def __init__(self):
         self.foo2: Final[str]

@@ -1,4 +1,5 @@
 from _typeshed import Incomplete
+from typing_extensions import Final
 
 class ReadOnlyCell:
     parent: Incomplete
@@ -48,4 +49,4 @@ class EmptyCell:
     alignment: Incomplete
     data_type: str
 
-EMPTY_CELL: Incomplete
+EMPTY_CELL: Final[EmptyCell]

@@ -214,8 +214,9 @@ export class SourceMapper {
                 functionStubDecl as FunctionDeclaration,
                 recursiveDeclCache
             )) {
-                result.push(
-                    ...this._lookUpSymbolDeclarations(functionDecl.node, stubDecl.node.name.value)
+                appendArray(
+                    result,
+                    this._lookUpSymbolDeclarations(functionDecl.node, stubDecl.node.name.value)
                         .filter((d) => isParameterDeclaration(d))
                         .map((d) => d as ParameterDeclaration)
                 );

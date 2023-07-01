@@ -23,16 +23,12 @@ import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { isUserCode } from '../analyzer/sourceFileInfoUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import {
-    ClassMemberLookupFlags,
-    doForEachSubtype,
-    isMaybeDescriptorInstance,
-    lookUpClassMember,
-    lookUpObjectMember,
-} from '../analyzer/typeUtils';
+import { ClassMemberLookupFlags, doForEachSubtype, lookUpClassMember, lookUpObjectMember } from '../analyzer/typeUtils';
 import { ClassType, isClassInstance, isFunction, isInstantiableClass } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { appendArray } from '../common/collectionUtils';
 import { ProgramView } from '../common/extensibility';
+import { getSymbolKind } from '../common/lspUtils';
 import { convertPathToUri, getFileName } from '../common/pathUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { Position, rangesAreEqual } from '../common/textRange';
@@ -62,7 +58,7 @@ export class CallHierarchyProvider {
             return null;
         }
 
-        const referencesResult = this._getDeclarationForPosition();
+        const referencesResult = this._getDeclaration();
         if (!referencesResult || referencesResult.declarations.length === 0) {
             return null;
         }
@@ -90,7 +86,7 @@ export class CallHierarchyProvider {
 
         const callItem: CallHierarchyItem = {
             name: symbolName,
-            kind: getSymbolKind(targetDecl, this._evaluator),
+            kind: getSymbolKind(targetDecl, this._evaluator, symbolName) ?? SymbolKind.Module,
             uri: callItemUri,
             range: targetDecl.range,
             selectionRange: targetDecl.range,
@@ -112,7 +108,7 @@ export class CallHierarchyProvider {
             return null;
         }
 
-        const referencesResult = this._getDeclarationForPosition();
+        const referencesResult = this._getDeclaration();
         if (!referencesResult || referencesResult.declarations.length === 0) {
             return null;
         }
@@ -135,7 +131,7 @@ export class CallHierarchyProvider {
                 );
 
                 if (itemsToAdd) {
-                    items.push(...itemsToAdd);
+                    appendArray(items, itemsToAdd);
                 }
 
                 // This operation can consume significant memory, so check
@@ -164,7 +160,7 @@ export class CallHierarchyProvider {
             return null;
         }
 
-        const referencesResult = this._getDeclarationForPosition();
+        const referencesResult = this._getDeclaration();
         if (!referencesResult || referencesResult.declarations.length === 0) {
             return null;
         }
@@ -229,6 +225,10 @@ export class CallHierarchyProvider {
         return callItems;
     }
 
+    private get _evaluator(): TypeEvaluator {
+        return this._program.evaluator!;
+    }
+
     private _getTargetDeclaration(referencesResult: ReferencesResult): {
         targetDecl: Declaration;
         callItemUri: string;
@@ -271,10 +271,6 @@ export class CallHierarchyProvider {
         return { targetDecl, callItemUri, symbolName };
     }
 
-    private get _evaluator(): TypeEvaluator {
-        return this._program.evaluator!;
-    }
-
     private _getIncomingCallsForDeclaration(
         parseResults: ParseResults,
         filePath: string,
@@ -296,13 +292,11 @@ export class CallHierarchyProvider {
         return incomingCalls.length > 0 ? incomingCalls : undefined;
     }
 
-    private _getDeclarationForPosition(): ReferencesResult | undefined {
+    private _getDeclaration(): ReferencesResult | undefined {
         return ReferencesProvider.getDeclarationForPosition(
-            this._sourceMapper,
-            this._parseResults!,
+            this._program,
             this._filePath,
             this._position,
-            this._evaluator,
             /* reporter */ undefined,
             DocumentSymbolCollectorUseCase.Reference,
             this._token
@@ -407,7 +401,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
 
         const callDest: CallHierarchyItem = {
             name: nameNode.value,
-            kind: getSymbolKind(resolvedDecl, this._evaluator),
+            kind: getSymbolKind(resolvedDecl, this._evaluator, nameNode.value) ?? SymbolKind.Module,
             uri: resolvedDecl.path,
             range: resolvedDecl.range,
             selectionRange: resolvedDecl.range,
@@ -614,34 +608,4 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         );
         incomingCall.fromRanges.push(fromRange);
     }
-}
-
-function getSymbolKind(declaration: Declaration, evaluator: TypeEvaluator): SymbolKind {
-    let symbolKind: SymbolKind;
-
-    switch (declaration.type) {
-        case DeclarationType.Class:
-        case DeclarationType.SpecialBuiltInClass:
-            symbolKind = SymbolKind.Class;
-            break;
-
-        case DeclarationType.Function:
-            if (declaration.isMethod) {
-                const declType = evaluator.getTypeForDeclaration(declaration)?.type;
-                if (declType && isMaybeDescriptorInstance(declType, /* requireSetter */ false)) {
-                    symbolKind = SymbolKind.Property;
-                } else {
-                    symbolKind = SymbolKind.Method;
-                }
-            } else {
-                symbolKind = SymbolKind.Function;
-            }
-            break;
-
-        default:
-            symbolKind = SymbolKind.Function;
-            break;
-    }
-
-    return symbolKind;
 }

@@ -1,7 +1,20 @@
 from collections.abc import Mapping
 from typing import Any
 
-from setuptools import dist
+from . import dist
+
+__all__ = [
+    "get_requires_for_build_sdist",
+    "get_requires_for_build_wheel",
+    "prepare_metadata_for_build_wheel",
+    "build_wheel",
+    "build_sdist",
+    "get_requires_for_build_editable",
+    "prepare_metadata_for_build_editable",
+    "build_editable",
+    "__legacy__",
+    "SetupRequirementsError",
+]
 
 class SetupRequirementsError(BaseException):
     specifiers: Any
@@ -40,5 +53,9 @@ get_requires_for_build_sdist = _BACKEND.get_requires_for_build_sdist
 prepare_metadata_for_build_wheel = _BACKEND.prepare_metadata_for_build_wheel
 build_wheel = _BACKEND.build_wheel
 build_sdist = _BACKEND.build_sdist
+
+get_requires_for_build_editable = _BACKEND.get_requires_for_build_editable
+prepare_metadata_for_build_editable = _BACKEND.prepare_metadata_for_build_editable
+build_editable = _BACKEND.build_editable
 
 __legacy__: _BuildMetaLegacyBackend

@@ -1,15 +1,7 @@
 # This sample tests that instance methods, regardless of how they're
 # defined or decorated, act like instance methods.
 
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Concatenate,
-    Generic,
-    ParamSpec,
-    TypeVar,
-)
+from typing import Any, Callable, ClassVar, Concatenate, Generic, ParamSpec, TypeVar
 
 P = ParamSpec("P")
 R = TypeVar("R")

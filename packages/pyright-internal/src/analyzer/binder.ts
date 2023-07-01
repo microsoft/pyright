@@ -1792,9 +1792,7 @@ export class Binder extends ParseTreeWalker {
                                 // The symbol wasn't in the target module's symbol table. It's probably
                                 // an implicitly-imported submodule referenced by __all__.
                                 if (importInfo && importInfo.filteredImplicitImports) {
-                                    const implicitImport = importInfo.filteredImplicitImports.find(
-                                        (imp) => imp.name === name
-                                    );
+                                    const implicitImport = importInfo.filteredImplicitImports.get(name);
 
                                     if (implicitImport) {
                                         const submoduleFallback: AliasDeclaration = {
@@ -1881,7 +1879,7 @@ export class Binder extends ParseTreeWalker {
                     // Is the import referring to an implicitly-imported module?
                     let implicitImport: ImplicitImport | undefined;
                     if (importInfo && importInfo.filteredImplicitImports) {
-                        implicitImport = importInfo.filteredImplicitImports.find((imp) => imp.name === importedName);
+                        implicitImport = importInfo.filteredImplicitImports.get(importedName);
                     }
 
                     let submoduleFallback: AliasDeclaration | undefined;
@@ -1898,15 +1896,17 @@ export class Binder extends ParseTreeWalker {
                             isInExceptSuite: this._isInExceptSuite,
                         };
 
-                        // Handle the case of "from . import X" within an __init__ file.
-                        // In this case, we want to always resolve to the submodule rather
-                        // than the resolved path.
-                        if (
-                            fileName === '__init__' &&
-                            node.module.leadingDots === 1 &&
-                            node.module.nameParts.length === 0
-                        ) {
-                            loadSymbolsFromPath = false;
+                        // Handle the case where this is an __init__.py file and the imported
+                        // module name refers to itself. The most common situation where this occurs
+                        // is with a "from . import X" form, but it can also occur with
+                        // an absolute import (e.g. "from A.B.C import X"). In this case, we want to
+                        // always resolve to the submodule rather than the resolved path.
+                        if (fileName === '__init__') {
+                            if (node.module.leadingDots === 1 && node.module.nameParts.length === 0) {
+                                loadSymbolsFromPath = false;
+                            } else if (resolvedPath === this._fileInfo.filePath) {
+                                loadSymbolsFromPath = false;
+                            }
                         }
                     }
 
@@ -2106,6 +2106,11 @@ export class Binder extends ParseTreeWalker {
     override visitListComprehension(node: ListComprehensionNode): boolean {
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
 
+        // The first iterable is executed outside of the comprehension scope.
+        if (node.forIfNodes.length > 0 && node.forIfNodes[0].nodeType === ParseNodeType.ListComprehensionFor) {
+            this.walk(node.forIfNodes[0].iterableExpression);
+        }
+
         this._createNewScope(ScopeType.ListComprehension, this._getNonClassParentScope(), () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope);
 
@@ -2139,7 +2144,11 @@ export class Binder extends ParseTreeWalker {
             for (let i = 0; i < node.forIfNodes.length; i++) {
                 const compr = node.forIfNodes[i];
                 if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
-                    this.walk(compr.iterableExpression);
+                    // We already walked the first iterable expression above,
+                    // so skip it here.
+                    if (i !== 0) {
+                        this.walk(compr.iterableExpression);
+                    }
 
                     this._createAssignmentTargetFlowNodes(
                         compr.targetExpression,
@@ -3878,28 +3887,6 @@ export class Binder extends ParseTreeWalker {
         }
 
         return { isClassVar, classVarTypeNode };
-    }
-
-    // Determines if the specified type annotation is wrapped in a "Required".
-    private _isRequiredAnnotation(typeAnnotation: ExpressionNode | undefined): boolean {
-        if (typeAnnotation && typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
-            if (this._isTypingAnnotation(typeAnnotation.baseExpression, 'Required')) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    // Determines if the specified type annotation is wrapped in a "NotRequired".
-    private _isNotRequiredAnnotation(typeAnnotation: ExpressionNode | undefined): boolean {
-        if (typeAnnotation && typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
-            if (this._isTypingAnnotation(typeAnnotation.baseExpression, 'NotRequired')) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     // Determines whether a member access expression is referring to a

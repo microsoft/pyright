@@ -1,14 +1,14 @@
-import abc
+from abc import ABC, ABCMeta, abstractmethod
 from types import TracebackType
 
 class ReversibleProxy: ...
 
-class StartableContext(abc.ABC, metaclass=abc.ABCMeta):
-    @abc.abstractmethod
+class StartableContext(ABC, metaclass=ABCMeta):
+    @abstractmethod
     async def start(self, is_ctxmanager: bool = False): ...
     def __await__(self): ...
     async def __aenter__(self): ...
-    @abc.abstractmethod
+    @abstractmethod
     async def __aexit__(
         self, type_: type[BaseException] | None, value: BaseException | None, traceback: TracebackType | None
     ) -> None: ...

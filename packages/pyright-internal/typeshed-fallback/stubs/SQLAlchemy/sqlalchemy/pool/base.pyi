@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Any
 
 from .. import log
-from ..util import memoized_property
+from ..util.langhelpers import memoized_property
 
 reset_rollback: Any
 reset_commit: Any
@@ -12,8 +12,10 @@ reset_none: Any
 
 class _ConnDialect:
     is_async: bool
+    has_terminate: bool
     def do_rollback(self, dbapi_connection) -> None: ...
     def do_commit(self, dbapi_connection) -> None: ...
+    def do_terminate(self, dbapi_connection) -> None: ...
     def do_close(self, dbapi_connection) -> None: ...
     def do_ping(self, dbapi_connection) -> None: ...
     def get_driver_connection(self, connection): ...
@@ -24,6 +26,7 @@ class _AsyncConnDialect(_ConnDialect):
 class Pool(log.Identified):
     logging_name: Any
     echo: Any
+    dispatch: Incomplete
     def __init__(
         self,
         creator: Callable[[], DBAPIConnection],

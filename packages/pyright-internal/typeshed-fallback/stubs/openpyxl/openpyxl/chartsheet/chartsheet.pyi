@@ -1,44 +1,59 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
+from typing import ClassVar
+from typing_extensions import Literal, TypeAlias
 
+from openpyxl.chartsheet.custom import CustomChartsheetViews
+from openpyxl.chartsheet.properties import ChartsheetProperties
+from openpyxl.chartsheet.protection import ChartsheetProtection
+from openpyxl.chartsheet.publish import WebPublishItems
+from openpyxl.chartsheet.relation import DrawingHF, SheetBackgroundPicture
+from openpyxl.chartsheet.views import ChartsheetViewList
+from openpyxl.descriptors.base import Alias, Set, Typed
+from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.workbook.child import _WorkbookChild
+from openpyxl.worksheet.drawing import Drawing
+from openpyxl.worksheet.header_footer import HeaderFooter as _HeaderFooter
+from openpyxl.worksheet.page import PageMargins, PrintPageSetup
+
+_ChartsheetSheetState: TypeAlias = Literal["visible", "hidden", "veryHidden"]
 
 class Chartsheet(_WorkbookChild, Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     mime_type: str
-    sheetPr: Incomplete
-    sheetViews: Incomplete
-    sheetProtection: Incomplete
-    customSheetViews: Incomplete
-    pageMargins: Incomplete
-    pageSetup: Incomplete
-    drawing: Incomplete
-    drawingHF: Incomplete
-    picture: Incomplete
-    webPublishItems: Incomplete
-    extLst: Incomplete
-    sheet_state: Incomplete
-    headerFooter: Incomplete
-    HeaderFooter: Incomplete
-    __elements__: Incomplete
-    __attrs__: Incomplete
+    sheetPr: Typed[ChartsheetProperties, Literal[True]]
+    sheetViews: Typed[ChartsheetViewList, Literal[False]]
+    sheetProtection: Typed[ChartsheetProtection, Literal[True]]
+    customSheetViews: Typed[CustomChartsheetViews, Literal[True]]
+    pageMargins: Typed[PageMargins, Literal[True]]
+    pageSetup: Typed[PrintPageSetup, Literal[True]]
+    drawing: Typed[Drawing, Literal[True]]
+    drawingHF: Typed[DrawingHF, Literal[True]]
+    picture: Typed[SheetBackgroundPicture, Literal[True]]
+    webPublishItems: Typed[WebPublishItems, Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    sheet_state: Set[_ChartsheetSheetState]
+    headerFooter: Typed[_HeaderFooter, Literal[False]]
+    HeaderFooter: Alias
+    __elements__: ClassVar[tuple[str, ...]]
+    __attrs__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        sheetPr: Incomplete | None = None,
-        sheetViews: Incomplete | None = None,
-        sheetProtection: Incomplete | None = None,
-        customSheetViews: Incomplete | None = None,
-        pageMargins: Incomplete | None = None,
-        pageSetup: Incomplete | None = None,
-        headerFooter: Incomplete | None = None,
-        drawing: Incomplete | None = None,
-        drawingHF: Incomplete | None = None,
-        picture: Incomplete | None = None,
-        webPublishItems: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        sheetPr: ChartsheetProperties | None = None,
+        sheetViews: ChartsheetViewList | None = None,
+        sheetProtection: ChartsheetProtection | None = None,
+        customSheetViews: CustomChartsheetViews | None = None,
+        pageMargins: PageMargins | None = None,
+        pageSetup: PrintPageSetup | None = None,
+        headerFooter: _HeaderFooter | None = None,
+        drawing: Unused = None,
+        drawingHF: DrawingHF | None = None,
+        picture: SheetBackgroundPicture | None = None,
+        webPublishItems: WebPublishItems | None = None,
+        extLst: Unused = None,
         parent: Incomplete | None = None,
         title: str = "",
-        sheet_state: str = "visible",
+        sheet_state: _ChartsheetSheetState = "visible",
     ) -> None: ...
     def add_chart(self, chart) -> None: ...
     def to_tree(self): ...

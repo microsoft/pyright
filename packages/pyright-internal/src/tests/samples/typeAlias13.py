@@ -11,11 +11,11 @@ P = ParamSpec("P")
 
 Method = Callable[Concatenate[T, P], U]
 MaybeMethod = Union[Method[T, P, U], Callable[P, U]]
-Coro = Coroutine[Any, Any, T]
-MaybeCoro = Union[T, Coro[T]]
-CoroFunc = Callable[P, Coro[T]]
-CoroMethod = Method[T, P, Coro[U]]
-CoroMaybeMethod = Union[CoroMethod[T, P, U], CoroFunc[P, U]]
+Co = Coroutine[Any, Any, T]
+MaybeCo = Union[T, Co[T]]
+CoFunc = Callable[P, Co[T]]
+CoMethod = Method[T, P, Co[U]]
+CoMaybeMethod = Union[CoMethod[T, P, U], CoFunc[P, U]]
 
 
 class D:
@@ -32,10 +32,10 @@ class F:
 
 DT = TypeVar("DT", bound=D)
 
-Error = CoroMaybeMethod[DT, [F, E], Any]
+Error = CoMaybeMethod[DT, [F, E], Any]
 reveal_type(
     Error,
-    expected_text="Type[(DT@Error, F, E) -> Coroutine[Any, Any, Any]] | Type[(F, E) -> Coroutine[Any, Any, Any]]",
+    expected_text="type[(DT@Error, F, E) -> Coroutine[Any, Any, Any]] | type[(F, E) -> Coroutine[Any, Any, Any]]",
 )
 
 
@@ -54,8 +54,8 @@ class C:
 BT = TypeVar("BT", bound=B)
 
 
-Something = CoroMaybeMethod[A, [BT, C], Any]
+Something = CoMaybeMethod[A, [BT, C], Any]
 reveal_type(
     Something,
-    expected_text="Type[(A, BT@Something, C) -> Coroutine[Any, Any, Any]] | Type[(BT@Something, C) -> Coroutine[Any, Any, Any]]",
+    expected_text="type[(A, BT@Something, C) -> Coroutine[Any, Any, Any]] | type[(BT@Something, C) -> Coroutine[Any, Any, Any]]",
 )

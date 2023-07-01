@@ -24,6 +24,7 @@ export enum PythonVersion {
     V3_10 = 0x030a,
     V3_11 = 0x030b,
     V3_12 = 0x030c,
+    V3_13 = 0x030d,
 }
 
 export const latestStablePythonVersion = PythonVersion.V3_11;

@@ -45,6 +45,7 @@ import {
     isInstantiableClass,
     isTypeSame,
     maxTypeRecursionCount,
+    NeverType,
     NoneType,
     OverloadedFunctionType,
     Type,
@@ -169,25 +170,28 @@ export function createTypedDictType(
     }
 
     if (usingDictSyntax) {
-        if (argList.length >= 3) {
-            if (
-                !argList[2].name ||
-                argList[2].name.value !== 'total' ||
-                !argList[2].valueExpression ||
-                argList[2].valueExpression.nodeType !== ParseNodeType.Constant ||
-                !(
-                    argList[2].valueExpression.constType === KeywordType.False ||
-                    argList[2].valueExpression.constType === KeywordType.True
-                )
-            ) {
-                evaluator.addError(Localizer.Diagnostic.typedDictTotalParam(), argList[2].valueExpression || errorNode);
-            } else if (argList[2].valueExpression.constType === KeywordType.False) {
-                classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
+        for (const arg of argList.slice(2)) {
+            if (arg.name?.value === 'total' || arg.name?.value === 'readonly') {
+                if (
+                    !arg.valueExpression ||
+                    arg.valueExpression.nodeType !== ParseNodeType.Constant ||
+                    !(
+                        arg.valueExpression.constType === KeywordType.False ||
+                        arg.valueExpression.constType === KeywordType.True
+                    )
+                ) {
+                    evaluator.addError(
+                        Localizer.Diagnostic.typedDictBoolParam().format({ name: arg.name.value }),
+                        arg.valueExpression || errorNode
+                    );
+                } else if (arg.name.value === 'total' && arg.valueExpression.constType === KeywordType.False) {
+                    classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
+                } else if (arg.name.value === 'readonly' && arg.valueExpression.constType === KeywordType.True) {
+                    classType.details.flags |= ClassTypeFlags.DictValuesReadOnly;
+                }
+            } else {
+                evaluator.addError(Localizer.Diagnostic.typedDictExtraArgs(), arg.valueExpression || errorNode);
             }
-        }
-
-        if (argList.length > 3) {
-            evaluator.addError(Localizer.Diagnostic.typedDictExtraArgs(), argList[3].valueExpression || errorNode);
         }
     }
 
@@ -269,7 +273,7 @@ export function synthesizeTypedDictClassMethods(
 
     // All subsequent parameters must be named, so insert an empty "*".
     FunctionType.addParameter(initOverride1, {
-        category: ParameterCategory.VarArgList,
+        category: ParameterCategory.ArgsList,
         type: AnyType.create(),
         hasDeclaredType: true,
     });
@@ -285,13 +289,15 @@ export function synthesizeTypedDictClassMethods(
 
     // All parameters must be named, so insert an empty "*".
     FunctionType.addParameter(initOverride2, {
-        category: ParameterCategory.VarArgList,
+        category: ParameterCategory.ArgsList,
         type: AnyType.create(),
         hasDeclaredType: true,
     });
 
     const entries = getTypedDictMembersForClass(evaluator, classType);
     let allEntriesAreNotRequired = true;
+    let allEntriesAreReadOnly = true;
+    let allEntriesAreWritable = true;
     entries.forEach((entry, name) => {
         FunctionType.addParameter(initOverride1, {
             category: ParameterCategory.Simple,
@@ -312,6 +318,12 @@ export function synthesizeTypedDictClassMethods(
         if (entry.isRequired) {
             allEntriesAreNotRequired = false;
         }
+
+        if (entry.isReadOnly) {
+            allEntriesAreWritable = false;
+        } else {
+            allEntriesAreReadOnly = false;
+        }
     });
 
     const symbolTable = classType.details.fields;
@@ -329,7 +341,8 @@ export function synthesizeTypedDictClassMethods(
             type: ClassType.cloneAsInstance(classType),
             hasDeclaredType: true,
         };
-        const createDefaultTypeVar = (func: FunctionType) => {
+
+        function createDefaultTypeVar(func: FunctionType) {
             let defaultTypeVar = TypeVarType.createInstance(`__TDefault`);
             defaultTypeVar = TypeVarType.cloneForScopeId(
                 defaultTypeVar,
@@ -338,18 +351,18 @@ export function synthesizeTypedDictClassMethods(
                 TypeVarScopeType.Function
             );
             return defaultTypeVar;
-        };
+        }
 
-        const createGetMethod = (
+        function createGetMethod(
             keyType: Type,
-            valueType: Type | undefined,
+            valueType: Type,
             includeDefault: boolean,
             isEntryRequired = false,
             defaultTypeMatchesField = false
-        ) => {
+        ) {
             const getOverload = FunctionType.createSynthesizedInstance('get', FunctionTypeFlags.Overloaded);
             FunctionType.addParameter(getOverload, selfParam);
-            getOverload.details.typeVarScopeId = evaluator.getScopeIdForNode(node);
+            getOverload.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
             FunctionType.addParameter(getOverload, {
                 category: ParameterCategory.Simple,
                 name: 'k',
@@ -366,14 +379,15 @@ export function synthesizeTypedDictClassMethods(
                     // If the entry is required, the type of the default param doesn't matter
                     // because the type will always come from the value.
                     defaultParamType = AnyType.create();
-                    returnType = valueType ?? AnyType.create();
+                    returnType = valueType;
                 } else {
-                    defaultParamType = defaultTypeMatchesField && valueType ? valueType : defaultTypeVar;
-                    if (valueType) {
-                        returnType = defaultTypeMatchesField ? valueType : combineTypes([valueType, defaultTypeVar]);
+                    if (defaultTypeMatchesField) {
+                        defaultParamType = valueType;
                     } else {
-                        returnType = defaultTypeVar;
+                        defaultParamType = combineTypes([valueType, defaultTypeVar]);
                     }
+
+                    returnType = defaultParamType;
                 }
 
                 FunctionType.addParameter(getOverload, {
@@ -386,12 +400,12 @@ export function synthesizeTypedDictClassMethods(
             } else {
                 getOverload.details.declaredReturnType = isEntryRequired
                     ? valueType
-                    : combineTypes([valueType ?? AnyType.create(), NoneType.createInstance()]);
+                    : combineTypes([valueType, NoneType.createInstance()]);
             }
             return getOverload;
-        };
+        }
 
-        const createPopMethods = (keyType: Type, valueType: Type) => {
+        function createPopMethods(keyType: Type, valueType: Type) {
             const keyParam: FunctionParameter = {
                 category: ParameterCategory.Simple,
                 name: 'k',
@@ -407,7 +421,7 @@ export function synthesizeTypedDictClassMethods(
             const popOverload2 = FunctionType.createSynthesizedInstance('pop', FunctionTypeFlags.Overloaded);
             FunctionType.addParameter(popOverload2, selfParam);
             FunctionType.addParameter(popOverload2, keyParam);
-            popOverload2.details.typeVarScopeId = evaluator.getScopeIdForNode(node);
+            popOverload2.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
             const defaultTypeVar = createDefaultTypeVar(popOverload2);
             FunctionType.addParameter(popOverload2, {
                 category: ParameterCategory.Simple,
@@ -418,9 +432,9 @@ export function synthesizeTypedDictClassMethods(
             });
             popOverload2.details.declaredReturnType = combineTypes([valueType, defaultTypeVar]);
             return [popOverload1, popOverload2];
-        };
+        }
 
-        const createSetDefaultMethod = (keyType: Type, valueType: Type) => {
+        function createSetDefaultMethod(keyType: Type, valueType: Type) {
             const setDefaultOverload = FunctionType.createSynthesizedInstance(
                 'setdefault',
                 FunctionTypeFlags.Overloaded
@@ -440,9 +454,9 @@ export function synthesizeTypedDictClassMethods(
             });
             setDefaultOverload.details.declaredReturnType = valueType;
             return setDefaultOverload;
-        };
+        }
 
-        const createDelItemMethod = (keyType: Type) => {
+        function createDelItemMethod(keyType: Type) {
             const delItemOverload = FunctionType.createSynthesizedInstance('delitem', FunctionTypeFlags.Overloaded);
             FunctionType.addParameter(delItemOverload, selfParam);
             FunctionType.addParameter(delItemOverload, {
@@ -453,7 +467,34 @@ export function synthesizeTypedDictClassMethods(
             });
             delItemOverload.details.declaredReturnType = NoneType.createInstance();
             return delItemOverload;
-        };
+        }
+
+        function createUpdateMethod() {
+            const updateMethod = FunctionType.createSynthesizedInstance('update');
+            FunctionType.addParameter(updateMethod, selfParam);
+
+            // If at least one entry is read-only, don't allow updates. We need to override
+            // the update method provided by the _TypedDict base class, so we'll use
+            // a Never parameter to generate an error if someone attempts to call it
+            // in this case.
+            FunctionType.addParameter(updateMethod, {
+                category: ParameterCategory.Simple,
+                name: '__m',
+                hasDeclaredType: true,
+                type: !allEntriesAreWritable
+                    ? NeverType.createNever()
+                    : ClassType.cloneAsInstance(ClassType.cloneForPartialTypedDict(classType)),
+            });
+
+            FunctionType.addParameter(updateMethod, {
+                category: ParameterCategory.Simple,
+                name: '',
+                type: AnyType.create(),
+            });
+
+            updateMethod.details.declaredReturnType = NoneType.createInstance();
+            return updateMethod;
+        }
 
         const getOverloads: FunctionType[] = [];
         const popOverloads: FunctionType[] = [];
@@ -483,26 +524,19 @@ export function synthesizeTypedDictClassMethods(
                         entry.valueType,
                         /* includeDefault */ true,
                         /* isEntryRequired */ false,
-                        /* defaultTypeMatchesField */ true
-                    )
-                );
-                getOverloads.push(
-                    createGetMethod(
-                        nameLiteralType,
-                        entry.valueType,
-                        /* includeDefault */ true,
-                        /* isEntryRequired */ false,
                         /* defaultTypeMatchesField */ false
                     )
                 );
             }
 
             // Add a pop method if the entry is not required.
-            if (!entry.isRequired) {
+            if (!entry.isRequired && !entry.isReadOnly) {
                 appendArray(popOverloads, createPopMethods(nameLiteralType, entry.valueType));
             }
 
-            setDefaultOverloads.push(createSetDefaultMethod(nameLiteralType, entry.valueType));
+            if (!entry.isReadOnly) {
+                setDefaultOverloads.push(createSetDefaultMethod(nameLiteralType, entry.valueType));
+            }
         });
 
         // If the class is marked "@final", we can assume that any other literal
@@ -520,7 +554,11 @@ export function synthesizeTypedDictClassMethods(
                     )
                 );
                 getOverloads.push(
-                    createGetMethod(literalStringInstance, /* valueType */ undefined, /* includeDefault */ true)
+                    createGetMethod(
+                        literalStringInstance,
+                        /* valueType */ UnknownType.create(),
+                        /* includeDefault */ true
+                    )
                 );
             }
         }
@@ -535,23 +573,33 @@ export function synthesizeTypedDictClassMethods(
             'get',
             Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(getOverloads))
         );
+
         if (popOverloads.length > 0) {
             symbolTable.set(
                 'pop',
                 Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(popOverloads))
             );
         }
+
         if (setDefaultOverloads.length > 0) {
             symbolTable.set(
                 'setdefault',
                 Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(setDefaultOverloads))
             );
         }
-        symbolTable.set('__delitem__', Symbol.createWithType(SymbolFlags.ClassMember, createDelItemMethod(strType)));
+
+        if (!allEntriesAreReadOnly) {
+            symbolTable.set(
+                '__delitem__',
+                Symbol.createWithType(SymbolFlags.ClassMember, createDelItemMethod(strType))
+            );
+        }
+
+        symbolTable.set('update', Symbol.createWithType(SymbolFlags.ClassMember, createUpdateMethod()));
 
         // If the TypedDict is final and all of its entries are NotRequired,
         // add a "clear" and "popitem" method.
-        if (isClassFinal && allEntriesAreNotRequired) {
+        if (isClassFinal && allEntriesAreNotRequired && !allEntriesAreReadOnly) {
             const clearMethod = FunctionType.createSynthesizedInstance('clear');
             FunctionType.addParameter(clearMethod, selfParam);
             clearMethod.details.declaredReturnType = NoneType.createInstance();
@@ -604,6 +652,13 @@ export function getTypedDictMembersForClass(evaluator: TypeEvaluator, classType:
             const tdEntry = { ...value };
             tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, typeVarContext);
             entries.set(key, tdEntry);
+        });
+    }
+
+    // If the class is "Partial", make all entries optional.
+    if (classType.isTypedDictPartial) {
+        entries.forEach((entry) => {
+            entry.isRequired = false;
         });
     }
 
@@ -700,6 +755,7 @@ function getTypedDictMembersForClassRecursive(
                 valueType = applySolvedTypeVars(valueType, typeVarContext);
 
                 let isRequired = !ClassType.isCanOmitDictValues(classType);
+                let isReadOnly = ClassType.isDictValuesReadOnly(classType);
 
                 if (isRequiredTypedDictVariable(evaluator, symbol)) {
                     isRequired = true;
@@ -707,15 +763,33 @@ function getTypedDictMembersForClassRecursive(
                     isRequired = false;
                 }
 
+                if (isReadOnlyTypedDictVariable(evaluator, symbol)) {
+                    isReadOnly = true;
+                }
+
                 // If a base class already declares this field, verify that the
                 // subclass isn't trying to change its type. That's expressly
                 // forbidden in PEP 589.
                 const existingEntry = keyMap.get(name);
                 if (existingEntry) {
-                    if (!isTypeSame(existingEntry.valueType, valueType)) {
-                        const diag = new DiagnosticAddendum();
+                    let isTypeCompatible: boolean;
+                    const diag = new DiagnosticAddendum();
+
+                    // If the field is read-only, the type is covariant. If it's not
+                    // read-only, it's invariant.
+                    if (existingEntry.isReadOnly) {
+                        isTypeCompatible = evaluator.assignType(
+                            existingEntry.valueType,
+                            valueType,
+                            diag.createAddendum()
+                        );
+                    } else {
+                        isTypeCompatible = isTypeSame(existingEntry.valueType, valueType);
+                    }
+
+                    if (!isTypeCompatible) {
                         diag.addMessage(
-                            Localizer.DiagnosticAddendum.typedDictFieldRedefinition().format({
+                            Localizer.DiagnosticAddendum.typedDictFieldTypeRedefinition().format({
                                 parentType: evaluator.printType(existingEntry.valueType),
                                 childType: evaluator.printType(valueType),
                             })
@@ -723,9 +797,22 @@ function getTypedDictMembersForClassRecursive(
                         evaluator.addDiagnostic(
                             AnalyzerNodeInfo.getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.typedDictFieldRedefinition().format({
+                            Localizer.Diagnostic.typedDictFieldTypeRedefinition().format({
                                 name,
                             }) + diag.getString(),
+                            lastDecl.node
+                        );
+                    }
+
+                    // Make sure that the derived class isn't marking a previously writable
+                    // entry as read-only.
+                    if (!existingEntry.isReadOnly && isReadOnly) {
+                        evaluator.addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typedDictFieldReadOnlyRedefinition().format({
+                                name,
+                            }),
                             lastDecl.node
                         );
                     }
@@ -733,6 +820,7 @@ function getTypedDictMembersForClassRecursive(
 
                 keyMap.set(name, {
                     valueType,
+                    isReadOnly,
                     isRequired,
                     isProvided: false,
                 });
@@ -751,31 +839,39 @@ export function assignTypedDictToTypedDict(
     recursionCount = 0
 ) {
     let typesAreConsistent = true;
+    const isDestPartial = !!destType.isTypedDictPartial;
     const destEntries = getTypedDictMembersForClass(evaluator, destType);
     const srcEntries = getTypedDictMembersForClass(evaluator, srcType, /* allowNarrowed */ true);
 
     destEntries.forEach((destEntry, name) => {
         const srcEntry = srcEntries.get(name);
         if (!srcEntry) {
-            diag?.createAddendum().addMessage(
-                Localizer.DiagnosticAddendum.typedDictFieldMissing().format({
-                    name,
-                    type: evaluator.printType(srcType),
-                })
-            );
-            typesAreConsistent = false;
-        } else {
-            if (destEntry.isRequired && !srcEntry.isRequired) {
+            if (!isDestPartial) {
                 diag?.createAddendum().addMessage(
-                    Localizer.DiagnosticAddendum.typedDictFieldRequired().format({
+                    Localizer.DiagnosticAddendum.typedDictFieldMissing().format({
+                        name,
+                        type: evaluator.printType(srcType),
+                    })
+                );
+                typesAreConsistent = false;
+            }
+        } else {
+            if (destEntry.isRequired !== srcEntry.isRequired && !destEntry.isReadOnly && !isDestPartial) {
+                const message = destEntry.isRequired
+                    ? Localizer.DiagnosticAddendum.typedDictFieldRequired()
+                    : Localizer.DiagnosticAddendum.typedDictFieldNotRequired();
+                diag?.createAddendum().addMessage(
+                    message.format({
                         name,
                         type: evaluator.printType(destType),
                     })
                 );
                 typesAreConsistent = false;
-            } else if (!destEntry.isRequired && srcEntry.isRequired) {
+            }
+
+            if (!destEntry.isReadOnly && srcEntry.isReadOnly && !isDestPartial) {
                 diag?.createAddendum().addMessage(
-                    Localizer.DiagnosticAddendum.typedDictFieldNotRequired().format({
+                    Localizer.DiagnosticAddendum.typedDictFieldNotReadOnly().format({
                         name,
                         type: evaluator.printType(destType),
                     })
@@ -893,6 +989,7 @@ export function assignToTypedDict(
                 if (!symbolEntry.isRequired) {
                     narrowedEntries.set(keyValue, {
                         valueType: valueTypes[index].type,
+                        isReadOnly: !!valueTypes[index].isReadOnly,
                         isRequired: false,
                         isProvided: true,
                     });
@@ -991,6 +1088,13 @@ export function getTypeOfIndexedTypedDict(
                         })
                     );
                 }
+            } else if (entry.isReadOnly && usage.method !== 'get') {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.keyReadOnly().format({
+                        name: entryName,
+                        type: evaluator.printType(baseType),
+                    })
+                );
             }
 
             if (usage.method === 'set') {
@@ -1072,7 +1176,12 @@ export function narrowForKeyAssignment(classType: ClassType, key: string) {
     const narrowedEntries = classType.typedDictNarrowedEntries
         ? new Map<string, TypedDictEntry>(classType.typedDictNarrowedEntries)
         : new Map<string, TypedDictEntry>();
-    narrowedEntries.set(key, { isProvided: true, isRequired: false, valueType: tdEntry.valueType });
+    narrowedEntries.set(key, {
+        isProvided: true,
+        isRequired: false,
+        isReadOnly: tdEntry.isReadOnly,
+        valueType: tdEntry.valueType,
+    });
 
     return ClassType.cloneForNarrowedTypedDictEntries(classType, narrowedEntries);
 }
@@ -1104,5 +1213,20 @@ function isNotRequiredTypedDictVariable(evaluator: TypeEvaluator, symbol: Symbol
         });
 
         return !!annotatedType.isNotRequired;
+    });
+}
+
+function isReadOnlyTypedDictVariable(evaluator: TypeEvaluator, symbol: Symbol) {
+    return symbol.getDeclarations().some((decl) => {
+        if (decl.type !== DeclarationType.Variable || !decl.typeAnnotationNode) {
+            return false;
+        }
+
+        const annotatedType = evaluator.getTypeOfExpressionExpectingType(decl.typeAnnotationNode, {
+            allowFinal: true,
+            allowRequired: true,
+        });
+
+        return !!annotatedType.isReadOnly;
     });
 }

@@ -2,6 +2,7 @@ import dis
 import enum
 import sys
 import types
+from _typeshed import StrPath
 from collections import OrderedDict
 from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine, Generator, Mapping, Sequence, Set as AbstractSet
 from types import (
@@ -177,7 +178,7 @@ if sys.version_info >= (3, 11):
     @overload
     def getmembers_static(object: object, predicate: _GetMembersPredicate | None = None) -> _GetMembersReturn: ...
 
-def getmodulename(path: str) -> str | None: ...
+def getmodulename(path: StrPath) -> str | None: ...
 def ismodule(object: object) -> TypeGuard[ModuleType]: ...
 def isclass(object: object) -> TypeGuard[type[Any]]: ...
 def ismethod(object: object) -> TypeGuard[MethodType]: ...
@@ -598,3 +599,25 @@ def classify_class_attrs(cls: type) -> list[Attribute]: ...
 
 if sys.version_info >= (3, 9):
     class ClassFoundException(Exception): ...
+
+if sys.version_info >= (3, 12):
+    class BufferFlags(enum.IntFlag):
+        SIMPLE: int
+        WRITABLE: int
+        FORMAT: int
+        ND: int
+        STRIDES: int
+        C_CONTIGUOUS: int
+        F_CONTIGUOUS: int
+        ANY_CONTIGUOUS: int
+        INDIRECT: int
+        CONTIG: int
+        CONTIG_RO: int
+        STRIDED: int
+        STRIDED_RO: int
+        RECORDS: int
+        RECORDS_RO: int
+        FULL: int
+        FULL_RO: int
+        READ: int
+        WRITE: int

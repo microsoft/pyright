@@ -8,9 +8,8 @@
  */
 
 import { CancellationToken } from 'vscode-languageserver';
-import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 
-import { BackgroundAnalysisBase, IndexOptions, RefreshOptions } from '../backgroundAnalysisBase';
+import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
@@ -19,29 +18,39 @@ import { Range } from '../common/textRange';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
 import { CacheManager } from './cacheManager';
 import { ImportResolver } from './importResolver';
-import { Indices, MaxAnalysisTime, OpenFileOptions, Program } from './program';
+import { MaxAnalysisTime, OpenFileOptions, Program } from './program';
+
+export enum InvalidatedReason {
+    Reanalyzed,
+    SourceWatcherChanged,
+    LibraryWatcherChanged,
+    LibraryWatcherContentOnlyChanged,
+}
 
 export class BackgroundAnalysisProgram {
     private _program: Program;
     private _disposed = false;
     private _onAnalysisCompletion: AnalysisCompleteCallback | undefined;
+    private _preEditAnalysis: BackgroundAnalysisBase | undefined;
 
     constructor(
-        private _console: ConsoleInterface,
+        protected readonly serviceId: string,
+        private readonly _console: ConsoleInterface,
         private _configOptions: ConfigOptions,
         private _importResolver: ImportResolver,
-        protected _backgroundAnalysis?: BackgroundAnalysisBase,
-        private _maxAnalysisTime?: MaxAnalysisTime,
-        private _disableChecker?: boolean,
+        private _backgroundAnalysis?: BackgroundAnalysisBase,
+        private readonly _maxAnalysisTime?: MaxAnalysisTime,
+        private readonly _disableChecker?: boolean,
         cacheManager?: CacheManager
     ) {
         this._program = new Program(
-            this._importResolver,
-            this._configOptions,
+            this.importResolver,
+            this.configOptions,
             this._console,
             undefined,
             this._disableChecker,
-            cacheManager
+            cacheManager,
+            serviceId
         );
     }
 
@@ -80,7 +89,7 @@ export class BackgroundAnalysisProgram {
         this._backgroundAnalysis?.setImportResolver(importResolver);
 
         this._program.setImportResolver(importResolver);
-        this._configOptions.getExecutionEnvironments().forEach((e) => this._ensurePartialStubPackages(e));
+        this.configOptions.getExecutionEnvironments().forEach((e) => this._ensurePartialStubPackages(e));
     }
 
     setTrackedFiles(filePaths: string[]) {
@@ -95,8 +104,8 @@ export class BackgroundAnalysisProgram {
     }
 
     setFileOpened(filePath: string, version: number | null, contents: string, options: OpenFileOptions) {
-        this._backgroundAnalysis?.setFileOpened(filePath, version, [{ text: contents }], options);
-        this._program.setFileOpened(filePath, version, [{ text: contents }], options);
+        this._backgroundAnalysis?.setFileOpened(filePath, version, contents, options);
+        this._program.setFileOpened(filePath, version, contents, options);
     }
 
     getChainedFilePath(filePath: string): string | undefined {
@@ -108,12 +117,7 @@ export class BackgroundAnalysisProgram {
         this._program.updateChainedFilePath(filePath, chainedFilePath);
     }
 
-    updateOpenFileContents(
-        path: string,
-        version: number | null,
-        contents: TextDocumentContentChangeEvent[],
-        options: OpenFileOptions
-    ) {
+    updateOpenFileContents(path: string, version: number | null, contents: string, options: OpenFileOptions) {
         this._backgroundAnalysis?.setFileOpened(path, version, contents, options);
         this._program.setFileOpened(path, version, contents, options);
         this.markFilesDirty([path], /* evenIfContentsAreSame */ true);
@@ -130,14 +134,14 @@ export class BackgroundAnalysisProgram {
         this._program.addInterimFile(filePath);
     }
 
-    markAllFilesDirty(evenIfContentsAreSame: boolean, indexingNeeded = true) {
-        this._backgroundAnalysis?.markAllFilesDirty(evenIfContentsAreSame, indexingNeeded);
-        this._program.markAllFilesDirty(evenIfContentsAreSame, indexingNeeded);
+    markAllFilesDirty(evenIfContentsAreSame: boolean) {
+        this._backgroundAnalysis?.markAllFilesDirty(evenIfContentsAreSame);
+        this._program.markAllFilesDirty(evenIfContentsAreSame);
     }
 
-    markFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean, indexingNeeded = true) {
-        this._backgroundAnalysis?.markFilesDirty(filePaths, evenIfContentsAreSame, indexingNeeded);
-        this._program.markFilesDirty(filePaths, evenIfContentsAreSame, indexingNeeded);
+    markFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean) {
+        this._backgroundAnalysis?.markFilesDirty(filePaths, evenIfContentsAreSame);
+        this._program.markFilesDirty(filePaths, evenIfContentsAreSame);
     }
 
     setCompletionCallback(callback?: AnalysisCompleteCallback) {
@@ -147,7 +151,7 @@ export class BackgroundAnalysisProgram {
 
     startAnalysis(token: CancellationToken): boolean {
         if (this._backgroundAnalysis) {
-            this._backgroundAnalysis.startAnalysis(this._getIndices(), token);
+            this._backgroundAnalysis.startAnalysis(this.program, token);
             return false;
         }
 
@@ -165,25 +169,8 @@ export class BackgroundAnalysisProgram {
         return this._program.analyzeFile(filePath, token);
     }
 
-    startIndexing(indexOptions: IndexOptions) {
-        this._backgroundAnalysis?.startIndexing(indexOptions, this._configOptions, this.importResolver, this.host.kind);
-    }
-
-    refreshIndexing(refreshOptions?: RefreshOptions) {
-        this._backgroundAnalysis?.refreshIndexing(
-            this._configOptions,
-            this.importResolver,
-            this.host.kind,
-            refreshOptions
-        );
-    }
-
-    cancelIndexing() {
-        this._backgroundAnalysis?.cancelIndexing();
-    }
-
-    getIndexing(filePath: string) {
-        return this._getIndices()?.getIndex(this._configOptions.findExecEnvironment(filePath).root);
+    libraryUpdated() {
+        // empty
     }
 
     async getDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
@@ -215,23 +202,15 @@ export class BackgroundAnalysisProgram {
         return this._program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
     }
 
-    invalidateAndForceReanalysis(
-        rebuildUserFileIndexing: boolean,
-        rebuildLibraryIndexing: boolean,
-        refreshOptions?: RefreshOptions
-    ) {
-        if (rebuildLibraryIndexing) {
-            this.refreshIndexing(refreshOptions);
-        }
-
-        this._backgroundAnalysis?.invalidateAndForceReanalysis(rebuildUserFileIndexing);
+    invalidateAndForceReanalysis(reason: InvalidatedReason) {
+        this._backgroundAnalysis?.invalidateAndForceReanalysis(reason);
 
         // Make sure the import resolver doesn't have invalid
         // cached entries.
         this._importResolver.invalidateCache();
 
         // Mark all files with one or more errors dirty.
-        this._program.markAllFilesDirty(true, rebuildUserFileIndexing);
+        this._program.markAllFilesDirty(/* evenIfContentsAreSame */ true);
     }
 
     restart() {
@@ -239,9 +218,28 @@ export class BackgroundAnalysisProgram {
     }
 
     dispose() {
+        if (this._disposed) {
+            return;
+        }
+
         this._disposed = true;
         this._program.dispose();
         this._backgroundAnalysis?.shutdown();
+    }
+
+    enterEditMode() {
+        // Turn off analysis while in edit mode.
+        this._preEditAnalysis = this._backgroundAnalysis;
+        this._backgroundAnalysis = undefined;
+
+        // Forward this request to the program.
+        this._program.enterEditMode();
+    }
+
+    exitEditMode() {
+        this._backgroundAnalysis = this._preEditAnalysis;
+        this._preEditAnalysis = undefined;
+        return this._program.exitEditMode();
     }
 
     private _ensurePartialStubPackages(execEnv: ExecutionEnvironment) {
@@ -250,26 +248,24 @@ export class BackgroundAnalysisProgram {
     }
 
     private _reportDiagnosticsForRemovedFiles(fileDiags: FileDiagnostics[]) {
-        if (fileDiags.length > 0) {
-            // If analysis is running in the foreground process, report any
-            // diagnostics that resulted from the close operation (used to
-            // clear diagnostics that are no longer of interest).
-            if (!this._backgroundAnalysis && this._onAnalysisCompletion) {
-                this._onAnalysisCompletion({
-                    diagnostics: fileDiags,
-                    filesInProgram: this._program.getFileCount(),
-                    filesRequiringAnalysis: this._program.getFilesToAnalyzeCount(),
-                    checkingOnlyOpenFiles: this._program.isCheckingOnlyOpenFiles(),
-                    fatalErrorOccurred: false,
-                    configParseErrorOccurred: false,
-                    elapsedTime: 0,
-                });
-            }
+        if (fileDiags.length === 0) {
+            return;
         }
-    }
 
-    protected _getIndices(): Indices | undefined {
-        return undefined;
+        // If analysis is running in the foreground process, report any
+        // diagnostics that resulted from the close operation (used to
+        // clear diagnostics that are no longer of interest).
+        if (!this._backgroundAnalysis && this._onAnalysisCompletion) {
+            this._onAnalysisCompletion({
+                diagnostics: fileDiags,
+                filesInProgram: this._program.getFileCount(),
+                filesRequiringAnalysis: this._program.getFilesToAnalyzeCount(),
+                checkingOnlyOpenFiles: this._program.isCheckingOnlyOpenFiles(),
+                fatalErrorOccurred: false,
+                configParseErrorOccurred: false,
+                elapsedTime: 0,
+            });
+        }
     }
 }
 

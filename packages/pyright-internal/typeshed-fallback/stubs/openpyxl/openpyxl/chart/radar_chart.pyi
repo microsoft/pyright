@@ -1,25 +1,35 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
+from typing import ClassVar
+from typing_extensions import Literal, TypeAlias
+
+from openpyxl.chart.axis import NumericAxis, TextAxis
+from openpyxl.chart.label import DataLabelList
+from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool
+from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import NestedBool, NestedSet, _HasTagAndGet
 
 from ._chart import ChartBase
 
+_RadarChartRadarStyle: TypeAlias = Literal["standard", "marker", "filled"]
+
 class RadarChart(ChartBase):
-    tagname: str
-    radarStyle: Incomplete
-    type: Incomplete
-    varyColors: Incomplete
+    tagname: ClassVar[str]
+    radarStyle: NestedSet[_RadarChartRadarStyle]
+    type: Alias
+    varyColors: NestedBool[Literal[True]]
     ser: Incomplete
-    dLbls: Incomplete
-    dataLabels: Incomplete
-    extLst: Incomplete
-    x_axis: Incomplete
-    y_axis: Incomplete
-    __elements__: Incomplete
+    dLbls: Typed[DataLabelList, Literal[True]]
+    dataLabels: Alias
+    extLst: Typed[ExtensionList, Literal[True]]
+    x_axis: Typed[TextAxis, Literal[False]]
+    y_axis: Typed[NumericAxis, Literal[False]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        radarStyle: str = "standard",
-        varyColors: Incomplete | None = None,
+        radarStyle: _HasTagAndGet[_RadarChartRadarStyle] | _RadarChartRadarStyle = "standard",
+        varyColors: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
         ser=(),
-        dLbls: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        dLbls: DataLabelList | None = None,
+        extLst: Unused = None,
         **kw,
     ) -> None: ...

@@ -2,7 +2,7 @@ from _typeshed import Incomplete
 from typing import Any
 
 from ..sql import base as sql_base
-from ..util import HasMemoized, memoized_property
+from ..util.langhelpers import HasMemoized, memoized_property
 from .base import (
     _class_to_mapper as _class_to_mapper,
     _state_mapper as _state_mapper,
@@ -43,6 +43,7 @@ class Mapper(ORMFromClauseRole, ORMEntityColumnsClauseRole, sql_base.MemoizedHas
     polymorphic_map: Any
     include_properties: Any
     exclude_properties: Any
+    dispatch: Incomplete
     def __init__(
         self,
         class_,

@@ -17,14 +17,14 @@ import { ConfigOptions } from '../common/configOptions';
 import { NullConsole } from '../common/console';
 import { normalizeSlashes } from '../common/pathUtils';
 import { convertOffsetsToRange, convertOffsetToPosition } from '../common/positionUtils';
-import { ImportFormat } from '../languageService/autoImporter';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { TestAccessHost } from './harness/testAccessHost';
 import * as host from './harness/testHost';
 import { createFromFileSystem, distlibFolder, libFolder } from './harness/vfs/factory';
 import * as vfs from './harness/vfs/filesystem';
+import { CompletionProvider } from '../languageService/completionProvider';
 
-test('check chained files', async () => {
+test('check chained files', () => {
     const code = `
 // @filename: test1.py
 //// def foo1(): pass
@@ -45,29 +45,25 @@ test('check chained files', async () => {
     const marker = data.markerPositions.get('marker')!;
 
     const parseResult = service.getParseResult(marker.fileName)!;
-    const result = await service.getCompletionsForPosition(
+    const result = new CompletionProvider(
+        service.test_program,
+        basePath,
         marker.fileName,
         convertOffsetToPosition(marker.position, parseResult.tokenizerOutput.lines),
-        basePath,
         {
             format: MarkupKind.Markdown,
             lazyEdit: false,
             snippet: false,
-            autoImport: false,
-            extraCommitChars: false,
-            importFormat: ImportFormat.Absolute,
-            includeUserSymbolsInAutoImport: false,
         },
-        undefined,
         CancellationToken.None
-    );
+    ).getCompletions();
 
-    assert(result?.completionList.items.some((i) => i.label === 'foo1'));
-    assert(result?.completionList.items.some((i) => i.label === 'foo2'));
-    assert(result?.completionList.items.some((i) => i.label === 'foo3'));
+    assert(result?.items.some((i) => i.label === 'foo1'));
+    assert(result?.items.some((i) => i.label === 'foo2'));
+    assert(result?.items.some((i) => i.label === 'foo3'));
 });
 
-test('modify chained files', async () => {
+test('modify chained files', () => {
     const code = `
 // @filename: test1.py
 //// def foo1(): pass
@@ -93,28 +89,27 @@ test('modify chained files', async () => {
     // Close file in the middle of the chain
     service.setFileClosed(data.markerPositions.get('delete')!.fileName);
 
-    const result = await service.getCompletionsForPosition(
+    // Make sure we don't get suggestion from auto import but from chained files.
+    service.test_program.configOptions.autoImportCompletions = false;
+
+    const result = new CompletionProvider(
+        service.test_program,
+        basePath,
         marker.fileName,
         convertOffsetToPosition(marker.position, parseResult.tokenizerOutput.lines),
-        basePath,
         {
             format: MarkupKind.Markdown,
             lazyEdit: false,
             snippet: false,
-            autoImport: false,
-            extraCommitChars: false,
-            importFormat: ImportFormat.Absolute,
-            includeUserSymbolsInAutoImport: false,
         },
-        undefined,
         CancellationToken.None
-    );
+    ).getCompletions();
 
     assert(result);
 
-    assert(!result.completionList.items.some((i) => i.label === 'foo1'));
-    assert(!result.completionList.items.some((i) => i.label === 'foo2'));
-    assert(result.completionList.items.some((i) => i.label === 'foo3'));
+    assert(!result.items.some((i) => i.label === 'foo1'));
+    assert(!result.items.some((i) => i.label === 'foo2'));
+    assert(result.items.some((i) => i.label === 'foo3'));
 });
 
 test('modify chained files', async () => {
@@ -152,7 +147,7 @@ test('modify chained files', async () => {
     assert.strictEqual(initialDiags.length, 0);
 
     // Change test1 content
-    service.updateOpenFileContents(data.markerPositions.get('changed')!.fileName, 2, [{ text: 'def foo5(): pass' }]);
+    service.updateOpenFileContents(data.markerPositions.get('changed')!.fileName, 2, 'def foo5(): pass');
     analyze(service.test_program);
 
     const finalDiags = await service.getDiagnosticsForRange(
@@ -200,6 +195,64 @@ test('chained files with 1000s of files', async () => {
     assert.strictEqual(initialDiags.length, 0);
 });
 
+test('imported by files', async () => {
+    const code = `
+// @filename: test1.py
+//// import [|/*marker*/os|]
+
+// @filename: test2.py
+//// os.path.join()
+    `;
+
+    const basePath = normalizeSlashes('/');
+    const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
+    analyze(service.test_program);
+
+    const marker = data.markerPositions.get('marker')!;
+    const range = data.ranges.find((r) => r.marker === marker)!;
+
+    const parseResults = service.getParseResult(marker.fileName)!;
+    const diagnostics = await service.getDiagnosticsForRange(
+        marker.fileName,
+        convertOffsetsToRange(range.pos, range.end, parseResults.tokenizerOutput.lines),
+        CancellationToken.None
+    );
+
+    assert.strictEqual(diagnostics.length, 0);
+});
+
+test('re ordering cells', async () => {
+    const code = `
+// @filename: test1.py
+//// import [|/*marker*/os|]
+
+// @filename: test2.py
+//// /*bottom*/os.path.join()
+    `;
+
+    const basePath = normalizeSlashes('/');
+    const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
+    analyze(service.test_program);
+
+    const marker = data.markerPositions.get('marker')!;
+    const range = data.ranges.find((r) => r.marker === marker)!;
+
+    const bottom = data.markerPositions.get('bottom')!;
+
+    service.updateChainedFilePath(bottom.fileName, undefined);
+    service.updateChainedFilePath(marker.fileName, bottom.fileName);
+    analyze(service.test_program);
+
+    const parseResults = service.getParseResult(marker.fileName)!;
+    const diagnostics = await service.getDiagnosticsForRange(
+        marker.fileName,
+        convertOffsetsToRange(range.pos, range.end, parseResults.tokenizerOutput.lines),
+        CancellationToken.None
+    );
+
+    assert.strictEqual(diagnostics.length, 1);
+});
+
 function createServiceWithChainedSourceFiles(basePath: string, code: string) {
     const service = new AnalyzerService(
         'test service',
@@ -216,7 +269,7 @@ function createServiceWithChainedSourceFiles(basePath: string, code: string) {
 
     let chainedFilePath: string | undefined;
     for (const file of data.files) {
-        service.setFileOpened(file.fileName, 1, file.content, IPythonMode.None, chainedFilePath);
+        service.setFileOpened(file.fileName, 1, file.content, IPythonMode.CellDocs, chainedFilePath);
         chainedFilePath = file.fileName;
     }
     return { data, service };

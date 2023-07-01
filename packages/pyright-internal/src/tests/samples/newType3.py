@@ -1,7 +1,7 @@
 # This sample tests that the type checker is properly synthesizing
 # a constructor for a NewType.
 
-from typing import NewType, Union
+from typing import NewType
 
 
 UserId = NewType("UserId", int)

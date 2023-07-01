@@ -1,7 +1,15 @@
 # This sample tests the reportImplicitOverride diagnostic check
 # (strict enforcement of PEP 698).
 
+from typing import Any, Callable
 from typing_extensions import override
+
+
+def evil_wrapper(func: Callable[..., Any], /):
+    def wrapped(*args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError
+
+    return wrapped
 
 
 class Base:
@@ -16,6 +24,9 @@ class Base:
     def prop_c(self) -> int:
         return 0
 
+    def method2(self):
+        pass
+
 
 class Child(Base):
     def __init__(self):
@@ -29,3 +40,7 @@ class Child(Base):
     # This should generate an error if reportImplicitOverride is enabled.
     def prop_c(self) -> int:
         return 0
+
+    @evil_wrapper
+    def method2(self):
+        pass

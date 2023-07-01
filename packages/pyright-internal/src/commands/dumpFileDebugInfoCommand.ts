@@ -26,7 +26,7 @@ import {
 } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { isNumber, isString } from '../common/core';
-import { convertOffsetsToRange, convertOffsetToPosition } from '../common/positionUtils';
+import { convertOffsetToPosition, convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { LanguageServerInterface } from '../languageServerBase';
@@ -55,8 +55,8 @@ import {
     ErrorNode,
     ExceptNode,
     ExpressionNode,
-    FormatStringNode,
     ForNode,
+    FormatStringNode,
     FunctionAnnotationNode,
     FunctionNode,
     GlobalNode,
@@ -66,7 +66,6 @@ import {
     ImportFromNode,
     ImportNode,
     IndexNode,
-    isExpressionNode,
     LambdaNode,
     ListComprehensionForNode,
     ListComprehensionIfNode,
@@ -117,6 +116,7 @@ import {
     WithNode,
     YieldFromNode,
     YieldNode,
+    isExpressionNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { KeywordType, NewLineType, OperatorType, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
@@ -455,7 +455,6 @@ const FunctionTypeFlagsToString: [FunctionTypeFlags, string][] = [
     [FunctionTypeFlags.PartiallyEvaluated, 'PartiallyEvaluated'],
     [FunctionTypeFlags.PyTypedDefinition, 'PyTypedDefinition'],
     [FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck, 'SkipArgsKwargsCompatibilityCheck'],
-    [FunctionTypeFlags.SkipConstructorCheck, 'SkipConstructorCheck'],
     [FunctionTypeFlags.StaticMethod, 'StaticMethod'],
     [FunctionTypeFlags.StubDefinition, 'StubDefinition'],
     [FunctionTypeFlags.SynthesizedMethod, 'SynthesizedMethod'],
@@ -568,18 +567,6 @@ class TreeDumper extends ParseTreeWalker {
             this.walkMultiple(childrenToWalk);
             this._indentation = this._indentation.substr(0, this._indentation.length - 2);
         }
-    }
-
-    private _log(value: string) {
-        this._output += `${this._indentation}${value}\r\n`;
-    }
-
-    private _getPrefix(node: ParseNode) {
-        const pos = convertOffsetToPosition(node.start, this._lines);
-        // VS code's output window expects 1 based values, print the line/char with 1 based.
-        return `[${node.id}] '${this._file}:${pos.line + 1}:${pos.character + 1}' => ${printParseNodeType(
-            node.nodeType
-        )} ${getTextSpanString(node, this._lines)} =>`;
     }
 
     reset() {
@@ -740,11 +727,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitFormatString(node: FormatStringNode) {
-        this._log(
-            `${this._getPrefix(node)} ${getTokenString(this._file, node.token, this._lines)} ${
-                node.value
-            } unescape errors:(${node.hasUnescapeErrors})`
-        );
+        this._log(`${this._getPrefix(node)} f-string`);
         return true;
     }
 
@@ -854,11 +837,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitString(node: StringNode) {
-        this._log(
-            `${this._getPrefix(node)} ${getTokenString(this._file, node.token, this._lines)} ${
-                node.value
-            } unescape errors:(${node.hasUnescapeErrors})`
-        );
+        this._log(`${this._getPrefix(node)} ${getTokenString(this._file, node.token, this._lines)} ${node.value}`);
         return true;
     }
 
@@ -1004,6 +983,18 @@ class TreeDumper extends ParseTreeWalker {
         this._log(`${this._getPrefix(node)}`);
         return true;
     }
+
+    private _log(value: string) {
+        this._output += `${this._indentation}${value}\r\n`;
+    }
+
+    private _getPrefix(node: ParseNode) {
+        const pos = convertOffsetToPosition(node.start, this._lines);
+        // VS code's output window expects 1 based values, print the line/char with 1 based.
+        return `[${node.id}] '${this._file}:${pos.line + 1}:${pos.character + 1}' => ${printParseNodeType(
+            node.nodeType
+        )} ${getTextSpanString(node, this._lines)} =>`;
+    }
 }
 
 function getTypeParameterCategoryString(type: TypeParameterCategory) {
@@ -1021,9 +1012,9 @@ function getParameterCategoryString(type: ParameterCategory) {
     switch (type) {
         case ParameterCategory.Simple:
             return 'Simple';
-        case ParameterCategory.VarArgList:
+        case ParameterCategory.ArgsList:
             return 'VarArgList';
-        case ParameterCategory.VarArgDictionary:
+        case ParameterCategory.KwargsDict:
             return 'VarArgDictionary';
     }
 }

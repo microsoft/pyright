@@ -3,7 +3,7 @@
 # bidirectional type inference and the expected type is a
 # union of other types.
 
-from typing import Generic, TypeVar, Union, Final, Optional
+from typing import Generic, TypeVar, Final
 
 T = TypeVar("T")
 E = TypeVar("E")
@@ -19,12 +19,12 @@ class Err(Generic[E]):
         self._value: Final = value
 
 
-Result = Union[Ok[T], Err[E]]
+Result = Ok[T] | Err[E]
 
 
-def return_ok_none() -> Result[Optional[int], Exception]:
+def return_ok_none() -> Result[int | None, Exception]:
     return Ok(None)
 
 
-def return_ok_one() -> Result[Optional[int], Exception]:
+def return_ok_one() -> Result[int | None, Exception]:
     return Ok(1)

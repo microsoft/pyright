@@ -1,29 +1,42 @@
-from _typeshed import Incomplete
+from typing import ClassVar
+from typing_extensions import Literal
 
+from openpyxl.descriptors.base import Alias, Float, Typed, _ConvertibleToFloat
 from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.worksheet.header_footer import HeaderFooter
+from openpyxl.worksheet.page import PrintPageSetup
 
 class PageMargins(Serialisable):
-    tagname: str
-    l: Incomplete
-    left: Incomplete
-    r: Incomplete
-    right: Incomplete
-    t: Incomplete
-    top: Incomplete
-    b: Incomplete
-    bottom: Incomplete
-    header: Incomplete
-    footer: Incomplete
+    tagname: ClassVar[str]
+    l: Float[Literal[False]]
+    left: Alias
+    r: Float[Literal[False]]
+    right: Alias
+    t: Float[Literal[False]]
+    top: Alias
+    b: Float[Literal[False]]
+    bottom: Alias
+    header: Float[Literal[False]]
+    footer: Float[Literal[False]]
     def __init__(
-        self, l: float = 0.75, r: float = 0.75, t: int = 1, b: int = 1, header: float = 0.5, footer: float = 0.5
+        self,
+        l: _ConvertibleToFloat = 0.75,
+        r: _ConvertibleToFloat = 0.75,
+        t: _ConvertibleToFloat = 1,
+        b: _ConvertibleToFloat = 1,
+        header: _ConvertibleToFloat = 0.5,
+        footer: _ConvertibleToFloat = 0.5,
     ) -> None: ...
 
 class PrintSettings(Serialisable):
-    tagname: str
-    headerFooter: Incomplete
-    pageMargins: Incomplete
-    pageSetup: Incomplete
-    __elements__: Incomplete
+    tagname: ClassVar[str]
+    headerFooter: Typed[HeaderFooter, Literal[True]]
+    pageMargins: Typed[PageMargins, Literal[True]]
+    pageSetup: Typed[PrintPageSetup, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
-        self, headerFooter: Incomplete | None = None, pageMargins: Incomplete | None = None, pageSetup: Incomplete | None = None
+        self,
+        headerFooter: HeaderFooter | None = None,
+        pageMargins: PageMargins | None = None,
+        pageSetup: PrintPageSetup | None = None,
     ) -> None: ...

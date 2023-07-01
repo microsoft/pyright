@@ -1,24 +1,34 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
+from typing import ClassVar
+from typing_extensions import Literal, TypeAlias
+
+from openpyxl.chart.axis import NumericAxis, TextAxis
+from openpyxl.chart.label import DataLabelList
+from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool
+from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import NestedBool, NestedNoneSet, _HasTagAndGet, _NestedNoneSetParam
 
 from ._chart import ChartBase as ChartBase
 
+_ScatterChartScatterStyle: TypeAlias = Literal["line", "lineMarker", "marker", "smooth", "smoothMarker"]
+
 class ScatterChart(ChartBase):
-    tagname: str
-    scatterStyle: Incomplete
-    varyColors: Incomplete
+    tagname: ClassVar[str]
+    scatterStyle: NestedNoneSet[_ScatterChartScatterStyle]
+    varyColors: NestedBool[Literal[True]]
     ser: Incomplete
-    dLbls: Incomplete
-    dataLabels: Incomplete
-    extLst: Incomplete
-    x_axis: Incomplete
-    y_axis: Incomplete
-    __elements__: Incomplete
+    dLbls: Typed[DataLabelList, Literal[True]]
+    dataLabels: Alias
+    extLst: Typed[ExtensionList, Literal[True]]
+    x_axis: Typed[NumericAxis | TextAxis, Literal[False]]
+    y_axis: Typed[NumericAxis, Literal[False]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        scatterStyle: Incomplete | None = None,
-        varyColors: Incomplete | None = None,
+        scatterStyle: _NestedNoneSetParam[_ScatterChartScatterStyle] = None,
+        varyColors: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
         ser=(),
-        dLbls: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        dLbls: DataLabelList | None = None,
+        extLst: Unused = None,
         **kw,
     ) -> None: ...

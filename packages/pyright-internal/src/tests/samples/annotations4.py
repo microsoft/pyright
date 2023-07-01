@@ -2,7 +2,6 @@
 # incompatible declared types.
 
 from collections.abc import Callable
-from typing import List
 
 
 def a():
@@ -11,6 +10,7 @@ def a():
 
 # This should generate an error for an incompatible assignment.
 a = 1
+
 
 # This should generate an error for an obscured type.
 def b():
@@ -48,9 +48,9 @@ def my_func(param1: int, param2):
 
 # This should be fine because both declarations of 'e'
 # use the same type.
-e: List[int]
+e: list[int]
 e = [3]
-e: List[int]
+e: list[int]
 
 
 def register(fn: Callable[[], None]) -> None:

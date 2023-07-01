@@ -1,4 +1,5 @@
 version = "1.14.*"
+partial_stub = true
 
 [tool.stubtest]
 ignore_missing_stub = true

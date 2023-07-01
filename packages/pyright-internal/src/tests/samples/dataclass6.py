@@ -1,29 +1,45 @@
-# This sample tests the type checker's handling of
-# synthesized __init__ and __new__ methods for
-# dataclass classes and their subclasses.
+# This sample tests the case where a dataclass entry is
+# initialized with a "field" that uses "init=False". This
+# case needs to be handled specially because it means
+# that the synthesized __init__ method shouldn't include
+# this field in its parameter list.
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
-class A:
-    x: int
+class ParentA:
+    prop_1: str = field(init=False)
+    prop_2: str = field(default="hello")
+    prop_3: str = field(default_factory=lambda: "hello")
+
+    # This should generate an error because it appears after
+    # a property with a default value.
+    prop_4: str = field()
+
+    def __post_init__(self):
+        self.prop_1 = "test"
 
 
-@dataclass(init=False)
-class B(A):
-    y: int
-
-    def __init__(self, a: A, y: int):
-        self.__dict__ = a.__dict__
+@dataclass
+class ChildA(ParentA):
+    prop_2: str
 
 
-a = A(3)
-b = B(a, 5)
+test = ChildA(prop_2="test", prop_4="hi")
+
+assert test.prop_1 == "test"
+assert test.prop_2 == "test"
 
 
-# This should generate an error because there is an extra parameter
-a = A(3, 4)
+@dataclass
+class ClassB:
+    prop_1: str
+    prop_2: str
+    prop_3: str = field(default="")
+    prop_4: str = field(init=False)
+    prop_5: str = field(init=False)
 
-# This should generate an error because there is one too few parameters
-b = B(a)
+    def __post_init__(self):
+        cprop_1 = "calculated value"
+        cprop_2 = "calculated value"

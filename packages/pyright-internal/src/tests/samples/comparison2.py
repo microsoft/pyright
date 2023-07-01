@@ -28,6 +28,7 @@ if cond():
 elif cond:
     pass
 
+
 # This should generate a diagnostic when reportUnnecessaryComparison is enabled.
 def func1():
     while cond:

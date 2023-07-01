@@ -10,10 +10,10 @@ def callback(a: int, b: str, c: str) -> int:
     ...
 
 
-FooCallableWithConcatenate = Callable[Concatenate[int, P], int]
+CallableWithConcatenate = Callable[Concatenate[int, P], int]
 
 
-def func_with_callable(cb: FooCallableWithConcatenate[P]) -> Callable[P, bool]:
+def func_with_callable(cb: CallableWithConcatenate[P]) -> Callable[P, bool]:
     ...
 
 
@@ -21,12 +21,12 @@ x1 = func_with_callable(callback)
 reveal_type(x1, expected_text="(b: str, c: str) -> bool")
 
 
-class FooWithConcatenate(Protocol[P]):
+class ClassWithConcatenate(Protocol[P]):
     def __call__(self, x: int, /, *args: P.args, **kwargs: P.kwargs) -> int:
         ...
 
 
-def func_with_protocol(cb: FooWithConcatenate[P]) -> Callable[P, bool]:
+def func_with_protocol(cb: ClassWithConcatenate[P]) -> Callable[P, bool]:
     ...
 
 

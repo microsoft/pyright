@@ -16,7 +16,7 @@
 //// import [|/*marker*/testLi|]b
 
 // @ts-ignore
-await helper.verifyCodeActions({
+await helper.verifyCodeActions('included', {
     marker: {
         codeActions: [
             {

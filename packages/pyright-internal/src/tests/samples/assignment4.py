@@ -4,17 +4,17 @@
 
 # pyright: strict
 
-from typing import Dict, Callable, Sequence, Tuple
+from typing import Callable, Sequence
 
 AAA = float
 BBB = int
 CCC = str
 DDD = str
-AAATuple = Tuple[AAA, BBB, Callable[[Sequence[int], AAA], Sequence[float]]]
+AAATuple = tuple[AAA, BBB, Callable[[Sequence[int], AAA], Sequence[float]]]
 
 
 def foo():
-    var1: Dict[str, Tuple[AAA, BBB, CCC, DDD]] = {}
-    var2: Dict[str, AAATuple] = {}
+    var1: dict[str, tuple[AAA, BBB, CCC, DDD]] = {}
+    var2: dict[str, AAATuple] = {}
     for k, (var3, var4, _, _) in var1.items():
         var2[k] = (var3, var4, lambda var5, var6: [v * var6 for v in var5])

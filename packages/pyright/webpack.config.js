@@ -46,15 +46,15 @@ module.exports = (_, { mode }) => {
             rules: [
                 {
                     test: /\.ts$/,
-                    loader: 'ts-loader',
+                    loader: 'esbuild-loader',
                     options: {
-                        configFile: 'tsconfig.json',
+                        tsconfig: 'tsconfig.json',
                     },
                 },
                 {
                     // Transform pre-compiled JS files to use syntax available in Node 12+.
                     // esbuild is fast, so let it run on all JS files rather than matching
-                    // only known-bad libs. ts-loader does this for us for TypeScript files.
+                    // only known-bad libs.
                     test: /\.js$/,
                     loader: 'esbuild-loader',
                     options: {

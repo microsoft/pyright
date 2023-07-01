@@ -1,8 +1,9 @@
 # This sample tests the type analyzer's handling of TypedDict classes.
 
-from typing import Any, Dict, TypedDict
+from typing import Any, TypedDict
 
 not_total = False
+
 
 # This should generate an error because
 # the value of the total argument must
@@ -12,7 +13,7 @@ class TD1(TypedDict, total=not_total):
 
 
 class TD2(TypedDict, total=False):
-    """ This is a test """
+    """This is a test"""
 
     a: int
 
@@ -22,7 +23,7 @@ class TD2(TypedDict, total=False):
 
     b: float
 
-    c: "Dict[Any, Any]"
+    c: "dict[Any, Any]"
 
     # This should generate an error because
     # assignments are not allowed.

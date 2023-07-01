@@ -3,7 +3,7 @@
 
 # pyright: reportMissingModuleSource=false
 
-from typing import Literal, Optional, Type, TypedDict, Annotated
+from typing import Literal, TypedDict, Annotated
 from typing_extensions import NotRequired, Required
 
 
@@ -11,10 +11,10 @@ class TD1(TypedDict, total=False):
     a: Annotated["Required[int]", ""]
     b: Annotated[NotRequired[str], ""]
     c: "Required[int | str]"
-    d: Required[Optional[str]]
+    d: Required[str | None]
     e: Required[Literal[1, 2, 3]]
     f: Required[None]
-    g: Required[Type[int]]
+    g: Required[type[int]]
 
 
 td1_1: TD1 = {"a": 3, "c": "hi", "d": None, "e": 3, "f": None, "g": int}
@@ -42,10 +42,10 @@ class TD2(TypedDict, total=True):
     a: Required[int]
     b: NotRequired[str]
     c: Required[int | str]
-    d: NotRequired[Optional[str]]
+    d: NotRequired[str | None]
     e: NotRequired[Literal[1, 2, 3]]
     f: NotRequired[None]
-    g: NotRequired[Type[int]]
+    g: NotRequired[type[int]]
 
 
 td2_1: TD2 = {"a": 3, "c": "hi", "d": None, "e": 3, "f": None, "g": int}

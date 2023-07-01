@@ -1,8 +1,9 @@
+import datetime
 from _typeshed import Incomplete, SupportsItems
 from abc import ABC, abstractmethod
 from re import Pattern
 from typing import ClassVar, Generic, TypeVar
-from typing_extensions import Literal
+from typing_extensions import Literal, Self
 
 from .encryption import StandardSecurityHandler
 
@@ -16,7 +17,7 @@ def create_dictionary_string(
     field_join: str = "\n",
     key_value_join: str = " ",
     has_empty_fields: bool = False,
-): ...
+) -> str: ...
 def create_list_string(list_): ...
 def iobj_ref(n): ...
 def create_stream(
@@ -30,7 +31,6 @@ class Name(str):
     def serialize(self) -> str: ...
 
 class PDFObject:
-    def __init__(self) -> None: ...
     @property
     def id(self) -> int: ...
     @id.setter
@@ -44,13 +44,22 @@ class PDFContentStream(PDFObject):
     filter: Name | None
     length: int
     def __init__(self, contents: bytes, compress: bool = False) -> None: ...
-    def encrypt(self, security_handler: StandardSecurityHandler) -> None: ...
 
 def build_obj_dict(key_values: SupportsItems[str, Incomplete]) -> dict[str, str]: ...
 def camel_case(snake_case: str) -> str: ...
 
 class PDFString(str):
     USE_HEX_ENCODING: ClassVar[bool]
+    encrypt: bool
+    def __new__(cls, content: str, encrypt: bool = False) -> Self: ...
+    def serialize(self) -> str: ...
+
+class PDFDate:
+    date: datetime.datetime
+    with_tz: bool
+    encrypt: bool
+
+    def __init__(self, date: datetime.datetime, with_tz: bool = False, encrypt: bool = False) -> None: ...
     def serialize(self) -> str: ...
 
 class PDFArray(list[_T], Generic[_T]):

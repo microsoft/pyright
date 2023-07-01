@@ -4,5 +4,6 @@
 
 import subprocess
 
+
 def my_method(cmd, *args, **kwargs):
     return subprocess.run(cmd, *args, **kwargs)

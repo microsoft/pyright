@@ -15,7 +15,7 @@ import { LogLevel } from '../common/console';
 import { FileSystem } from '../common/fileSystem';
 import { combinePaths } from '../common/pathUtils';
 import { LanguageServerInterface, ServerSettings } from '../languageServerBase';
-import { createInitStatus, WellKnownWorkspaceKinds, Workspace } from '../workspaceFactory';
+import { WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../workspaceFactory';
 
 export interface CloneOptions {
     useBackgroundAnalysis?: boolean;

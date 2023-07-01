@@ -50,10 +50,12 @@ import {
     isNever,
     isNoneInstance,
     isSameWithoutLiteralValue,
+    isTypeSame,
     isUnknown,
     NeverType,
     Type,
     TypeBase,
+    TypedDictEntry,
     UnknownType,
 } from './types';
 import {
@@ -477,6 +479,33 @@ function narrowTypeBasedOnMappingPattern(
                                     /* isPositiveTest */ true
                                 );
                                 if (!isNever(narrowedValueType)) {
+                                    // If this is a "NotRequired" entry that has not yet been demonstrated
+                                    // to be present, we can mark it as "provided" at this point.
+                                    if (
+                                        !valueEntry.isRequired &&
+                                        !valueEntry.isProvided &&
+                                        isTypeSame(mappingSubtypeInfo.subtype, mappingSubtypeInfo.typedDict!)
+                                    ) {
+                                        const newNarrowedEntriesMap = new Map<string, TypedDictEntry>(
+                                            mappingSubtypeInfo.typedDict!.typedDictNarrowedEntries ?? []
+                                        );
+                                        newNarrowedEntriesMap.set(keySubtype.literalValue as string, {
+                                            valueType: valueEntry.valueType,
+                                            isReadOnly: valueEntry.isReadOnly,
+                                            isRequired: false,
+                                            isProvided: true,
+                                        });
+
+                                        // Clone the TypedDict object with the new entries.
+                                        mappingSubtypeInfo.subtype = ClassType.cloneAsInstance(
+                                            ClassType.cloneForNarrowedTypedDictEntries(
+                                                ClassType.cloneAsInstantiable(mappingSubtypeInfo.typedDict!),
+                                                newNarrowedEntriesMap
+                                            )
+                                        );
+                                        mappingSubtypeInfo.typedDict = mappingSubtypeInfo.subtype;
+                                    }
+
                                     return narrowedValueType;
                                 }
                             }
@@ -786,7 +815,8 @@ function narrowTypeBasedOnClassPattern(
                                                 matchTypeInstance,
                                                 subjectSubtypeExpanded,
                                                 typeVarContext,
-                                                /* liveTypeVarScopes */ undefined
+                                                /* liveTypeVarScopes */ undefined,
+                                                /* usageOffset */ undefined
                                             )
                                         ) {
                                             resultType = applySolvedTypeVars(matchTypeInstance, typeVarContext, {

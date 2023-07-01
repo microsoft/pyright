@@ -1,9 +1,10 @@
 # This sample tests the functools.partial support.
 
 from functools import partial
-from typing import TypeVar
+from typing import Callable, Protocol, Self, TypeVar
 
 _T1 = TypeVar("_T1")
+_T2 = TypeVar("_T2", covariant=True)
 
 
 def func1():
@@ -161,3 +162,16 @@ p8_1(3)
 p8_1(3, "", 5)
 
 p8_1(3, "", foo=4, bar=5)
+
+
+class Partial(Protocol[_T2]):
+    def __new__(cls, __func: Callable[..., _T2]) -> Self:
+        ...
+
+
+def func9() -> int:
+    ...
+
+
+# This should generate an error.
+x: Partial[str] = partial(func9)

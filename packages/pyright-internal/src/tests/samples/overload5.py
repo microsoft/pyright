@@ -1,24 +1,11 @@
 # This sample tests the type checker's detection of overlapping
 # overload declarations.
 
-from typing import (
-    Any,
-    Generic,
-    List,
-    Literal,
-    Optional,
-    Protocol,
-    Sequence,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    overload,
-)
+from typing import Any, Generic, Literal, Protocol, Sequence, TypeVar, overload
 
 
 @overload
-def func1(a: float, b: Optional[float], c: Optional[bool] = None) -> int:
+def func1(a: float, b: float | None, c: bool | None = None) -> int:
     ...
 
 
@@ -119,11 +106,11 @@ _T2 = TypeVar("_T2")
 
 class GenericClass(Generic[_T1, _T2]):
     @overload
-    def method1(self, a: _T1, b: Tuple[_T2, ...]) -> int:
+    def method1(self, a: _T1, b: tuple[_T2, ...]) -> int:
         ...
 
     @overload
-    def method1(self, a: _T1, b: Tuple[Any, ...]) -> int:
+    def method1(self, a: _T1, b: tuple[Any, ...]) -> int:
         ...
 
     def method1(self, *args: Any, **kwargs: Any) -> Any:
@@ -201,7 +188,7 @@ def func13(x: int) -> str:
 
 
 @overload
-def func13(x: Union[int, str]) -> int:
+def func13(x: int | str) -> int:
     ...
 
 
@@ -240,26 +227,26 @@ def func15(*args: Any, **kwargs: Any) -> Any:
 
 
 @overload
-def func16(var: None) -> List[Any]:
+def func16(var: None) -> list[Any]:
     ...
 
 
 @overload
-def func16(var: _T1) -> List[_T1]:
+def func16(var: _T1) -> list[_T1]:
     ...
 
 
-def func16(var: Union[_T1, None]) -> List[_T1] | List[Any]:
-    ...
-
-
-@overload
-def func17(a: int, b: List[int]) -> int:
+def func16(var: _T1 | None) -> list[_T1] | list[Any]:
     ...
 
 
 @overload
-def func17(a: int, b: List[_T1]) -> _T1:
+def func17(a: int, b: list[int]) -> int:
+    ...
+
+
+@overload
+def func17(a: int, b: list[_T1]) -> _T1:
     ...
 
 
@@ -296,7 +283,7 @@ class ClassB:
 
 class ClassC:
     @overload
-    def method1(self, x: Type[Any]) -> bool:
+    def method1(self, x: type[Any]) -> bool:
         ...
 
     @overload

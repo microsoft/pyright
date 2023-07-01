@@ -1,0 +1,91 @@
+# This workflow runs mypy_primer, a tool that runs pyright on a variety
+# of open-source Python projects that are known to type check with pyright.
+# It builds pyright from the latest PR commit and the merge base of the PR
+# and compares the output of both. It uploads the diffs as an artifact and
+# creates a PR comment with the results (with the help of the
+# mypy_primer_comment action).
+
+# This workflow definition borrows liberally from the mypy repo. The original
+# workflow was designed to work in a sharded manner where n copies of
+# mypy_primer are started in parallel. Each instance runs 1/n of the projects.
+# For now, we run only one instance because pyright is fast, and the number
+# of projects that use pyright for type checking is small. To change this in
+# the future, change the 'shard_index' matrix to [0, 1, ..., n-1] and set
+# 'num-shards' to n.
+
+name: Run mypy_primer on PR
+
+on:
+  # Run on the creation or update of a PR.
+  pull_request:
+    paths:
+      - 'packages/pyright/**'
+      - 'packages/pyright-internal/src/**'
+      - 'packages/pyright-internal/typeshed-fallback/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  mypy_primer:
+    name: Run mypy_primer on PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        shard-index: [0, 1]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          path: pyright_to_test
+          fetch-depth: 0
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          pip install git+https://github.com/hauntsaninja/mypy_primer.git
+      - name: Run mypy_primer
+        shell: bash
+        run: |
+          cd pyright_to_test
+          echo "new commit"
+          git rev-list --format=%s --max-count=1 $GITHUB_SHA
+
+          MERGE_BASE=$(git merge-base $GITHUB_SHA origin/$GITHUB_BASE_REF)
+          git checkout -b base_commit $MERGE_BASE
+          echo "base commit"
+          git rev-list --format=%s --max-count=1 base_commit
+
+          echo ''
+          cd ..
+          # fail action if exit code isn't zero or one
+          (
+            mypy_primer \
+            --repo pyright_to_test \
+            --type-checker pyright \
+            --new $GITHUB_SHA --old base_commit \
+            --num-shards 2 --shard-index ${{ matrix.shard-index }} \
+            --debug \
+            --output concise \
+            | tee diff_${{ matrix.shard-index }}.txt
+          ) || [ $? -eq 1 ]
+      - name: Upload mypy_primer diff
+        uses: actions/upload-artifact@v3
+        with:
+          name: mypy_primer_diffs
+          path: diff_${{ matrix.shard-index }}.txt
+      - if: ${{ matrix.shard-index }} == 0
+        name: Save PR number
+        run: |
+          echo ${{ github.event.pull_request.number }} | tee pr_number.txt
+      - if: ${{ matrix.shard-index }} == 0
+        name: Upload PR number
+        uses: actions/upload-artifact@v3
+        with:
+          name: mypy_primer_diffs
+          path: pr_number.txt

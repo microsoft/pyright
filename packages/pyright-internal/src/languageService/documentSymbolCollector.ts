@@ -24,20 +24,22 @@ import {
     createSynthesizedAliasDeclaration,
     getDeclarationsWithUsesLocalNameRemoved,
 } from '../analyzer/declarationUtils';
-import { getModuleNode, getStringNodeValueRange } from '../analyzer/parseTreeUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { getModuleNode, getStringNodeValueRange } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { ScopeType } from '../analyzer/scope';
 import * as ScopeUtils from '../analyzer/scopeUtils';
-import { SourceFile } from '../analyzer/sourceFile';
-import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
+import { IPythonMode } from '../analyzer/sourceFile';
+import { collectImportedByCells } from '../analyzer/sourceFileInfoUtils';
+import { isStubFile } from '../analyzer/sourceMapper';
+import { Symbol } from '../analyzer/symbol';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { isInstantiableClass, TypeCategory } from '../analyzer/types';
 import { ClassMemberLookupFlags, lookUpClassMember } from '../analyzer/typeUtils';
+import { TypeCategory, isInstantiableClass } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
-import { DeclarationUseCase, Extensions } from '../common/extensibility';
+import { DeclarationUseCase, Extensions, ProgramView } from '../common/extensibility';
 import { TextRange } from '../common/textRange';
 import {
     ClassNode,
@@ -63,113 +65,15 @@ export enum DocumentSymbolCollectorUseCase {
 // This walker looks for symbols that are semantically equivalent
 // to the requested symbol.
 export class DocumentSymbolCollector extends ParseTreeWalker {
-    static collectFromNode(
-        node: NameNode,
-        evaluator: TypeEvaluator,
-        cancellationToken: CancellationToken,
-        startingNode?: ParseNode,
-        treatModuleInImportAndFromImportSame = false,
-        skipUnreachableCode = true,
-        useCase = DocumentSymbolCollectorUseCase.Reference
-    ): CollectionResult[] {
-        const declarations = this.getDeclarationsForNode(
-            node,
-            evaluator,
-            /* resolveLocalName */ true,
-            useCase,
-            cancellationToken
-        );
-
-        startingNode = startingNode ?? getModuleNode(node);
-        if (!startingNode) {
-            return [];
-        }
-
-        const collector = new DocumentSymbolCollector(
-            [node.value],
-            declarations,
-            evaluator,
-            cancellationToken,
-            startingNode,
-            treatModuleInImportAndFromImportSame,
-            skipUnreachableCode,
-            useCase
-        );
-
-        return collector.collect();
-    }
-
-    static getDeclarationsForNode(
-        node: NameNode,
-        evaluator: TypeEvaluator,
-        resolveLocalName: boolean,
-        useCase: DocumentSymbolCollectorUseCase,
-        token: CancellationToken,
-        sourceMapper?: SourceMapper,
-        implicitlyImportedBy?: SourceFile[]
-    ): Declaration[] {
-        throwIfCancellationRequested(token);
-
-        const declarations = this._getDeclarationsForNode(
-            node,
-            useCase,
-            evaluator,
-            token,
-            /* skipUnreachableCode */ false
-        );
-
-        // Add declarations from chained source files
-        let builtinsScope = AnalyzerNodeInfo.getFileInfo(node).builtinsScope;
-        while (builtinsScope && builtinsScope.type === ScopeType.Module) {
-            const symbol = builtinsScope?.lookUpSymbol(node.value);
-            if (symbol) {
-                declarations.push(...symbol.getDeclarations());
-            }
-
-            builtinsScope = builtinsScope?.parent;
-        }
-
-        // Add declarations from files that implicitly import the target file.
-        implicitlyImportedBy?.forEach((implicitImport) => {
-            const parseTree = implicitImport.getParseResults()?.parseTree;
-            if (parseTree) {
-                const scope = AnalyzerNodeInfo.getScope(parseTree);
-                const symbol = scope?.lookUpSymbol(node.value);
-                if (symbol) {
-                    declarations.push(...symbol.getDeclarations());
-                }
-            }
-        });
-
-        const resolvedDeclarations: Declaration[] = [];
-        declarations.forEach((decl) => {
-            const resolvedDecl = evaluator.resolveAliasDeclaration(decl, resolveLocalName);
-            if (resolvedDecl) {
-                resolvedDeclarations.push(resolvedDecl);
-
-                if (sourceMapper && isStubFile(resolvedDecl.path)) {
-                    const implDecls = sourceMapper.findDeclarations(resolvedDecl);
-                    for (const implDecl of implDecls) {
-                        if (implDecl && implDecl.path) {
-                            this._addIfUnique(resolvedDeclarations, implDecl);
-                        }
-                    }
-                }
-            }
-        });
-
-        return resolvedDeclarations;
-    }
-
     private _results: CollectionResult[] = [];
     private _dunderAllNameNodes = new Set<StringNode>();
     private _initFunction: FunctionNode | undefined;
     private _symbolNames: Set<string> = new Set<string>();
 
     constructor(
+        private _program: ProgramView,
         symbolNames: string[],
         private _declarations: Declaration[],
-        private _evaluator: TypeEvaluator,
         private _cancellationToken: CancellationToken,
         private _startingNode: ParseNode,
         private _treatModuleInImportAndFromImportSame = false,
@@ -197,6 +101,120 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 this._initFunction = initDeclaration.node as FunctionNode;
                 this._symbolNames.add((classDeclaration.node as ClassNode).name.value);
             }
+        }
+    }
+
+    static collectFromNode(
+        program: ProgramView,
+        node: NameNode,
+        cancellationToken: CancellationToken,
+        startingNode?: ParseNode,
+        treatModuleInImportAndFromImportSame = false,
+        skipUnreachableCode = true,
+        useCase = DocumentSymbolCollectorUseCase.Reference
+    ): CollectionResult[] {
+        const declarations = this.getDeclarationsForNode(
+            program,
+            node,
+            /* resolveLocalName */ true,
+            useCase,
+            cancellationToken
+        );
+
+        startingNode = startingNode ?? getModuleNode(node);
+        if (!startingNode) {
+            return [];
+        }
+
+        const collector = new DocumentSymbolCollector(
+            program,
+            [node.value],
+            declarations,
+            cancellationToken,
+            startingNode,
+            treatModuleInImportAndFromImportSame,
+            skipUnreachableCode,
+            useCase
+        );
+
+        return collector.collect();
+    }
+
+    static getDeclarationsForNode(
+        program: ProgramView,
+        node: NameNode,
+        resolveLocalName: boolean,
+        useCase: DocumentSymbolCollectorUseCase,
+        token: CancellationToken
+    ): Declaration[] {
+        throwIfCancellationRequested(token);
+
+        const evaluator = program.evaluator;
+        if (!evaluator) {
+            return [];
+        }
+
+        const declarations = this._getDeclarationsForNode(
+            node,
+            useCase,
+            evaluator,
+            token,
+            /* skipUnreachableCode */ false
+        );
+
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+
+        const resolvedDeclarations: Declaration[] = [];
+        const sourceMapper = program.getSourceMapper(fileInfo.filePath, token);
+        declarations.forEach((decl) => {
+            const resolvedDecl = evaluator.resolveAliasDeclaration(decl, resolveLocalName);
+            if (resolvedDecl) {
+                this._addIfUnique(resolvedDeclarations, resolvedDecl);
+                if (sourceMapper && isStubFile(resolvedDecl.path)) {
+                    const implDecls = sourceMapper.findDeclarations(resolvedDecl);
+                    for (const implDecl of implDecls) {
+                        if (implDecl && implDecl.path) {
+                            this._addIfUnique(resolvedDeclarations, implDecl);
+                        }
+                    }
+                }
+            }
+        });
+
+        const sourceFileInfo = program.getSourceFileInfo(fileInfo.filePath);
+        if (sourceFileInfo && sourceFileInfo.sourceFile.getIPythonMode() === IPythonMode.CellDocs) {
+            // Add declarations from chained source files
+            let builtinsScope = fileInfo.builtinsScope;
+            while (builtinsScope && builtinsScope.type === ScopeType.Module) {
+                const symbol = builtinsScope?.lookUpSymbol(node.value);
+                appendSymbolDeclarations(symbol, resolvedDeclarations);
+                builtinsScope = builtinsScope?.parent;
+            }
+
+            // Add declarations from files that implicitly import the target file.
+            const implicitlyImportedBy = collectImportedByCells(program, sourceFileInfo);
+            implicitlyImportedBy.forEach((implicitImport) => {
+                const parseTree = program.getParseResults(implicitImport.sourceFile.getFilePath())?.parseTree;
+                if (parseTree) {
+                    const scope = AnalyzerNodeInfo.getScope(parseTree);
+                    const symbol = scope?.lookUpSymbol(node.value);
+                    appendSymbolDeclarations(symbol, resolvedDeclarations);
+                }
+            });
+        }
+
+        return resolvedDeclarations;
+
+        function appendSymbolDeclarations(symbol: Symbol | undefined, declarations: Declaration[]) {
+            symbol
+                ?.getDeclarations()
+                .filter((d) => !isAliasDeclaration(d))
+                .forEach((decl) => {
+                    const resolvedDecl = evaluator!.resolveAliasDeclaration(decl, resolveLocalName);
+                    if (resolvedDecl) {
+                        DocumentSymbolCollector._addIfUnique(declarations, resolvedDecl);
+                    }
+                });
         }
     }
 
@@ -264,6 +282,10 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         return false;
     }
 
+    private get _evaluator(): TypeEvaluator {
+        return this._program.evaluator!;
+    }
+
     private _addResult(node: NameNode | StringNode) {
         const range: TextRange = node.nodeType === ParseNodeType.Name ? node : getStringNodeValueRange(node);
         this._results.push({ node, range });
@@ -283,7 +305,8 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             )
         );
         if (match) {
-            // Special case for __init__ being one of our symbol names and we have a classname as the other.
+            // Special case for __init__ being one of our symbol names and we
+            // have a class name as the other.
             if (this._initFunction) {
                 // If this is a method, must be an __init__ reference.
                 if (match.type === DeclarationType.Function) {
@@ -442,7 +465,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
 
             // Special case for __init__. Might be __init__ on a class.
             if (node.value === '__init__' && useCase === DocumentSymbolCollectorUseCase.Reference && node.parent) {
-                result.push(...this._getDeclarationsForInitNode(node, evaluator));
+                appendArray(result, this._getDeclarationsForInitNode(node, evaluator));
             }
         } else {
             result = this._getDeclarationsForModuleNameNode(node, evaluator);
@@ -454,9 +477,15 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 useCase === DocumentSymbolCollectorUseCase.Rename
                     ? DeclarationUseCase.Rename
                     : DeclarationUseCase.References;
-            const extras = e.declarationProviderExtension?.tryGetDeclarations(evaluator, node, declUseCase, token);
+            const extras = e.declarationProviderExtension?.tryGetDeclarations(
+                evaluator,
+                node,
+                node.start,
+                declUseCase,
+                token
+            );
             if (extras && extras.length > 0) {
-                result.push(...extras);
+                appendArray(result, extras);
             }
         });
 
@@ -497,7 +526,10 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 continue;
             }
 
-            decls.push(...(evaluator.getDeclarationsForNameNode(node.module.nameParts[0], skipUnreachableCode) || []));
+            appendArray(
+                decls,
+                evaluator.getDeclarationsForNameNode(node.module.nameParts[0], skipUnreachableCode) || []
+            );
         }
 
         // For now, we only support function overriding.
@@ -559,10 +591,11 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
 
                 // First, we need to put decls for module names type evaluator synthesized so that
                 // we can match both "import X" and "from X import ..."
-                decls.push(
-                    ...(evaluator
+                appendArray(
+                    decls,
+                    evaluator
                         .getDeclarationsForNameNode(moduleName.nameParts[0])
-                        ?.filter((d) => isAliasDeclaration(d)) || [])
+                        ?.filter((d) => isAliasDeclaration(d)) || []
                 );
 
                 if (decls.length === 0 || moduleName.parent.nodeType !== ParseNodeType.ImportAs) {
@@ -618,7 +651,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                         declsFromSymbol = getDeclarationsWithUsesLocalNameRemoved(declsFromSymbol);
                     }
 
-                    decls.push(...declsFromSymbol);
+                    appendArray(decls, declsFromSymbol);
                 }
 
                 return decls;

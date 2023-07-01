@@ -1,4 +1,5 @@
-version = "4.19.*"
+version = "4.20.*"
+partial_stub = true
 
 [tool.stubtest]
 ignore_missing_stub = true

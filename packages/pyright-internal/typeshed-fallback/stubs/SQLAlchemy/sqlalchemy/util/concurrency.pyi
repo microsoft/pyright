@@ -1,4 +1,4 @@
-from _typeshed import Incomplete
+import asyncio as asyncio
 
 from ._compat_py3k import asynccontextmanager as asynccontextmanager
 from ._concurrency_py3k import (
@@ -10,4 +10,4 @@ from ._concurrency_py3k import (
 )
 
 have_greenlet: bool
-asyncio: Incomplete | None
+greenlet_error: str | None

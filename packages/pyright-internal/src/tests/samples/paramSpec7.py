@@ -3,20 +3,20 @@
 
 from typing import Callable, Generic, ParamSpec, TypeVar
 
-T = TypeVar("T")
 P = ParamSpec("P")
+R = TypeVar("R")
 
 
-def foo(f: Callable[P, T]) -> Callable[P, T]:
+def func1(f: Callable[P, R]) -> Callable[P, R]:
     ...
 
 
-class Baz(Generic[T]):
-    def qux(self, v: T) -> None:
+class ClassA(Generic[R]):
+    def method1(self, v: R) -> None:
         ...
 
 
-baz: Baz[int] = Baz()
+v1: ClassA[int] = ClassA()
 
-reveal_type(baz.qux, expected_text="(v: int) -> None")
-reveal_type(foo(baz.qux), expected_text="(v: int) -> None")
+reveal_type(v1.method1, expected_text="(v: int) -> None")
+reveal_type(func1(v1.method1), expected_text="(v: int) -> None")

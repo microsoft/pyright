@@ -55,10 +55,16 @@ import {
     isPartlyUnknown,
     mapSubtypes,
     specializeTupleClass,
-    transformExpectedTypeForConstructor,
+    specializeWithDefaultTypeArgs,
+    transformExpectedType,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
+
+// As we widen the narrow bound of a type variable, we may end up with
+// many subtypes. For performance reasons, we need to cap this at some
+// point. This constant determines the cap.
+const maxSubtypeCountForTypeVarNarrowBound = 64;
 
 // Assigns the source type to the dest type var in the type var context. If an existing
 // type is already associated with that type var name, it attempts to either widen or
@@ -214,7 +220,7 @@ export function assignTypeToTypeVar(
                 constrainedType = srcType;
 
                 // If the source and dest are both instantiables (type[T]), then
-                // we need to convert to an instance (T) for the
+                // we need to convert to an instance (T).
                 if (TypeBase.isInstantiable(srcType)) {
                     constrainedType = convertToInstance(srcType, /* includeSubclasses */ false);
                 }
@@ -389,6 +395,14 @@ export function assignTypeToTypeVar(
 
     let adjSrcType = srcType;
 
+    // If the source is a class that is missing type arguments, fill
+    // in missing type arguments with Unknown.
+    if ((flags & AssignTypeFlags.AllowUnspecifiedTypeArguments) === 0) {
+        if (isClass(adjSrcType) && adjSrcType.includeSubclasses) {
+            adjSrcType = specializeWithDefaultTypeArgs(adjSrcType);
+        }
+    }
+
     if (TypeBase.isInstantiable(destType)) {
         if (isEffectivelyInstantiable(adjSrcType)) {
             adjSrcType = convertToInstance(adjSrcType, /* includeSubclasses */ false);
@@ -417,14 +431,17 @@ export function assignTypeToTypeVar(
 
     if ((flags & AssignTypeFlags.PopulatingExpectedType) !== 0) {
         // If we're populating the expected type, constrain either the
-        // narrow type bound, wide type bound or both.
-        if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
-            newNarrowTypeBound = adjSrcType;
-            newWideTypeBound = adjSrcType;
-        } else if (isContravariant) {
-            newNarrowTypeBound = adjSrcType;
-        } else {
-            newWideTypeBound = adjSrcType;
+        // narrow type bound, wide type bound or both. Don't overwrite
+        // an existing entry.
+        if (!curEntry) {
+            if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+                newNarrowTypeBound = adjSrcType;
+                newWideTypeBound = adjSrcType;
+            } else if (isContravariant) {
+                newNarrowTypeBound = adjSrcType;
+            } else {
+                newWideTypeBound = adjSrcType;
+            }
         }
     } else if (isContravariant) {
         // Update the wide type bound.
@@ -443,7 +460,10 @@ export function assignTypeToTypeVar(
                 )
             ) {
                 // The srcType is narrower than the current wideTypeBound, so replace it.
-                newWideTypeBound = adjSrcType;
+                // If it's Any, don't replace it because Any is the narrowest type already.
+                if (!isAny(curWideTypeBound)) {
+                    newWideTypeBound = adjSrcType;
+                }
             } else if (
                 !evaluator.assignType(
                     adjSrcType,
@@ -503,7 +523,7 @@ export function assignTypeToTypeVar(
                     curNarrowTypeBound,
                     adjSrcType,
                     diagAddendum,
-                    new TypeVarContext(destType.scopeId),
+                    /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
                     flags,
                     recursionCount
@@ -519,7 +539,7 @@ export function assignTypeToTypeVar(
                         adjSrcType,
                         curNarrowTypeBound,
                         /* diag */ undefined,
-                        new TypeVarContext(destType.scopeId),
+                        /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
                         flags & AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount
@@ -546,7 +566,7 @@ export function assignTypeToTypeVar(
                         adjSrcType,
                         curNarrowTypeBound,
                         /* diag */ undefined,
-                        new TypeVarContext(destType.scopeId),
+                        /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
                         flags & AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount
@@ -582,9 +602,15 @@ export function assignTypeToTypeVar(
                         objectType &&
                         isClassInstance(objectType)
                     ) {
-                        newNarrowTypeBound = combineTypes([curSolvedNarrowTypeBound, objectType]);
+                        newNarrowTypeBound = combineTypes(
+                            [curSolvedNarrowTypeBound, objectType],
+                            maxSubtypeCountForTypeVarNarrowBound
+                        );
                     } else {
-                        newNarrowTypeBound = combineTypes([curSolvedNarrowTypeBound, adjSrcType]);
+                        newNarrowTypeBound = combineTypes(
+                            [curSolvedNarrowTypeBound, adjSrcType],
+                            maxSubtypeCountForTypeVarNarrowBound
+                        );
                     }
                 }
             }
@@ -815,7 +841,8 @@ export function populateTypeVarContextBasedOnExpectedType(
     type: ClassType,
     expectedType: Type,
     typeVarContext: TypeVarContext,
-    liveTypeVarScopes: TypeVarScopeId[] | undefined
+    liveTypeVarScopes: TypeVarScopeId[] | undefined,
+    usageOffset: number | undefined = undefined
 ): boolean {
     if (isAny(expectedType)) {
         type.details.typeParameters.forEach((typeParam) => {
@@ -855,17 +882,34 @@ export function populateTypeVarContextBasedOnExpectedType(
             .getPrimarySignature()
             .getTypeVars()
             .forEach((entry) => {
-                const typeVarType = sameClassTypeVarContext.getPrimarySignature().getTypeVarType(entry.typeVar);
+                let typeArgValue = sameClassTypeVarContext.getPrimarySignature().getTypeVarType(entry.typeVar);
 
-                if (typeVarType) {
-                    // Skip this if the type argument is a TypeVar defined by the class scope because
-                    // we're potentially solving for these TypeVars.
-                    if (!isTypeVar(typeVarType) || typeVarType.scopeId !== type.details.typeVarScopeId) {
-                        typeVarContext.setTypeVarType(
+                if (typeArgValue && liveTypeVarScopes) {
+                    typeArgValue = transformExpectedType(typeArgValue, liveTypeVarScopes, usageOffset);
+                }
+
+                if (typeArgValue) {
+                    const variance = TypeVarType.getVariance(entry.typeVar);
+
+                    typeVarContext.setTypeVarType(
+                        entry.typeVar,
+                        variance === Variance.Covariant ? undefined : typeArgValue,
+                        /* narrowBoundNoLiterals */ undefined,
+                        variance === Variance.Contravariant ? undefined : typeArgValue
+                    );
+
+                    if (entry.tupleTypes) {
+                        typeVarContext.setTupleTypeVar(
                             entry.typeVar,
-                            TypeVarType.getVariance(entry.typeVar) === Variance.Covariant ? undefined : typeVarType,
-                            /* narrowBoundNoLiterals */ undefined,
-                            TypeVarType.getVariance(entry.typeVar) === Variance.Contravariant ? undefined : typeVarType
+                            entry.tupleTypes.map((tupleEntry) => {
+                                let tupleType = tupleEntry.type;
+
+                                if (liveTypeVarScopes) {
+                                    tupleType = transformExpectedType(tupleEntry.type, liveTypeVarScopes, usageOffset);
+                                }
+
+                                return { type: tupleType, isUnbounded: tupleEntry.isUnbounded };
+                            })
                         );
                     }
                 }
@@ -927,25 +971,28 @@ export function populateTypeVarContextBasedOnExpectedType(
                 const targetTypeVar =
                     ClassType.getTypeParameters(specializedType)[synthTypeVar.details.synthesizedIndex];
                 if (index < expectedTypeArgs.length) {
-                    let expectedTypeArgValue: Type | undefined = transformPossibleRecursiveTypeAlias(
-                        expectedTypeArgs[index]
-                    );
+                    let typeArgValue: Type | undefined = transformPossibleRecursiveTypeAlias(expectedTypeArgs[index]);
 
                     if (liveTypeVarScopes) {
-                        expectedTypeArgValue = transformExpectedTypeForConstructor(
-                            expectedTypeArgValue,
-                            liveTypeVarScopes
-                        );
+                        typeArgValue = transformExpectedType(typeArgValue, liveTypeVarScopes, usageOffset);
                     }
 
-                    if (expectedTypeArgValue) {
+                    if (typeArgValue) {
+                        const variance = TypeVarType.getVariance(typeVar);
+
+                        // If this type variable already has a type, don't overwrite it. This can
+                        // happen if a single type variable in the derived class is used multiple times
+                        // in the specialized base class type (e.g. Mapping[T, T]).
+                        if (typeVarContext.getPrimarySignature().getTypeVarType(targetTypeVar)) {
+                            isResultValid = false;
+                            typeArgValue = UnknownType.create();
+                        }
+
                         typeVarContext.setTypeVarType(
                             targetTypeVar,
-                            TypeVarType.getVariance(typeVar) === Variance.Covariant ? undefined : expectedTypeArgValue,
+                            variance === Variance.Covariant ? undefined : typeArgValue,
                             /* narrowBoundNoLiterals */ undefined,
-                            TypeVarType.getVariance(typeVar) === Variance.Contravariant
-                                ? undefined
-                                : expectedTypeArgValue
+                            variance === Variance.Contravariant ? undefined : typeArgValue
                         );
                     } else {
                         isResultValid = false;

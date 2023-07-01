@@ -34,6 +34,7 @@ class TD4(TD3, Generic[_T1]):
 
 
 v4: TD4[str] = {"a": 3, "b": ""}
+v5: TD4[tuple[str]] = {"a": 3, "b": ("",)}
 
 
 def func1(x: TD1[_T1, _T2]) -> dict[_T1, _T2]:
@@ -108,6 +109,7 @@ f4: TD8 = {"x": 1, "y": 1, "z": "a"}
 
 reveal_type(func6({"x": 1, "y": 1, "z": "a"}))
 
+
 class TD9(TypedDict, Generic[_T1]):
     x: _T1
 
@@ -123,4 +125,4 @@ f5 = ClassA[int](x=1)
 f6 = ClassA[str](x=1)
 
 f7 = ClassA(x=1)
-reveal_type(f7, expected_text='ClassA[int]')
+reveal_type(f7, expected_text="ClassA[int]")

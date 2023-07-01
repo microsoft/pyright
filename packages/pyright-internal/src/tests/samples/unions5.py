@@ -4,28 +4,32 @@
 from typing import Union
 
 
-class Foo:
+class Class1:
     a: int
 
 
-class Bar:
+class Class2:
     a: int
 
+
+a1: type[Class1] | type[Class2] = Class1 | Class2
 
 # This should generate an error
-a1: type[Foo] | type[Bar] = Foo | Bar
-
 print(a1.a)
+
+# This should generate an error
 a1()
 
-# This should generate an error
-a2: type[Foo] | type[Bar] = Union[Foo, Bar]
+a2: type[Class1] | type[Class2] = Union[Class1, Class2]
 
+# This should generate an error
 print(a2.a)
+
+# This should generate an error
 a2()
 
 
-b1 = Foo | Bar
+b1 = Class1 | Class2
 
 # This should generate an error
 print(b1.a)
@@ -34,7 +38,7 @@ print(b1.a)
 b1()
 
 
-b2 = Union[Foo, Bar]
+b2 = Union[Class1, Class2]
 
 # This should generate an error
 print(b2.a)

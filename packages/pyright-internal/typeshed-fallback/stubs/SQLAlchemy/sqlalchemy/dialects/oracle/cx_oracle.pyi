@@ -1,8 +1,7 @@
 from _typeshed import Incomplete
 from typing import Any
 
-import sqlalchemy.types as sqltypes
-
+from ...sql import sqltypes
 from . import base as oracle
 from .base import OracleCompiler, OracleDialect, OracleExecutionContext
 

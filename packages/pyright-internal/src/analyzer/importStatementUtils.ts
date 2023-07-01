@@ -11,9 +11,9 @@
 import { CancellationToken } from 'vscode-languageserver';
 
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { addIfUnique, createMapFromItems } from '../common/collectionUtils';
+import { addIfUnique, appendArray, createMapFromItems } from '../common/collectionUtils';
 import { TextEditAction } from '../common/editAction';
-import { FileSystem } from '../common/fileSystem';
+import { ReadOnlyFileSystem } from '../common/fileSystem';
 import {
     getDirectoryPath,
     getFileName,
@@ -341,8 +341,9 @@ export function getTextEditsForAutoImportInsertions(
 
     const map = createMapFromItems(importNameInfo, (i) => `${i.module.moduleName}-${i.nameForImportFrom ?? ''}`);
     for (const importInfo of map.values()) {
-        insertionEdits.push(
-            ..._getInsertionEditsForAutoImportInsertion(
+        appendArray(
+            insertionEdits,
+            _getInsertionEditsForAutoImportInsertion(
                 importInfo,
                 { name: importInfo[0].module.moduleName, nameForImportFrom: importInfo[0].nameForImportFrom },
                 importStatements,
@@ -667,7 +668,7 @@ function _processImportFromNode(
     if (includeImplicitImports && importResult) {
         localImports.implicitImports = localImports.implicitImports ?? new Map<string, ImportFromAsNode>();
 
-        for (const implicitImport of importResult.implicitImports) {
+        for (const implicitImport of importResult.implicitImports.values()) {
             const importFromAs = node.imports.find((i) => i.name.value === implicitImport.name);
             if (importFromAs) {
                 localImports.implicitImports.set(implicitImport.path, importFromAs);
@@ -808,7 +809,7 @@ function getConsecutiveNumberPairs(indices: number[]) {
 }
 
 export function getRelativeModuleName(
-    fs: FileSystem,
+    fs: ReadOnlyFileSystem,
     sourcePath: string,
     targetPath: string,
     ignoreFolderStructure = false,

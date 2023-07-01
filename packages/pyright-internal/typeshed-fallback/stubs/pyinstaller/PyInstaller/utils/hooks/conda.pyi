@@ -1,4 +1,4 @@
-# https://pyinstaller.org/en/stable/hooks.html?highlight=conda_support#module-PyInstaller.utils.hooks.conda
+# https://pyinstaller.org/en/stable/hooks.html#module-PyInstaller.utils.hooks.conda
 
 import sys
 from _typeshed import StrOrBytesPath

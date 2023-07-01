@@ -1,81 +1,108 @@
-from _typeshed import Incomplete
-from abc import abstractmethod
+from _typeshed import Incomplete, Unused
+from typing import ClassVar
+from typing_extensions import Literal, TypeAlias
 
+from openpyxl.chart.axis import ChartLines
+from openpyxl.chart.label import DataLabelList
+from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToFloat
+from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.nested import (
+    NestedBool,
+    NestedFloat,
+    NestedMinMax,
+    NestedNoneSet,
+    NestedSet,
+    _HasTagAndGet,
+    _NestedNoneSetParam,
+)
 from openpyxl.descriptors.serialisable import Serialisable
 
 from ._chart import ChartBase
 
+_ProjectedPieChartOfPieType: TypeAlias = Literal["pie", "bar"]
+_ProjectedPieChartSplitType: TypeAlias = Literal["auto", "cust", "percent", "pos", "val"]
+
 class _PieChartBase(ChartBase):
-    varyColors: Incomplete
+    varyColors: NestedBool[Literal[True]]
     ser: Incomplete
-    dLbls: Incomplete
-    dataLabels: Incomplete
-    __elements__: Incomplete
-    def __init__(self, varyColors: bool = True, ser=(), dLbls: Incomplete | None = None) -> None: ...
-    @property
-    @abstractmethod
-    def tagname(self) -> str: ...
+    dLbls: Typed[DataLabelList, Literal[True]]
+    dataLabels: Alias
+    __elements__: ClassVar[tuple[str, ...]]
+    def __init__(
+        self,
+        varyColors: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = True,
+        ser=(),
+        dLbls: DataLabelList | None = None,
+    ) -> None: ...
 
 class PieChart(_PieChartBase):
-    tagname: str
+    tagname: ClassVar[str]
     varyColors: Incomplete
     ser: Incomplete
     dLbls: Incomplete
-    firstSliceAng: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
-    def __init__(self, firstSliceAng: int = 0, extLst: Incomplete | None = None, **kw) -> None: ...
+    firstSliceAng: NestedMinMax[float, Literal[False]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
+    def __init__(
+        self, firstSliceAng: _HasTagAndGet[_ConvertibleToFloat] | _ConvertibleToFloat = 0, extLst: Unused = None, **kw
+    ) -> None: ...
 
 class PieChart3D(_PieChartBase):
-    tagname: str
+    tagname: ClassVar[str]
     varyColors: Incomplete
     ser: Incomplete
     dLbls: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
 
 class DoughnutChart(_PieChartBase):
-    tagname: str
+    tagname: ClassVar[str]
     varyColors: Incomplete
     ser: Incomplete
     dLbls: Incomplete
-    firstSliceAng: Incomplete
-    holeSize: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
-    def __init__(self, firstSliceAng: int = 0, holeSize: int = 10, extLst: Incomplete | None = None, **kw) -> None: ...
+    firstSliceAng: NestedMinMax[float, Literal[False]]
+    holeSize: NestedMinMax[float, Literal[True]]
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
+    def __init__(
+        self,
+        firstSliceAng: _HasTagAndGet[_ConvertibleToFloat] | _ConvertibleToFloat = 0,
+        holeSize: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = 10,
+        extLst: Unused = None,
+        **kw,
+    ) -> None: ...
 
 class CustomSplit(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     secondPiePt: Incomplete
-    __elements__: Incomplete
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, secondPiePt=()) -> None: ...
 
 class ProjectedPieChart(_PieChartBase):
-    tagname: str
+    tagname: ClassVar[str]
     varyColors: Incomplete
     ser: Incomplete
     dLbls: Incomplete
-    ofPieType: Incomplete
-    type: Incomplete
+    ofPieType: NestedSet[_ProjectedPieChartOfPieType]
+    type: Alias
     gapWidth: Incomplete
-    splitType: Incomplete
-    splitPos: Incomplete
-    custSplit: Incomplete
-    secondPieSize: Incomplete
-    serLines: Incomplete
-    join_lines: Incomplete
-    extLst: Incomplete
-    __elements__: Incomplete
+    splitType: NestedNoneSet[_ProjectedPieChartSplitType]
+    splitPos: NestedFloat[Literal[True]]
+    custSplit: Typed[CustomSplit, Literal[True]]
+    secondPieSize: NestedMinMax[float, Literal[True]]
+    serLines: Typed[ChartLines, Literal[True]]
+    join_lines: Alias
+    extLst: Typed[ExtensionList, Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        ofPieType: str = "pie",
+        ofPieType: _HasTagAndGet[_ProjectedPieChartOfPieType] | _ProjectedPieChartOfPieType = "pie",
         gapWidth: Incomplete | None = None,
-        splitType: str = "auto",
-        splitPos: Incomplete | None = None,
-        custSplit: Incomplete | None = None,
-        secondPieSize: int = 75,
-        serLines: Incomplete | None = None,
-        extLst: Incomplete | None = None,
+        splitType: _NestedNoneSetParam[_ProjectedPieChartSplitType] = "auto",
+        splitPos: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
+        custSplit: CustomSplit | None = None,
+        secondPieSize: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = 75,
+        serLines: ChartLines | None = None,
+        extLst: Unused = None,
         **kw,
     ) -> None: ...

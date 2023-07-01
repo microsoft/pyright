@@ -1,3 +1,4 @@
+from _typeshed import ReadableBuffer
 from collections.abc import Callable, Sequence
 from typing import IO, Any
 
@@ -30,7 +31,7 @@ class ECDSAKey(PKey):
     def __init__(
         self,
         msg: Message | None = None,
-        data: bytes | None = None,
+        data: ReadableBuffer | None = None,
         filename: str | None = None,
         password: str | None = None,
         vals: tuple[EllipticCurvePrivateKey, EllipticCurvePublicKey] | None = None,

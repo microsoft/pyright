@@ -1,25 +1,35 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
+from typing import ClassVar
+from typing_extensions import Literal
 
+from openpyxl.descriptors.base import Bool, Integer, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Break(Serialisable):
-    tagname: str
-    id: Incomplete
-    min: Incomplete
-    max: Incomplete
-    man: Incomplete
-    pt: Incomplete
-    def __init__(self, id: int = 0, min: int = 0, max: int = 16383, man: bool = True, pt: Incomplete | None = None) -> None: ...
+    tagname: ClassVar[str]
+    id: Integer[Literal[True]]
+    min: Integer[Literal[True]]
+    max: Integer[Literal[True]]
+    man: Bool[Literal[True]]
+    pt: Bool[Literal[True]]
+    def __init__(
+        self,
+        id: _ConvertibleToInt | None = 0,
+        min: _ConvertibleToInt | None = 0,
+        max: _ConvertibleToInt | None = 16383,
+        man: _ConvertibleToBool | None = True,
+        pt: _ConvertibleToBool | None = None,
+    ) -> None: ...
 
 class RowBreak(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     # Overwritten by properties below
     # count: Integer
     # manualBreakCount: Integer
     brk: Incomplete
-    __elements__: Incomplete
-    __attrs__: Incomplete
-    def __init__(self, count: Incomplete | None = None, manualBreakCount: Incomplete | None = None, brk=()) -> None: ...
+    __elements__: ClassVar[tuple[str, ...]]
+    __attrs__: ClassVar[tuple[str, ...]]
+    def __init__(self, count: Unused = None, manualBreakCount: Unused = None, brk=()) -> None: ...
     def __bool__(self) -> bool: ...
     def __len__(self) -> int: ...
     @property
@@ -31,10 +41,10 @@ class RowBreak(Serialisable):
 PageBreak = RowBreak
 
 class ColBreak(RowBreak):
-    tagname: str
+    tagname: ClassVar[str]
     @property
     def count(self): ...
     @property
     def manualBreakCount(self): ...
     brk: Incomplete
-    __attrs__: Incomplete
+    __attrs__: ClassVar[tuple[str, ...]]

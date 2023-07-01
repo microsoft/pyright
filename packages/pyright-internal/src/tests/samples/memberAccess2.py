@@ -4,6 +4,7 @@
 
 from typing import Callable, NamedTuple, TypedDict
 
+
 # This class follows the normal rules where variable
 # b, which is callable, acts like a class member and
 # is bound to an instance by the member access operator.

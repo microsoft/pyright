@@ -33,6 +33,10 @@ class ShouldBeInvariant1[T]:
     def value(self):
         return self._value
 
+    @value.setter
+    def value(self, value: T):
+        self._value = value
+
 # This should generate an error based on variance
 vinv1_1: ShouldBeInvariant1[float] = ShouldBeInvariant1[int](1)
 
@@ -46,6 +50,9 @@ class ShouldBeInvariant2[T]:
 
     def get_value(self) ->T:
         return self._value
+
+    def set_value(self, value: T):
+        self._value = value
 
 # This should generate an error based on variance
 vinv2_1: ShouldBeInvariant2[float] = ShouldBeInvariant2[int](1)
@@ -72,6 +79,9 @@ vinv3_4: ShouldBeInvariant3[str, int] = ShouldBeInvariant3[str, float]()
 
 class ShouldBeContravariant1[T]:
     def __init__(self, value: T) -> None:
+        self._value = value
+    
+    def set_value(self, value: T) -> None:
         self._value = value
 
 

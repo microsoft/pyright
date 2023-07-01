@@ -3,12 +3,10 @@
 
 from typing import Callable
 
-UnboundMethodThatTakesIntAndReturnsStr = Callable[["MyClass", int], str]
+Callback = Callable[["MyClass", int], str]
 
 
-def method_decorator(
-    method: UnboundMethodThatTakesIntAndReturnsStr,
-) -> UnboundMethodThatTakesIntAndReturnsStr:
+def decorator1(method: Callback) -> Callback:
     def wrapper(self: "MyClass", a: int) -> str:
         return "wrapped " + method(self, a)
 
@@ -19,14 +17,14 @@ class MyClass:
     def __init__(self):
         self.method4 = lambda x: x
 
-    @method_decorator
+    @decorator1
     def method1(self, a: int) -> str:
         return "foo"
 
     def method2(self, a: int) -> str:
         return "foo"
 
-    method3 = method_decorator(method2)
+    method3 = decorator1(method2)
 
 
 mc = MyClass()

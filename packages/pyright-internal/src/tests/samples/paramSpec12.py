@@ -70,8 +70,7 @@ def puts_p_into_scope(f: Callable[P, int]) -> None:
     # This should generate an error because P.args cannot be used in
     # a union.
     def union_args2(
-        *args: Union[P.args, Sequence[Any]],
-        **kwargs: Union[P.kwargs, Mapping[str, Any]]
+        *args: P.args | Sequence[Any], **kwargs: Union[P.kwargs, Mapping[str, Any]]
     ) -> None:
         pass
 

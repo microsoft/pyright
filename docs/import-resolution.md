@@ -33,9 +33,9 @@ Pyright does not require a Python environment to be configured if all imports ca
 
 Pyright uses the following mechanisms (in priority order) to determine which Python environment to use:
 
-1. If a `venv` name is specified along with a `python.venvPath` setting (or a `--venv-path` command-line argument), it appends the venv name to the specified venv path.
+1. If a `venv` name is specified along with a `python.venvPath` setting (or a `--venvpath` command-line argument), it appends the venv name to the specified venv path. This mechanism is not recommended for most users because it is less robust than the next two options because it relies on pyright’s internal logic to determine the import resolution paths based on the virtual environment directories and files. The other two mechanisms (2 and 3 below) use the configured python interpreter to determine the import resolution paths (the value of `sys.path`).
 
-2. If no `venv` is specified in the config file, use the `python.pythonPath` setting. This setting is defined by the VS Code Python extension and can be configured using the Python extension’s environment picker interface. More recent versions of the Python extension no longer store the selected Python environment in the `python.pythonPath` setting and instead use a storage mechanism that is private to the extension. Pyright is able to access this through an API exposed by the Python extension.
+2. Use the `python.pythonPath` setting. This setting is defined by the VS Code Python extension and can be configured using the Python extension’s environment picker interface. More recent versions of the Python extension no longer store the selected Python environment in the `python.pythonPath` setting and instead use a storage mechanism that is private to the extension. Pyright is able to access this through an API exposed by the Python extension.
 
 3. As a fallback, use the default Python environment (i.e. the one that is invoked when typing `python` in the shell).
 

@@ -10,6 +10,9 @@
 
 import { TextRange } from '../common/textRange';
 import {
+    FStringEndToken,
+    FStringMiddleToken,
+    FStringStartToken,
     IdentifierToken,
     KeywordToken,
     KeywordType,
@@ -127,8 +130,15 @@ export const enum ErrorExpressionCategory {
     MaxDepthExceeded,
 }
 
-export interface ParseNodeBase extends TextRange {
+export interface MutableTextRange {
+    start: number;
+    length: number;
+}
+
+export interface ParseNodeBase extends MutableTextRange {
     readonly nodeType: ParseNodeType;
+    readonly start: number;
+    readonly length: number;
 
     // A unique ID given to each parse node.
     id: number;
@@ -148,14 +158,12 @@ export function getNextNodeId() {
 }
 
 export function extendRange(node: ParseNodeBase, newRange: TextRange) {
-    if (newRange.start < node.start) {
-        node.length += node.start - newRange.start;
-        node.start = newRange.start;
-    }
+    const extendedRange = TextRange.extend(node, newRange);
 
-    if (TextRange.getEnd(newRange) > TextRange.getEnd(node)) {
-        node.length = TextRange.getEnd(newRange) - node.start;
-    }
+    // Temporarily allow writes to the range fields.
+    const mutableNode = node as MutableTextRange;
+    mutableNode.start = extendedRange.start;
+    mutableNode.length = extendedRange.length;
 }
 
 export type ParseNodeArray = (ParseNode | undefined)[];
@@ -451,8 +459,8 @@ export namespace FunctionNode {
 
 export const enum ParameterCategory {
     Simple,
-    VarArgList,
-    VarArgDictionary,
+    ArgsList,
+    KwargsDict,
 }
 
 export interface ParameterNode extends ParseNodeBase {
@@ -793,6 +801,7 @@ export interface UnaryOperationNode extends ParseNodeBase {
     expression: ExpressionNode;
     operatorToken: Token;
     operator: OperatorType;
+    parenthesized?: boolean;
 }
 
 export namespace UnaryOperationNode {
@@ -1123,6 +1132,7 @@ export namespace AugmentedAssignmentNode {
 export interface AwaitNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Await;
     expression: ExpressionNode;
+    parenthesized?: boolean;
 }
 
 export namespace AwaitNode {
@@ -1258,11 +1268,12 @@ export interface ListComprehensionNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.ListComprehension;
     expression: ParseNode;
     forIfNodes: ListComprehensionForIfNode[];
+    isGenerator: boolean;
     isParenthesized?: boolean;
 }
 
 export namespace ListComprehensionNode {
-    export function create(expression: ParseNode) {
+    export function create(expression: ParseNode, isGenerator: boolean) {
         const node: ListComprehensionNode = {
             start: expression.start,
             length: expression.length,
@@ -1270,6 +1281,7 @@ export namespace ListComprehensionNode {
             id: _nextNodeId++,
             expression,
             forIfNodes: [],
+            isGenerator,
         };
 
         expression.parent = node;
@@ -1519,11 +1531,10 @@ export interface StringNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.String;
     token: StringToken;
     value: string;
-    hasUnescapeErrors: boolean;
 }
 
 export namespace StringNode {
-    export function create(token: StringToken, unescapedValue: string, hasUnescapeErrors: boolean) {
+    export function create(token: StringToken, unescapedValue: string) {
         const node: StringNode = {
             start: token.start,
             length: token.length,
@@ -1531,7 +1542,6 @@ export namespace StringNode {
             id: _nextNodeId++,
             token,
             value: unescapedValue,
-            hasUnescapeErrors,
         };
 
         return node;
@@ -1540,33 +1550,50 @@ export namespace StringNode {
 
 export interface FormatStringNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.FormatString;
-    token: StringToken;
-    value: string;
-    hasUnescapeErrors: boolean;
-    expressions: ExpressionNode[];
+    token: FStringStartToken;
+    middleTokens: FStringMiddleToken[];
+    fieldExpressions: ExpressionNode[];
+    formatExpressions: ExpressionNode[];
+
+    // Include a dummy "value" to simplify other code.
+    value: '';
 }
 
 export namespace FormatStringNode {
     export function create(
-        token: StringToken,
-        unescapedValue: string,
-        hasUnescapeErrors: boolean,
-        expressions: ExpressionNode[]
+        startToken: FStringStartToken,
+        endToken: FStringEndToken | undefined,
+        middleTokens: FStringMiddleToken[],
+        fieldExpressions: ExpressionNode[],
+        formatExpressions: ExpressionNode[]
     ) {
         const node: FormatStringNode = {
-            start: token.start,
-            length: token.length,
+            start: startToken.start,
+            length: startToken.length,
             nodeType: ParseNodeType.FormatString,
             id: _nextNodeId++,
-            token,
-            value: unescapedValue,
-            hasUnescapeErrors,
-            expressions,
+            token: startToken,
+            middleTokens,
+            fieldExpressions,
+            formatExpressions,
+            value: '',
         };
 
-        expressions.forEach((expr) => {
+        fieldExpressions.forEach((expr) => {
             expr.parent = node;
+            extendRange(node, expr);
         });
+
+        if (formatExpressions) {
+            formatExpressions.forEach((expr) => {
+                expr.parent = node;
+                extendRange(node, expr);
+            });
+        }
+
+        if (endToken) {
+            extendRange(node, endToken);
+        }
 
         return node;
     }

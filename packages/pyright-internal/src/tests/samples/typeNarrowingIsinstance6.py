@@ -2,7 +2,7 @@
 # narrow the type of a specialized class to a subclass where the type
 # arguments are implied by the type arguments of the wider class.
 
-from typing import Any, Generic, Iterable, Sequence, Type, TypeVar, Union
+from typing import Any, Generic, Iterable, Sequence, TypeVar
 
 _T1 = TypeVar("_T1")
 
@@ -15,7 +15,7 @@ class OtherClass(SomeClass[_T1]):
     ...
 
 
-def func1(a: SomeClass[int], b: Union[SomeClass[str], SomeClass[complex]]) -> None:
+def func1(a: SomeClass[int], b: SomeClass[str] | SomeClass[complex]) -> None:
     if isinstance(a, OtherClass):
         reveal_type(a, expected_text="OtherClass[int]")
 
@@ -24,14 +24,14 @@ def func1(a: SomeClass[int], b: Union[SomeClass[str], SomeClass[complex]]) -> No
 
 
 def func2(
-    a: Type[SomeClass[int]], b: Union[Type[SomeClass[str]], Type[SomeClass[complex]]]
+    a: type[SomeClass[int]], b: type[SomeClass[str]] | type[SomeClass[complex]]
 ) -> None:
     if issubclass(a, OtherClass):
-        reveal_type(a, expected_text="Type[OtherClass[int]]")
+        reveal_type(a, expected_text="type[OtherClass[int]]")
 
     if issubclass(b, OtherClass):
         reveal_type(
-            b, expected_text="Type[OtherClass[str]] | Type[OtherClass[complex]]"
+            b, expected_text="type[OtherClass[str]] | type[OtherClass[complex]]"
         )
 
 

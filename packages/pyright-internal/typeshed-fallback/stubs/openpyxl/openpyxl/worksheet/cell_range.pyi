@@ -1,22 +1,38 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
 from collections.abc import Generator
+from typing import overload
+from typing_extensions import Literal
 
 from openpyxl.descriptors import Strict
+from openpyxl.descriptors.base import MinMax, _ConvertibleToInt
 from openpyxl.descriptors.serialisable import Serialisable
 
-class CellRange(Serialisable):  # type: ignore[misc]
-    min_col: Incomplete
-    min_row: Incomplete
-    max_col: Incomplete
-    max_row: Incomplete
+class CellRange(Serialisable):
+    min_col: MinMax[int, Literal[False]]
+    min_row: MinMax[int, Literal[False]]
+    max_col: MinMax[int, Literal[False]]
+    max_row: MinMax[int, Literal[False]]
     title: Incomplete
+
+    @overload
     def __init__(
         self,
-        range_string: Incomplete | None = None,
-        min_col: Incomplete | None = None,
-        min_row: Incomplete | None = None,
-        max_col: Incomplete | None = None,
-        max_row: Incomplete | None = None,
+        range_string: Incomplete,
+        min_col: Unused = None,
+        min_row: Unused = None,
+        max_col: Unused = None,
+        max_row: Unused = None,
+        title: Incomplete | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        range_string: None = None,
+        *,
+        min_col: _ConvertibleToInt,
+        min_row: _ConvertibleToInt,
+        max_col: _ConvertibleToInt,
+        max_row: _ConvertibleToInt,
         title: Incomplete | None = None,
     ) -> None: ...
     @property
@@ -34,17 +50,17 @@ class CellRange(Serialisable):  # type: ignore[misc]
     def __ne__(self, other): ...
     def __eq__(self, other): ...
     def issubset(self, other): ...
-    __le__: Incomplete
+    __le__ = issubset
     def __lt__(self, other): ...
     def issuperset(self, other): ...
-    __ge__: Incomplete
+    __ge__ = issuperset
     def __contains__(self, coord): ...
     def __gt__(self, other): ...
     def isdisjoint(self, other): ...
     def intersection(self, other): ...
-    __and__: Incomplete
+    __and__ = intersection
     def union(self, other): ...
-    __or__: Incomplete
+    __or__ = union
     def __iter__(self): ...
     def expand(self, right: int = 0, down: int = 0, left: int = 0, up: int = 0) -> None: ...
     def shrink(self, right: int = 0, bottom: int = 0, left: int = 0, top: int = 0) -> None: ...

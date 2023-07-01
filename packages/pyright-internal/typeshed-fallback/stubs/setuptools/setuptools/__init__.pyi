@@ -2,24 +2,31 @@ from abc import abstractmethod
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
-from setuptools.depends import Require as Require
-from setuptools.dist import Distribution as Distribution
-from setuptools.extension import Extension as Extension
-from setuptools.warnings import SetuptoolsDeprecationWarning as SetuptoolsDeprecationWarning
-
 from ._distutils.cmd import Command as _Command
+from .depends import Require as Require
+from .discovery import _Path
+from .dist import Distribution as Distribution
+from .extension import Extension as Extension
+from .warnings import SetuptoolsDeprecationWarning as SetuptoolsDeprecationWarning
+
+__all__ = [
+    "setup",
+    "Distribution",
+    "Command",
+    "Extension",
+    "Require",
+    "SetuptoolsDeprecationWarning",
+    "find_packages",
+    "find_namespace_packages",
+]
 
 __version__: str
 
-class PackageFinder:
-    @classmethod
-    def find(cls, where: str = ".", exclude: Iterable[str] = (), include: Iterable[str] = ("*",)) -> list[str]: ...
-
-class PEP420PackageFinder(PackageFinder): ...
-
-find_packages = PackageFinder.find
-find_namespace_packages = PEP420PackageFinder.find
-
+# Pytype fails with the following:
+# find_packages = PackageFinder.find
+# find_namespace_packages = PEP420PackageFinder.find
+def find_packages(where: _Path = ".", exclude: Iterable[str] = (), include: Iterable[str] = ("*",)) -> list[str]: ...
+def find_namespace_packages(where: _Path = ".", exclude: Iterable[str] = (), include: Iterable[str] = ("*",)) -> list[str]: ...
 def setup(
     *,
     name: str = ...,

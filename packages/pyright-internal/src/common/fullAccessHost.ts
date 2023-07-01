@@ -60,6 +60,14 @@ export class LimitedAccessHost extends NoAccessHost {
 }
 
 export class FullAccessHost extends LimitedAccessHost {
+    constructor(protected fs: FileSystem) {
+        super();
+    }
+
+    override get kind(): HostKind {
+        return HostKind.FullAccess;
+    }
+
     static createHost(kind: HostKind, fs: FileSystem) {
         switch (kind) {
             case HostKind.NoAccess:
@@ -73,18 +81,10 @@ export class FullAccessHost extends LimitedAccessHost {
         }
     }
 
-    constructor(protected _fs: FileSystem) {
-        super();
-    }
-
-    override get kind(): HostKind {
-        return HostKind.FullAccess;
-    }
-
     override getPythonSearchPaths(pythonPath?: string, logInfo?: string[]): PythonPathResult {
         const importFailureInfo = logInfo ?? [];
         let result = this._executePythonInterpreter(pythonPath, (p) =>
-            this._getSearchPathResultFromInterpreter(this._fs, p, importFailureInfo)
+            this._getSearchPathResultFromInterpreter(this.fs, p, importFailureInfo)
         );
 
         if (!result) {

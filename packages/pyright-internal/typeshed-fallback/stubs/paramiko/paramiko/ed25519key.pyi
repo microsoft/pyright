@@ -1,3 +1,4 @@
+from _typeshed import ReadableBuffer
 from typing import IO
 
 from paramiko.message import Message
@@ -8,7 +9,7 @@ class Ed25519Key(PKey):
     def __init__(
         self,
         msg: Message | None = None,
-        data: bytes | None = None,
+        data: ReadableBuffer | None = None,
         filename: str | None = None,
         password: str | None = None,
         file_obj: IO[str] | None = None,

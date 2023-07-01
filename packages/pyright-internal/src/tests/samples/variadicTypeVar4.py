@@ -3,7 +3,7 @@
 
 # pyright: reportMissingModuleSource=false
 
-from typing import Generic, NewType, Tuple, Union
+from typing import Generic, NewType, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 
@@ -32,15 +32,15 @@ reveal_type(x + abs(x), expected_text="Array[Height, Width]")
 _Xs = TypeVarTuple("_Xs")
 
 
-def func1(a: Tuple[Unpack[_Xs]], b: Tuple[Unpack[_Xs]]) -> Union[Unpack[_Xs]]:
+def func1(a: tuple[Unpack[_Xs]], b: tuple[Unpack[_Xs]]) -> Union[Unpack[_Xs]]:
     ...
 
 
-def func2(a: Tuple[int, Unpack[_Xs]], b: Tuple[int, Unpack[_Xs]]) -> Union[Unpack[_Xs]]:
+def func2(a: tuple[int, Unpack[_Xs]], b: tuple[int, Unpack[_Xs]]) -> Union[Unpack[_Xs]]:
     ...
 
 
-def func3(p1: Tuple[int], p2: Tuple[int, str]):
+def func3(p1: tuple[int], p2: tuple[int, str]):
     # This should generate an error
     v1 = func1(p1, p2)
 
@@ -57,15 +57,15 @@ def func3(p1: Tuple[int], p2: Tuple[int, str]):
     reveal_type(v5, expected_text="str | int")
 
 
-def func4(a: int, *args: Unpack[_Xs], **kwargs: str) -> Tuple[int, Unpack[_Xs]]:
+def func4(a: int, *args: Unpack[_Xs], **kwargs: str) -> tuple[int, Unpack[_Xs]]:
     ...
 
 
 c1 = func4(4, 5.4, 6j, b="3", c="5")
-reveal_type(c1, expected_text="Tuple[int, float, complex]")
+reveal_type(c1, expected_text="tuple[int, float, complex]")
 
 c2 = func4(4, b="3", c="5")
-reveal_type(c2, expected_text="Tuple[int]")
+reveal_type(c2, expected_text="tuple[int]")
 
 # This should generate an error.
 c3 = func4(b="3", c="5")

@@ -3,9 +3,9 @@
 
 from functools import partial
 from typing_extensions import Protocol, Self
-from typing import Any, Callable, Type, TypeVar
+from typing import Any, Callable, TypeVar
 
-_T = TypeVar("_T")
+_T = TypeVar("_T", covariant=True)
 
 
 class Partial(Protocol[_T]):
@@ -14,13 +14,13 @@ class Partial(Protocol[_T]):
         ...
 
     def __new__(
-        cls: Type[Self], __func: Callable[..., _T], *args: Any, **kwargs: Any
+        cls: type[Self], __func: Callable[..., _T], *args: Any, **kwargs: Any
     ) -> Self:
         ...
 
 
-def f(x: Partial[int]):
+def func1(x: Partial[int]):
     ...
 
 
-f(partial(int))
+func1(partial(int))

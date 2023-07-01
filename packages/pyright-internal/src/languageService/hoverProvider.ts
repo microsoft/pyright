@@ -15,25 +15,16 @@ import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
-import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import {
-    ClassMemberLookupFlags,
-    doForEachSubtype,
-    isMaybeDescriptorInstance,
-    lookUpClassMember,
-} from '../analyzer/typeUtils';
+import { PrintTypeOptions, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
+import { doForEachSubtype, isMaybeDescriptorInstance } from '../analyzer/typeUtils';
 import {
     ClassType,
-    FunctionType,
-    OverloadedFunctionType,
     Type,
     TypeCategory,
-    UnknownType,
     getTypeAliasInfo,
     isAnyOrUnknown,
     isClassInstance,
     isFunction,
-    isInstantiableClass,
     isModule,
     isOverloadedFunction,
     isTypeVar,
@@ -43,35 +34,123 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { assertNever, fail } from '../common/debug';
 import { DeclarationUseCase, Extensions, ProgramView } from '../common/extensibility';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
-import { hashString } from '../common/stringUtils';
 import { Position, Range, TextRange } from '../common/textRange';
 import { ExpressionNode, NameNode, ParseNode, ParseNodeType, StringNode, isExpressionNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import {
     combineExpressionTypes,
+    getClassAndConstructorTypes,
     getConstructorTooltip,
     getDocumentationPartsForTypeAndDecl,
     getToolTipForType,
+    getTypeForToolTip,
 } from './tooltipUtils';
+
+export interface HoverTextPart {
+    python?: boolean;
+    text: string;
+}
+
+export interface HoverResults {
+    parts: HoverTextPart[];
+    range: Range;
+}
+
+export function convertHoverResults(hoverResults: HoverResults | null, format: MarkupKind): Hover | null {
+    if (!hoverResults) {
+        return null;
+    }
+
+    const markupString = hoverResults.parts
+        .map((part) => {
+            if (part.python) {
+                if (format === MarkupKind.Markdown) {
+                    return '```python\n' + part.text + '\n```\n';
+                } else if (format === MarkupKind.PlainText) {
+                    return part.text + '\n\n';
+                } else {
+                    fail(`Unsupported markup type: ${format}`);
+                }
+            }
+            return part.text;
+        })
+        .join('')
+        .trimEnd();
+
+    return {
+        contents: {
+            kind: format,
+            value: markupString,
+        },
+        range: hoverResults.range,
+    };
+}
+
+export function addDocumentationResultsPart(docString: string | undefined, format: MarkupKind, parts: HoverTextPart[]) {
+    if (!docString) {
+        return;
+    }
+
+    if (format === MarkupKind.Markdown) {
+        const markDown = convertDocStringToMarkdown(docString);
+
+        if (parts.length > 0 && markDown.length > 0) {
+            parts.push({ text: '---\n' });
+        }
+
+        parts.push({ text: markDown, python: false });
+        return;
+    }
+
+    if (format === MarkupKind.PlainText) {
+        parts.push({ text: convertDocStringToPlainText(docString), python: false });
+        return;
+    }
+
+    fail(`Unsupported markup type: ${format}`);
+}
 
 export class HoverProvider {
     private readonly _parseResults: ParseResults | undefined;
     private readonly _sourceMapper: SourceMapper;
 
     constructor(
-        private _program: ProgramView,
-        private _filePath: string,
-        private _position: Position,
-        private _format: MarkupKind,
-        private _supportTelemetry: boolean,
-        private _token: CancellationToken
+        private readonly _program: ProgramView,
+        private readonly _filePath: string,
+        private readonly _position: Position,
+        private readonly _format: MarkupKind,
+        private readonly _token: CancellationToken
     ) {
         this._parseResults = this._program.getParseResults(this._filePath);
         this._sourceMapper = this._program.getSourceMapper(this._filePath, this._token, /* mapCompiled */ true);
     }
 
-    getHover(): Hover | undefined {
-        return this._convertHoverResults(this._getHoverResult());
+    getHover(): Hover | null {
+        return convertHoverResults(this._getHoverResult(), this._format);
+    }
+
+    static getPrimaryDeclaration(declarations: Declaration[]) {
+        // In most cases, it's best to treat the first declaration as the
+        // "primary". This works well for properties that have setters
+        // which often have doc strings on the getter but not the setter.
+        // The one case where using the first declaration doesn't work as
+        // well is the case where an import statement within an __init__.py
+        // file uses the form "from .A import A". In this case, if we use
+        // the first declaration, it will show up as a module rather than
+        // the imported symbol type.
+        const primaryDeclaration = declarations[0];
+        if (primaryDeclaration.type === DeclarationType.Alias && declarations.length > 1) {
+            return declarations[1];
+        } else if (
+            primaryDeclaration.type === DeclarationType.Variable &&
+            declarations.length > 1 &&
+            primaryDeclaration.isDefinedBySlots
+        ) {
+            // Slots cannot have docstrings, so pick the secondary.
+            return declarations[1];
+        }
+
+        return primaryDeclaration;
     }
 
     private get _evaluator(): TypeEvaluator {
@@ -82,21 +161,21 @@ export class HoverProvider {
         return this._program.configOptions.functionSignatureDisplay;
     }
 
-    private _getHoverResult(): HoverResults | undefined {
+    private _getHoverResult(): HoverResults | null {
         throwIfCancellationRequested(this._token);
 
         if (!this._parseResults) {
-            return undefined;
+            return null;
         }
 
         const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
-            return undefined;
+            return null;
         }
 
         const node = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, offset);
         if (node === undefined) {
-            return undefined;
+            return null;
         }
 
         const results: HoverResults = {
@@ -115,6 +194,7 @@ export class HoverProvider {
                         e.declarationProviderExtension?.tryGetDeclarations(
                             this._evaluator,
                             node,
+                            offset,
                             DeclarationUseCase.Definition,
                             this._token
                         ) || []
@@ -123,32 +203,10 @@ export class HoverProvider {
             if (declarations.length === 0) {
                 declarations = this._evaluator.getDeclarationsForNameNode(node);
             }
+
             if (declarations && declarations.length > 0) {
-                // In most cases, it's best to treat the first declaration as the
-                // "primary". This works well for properties that have setters
-                // which often have doc strings on the getter but not the setter.
-                // The one case where using the first declaration doesn't work as
-                // well is the case where an import statement within an __init__.py
-                // file uses the form "from .A import A". In this case, if we use
-                // the first declaration, it will show up as a module rather than
-                // the imported symbol type.
-                let primaryDeclaration = declarations[0];
-                if (primaryDeclaration.type === DeclarationType.Alias && declarations.length > 1) {
-                    primaryDeclaration = declarations[1];
-                } else if (
-                    primaryDeclaration.type === DeclarationType.Variable &&
-                    declarations.length > 1 &&
-                    primaryDeclaration.isDefinedBySlots
-                ) {
-                    // Slots cannot have docstrings, so pick the secondary.
-                    primaryDeclaration = declarations[1];
-                }
-
+                const primaryDeclaration = HoverProvider.getPrimaryDeclaration(declarations);
                 this._addResultsForDeclaration(results.parts, primaryDeclaration, node);
-
-                // Add the lastKnownModule for this declaration. We'll use this
-                // in telemetry for hover.
-                results.lastKnownModule = primaryDeclaration.moduleName;
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
                 // this if it's part of a module name, since a module name part with no declaration
@@ -192,7 +250,7 @@ export class HoverProvider {
             }
         }
 
-        return results.parts.length > 0 ? results : undefined;
+        return results.parts.length > 0 ? results : null;
     }
 
     private _addResultsForDeclaration(parts: HoverTextPart[], declaration: Declaration, node: NameNode): void {
@@ -285,7 +343,7 @@ export class HoverProvider {
                         this._functionSignatureDisplay
                     );
                 } else {
-                    typeText = typeVarName || node.value + this._getTypeText(typeNode, expandTypeAlias);
+                    typeText = typeVarName || node.value + this._getTypeText(typeNode, { expandTypeAlias });
                     typeText = `(${label}) ` + typeText;
                 }
                 this._addResultsPart(parts, typeText, /* python */ true);
@@ -315,9 +373,14 @@ export class HoverProvider {
             }
 
             case DeclarationType.TypeParameter: {
+                // If the user is hovering over a type parameter name in a class type parameter
+                // list, display the computed variance of the type param.
+                const typeParamListNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.TypeParameterList);
+                const printTypeVarVariance = typeParamListNode?.parent?.nodeType === ParseNodeType.Class;
+
                 this._addResultsPart(
                     parts,
-                    '(type parameter) ' + node.value + this._getTypeText(node),
+                    '(type parameter) ' + node.value + this._getTypeText(node, { printTypeVarVariance }),
                     /* python */ true
                 );
                 this._addDocumentationPart(parts, node, resolvedDecl);
@@ -379,7 +442,7 @@ export class HoverProvider {
             }
 
             case DeclarationType.TypeAlias: {
-                const typeText = node.value + this._getTypeText(node, /* expandTypeAlias */ true);
+                const typeText = node.value + this._getTypeText(node, { expandTypeAlias: true });
                 this._addResultsPart(parts, `(type alias) ${typeText}`, /* python */ true);
                 this._addDocumentationPart(parts, node, resolvedDecl);
                 break;
@@ -423,170 +486,42 @@ export class HoverProvider {
     }
 
     private _addInitOrNewMethodInsteadIfCallNode(node: NameNode, parts: HoverTextPart[], declaration: Declaration) {
-        // If the class is used as part of a call (i.e. it is being
-        // instantiated), include the constructor arguments within the
-        // hover text.
-        let callLeftNode: ParseNode | undefined = node;
-
-        // Allow the left to be a member access chain (e.g. a.b.c) if the
-        // node in question is the last item in the chain.
-        if (callLeftNode?.parent?.nodeType === ParseNodeType.MemberAccess && node === callLeftNode.parent.memberName) {
-            callLeftNode = node.parent;
-            // Allow the left to be a generic class constructor (e.g. foo[int]())
-        } else if (callLeftNode?.parent?.nodeType === ParseNodeType.Index) {
-            callLeftNode = node.parent;
-        }
-
-        if (
-            !callLeftNode ||
-            !callLeftNode.parent ||
-            callLeftNode.parent.nodeType !== ParseNodeType.Call ||
-            callLeftNode.parent.leftExpression !== callLeftNode
-        ) {
+        const result = getClassAndConstructorTypes(node, this._evaluator);
+        if (!result) {
             return false;
         }
 
-        // Get the init method for this class.
-        const classType = this._getType(node);
-        if (!isInstantiableClass(classType)) {
-            return false;
-        }
-
-        const instanceType = this._getType(callLeftNode.parent);
-        if (!isClassInstance(instanceType)) {
-            return false;
-        }
-
-        let methodType: Type | undefined;
-
-        // Try to get the `__init__` method first because it typically has more type information than `__new__`.
-        // Don't exclude `object.__init__` since in the plain case we want to show Foo().
-        const initMember = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipInstanceVariables);
-
-        if (initMember) {
-            const functionType = this._evaluator.getTypeOfMember(initMember);
-
-            if (isFunction(functionType) || isOverloadedFunction(functionType)) {
-                methodType = this._bindFunctionToClassOrObject(node, instanceType, functionType);
-            }
-        }
-
-        // If there was no `__init__`, excluding `object` class `__init__`, or if `__init__` only had default params (*args: Any, **kwargs: Any) or no params (),
-        // see if we can find a better `__new__` method.
-        if (
-            !methodType ||
-            (methodType &&
-                isFunction(methodType) &&
-                (FunctionType.hasDefaultParameters(methodType) || methodType.details.parameters.length === 0))
-        ) {
-            const newMember = lookUpClassMember(
-                classType,
-                '__new__',
-                ClassMemberLookupFlags.SkipObjectBaseClass | ClassMemberLookupFlags.SkipInstanceVariables
-            );
-
-            if (newMember) {
-                const newMemberType = this._evaluator.getTypeOfMember(newMember);
-
-                // Prefer `__new__` if it doesn't have default params (*args: Any, **kwargs: Any) or no params ().
-                if (isFunction(newMemberType) || isOverloadedFunction(newMemberType)) {
-                    // Set `treatConstructorAsClassMember` to true to exclude `cls` as a parameter.
-                    methodType = this._bindFunctionToClassOrObject(
-                        node,
-                        instanceType,
-                        newMemberType,
-                        /* treatConstructorAsClassMember */ true
-                    );
-                }
-            }
-        }
-
-        if (methodType && (isFunction(methodType) || isOverloadedFunction(methodType))) {
+        if (result.methodType && (isFunction(result.methodType) || isOverloadedFunction(result.methodType))) {
             this._addResultsPart(
                 parts,
-                getConstructorTooltip(node.value, methodType, this._evaluator, this._functionSignatureDisplay),
+                getConstructorTooltip(node.value, result.methodType, this._evaluator, this._functionSignatureDisplay),
                 /* python */ true
             );
 
-            const addedDoc = this._addDocumentationPartForType(parts, methodType, declaration);
+            const addedDoc = this._addDocumentationPartForType(parts, result.methodType, declaration);
 
             if (!addedDoc) {
-                this._addDocumentationPartForType(parts, classType, declaration);
+                this._addDocumentationPartForType(parts, result.classType, declaration);
             }
             return true;
         }
         return false;
     }
 
-    private _getTypeText(node: ExpressionNode, expandTypeAlias = false): string {
-        const type = this._getType(node);
-        return ': ' + this._evaluator.printType(type, { expandTypeAlias });
-    }
-
-    private _getTypesText(nodes: ExpressionNode[], expandTypeAlias = false): string {
-        const type = combineExpressionTypes(nodes, this._evaluator);
-        return ': ' + this._evaluator.printType(type, { expandTypeAlias });
-    }
-
-    private _bindFunctionToClassOrObject(
-        node: ExpressionNode,
-        baseType: ClassType | undefined,
-        memberType: FunctionType | OverloadedFunctionType,
-        treatConstructorAsClassMember?: boolean
-    ): FunctionType | OverloadedFunctionType | undefined {
-        const methodType = this._evaluator.bindFunctionToClassOrObject(
-            baseType,
-            memberType,
-            /* memberClass */ undefined,
-            /* errorNode */ undefined,
-            /* recursiveCount */ undefined,
-            treatConstructorAsClassMember
-        );
-
-        if (!methodType) {
-            return undefined;
-        }
-
-        return this._limitOverloadBasedOnCall(methodType, node);
-    }
-
     private _getType(node: ExpressionNode) {
         // It does common work necessary for hover for a type we got
         // from raw type evaluator.
-        const type = this._evaluator.getType(node) ?? UnknownType.create();
-        return this._limitOverloadBasedOnCall(type, node);
+        return getTypeForToolTip(this._evaluator, node);
     }
 
-    private _limitOverloadBasedOnCall<T extends Type>(
-        type: T,
-        node: ExpressionNode
-    ): T | FunctionType | OverloadedFunctionType {
-        // If it's an overloaded function, see if it's part of a call expression.
-        // If so, we may be able to eliminate some of the overloads based on
-        // the overload resolution.
-        if (!isOverloadedFunction(type) || node.nodeType !== ParseNodeType.Name) {
-            return type;
-        }
+    private _getTypeText(node: ExpressionNode, options?: PrintTypeOptions): string {
+        const type = this._getType(node);
+        return ': ' + this._evaluator.printType(type, options);
+    }
 
-        const callNode = ParseTreeUtils.getCallForName(node);
-        if (!callNode) {
-            return type;
-        }
-
-        const callTypeResult = this._evaluator.getTypeResult(callNode);
-        if (
-            !callTypeResult ||
-            !callTypeResult.overloadsUsedForCall ||
-            callTypeResult.overloadsUsedForCall.length === 0
-        ) {
-            return type;
-        }
-
-        if (callTypeResult.overloadsUsedForCall.length === 1) {
-            return callTypeResult.overloadsUsedForCall[0];
-        }
-
-        return OverloadedFunctionType.create(callTypeResult.overloadsUsedForCall);
+    private _getTypesText(nodes: ExpressionNode[], options?: PrintTypeOptions): string {
+        const type = combineExpressionTypes(nodes, this._evaluator);
+        return ': ' + this._evaluator.printType(type, options);
     }
 
     private _addDocumentationPart(parts: HoverTextPart[], node: NameNode, resolvedDecl: Declaration | undefined) {
@@ -603,30 +538,9 @@ export class HoverProvider {
         const docString = getDocumentationPartsForTypeAndDecl(this._sourceMapper, type, resolvedDecl, this._evaluator, {
             name,
         });
-        if (docString) {
-            this._addDocumentationResultsPart(parts, docString);
-            return true;
-        }
 
-        return false;
-    }
-
-    private _addDocumentationResultsPart(parts: HoverTextPart[], docString?: string) {
-        if (docString) {
-            if (this._format === MarkupKind.Markdown) {
-                const markDown = convertDocStringToMarkdown(docString);
-
-                if (parts.length > 0 && markDown.length > 0) {
-                    parts.push({ text: '---\n' });
-                }
-
-                this._addResultsPart(parts, markDown);
-            } else if (this._format === MarkupKind.PlainText) {
-                this._addResultsPart(parts, convertDocStringToPlainText(docString));
-            } else {
-                fail(`Unsupported markup type: ${this._format}`);
-            }
-        }
+        addDocumentationResultsPart(docString, this._format, parts);
+        return !!docString;
     }
 
     private _addResultsPart(parts: HoverTextPart[], text: string, python = false) {
@@ -635,51 +549,4 @@ export class HoverProvider {
             text,
         });
     }
-
-    private _convertHoverResults(hoverResults: HoverResults | undefined): Hover | undefined {
-        if (!hoverResults) {
-            return undefined;
-        }
-
-        let markupString = hoverResults.parts
-            .map((part) => {
-                if (part.python) {
-                    if (this._format === MarkupKind.Markdown) {
-                        return '```python\n' + part.text + '\n```\n';
-                    } else if (this._format === MarkupKind.PlainText) {
-                        return part.text + '\n\n';
-                    } else {
-                        fail(`Unsupported markup type: ${this._format}`);
-                    }
-                }
-                return part.text;
-            })
-            .join('')
-            .trimEnd();
-
-        // If we have a lastKnownModule in the hover results, stick in a comment with
-        // the hashed module name. This is used by the other side to send telemetry.
-        if (hoverResults.lastKnownModule && this._format === MarkupKind.Markdown && this._supportTelemetry) {
-            markupString += `\n<!--moduleHash:${hashString(hoverResults.lastKnownModule)}-->`;
-        }
-
-        return {
-            contents: {
-                kind: this._format,
-                value: markupString,
-            },
-            range: hoverResults.range,
-        };
-    }
-}
-
-interface HoverTextPart {
-    python?: boolean;
-    text: string;
-}
-
-interface HoverResults {
-    parts: HoverTextPart[];
-    lastKnownModule?: string;
-    range: Range;
 }

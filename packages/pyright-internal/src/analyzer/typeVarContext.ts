@@ -14,6 +14,7 @@ import {
     AnyType,
     ClassType,
     FunctionType,
+    InScopePlaceholderScopeId,
     isFunction,
     maxTypeRecursionCount,
     TupleTypeArgument,
@@ -23,7 +24,14 @@ import {
     TypeVarType,
     WildcardTypeVarScopeId,
 } from './types';
-import { applySolvedTypeVars, doForEachSubtype } from './typeUtils';
+
+// The maximum number of signature contexts that can be associated
+// with a TypeVarContext. This equates to the number of overloads
+// that can be captured by a ParamSpec (or multiple ParamSpecs).
+// We should never hit this limit in practice, but there are certain
+// pathological cases where we could, and we need to protect against
+// this so it doesn't completely exhaust memory.
+const maxSignatureContextCount = 64;
 
 export interface TypeVarMapEntry {
     typeVar: TypeVarType;
@@ -156,30 +164,6 @@ export class TypeVarSignatureContext {
         return entries;
     }
 
-    // Applies solved TypeVars from one context to this context.
-    applySourceContextTypeVars(srcContext: TypeVarContext) {
-        this._typeVarMap.forEach((entry) => {
-            const newNarrowTypeBound = entry.narrowBound
-                ? applySolvedTypeVars(entry.narrowBound, srcContext)
-                : undefined;
-            const newNarrowTypeBoundNoLiterals = entry.narrowBoundNoLiterals
-                ? applySolvedTypeVars(entry.narrowBoundNoLiterals, srcContext)
-                : undefined;
-            const newWideTypeBound = entry.wideBound ? applySolvedTypeVars(entry.wideBound, srcContext) : undefined;
-
-            this.setTypeVarType(entry.typeVar, newNarrowTypeBound, newNarrowTypeBoundNoLiterals, newWideTypeBound);
-
-            if (entry.tupleTypes) {
-                this.setTupleTypeVar(
-                    entry.typeVar,
-                    entry.tupleTypes.map((arg) => {
-                        return { isUnbounded: arg.isUnbounded, type: applySolvedTypeVars(arg.type, srcContext) };
-                    })
-                );
-            }
-        });
-    }
-
     getTypeVarCount() {
         return this._typeVarMap.size;
     }
@@ -193,7 +177,7 @@ export class TypeVarSignatureContext {
         return undefined;
     }
 
-    addSourceTypeVarScopeId(scopeId: string) {
+    addSourceTypeVarScopeId(scopeId: TypeVarScopeId) {
         if (!this._sourceTypeVarScopeId) {
             this._sourceTypeVarScopeId = new Set<string>();
         }
@@ -201,7 +185,7 @@ export class TypeVarSignatureContext {
         this._sourceTypeVarScopeId.add(scopeId);
     }
 
-    hasSourceTypeVarScopeId(scopeId: string) {
+    hasSourceTypeVarScopeId(scopeId: TypeVarScopeId) {
         if (!this._sourceTypeVarScopeId) {
             return false;
         }
@@ -244,7 +228,7 @@ export class TypeVarSignatureContext {
                 // If this union has a very large number of subtypes, don't bother
                 // accurately computing the score. Assume a fixed value.
                 if (type.subtypes.length < 16) {
-                    doForEachSubtype(type, (subtype) => {
+                    type.subtypes.forEach((subtype) => {
                         const subtypeScore = this._getComplexityScoreForType(subtype, recursionCount);
                         maxScore = Math.max(maxScore, subtypeScore);
                     });
@@ -310,7 +294,7 @@ export class TypeVarContext {
     clone() {
         const newTypeVarMap = new TypeVarContext();
         if (this._solveForScopes) {
-            newTypeVarMap._solveForScopes = [...this._solveForScopes];
+            newTypeVarMap._solveForScopes = Array.from(this._solveForScopes);
         }
 
         newTypeVarMap._signatureContexts = this._signatureContexts.map((context) => context.clone());
@@ -319,7 +303,7 @@ export class TypeVarContext {
         return newTypeVarMap;
     }
 
-    cloneWithSignatureSource(typeVarScopeId: string): TypeVarContext {
+    cloneWithSignatureSource(typeVarScopeId: TypeVarScopeId): TypeVarContext {
         const clonedContext = this.clone();
 
         if (typeVarScopeId) {
@@ -349,7 +333,11 @@ export class TypeVarContext {
     copySignatureContexts(contexts: TypeVarSignatureContext[]) {
         assert(contexts.length > 0);
 
-        this._signatureContexts = [...contexts];
+        // Limit the number of signature contexts. There are rare circumstances
+        // where this can grow to unbounded numbers and exhaust memory.
+        if (contexts.length < maxSignatureContextCount) {
+            this._signatureContexts = Array.from(contexts);
+        }
     }
 
     // Returns the list of scopes this type var map is "solving".
@@ -357,7 +345,15 @@ export class TypeVarContext {
         return this._solveForScopes;
     }
 
-    hasSolveForScope(scopeId: TypeVarScopeId | undefined) {
+    hasSolveForScope(scopeId: TypeVarScopeId | TypeVarScopeId[] | undefined): boolean {
+        if (Array.isArray(scopeId)) {
+            return scopeId.some((s) => this.hasSolveForScope(s));
+        }
+
+        if (scopeId === InScopePlaceholderScopeId) {
+            return true;
+        }
+
         return (
             scopeId !== undefined &&
             this._solveForScopes !== undefined &&
@@ -369,7 +365,12 @@ export class TypeVarContext {
         this._solveForScopes = scopeIds;
     }
 
-    addSolveForScope(scopeId?: TypeVarScopeId) {
+    addSolveForScope(scopeId?: TypeVarScopeId | TypeVarScopeId[]) {
+        if (Array.isArray(scopeId)) {
+            scopeId.forEach((s) => this.addSolveForScope(s));
+            return;
+        }
+
         if (scopeId !== undefined && !this.hasSolveForScope(scopeId)) {
             if (!this._solveForScopes) {
                 this._solveForScopes = [];
@@ -395,22 +396,6 @@ export class TypeVarContext {
 
     isEmpty() {
         return this._signatureContexts.every((context) => context.isEmpty());
-    }
-
-    // Applies solved TypeVars from one context to this context.
-    applySourceContextTypeVars(srcContext: TypeVarContext) {
-        if (srcContext.isEmpty()) {
-            return;
-        }
-
-        const wasLocked = this.isLocked();
-        this.unlock();
-
-        this._signatureContexts.forEach((context) => context.applySourceContextTypeVars(srcContext));
-
-        if (wasLocked) {
-            this.lock();
-        }
     }
 
     setTypeVarType(
@@ -451,6 +436,19 @@ export class TypeVarContext {
 
     getSignatureContexts() {
         return this._signatureContexts;
+    }
+
+    doForEachSignatureContext(callback: (signature: TypeVarSignatureContext) => void) {
+        const wasLocked = this.isLocked();
+        this.unlock();
+
+        this.getSignatureContexts().forEach((signature) => {
+            callback(signature);
+        });
+
+        if (wasLocked) {
+            this.lock();
+        }
     }
 
     getSignatureContext(index: number) {

@@ -2,7 +2,7 @@ from _typeshed import Incomplete
 from typing import Any
 
 from ...connectors.pyodbc import PyODBCConnector
-from ...types import DateTime, Float, Numeric
+from ...sql.sqltypes import DateTime, Float, Numeric
 from .base import BINARY, DATETIMEOFFSET, VARBINARY, MSDialect, MSExecutionContext
 
 class _ms_numeric_pyodbc:

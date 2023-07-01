@@ -10,6 +10,7 @@
  *
  */
 
+import { appendArray } from '../common/collectionUtils';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
@@ -422,10 +423,10 @@ function applyPartialTransformToFunction(
         return specializedParam;
     });
     const unassignedParamList = updatedParamList.filter((param) => {
-        if (param.category === ParameterCategory.VarArgDictionary) {
+        if (param.category === ParameterCategory.KwargsDict) {
             return false;
         }
-        if (param.category === ParameterCategory.VarArgList) {
+        if (param.category === ParameterCategory.ArgsList) {
             return true;
         }
         return !param.name || !paramMap.has(param.name);
@@ -434,10 +435,13 @@ function applyPartialTransformToFunction(
         return param.name && paramMap.get(param.name);
     });
     const kwargsParam = updatedParamList.filter((param) => {
-        return param.category === ParameterCategory.VarArgDictionary;
+        return param.category === ParameterCategory.KwargsDict;
     });
 
-    const newParamList = [...unassignedParamList, ...assignedKeywordParamList, ...kwargsParam];
+    const newParamList: FunctionParameter[] = [];
+    appendArray(newParamList, unassignedParamList);
+    appendArray(newParamList, assignedKeywordParamList);
+    appendArray(newParamList, kwargsParam);
 
     // Create a new __call__ method that uses the remaining parameters.
     const newCallMemberType = FunctionType.createInstance(

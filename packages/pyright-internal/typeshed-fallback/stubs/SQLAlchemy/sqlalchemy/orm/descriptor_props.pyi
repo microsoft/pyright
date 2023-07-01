@@ -2,7 +2,7 @@ from _typeshed import Incomplete
 from typing import Any, ClassVar, Generic, TypeVar
 
 from ..sql.operators import ColumnOperators
-from ..util import memoized_property
+from ..util.langhelpers import memoized_property
 from . import util as orm_util
 from .interfaces import MapperProperty, PropComparator
 

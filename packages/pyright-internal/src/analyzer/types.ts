@@ -8,7 +8,7 @@
  */
 
 import { assert } from '../common/debug';
-import { ExpressionNode, NameNode, ParameterCategory } from '../parser/parseNodes';
+import { ArgumentNode, ExpressionNode, NameNode, ParameterCategory } from '../parser/parseNodes';
 import { FunctionDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
 
@@ -85,6 +85,7 @@ export type Type = UnionableType | NeverType | UnionType;
 
 export type TypeVarScopeId = string;
 export const WildcardTypeVarScopeId = '*';
+export const InScopePlaceholderScopeId = '-';
 
 export class EnumLiteral {
     constructor(
@@ -109,10 +110,11 @@ export type InheritanceChain = (ClassType | UnknownType)[];
 export interface TypeSameOptions {
     ignorePseudoGeneric?: boolean;
     ignoreTypeFlags?: boolean;
+    ignoreTypedDictNarrowEntries?: boolean;
     treatAnySameAsUnknown?: boolean;
 }
 
-interface TypeAliasInfo {
+export interface TypeAliasInfo {
     name: string;
     fullName: string;
     typeVarScopeId: TypeVarScopeId;
@@ -151,9 +153,17 @@ interface TypeBase {
 
     // Cached values are not cloned.
     cached?: {
-        // Type converted to instantiable and instance (cached)
+        // Type converted to instantiable and instance by convertToInstance
+        // and convertToInstantiable (cached)
         instantiableType?: Type;
         instanceType?: Type;
+
+        // Type converted to instantiable and instance by TypeBase methods (cached)
+        typeBaseInstantiableType?: Type;
+        typeBaseInstanceType?: Type;
+
+        // Requires specialization flag (cached)
+        requiresSpecialization?: boolean;
     };
 }
 
@@ -188,7 +198,7 @@ export namespace TypeBase {
         return clone;
     }
 
-    export function cloneTypeAsInstance<T extends TypeBase>(type: T): T {
+    export function cloneTypeAsInstance<T extends Type>(type: T, cache: boolean): T {
         assert(TypeBase.isInstantiable(type));
 
         const newInstance = TypeBase.cloneType(type);
@@ -205,10 +215,19 @@ export namespace TypeBase {
             }
         }
 
+        // Should we cache it for next time?
+        if (cache) {
+            if (!type.cached) {
+                type.cached = {};
+            }
+
+            type.cached.typeBaseInstanceType = newInstance;
+        }
+
         return newInstance;
     }
 
-    export function cloneTypeAsInstantiable<T extends TypeBase>(type: T): T {
+    export function cloneTypeAsInstantiable<T extends Type>(type: T, cache: boolean): T {
         const newInstance: T = TypeBase.cloneType(type);
 
         if (TypeBase.isInstance(type)) {
@@ -217,6 +236,15 @@ export namespace TypeBase {
         } else {
             newInstance.instantiableNestingLevel =
                 newInstance.instantiableNestingLevel === undefined ? 1 : newInstance.instantiableNestingLevel;
+        }
+
+        // Should we cache it for next time?
+        if (cache) {
+            if (!type.cached) {
+                type.cached = {};
+            }
+
+            type.cached.typeBaseInstantiableType = newInstance;
         }
 
         return newInstance;
@@ -394,11 +422,13 @@ export interface DataClassEntry {
     defaultValueExpression?: ExpressionNode | undefined;
     includeInInit: boolean;
     type: Type;
+    converter?: ArgumentNode | undefined;
 }
 
 export interface TypedDictEntry {
     valueType: Type;
     isRequired: boolean;
+    isReadOnly: boolean;
     isProvided: boolean;
 }
 
@@ -436,10 +466,14 @@ export const enum ClassTypeFlags {
     // the dictionary values can be omitted.
     CanOmitDictValues = 1 << 8,
 
+    // Used in conjunction with TypedDictClass, indicates that
+    // the dictionary values are all readonly.
+    DictValuesReadOnly = 1 << 9,
+
     // The class derives from a class that has the ABCMeta
     // metaclass. Such classes are allowed to contain
     // @abstractmethod decorators.
-    SupportsAbstractMethods = 1 << 9,
+    SupportsAbstractMethods = 1 << 10,
 
     // Derives from property class and has the semantics of
     // a property (with optional setter, deleter).
@@ -619,10 +653,18 @@ export interface ClassType extends TypeBase {
     // through the use of a guard expression.
     typedDictNarrowedEntries?: Map<string, TypedDictEntry> | undefined;
 
+    // Indicates that the typed dict class should be considered "partial",
+    // i.e. all of its entries are effectively NotRequired.
+    isTypedDictPartial?: boolean;
+
     // Indicates whether the class is an asymmetric descriptor
     // or property - one where the __get__ and __set__ types differ.
     // If undefined, it hasn't been tested yet for asymmetry.
     isAsymmetricDescriptor?: boolean;
+
+    // Indicates whether the class has an asymmetric __getattr__ and
+    // __setattr__ signature.
+    isAsymmetricAttributeAccessor?: boolean;
 }
 
 export namespace ClassType {
@@ -665,16 +707,25 @@ export namespace ClassType {
             return type;
         }
 
-        const newInstance = TypeBase.cloneTypeAsInstance(type);
+        if (includeSubclasses && type.cached?.typeBaseInstanceType) {
+            return type.cached.typeBaseInstanceType as ClassType;
+        }
+
+        const newInstance = TypeBase.cloneTypeAsInstance(type, /* cache */ includeSubclasses);
         newInstance.flags &= ~TypeFlags.SpecialForm;
         if (includeSubclasses) {
             newInstance.includeSubclasses = true;
         }
+
         return newInstance;
     }
 
-    export function cloneAsInstantiable(objectType: ClassType): ClassType {
-        return TypeBase.cloneTypeAsInstantiable(objectType);
+    export function cloneAsInstantiable(type: ClassType): ClassType {
+        if (type.cached?.typeBaseInstantiableType) {
+            return type.cached.typeBaseInstantiableType as ClassType;
+        }
+
+        return TypeBase.cloneTypeAsInstantiable(type, /* cache */ true);
     }
 
     export function cloneForSpecialization(
@@ -728,6 +779,12 @@ export namespace ClassType {
         return newClassType;
     }
 
+    export function cloneForPartialTypedDict(classType: ClassType): ClassType {
+        const newClassType = TypeBase.cloneType(classType);
+        newClassType.isTypedDictPartial = true;
+        return newClassType;
+    }
+
     export function cloneWithNewTypeParameters(classType: ClassType, typeParams: TypeVarType[]): ClassType {
         const newClassType = TypeBase.cloneType(classType);
         newClassType.details = { ...newClassType.details };
@@ -751,7 +808,7 @@ export namespace ClassType {
         const newClassType = TypeBase.cloneType(classType);
         newClassType.details = { ...newClassType.details };
         newClassType.details.fields = new Map(newClassType.details.fields);
-        newClassType.details.mro = [...newClassType.details.mro];
+        newClassType.details.mro = Array.from(newClassType.details.mro);
         newClassType.details.mro[0] = cloneAsInstantiable(newClassType);
         return newClassType;
     }
@@ -917,6 +974,10 @@ export namespace ClassType {
 
     export function isCanOmitDictValues(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.CanOmitDictValues);
+    }
+
+    export function isDictValuesReadOnly(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.DictValuesReadOnly);
     }
 
     export function isEnumClass(classType: ClassType) {
@@ -1156,6 +1217,16 @@ export interface FunctionParameter {
     typeAnnotation?: ExpressionNode | undefined;
 }
 
+export function isPositionOnlySeparator(param: FunctionParameter) {
+    // A simple parameter with no name is treated as a "/" separator.
+    return param.category === ParameterCategory.Simple && !param.name;
+}
+
+export function isKeywordOnlySeparator(param: FunctionParameter) {
+    // An *args parameter with no name is treated as a "*" separator.
+    return param.category === ParameterCategory.ArgsList && !param.name;
+}
+
 export const enum FunctionTypeFlags {
     None = 0,
 
@@ -1183,11 +1254,6 @@ export const enum FunctionTypeFlags {
     // Method has no declaration in user code, it's synthesized; used
     // for implied methods such as those used in namedtuple, dataclass, etc.
     SynthesizedMethod = 1 << 6,
-
-    // For some synthesized classes (in particular, NamedTuple), the
-    // __init__ method is created with default parameters, so we will
-    // skip the constructor check for these methods.
-    SkipConstructorCheck = 1 << 7,
 
     // Function is decorated with @overload
     Overloaded = 1 << 8,
@@ -1241,7 +1307,6 @@ interface FunctionDetails {
     declaredReturnType?: Type | undefined;
     declaration?: FunctionDeclaration | undefined;
     typeVarScopeId?: TypeVarScopeId | undefined;
-    constructorTypeVarScopeId?: TypeVarScopeId | undefined;
     builtInName?: string | undefined;
     docString?: string | undefined;
     deprecatedMessage?: string | undefined;
@@ -1258,6 +1323,15 @@ interface FunctionDetails {
     // one or more of these appear only within the return type and within
     // a callable, they are rescoped to that callable.
     rescopedTypeParameters?: TypeVarType[];
+
+    // For __new__ and __init__ methods, the TypeVar scope ID of the
+    // associated class.
+    constructorTypeVarScopeId?: TypeVarScopeId | undefined;
+
+    // For functions whose parameter lists derive from a solved
+    // ParamSpec, this is the TypeVar scope ID of the signature
+    // captured by that ParamSpec.
+    paramSpecTypeVarScopeId?: TypeVarScopeId | undefined;
 }
 
 export interface SpecializedFunctionTypes {
@@ -1310,6 +1384,10 @@ export interface FunctionType extends TypeBase {
 
     // The type var scope for the class that the function was bound to
     boundTypeVarScopeId?: TypeVarScopeId | undefined;
+
+    // If this function is part of an overloaded function, this
+    // refers back to the overloaded function type.
+    overloaded?: OverloadedFunctionType;
 }
 
 export namespace FunctionType {
@@ -1373,7 +1451,7 @@ export namespace FunctionType {
         );
 
         newFunction.details = { ...type.details };
-        newFunction.boundToType = boundToType;
+        newFunction.boundToType = boundToType ?? type.boundToType;
         newFunction.preBoundFlags = newFunction.details.flags;
 
         if (stripFirstParam) {
@@ -1413,19 +1491,27 @@ export namespace FunctionType {
         }
 
         newFunction.inferredReturnType = type.inferredReturnType;
-        newFunction.boundTypeVarScopeId = boundTypeVarScopeId;
+        newFunction.boundTypeVarScopeId = boundTypeVarScopeId ?? type.boundTypeVarScopeId;
 
         return newFunction;
     }
 
     export function cloneAsInstance(type: FunctionType): FunctionType {
-        const newInstance = TypeBase.cloneTypeAsInstance(type);
+        if (type.cached?.typeBaseInstanceType) {
+            return type.cached.typeBaseInstanceType as FunctionType;
+        }
+
+        const newInstance = TypeBase.cloneTypeAsInstance(type, /* cache */ true);
         newInstance.flags &= ~TypeFlags.SpecialForm;
         return newInstance;
     }
 
     export function cloneAsInstantiable(type: FunctionType): FunctionType {
-        const newInstance = TypeBase.cloneTypeAsInstantiable(type);
+        if (type.cached?.typeBaseInstantiableType) {
+            return type.cached.typeBaseInstantiableType as FunctionType;
+        }
+
+        const newInstance = TypeBase.cloneTypeAsInstantiable(type, /* cache */ true);
         newInstance.flags &= ~TypeFlags.SpecialForm;
         return newInstance;
     }
@@ -1515,11 +1601,13 @@ export namespace FunctionType {
             // Update the specialized parameter types as well.
             if (type.specializedTypes) {
                 newFunction.specializedTypes = {
-                    parameterTypes: [...type.specializedTypes.parameterTypes],
+                    parameterTypes: Array.from(type.specializedTypes.parameterTypes),
                     returnType: type.specializedTypes.returnType,
                 };
                 if (type.specializedTypes.parameterDefaultArgs) {
-                    newFunction.specializedTypes.parameterDefaultArgs = [...type.specializedTypes.parameterDefaultArgs];
+                    newFunction.specializedTypes.parameterDefaultArgs = Array.from(
+                        type.specializedTypes.parameterDefaultArgs
+                    );
                 }
                 paramSpecValue.details.parameters.forEach((paramInfo) => {
                     newFunction.specializedTypes!.parameterTypes.push(paramInfo.type);
@@ -1568,6 +1656,9 @@ export namespace FunctionType {
         return newFunction;
     }
 
+    // Creates a new function based on a solved ParamSpec. The input type is assumed to
+    // have a signature that ends in "*args: P.args, **kwargs: P.kwargs". These will be
+    // replaced by the parameters in the ParamSpec.
     export function cloneForParamSpecApplication(type: FunctionType, paramSpecValue: FunctionType): FunctionType {
         const newFunction = TypeBase.cloneType(type);
 
@@ -1596,14 +1687,10 @@ export namespace FunctionType {
         // If there is a position-only separator in the captured param spec signature,
         // remove the position-only separator in the existing signature. Otherwise,
         // we'll end up with redundant position-only separators.
-        if (
-            paramSpecValue.details.parameters.some(
-                (entry) => entry.category === ParameterCategory.Simple && !entry.name
-            )
-        ) {
+        if (paramSpecValue.details.parameters.some((entry) => isPositionOnlySeparator(entry))) {
             if (newFunction.details.parameters.length > 0) {
                 const lastParam = newFunction.details.parameters[newFunction.details.parameters.length - 1];
-                if (lastParam.category === ParameterCategory.Simple && !lastParam.name) {
+                if (isPositionOnlySeparator(lastParam)) {
                     newFunction.details.parameters.pop();
                 }
             }
@@ -1625,6 +1712,11 @@ export namespace FunctionType {
         if (!newFunction.details.docString) {
             newFunction.details.docString = paramSpecValue.details.docString;
         }
+
+        // Note the TypeVar scope ID of the original captured function. This
+        // allows any unsolved TypeVars within that scope to be solved when the
+        // resulting function is called.
+        newFunction.details.paramSpecTypeVarScopeId = paramSpecValue.details.typeVarScopeId;
 
         return newFunction;
     }
@@ -1679,13 +1771,13 @@ export namespace FunctionType {
     export function getDefaultParameters(useUnknown = false): FunctionParameter[] {
         return [
             {
-                category: ParameterCategory.VarArgList,
+                category: ParameterCategory.ArgsList,
                 name: 'args',
                 type: useUnknown ? UnknownType.create() : AnyType.create(),
                 hasDeclaredType: !useUnknown,
             },
             {
-                category: ParameterCategory.VarArgDictionary,
+                category: ParameterCategory.KwargsDict,
                 name: 'kwargs',
                 type: useUnknown ? UnknownType.create() : AnyType.create(),
                 hasDeclaredType: !useUnknown,
@@ -1708,9 +1800,9 @@ export namespace FunctionType {
 
             if (param.category === ParameterCategory.Simple) {
                 return false;
-            } else if (param.category === ParameterCategory.VarArgList) {
+            } else if (param.category === ParameterCategory.ArgsList) {
                 sawArgs = true;
-            } else if (param.category === ParameterCategory.VarArgDictionary) {
+            } else if (param.category === ParameterCategory.KwargsDict) {
                 sawKwargs = true;
             }
 
@@ -1754,10 +1846,6 @@ export namespace FunctionType {
 
     export function isSynthesizedMethod(type: FunctionType): boolean {
         return (type.details.flags & FunctionTypeFlags.SynthesizedMethod) !== 0;
-    }
-
-    export function isSkipConstructorCheck(type: FunctionType): boolean {
-        return (type.details.flags & FunctionTypeFlags.SkipConstructorCheck) !== 0;
     }
 
     export function isOverloaded(type: FunctionType): boolean {
@@ -1851,14 +1939,20 @@ export namespace OverloadedFunctionType {
     export function create(overloads: FunctionType[]) {
         const newType: OverloadedFunctionType = {
             category: TypeCategory.OverloadedFunction,
-            overloads,
+            overloads: [],
             flags: TypeFlags.Instance,
         };
+
+        overloads.forEach((overload) => {
+            OverloadedFunctionType.addOverload(newType, overload);
+        });
+
         return newType;
     }
 
     // Adds a new overload or an implementation.
     export function addOverload(type: OverloadedFunctionType, functionType: FunctionType) {
+        functionType.overloaded = type;
         type.overloads.push(functionType);
     }
 
@@ -1966,7 +2060,7 @@ export namespace TypeCondition {
         }
 
         // Deduplicate the lists.
-        const combined = [...conditions1];
+        const combined = Array.from(conditions1);
         conditions2.forEach((c1) => {
             if (!combined.some((c2) => _compare(c1, c2) === 0)) {
                 combined.push(c1);
@@ -2228,6 +2322,12 @@ export interface TypeVarType extends TypeBase {
 
     // May be different from declaredVariance if declared as Auto
     computedVariance?: Variance;
+
+    // When an out-of-scope TypeVar appears within an expected type during
+    // bidirectional type inference, it needs to be solved along with the
+    // in-scope TypeVars. This is done by cloning the out-of-scope TypeVar
+    // and effectively making it in-scope.
+    isInScopePlaceholder?: boolean;
 }
 
 export namespace TypeVarType {
@@ -2241,13 +2341,22 @@ export namespace TypeVarType {
 
     export function cloneAsInstance(type: TypeVarType): TypeVarType {
         assert(TypeBase.isInstantiable(type));
-        const newInstance = TypeBase.cloneTypeAsInstance(type);
+
+        if (type.cached?.typeBaseInstanceType) {
+            return type.cached.typeBaseInstanceType as TypeVarType;
+        }
+
+        const newInstance = TypeBase.cloneTypeAsInstance(type, /* cache */ true);
         newInstance.flags &= ~TypeFlags.SpecialForm;
         return newInstance;
     }
 
     export function cloneAsInstantiable(type: TypeVarType): TypeVarType {
-        const newInstance = TypeBase.cloneTypeAsInstantiable(type);
+        if (type.cached?.typeBaseInstantiableType) {
+            return type.cached.typeBaseInstantiableType as TypeVarType;
+        }
+
+        const newInstance = TypeBase.cloneTypeAsInstantiable(type, /* cache */ true);
         newInstance.flags &= ~TypeFlags.SpecialForm;
         return newInstance;
     }
@@ -2334,6 +2443,27 @@ export namespace TypeVarType {
         return newInstance;
     }
 
+    export function cloneAsInScopePlaceholder(type: TypeVarType, usageOffset?: number): TypeVarType {
+        if (type.isInScopePlaceholder) {
+            return type;
+        }
+
+        // If the caller specified a usage offset, append it to the TypeVar
+        // internal name. This allows us to distinguish it from other uses
+        // of the same TypeVar. For example nested calls to a generic
+        // function like `foo(foo(1))`.
+        let newNameWithScope = type.nameWithScope;
+        if (usageOffset) {
+            newNameWithScope = `${type.nameWithScope}-${usageOffset}`;
+        }
+
+        const newInstance = TypeBase.cloneType(type);
+        newInstance.isInScopePlaceholder = true;
+        newInstance.scopeId = InScopePlaceholderScopeId;
+        newInstance.nameWithScope = newNameWithScope;
+        return newInstance;
+    }
+
     export function makeNameWithScope(name: string, scopeId: string) {
         return `${name}.${scopeId}`;
     }
@@ -2375,7 +2505,7 @@ export namespace TypeVarType {
         const variance = type.computedVariance ?? type.details.declaredVariance;
 
         // By this point, the variance should have been inferred.
-        assert(variance !== Variance.Auto);
+        assert(variance !== Variance.Auto, 'Expected variance to be inferred');
 
         return variance;
     }
@@ -2608,7 +2738,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
-            if (!ClassType.isTypedDictNarrowedEntriesSame(type1, classType2)) {
+            if (!options.ignoreTypedDictNarrowEntries && !ClassType.isTypedDictNarrowedEntriesSame(type1, classType2)) {
                 return false;
             }
 
@@ -2625,12 +2755,8 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
-            const positionalOnlyIndex1 = params1.findIndex(
-                (param) => param.category === ParameterCategory.Simple && !param.name
-            );
-            const positionalOnlyIndex2 = params2.findIndex(
-                (param) => param.category === ParameterCategory.Simple && !param.name
-            );
+            const positionalOnlyIndex1 = params1.findIndex((param) => isPositionOnlySeparator(param));
+            const positionalOnlyIndex2 = params2.findIndex((param) => isPositionOnlySeparator(param));
 
             // Make sure the parameter details match.
             for (let i = 0; i < params1.length; i++) {
@@ -2662,21 +2788,19 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             }
 
             // If the functions have ParamSpecs associated with them, make sure those match.
-            if (!type1.specializedTypes && !functionType2.specializedTypes) {
-                const paramSpec1 = type1.details.paramSpec;
-                const paramSpec2 = functionType2.details.paramSpec;
+            const paramSpec1 = type1.details.paramSpec;
+            const paramSpec2 = functionType2.details.paramSpec;
 
-                if (paramSpec1) {
-                    if (!paramSpec2) {
-                        return false;
-                    }
-
-                    if (!isTypeSame(paramSpec1, paramSpec2, options, recursionCount)) {
-                        return false;
-                    }
-                } else if (paramSpec2) {
+            if (paramSpec1) {
+                if (!paramSpec2) {
                     return false;
                 }
+
+                if (!isTypeSame(paramSpec1, paramSpec2, options, recursionCount)) {
+                    return false;
+                }
+            } else if (paramSpec2) {
+                return false;
             }
 
             // Make sure the return types match.

@@ -2,7 +2,7 @@
 # the type checker allows instance variables that are initialized
 # in a method to be counted toward conformance to a defined Protocol.
 
-from typing import Protocol, List
+from typing import Protocol
 
 
 class Template(Protocol):

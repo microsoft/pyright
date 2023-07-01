@@ -2,11 +2,12 @@ from _typeshed import Incomplete
 from typing import Any
 
 from ...orm.scoping import ScopedSessionMixin
-from ...util import memoized_property
+from ...util.langhelpers import memoized_property
 
 class async_scoped_session(ScopedSessionMixin):
     session_factory: Any
     registry: Any
+    def invalidate(self): ...
     def __init__(self, session_factory, scopefunc) -> None: ...
     async def remove(self) -> None: ...
     # proxied from Session

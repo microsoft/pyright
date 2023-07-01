@@ -2,15 +2,12 @@
 # handle various class definition cases.
 
 
-from typing import Type
-
-
 class A:
     ...
 
 
 class B:
-    C: Type[A]
+    C: type[A]
 
 
 app = B()

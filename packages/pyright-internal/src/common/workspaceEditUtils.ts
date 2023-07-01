@@ -16,14 +16,15 @@ import {
     WorkspaceEdit,
 } from 'vscode-languageserver';
 
-import { SourceFileInfo } from '../analyzer/program';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AnalyzerService } from '../analyzer/service';
 import { FileEditAction, FileEditActions, TextEditAction } from '../common/editAction';
 import { convertPathToUri, convertUriToPath } from '../common/pathUtils';
 import { createMapFromItems } from './collectionUtils';
 import { isArray } from './core';
 import { assertNever } from './debug';
-import { FileSystem } from './fileSystem';
+import { EditableProgram, SourceFileInfo } from './extensibility';
+import { ReadOnlyFileSystem } from './fileSystem';
 import { convertRangeToTextRange, convertTextRangeToRange } from './positionUtils';
 import { TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
@@ -39,10 +40,10 @@ export function convertToFileTextEdits(filePath: string, editActions: TextEditAc
     return editActions.map((a) => ({ filePath, ...a }));
 }
 
-export function convertToWorkspaceEdit(fs: FileSystem, edits: FileEditAction[]): WorkspaceEdit;
-export function convertToWorkspaceEdit(fs: FileSystem, edits: FileEditActions): WorkspaceEdit;
+export function convertToWorkspaceEdit(fs: ReadOnlyFileSystem, edits: FileEditAction[]): WorkspaceEdit;
+export function convertToWorkspaceEdit(fs: ReadOnlyFileSystem, edits: FileEditActions): WorkspaceEdit;
 export function convertToWorkspaceEdit(
-    fs: FileSystem,
+    fs: ReadOnlyFileSystem,
     edits: FileEditActions,
     changeAnnotations: {
         [id: string]: ChangeAnnotation;
@@ -50,7 +51,7 @@ export function convertToWorkspaceEdit(
     defaultAnnotationId: string
 ): WorkspaceEdit;
 export function convertToWorkspaceEdit(
-    fs: FileSystem,
+    fs: ReadOnlyFileSystem,
     edits: FileEditActions | FileEditAction[],
     changeAnnotations?: {
         [id: string]: ChangeAnnotation;
@@ -64,7 +65,7 @@ export function convertToWorkspaceEdit(
     return _convertToWorkspaceEditWithDocumentChanges(fs, edits, changeAnnotations, defaultAnnotationId);
 }
 
-export function appendToWorkspaceEdit(fs: FileSystem, edits: FileEditAction[], workspaceEdit: WorkspaceEdit) {
+export function appendToWorkspaceEdit(fs: ReadOnlyFileSystem, edits: FileEditAction[], workspaceEdit: WorkspaceEdit) {
     edits.forEach((edit) => {
         const uri = convertPathToUri(fs, edit.filePath);
         workspaceEdit.changes![uri] = workspaceEdit.changes![uri] || [];
@@ -100,17 +101,17 @@ export function applyTextEditsToString(
     return current;
 }
 
-export function applyWorkspaceEdit(clonedService: AnalyzerService, edits: WorkspaceEdit, filesChanged: Set<string>) {
+export function applyWorkspaceEdit(program: EditableProgram, edits: WorkspaceEdit, filesChanged: Set<string>) {
     if (edits.changes) {
         for (const kv of Object.entries(edits.changes)) {
-            const filePath = convertUriToPath(clonedService.fs, kv[0]);
-            const fileInfo = clonedService.backgroundAnalysisProgram.program.getSourceFileInfo(filePath);
+            const filePath = convertUriToPath(program.fileSystem, kv[0]);
+            const fileInfo = program.getSourceFileInfo(filePath);
             if (!fileInfo || !fileInfo.isTracked) {
                 // We don't allow non user file being modified.
                 continue;
             }
 
-            applyDocumentChanges(clonedService, fileInfo, kv[1]);
+            applyDocumentChanges(program, fileInfo, kv[1]);
             filesChanged.add(filePath);
         }
     }
@@ -119,14 +120,14 @@ export function applyWorkspaceEdit(clonedService: AnalyzerService, edits: Worksp
     if (edits.documentChanges) {
         for (const change of edits.documentChanges) {
             if (TextDocumentEdit.is(change)) {
-                const filePath = convertUriToPath(clonedService.fs, change.textDocument.uri);
-                const fileInfo = clonedService.backgroundAnalysisProgram.program.getSourceFileInfo(filePath);
+                const filePath = convertUriToPath(program.fileSystem, change.textDocument.uri);
+                const fileInfo = program.getSourceFileInfo(filePath);
                 if (!fileInfo || !fileInfo.isTracked) {
                     // We don't allow non user file being modified.
                     continue;
                 }
 
-                applyDocumentChanges(clonedService, fileInfo, change.edits);
+                applyDocumentChanges(program, fileInfo, change.edits);
                 filesChanged.add(filePath);
             }
 
@@ -136,26 +137,27 @@ export function applyWorkspaceEdit(clonedService: AnalyzerService, edits: Worksp
     }
 }
 
-export function applyDocumentChanges(clonedService: AnalyzerService, fileInfo: SourceFileInfo, edits: TextEdit[]) {
+export function applyDocumentChanges(program: EditableProgram, fileInfo: SourceFileInfo, edits: TextEdit[]) {
     if (!fileInfo.isOpenByClient) {
         const fileContent = fileInfo.sourceFile.getFileContent();
-        clonedService.setFileOpened(
-            fileInfo.sourceFile.getFilePath(),
-            0,
-            fileContent ?? '',
-            fileInfo.sourceFile.getIPythonMode(),
-            fileInfo.sourceFile.getRealFilePath()
-        );
+        program.setFileOpened(fileInfo.sourceFile.getFilePath(), 0, fileContent ?? '', {
+            isTracked: fileInfo.isTracked,
+            ipythonMode: fileInfo.sourceFile.getIPythonMode(),
+            chainedFilePath: fileInfo.chainedSourceFile?.sourceFile.getFilePath(),
+            realFilePath: fileInfo.sourceFile.getRealFilePath(),
+        });
     }
 
-    const version = (fileInfo.sourceFile.getClientVersion() ?? 0) + 1;
-    clonedService.updateOpenFileContents(
-        fileInfo.sourceFile.getFilePath(),
-        version,
-        edits.map((t) => ({ range: t.range, text: t.newText })),
-        fileInfo.sourceFile.getIPythonMode(),
-        fileInfo.sourceFile.getRealFilePath()
-    );
+    const version = fileInfo.sourceFile.getClientVersion() ?? 0;
+    const filePath = fileInfo.sourceFile.getFilePath();
+    const sourceDoc = TextDocument.create(filePath, 'python', version, fileInfo.sourceFile.getOpenFileContents() ?? '');
+
+    program.setFileOpened(filePath, version + 1, TextDocument.applyEdits(sourceDoc, edits), {
+        isTracked: fileInfo.isTracked,
+        ipythonMode: fileInfo.sourceFile.getIPythonMode(),
+        chainedFilePath: fileInfo.chainedSourceFile?.sourceFile.getFilePath(),
+        realFilePath: fileInfo.sourceFile.getRealFilePath(),
+    });
 }
 
 export function generateWorkspaceEdit(
@@ -193,7 +195,7 @@ export function generateWorkspaceEdit(
     return edits;
 }
 
-function _convertToWorkspaceEditWithChanges(fs: FileSystem, edits: FileEditAction[]) {
+function _convertToWorkspaceEditWithChanges(fs: ReadOnlyFileSystem, edits: FileEditAction[]) {
     const workspaceEdit: WorkspaceEdit = {
         changes: {},
     };
@@ -203,7 +205,7 @@ function _convertToWorkspaceEditWithChanges(fs: FileSystem, edits: FileEditActio
 }
 
 function _convertToWorkspaceEditWithDocumentChanges(
-    fs: FileSystem,
+    fs: ReadOnlyFileSystem,
     editActions: FileEditActions,
     changeAnnotations?: {
         [id: string]: ChangeAnnotation;
@@ -216,7 +218,7 @@ function _convertToWorkspaceEditWithDocumentChanges(
     };
 
     // Ordering of documentChanges are important.
-    // Make sure create operaiton happens before edits
+    // Make sure create operation happens before edits.
     for (const operation of editActions.fileOperations) {
         switch (operation.kind) {
             case 'create':
@@ -240,13 +242,16 @@ function _convertToWorkspaceEditWithDocumentChanges(
     const mapPerFile = createMapFromItems(editActions.edits, (e) => e.filePath);
     for (const [key, value] of mapPerFile) {
         workspaceEdit.documentChanges!.push(
-            TextDocumentEdit.create({ uri: convertPathToUri(fs, key), version: null }, [
-                ...value.map((v) => ({
-                    range: v.range,
-                    newText: v.replacementText,
-                    annotationId: defaultAnnotationId,
-                })),
-            ])
+            TextDocumentEdit.create(
+                { uri: convertPathToUri(fs, key), version: null },
+                Array.from(
+                    value.map((v) => ({
+                        range: v.range,
+                        newText: v.replacementText,
+                        annotationId: defaultAnnotationId,
+                    }))
+                )
+            )
         );
     }
 

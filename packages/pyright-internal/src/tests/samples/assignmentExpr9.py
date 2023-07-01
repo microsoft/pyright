@@ -1,7 +1,7 @@
 # This sample tests the case where an assignment expression target
 # is found within a function decorator or a function default value expression.
 
-from typing import Any, Callable, List, TypeVar
+from typing import Any, Callable, TypeVar
 
 
 _T = TypeVar("_T")
@@ -19,7 +19,7 @@ def decorator(*args: Any, **kwargs: Any) -> Callable[[_T], _T]:
     ],
 )
 def decorated(
-    x: List[str] = [x for x in ["a", "b"] if x in (walrus_target_2 := ["a", "b"])]
+    x: list[str] = [x for x in ["a", "b"] if x in (walrus_target_2 := ["a", "b"])]
 ):
     pass
 

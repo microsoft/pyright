@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 from typing import Any
 
-from ..util import HasMemoized
+from ..util.langhelpers import HasMemoized
 from .base import Executable, Generative
 from .elements import BinaryExpression, ColumnElement, NamedColumn
 from .selectable import FromClause, TableValuedAlias

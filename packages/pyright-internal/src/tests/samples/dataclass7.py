@@ -1,106 +1,53 @@
-# This sample tests the analyzer's ability to handle inherited
-# data classes.
+# This sample tests the synthesized comparison operators for dataclasses.
 
-from dataclasses import dataclass, field
-
-
-class C1:
-    ...
+from dataclasses import dataclass
 
 
-class C2:
-    ...
-
-
-class C3:
-    ...
-
-
-@dataclass
+@dataclass(order=True)
 class DC1:
-    aa: C1
-    bb: C2
-    cc: C3
+    a: str
+    b: int
 
 
-class NonDC2:
-    ff: int
+@dataclass(order=True)
+class DC2:
+    a: str
+    b: int
 
 
-@dataclass
-class DC2(NonDC2, DC1):
-    ee: C2
-    aa: C2
-    dd: C2
+dc1_1 = DC1("hi", 2)
+dc1_2 = DC1("hi", 2)
 
+if dc1_1 < dc1_2:
+    print("")
 
-dc2_1 = DC2(C2(), C2(), C3(), C2(), C2())
+if dc1_1 <= dc1_2:
+    print("")
 
-# This should generate an error because the type
-# of parameter aa has been replaced with type C1.
-dc2_2 = DC2(C1(), C2(), C3(), C2(), C2())
+if dc1_1 > dc1_2:
+    print("")
 
-dc2_3 = DC2(ee=C2(), dd=C2(), aa=C2(), bb=C2(), cc=C3())
+if dc1_1 >= dc1_2:
+    print("")
 
+if dc1_1 == dc1_2:
+    print("")
 
-@dataclass
-class DC3:
-    aa: C1
-    bb: C2 = C2()
-    cc: C3 = C3()
+if dc1_1 != dc1_2:
+    print("")
 
+if dc1_1 == None:
+    print("")
 
-@dataclass
-class DC4(DC3):
-    # This should generate an error because
-    # previous parameters have default values.
-    dd: C1
+if dc1_1 != None:
+    print("")
 
+dc2_1 = DC2("hi", 2)
 
-@dataclass
-class DC5(DC3):
-    # This should not generate an error because
-    # aa replaces aa in DC3, and it's ordered
-    # before the params with default values.
-    aa: C2
+# This should generate an error because the types are
+# incompatible.
+if dc1_1 < dc2_1:
+    print("")
 
-
-@dataclass
-class DC6:
-    a: int = 0
-
-
-@dataclass
-class DC7(DC6):
-    a: int
-
-    # This should generate an error because the default
-    # value for "a" is inherited from the base class.
-    b: str
-
-
-@dataclass
-class DC8:
-    a: int = field(default=0)
-
-
-@dataclass
-class DC9(DC8):
-    a: int
-
-    # This should generate an error because the default
-    # value for "a" is inherited from the base class.
-    b: str
-
-
-@dataclass
-class DC10:
-    a: str = field(init=False, default="s")
-    b: bool = field()
-    
-    
-@dataclass
-class DC11(DC10):
-    a: str = field()
-    b: bool = field()
-
+if dc1_1 != dc2_1:
+    print("")

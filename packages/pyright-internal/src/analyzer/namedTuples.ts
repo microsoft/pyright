@@ -101,7 +101,7 @@ export function createNamedTupleType(
         isInstantiableClass(namedTupleType) ? namedTupleType.details.effectiveMetaclass : UnknownType.create()
     );
     classType.details.baseClasses.push(namedTupleType);
-    classType.details.typeVarScopeId = evaluator.getScopeIdForNode(errorNode);
+    classType.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(errorNode);
 
     const classFields = classType.details.fields;
     classFields.set(
@@ -305,11 +305,8 @@ export function createNamedTupleType(
         entryTypes.push(AnyType.create(/* isEllipsis */ true));
     }
 
-    // Always use generic parameters for __init__. The __new__ method
-    // will handle property type checking. We may need to disable default
-    // parameter processing for __new__ (see isAssignmentToDefaultsFollowingNamedTuple),
-    // and we don't want to do it for __init__ as well.
-    const initType = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.SkipConstructorCheck);
+    // Always use generic parameters for __init__.
+    const initType = FunctionType.createSynthesizedInstance('__init__');
     FunctionType.addParameter(initType, selfParameter);
     FunctionType.addDefaultParameters(initType);
     initType.details.declaredReturnType = NoneType.createInstance();
@@ -361,65 +358,57 @@ export function createNamedTupleType(
         classFields.set('__match_args__', Symbol.createWithType(SymbolFlags.ClassMember, matchArgsType));
     }
 
-    computeMroLinearization(classType);
-
     updateNamedTupleBaseClass(classType, entryTypes, !addGenericGetAttribute);
+
+    computeMroLinearization(classType);
 
     return classType;
 }
 
-export function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[], isTypeArgumentExplicit: boolean) {
-    // Search for the NamedTuple base class.
-    const namedTupleIndex = classType.details.mro.findIndex(
-        (c) => isInstantiableClass(c) && ClassType.isBuiltIn(c, 'NamedTuple')
-    );
-    if (namedTupleIndex < 0 || classType.details.mro.length < namedTupleIndex + 2) {
-        return;
-    }
-
-    const namedTupleClass = classType.details.mro[namedTupleIndex] as ClassType;
-    const typedTupleClass = classType.details.mro[namedTupleIndex + 1];
-
-    if (!isInstantiableClass(typedTupleClass) || !isTupleClass(typedTupleClass)) {
-        return;
-    }
-
-    const tupleTypeArgs: TupleTypeArgument[] = [];
-
-    if (!isTypeArgumentExplicit) {
-        tupleTypeArgs.push({
-            type: typeArgs.length > 0 ? combineTypes(typeArgs) : UnknownType.create(),
-            isUnbounded: true,
-        });
-    } else {
-        typeArgs.forEach((t) => {
-            tupleTypeArgs.push({ type: t, isUnbounded: false });
-        });
-    }
-
-    const updatedTupleClass = specializeTupleClass(typedTupleClass, tupleTypeArgs, isTypeArgumentExplicit);
-
-    // Create a copy of the NamedTuple class that overrides the normal MRO
-    // entries with a version of Tuple that is specialized appropriately.
-    const clonedNamedTupleClass = ClassType.cloneForSpecialization(namedTupleClass, [], isTypeArgumentExplicit);
-    clonedNamedTupleClass.details = { ...clonedNamedTupleClass.details };
-    clonedNamedTupleClass.details.mro = [...clonedNamedTupleClass.details.mro];
-    clonedNamedTupleClass.details.mro[1] = updatedTupleClass.details.mro[0];
-
-    clonedNamedTupleClass.details.baseClasses = clonedNamedTupleClass.details.baseClasses.map((baseClass) => {
-        if (isInstantiableClass(baseClass) && isTupleClass(baseClass)) {
-            return updatedTupleClass;
-        }
-        return baseClass;
-    });
-
-    classType.details.mro[namedTupleIndex] = clonedNamedTupleClass;
-    classType.details.mro[namedTupleIndex + 1] = updatedTupleClass;
+export function updateNamedTupleBaseClass(
+    classType: ClassType,
+    typeArgs: Type[],
+    isTypeArgumentExplicit: boolean
+): boolean {
+    let isUpdateNeeded = false;
 
     classType.details.baseClasses = classType.details.baseClasses.map((baseClass) => {
-        if (isInstantiableClass(baseClass) && ClassType.isBuiltIn(baseClass, 'NamedTuple')) {
-            return clonedNamedTupleClass;
+        if (!isInstantiableClass(baseClass) || !ClassType.isBuiltIn(baseClass, 'NamedTuple')) {
+            return baseClass;
         }
-        return baseClass;
+
+        const tupleTypeArgs: TupleTypeArgument[] = [];
+
+        if (!isTypeArgumentExplicit) {
+            tupleTypeArgs.push({
+                type: typeArgs.length > 0 ? combineTypes(typeArgs) : UnknownType.create(),
+                isUnbounded: true,
+            });
+        } else {
+            typeArgs.forEach((t) => {
+                tupleTypeArgs.push({ type: t, isUnbounded: false });
+            });
+        }
+
+        // Create a copy of the NamedTuple class that replaces the tuple base class.
+        const clonedNamedTupleClass = ClassType.cloneForSpecialization(baseClass, [], isTypeArgumentExplicit);
+        clonedNamedTupleClass.details = { ...clonedNamedTupleClass.details };
+
+        clonedNamedTupleClass.details.baseClasses = clonedNamedTupleClass.details.baseClasses.map(
+            (namedTupleBaseClass) => {
+                if (!isInstantiableClass(namedTupleBaseClass) || !ClassType.isBuiltIn(namedTupleBaseClass, 'tuple')) {
+                    return namedTupleBaseClass;
+                }
+
+                return specializeTupleClass(namedTupleBaseClass, tupleTypeArgs, isTypeArgumentExplicit);
+            }
+        );
+
+        computeMroLinearization(clonedNamedTupleClass);
+
+        isUpdateNeeded = true;
+        return clonedNamedTupleClass;
     });
+
+    return isUpdateNeeded;
 }

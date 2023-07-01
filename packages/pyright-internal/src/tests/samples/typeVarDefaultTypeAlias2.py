@@ -3,7 +3,8 @@
 # generic type aliases when one TypeVar default expression refers
 # to another.
 
-from typing import Callable, Generic, ParamSpec, TypeVar, TypeVarTuple, Unpack
+from typing import Callable, Generic, Unpack
+from typing_extensions import ParamSpec, TypeVar, TypeVarTuple
 
 T1 = TypeVar("T1", default=str)
 T2 = TypeVar("T2", default=T1)

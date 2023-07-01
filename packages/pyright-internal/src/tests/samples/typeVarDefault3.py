@@ -1,7 +1,8 @@
 # This sample tests error handling for PEP 696. TypeVars without default
 # types cannot be after TypeVars with default types.
 
-from typing import Generic, TypeVar
+from typing import Generic
+from typing_extensions import TypeVar
 
 
 T1 = TypeVar("T1")

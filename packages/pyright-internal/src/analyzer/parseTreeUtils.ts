@@ -11,13 +11,13 @@ import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { containsOnlyWhitespace } from '../common/core';
 import { assert, assertNever, fail } from '../common/debug';
 import { convertPositionToOffset, convertTextRangeToRange } from '../common/positionUtils';
-import { Position, Range } from '../common/textRange';
-import { TextRange } from '../common/textRange';
-import { getIndexContaining, TextRangeCollection } from '../common/textRangeCollection';
+import { Position, Range, TextRange } from '../common/textRange';
+import { TextRangeCollection, getIndexContaining } from '../common/textRangeCollection';
 import {
     ArgumentCategory,
     ArgumentNode,
     AssignmentExpressionNode,
+    AwaitNode,
     CallNode,
     ClassNode,
     DecoratorNode,
@@ -27,7 +27,6 @@ import {
     FunctionNode,
     ImportFromNode,
     IndexNode,
-    isExpressionNode,
     LambdaNode,
     MemberAccessNode,
     ModuleNode,
@@ -43,13 +42,14 @@ import {
     SuiteNode,
     TypeAnnotationNode,
     TypeParameterScopeNode,
+    isExpressionNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { TokenizerOutput } from '../parser/tokenizer';
 import { KeywordType, OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { getScope } from './analyzerNodeInfo';
-import { getChildNodes, ParseTreeWalker } from './parseTreeWalker';
+import { ParseTreeWalker, getChildNodes } from './parseTreeWalker';
+import { TypeVarScopeId } from './types';
 
 export const enum PrintExpressionFlags {
     None = 0,
@@ -215,7 +215,8 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.UnaryOperation: {
-            return printOperator(node.operator) + printExpression(node.expression, flags);
+            const exprStr = printOperator(node.operator) + printExpression(node.expression, flags);
+            return node.parenthesized ? `(${exprStr})` : exprStr;
         }
 
         case ParseNodeType.BinaryOperation: {
@@ -319,7 +320,8 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Await: {
-            return 'await ' + printExpression(node.expression, flags);
+            const exprStr = 'await ' + printExpression(node.expression, flags);
+            return node.parenthesized ? `(${exprStr})` : exprStr;
         }
 
         case ParseNodeType.Ternary: {
@@ -427,9 +429,9 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                     .map((param) => {
                         let paramStr = '';
 
-                        if (param.category === ParameterCategory.VarArgList) {
+                        if (param.category === ParameterCategory.ArgsList) {
                             paramStr += '*';
-                        } else if (param.category === ParameterCategory.VarArgDictionary) {
+                        } else if (param.category === ParameterCategory.KwargsDict) {
                             paramStr += '**';
                         }
 
@@ -1081,6 +1083,21 @@ export function isSuiteEmpty(node: SuiteNode): boolean {
     return sawEllipsis;
 }
 
+export function containsAwaitNode(node: ParseNode): boolean {
+    let foundAwait = false;
+
+    class AwaitNodeWalker extends ParseTreeWalker {
+        override visitAwait(node: AwaitNode) {
+            foundAwait = true;
+            return false;
+        }
+    }
+
+    const walker = new AwaitNodeWalker();
+    walker.walk(node);
+    return foundAwait;
+}
+
 export function isMatchingExpression(reference: ExpressionNode, expression: ExpressionNode): boolean {
     if (reference.nodeType === ParseNodeType.Name) {
         if (expression.nodeType === ParseNodeType.Name) {
@@ -1378,7 +1395,6 @@ export function getDocString(statements: StatementNode[]): string | undefined {
     // It's up to the user to convert normalize/convert this as needed.
     const strings = (statements[0].statements[0] as StringListNode).strings;
     if (strings.length === 1) {
-        // Common case.
         return strings[0].value;
     }
 
@@ -1399,7 +1415,7 @@ export function isDocString(statementList: StatementListNode): boolean {
     }
 
     // Any f-strings invalidate the entire docstring.
-    if (strings.some((n) => (n.token.flags & StringTokenFlags.Format) !== 0)) {
+    if (strings.some((n) => n.nodeType === ParseNodeType.FormatString)) {
         return false;
     }
 
@@ -1652,53 +1668,12 @@ export function getCallNodeAndActiveParameterIndex(
 
         const index = tokens.getItemAtPosition(argumentStart);
         if (index < 0 || tokens.count <= index) {
-            // Somehow, we can't get token. To be safe, we will allow
-            // signature help to show up.
-            return true;
-        }
-
-        const token = tokens.getItemAt(index);
-        if (
-            token.type === TokenType.String &&
-            (token as StringToken).flags & StringTokenFlags.Format &&
-            TextRange.contains(token, offset)
-        ) {
-            // tokenizer won't tokenize format string segments. We get one token
-            // for the whole format string. We need to dig in.
-            const stringToken = token as StringToken;
-            const result = StringTokenUtils.getUnescapedString(stringToken);
-            const offsetInSegment = offset - stringToken.start - stringToken.prefixLength - stringToken.quoteMarkLength;
-            const segment = result.formatStringSegments.find(
-                (s) => s.offset <= offsetInSegment && offsetInSegment < s.offset + s.length
-            );
-            if (!segment || !segment.isExpression) {
-                // Just to be safe, allow signature help.
-                return true;
-            }
-
-            const length = Math.min(
-                segment.length,
-                callEndOffset -
-                    stringToken.start -
-                    stringToken.prefixLength -
-                    stringToken.quoteMarkLength -
-                    segment.offset
-            );
-
-            for (let i = offsetInSegment - segment.offset; i < length; i++) {
-                const ch = segment.value[i];
-                if (ch === '(') {
-                    // position must be after '('
-                    return false;
-                }
-            }
-
             return true;
         }
 
         const nextToken = tokens.getItemAt(index + 1);
         if (nextToken.type === TokenType.OpenParenthesis && offset < TextRange.getEnd(nextToken)) {
-            // position must be after '('
+            // Position must be after '('.
             return false;
         }
 
@@ -2649,4 +2624,38 @@ export function getVariableDocStringNode(node: ExpressionNode): StringListNode |
 
     // A docstring can consist of multiple joined strings in a single expression.
     return nextStatement.statements[0] as StringListNode;
+}
+
+// Creates an ID that identifies this parse node in a way that will
+// not change each time the file is parsed (unless, of course, the
+// file contents change).
+export function getScopeIdForNode(node: ParseNode): string {
+    let name = '';
+    if (node.nodeType === ParseNodeType.Class) {
+        name = node.name.value;
+    } else if (node.nodeType === ParseNodeType.Function) {
+        name = node.name.value;
+    }
+
+    const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+    return `${fileInfo.filePath}.${node.start.toString()}-${name}`;
+}
+
+// Walks up the parse tree and finds all scopes that can provide
+// a context for a TypeVar and returns the scope ID for each.
+export function getTypeVarScopesForNode(node: ParseNode): TypeVarScopeId[] {
+    const scopeIds: TypeVarScopeId[] = [];
+
+    let curNode: ParseNode | undefined = node;
+    while (curNode) {
+        curNode = getTypeVarScopeNode(curNode);
+        if (!curNode) {
+            break;
+        }
+
+        scopeIds.push(getScopeIdForNode(curNode));
+        curNode = curNode.parent;
+    }
+
+    return scopeIds;
 }

@@ -23,4 +23,6 @@ def example(a: int, b: str, *, keyed: bool) -> tuple[int, str, bool]:
 
 a: CallbackA[int, str, bool] = example
 
-reveal_type(a, expected_text="(a: int, b: str, *, keyed: bool) -> tuple[int, str, bool]")
+reveal_type(
+    a, expected_text="(a: int, b: str, *, keyed: bool) -> tuple[int, str, bool]"
+)

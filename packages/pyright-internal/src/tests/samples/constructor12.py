@@ -7,14 +7,14 @@ from typing import Generic, TypeVar
 T = TypeVar("T")
 
 
-class Foo(Generic[T]):
-    def return_from_variable(self) -> "Foo[T]":
-        value = Foo[T]()
-        reveal_type(value, expected_text="Foo[T@Foo]")
+class ClassA(Generic[T]):
+    def return_from_variable(self) -> "ClassA[T]":
+        value = ClassA[T]()
+        reveal_type(value, expected_text="ClassA[T@ClassA]")
         return value
 
 
-x = Foo[int]()
-returned_from_variable = x.return_from_variable()
+x = ClassA[int]()
+v1 = x.return_from_variable()
 
-reveal_type(returned_from_variable, expected_text="Foo[int]")
+reveal_type(v1, expected_text="ClassA[int]")

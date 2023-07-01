@@ -864,11 +864,16 @@ export function getCodeFlowEngine(
                         reference === undefined &&
                         cacheEntry.incompleteSubtypes?.some((subtype) => subtype.type !== undefined);
                     let firstAntecedentTypeIsIncomplete = false;
+                    let firstAntecedentTypeIsPending = false;
 
                     loopNode.antecedents.forEach((antecedent, index) => {
                         // If we've trying to determine reachability and we've already proven
                         // reachability, then we're done.
                         if (reference === undefined && isProvenReachable) {
+                            return;
+                        }
+
+                        if (firstAntecedentTypeIsPending && index > 0) {
                             return;
                         }
 
@@ -883,9 +888,21 @@ export function getCodeFlowEngine(
                             index < cacheEntry.incompleteSubtypes.length &&
                             cacheEntry.incompleteSubtypes[index].isPending
                         ) {
-                            sawIncomplete = true;
-                            sawPending = true;
-                            return;
+                            // In rare circumstances, it's possible for a code flow graph with
+                            // nested loops to hit the case where the first antecedent is marked
+                            // as pending. In this case, we'll evaluate only the first antecedent
+                            // again even though it's pending. We're guaranteed to make forward
+                            // progress with the first antecedent, and that will allow us to establish
+                            // an initial type for this expression, but we don't want to evaluate
+                            // any other antecedents in this case because this could result in
+                            // infinite recursion.
+                            if (index === 0) {
+                                firstAntecedentTypeIsPending = true;
+                            } else {
+                                sawIncomplete = true;
+                                sawPending = true;
+                                return;
+                            }
                         }
 
                         // Have we already been here (i.e. does the entry exist and is
@@ -895,7 +912,11 @@ export function getCodeFlowEngine(
                             cacheEntry.incompleteSubtypes !== undefined && index < cacheEntry.incompleteSubtypes.length
                                 ? cacheEntry.incompleteSubtypes[index]
                                 : undefined;
-                        if (subtypeEntry === undefined || (!subtypeEntry?.isPending && subtypeEntry?.isIncomplete)) {
+                        if (
+                            subtypeEntry === undefined ||
+                            (!subtypeEntry?.isPending && subtypeEntry?.isIncomplete) ||
+                            index === 0
+                        ) {
                             const entryEvaluationCount = subtypeEntry === undefined ? 0 : subtypeEntry.evaluationCount;
 
                             // Set this entry to "pending" to prevent infinite recursion.
@@ -989,6 +1010,12 @@ export function getCodeFlowEngine(
                         // of the cache entry because we'll overwrite the partial result.
                         if (sawPending || sawIncomplete) {
                             return { type: effectiveType, isIncomplete: reportIncomplete };
+                        }
+
+                        // If the first antecedent was pending, we skipped all of the other
+                        // antecedents, so the type is incomplete.
+                        if (firstAntecedentTypeIsPending) {
+                            return { type: effectiveType, isIncomplete: true };
                         }
 
                         return setCacheEntry(loopNode, effectiveType, /* isIncomplete */ false);

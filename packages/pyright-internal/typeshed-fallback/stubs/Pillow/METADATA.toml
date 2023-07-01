@@ -1,5 +1,7 @@
 version = "9.5.*"
+partial_stub = true
 
 [tool.stubtest]
 stubtest_requirements = ["olefile"]
-ignore_missing_stub = true
+# darwin checks don't affect stubtest
+platforms = ["linux", "win32"]

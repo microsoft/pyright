@@ -1,6 +1,6 @@
 from typing import Any
 
-from ...types import Numeric
+from ...sql.sqltypes import Numeric
 from .base import MSDialect, MSIdentifierPreparer
 
 class _MSNumeric_pymssql(Numeric):

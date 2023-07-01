@@ -2,7 +2,7 @@
 # there is an expected type, so bidirectional type
 # inference is used.
 
-from typing import Callable, Dict, Protocol, Tuple
+from typing import Callable, Protocol
 
 f1: Callable[[int, int], int] = lambda a, b: a + b
 
@@ -15,22 +15,22 @@ def must_be_int(val: int):
     return val
 
 
-d1: Dict[str, Tuple[int, Callable[[int], int]]] = {
+d1: dict[str, tuple[int, Callable[[int], int]]] = {
     "hello": (3, lambda x: must_be_int(x))
 }
 
-d2: Dict[str, Tuple[int, Callable[[int], int]]] = {
+d2: dict[str, tuple[int, Callable[[int], int]]] = {
     # This should generate an error because the key is not a str.
     3: (3, lambda x: must_be_int(x))
 }
 
-d3: Dict[str, Tuple[int, Callable[[int], int]]] = {
+d3: dict[str, tuple[int, Callable[[int], int]]] = {
     # This should generate an error because the first element
     # of the tuple is not the correct type.
     "3": (3.0, lambda x: must_be_int(x))
 }
 
-d4: Dict[str, Tuple[int, Callable[[int], int]]] = {
+d4: dict[str, tuple[int, Callable[[int], int]]] = {
     # This should generate an error because the lambda
     # type doesn't match.
     "3": (3, lambda _: 3.4)
@@ -38,9 +38,9 @@ d4: Dict[str, Tuple[int, Callable[[int], int]]] = {
 
 
 class Adder(Protocol):
-    def __call__(self, x: int, y: Dict[str, int]) -> int:
+    def __call__(self, x: int, y: dict[str, int]) -> int:
         ...
 
 
 v1: Adder = lambda x, y: x + y["hi"]
-reveal_type(v1, expected_text="(x: int, y: Dict[str, int]) -> int")
+reveal_type(v1, expected_text="(x: int, y: dict[str, int]) -> int")

@@ -1,4 +1,4 @@
-# This sample tests the special case of specialzing a Union
+# This sample tests the special case of specializing a Union
 # type that has generic parameters.
 
 from typing import Any, TypeVar, Generic, Union, Callable
@@ -19,7 +19,6 @@ class Right(Generic[A]):
     right: A
 
 
-# Note that this Union type has generic parameters.
 Either = Union[Left[E], Right[A]]
 
 
@@ -44,7 +43,6 @@ def accepts_only_right_int(p: Right[Any]):
 
 aa = fmap(square, Left("s"))
 
-# This should not generate any errors.
 if isinstance(aa, Left):
     accepts_only_left_str(aa)
 else:

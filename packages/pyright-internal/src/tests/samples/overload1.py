@@ -1,6 +1,6 @@
 # This sample tests the type checker's handling of the overload decorator.
 
-from typing import overload, Optional
+from typing import overload
 from datetime import datetime, timezone, timedelta
 
 

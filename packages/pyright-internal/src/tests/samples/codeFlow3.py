@@ -2,7 +2,7 @@
 # where the first portion is statically determined to be false.
 
 
-def foo():
-    message = ""
-    if False and message:
+def func1():
+    val = ""
+    if False and val:
         pass

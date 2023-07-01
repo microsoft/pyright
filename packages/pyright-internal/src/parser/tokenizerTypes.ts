@@ -37,6 +37,10 @@ export const enum TokenType {
     Dot,
     Arrow,
     Backtick,
+    ExclamationMark,
+    FStringStart,
+    FStringMiddle,
+    FStringEnd,
 }
 
 export const enum NewLineType {
@@ -162,6 +166,10 @@ export const enum StringTokenFlags {
     Unicode = 1 << 4,
     Bytes = 1 << 5,
     Format = 1 << 6,
+
+    // Other conditions
+    ReplacementFieldStart = 1 << 7,
+    ReplacementFieldEnd = 1 << 8,
 
     // Error conditions
     Unterminated = 1 << 16,
@@ -347,6 +355,81 @@ export namespace StringToken {
             prefixLength,
             quoteMarkLength: flags & StringTokenFlags.Triplicate ? 3 : 1,
             comments,
+        };
+
+        return token;
+    }
+}
+
+export interface FStringStartToken extends Token {
+    readonly type: TokenType.FStringStart;
+    readonly flags: StringTokenFlags;
+
+    // Number of characters in token that appear before
+    // the quote marks (e.g. "r" or "UR").
+    readonly prefixLength: number;
+
+    // Number of characters in token that make up the quote
+    // (either 1 or 3).
+    readonly quoteMarkLength: number;
+}
+
+export namespace FStringStartToken {
+    export function create(
+        start: number,
+        length: number,
+        flags: StringTokenFlags,
+        prefixLength: number,
+        comments: Comment[] | undefined
+    ) {
+        const token: FStringStartToken = {
+            start,
+            length,
+            type: TokenType.FStringStart,
+            flags,
+            prefixLength,
+            quoteMarkLength: flags & StringTokenFlags.Triplicate ? 3 : 1,
+            comments,
+        };
+
+        return token;
+    }
+}
+
+export interface FStringMiddleToken extends Token {
+    readonly type: TokenType.FStringMiddle;
+    readonly flags: StringTokenFlags;
+
+    // Use StringTokenUtils to convert escaped value to unescaped value.
+    readonly escapedValue: string;
+}
+
+export namespace FStringMiddleToken {
+    export function create(start: number, length: number, flags: StringTokenFlags, escapedValue: string) {
+        const token: FStringMiddleToken = {
+            start,
+            length,
+            type: TokenType.FStringMiddle,
+            flags,
+            escapedValue,
+        };
+
+        return token;
+    }
+}
+
+export interface FStringEndToken extends Token {
+    readonly type: TokenType.FStringEnd;
+    readonly flags: StringTokenFlags;
+}
+
+export namespace FStringEndToken {
+    export function create(start: number, length: number, flags: StringTokenFlags) {
+        const token: FStringEndToken = {
+            start,
+            length,
+            type: TokenType.FStringEnd,
+            flags,
         };
 
         return token;

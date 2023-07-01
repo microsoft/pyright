@@ -1,7 +1,7 @@
 # This sample tests the type engine's narrowing logic for
 # callable expressions.
 
-from typing import Callable, Optional, Type, TypeVar, Union
+from typing import Callable, Optional, TypeVar, Union
 
 
 class CallableObj:
@@ -9,7 +9,7 @@ class CallableObj:
         return 3
 
 
-def f(a: int) -> Union[Callable[[int], int], Type[int], CallableObj, int]:
+def f(a: int) -> Union[Callable[[int], int], type[int], CallableObj, int]:
     if a == 0:
 
         def h(b: int):
@@ -44,14 +44,14 @@ def test1(arg: Union[_T1, Callable[[], _T1]]) -> _T1:
     return arg
 
 
-class Foo:
+class ClassA:
     def bar(self) -> None:
         pass
 
 
-def test2(o: Foo) -> None:
+def test2(o: ClassA) -> None:
     if callable(o):
-        reveal_type(o, expected_text="<callable subtype of Foo>")
+        reveal_type(o, expected_text="<callable subtype of ClassA>")
 
         # This should generate an error
         o.foo()

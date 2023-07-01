@@ -2,16 +2,7 @@
 # for a generic type alias, a generic function, and a generic class.
 
 import asyncio
-from typing import (
-    Any,
-    Callable,
-    Concatenate,
-    Coroutine,
-    Generic,
-    List,
-    ParamSpec,
-    TypeVar,
-)
+from typing import Any, Callable, Concatenate, Coroutine, Generic, ParamSpec, TypeVar
 
 
 _P = ParamSpec("_P")
@@ -26,12 +17,12 @@ def func1(func: Callable[_P, _R]) -> AddIntParam[_P, _R]:
     ...
 
 
-def func2(a: str, b: List[int]) -> str:
+def func2(a: str, b: list[int]) -> str:
     ...
 
 
 v1 = func1(func2)
-reveal_type(v1, expected_text="(int, a: str, b: List[int]) -> str")
+reveal_type(v1, expected_text="(int, a: str, b: list[int]) -> str")
 
 # This should generate an error because 'int' isn't assignable to
 # ParamSpec _P.
@@ -54,7 +45,7 @@ class RemoteFunction(Generic[_P, _R]):
 
 
 r1 = RemoteFunction(func2)
-reveal_type(r1, expected_text="RemoteFunction[(a: str, b: List[int]), str]")
+reveal_type(r1, expected_text="RemoteFunction[(a: str, b: list[int]), str]")
 
 v2 = r1("hi", [])
 reveal_type(v2, expected_text="str")
@@ -81,7 +72,7 @@ def remote(func: Callable[_P, _R]) -> RemoteFunction[_P, _R]:
 
 
 v4 = remote(func2)
-reveal_type(v4, expected_text="RemoteFunction[(a: str, b: List[int]), str]")
+reveal_type(v4, expected_text="RemoteFunction[(a: str, b: list[int]), str]")
 
 
 Coro = Coroutine[Any, Any, _T]

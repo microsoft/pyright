@@ -1,27 +1,32 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
 from collections.abc import Generator
+from typing import ClassVar, overload
+from typing_extensions import Literal
 
+from openpyxl.descriptors.base import Alias, String
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Relationship(Serialisable):
-    tagname: str
-    Type: Incomplete
-    Target: Incomplete
-    target: Incomplete
-    TargetMode: Incomplete
-    Id: Incomplete
-    id: Incomplete
+    tagname: ClassVar[str]
+    Type: String[Literal[False]]
+    Target: String[Literal[False]]
+    target: Alias
+    TargetMode: String[Literal[True]]
+    Id: String[Literal[True]]
+    id: Alias
+    @overload
     def __init__(
-        self,
-        Id: Incomplete | None = None,
-        Type: Incomplete | None = None,
-        type: Incomplete | None = None,
-        Target: Incomplete | None = None,
-        TargetMode: Incomplete | None = None,
+        self, Id: str, Type: Unused = None, *, type: str, Target: str | None = None, TargetMode: str | None = None
+    ) -> None: ...
+    @overload
+    def __init__(self, Id: str, Type: Unused, type: str, Target: str | None = None, TargetMode: str | None = None) -> None: ...
+    @overload
+    def __init__(
+        self, Id: str, Type: str, type: None = None, Target: str | None = None, TargetMode: str | None = None
     ) -> None: ...
 
 class RelationshipList(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     Relationship: Incomplete
     def __init__(self, Relationship=()) -> None: ...
     def append(self, value) -> None: ...

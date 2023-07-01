@@ -134,5 +134,6 @@ reveal_type(d5_3, expected_text="(int, str, complex) -> int")
 def func5(x: Callable[[Unpack[_Xs]], None], y: tuple[Unpack[_Xs]]):
     pass
 
+
 def func6(x: Callable[[Unpack[_Xs]], None], y: tuple[Unpack[_Xs]]):
     func5(x, y)

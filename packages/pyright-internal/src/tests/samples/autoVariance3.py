@@ -17,8 +17,11 @@ S2 = TypeVar("S2", contravariant=True, infer_variance=True)
 
 
 class ShouldBeCovariant1(Generic[T]):
-    def __getitem__(self, index: int) -> T: ...
-    def __iter__(self) -> Iterator[T]: ...
+    def __getitem__(self, index: int) -> T:
+        ...
+
+    def __iter__(self) -> Iterator[T]:
+        ...
 
 
 vco1_1: ShouldBeCovariant1[float] = ShouldBeCovariant1[int]()
@@ -30,11 +33,11 @@ vco1_2: ShouldBeCovariant1[int] = ShouldBeCovariant1[float]()
 class ShouldBeCovariant2(Sequence[T]):
     pass
 
+
 vco2_1: ShouldBeCovariant2[float] = ShouldBeCovariant2[int]()
 
 # This should generate an error based on variance
 vco2_2: ShouldBeCovariant2[int] = ShouldBeCovariant2[float]()
-
 
 
 class ShouldBeInvariant1(Generic[T]):
@@ -44,6 +47,11 @@ class ShouldBeInvariant1(Generic[T]):
     @property
     def value(self):
         return self._value
+
+    @value.setter
+    def value(self, value: T):
+        self._value = value
+
 
 # This should generate an error based on variance
 vinv1_1: ShouldBeInvariant1[float] = ShouldBeInvariant1[int](1)
@@ -56,8 +64,12 @@ class ShouldBeInvariant2(Generic[T]):
     def __init__(self, value: T) -> None:
         self._value = value
 
-    def get_value(self) ->T:
+    def get_value(self) -> T:
         return self._value
+
+    def set_value(self, value: T):
+        self._value = value
+
 
 # This should generate an error based on variance
 vinv2_1: ShouldBeInvariant2[float] = ShouldBeInvariant2[int](1)
@@ -68,6 +80,7 @@ vinv2_2: ShouldBeInvariant2[int] = ShouldBeInvariant2[float](1.1)
 
 class ShouldBeInvariant3(dict[K, V]):
     pass
+
 
 # This should generate an error based on variance
 vinv3_1: ShouldBeInvariant3[float, str] = ShouldBeInvariant3[int, str]()
@@ -84,6 +97,9 @@ vinv3_4: ShouldBeInvariant3[str, int] = ShouldBeInvariant3[str, float]()
 
 class ShouldBeContravariant1(Generic[T]):
     def __init__(self, value: T) -> None:
+        self._value = value
+
+    def set_value(self, value: T):
         self._value = value
 
 

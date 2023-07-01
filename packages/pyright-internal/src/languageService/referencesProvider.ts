@@ -8,13 +8,12 @@
  * by a location within a file.
  */
 
-import { CancellationToken } from 'vscode-languageserver';
+import { CancellationToken, Location, ResultProgressReporter } from 'vscode-languageserver';
 
 import { Declaration, DeclarationType, isAliasDeclaration } from '../analyzer/declaration';
 import { getNameFromDeclaration } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { SourceFile } from '../analyzer/sourceFile';
-import { SourceMapper } from '../analyzer/sourceMapper';
+import { isUserCode } from '../analyzer/sourceFileInfoUtils';
 import { Symbol } from '../analyzer/symbol';
 import { isVisibleExternally } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
@@ -22,12 +21,13 @@ import { maxTypeRecursionCount } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { assertNever } from '../common/debug';
+import { ProgramView } from '../common/extensibility';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
-import { DocumentRange, Position } from '../common/textRange';
-import { TextRange } from '../common/textRange';
+import { DocumentRange, Position, TextRange, doesRangeContain } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { DocumentSymbolCollector, DocumentSymbolCollectorUseCase } from './documentSymbolCollector';
+import { convertDocumentRangesToLocation } from './navigationUtils';
 
 export type ReferenceCallback = (locations: DocumentRange[]) => void;
 
@@ -95,28 +95,35 @@ export class ReferencesResult {
 }
 
 export class FindReferencesTreeWalker {
+    private _parseResults: ParseResults | undefined;
+
     constructor(
-        private _parseResults: ParseResults,
+        private _program: ProgramView,
         private _filePath: string,
         private _referencesResult: ReferencesResult,
         private _includeDeclaration: boolean,
-        private _evaluator: TypeEvaluator,
         private _cancellationToken: CancellationToken
-    ) {}
+    ) {
+        this._parseResults = this._program.getParseResults(this._filePath);
+    }
 
-    findReferences(rootNode = this._parseResults.parseTree) {
+    findReferences(rootNode = this._parseResults?.parseTree) {
+        const results: DocumentRange[] = [];
+        if (!this._parseResults) {
+            return results;
+        }
+
         const collector = new DocumentSymbolCollector(
+            this._program,
             this._referencesResult.symbolNames,
             this._referencesResult.declarations,
-            this._evaluator,
             this._cancellationToken,
-            rootNode,
+            rootNode!,
             /* treatModuleInImportAndFromImportSame */ true,
             /* skipUnreachableCode */ false,
             this._referencesResult.useCase
         );
 
-        const results: DocumentRange[] = [];
         for (const result of collector.collect()) {
             // Is it the same symbol?
             if (this._includeDeclaration || result.node !== this._referencesResult.nodeAtOffset) {
@@ -138,41 +145,157 @@ export class FindReferencesTreeWalker {
 }
 
 export class ReferencesProvider {
+    constructor(private _program: ProgramView, private _token: CancellationToken) {
+        // empty
+    }
+
+    reportReferences(
+        filePath: string,
+        position: Position,
+        includeDeclaration: boolean,
+        resultReporter?: ResultProgressReporter<Location[]>
+    ) {
+        const sourceFileInfo = this._program.getSourceFileInfo(filePath);
+        if (!sourceFileInfo) {
+            return;
+        }
+
+        const parseResults = this._program.getParseResults(filePath);
+        if (!parseResults) {
+            return;
+        }
+
+        const locations: Location[] = [];
+        const reporter: ReferenceCallback = resultReporter
+            ? (range) => resultReporter.report(convertDocumentRangesToLocation(this._program.fileSystem, range))
+            : (range) => appendArray(locations, convertDocumentRangesToLocation(this._program.fileSystem, range));
+
+        const invokedFromUserFile = isUserCode(sourceFileInfo);
+        const referencesResult = ReferencesProvider.getDeclarationForPosition(
+            this._program,
+            filePath,
+            position,
+            reporter,
+            DocumentSymbolCollectorUseCase.Reference,
+            this._token
+        );
+        if (!referencesResult) {
+            return;
+        }
+
+        // Do we need to do a global search as well?
+        if (!referencesResult.requiresGlobalSearch) {
+            this.addReferencesToResult(sourceFileInfo.sourceFile.getFilePath(), includeDeclaration, referencesResult);
+        }
+
+        for (const curSourceFileInfo of this._program.getSourceFileInfoList()) {
+            throwIfCancellationRequested(this._token);
+
+            // "Find all references" will only include references from user code
+            // unless the file is explicitly opened in the editor or it is invoked from non user files.
+            if (curSourceFileInfo.isOpenByClient || !invokedFromUserFile || isUserCode(curSourceFileInfo)) {
+                // See if the reference symbol's string is located somewhere within the file.
+                // If not, we can skip additional processing for the file.
+                const fileContents = curSourceFileInfo.sourceFile.getFileContent();
+                if (!fileContents || referencesResult.symbolNames.some((s) => fileContents.search(s) >= 0)) {
+                    this.addReferencesToResult(
+                        curSourceFileInfo.sourceFile.getFilePath(),
+                        includeDeclaration,
+                        referencesResult
+                    );
+                }
+
+                // This operation can consume significant memory, so check
+                // for situations where we need to discard the type cache.
+                this._program.handleMemoryHighUsage();
+            }
+        }
+
+        // Make sure to include declarations regardless where they are defined
+        // if includeDeclaration is set.
+        if (includeDeclaration) {
+            for (const decl of referencesResult.declarations) {
+                throwIfCancellationRequested(this._token);
+
+                if (referencesResult.locations.some((l) => l.path === decl.path)) {
+                    // Already included.
+                    continue;
+                }
+
+                const declFileInfo = this._program.getSourceFileInfo(decl.path);
+                if (!declFileInfo) {
+                    // The file the declaration belongs to doesn't belong to the program.
+                    continue;
+                }
+
+                const tempResult = new ReferencesResult(
+                    referencesResult.requiresGlobalSearch,
+                    referencesResult.nodeAtOffset,
+                    referencesResult.symbolNames,
+                    referencesResult.declarations,
+                    referencesResult.useCase
+                );
+
+                this.addReferencesToResult(declFileInfo.sourceFile.getFilePath(), includeDeclaration, tempResult);
+                for (const loc of tempResult.locations) {
+                    // Include declarations only. And throw away any references
+                    if (loc.path === decl.path && doesRangeContain(decl.range, loc.range)) {
+                        referencesResult.addLocations(loc);
+                    }
+                }
+            }
+        }
+
+        return locations;
+    }
+
+    addReferencesToResult(filePath: string, includeDeclaration: boolean, referencesResult: ReferencesResult): void {
+        const parseResults = this._program.getParseResults(filePath);
+        if (!parseResults) {
+            return;
+        }
+
+        const refTreeWalker = new FindReferencesTreeWalker(
+            this._program,
+            filePath,
+            referencesResult,
+            includeDeclaration,
+            this._token
+        );
+
+        referencesResult.addLocations(...refTreeWalker.findReferences());
+    }
+
     static getDeclarationForNode(
-        sourceMapper: SourceMapper,
+        program: ProgramView,
         filePath: string,
         node: NameNode,
-        evaluator: TypeEvaluator,
         reporter: ReferenceCallback | undefined,
         useCase: DocumentSymbolCollectorUseCase,
-        token: CancellationToken,
-        implicitlyImportedBy?: SourceFile[]
+        token: CancellationToken
     ) {
         throwIfCancellationRequested(token);
 
         const declarations = DocumentSymbolCollector.getDeclarationsForNode(
+            program,
             node,
-            evaluator,
             /* resolveLocalNames */ false,
             useCase,
-            token,
-            sourceMapper,
-            implicitlyImportedBy
+            token
         );
 
         if (declarations.length === 0) {
             return undefined;
         }
 
-        const requiresGlobalSearch = isVisibleOutside(evaluator, filePath, node, declarations);
-
+        const requiresGlobalSearch = isVisibleOutside(program.evaluator!, filePath, node, declarations);
         const symbolNames = new Set(declarations.map((d) => getNameFromDeclaration(d)!).filter((n) => !!n));
         symbolNames.add(node.value);
 
         return new ReferencesResult(
             requiresGlobalSearch,
             node,
-            [...symbolNames.values()],
+            Array.from(symbolNames.values()),
             declarations,
             useCase,
             reporter
@@ -180,17 +303,18 @@ export class ReferencesProvider {
     }
 
     static getDeclarationForPosition(
-        sourceMapper: SourceMapper,
-        parseResults: ParseResults,
+        program: ProgramView,
         filePath: string,
         position: Position,
-        evaluator: TypeEvaluator,
         reporter: ReferenceCallback | undefined,
         useCase: DocumentSymbolCollectorUseCase,
-        token: CancellationToken,
-        implicitlyImportedBy?: SourceFile[]
+        token: CancellationToken
     ): ReferencesResult | undefined {
         throwIfCancellationRequested(token);
+        const parseResults = program.getParseResults(filePath);
+        if (!parseResults) {
+            return undefined;
+        }
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
@@ -207,36 +331,7 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        return this.getDeclarationForNode(
-            sourceMapper,
-            filePath,
-            node,
-            evaluator,
-            reporter,
-            useCase,
-            token,
-            implicitlyImportedBy
-        );
-    }
-
-    static addReferences(
-        parseResults: ParseResults,
-        filePath: string,
-        referencesResult: ReferencesResult,
-        includeDeclaration: boolean,
-        evaluator: TypeEvaluator,
-        token: CancellationToken
-    ): void {
-        const refTreeWalker = new FindReferencesTreeWalker(
-            parseResults,
-            filePath,
-            referencesResult,
-            includeDeclaration,
-            evaluator,
-            token
-        );
-
-        referencesResult.addLocations(...refTreeWalker.findReferences());
+        return this.getDeclarationForNode(program, filePath, node, reporter, useCase, token);
     }
 }
 

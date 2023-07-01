@@ -1,5 +1,5 @@
 # This sample tests that protocol compatibility caching produces
-# the right result when the first example of protocol matching within
+# the correct result when the first example of protocol matching within
 # the file does not require invariance enforcement but some later one
 # does. The cached protocol compatibility cannot be used in this case.
 

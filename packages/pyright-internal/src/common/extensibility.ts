@@ -6,7 +6,7 @@
 * Language service extensibility.
 */
 
-import { CancellationToken, CodeAction, ExecuteCommandParams } from 'vscode-languageserver';
+import { CancellationToken, CodeAction, CompletionList, ExecuteCommandParams } from 'vscode-languageserver';
 
 import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { Declaration } from '../analyzer/declaration';
@@ -15,14 +15,17 @@ import * as prog from '../analyzer/program';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { Type } from '../analyzer/types';
-import { LanguageServerBase } from '../languageServerBase';
-import { CompletionOptions, CompletionResultsList } from '../languageService/completionProvider';
+import { LanguageServerBase, LanguageServerInterface } from '../languageServerBase';
+import { CompletionOptions } from '../languageService/completionProvider';
 import { FunctionNode, ParameterNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { ConfigOptions, SignatureDisplayType } from './configOptions';
 import { ConsoleInterface } from './console';
 import { ReadOnlyFileSystem } from './fileSystem';
 import { Range } from './textRange';
+import { SymbolTable } from '../analyzer/symbol';
+import { Diagnostic } from '../common/diagnostic';
+import { IPythonMode } from '../analyzer/sourceFile';
 
 export interface LanguageServiceExtension {
     readonly commandExtension?: CommandExtension;
@@ -39,8 +42,16 @@ export interface ProgramExtension {
 
 export interface SourceFile {
     // See whether we can convert these to regular properties.
-    getFilePath(): string;
     isStubFile(): boolean;
+    isThirdPartyPyTypedPresent(): boolean;
+
+    getIPythonMode(): IPythonMode;
+    getFilePath(): string;
+    getFileContent(): string | undefined;
+    getRealFilePath(): string | undefined;
+    getClientVersion(): number | undefined;
+    getOpenFileContents(): string | undefined;
+    getModuleSymbolTable(): SymbolTable | undefined;
 }
 
 export interface SourceFileInfo {
@@ -62,11 +73,13 @@ export interface SourceFileInfo {
 
     readonly imports: readonly SourceFileInfo[];
     readonly importedBy: readonly SourceFileInfo[];
+    readonly shadows: readonly SourceFileInfo[];
+    readonly shadowedBy: readonly SourceFileInfo[];
 }
 
 // Readonly wrapper around a Program. Makes sure it doesn't mutate the program.
 export interface ProgramView {
-    readonly id: number;
+    readonly id: string;
     readonly rootPath: string;
     readonly console: ConsoleInterface;
     readonly evaluator: TypeEvaluator | undefined;
@@ -85,19 +98,48 @@ export interface ProgramView {
         preferStubs?: boolean
     ): SourceMapper;
 
-    // See whether we can get rid of these 2 methods
+    // Consider getDiagnosticsForRange to call `analyzeFile` automatically if the file is not analyzed.
+    analyzeFile(filePath: string, token: CancellationToken): boolean;
+    getDiagnosticsForRange(filePath: string, range: Range): Diagnostic[];
+
+    // See whether we can get rid of these methods
     getBoundSourceFileInfo(file: string, content?: string, force?: boolean): prog.SourceFileInfo | undefined;
     handleMemoryHighUsage(): void;
+    clone(): prog.Program;
+}
+
+// This exposes some APIs to mutate program. Unlike ProgramMutator, this will only mutate this program
+// and doesn't forward the request to the BG thread.
+// One can use this when edits are temporary such as `runEditMode` or `test`
+export interface EditableProgram extends ProgramView {
+    addInterimFile(file: string): void;
+    setFileOpened(filePath: string, version: number | null, contents: string, options?: prog.OpenFileOptions): void;
 }
 
 // Mutable wrapper around a program. Allows the FG thread to forward this request to the BG thread
+// Any edits made to this program will persist and mutate the program's state permanently.
 export interface ProgramMutator {
     addInterimFile(file: string): void;
+    setFileOpened(
+        filePath: string,
+        version: number | null,
+        contents: string,
+        ipythonMode: IPythonMode,
+        chainedFilePath?: string,
+        realFilePath?: string
+    ): void;
+    updateOpenFileContents(
+        path: string,
+        version: number | null,
+        contents: string,
+        ipythonMode: IPythonMode,
+        realFilePath?: string
+    ): void;
 }
 
 export interface ExtensionFactory {
-    createProgramExtension: (view: ProgramView, mutator: ProgramMutator) => ProgramExtension;
-    createLanguageServiceExtension: (languageserver: LanguageServerBase) => LanguageServiceExtension;
+    createProgramExtension?: (view: ProgramView, mutator: ProgramMutator) => ProgramExtension;
+    createLanguageServiceExtension?: (languageserver: LanguageServerInterface) => LanguageServiceExtension;
 }
 
 export interface CommandExtension {
@@ -110,18 +152,25 @@ export interface CommandExtension {
     executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<void>;
 }
 
+export interface ExtensionInfo {
+    readonly correlationId: string;
+    readonly selectedItemTelemetryTimeInMS: number;
+    readonly itemTelemetryTimeInMS: number;
+    readonly totalTimeInMS: number;
+}
+
 export interface CompletionListExtension {
     // Extension updates completion list provided by the application.
     updateCompletionResults(
         evaluator: TypeEvaluator,
         sourceMapper: SourceMapper,
         options: CompletionOptions,
-        completionResults: CompletionResultsList,
+        completionResults: CompletionList | null,
         parseResults: ParseResults,
         position: number,
         functionSignatureDisplay: SignatureDisplayType,
         token: CancellationToken
-    ): Promise<void>;
+    ): Promise<ExtensionInfo | undefined>;
 }
 
 export enum DeclarationUseCase {
@@ -134,6 +183,7 @@ export interface DeclarationProviderExtension {
     tryGetDeclarations(
         evaluator: TypeEvaluator,
         node: ParseNode,
+        offset: number,
         useCase: DeclarationUseCase,
         token: CancellationToken
     ): Declaration[];
@@ -191,18 +241,18 @@ export namespace Extensions {
         );
     }
 
-    export function destroyProgramExtensions(viewId: number) {
+    export function destroyProgramExtensions(viewId: string) {
         programExtensions = programExtensions.filter((s) => s.view.id !== viewId);
     }
 
-    export function createLanguageServiceExtensions(languageServer: LanguageServerBase) {
+    export function createLanguageServiceExtensions(languageServer: LanguageServerInterface) {
         languageServiceExtensions.push(
             ...(factories
                 .map((s) => {
                     let result = s.createLanguageServiceExtension
                         ? s.createLanguageServiceExtension(languageServer)
                         : undefined;
-                    if (result) {
+                    if (result && !(result as any).owner) {
                         // Add the extra parameter that we use for finding later.
                         result = Object.defineProperty(result, 'owner', { value: languageServer });
                     }

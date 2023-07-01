@@ -3,6 +3,16 @@ from typing import Any
 
 from ._distutils.errors import DistutilsError
 
+__all__ = [
+    "unpack_archive",
+    "unpack_zipfile",
+    "unpack_tarfile",
+    "default_filter",
+    "UnrecognizedFormat",
+    "extraction_drivers",
+    "unpack_directory",
+]
+
 class UnrecognizedFormat(DistutilsError): ...
 
 def default_filter(src, dst): ...

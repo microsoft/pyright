@@ -1,7 +1,6 @@
 from typing import Any
 
-from .. import util
-from ..util import HasMemoized
+from ..util.langhelpers import HasMemoized, MemoizedSlots
 from .visitors import ExtendedInternalTraversal, InternalTraversal
 
 SKIP_TRAVERSE: Any
@@ -106,7 +105,7 @@ class anon_map(dict[Any, Any]):
     def __init__(self) -> None: ...
     def __missing__(self, key): ...
 
-class TraversalComparatorStrategy(InternalTraversal, util.MemoizedSlots):
+class TraversalComparatorStrategy(InternalTraversal, MemoizedSlots):
     stack: Any
     cache: Any
     anon_map: Any

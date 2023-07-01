@@ -1,33 +1,50 @@
 from _typeshed import Incomplete
+from typing import ClassVar, overload
+from typing_extensions import Literal
 
+from openpyxl.descriptors.base import Bool, Integer, String, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.serialisable import Serialisable
 
 class CellSmartTagPr(Serialisable):
-    tagname: str
-    key: Incomplete
-    val: Incomplete
-    def __init__(self, key: Incomplete | None = None, val: Incomplete | None = None) -> None: ...
+    tagname: ClassVar[str]
+    key: String[Literal[False]]
+    val: String[Literal[False]]
+    def __init__(self, key: str, val: str) -> None: ...
 
 class CellSmartTag(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     cellSmartTagPr: Incomplete
-    type: Incomplete
-    deleted: Incomplete
-    xmlBased: Incomplete
-    __elements__: Incomplete
+    type: Integer[Literal[False]]
+    deleted: Bool[Literal[True]]
+    xmlBased: Bool[Literal[True]]
+    __elements__: ClassVar[tuple[str, ...]]
+    @overload
     def __init__(
-        self, cellSmartTagPr=(), type: Incomplete | None = None, deleted: bool = False, xmlBased: bool = False
+        self,
+        cellSmartTagPr=(),
+        *,
+        type: _ConvertibleToInt,
+        deleted: _ConvertibleToBool | None = False,
+        xmlBased: _ConvertibleToBool | None = False,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        cellSmartTagPr,
+        type: _ConvertibleToInt,
+        deleted: _ConvertibleToBool | None = False,
+        xmlBased: _ConvertibleToBool | None = False,
     ) -> None: ...
 
 class CellSmartTags(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     cellSmartTag: Incomplete
-    r: Incomplete
-    __elements__: Incomplete
-    def __init__(self, cellSmartTag=(), r: Incomplete | None = None) -> None: ...
+    r: String[Literal[False]]
+    __elements__: ClassVar[tuple[str, ...]]
+    def __init__(self, cellSmartTag, r: str) -> None: ...
 
 class SmartTags(Serialisable):
-    tagname: str
+    tagname: ClassVar[str]
     cellSmartTags: Incomplete
-    __elements__: Incomplete
+    __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, cellSmartTags=()) -> None: ...

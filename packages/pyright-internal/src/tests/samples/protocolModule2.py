@@ -1,6 +1,6 @@
 # This sample tests protocol matching for modules.
 
-from typing import Protocol, Type, TypeVar, Union, runtime_checkable
+from typing import Protocol, TypeVar, runtime_checkable
 from . import protocolModule1
 import datetime
 from importlib import import_module
@@ -9,7 +9,7 @@ from importlib import import_module
 @runtime_checkable
 class P1(Protocol):
     var_1: int
-    var_2: Union[int, str]
+    var_2: int | str
 
     def func_1(self, a: int, b: str) -> str:
         ...
@@ -61,7 +61,7 @@ class NonProtocol:
 
 
 # Test type narrowing of module symbols for isinstance checks.
-def func1(x: Type[_T]):
+def func1(x: type[_T]):
     if isinstance(datetime, (P1, P2, NonProtocol, x)):
         reveal_type(datetime, expected_text="P1 | P2 | _T@func1")
     else:

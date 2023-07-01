@@ -14,13 +14,14 @@ import {
     FileSystem,
     FileWatcher,
     FileWatcherEventHandler,
+    FileWatcherEventType,
     MkDirOptions,
     TmpfileOptions,
 } from '../../../common/fileSystem';
 import * as pathUtil from '../../../common/pathUtils';
 import { bufferFrom, createIOError } from '../utils';
-import { closeIterator, getIterator, Metadata, nextResult, SortedMap } from './../utils';
-import { validate, ValidationFlags } from './pathValidation';
+import { Metadata, SortedMap, closeIterator, getIterator, nextResult } from './../utils';
+import { ValidationFlags, validate } from './pathValidation';
 
 export const MODULE_PATH = pathUtil.normalizeSlashes('/');
 
@@ -29,6 +30,25 @@ let inoCount = 0; // A monotonically increasing count of inodes
 
 export interface DiffOptions {
     includeChangedFileWithSameContent?: boolean;
+}
+
+export class TestFileSystemWatcher implements FileWatcher {
+    private _paths: string[] = [];
+    constructor(paths: string[], private _listener: FileWatcherEventHandler) {
+        this._paths = paths.map((p) => pathUtil.normalizePath(p));
+    }
+    close() {
+        // Do nothing.
+    }
+
+    fireFileChange(path: string, eventType: FileWatcherEventType): boolean {
+        const normalized = pathUtil.normalizePath(path);
+        if (this._paths.some((p) => normalized.startsWith(p))) {
+            this._listener(eventType, normalized);
+            return true;
+        }
+        return false;
+    }
 }
 
 /**
@@ -53,8 +73,12 @@ export class TestFileSystem implements FileSystem {
     private _shadowRoot: TestFileSystem | undefined;
     private _dirStack: string[] | undefined;
     private _tmpfileCounter = 0;
+    private _watchers: TestFileSystemWatcher[] = [];
+    private _id: number;
+    private static _nextId = 1;
 
     constructor(ignoreCase: boolean, options: FileSystemOptions = {}) {
+        this._id = TestFileSystem._nextId++;
         const { time = -1, files, meta } = options;
         this.ignoreCase = ignoreCase;
         this.stringComparer = this.ignoreCase
@@ -112,18 +136,18 @@ export class TestFileSystem implements FileSystem {
     }
 
     /**
+     * Gets the file system shadowed by this file system.
+     */
+    get shadowRoot() {
+        return this._shadowRoot;
+    }
+
+    /**
      * Makes the file system read-only.
      */
     makeReadonly() {
         Object.freeze(this);
         return this;
-    }
-
-    /**
-     * Gets the file system shadowed by this file system.
-     */
-    get shadowRoot() {
-        return this._shadowRoot;
     }
 
     /**
@@ -199,14 +223,6 @@ export class TestFileSystem implements FileSystem {
             throw createIOError('ENOENT');
         }
         return this._filemeta(node);
-    }
-
-    private _filemeta(node: Inode): Metadata {
-        if (!node.meta) {
-            const parentMeta = node.shadowRoot && this._shadowRoot && this._shadowRoot._filemeta(node.shadowRoot);
-            node.meta = new Metadata(parentMeta);
-        }
-        return node.meta;
     }
 
     /**
@@ -323,11 +339,17 @@ export class TestFileSystem implements FileSystem {
     }
 
     createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
-        return {
-            close: () => {
-                /* left empty */
-            },
-        };
+        const watcher = new TestFileSystemWatcher(paths, listener);
+        this._watchers.push(watcher);
+        return watcher;
+    }
+
+    fireFileWatcherEvent(path: string, event: FileWatcherEventType) {
+        for (const watcher of this._watchers) {
+            if (watcher.fireFileChange(path, event)) {
+                break;
+            }
+        }
     }
 
     getModulePath(): string {
@@ -369,40 +391,6 @@ export class TestFileSystem implements FileSystem {
 
     getUri(path: string): string {
         return URI.file(path).toString();
-    }
-
-    private _scan(path: string, stats: Stats, axis: Axis, traversal: Traversal, noFollow: boolean, results: string[]) {
-        if (axis === 'ancestors-or-self' || axis === 'self' || axis === 'descendants-or-self') {
-            if (!traversal.accept || traversal.accept(path, stats)) {
-                results.push(path);
-            }
-        }
-        if (axis === 'ancestors-or-self' || axis === 'ancestors') {
-            const dirname = pathUtil.getDirectoryPath(path);
-            if (dirname !== path) {
-                try {
-                    const stats = this._stat(this._walk(dirname, noFollow));
-                    if (!traversal.traverse || traversal.traverse(dirname, stats)) {
-                        this._scan(dirname, stats, 'ancestors-or-self', traversal, noFollow, results);
-                    }
-                } catch {
-                    /* ignored */
-                }
-            }
-        }
-        if (axis === 'descendants-or-self' || axis === 'descendants') {
-            if (stats.isDirectory() && (!traversal.traverse || traversal.traverse(path, stats))) {
-                for (const file of this.readdirSync(path)) {
-                    try {
-                        const childpath = pathUtil.combinePaths(path, file);
-                        const stats = this._stat(this._walk(childpath, noFollow));
-                        this._scan(childpath, stats, 'descendants-or-self', traversal, noFollow, results);
-                    } catch {
-                        /* ignored */
-                    }
-                }
-            }
-        }
     }
 
     /**
@@ -562,27 +550,6 @@ export class TestFileSystem implements FileSystem {
         return this._stat(this._walk(this._resolve(path), /* noFollow */ true));
     }
 
-    private _stat(entry: WalkResult) {
-        const node = entry.node;
-        if (!node) {
-            throw createIOError(`ENOENT`, entry.realpath);
-        }
-        return new Stats(
-            node.dev,
-            node.ino,
-            node.mode,
-            node.nlink,
-            /* rdev */ 0,
-            /* size */ isFile(node) ? this._getSize(node) : isSymlink(node) ? node.symlink.length : 0,
-            /* blksize */ 4096,
-            /* blocks */ 0,
-            node.atimeMs,
-            node.mtimeMs,
-            node.ctimeMs,
-            node.birthtimeMs
-        );
-    }
-
     /**
      * Read a directory. If `path` is a symbolic link, it is dereferenced.
      *
@@ -638,15 +605,6 @@ export class TestFileSystem implements FileSystem {
         }
 
         this._mkdir(this._walk(this._resolve(path), /* noFollow */ true));
-    }
-
-    private _mkdir({ parent, links, node: existingNode, basename }: WalkResult) {
-        if (existingNode) {
-            throw createIOError('EEXIST');
-        }
-        const time = this.time();
-        const node = this._mknod(parent ? parent.dev : ++devCount, S_IFDIR, /* mode */ 0o777, time);
-        this._addLink(parent, links, basename, node, time);
     }
 
     /**
@@ -949,6 +907,78 @@ export class TestFileSystem implements FileSystem {
         // Do Nothing
     }
 
+    private _mkdir({ parent, links, node: existingNode, basename }: WalkResult) {
+        if (existingNode) {
+            throw createIOError('EEXIST');
+        }
+        const time = this.time();
+        const node = this._mknod(parent ? parent.dev : ++devCount, S_IFDIR, /* mode */ 0o777, time);
+        this._addLink(parent, links, basename, node, time);
+    }
+
+    private _filemeta(node: Inode): Metadata {
+        if (!node.meta) {
+            const parentMeta = node.shadowRoot && this._shadowRoot && this._shadowRoot._filemeta(node.shadowRoot);
+            node.meta = new Metadata(parentMeta);
+        }
+        return node.meta;
+    }
+
+    private _scan(path: string, stats: Stats, axis: Axis, traversal: Traversal, noFollow: boolean, results: string[]) {
+        if (axis === 'ancestors-or-self' || axis === 'self' || axis === 'descendants-or-self') {
+            if (!traversal.accept || traversal.accept(path, stats)) {
+                results.push(path);
+            }
+        }
+        if (axis === 'ancestors-or-self' || axis === 'ancestors') {
+            const dirname = pathUtil.getDirectoryPath(path);
+            if (dirname !== path) {
+                try {
+                    const stats = this._stat(this._walk(dirname, noFollow));
+                    if (!traversal.traverse || traversal.traverse(dirname, stats)) {
+                        this._scan(dirname, stats, 'ancestors-or-self', traversal, noFollow, results);
+                    }
+                } catch {
+                    /* ignored */
+                }
+            }
+        }
+        if (axis === 'descendants-or-self' || axis === 'descendants') {
+            if (stats.isDirectory() && (!traversal.traverse || traversal.traverse(path, stats))) {
+                for (const file of this.readdirSync(path)) {
+                    try {
+                        const childpath = pathUtil.combinePaths(path, file);
+                        const stats = this._stat(this._walk(childpath, noFollow));
+                        this._scan(childpath, stats, 'descendants-or-self', traversal, noFollow, results);
+                    } catch {
+                        /* ignored */
+                    }
+                }
+            }
+        }
+    }
+
+    private _stat(entry: WalkResult) {
+        const node = entry.node;
+        if (!node) {
+            throw createIOError(`ENOENT`, entry.realpath);
+        }
+        return new Stats(
+            node.dev,
+            node.ino,
+            node.mode,
+            node.nlink,
+            /* rdev */ 0,
+            /* size */ isFile(node) ? this._getSize(node) : isSymlink(node) ? node.symlink.length : 0,
+            /* blksize */ 4096,
+            /* blocks */ 0,
+            node.atimeMs,
+            node.mtimeMs,
+            node.ctimeMs,
+            node.birthtimeMs
+        );
+    }
+
     private static _diffWorker(
         container: FileSet,
         changed: TestFileSystem,
@@ -1026,7 +1056,7 @@ export class TestFileSystem implements FileSystem {
             return false;
         }
 
-        // no difference if the root links are empty and unshadowed
+        // no difference if the root links are empty and not shadowed
         if (!changed._lazy.links && !changed._shadowRoot && !base._lazy.links && !base._shadowRoot) {
             return false;
         }

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Final
 
 
-class Foo1:
+class ClassA:
     x: Final[int]
 
     def __init__(self, x: int) -> None:
@@ -14,5 +14,5 @@ class Foo1:
 
 
 @dataclass
-class Foo2:
+class ClassB:
     x: Final[int]

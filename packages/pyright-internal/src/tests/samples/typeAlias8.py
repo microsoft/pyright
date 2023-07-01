@@ -9,16 +9,16 @@ T = TypeVar("T")
 F = Callable[[T], T]
 
 
-def f() -> F[T]:
+def func1() -> F[T]:
     def g(x: T) -> T:
         ...
 
     return g
 
 
-g = f()
-v1 = g("foo")
+func2 = func1()
+v1 = func2("foo")
 reveal_type(v1, expected_text="str")
 
-v2 = g(1)
+v2 = func2(1)
 reveal_type(v2, expected_text="int")

@@ -20,13 +20,34 @@ import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { TextEditAction } from '../common/editAction';
+import { ProgramView } from '../common/extensibility';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { ImportSorter } from './importSorter';
 
-export function performQuickAction(command: string, args: any[], parseResults: ParseResults, token: CancellationToken) {
+export function performQuickAction(
+    programView: ProgramView,
+    filePath: string,
+    command: string,
+    args: any[],
+    token: CancellationToken
+) {
+    const sourceFileInfo = programView.getSourceFileInfo(filePath);
+
+    // This command should be called only for open files, in which
+    // case we should have the file contents already loaded.
+    if (!sourceFileInfo || !sourceFileInfo.isOpenByClient) {
+        return [];
+    }
+
+    // If we have no completed analysis job, there's nothing to do.
+    const parseResults = programView.getParseResults(filePath);
+    if (!parseResults) {
+        return [];
+    }
+
     if (command === Commands.orderImports) {
         const importSorter = new ImportSorter(parseResults, token);
         return importSorter.sort();

@@ -22,7 +22,12 @@ interface SpeculativeEntry {
 interface SpeculativeContext {
     speculativeRootNode: ParseNode;
     entriesToUndo: SpeculativeEntry[];
-    allowCacheRetention: boolean;
+    dependentType: Type | undefined;
+}
+
+interface DependentType {
+    speculativeRootNode: ParseNode;
+    dependentType: Type;
 }
 
 export interface TypeResult {
@@ -34,6 +39,7 @@ export interface SpeculativeTypeEntry {
     typeResult: TypeResult;
     expectedType: Type | undefined;
     incompleteGenerationCount: number;
+    dependentTypes?: DependentType[];
 }
 
 // This class maintains a stack of "speculative type contexts". When
@@ -41,22 +47,43 @@ export interface SpeculativeTypeEntry {
 // entries that were created within that context are removed from the
 // corresponding type caches because they are no longer valid.
 // Each type context also contains a map of "speculative types" that are
-// contextually evaluated based on an "expected type".
+// contextually evaluated based on an "expected type" and potentially
+// one or more "dependent types". The "expected type" applies in cases
+// where the speculative root node is being evaluated with bidirectional
+// type inference. Dependent types apply in cases where the type of
+// many subnodes depends on the expected type of a parent node, as in the
+// case of lambda type inference.
 export class SpeculativeTypeTracker {
     private _speculativeContextStack: SpeculativeContext[] = [];
     private _speculativeTypeCache = new Map<number, SpeculativeTypeEntry[]>();
+    private _activeDependentTypes: DependentType[] = [];
 
-    enterSpeculativeContext(speculativeRootNode: ParseNode, allowCacheRetention: boolean) {
+    enterSpeculativeContext(speculativeRootNode: ParseNode, dependentType: Type | undefined) {
         this._speculativeContextStack.push({
             speculativeRootNode,
             entriesToUndo: [],
-            allowCacheRetention,
+            dependentType,
         });
+
+        // Retain a list of active dependent types. This information is already
+        // contained within the speculative context stack, but we retain a copy
+        // in this alternate form for performance reasons.
+        if (dependentType) {
+            this._activeDependentTypes.push({
+                speculativeRootNode,
+                dependentType,
+            });
+        }
     }
 
     leaveSpeculativeContext() {
         assert(this._speculativeContextStack.length > 0);
         const context = this._speculativeContextStack.pop();
+
+        if (context?.dependentType) {
+            assert(this._activeDependentTypes.length > 0);
+            this._activeDependentTypes.pop();
+        }
 
         // Delete all of the speculative type cache entries
         // that were tracked in this context.
@@ -114,9 +141,6 @@ export class SpeculativeTypeTracker {
         expectedType: Type | undefined
     ) {
         assert(this._speculativeContextStack.length > 0);
-        if (this._speculativeContextStack.some((context) => !context.allowCacheRetention)) {
-            return;
-        }
 
         const maxCacheEntriesPerNode = 8;
         let cacheEntries = this._speculativeTypeCache.get(node.id);
@@ -150,7 +174,17 @@ export class SpeculativeTypeTracker {
         }
 
         // Add the new entry.
-        cacheEntries.push({ typeResult, expectedType, incompleteGenerationCount });
+        const newEntry: SpeculativeTypeEntry = {
+            typeResult,
+            expectedType,
+            incompleteGenerationCount,
+        };
+
+        if (this._activeDependentTypes.length > 0) {
+            newEntry.dependentTypes = Array.from(this._activeDependentTypes);
+        }
+
+        cacheEntries.push(newEntry);
 
         this._speculativeTypeCache.set(node.id, cacheEntries);
     }
@@ -165,10 +199,14 @@ export class SpeculativeTypeTracker {
             if (entries) {
                 for (const entry of entries) {
                     if (!expectedType) {
-                        if (!entry.expectedType) {
+                        if (!entry.expectedType && this._dependentTypesMatch(entry)) {
                             return entry;
                         }
-                    } else if (entry.expectedType && isTypeSame(expectedType, entry.expectedType)) {
+                    } else if (
+                        entry.expectedType &&
+                        isTypeSame(expectedType, entry.expectedType) &&
+                        this._dependentTypesMatch(entry)
+                    ) {
                         return entry;
                     }
                 }
@@ -176,5 +214,24 @@ export class SpeculativeTypeTracker {
         }
 
         return undefined;
+    }
+
+    // Determines whether a cache entry matches the current set of
+    // active dependent types. If not, the cache entry can't be used
+    // in the current context.
+    private _dependentTypesMatch(entry: SpeculativeTypeEntry): boolean {
+        const cachedDependentTypes = entry.dependentTypes ?? [];
+        if (cachedDependentTypes.length !== this._activeDependentTypes.length) {
+            return false;
+        }
+
+        return cachedDependentTypes.every((cachedDepType, index) => {
+            const activeDepType = this._activeDependentTypes[index];
+            if (cachedDepType.speculativeRootNode !== activeDepType.speculativeRootNode) {
+                return false;
+            }
+
+            return isTypeSame(cachedDepType.dependentType, activeDepType.dependentType);
+        });
     }
 }

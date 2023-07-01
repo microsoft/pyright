@@ -1,20 +1,25 @@
-# This sample tests bidirectional type inference for a function when
-# a union includes a "bare" TypeVar and another (non-generic) type.
+# This sample tests the case where a union of callables is passed
+# to a generic function and the parameter types are subtypes of
+# each other.
 
-from dataclasses import dataclass
-from typing import Generic, Sequence, TypeVar, Union
+from typing import Any, Callable, Generic, TypeVar
 
-T = TypeVar("T")
-
-
-@dataclass
-class Container(Generic[T]):
-    values: Sequence[Union[float, T]]
+T_contra = TypeVar("T_contra", contravariant=True)
 
 
-def create_container(values: Sequence[Union[float, T]]) -> Container[T]:
-    return Container(values)
+class Thing1:
+    prop1: str
 
 
-arg: Sequence[Union[float, int]] = (1, 2.0)
-x: Container[int] = create_container(arg)
+class Thing2:
+    prop1: str
+    prop2: str
+
+
+class ClassA(Generic[T_contra]):
+    def __init__(self, callback: Callable[[T_contra], Any]) -> None:
+        ...
+
+
+def func1(cb: Callable[[Thing1], Any] | Callable[[Thing1 | Thing2], Any]):
+    reveal_type(ClassA(cb), expected_text="ClassA[Thing1]")

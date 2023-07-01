@@ -1,5 +1,7 @@
-from _typeshed import Incomplete
-from typing import Any
+from _typeshed import Incomplete, ReadableBuffer
+from collections.abc import Iterable
+from typing import Any, SupportsBytes
+from typing_extensions import SupportsIndex
 
 from ...engine import AdaptedConnection
 from .pymysql import MySQLDialect_pymysql
@@ -51,10 +53,18 @@ class AsyncAdapt_asyncmy_connection(AdaptedConnection):
 class AsyncAdaptFallback_asyncmy_connection(AsyncAdapt_asyncmy_connection):
     await_: Any
 
+def _Binary(x: Iterable[SupportsIndex] | SupportsIndex | SupportsBytes | ReadableBuffer) -> bytes: ...
+
 class AsyncAdapt_asyncmy_dbapi:
     asyncmy: Any
     pymysql: Any
     paramstyle: str
+    STRING: Incomplete
+    NUMBER: Incomplete
+    BINARY: Incomplete
+    DATETIME: Incomplete
+    TIMESTAMP: Incomplete
+    Binary = staticmethod(_Binary)
     def __init__(self, asyncmy: Any) -> None: ...
     def connect(self, *arg, **kw): ...
 

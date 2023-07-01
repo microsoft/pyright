@@ -18,6 +18,7 @@ def get_connection(redis_node: Redis[Any], *args, **options: _ConnectionPoolOpti
 def parse_scan_result(command: Unused, res, **options): ...
 def parse_pubsub_numsub(command: Unused, res, **options: Unused): ...
 def parse_cluster_slots(resp, **options) -> dict[tuple[int, int], dict[str, Any]]: ...
+def parse_cluster_myshardid(resp: bytes, **options: Unused) -> str: ...
 
 PRIMARY: str
 REPLICA: str
@@ -69,6 +70,7 @@ class RedisCluster(AbstractRedisCluster, RedisClusterCommands[_StrType], Generic
         read_from_replicas: bool = False,
         dynamic_startup_nodes: bool = True,
         url: str | None = None,
+        address_remap: Callable[[str, int], tuple[str, int]] | None = None,
         **kwargs,
     ) -> None: ...
     def __enter__(self) -> Self: ...
@@ -141,6 +143,7 @@ class NodesManager:
     connection_pool_class: type[ConnectionPool]
     connection_kwargs: dict[str, Incomplete]  # TODO: could be a TypedDict
     read_load_balancer: LoadBalancer
+    address_remap: Callable[[str, int], tuple[str, int]] | None
     def __init__(
         self,
         startup_nodes: Iterable[ClusterNode],
@@ -149,6 +152,7 @@ class NodesManager:
         lock: Lock | None = None,
         dynamic_startup_nodes: bool = True,
         connection_pool_class: type[ConnectionPool] = ...,
+        address_remap: Callable[[str, int], tuple[str, int]] | None = None,
         **kwargs,  # TODO: same type as connection_kwargs
     ) -> None: ...
     def get_node(
@@ -164,6 +168,7 @@ class NodesManager:
     def initialize(self) -> None: ...
     def close(self) -> None: ...
     def reset(self) -> None: ...
+    def remap_host_port(self, host: str, port: int) -> tuple[str, int]: ...
 
 class ClusterPubSub(PubSub):
     node: ClusterNode | None

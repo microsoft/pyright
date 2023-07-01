@@ -1,7 +1,7 @@
 # This sample tests the reportSelfClsParameterName setting.
 
 
-from typing import Union, overload
+from typing import overload
 
 
 def foo():
@@ -48,7 +48,7 @@ class Class1:
 
     # This should generate an error or warning if the setting
     # is enabled because "self" is expected.
-    def foo6(x) -> Union[int, str]:
+    def foo6(x) -> int | str:
         ...
 
 

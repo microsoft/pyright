@@ -1,6 +1,6 @@
 # This sample tests the use of a generic descriptor class.
 
-from typing import Any, Callable, Generic, Optional, Type, TypeVar, overload
+from typing import Any, Callable, Generic, TypeVar, overload
 
 
 _T = TypeVar("_T")
@@ -44,14 +44,14 @@ class Minimal(Generic[_T, _T_co]):
         ...
 
     @overload
-    def __get__(self, instance: None, owner: Type[_T]) -> "Minimal[_T, _T_co]":
+    def __get__(self, instance: None, owner: type[_T]) -> "Minimal[_T, _T_co]":
         ...
 
     @overload
-    def __get__(self, instance: _T, owner: Type[_T]) -> _T_co:
+    def __get__(self, instance: _T, owner: type[_T]) -> _T_co:
         ...
 
-    def __get__(self, instance: Optional[_T], owner: Type[_T]) -> Any:
+    def __get__(self, instance: _T | None, owner: type[_T]) -> Any:
         ...
 
 

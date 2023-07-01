@@ -52,8 +52,8 @@ export class DocumentHighlightProvider {
         }
 
         const results = DocumentSymbolCollector.collectFromNode(
+            this._program,
             node,
-            this._program.evaluator!,
             this._token,
             this._parseResults.parseTree,
             /* treatModuleInImportAndFromImportSame */ true

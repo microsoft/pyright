@@ -4,10 +4,10 @@
 
 # pyright: strict, reportUnusedVariable=false
 
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 
-def func1(x: Optional[int]):
+def func1(x: int | None):
     if x is not None:
         x.bit_length()
 

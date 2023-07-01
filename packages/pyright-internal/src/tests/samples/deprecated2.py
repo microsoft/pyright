@@ -1,6 +1,5 @@
 # This sample tests the @typing.deprecated decorator introduced in PEP 702.
 
-from typing import Self
 from typing_extensions import deprecated, overload
 
 

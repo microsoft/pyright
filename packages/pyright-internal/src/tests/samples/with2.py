@@ -2,7 +2,7 @@
 # or __aexit__ method.
 
 
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
 _T1 = TypeVar("_T1")
 
@@ -18,9 +18,9 @@ class Class3(object):
 
     def __exit__(
         self,
-        t: Optional[type] = None,
-        exc: Optional[BaseException] = None,
-        tb: Optional[Any] = None,
+        t: type | None = None,
+        exc: BaseException | None = None,
+        tb: Any | None = None,
     ) -> bool:
         return True
 

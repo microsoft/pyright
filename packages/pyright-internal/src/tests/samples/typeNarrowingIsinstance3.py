@@ -2,7 +2,7 @@
 # narrowing in the case where there is no overlap between the
 # value type and the test type.
 
-from typing import Type, TypeVar
+from typing import TypeVar, final
 
 
 class A:
@@ -15,6 +15,11 @@ class B:
 
 class C:
     c_val: int
+
+
+@final
+class D:
+    d_val: int
 
 
 def func1(val: A):
@@ -42,7 +47,7 @@ def func1(val: A):
         reveal_type(val, expected_text="A")
 
 
-def func2(val: Type[A]):
+def func2(val: type[A]):
     if issubclass(val, B):
         val.a_val
         val.b_val
@@ -50,14 +55,14 @@ def func2(val: Type[A]):
         # This should generate an error
         val.c_val
 
-        reveal_type(val, expected_text="Type[<subclass of A and B>]")
+        reveal_type(val, expected_text="type[<subclass of A and B>]")
 
         if issubclass(val, C):
             val.a_val
             val.b_val
             val.c_val
             reveal_type(
-                val, expected_text="Type[<subclass of <subclass of A and B> and C>]"
+                val, expected_text="type[<subclass of <subclass of A and B> and C>]"
             )
 
     else:
@@ -66,7 +71,7 @@ def func2(val: Type[A]):
         # This should generate an error
         val.b_val
 
-        reveal_type(val, expected_text="Type[A]")
+        reveal_type(val, expected_text="type[A]")
 
 
 _T1 = TypeVar("_T1", bound=A)
@@ -76,3 +81,8 @@ def func3(val: _T1) -> _T1:
     if isinstance(val, B):
         return val
     return val
+
+
+def func4(val: D):
+    if isinstance(val, A):
+        reveal_type(val, expected_text="Never")

@@ -4,8 +4,7 @@ from http.client import HTTPConnection as _HTTPConnection, HTTPException as HTTP
 from typing import Any
 
 from . import exceptions, util
-from .packages import ssl_match_hostname
-from .util import ssl_
+from .util import ssl_, ssl_match_hostname
 
 class DummyConnection: ...
 

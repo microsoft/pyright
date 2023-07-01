@@ -1,7 +1,7 @@
 # This sample tests that "possibly unbound" error messages don't propagate.
 
 
-def foo(a: bool):
+def func1(a: bool):
     if a:
         b = 3
 

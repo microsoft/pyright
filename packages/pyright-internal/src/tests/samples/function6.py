@@ -1,24 +1,38 @@
-# This sample tests the case where a generic function return type
-# is handled correctly when its result is assigned to a LHS with
-# an expected type that is a union (in this case, "msg" has a type
-# of Union[str, None] and "get" returns the type Union[_VT_co, _T].
+# This sample verifies that functions are treated as though they
+# derive from object.
 
-from typing import Optional
+from typing import Callable, overload
 
 
-def f(key: str, msg: Optional[str]):
-    if msg is None:
-        my_dict = {"a": "b"}
-        msg = my_dict.get(key, "c")
+@overload
+def func1(a: str) -> str:
+    ...
 
-        # Without bidirectional type inference, the
-        # revealed type will be "str", but since "msg"
-        # has a declared type, it will be used in this
-        # case to inform the type "str | None", which
-        # is a valid solution for the constraint solver.
-        # Unfortunately, it's probably not the answer
-        # the user expects in this case.
-        reveal_type(msg, expected_text="str | None")
 
-        x = my_dict.get(key, "c")
-        reveal_type(x, expected_text="str")
+@overload
+def func1(a: int) -> int:
+    ...
+
+
+def func1(a: str | int) -> str | int:
+    ...
+
+
+def func2(a: str | int) -> str | int:
+    ...
+
+
+def takes_object(val: object) -> None:
+    ...
+
+
+takes_object(func1)
+takes_object(func2)
+
+
+def func3(b: Callable[[str], bool]) -> None:
+    if b == func1:
+        pass
+
+    if b != func2:
+        pass

@@ -3,10 +3,10 @@
 # final if/elif test expression evaluates to Never in the negative case.
 
 from enum import Enum
-from typing import Literal, Union
+from typing import Literal
 
 
-def func1(x: Union[int, str]):
+def func1(x: int | str):
     if isinstance(x, int):
         y = 0
     elif isinstance(x, str):
@@ -84,7 +84,7 @@ def func8(color: Color) -> bool:
 reveal_type(func8(Color.RED), expected_text="bool")
 
 
-def func9(a: Union[str, int], b: Union[str, int]) -> bool:
+def func9(a: str | int, b: str | int) -> bool:
     if isinstance(a, str):
         return True
     elif isinstance(a, int):

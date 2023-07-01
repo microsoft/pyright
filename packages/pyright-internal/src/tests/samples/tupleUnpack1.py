@@ -1,42 +1,42 @@
 # This sample tests the handling of Unpack[Tuple[...]] as described
 # in PEP 646.
 
-from typing import Tuple, Union
+from typing import Union
 from typing_extensions import Unpack
 
 
-def func1(v1: Tuple[int, Unpack[Tuple[bool, bool]], str]):
-    reveal_type(v1, expected_text="Tuple[int, bool, bool, str]")
+def func1(v1: tuple[int, Unpack[tuple[bool, bool]], str]):
+    reveal_type(v1, expected_text="tuple[int, bool, bool, str]")
 
 
 # This should generate an error because multiple unpacks.
-def func2(v2: Tuple[int, Unpack[Tuple[bool, bool]], str, Unpack[Tuple[bool, bool]]]):
+def func2(v2: tuple[int, Unpack[tuple[bool, bool]], str, Unpack[tuple[bool, bool]]]):
     pass
 
 
-def func3(v3: Tuple[int, Unpack[Tuple[bool, ...]], str]):
-    reveal_type(v3, expected_text="Tuple[int, *tuple[bool, ...], str]")
+def func3(v3: tuple[int, Unpack[tuple[bool, ...]], str]):
+    reveal_type(v3, expected_text="tuple[int, *tuple[bool, ...], str]")
 
 
 # This should generate an error because there are multiple unbounded tuples.
-def func4(v4: Tuple[Unpack[Tuple[bool, ...]], ...]):
+def func4(v4: tuple[Unpack[tuple[bool, ...]], ...]):
     pass
 
 
 # This should generate an error because there are multiple unbounded tuples.
-def func5(v5: Tuple[Unpack[Tuple[Unpack[Tuple[bool, ...]]]], ...]):
+def func5(v5: tuple[Unpack[tuple[Unpack[tuple[bool, ...]]]], ...]):
     pass
 
 
-def func6(v6: Tuple[Unpack[Tuple[bool]], ...]):
-    reveal_type(v6, expected_text="Tuple[bool, ...]")
+def func6(v6: tuple[Unpack[tuple[bool]], ...]):
+    reveal_type(v6, expected_text="tuple[bool, ...]")
 
 
-def func7(v7: Tuple[Unpack[Tuple[bool, Unpack[Tuple[int, float]]]]]):
-    reveal_type(v7, expected_text="Tuple[bool, int, float]")
+def func7(v7: tuple[Unpack[tuple[bool, Unpack[tuple[int, float]]]]]):
+    reveal_type(v7, expected_text="tuple[bool, int, float]")
 
 
-def func8(v8: Union[Unpack[Tuple[Unpack[Tuple[bool, Unpack[Tuple[int, ...]]]]]]]):
+def func8(v8: Union[Unpack[tuple[Unpack[tuple[bool, Unpack[tuple[int, ...]]]]]]]):
     reveal_type(v8, expected_text="bool | int")
 
 
@@ -62,15 +62,16 @@ def func13(t: type):
     if t is Unpack:
         ...
 
+
 def func14(
     *args: Unpack[tuple[int]],
     other: str,
 ) -> None:
     ...
 
+
 func14(1, other="hi")
 
 # This should generate an error because the second argument
 # corresponds to a keyword-only parameter.
 func14(1, "hi")
-

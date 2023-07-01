@@ -1,5 +1,6 @@
 version = "2.15.*"
 requires = ["types-docutils", "types-setuptools"]
+partial_stub = true
 
 [tool.stubtest]
 stubtest_requirements = ["sphinx"]

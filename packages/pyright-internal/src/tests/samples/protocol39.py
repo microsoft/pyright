@@ -10,8 +10,8 @@ class SupportsGet(Protocol):
         ...
 
 
-def foo(cls: Any) -> None:
+def func1(cls: Any) -> None:
     pass
 
 
-v1: SupportsGet = foo
+v1: SupportsGet = func1

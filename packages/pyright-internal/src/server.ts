@@ -23,7 +23,7 @@ import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandController } from './commands/commandController';
 import { getCancellationFolderName } from './common/cancellationUtils';
 import { ConfigOptions, SignatureDisplayType } from './common/configOptions';
-import { ConsoleWithLogLevel, convertLogLevel, LogLevel } from './common/console';
+import { ConsoleWithLogLevel, LogLevel, convertLogLevel } from './common/console';
 import { isDebugMode, isString } from './common/core';
 import { expandPathVariables } from './common/envVarUtils';
 import { FileBasedCancellationProvider } from './common/fileBasedCancellationUtils';
@@ -32,7 +32,7 @@ import { FullAccessHost } from './common/fullAccessHost';
 import { Host } from './common/host';
 import { resolvePaths } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
-import { createFromRealFileSystem, WorkspaceFileWatcherProvider } from './common/realFileSystem';
+import { WorkspaceFileWatcherProvider, createFromRealFileSystem } from './common/realFileSystem';
 import { LanguageServerBase, ServerSettings } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 import { Workspace } from './workspaceFactory';
@@ -219,7 +219,7 @@ export class PyrightServer extends LanguageServerBase {
     }
 
     protected override createHost() {
-        return new FullAccessHost(this._serviceFS);
+        return new FullAccessHost(this.fs);
     }
 
     protected override createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver {
@@ -246,7 +246,7 @@ export class PyrightServer extends LanguageServerBase {
     ): Promise<(Command | CodeAction)[] | undefined | null> {
         this.recordUserInteractionTime();
 
-        const filePath = this._uriParser.decodeTextDocumentUri(params.textDocument.uri);
+        const filePath = this.uriParser.decodeTextDocumentUri(params.textDocument.uri);
         const workspace = await this.getWorkspaceForFile(filePath);
         return CodeActionProvider.getCodeActionsForPosition(
             workspace,
@@ -266,14 +266,14 @@ export class PyrightServer extends LanguageServerBase {
             isEnabled: (data: AnalysisResults) => true,
             begin: () => {
                 if (this.client.hasWindowProgressCapability) {
-                    workDoneProgress = this._connection.window.createWorkDoneProgress();
+                    workDoneProgress = this.connection.window.createWorkDoneProgress();
                     workDoneProgress
                         .then((progress) => {
                             progress.begin('');
                         })
                         .ignoreErrors();
                 } else {
-                    this._connection.sendNotification('pyright/beginProgress');
+                    this.connection.sendNotification('pyright/beginProgress');
                 }
             },
             report: (message: string) => {
@@ -284,7 +284,7 @@ export class PyrightServer extends LanguageServerBase {
                         })
                         .ignoreErrors();
                 } else {
-                    this._connection.sendNotification('pyright/reportProgress', message);
+                    this.connection.sendNotification('pyright/reportProgress', message);
                 }
             },
             end: () => {
@@ -296,7 +296,7 @@ export class PyrightServer extends LanguageServerBase {
                         .ignoreErrors();
                     workDoneProgress = undefined;
                 } else {
-                    this._connection.sendNotification('pyright/endProgress');
+                    this.connection.sendNotification('pyright/endProgress');
                 }
             },
         };

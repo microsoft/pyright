@@ -32,6 +32,7 @@ class Markdown:
     tab_length: int
     block_level_elements: list[str]
     registeredExtensions: list[Extension]
+    ESCAPED_CHARS: list[str]
     def __init__(
         self,
         *,

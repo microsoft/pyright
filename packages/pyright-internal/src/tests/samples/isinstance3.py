@@ -4,7 +4,7 @@
 
 
 from abc import abstractmethod
-from typing import Any, Generic, Tuple, Type, TypeVar, Union
+from typing import Any, Generic, Sequence, Tuple, Type, TypeVar, Union
 
 
 _T = TypeVar("_T", int, str)
@@ -24,15 +24,9 @@ if isinstance(a, A):
 if isinstance(a, A[str]):
     pass
 
-# This should generate an error in Python 3.9 and older
-# because unions are not allowed.
+# This should generate an error in Python 3.9 and older because
+# unions are not allowed, but this error isn't currently caught.
 if issubclass(A, Union[A, int]):
-    pass
-
-# This should generate an error in Python 3.9 and older
-# because unions are not allowed. A second error will be
-# generated because the | operator isn't allowed.
-if issubclass(A, A | int):
     pass
 
 
@@ -57,3 +51,7 @@ class ClassA(Generic[_T]):
 
         if isinstance(var, self.v2):
             pass
+
+
+def func1(exceptions: Sequence[type[BaseException]], exception: Exception):
+    return isinstance(exception, tuple(exceptions))

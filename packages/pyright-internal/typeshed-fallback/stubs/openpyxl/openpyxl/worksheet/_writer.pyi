@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
 
-ALL_TEMP_FILES: Incomplete
+ALL_TEMP_FILES: list[str]
 
 def create_temporary_file(suffix: str = ""): ...
 

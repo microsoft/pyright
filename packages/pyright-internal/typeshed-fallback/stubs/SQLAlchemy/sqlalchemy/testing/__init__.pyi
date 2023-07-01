@@ -39,6 +39,7 @@ from .config import (
     combinations_list as combinations_list,
     db as db,
     fixture as fixture,
+    requirements,
 )
 from .exclusions import (
     db_spec as db_spec,
@@ -68,6 +69,8 @@ from .util import (
     teardown_events as teardown_events,
 )
 from .warnings import assert_warnings as assert_warnings, warn_test_suite as warn_test_suite
+
+requires = requirements
 
 def against(*queries): ...
 

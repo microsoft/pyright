@@ -1,6 +1,5 @@
-# This sample tests the a class-based decorator that uses
-# a __get__ method as a way to provide access to a __call__
-# method. Very contorted, but it's legal Python.
+# This sample tests the a class-based decorator that uses a
+# __get__ method as a way to provide access to a __call__ method.
 
 
 class Wrapper:

@@ -9,10 +9,12 @@
  */
 
 import { assert } from '../common/debug';
+import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
+    ArgumentNode,
     CallNode,
     ClassNode,
     ExpressionNode,
@@ -23,9 +25,11 @@ import {
     TypeAnnotationNode,
 } from '../parser/parseNodes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { getFileInfo } from './analyzerNodeInfo';
+import { createFunctionFromConstructor } from './constructors';
 import { DeclarationType } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
-import { getEnclosingClassOrFunction } from './parseTreeUtils';
+import { getClassFullName, getEnclosingClassOrFunction, getScopeIdForNode, getTypeSourceId } from './parseTreeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName } from './symbolNameUtils';
@@ -34,6 +38,7 @@ import {
     AnyType,
     ClassType,
     ClassTypeFlags,
+    combineTypes,
     DataClassBehaviors,
     DataClassEntry,
     FunctionParameter,
@@ -45,13 +50,16 @@ import {
     isInstantiableClass,
     isOverloadedFunction,
     NoneType,
+    OverloadedFunctionType,
     TupleTypeArgument,
     Type,
+    TypeVarType,
     UnknownType,
 } from './types';
 import {
     applySolvedTypeVars,
     buildTypeVarContextFromSpecializedClass,
+    computeMroLinearization,
     convertToInstance,
     getTypeVarScopeId,
     isLiteralType,
@@ -80,6 +88,9 @@ export function synthesizeDataClassMethods(
     const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
     const initType = FunctionType.createSynthesizedInstance('__init__');
 
+    // Override `__new__` because some dataclasses (such as those that are
+    // created by subclassing from NamedTuple) may have their own custom
+    // __new__ that requires overriding.
     FunctionType.addParameter(newType, {
         category: ParameterCategory.Simple,
         name: 'cls',
@@ -162,6 +173,7 @@ export function synthesizeDataClassMethods(
                 let isKeywordOnly = ClassType.isDataClassKeywordOnlyParams(classType) || sawKeywordOnlySeparator;
                 let defaultValueExpression: ExpressionNode | undefined;
                 let includeInInit = true;
+                let converter: ArgumentNode | undefined;
 
                 if (statement.nodeType === ParseNodeType.Assignment) {
                     if (
@@ -297,6 +309,13 @@ export function synthesizeDataClassMethods(
                                     aliasName = valueType.literalValue as string;
                                 }
                             }
+
+                            const converterArg = statement.rightExpression.arguments.find(
+                                (arg) => arg.name?.value === 'converter'
+                            );
+                            if (converterArg && converterArg.valueExpression) {
+                                converter = converterArg;
+                            }
                         }
                     }
                 } else if (statement.nodeType === ParseNodeType.TypeAnnotation) {
@@ -353,6 +372,7 @@ export function synthesizeDataClassMethods(
                             nameNode: variableNameNode,
                             type: UnknownType.create(),
                             isClassVar: true,
+                            converter,
                         };
                         localDataClassEntries.push(dataClassEntry);
                     } else {
@@ -370,6 +390,7 @@ export function synthesizeDataClassMethods(
                             nameNode: variableNameNode,
                             type: UnknownType.create(),
                             isClassVar: false,
+                            converter,
                         };
                         localEntryTypeEvaluator.push({ entry: dataClassEntry, evaluator: variableTypeEvaluator });
 
@@ -492,6 +513,22 @@ export function synthesizeDataClassMethods(
                     // type of the __init__ method parameter from the __set__ method.
                     effectiveType = transformDescriptorType(evaluator, effectiveType);
 
+                    if (entry.converter) {
+                        const fieldType = effectiveType;
+                        effectiveType = getConverterInputType(evaluator, entry.converter, effectiveType, entry.name);
+                        symbolTable.set(
+                            entry.name,
+                            getDescriptorForConverterField(
+                                evaluator,
+                                node,
+                                entry.converter,
+                                entry.name,
+                                fieldType,
+                                effectiveType
+                            )
+                        );
+                    }
+
                     const effectiveName = entry.alias || entry.name;
 
                     if (!entry.alias && entry.nameNode && isPrivateName(entry.nameNode.value)) {
@@ -517,7 +554,7 @@ export function synthesizeDataClassMethods(
 
             if (keywordOnlyParams.length > 0) {
                 FunctionType.addParameter(initType, {
-                    category: ParameterCategory.VarArgList,
+                    category: ParameterCategory.ArgsList,
                     type: AnyType.create(),
                 });
                 keywordOnlyParams.forEach((param) => {
@@ -601,9 +638,18 @@ export function synthesizeDataClassMethods(
         const hashMethod = FunctionType.createSynthesizedInstance('__hash__');
         FunctionType.addParameter(hashMethod, selfParam);
         hashMethod.details.declaredReturnType = evaluator.getBuiltInObject(node, 'int');
-        symbolTable.set('__hash__', Symbol.createWithType(SymbolFlags.ClassMember, hashMethod));
+        symbolTable.set(
+            '__hash__',
+            Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.IgnoredForOverrideChecks, hashMethod)
+        );
     } else if (synthesizeHashNone && !skipSynthesizeHash) {
-        symbolTable.set('__hash__', Symbol.createWithType(SymbolFlags.ClassMember, NoneType.createInstance()));
+        symbolTable.set(
+            '__hash__',
+            Symbol.createWithType(
+                SymbolFlags.ClassMember | SymbolFlags.IgnoredForOverrideChecks,
+                NoneType.createInstance()
+            )
+        );
     }
 
     let dictType = evaluator.getBuiltInType(node, 'dict');
@@ -647,11 +693,205 @@ export function synthesizeDataClassMethods(
 
     // If this dataclass derived from a NamedTuple, update the NamedTuple with
     // the specialized entry types.
-    updateNamedTupleBaseClass(
-        classType,
-        fullDataClassEntries.map((entry) => entry.type),
-        /* isTypeArgumentExplicit */ true
+    if (
+        updateNamedTupleBaseClass(
+            classType,
+            fullDataClassEntries.map((entry) => entry.type),
+            /* isTypeArgumentExplicit */ true
+        )
+    ) {
+        // Recompute the MRO based on the updated NamedTuple base class.
+        computeMroLinearization(classType);
+    }
+}
+
+// Validates converter and, if valid, returns its input type. If invalid,
+// fieldType is returned.
+function getConverterInputType(
+    evaluator: TypeEvaluator,
+    converterNode: ArgumentNode,
+    fieldType: Type,
+    fieldName: string
+): Type {
+    const converterType = getConverterAsFunction(
+        evaluator,
+        evaluator.getTypeOfExpression(converterNode.valueExpression).type
     );
+
+    if (!converterType) {
+        return fieldType;
+    }
+
+    // Create synthesized function of the form Callable[[T], fieldType] which
+    // will be used to check compatibility of the provided converter.
+    const typeVar = TypeVarType.createInstance('__converterInput');
+    typeVar.scopeId = getScopeIdForNode(converterNode);
+    const targetFunction = FunctionType.createSynthesizedInstance('');
+    targetFunction.details.typeVarScopeId = typeVar.scopeId;
+    targetFunction.details.declaredReturnType = fieldType;
+    FunctionType.addParameter(targetFunction, {
+        category: ParameterCategory.Simple,
+        name: '__input',
+        type: typeVar,
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(targetFunction, {
+        category: ParameterCategory.Simple,
+        name: '',
+        type: UnknownType.create(),
+    });
+
+    if (isFunction(converterType)) {
+        const typeVarContext = new TypeVarContext(typeVar.scopeId);
+        const diagAddendum = new DiagnosticAddendum();
+
+        if (evaluator.assignType(targetFunction, converterType, diagAddendum, typeVarContext)) {
+            const solution = applySolvedTypeVars(typeVar, typeVarContext, { unknownIfNotFound: true });
+            return solution;
+        }
+
+        evaluator.addDiagnostic(
+            AnalyzerNodeInfo.getFileInfo(converterNode).diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.dataClassConverterFunction().format({
+                argType: evaluator.printType(converterType),
+                fieldType: evaluator.printType(fieldType),
+                fieldName: fieldName,
+            }) + diagAddendum.getString(),
+            converterNode,
+            diagAddendum.getEffectiveTextRange() ?? converterNode
+        );
+    } else {
+        const acceptedTypes: Type[] = [];
+        const diagAddendum = new DiagnosticAddendum();
+
+        OverloadedFunctionType.getOverloads(converterType).forEach((overload) => {
+            const typeVarContext = new TypeVarContext(typeVar.scopeId);
+
+            if (evaluator.assignType(targetFunction, overload, diagAddendum, typeVarContext)) {
+                const overloadSolution = applySolvedTypeVars(typeVar, typeVarContext, { unknownIfNotFound: true });
+                acceptedTypes.push(overloadSolution);
+            }
+        });
+
+        if (acceptedTypes.length > 0) {
+            return combineTypes(acceptedTypes);
+        }
+
+        evaluator.addDiagnostic(
+            AnalyzerNodeInfo.getFileInfo(converterNode).diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.dataClassConverterOverloads().format({
+                funcName: converterType.overloads[0].details.name || '<anonymous function>',
+                fieldType: evaluator.printType(fieldType),
+                fieldName: fieldName,
+            }) + diagAddendum.getString(),
+            converterNode
+        );
+    }
+
+    return fieldType;
+}
+
+function getConverterAsFunction(
+    evaluator: TypeEvaluator,
+    converterType: Type
+): FunctionType | OverloadedFunctionType | undefined {
+    if (isFunction(converterType) || isOverloadedFunction(converterType)) {
+        return converterType;
+    }
+
+    if (isClassInstance(converterType)) {
+        return evaluator.getBoundMethod(converterType, '__call__');
+    }
+
+    if (isInstantiableClass(converterType)) {
+        return createFunctionFromConstructor(evaluator, converterType);
+    }
+
+    return undefined;
+}
+
+// Synthesizes an asymmetric descriptor class to be used in place of the
+// annotated type of a field with a converter. The descriptor's __get__ method
+// returns the declared type of the field and its __set__ method accepts the
+// converter's input type. Returns the symbol for an instance of this descriptor
+// type.
+function getDescriptorForConverterField(
+    evaluator: TypeEvaluator,
+    dataclassNode: ParseNode,
+    converterNode: ParseNode,
+    fieldName: string,
+    getType: Type,
+    setType: Type
+): Symbol {
+    const fileInfo = getFileInfo(dataclassNode);
+    const typeMetaclass = evaluator.getBuiltInType(dataclassNode, 'type');
+    const descriptorName = `__converterDescriptor_${fieldName}`;
+
+    const descriptorClass = ClassType.createInstantiable(
+        descriptorName,
+        getClassFullName(converterNode, fileInfo.moduleName, descriptorName),
+        fileInfo.moduleName,
+        fileInfo.filePath,
+        ClassTypeFlags.None,
+        getTypeSourceId(converterNode),
+        /* declaredMetaclass */ undefined,
+        isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
+    );
+    descriptorClass.details.baseClasses.push(evaluator.getBuiltInType(dataclassNode, 'object'));
+    computeMroLinearization(descriptorClass);
+
+    const fields = descriptorClass.details.fields;
+    const selfType = synthesizeTypeVarForSelfCls(descriptorClass, /* isClsParam */ false);
+
+    const setFunction = FunctionType.createSynthesizedInstance('__set__');
+    FunctionType.addParameter(setFunction, {
+        category: ParameterCategory.Simple,
+        name: 'self',
+        type: selfType,
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(setFunction, {
+        category: ParameterCategory.Simple,
+        name: 'obj',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(setFunction, {
+        category: ParameterCategory.Simple,
+        name: 'value',
+        type: setType,
+        hasDeclaredType: true,
+    });
+    setFunction.details.declaredReturnType = NoneType.createInstance();
+    const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
+    fields.set('__set__', setSymbol);
+
+    const getFunction = FunctionType.createSynthesizedInstance('__get__');
+    FunctionType.addParameter(getFunction, {
+        category: ParameterCategory.Simple,
+        name: 'self',
+        type: selfType,
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(getFunction, {
+        category: ParameterCategory.Simple,
+        name: 'obj',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(getFunction, {
+        category: ParameterCategory.Simple,
+        name: 'objtype',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+    });
+    getFunction.details.declaredReturnType = getType;
+    const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunction);
+    fields.set('__get__', getSymbol);
+
+    return Symbol.createWithType(SymbolFlags.ClassMember, ClassType.cloneAsInstance(descriptorClass));
 }
 
 // If the specified type is a descriptor — in particular, if it implements a
@@ -690,7 +930,7 @@ function addInheritedDataClassEntries(classType: ClassType, entries: DataClassEn
 
     ClassType.getReverseMro(classType).forEach((mroClass) => {
         if (isInstantiableClass(mroClass)) {
-            const typeVarContext = buildTypeVarContextFromSpecializedClass(mroClass, /* makeConcrete */ false);
+            const typeVarContext = buildTypeVarContextFromSpecializedClass(mroClass);
             const dataClassEntries = ClassType.getDataClassEntries(mroClass);
 
             // Add the entries to the end of the list, replacing same-named

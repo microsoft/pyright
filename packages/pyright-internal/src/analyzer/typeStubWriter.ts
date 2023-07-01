@@ -50,9 +50,9 @@ import { TypeEvaluator } from './typeEvaluatorTypes';
 import { ClassType, isFunction, isInstantiableClass, isNever, isUnknown, removeUnknownFromUnion } from './types';
 
 class TrackedImport {
-    constructor(public importName: string) {}
-
     isAccessed = false;
+
+    constructor(public importName: string) {}
 }
 
 class TrackedImportAs extends TrackedImport {
@@ -660,9 +660,9 @@ export class TypeStubWriter extends ParseTreeWalker {
 
     private _printParameter(paramNode: ParameterNode, functionNode: FunctionNode, paramIndex: number): string {
         let line = '';
-        if (paramNode.category === ParameterCategory.VarArgList) {
+        if (paramNode.category === ParameterCategory.ArgsList) {
             line += '*';
-        } else if (paramNode.category === ParameterCategory.VarArgDictionary) {
+        } else if (paramNode.category === ParameterCategory.KwargsDict) {
             line += '**';
         }
 

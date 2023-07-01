@@ -2,6 +2,8 @@ from _typeshed import Incomplete
 from collections.abc import Sequence
 from typing import NamedTuple
 
+from .enums import WrapMode
+
 SOFT_HYPHEN: str
 HYPHEN: str
 SPACE: str
@@ -101,16 +103,20 @@ class CurrentLine:
         original_character_index: int,
         url: str | None = None,
     ): ...
+    def trim_trailing_spaces(self) -> None: ...
     def manual_break(self, justify: bool = False, trailing_nl: bool = False): ...
     def automatic_break_possible(self): ...
     def automatic_break(self, justify: bool): ...
 
 class MultiLineBreak:
-    styled_text_fragments: Incomplete
-    justify: Incomplete
-    print_sh: Incomplete
+    styled_text_fragments: Sequence[Fragment]
+    justify: bool
+    print_sh: bool
+    wrap_mode: WrapMode
     fragment_index: int
     character_index: int
-    idx_last_forced_break: Incomplete
-    def __init__(self, styled_text_fragments: Sequence[Fragment], justify: bool = False, print_sh: bool = False) -> None: ...
+    idx_last_forced_break: int | None
+    def __init__(
+        self, styled_text_fragments: Sequence[Fragment], justify: bool = False, print_sh: bool = False, wrapmode: WrapMode = ...
+    ) -> None: ...
     def get_line_of_given_width(self, maximum_width: float, wordsplit: bool = True): ...

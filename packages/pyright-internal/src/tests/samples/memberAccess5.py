@@ -2,7 +2,7 @@
 # objects that provide a __get__ method and those
 # that do not.
 
-from typing import Any, Union
+from typing import Any
 
 
 class IntProvider:
@@ -11,7 +11,7 @@ class IntProvider:
 
 
 class Foo:
-    _int_value_declared: Union[IntProvider, int] = 3
+    _int_value_declared: IntProvider | int = 3
     _int_value_inferred = 3
 
     def __init__(self):

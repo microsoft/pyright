@@ -1,11 +1,9 @@
 from _typeshed import Incomplete
 from typing import Any
 
-from sqlalchemy.sql import ClauseElement
-
 from ...engine import default
-from ...sql import compiler, sqltypes
-from ...types import (
+from ...sql import ClauseElement, compiler, sqltypes
+from ...sql.sqltypes import (
     BLOB as BLOB,
     CHAR as CHAR,
     CLOB as CLOB,

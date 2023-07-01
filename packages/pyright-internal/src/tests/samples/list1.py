@@ -2,18 +2,7 @@
 
 # pyright: strict, reportUnknownVariableType=false
 
-from typing import (
-    Any,
-    Collection,
-    Dict,
-    Generic,
-    List,
-    Literal,
-    Optional,
-    Sequence,
-    TypeVar,
-    Union,
-)
+from typing import Any, Collection, Generic, Literal, Sequence, TypeVar
 
 
 v1 = [1, 2, 3]
@@ -25,7 +14,7 @@ reveal_type(v2, expected_text="list[int | float | str]")
 v3 = []
 reveal_type(v3, expected_text="list[Unknown]")
 
-v4: List[object] = []
+v4: list[object] = []
 
 v5: object = []
 
@@ -58,22 +47,22 @@ reveal_type(v10.baz, expected_text="list[Foo]")
 v10.baz = [Foo()]
 reveal_type(v10.baz, expected_text="list[Foo]")
 
-v11: List[Any] = [["hi", ["hi"], [[{}]]]]
+v11: list[Any] = [["hi", ["hi"], [[{}]]]]
 reveal_type(v11, expected_text="list[Any]")
 
-v12: List[Optional[int]] = [None] * 3
+v12: list[int | None] = [None] * 3
 reveal_type(v12, expected_text="list[int | None]")
 
-v13: List[Optional[str]] = ["3", None] * 2
+v13: list[str | None] = ["3", None] * 2
 reveal_type(v13, expected_text="list[str | None]")
 
 x1 = 3
-v14: List[Optional[str]] = [None] * x1
+v14: list[str | None] = [None] * x1
 
 x2 = [1, 2, 3]
-v15: List[Optional[str]] = [None] * sum(x2)
+v15: list[str | None] = [None] * sum(x2)
 
-v16: Dict[str, List[Optional[str]]] = {n: [None] * len(n) for n in ["a", "aa", "aaa"]}
+v16: dict[str, list[str | None]] = {n: [None] * len(n) for n in ["a", "aa", "aaa"]}
 
 
 ScalarKeysT = TypeVar("ScalarKeysT", bound=Literal["name", "country"])
@@ -91,7 +80,7 @@ reveal_type(func1(["name", "country"]), expected_type="Literal['name', 'country'
 func1(["id"])
 
 
-def func2(thing: Union[str, List[Union[str, int]], List[List[Union[str, int]]]]):
+def func2(thing: str | list[str | int] | list[list[str | int]]):
     ...
 
 

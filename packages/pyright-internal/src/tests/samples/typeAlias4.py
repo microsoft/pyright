@@ -57,9 +57,9 @@ ExplicitAlias: TA = int
 SimpleNonAlias: Type[int] = int
 
 if sys.version_info > (3, 9):
-    reveal_type(SimpleAlias, expected_text="Type[int]")
-    reveal_type(ExplicitAlias, expected_text="Type[int]")
-    reveal_type(SimpleNonAlias, expected_text="Type[int]")
+    reveal_type(SimpleAlias, expected_text="type[int]")
+    reveal_type(ExplicitAlias, expected_text="type[int]")
+    reveal_type(SimpleNonAlias, expected_text="type[int]")
 
 
 class ClassB:

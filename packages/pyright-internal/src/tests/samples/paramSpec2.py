@@ -3,17 +3,13 @@
 from asyncio import Future
 from typing import Awaitable, Callable, ParamSpec, TypeVar
 
-TParams = ParamSpec("TParams")
-TReturn = TypeVar("TReturn")
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
-def awaitable_wrapper(
-    a: Callable[TParams, TReturn]
-) -> Callable[TParams, Awaitable[TReturn]]:
-    def foo_internal(
-        *args: TParams.args, **kwargs: TParams.kwargs
-    ) -> Awaitable[TReturn]:
-        ft: "Future[TReturn]" = Future()
+def awaitable_wrapper(a: Callable[P, R]) -> Callable[P, Awaitable[R]]:
+    def foo_internal(*args: P.args, **kwargs: P.kwargs) -> Awaitable[R]:
+        ft: "Future[R]" = Future()
         ft.set_result(a(*args, **kwargs))
         return ft
 

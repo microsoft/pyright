@@ -2,7 +2,7 @@
 # "self" or "cls" parameter type is honored when binding the
 # method to an object or class.
 
-from typing import Protocol, Type, TypeVar
+from typing import Protocol, TypeVar
 
 
 class HasItemProtocol1(Protocol):
@@ -44,7 +44,7 @@ class HasItemProtocol2(Protocol):
 
 class Mixin2:
     @classmethod
-    def do_stuff(cls: Type[HasItemProtocol2]):
+    def do_stuff(cls: type[HasItemProtocol2]):
         pass
 
 

@@ -11,3 +11,12 @@ _EnumMemberT = TypeVar("_EnumMemberT")
 class EnumMeta2(EnumMeta):
     def __getitem__(cls: type[_EnumMemberT], name: str) -> _EnumMemberT:
         return EnumMeta.__getitem__(cls, name)
+
+
+class MyMeta(type):
+    @classmethod
+    def meta_method(cls) -> None:
+        ...
+
+
+MyMeta.meta_method()

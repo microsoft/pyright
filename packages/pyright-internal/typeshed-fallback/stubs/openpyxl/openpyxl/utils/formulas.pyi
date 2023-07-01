@@ -1,3 +1,3 @@
-from _typeshed import Incomplete
+from typing_extensions import Final
 
-FORMULAE: Incomplete
+FORMULAE: Final[frozenset[str]]

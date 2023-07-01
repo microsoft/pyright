@@ -3,4 +3,3 @@
 
 l: list[str] = []
 "{s}".format(s="\n".join(sorted(l)))
-

@@ -1,25 +1,23 @@
 # This sample tests assignments to indexed expressions
 # where the base is a specialized object.
 
-from typing import List, Dict, Union
 
-
-v1: List[int] = [1, 2, 3, 4, 5]
+v1: list[int] = [1, 2, 3, 4, 5]
 # This should generate an error because
 # the assigned type is wrong.
 v1[0] = "a"
 
-v2: Dict[int, str] = {1: "str"}
+v2: dict[int, str] = {1: "str"}
 # This should generate an error because
 # the assigned type is wrong.
 v2[1] = 123
 
-v3: List[Union[int, str]] = ["a"]
+v3: list[int | str] = ["a"]
 v3[0] = 3
 reveal_type(v3[0], expected_text="Literal[3]")
 
 
-v4: Dict[str, Union[int, str]] = {}
+v4: dict[str, int | str] = {}
 v4["aaa"] = 3
 v4["bbb"] = "bbb"
 reveal_type(v4["aaa"], expected_text="Literal[3]")

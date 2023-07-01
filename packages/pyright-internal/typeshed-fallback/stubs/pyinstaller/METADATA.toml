@@ -1,2 +1,2 @@
-version = "5.10.*"
+version = "5.12.*"
 requires = ["types-setuptools"]

@@ -1,14 +1,6 @@
 # This sample tests unnecessary isinstance error reporting.
 
-from typing import (
-    ClassVar,
-    Protocol,
-    Type,
-    TypedDict,
-    Union,
-    runtime_checkable,
-)
-
+from typing import ClassVar, Protocol, TypedDict, runtime_checkable
 from unknown_import import CustomClass1
 
 
@@ -16,7 +8,7 @@ class CustomClass2(CustomClass1):
     pass
 
 
-def func1(p1: int, p2: Union[int, str]):
+def func1(p1: int, p2: int | str):
     a = isinstance(p2, str)
 
     b = isinstance(p2, (int, float))
@@ -44,7 +36,7 @@ class SomeTypedDict(TypedDict):
     name: str
 
 
-def func2(p1: SomeTypedDict, p2: Union[int, SomeTypedDict]):
+def func2(p1: SomeTypedDict, p2: int | SomeTypedDict):
     a = isinstance(p2, dict)
 
     # This should generate an error because it's always true.
@@ -84,7 +76,7 @@ class B(A):
     pass
 
 
-def func4(a: A, cls: Type[A]) -> None:
+def func4(a: A, cls: type[A]) -> None:
     isinstance(a, cls)
 
     # This should generate an error because it's always true.

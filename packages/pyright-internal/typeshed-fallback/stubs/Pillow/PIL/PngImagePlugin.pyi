@@ -6,7 +6,6 @@ from typing_extensions import Literal
 from ._binary import o8 as o8
 from .ImageFile import ImageFile
 
-logger: Any
 is_cid: Any
 MAX_TEXT_CHUNK: Any
 MAX_TEXT_MEMORY: Any
@@ -102,9 +101,9 @@ class PngImageFile(ImageFile):
     def load_read(self, read_bytes): ...
     png: Any
     im: Any
-    pyaccess: Any
     def load_end(self) -> None: ...
     def getexif(self): ...
+    def getxmp(self): ...
 
 def putchunk(fp, cid, *data) -> None: ...
 

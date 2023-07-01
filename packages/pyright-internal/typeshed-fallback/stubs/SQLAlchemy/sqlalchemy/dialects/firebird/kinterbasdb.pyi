@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 from typing import Any
 
-from ...types import Float, Numeric
+from ...sql.sqltypes import Float, Numeric
 from .base import FBDialect, FBExecutionContext
 
 class _kinterbasdb_numeric:

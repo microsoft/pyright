@@ -1,7 +1,7 @@
 # This sample tests a member access when the metaclass implements a descriptor
 # protocol.
 
-from typing import Any, Optional, Union, Type, TypeVar, overload
+from typing import Any, TypeVar, overload
 
 
 T = TypeVar("T")
@@ -9,16 +9,14 @@ T = TypeVar("T")
 
 class MetaClass(type):
     @overload
-    def __get__(self: Type[T], instance: None, owner: Any) -> Type[T]:
+    def __get__(self: type[T], instance: None, owner: Any) -> type[T]:
         ...
 
     @overload
-    def __get__(self: Type[T], instance: object, owner: Any) -> T:
+    def __get__(self: type[T], instance: object, owner: Any) -> T:
         ...
 
-    def __get__(
-        self: Type[T], instance: Optional[object], owner: Any
-    ) -> Union[Type[T], T]:
+    def __get__(self: type[T], instance: object | None, owner: Any) -> type[T] | T:
         if instance is None:
             return self
         return self()
@@ -32,5 +30,5 @@ class B:
     a = A
 
 
-reveal_type(B.a, expected_text="Type[A]")
+reveal_type(B.a, expected_text="type[A]")
 reveal_type(B().a, expected_text="A")

@@ -28,10 +28,10 @@ import { UriParser } from '../../../common/uriParser';
 import { LanguageServerInterface, MessageAction, ServerSettings, WindowInterface } from '../../../languageServerBase';
 import { CodeActionProvider } from '../../../languageService/codeActionProvider';
 import {
-    createInitStatus,
     WellKnownWorkspaceKinds,
     Workspace,
     WorkspacePythonPathKind,
+    createInitStatus,
 } from '../../../workspaceFactory';
 import { TestAccessHost } from '../testAccessHost';
 import { HostSpecificFeatures } from './testState';
@@ -48,6 +48,7 @@ export class TestFeatures implements HostSpecificFeatures {
         cacheManager?: CacheManager
     ) =>
         new BackgroundAnalysisProgram(
+            serviceId,
             console,
             configOptions,
             importResolver,
@@ -76,6 +77,10 @@ export class TestFeatures implements HostSpecificFeatures {
 }
 
 export class TestLanguageService implements LanguageServerInterface {
+    readonly rootPath = path.sep;
+    readonly window = new TestWindow();
+    readonly supportAdvancedEdits = true;
+
     private readonly _workspace: Workspace;
     private readonly _defaultWorkspace: Workspace;
     private readonly _uriParser: UriParser;
@@ -103,8 +108,13 @@ export class TestLanguageService implements LanguageServerInterface {
             searchPathsToWatch: [],
         };
     }
+
     decodeTextDocumentUri(uriString: string): string {
         return this._uriParser.decodeTextDocumentUri(uriString);
+    }
+
+    getWorkspaces(): Promise<Workspace[]> {
+        return Promise.resolve([this._workspace, this._defaultWorkspace]);
     }
 
     getWorkspaceForFile(filePath: string): Promise<Workspace> {
@@ -143,10 +153,6 @@ export class TestLanguageService implements LanguageServerInterface {
     restart(): void {
         // Don't do anything
     }
-
-    readonly rootPath = path.sep;
-    readonly window = new TestWindow();
-    readonly supportAdvancedEdits = true;
 }
 
 class TestWindow implements WindowInterface {

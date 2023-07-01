@@ -1,7 +1,7 @@
 # This sample tests the check for non-overlapping types compared
 # with equals comparison.
 
-from typing import Literal, Optional, TypeVar, Union
+from typing import Literal, TypeVar
 
 
 OS = Literal["Linux", "Darwin", "Windows"]
@@ -42,9 +42,7 @@ _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2", bound=ClassB)
 
 
-def func2(
-    a: ClassA, b: ClassB, c: _T1, d: _T2, e: Union[ClassA, ClassB]
-) -> Union[None, _T1, _T2]:
+def func2(a: ClassA, b: ClassB, c: _T1, d: _T2, e: ClassA | ClassB) -> None | _T1 | _T2:
     # This should generate an error because there is no overlap in types.
     if a == b:
         return
@@ -74,7 +72,8 @@ def func3(base: type) -> None:
     if ClassA == base:
         ...
 
-def func4(val: Optional[str]):
+
+def func4(val: str | None):
     # This should generate an error because there is no overlap in types.
     if val == 42:
         ...

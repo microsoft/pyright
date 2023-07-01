@@ -56,6 +56,7 @@ class ORMCompileState(CompileState):
 
 class ORMFromStatementCompileState(ORMCompileState):
     multi_row_eager_loaders: bool
+    eager_adding_joins: bool
     compound_eager_adapter: Any
     extra_criteria_entities: Any
     eager_joins: Any
@@ -78,6 +79,7 @@ class ORMFromStatementCompileState(ORMCompileState):
 
 class ORMSelectCompileState(ORMCompileState, SelectState):
     multi_row_eager_loaders: bool
+    eager_adding_joins: bool
     compound_eager_adapter: Any
     correlate: Any
     correlate_except: Any

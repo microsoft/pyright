@@ -10,7 +10,6 @@ from urllib3.exceptions import (
     ResponseError as ResponseError,
 )
 from urllib3.poolmanager import PoolManager as PoolManager, proxy_from_url as proxy_from_url
-from urllib3.response import HTTPResponse as HTTPResponse
 from urllib3.util.retry import Retry as Retry
 
 from .cookies import extract_cookies_to_jar as extract_cookies_to_jar
