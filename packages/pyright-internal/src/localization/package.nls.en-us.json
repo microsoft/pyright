@@ -268,6 +268,7 @@
         "namedTupleEmptyName": "Names within a named tuple cannot be empty",
         "namedTupleMultipleInheritance": "Multiple inheritance with NamedTuple is not supported",
         "namedTupleFirstArg": "Expected named tuple class name as first argument",
+        "namedTupleNameKeyword": "Field names cannot be a keyword",
         "namedTupleNameType": "Expected two-entry tuple specifying entry name and type",
         "namedTupleNameUnique": "Names within a named tuple must be unique",
         "namedTupleNoTypes": "\"namedtuple\" provides no types for tuple entries; use \"NamedTuple\" instead",
