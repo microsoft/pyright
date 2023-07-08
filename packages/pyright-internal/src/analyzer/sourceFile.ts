@@ -434,7 +434,6 @@ export class SourceFile {
 
             return this.fileSystem.readFileSync(this._filePath, 'utf8');
         } catch (error) {
-            this._console.error(`Error reading file "${this._filePath}": ${error}`);
             return undefined;
         }
     }
