@@ -364,6 +364,10 @@ export class Tokenizer {
         return _operatorInfo[operatorType];
     }
 
+    static isKeyword(name: string): boolean {
+        return _keywords.has(name);
+    }
+
     static isOperatorAssignment(operatorType?: OperatorType): boolean {
         if (operatorType === undefined || _operatorInfo[operatorType] === undefined) {
             return false;
