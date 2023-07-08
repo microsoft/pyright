@@ -7171,17 +7171,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let typeResult: TypeResultWithNode;
 
             // If it's a custom __class_getitem__, none of the arguments should be
-            // treated as types. If it's an Annotated[a, b, c], only the first index
-            // should be treated as a type. The others can be regular (non-type) objects.
-            if (options?.hasCustomClassGetItem || (options?.isAnnotatedClass && argIndex > 0)) {
+            // treated as types.
+            if (options?.hasCustomClassGetItem) {
+                adjFlags =
+                    EvaluatorFlags.DisallowParamSpec |
+                    EvaluatorFlags.DisallowTypeVarTuple |
+                    EvaluatorFlags.DoNotSpecialize |
+                    EvaluatorFlags.DisallowClassVar;
                 typeResult = {
-                    ...getTypeOfExpression(
-                        expr,
-                        EvaluatorFlags.DisallowParamSpec |
-                            EvaluatorFlags.DisallowTypeVarTuple |
-                            EvaluatorFlags.DoNotSpecialize |
-                            EvaluatorFlags.DisallowClassVar
-                    ),
+                    ...getTypeOfExpression(expr, adjFlags),
+                    node: expr,
+                };
+            } else if (options?.isAnnotatedClass && argIndex > 0) {
+                // If it's an Annotated[a, b, c], only the first index should be
+                // treated as a type.The others can be regular(non - type) objects.
+                adjFlags =
+                    EvaluatorFlags.DisallowParamSpec |
+                    EvaluatorFlags.DisallowTypeVarTuple |
+                    EvaluatorFlags.DoNotSpecialize |
+                    EvaluatorFlags.DisallowClassVar;
+                if (isAnnotationEvaluationPostponed(AnalyzerNodeInfo.getFileInfo(node))) {
+                    adjFlags |= EvaluatorFlags.AllowForwardReferences;
+                }
+
+                typeResult = {
+                    ...getTypeOfExpression(expr, adjFlags),
                     node: expr,
                 };
             } else {
@@ -7532,7 +7546,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (node.leftExpression.nodeType === ParseNodeType.Lambda) {
             baseTypeResult = getTypeOfLambdaForCall(node, inferenceContext);
         } else {
-            baseTypeResult = getTypeOfExpression(node.leftExpression, EvaluatorFlags.DoNotSpecialize);
+            baseTypeResult = getTypeOfExpression(
+                node.leftExpression,
+                EvaluatorFlags.DoNotSpecialize | (flags & EvaluatorFlags.AllowForwardReferences)
+            );
         }
 
         const argList = node.arguments.map((arg) => {
