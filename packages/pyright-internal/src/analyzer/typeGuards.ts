@@ -354,7 +354,7 @@ export function getTypeNarrowingCallback(
                             const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
                             const rightType = rightTypeResult.type;
 
-                            if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
+                            if (isLiteralTypeOrUnion(rightType)) {
                                 return (type: Type) => {
                                     let narrowedType: Type;
 
@@ -1849,7 +1849,7 @@ export function narrowTypeForDiscriminatedDictEntryComparison(
     evaluator: TypeEvaluator,
     referenceType: Type,
     indexLiteralType: ClassType,
-    literalType: ClassType,
+    literalType: Type,
     isPositiveTest: boolean
 ): Type {
     let canNarrow = true;
@@ -1861,9 +1861,25 @@ export function narrowTypeForDiscriminatedDictEntryComparison(
 
             if (tdEntry && isLiteralTypeOrUnion(tdEntry.valueType)) {
                 if (isPositiveTest) {
-                    return evaluator.assignType(tdEntry.valueType, literalType) ? subtype : undefined;
+                    let foundMatch = false;
+
+                    doForEachSubtype(literalType, (literalSubtype) => {
+                        if (evaluator.assignType(tdEntry.valueType, literalSubtype)) {
+                            foundMatch = true;
+                        }
+                    });
+
+                    return foundMatch ? subtype : undefined;
                 } else {
-                    return evaluator.assignType(literalType, tdEntry.valueType) ? undefined : subtype;
+                    let foundNonMatch = false;
+
+                    doForEachSubtype(literalType, (literalSubtype) => {
+                        if (!evaluator.assignType(literalSubtype, tdEntry.valueType)) {
+                            foundNonMatch = true;
+                        }
+                    });
+
+                    return foundNonMatch ? subtype : undefined;
                 }
             }
         }
@@ -1879,7 +1895,7 @@ export function narrowTypeForDiscriminatedTupleComparison(
     evaluator: TypeEvaluator,
     referenceType: Type,
     indexLiteralType: ClassType,
-    literalType: ClassType,
+    literalType: Type,
     isPositiveTest: boolean
 ): Type {
     let canNarrow = true;
@@ -1889,7 +1905,8 @@ export function narrowTypeForDiscriminatedTupleComparison(
             isClassInstance(subtype) &&
             ClassType.isTupleClass(subtype) &&
             !isUnboundedTupleClass(subtype) &&
-            typeof indexLiteralType.literalValue === 'number'
+            typeof indexLiteralType.literalValue === 'number' &&
+            isClassInstance(literalType)
         ) {
             const indexValue = indexLiteralType.literalValue;
             if (subtype.tupleTypeArguments && indexValue >= 0 && indexValue < subtype.tupleTypeArguments.length) {
