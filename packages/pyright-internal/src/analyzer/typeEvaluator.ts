@@ -1038,7 +1038,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case ParseNodeType.List:
             case ParseNodeType.Set: {
-                typeResult = getTypeOfListOrSet(node, inferenceContext);
+                typeResult = getTypeOfListOrSet(node, flags, inferenceContext);
                 break;
             }
 
@@ -1063,7 +1063,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Dictionary: {
-                typeResult = getTypeOfDictionary(node, inferenceContext);
+                typeResult = getTypeOfDictionary(node, flags, inferenceContext);
                 break;
             }
 
@@ -7305,6 +7305,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         inferenceContext: InferenceContext | undefined
     ): TypeResult {
         if (
+            (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0 &&
+            node.parent?.nodeType !== ParseNodeType.Argument
+        ) {
+            // This is allowed inside of an index trailer, specifically
+            // to support Tuple[()], which is the documented way to annotate
+            // a zero-length tuple.
+            const diag = new DiagnosticAddendum();
+            diag.addMessage(Localizer.DiagnosticAddendum.useTupleInstead());
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.tupleInAnnotation() + diag.getString(),
+                node
+            );
+        }
+
+        if (
             (flags & EvaluatorFlags.ExpectingInstantiableType) !== 0 &&
             node.expressions.length === 0 &&
             !inferenceContext
@@ -7527,6 +7544,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         inferenceContext: InferenceContext | undefined
     ): TypeResult {
         let baseTypeResult: TypeResult | undefined;
+
+        if (
+            (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0 &&
+            node.leftExpression.nodeType === ParseNodeType.Name &&
+            node.leftExpression.value === 'type'
+        ) {
+            const diag = new DiagnosticAddendum();
+            diag.addMessage(Localizer.DiagnosticAddendum.useTypeInstead());
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typeCallNotAllowed() + diag.getString(),
+                node
+            );
+        }
 
         // Handle immediate calls of lambdas specially.
         if (node.leftExpression.nodeType === ParseNodeType.Lambda) {
@@ -12235,7 +12267,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return returnType;
     }
 
-    function getTypeOfDictionary(node: DictionaryNode, inferenceContext: InferenceContext | undefined): TypeResult {
+    function getTypeOfDictionary(
+        node: DictionaryNode,
+        flags: EvaluatorFlags,
+        inferenceContext: InferenceContext | undefined
+    ): TypeResult {
+        if (
+            (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0 &&
+            node.parent?.nodeType !== ParseNodeType.Argument
+        ) {
+            const diag = new DiagnosticAddendum();
+            diag.addMessage(Localizer.DiagnosticAddendum.useDictInstead());
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.dictInAnnotation() + diag.getString(),
+                node
+            );
+        }
+
         // If the expected type is a union, analyze for each of the subtypes
         // to find one that matches.
         let effectiveExpectedType = inferenceContext?.expectedType;
@@ -12708,7 +12758,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return isIncomplete;
     }
 
-    function getTypeOfListOrSet(node: ListNode | SetNode, inferenceContext: InferenceContext | undefined): TypeResult {
+    function getTypeOfListOrSet(
+        node: ListNode | SetNode,
+        flags: EvaluatorFlags,
+        inferenceContext: InferenceContext | undefined
+    ): TypeResult {
+        if (
+            (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0 &&
+            node.nodeType === ParseNodeType.List &&
+            node.parent?.nodeType !== ParseNodeType.Argument
+        ) {
+            const diag = new DiagnosticAddendum();
+            diag.addMessage(Localizer.DiagnosticAddendum.useListInstead());
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.listInAnnotation() + diag.getString(),
+                node
+            );
+        }
+
         // If the expected type is a union, recursively call for each of the subtypes
         // to find one that matches.
         let effectiveExpectedType = inferenceContext?.expectedType;

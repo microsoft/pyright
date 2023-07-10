@@ -910,7 +910,7 @@ test('ParamSpec19', () => {
 
 test('ParamSpec20', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec20.py']);
-    TestUtils.validateResults(results, 6);
+    TestUtils.validateResults(results, 8);
 });
 
 test('ParamSpec21', () => {

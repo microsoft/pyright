@@ -3436,14 +3436,6 @@ export class Parser {
 
                 this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
 
-                if (this._isParsingTypeAnnotation) {
-                    const diag = new DiagnosticAddendum();
-                    if (atomExpression.nodeType === ParseNodeType.Name && atomExpression.value === 'type') {
-                        diag.addMessage(Localizer.DiagnosticAddendum.useTypeInstead());
-                        this._addError(Localizer.Diagnostic.typeCallNotAllowed() + diag.getString(), callNode);
-                    }
-                }
-
                 atomExpression = callNode;
 
                 if (atomExpression.maxChildDepth !== undefined && atomExpression.maxChildDepth >= maxChildNodeDepth) {
@@ -3818,18 +3810,6 @@ export class Parser {
 
         if (nextToken.type === TokenType.OpenParenthesis) {
             const possibleTupleNode = this._parseTupleAtom();
-            if (
-                possibleTupleNode.nodeType === ParseNodeType.Tuple &&
-                this._isParsingTypeAnnotation &&
-                !this._isParsingIndexTrailer
-            ) {
-                // This is allowed inside of an index trailer, specifically
-                // to support Tuple[()], which is the documented way to annotate
-                // a zero-length tuple.
-                const diag = new DiagnosticAddendum();
-                diag.addMessage(Localizer.DiagnosticAddendum.useTupleInstead());
-                this._addError(Localizer.Diagnostic.tupleInAnnotation() + diag.getString(), possibleTupleNode);
-            }
 
             if (
                 possibleTupleNode.nodeType === ParseNodeType.UnaryOperation ||
@@ -3853,21 +3833,9 @@ export class Parser {
 
             return possibleTupleNode;
         } else if (nextToken.type === TokenType.OpenBracket) {
-            const listNode = this._parseListAtom();
-            if (this._isParsingTypeAnnotation && !this._isParsingIndexTrailer) {
-                const diag = new DiagnosticAddendum();
-                diag.addMessage(Localizer.DiagnosticAddendum.useListInstead());
-                this._addError(Localizer.Diagnostic.listInAnnotation() + diag.getString(), listNode);
-            }
-            return listNode;
+            return this._parseListAtom();
         } else if (nextToken.type === TokenType.OpenCurlyBrace) {
-            const dictNode = this._parseDictionaryOrSetAtom();
-            if (this._isParsingTypeAnnotation && !this._isParsingIndexTrailer) {
-                const diag = new DiagnosticAddendum();
-                diag.addMessage(Localizer.DiagnosticAddendum.useDictInstead());
-                this._addError(Localizer.Diagnostic.dictInAnnotation() + diag.getString(), dictNode);
-            }
-            return dictNode;
+            return this._parseDictionaryOrSetAtom();
         }
 
         if (nextToken.type === TokenType.Keyword) {
