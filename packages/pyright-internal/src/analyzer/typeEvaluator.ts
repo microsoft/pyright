@@ -9367,15 +9367,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Does this function define the param spec, or is it an inner
                 // function nested within another function that defines the param
                 // spec? We need to handle these two cases differently.
+                const paramSpecScopeId = varArgListParam.type.scopeId;
                 if (
-                    varArgListParam.type.scopeId === typeResult.type.details.typeVarScopeId ||
-                    varArgListParam.type.scopeId === typeResult.type.details.constructorTypeVarScopeId
+                    paramSpecScopeId === typeResult.type.details.typeVarScopeId ||
+                    paramSpecScopeId === typeResult.type.details.constructorTypeVarScopeId
                 ) {
                     paramSpecArgList = [];
                     paramSpecTarget = TypeVarType.cloneForParamSpecAccess(varArgListParam.type, /* access */ undefined);
                 } else {
                     positionalOnlyLimitIndex = varArgListParamIndex;
                 }
+            }
+        } else if (typeResult.type.details.paramSpec) {
+            const paramSpecScopeId = typeResult.type.details.paramSpec.scopeId;
+            if (
+                paramSpecScopeId === typeResult.type.details.typeVarScopeId ||
+                paramSpecScopeId === typeResult.type.details.constructorTypeVarScopeId
+            ) {
+                paramSpecArgList = [];
+                paramSpecTarget = TypeVarType.cloneForParamSpecAccess(
+                    typeResult.type.details.paramSpec,
+                    /* access */ undefined
+                );
             }
         }
 
@@ -9994,27 +10007,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 });
                                 trySetActive(argList[argIndex], paramDetails.params[paramInfoIndex].param);
                             }
+                        } else if (paramSpecArgList) {
+                            paramSpecArgList.push(argList[argIndex]);
                         } else if (paramDetails.kwargsIndex !== undefined) {
-                            if (paramSpecArgList) {
-                                paramSpecArgList.push(argList[argIndex]);
-                            } else {
-                                const paramType = paramDetails.params[paramDetails.kwargsIndex].type;
-                                validateArgTypeParams.push({
-                                    paramCategory: ParameterCategory.KwargsDict,
-                                    paramType,
-                                    requiresTypeVarMatching: requiresSpecialization(paramType),
-                                    argument: argList[argIndex],
-                                    errorNode: argList[argIndex].valueExpression ?? errorNode,
-                                    paramName: paramNameValue,
-                                });
+                            const paramType = paramDetails.params[paramDetails.kwargsIndex].type;
+                            validateArgTypeParams.push({
+                                paramCategory: ParameterCategory.KwargsDict,
+                                paramType,
+                                requiresTypeVarMatching: requiresSpecialization(paramType),
+                                argument: argList[argIndex],
+                                errorNode: argList[argIndex].valueExpression ?? errorNode,
+                                paramName: paramNameValue,
+                            });
 
-                                // Remember that this parameter has already received a value.
-                                paramMap.set(paramNameValue, {
-                                    argsNeeded: 1,
-                                    argsReceived: 1,
-                                    isPositionalOnly: false,
-                                });
-                            }
+                            // Remember that this parameter has already received a value.
+                            paramMap.set(paramNameValue, {
+                                argsNeeded: 1,
+                                argsReceived: 1,
+                                isPositionalOnly: false,
+                            });
                             assert(
                                 paramDetails.params[paramDetails.kwargsIndex],
                                 'paramDetails.kwargsIndex params entry is undefined'
