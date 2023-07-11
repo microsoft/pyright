@@ -8,10 +8,23 @@
  */
 
 import { assert } from '../common/debug';
-import { ArgumentCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import {
+    ArgumentCategory,
+    AssignmentNode,
+    ExpressionNode,
+    NameNode,
+    ParseNode,
+    ParseNodeType,
+} from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { VariableDeclaration } from './declaration';
-import { getClassFullName, getEnclosingClass, getTypeSourceId } from './parseTreeUtils';
+import {
+    getClassFullName,
+    getEnclosingClass,
+    getParentNodeOfType,
+    getTypeSourceId,
+    isNodeContainedWithin,
+} from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { isSingleDunderName } from './symbolNameUtils';
 import { FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
@@ -23,6 +36,7 @@ import {
     ClassTypeFlags,
     EnumLiteral,
     Type,
+    UnknownType,
     combineTypes,
     isClass,
     isClassInstance,
@@ -279,14 +293,24 @@ export function transformTypeForPossibleEnumClass(
     // variables used within each enum instance. Unless/until there is
     // a change to this convention and all type checkers and stubs adopt
     // it, we're stuck with this limitation.
-    let isMemberOfEnumeration =
-        (node.parent?.nodeType === ParseNodeType.Assignment && node.parent.leftExpression === node) ||
-        (node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
-            node.parent.valueExpression === node &&
-            node.parent.parent?.nodeType === ParseNodeType.Assignment) ||
-        (getFileInfo(node).isStubFile &&
-            node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
-            node.parent.valueExpression === node);
+    let isMemberOfEnumeration = false;
+    let isUnpackedTuple = false;
+
+    const assignmentNode = getParentNodeOfType(node, ParseNodeType.Assignment) as AssignmentNode | undefined;
+
+    if (assignmentNode && isNodeContainedWithin(node, assignmentNode.leftExpression)) {
+        isMemberOfEnumeration = true;
+
+        if (getParentNodeOfType(node, ParseNodeType.Tuple)) {
+            isUnpackedTuple = true;
+        }
+    } else if (
+        getFileInfo(node).isStubFile &&
+        node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
+        node.parent.valueExpression === node
+    ) {
+        isMemberOfEnumeration = true;
+    }
 
     // The spec specifically excludes names that start and end with a single underscore.
     // This also includes dunder names.
@@ -313,6 +337,14 @@ export function transformTypeForPossibleEnumClass(
         valueType = AnyType.create();
     } else {
         valueType = getValueType();
+
+        // If the LHS is an unpacked tuple, we need to handle this as
+        // a special case.
+        if (isUnpackedTuple) {
+            valueType =
+                evaluator.getTypeOfIterator({ type: valueType }, /* isAsync */ false, /* errorNode */ undefined)
+                    ?.type ?? UnknownType.create();
+        }
     }
 
     // The spec excludes descriptors.
