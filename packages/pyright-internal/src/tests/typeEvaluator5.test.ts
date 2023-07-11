@@ -142,7 +142,8 @@ test('TypeAliasStatement4', () => {
 
 test('Hashability1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['hashability1.py']);
-    TestUtils.validateResults(analysisResults, 10);
+    // TestUtils.validateResults(analysisResults, 10);
+    TestUtils.validateResults(analysisResults, 14);
 });
 
 test('Override1', () => {
@@ -294,5 +295,5 @@ test('TypedDictReadOnly1', () => {
 
 test('TypedDictReadOnly2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly2.py']);
-    TestUtils.validateResults(analysisResults, 9);
+    TestUtils.validateResults(analysisResults, 12);
 });

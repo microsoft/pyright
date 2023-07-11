@@ -2609,7 +2609,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function isTypeHashable(type: Type): boolean {
-        let isTypeHashable = true;
+        let _isTypeHashable = true;
 
         doForEachSubtype(makeTopLevelTypeVarsConcrete(type), (subtype) => {
             if (isClassInstance(subtype)) {
@@ -2643,6 +2643,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 isObjectHashable = false;
                             }
                         }
+                    } else {
+                        const eqMember = lookUpObjectMember(
+                            subtype,
+                            '__eq__',
+                            ClassMemberLookupFlags.SkipBaseClasses
+                        );
+
+                        if (eqMember && eqMember.isTypeDeclared) {
+                            // If `__hash__` is not defined but `__eq__` is, then
+                            // it is not hashable
+                            const decls = eqMember.symbol.getTypedDeclarations();
+                            if (decls.every((decl) => decl.type === DeclarationType.Function)) {
+                                isObjectHashable = false;
+                            }
+                        } else {
+                            // Both __hash__ and __eq__ are not defined.
+                            // If all parent classes are unhashable, then this class will be
+                            // unhashable too.
+                            if (subtype.details.mro.every((mroBase) => !isTypeHashable(mroBase))) {
+                                isObjectHashable = false;
+                            }
+                        }
+
                     }
 
                     // Cache the hashability for next time.
@@ -2650,12 +2673,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (!isObjectHashable) {
-                    isTypeHashable = false;
+                    _isTypeHashable = false;
                 }
             }
         });
 
-        return isTypeHashable;
+        return _isTypeHashable;
     }
 
     function getTypedDictClassType() {

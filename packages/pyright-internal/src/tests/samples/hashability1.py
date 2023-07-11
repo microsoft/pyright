@@ -53,3 +53,22 @@ d5 = {dc1: 100}
 
 dc2 = DC2(0)
 d6 = {dc2: 100}
+
+class EqNoHash:
+    def __eq__(self, other):
+        ...
+
+# Both of these should generate an error because a class that
+# defines __eq__ but not __hash__ is not hashable
+s4 = {EqNoHash()}
+d7 = {EqNoHash(): 100}
+
+class Unhashable:
+    __hash__: None = None # type: None
+
+class UnhashableSub(EqNoHash, Unhashable):
+    ...
+
+# Both of these should generate an error because all their supertypes are unhashable.
+s5 = {UnhashableSub()}
+d8 = {UnhashableSub(): 100}
