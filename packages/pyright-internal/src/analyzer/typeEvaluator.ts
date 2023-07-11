@@ -12571,12 +12571,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (entryInferenceContext && !valueTypeResult.typeErrors) {
-                    valueTypeResult.type =
-                        inferTypeArgFromExpectedEntryType(
-                            entryInferenceContext,
-                            [valueTypeResult.type],
-                            !isValueTypeInvariant
-                        ) ?? valueTypeResult.type;
+                    const fromExpectedType = inferTypeArgFromExpectedEntryType(
+                        entryInferenceContext,
+                        [valueTypeResult.type],
+                        !isValueTypeInvariant
+                    );
+
+                    if (fromExpectedType) {
+                        valueTypeResult = { ...valueTypeResult, type: fromExpectedType };
+                    }
                 }
 
                 if (expectedDiagAddendum && valueTypeResult.expectedTypeDiagAddendum) {
@@ -12609,19 +12612,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 const entryInferenceContext = makeInferenceContext(expectedType);
-                const unexpandedTypeResult = getTypeOfExpression(
+                let unexpandedTypeResult = getTypeOfExpression(
                     entryNode.expandExpression,
                     /* flags */ undefined,
                     entryInferenceContext
                 );
 
                 if (entryInferenceContext && !unexpandedTypeResult.typeErrors) {
-                    unexpandedTypeResult.type =
-                        inferTypeArgFromExpectedEntryType(
-                            entryInferenceContext,
-                            [unexpandedTypeResult.type],
-                            !isValueTypeInvariant
-                        ) ?? unexpandedTypeResult.type;
+                    const fromExpectedType = inferTypeArgFromExpectedEntryType(
+                        entryInferenceContext,
+                        [unexpandedTypeResult.type],
+                        !isValueTypeInvariant
+                    );
+
+                    if (fromExpectedType) {
+                        unexpandedTypeResult = { ...unexpandedTypeResult, type: fromExpectedType };
+                    }
                 }
 
                 if (unexpandedTypeResult.isIncomplete) {
