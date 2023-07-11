@@ -371,6 +371,7 @@ export interface ClassMemberLookup {
 export interface PrintTypeOptions {
     expandTypeAlias?: boolean;
     enforcePythonSyntax?: boolean;
+    useFullyQualifiedNames?: boolean;
     useTypingUnpack?: boolean;
     printUnknownWithAny?: boolean;
     printTypeVarVariance?: boolean;
@@ -650,6 +651,7 @@ export interface TypeEvaluator {
     ) => Diagnostic | undefined;
 
     printType: (type: Type, options?: PrintTypeOptions) => string;
+    printSrcDestTypes: (srcType: Type, destType: Type) => { sourceType: string; destType: string };
     printFunctionParts: (type: FunctionType, extraFlags?: PrintTypeFlags) => [string[], string];
 
     getTypeCacheEntryCount: () => number;

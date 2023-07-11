@@ -3003,10 +3003,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.typeAssignmentMismatch().format({
-                        sourceType: printType(type),
-                        destType: printType(declaredType),
-                    }) + diagAddendum.getString(),
+                    Localizer.Diagnostic.typeAssignmentMismatch().format(printSrcDestTypes(type, declaredType)) +
+                        diagAddendum.getString(),
                     srcExpression ?? nameNode,
                     diagAddendum.getEffectiveTextRange() ?? srcExpression ?? nameNode
                 );
@@ -21643,10 +21641,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 diag?.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                        sourceType: printType(srcType),
-                        destType: printType(destType),
-                    })
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType))
                 );
                 return false;
             }
@@ -21807,10 +21802,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     diag?.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(srcType),
-                            destType: printType(destType),
-                        })
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                            printSrcDestTypes(srcType, destType)
+                        )
                     );
                     return false;
                 }
@@ -21853,10 +21847,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 diag?.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                        sourceType: printType(srcType),
-                        destType: printType(destType),
-                    })
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType))
                 );
                 return false;
             }
@@ -22241,10 +22232,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         diag?.addMessage(
-            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                sourceType: printType(srcType),
-                destType: printType(destType),
-            })
+            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType))
         );
 
         return false;
@@ -22485,10 +22473,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isIncompatible) {
             diag?.addMessage(
-                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                    sourceType: printType(srcType),
-                    destType: printType(destType),
-                })
+                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType))
             );
             return false;
         }
@@ -22601,10 +22586,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (isIncompatible) {
                 diag?.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                        sourceType: printType(srcType),
-                        destType: printType(destType),
-                    })
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType))
                 );
                 return false;
             }
@@ -22727,10 +22709,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!foundMatch) {
             if (diag && diagAddendum) {
                 diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                        sourceType: printType(srcType),
-                        destType: printType(destType),
-                    })
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType))
                 );
                 diag.addAddendum(diagAddendum);
             }
@@ -24891,6 +24870,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return TypePrinter.printFunctionParts(type, flags, getFunctionEffectiveReturnType);
     }
 
+    // Prints two types and determines whether they need to be output in
+    // fully-qualified form for disambiguation.
+    function printSrcDestTypes(srcType: Type, destType: Type): { sourceType: string; destType: string } {
+        const simpleSrcType = printType(srcType);
+        const simpleDestType = printType(destType);
+
+        if (simpleSrcType !== simpleDestType) {
+            return { sourceType: simpleSrcType, destType: simpleDestType };
+        }
+
+        const fullSrcType = printType(srcType, { useFullyQualifiedNames: true });
+        const fullDestType = printType(destType, { useFullyQualifiedNames: true });
+
+        if (fullSrcType !== fullDestType) {
+            return { sourceType: fullSrcType, destType: fullDestType };
+        }
+
+        return { sourceType: simpleSrcType, destType: simpleDestType };
+    }
+
     function printType(type: Type, options?: PrintTypeOptions): string {
         let flags = evaluatorOptions.printTypeFlags;
 
@@ -24911,6 +24910,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
         if (options?.omitTypeArgumentsIfUnknown) {
             flags |= TypePrinter.PrintTypeFlags.OmitTypeArgumentsIfUnknown;
+        }
+        if (options?.useFullyQualifiedNames) {
+            flags |= TypePrinter.PrintTypeFlags.UseFullyQualifiedNames;
         }
 
         return TypePrinter.printType(type, flags, getFunctionEffectiveReturnType);
@@ -25095,6 +25097,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         addDiagnostic,
         addDiagnosticForTextRange,
         printType,
+        printSrcDestTypes,
         printFunctionParts,
         getTypeCacheEntryCount,
         disposeEvaluator,
