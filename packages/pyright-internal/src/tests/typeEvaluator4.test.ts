@@ -1146,6 +1146,12 @@ test('Annotated1', () => {
     TestUtils.validateResults(analysisResults39, 3);
 });
 
+test('Annotated2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotated2.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Circular1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['circular1.py']);
 

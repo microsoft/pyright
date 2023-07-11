@@ -229,6 +229,9 @@ export class Binder extends ParseTreeWalker {
     // Are we currently binding code located within an except block?
     private _isInExceptSuite = false;
 
+    // Are we currently walking the type arguments to an Annotated type annotation?
+    private _isInAnnotatedAnnotation = false;
+
     // A list of names assigned to __slots__ within a class.
     private _dunderSlotsEntries: StringListNode[] | undefined;
 
@@ -651,7 +654,12 @@ export class Binder extends ParseTreeWalker {
         // and this can lead to a performance issue when walking the control
         // flow graph if we need to evaluate every decorator.
         if (!ParseTreeUtils.isNodeContainedWithinNodeType(node, ParseNodeType.Decorator)) {
-            this._createCallFlowNode(node);
+            // Skip if we're in an 'Annotated' annotation because this creates
+            // problems for "No Return" return type analysis when annotation
+            // evaluation is deferred.
+            if (!this._isInAnnotatedAnnotation) {
+                this._createCallFlowNode(node);
+            }
         }
 
         // Is this an manipulation of dunder all?
@@ -1269,7 +1277,22 @@ export class Binder extends ParseTreeWalker {
 
     override visitIndex(node: IndexNode): boolean {
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
-        return true;
+
+        this.walk(node.baseExpression);
+
+        // If we're within an 'Annotated' type annotation, set the flag.
+        const wasInAnnotatedAnnotation = this._isInAnnotatedAnnotation;
+        if (this._isTypingAnnotation(node.baseExpression, 'Annotated')) {
+            this._isInAnnotatedAnnotation = true;
+        }
+
+        node.items.forEach((argNode) => {
+            this.walk(argNode);
+        });
+
+        this._isInAnnotatedAnnotation = wasInAnnotatedAnnotation;
+
+        return false;
     }
 
     override visitIf(node: IfNode): boolean {
