@@ -1177,15 +1177,10 @@ export class AnalyzerService {
         include.forEach((includeSpec) => {
             if (!FileSpec.isInPath(includeSpec.wildcardRoot, exclude)) {
                 let foundFileSpec = false;
-                let isFileIncluded = true;
 
                 const stat = tryStat(this.fs, includeSpec.wildcardRoot);
                 if (stat?.isFile()) {
-                    if (FileSpec.matchesIncludeFileRegex(includeSpec.wildcardRoot)) {
-                        results.push(includeSpec.wildcardRoot);
-                    } else {
-                        isFileIncluded = false;
-                    }
+                    results.push(includeSpec.wildcardRoot);
                     foundFileSpec = true;
                 } else if (stat?.isDirectory()) {
                     visitDirectory(includeSpec.wildcardRoot, includeSpec.regExp, includeSpec.hasDirectoryWildcard);
@@ -1194,8 +1189,6 @@ export class AnalyzerService {
 
                 if (!foundFileSpec) {
                     this._console.error(`File or directory "${includeSpec.wildcardRoot}" does not exist.`);
-                } else if (!isFileIncluded) {
-                    this._console.error(`File "${includeSpec.wildcardRoot}" is not a Python source file.`);
                 }
             }
         });
