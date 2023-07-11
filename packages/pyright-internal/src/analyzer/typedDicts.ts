@@ -554,11 +554,7 @@ export function synthesizeTypedDictClassMethods(
                     )
                 );
                 getOverloads.push(
-                    createGetMethod(
-                        literalStringInstance,
-                        /* valueType */ UnknownType.create(),
-                        /* includeDefault */ true
-                    )
+                    createGetMethod(literalStringInstance, /* valueType */ AnyType.create(), /* includeDefault */ true)
                 );
             }
         }

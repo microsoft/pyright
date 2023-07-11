@@ -163,3 +163,12 @@ reveal_type(te9_A._name_, expected_text="Literal['A']")
 def func2(e: type[Enum]):
     values = {v.value for v in e}
     reveal_type(values, expected_text="set[Any]")
+
+
+class TestEnum11(Enum):
+    (A, B, C) = range(3)
+
+
+te11_A = TestEnum11.A
+reveal_type(te11_A, expected_text="Literal[TestEnum11.A]")
+reveal_type(te11_A.value, expected_text="int")

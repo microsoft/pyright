@@ -9384,15 +9384,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Does this function define the param spec, or is it an inner
                 // function nested within another function that defines the param
                 // spec? We need to handle these two cases differently.
+                const paramSpecScopeId = varArgListParam.type.scopeId;
                 if (
-                    varArgListParam.type.scopeId === typeResult.type.details.typeVarScopeId ||
-                    varArgListParam.type.scopeId === typeResult.type.details.constructorTypeVarScopeId
+                    paramSpecScopeId === typeResult.type.details.typeVarScopeId ||
+                    paramSpecScopeId === typeResult.type.details.constructorTypeVarScopeId
                 ) {
                     paramSpecArgList = [];
                     paramSpecTarget = TypeVarType.cloneForParamSpecAccess(varArgListParam.type, /* access */ undefined);
                 } else {
                     positionalOnlyLimitIndex = varArgListParamIndex;
                 }
+            }
+        } else if (typeResult.type.details.paramSpec) {
+            const paramSpecScopeId = typeResult.type.details.paramSpec.scopeId;
+            if (
+                paramSpecScopeId === typeResult.type.details.typeVarScopeId ||
+                paramSpecScopeId === typeResult.type.details.constructorTypeVarScopeId
+            ) {
+                hasParamSpecArgsKwargs = true;
+                paramSpecArgList = [];
+                paramSpecTarget = TypeVarType.cloneForParamSpecAccess(
+                    typeResult.type.details.paramSpec,
+                    /* access */ undefined
+                );
             }
         }
 
@@ -10011,27 +10025,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 });
                                 trySetActive(argList[argIndex], paramDetails.params[paramInfoIndex].param);
                             }
+                        } else if (paramSpecArgList) {
+                            paramSpecArgList.push(argList[argIndex]);
                         } else if (paramDetails.kwargsIndex !== undefined) {
-                            if (paramSpecArgList) {
-                                paramSpecArgList.push(argList[argIndex]);
-                            } else {
-                                const paramType = paramDetails.params[paramDetails.kwargsIndex].type;
-                                validateArgTypeParams.push({
-                                    paramCategory: ParameterCategory.KwargsDict,
-                                    paramType,
-                                    requiresTypeVarMatching: requiresSpecialization(paramType),
-                                    argument: argList[argIndex],
-                                    errorNode: argList[argIndex].valueExpression ?? errorNode,
-                                    paramName: paramNameValue,
-                                });
+                            const paramType = paramDetails.params[paramDetails.kwargsIndex].type;
+                            validateArgTypeParams.push({
+                                paramCategory: ParameterCategory.KwargsDict,
+                                paramType,
+                                requiresTypeVarMatching: requiresSpecialization(paramType),
+                                argument: argList[argIndex],
+                                errorNode: argList[argIndex].valueExpression ?? errorNode,
+                                paramName: paramNameValue,
+                            });
 
-                                // Remember that this parameter has already received a value.
-                                paramMap.set(paramNameValue, {
-                                    argsNeeded: 1,
-                                    argsReceived: 1,
-                                    isPositionalOnly: false,
-                                });
-                            }
+                            // Remember that this parameter has already received a value.
+                            paramMap.set(paramNameValue, {
+                                argsNeeded: 1,
+                                argsReceived: 1,
+                                isPositionalOnly: false,
+                            });
                             assert(
                                 paramDetails.params[paramDetails.kwargsIndex],
                                 'paramDetails.kwargsIndex params entry is undefined'
@@ -10047,20 +10059,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             reportedArgError = true;
                         }
                     } else if (argList[argIndex].argumentCategory === ArgumentCategory.Simple) {
-                        if (!isDiagnosticSuppressedForNode(errorNode)) {
-                            const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
-                            addDiagnostic(
-                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                positionParamLimitIndex === 1
-                                    ? Localizer.Diagnostic.argPositionalExpectedOne()
-                                    : Localizer.Diagnostic.argPositionalExpectedCount().format({
-                                          expected: positionParamLimitIndex,
-                                      }),
-                                argList[argIndex].valueExpression || errorNode
-                            );
+                        if (paramSpecArgList) {
+                            paramSpecArgList.push(argList[argIndex]);
+                        } else {
+                            if (!isDiagnosticSuppressedForNode(errorNode)) {
+                                const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+                                addDiagnostic(
+                                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    positionParamLimitIndex === 1
+                                        ? Localizer.Diagnostic.argPositionalExpectedOne()
+                                        : Localizer.Diagnostic.argPositionalExpectedCount().format({
+                                              expected: positionParamLimitIndex,
+                                          }),
+                                    argList[argIndex].valueExpression || errorNode
+                                );
+                            }
+                            reportedArgError = true;
                         }
-                        reportedArgError = true;
                     } else if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
                         // Handle the case where a *args: P.args is passed as an argument to
                         // a function that accepts a ParamSpec.
@@ -10969,7 +10985,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
 
-        const srcTypeVarContext = new TypeVarContext(paramSpecType.details.typeVarScopeId);
+        const srcTypeVarContext = new TypeVarContext(getTypeVarScopeIds(paramSpecType));
         let reportedArgError = false;
 
         // Build a map of all named parameters.
@@ -12572,12 +12588,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (entryInferenceContext && !valueTypeResult.typeErrors) {
-                    valueTypeResult.type =
-                        inferTypeArgFromExpectedEntryType(
-                            entryInferenceContext,
-                            [valueTypeResult.type],
-                            !isValueTypeInvariant
-                        ) ?? valueTypeResult.type;
+                    const fromExpectedType = inferTypeArgFromExpectedEntryType(
+                        entryInferenceContext,
+                        [valueTypeResult.type],
+                        !isValueTypeInvariant
+                    );
+
+                    if (fromExpectedType) {
+                        valueTypeResult = { ...valueTypeResult, type: fromExpectedType };
+                    }
                 }
 
                 if (expectedDiagAddendum && valueTypeResult.expectedTypeDiagAddendum) {
@@ -12610,19 +12629,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 const entryInferenceContext = makeInferenceContext(expectedType);
-                const unexpandedTypeResult = getTypeOfExpression(
+                let unexpandedTypeResult = getTypeOfExpression(
                     entryNode.expandExpression,
                     /* flags */ undefined,
                     entryInferenceContext
                 );
 
                 if (entryInferenceContext && !unexpandedTypeResult.typeErrors) {
-                    unexpandedTypeResult.type =
-                        inferTypeArgFromExpectedEntryType(
-                            entryInferenceContext,
-                            [unexpandedTypeResult.type],
-                            !isValueTypeInvariant
-                        ) ?? unexpandedTypeResult.type;
+                    const fromExpectedType = inferTypeArgFromExpectedEntryType(
+                        entryInferenceContext,
+                        [unexpandedTypeResult.type],
+                        !isValueTypeInvariant
+                    );
+
+                    if (fromExpectedType) {
+                        unexpandedTypeResult = { ...unexpandedTypeResult, type: fromExpectedType };
+                    }
                 }
 
                 if (unexpandedTypeResult.isIncomplete) {
