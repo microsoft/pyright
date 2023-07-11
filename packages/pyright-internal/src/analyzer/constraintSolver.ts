@@ -807,6 +807,7 @@ function assignTypeToParamSpec(
                         FunctionType.addParameter(newFunction, param);
                     });
                     newFunction.details.typeVarScopeId = srcType.details.typeVarScopeId;
+                    newFunction.details.paramSpecTypeVarScopeId = srcType.details.paramSpecTypeVarScopeId;
                     newFunction.details.docString = srcType.details.docString;
                     newFunction.details.paramSpec = srcType.details.paramSpec;
                     typeVarContext.setTypeVarType(destType, newFunction);
