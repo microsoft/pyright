@@ -16919,6 +16919,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Note that the inferred type, once lazily computed, needs to wrap the
         // resulting type in an awaitable.
+        functionType.details.flags |= FunctionTypeFlags.WrapReturnTypeInAwait;
         awaitableFunctionType.details.flags |= FunctionTypeFlags.WrapReturnTypeInAwait;
 
         return awaitableFunctionType;
