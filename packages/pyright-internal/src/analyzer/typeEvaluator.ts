@@ -9384,6 +9384,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 paramSpecScopeId === typeResult.type.details.typeVarScopeId ||
                 paramSpecScopeId === typeResult.type.details.constructorTypeVarScopeId
             ) {
+                hasParamSpecArgsKwargs = true;
                 paramSpecArgList = [];
                 paramSpecTarget = TypeVarType.cloneForParamSpecAccess(
                     typeResult.type.details.paramSpec,
@@ -10041,20 +10042,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             reportedArgError = true;
                         }
                     } else if (argList[argIndex].argumentCategory === ArgumentCategory.Simple) {
-                        if (!isDiagnosticSuppressedForNode(errorNode)) {
-                            const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
-                            addDiagnostic(
-                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                positionParamLimitIndex === 1
-                                    ? Localizer.Diagnostic.argPositionalExpectedOne()
-                                    : Localizer.Diagnostic.argPositionalExpectedCount().format({
-                                          expected: positionParamLimitIndex,
-                                      }),
-                                argList[argIndex].valueExpression || errorNode
-                            );
+                        if (paramSpecArgList) {
+                            paramSpecArgList.push(argList[argIndex]);
+                        } else {
+                            if (!isDiagnosticSuppressedForNode(errorNode)) {
+                                const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+                                addDiagnostic(
+                                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    positionParamLimitIndex === 1
+                                        ? Localizer.Diagnostic.argPositionalExpectedOne()
+                                        : Localizer.Diagnostic.argPositionalExpectedCount().format({
+                                              expected: positionParamLimitIndex,
+                                          }),
+                                    argList[argIndex].valueExpression || errorNode
+                                );
+                            }
+                            reportedArgError = true;
                         }
-                        reportedArgError = true;
                     } else if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
                         // Handle the case where a *args: P.args is passed as an argument to
                         // a function that accepts a ParamSpec.
