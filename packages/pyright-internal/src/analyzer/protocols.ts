@@ -22,6 +22,7 @@ import {
     isTypeSame,
     maxTypeRecursionCount,
     ModuleType,
+    ProtocolCompatibility,
     Type,
     TypeVarType,
     UnknownType,
@@ -48,6 +49,9 @@ interface ProtocolAssignmentStackEntry {
 }
 
 const protocolAssignmentStack: ProtocolAssignmentStackEntry[] = [];
+
+// Maximum number of different types that are cached with a protocol.
+const maxProtocolCompatibilityCacheEntries = 32;
 
 // If treatSourceAsInstantiable is true, we're comparing the class object against the
 // protocol. If it's false, we're comparing the class instance against the protocol.
@@ -80,14 +84,25 @@ export function assignClassToProtocol(
     }
 
     // See if we've already determined that this class is compatible with this protocol.
-    if (
-        !enforceInvariance &&
-        !treatSourceAsInstantiable &&
-        destType.details.typeParameters.length === 0 &&
-        srcType.details.typeParameters.length === 0 &&
-        srcType.details.compatibleProtocols?.has(destType.details.fullName)
-    ) {
-        return true;
+    if (!enforceInvariance) {
+        const compatibility = getProtocolCompatibility(destType, srcType, flags, treatSourceAsInstantiable);
+
+        if (compatibility !== undefined) {
+            if (compatibility) {
+                // If the caller has provided a destination type var context,
+                // we can't use the cached value unless the dest has no type
+                // parameters to solve.
+                if (!destTypeVarContext || destType.details.typeParameters.length === 0) {
+                    return true;
+                }
+            }
+
+            // If it's known not to be compatible and the caller hasn't requested
+            // any detailed diagnostic information, we can return false immediately.
+            if (!compatibility && !diag) {
+                return false;
+            }
+        }
     }
 
     protocolAssignmentStack.push({ srcType, destType });
@@ -114,23 +129,65 @@ export function assignClassToProtocol(
 
     protocolAssignmentStack.pop();
 
-    // If the destination protocol is not generic and the source type is not
-    // generic and the two are compatible, cache that information so we can
-    // skip the check next time.
-    if (
-        isCompatible &&
-        !treatSourceAsInstantiable &&
-        destType.details.typeParameters.length === 0 &&
-        srcType.details.typeParameters.length === 0
-    ) {
-        if (!srcType.details.compatibleProtocols) {
-            srcType.details.compatibleProtocols = new Set<string>();
-        }
-
-        srcType.details.compatibleProtocols.add(destType.details.fullName);
-    }
+    // Cache the results for next time.
+    setProtocolCompatibility(destType, srcType, flags, treatSourceAsInstantiable, isCompatible);
 
     return isCompatible;
+}
+
+// Looks up the protocol compatibility in the cache. If it's not found,
+// return undefined.
+function getProtocolCompatibility(
+    destType: ClassType,
+    srcType: ClassType,
+    flags: AssignTypeFlags,
+    treatSourceAsInstantiable: boolean
+): boolean | undefined {
+    const entries = srcType.details.protocolCompatibility?.get(destType.details.fullName);
+    if (entries === undefined) {
+        return undefined;
+    }
+
+    const entry = entries.find((entry) => {
+        return (
+            isTypeSame(entry.destType, destType) &&
+            isTypeSame(entry.srcType, srcType) &&
+            entry.treatSourceAsInstantiable === treatSourceAsInstantiable &&
+            entry.flags === flags
+        );
+    });
+
+    return entry?.isCompatible;
+}
+
+function setProtocolCompatibility(
+    destType: ClassType,
+    srcType: ClassType,
+    flags: AssignTypeFlags,
+    treatSourceAsInstantiable: boolean,
+    isCompatible: boolean
+) {
+    if (!srcType.details.protocolCompatibility) {
+        srcType.details.protocolCompatibility = new Map<string, ProtocolCompatibility[]>();
+    }
+
+    let entries = srcType.details.protocolCompatibility.get(destType.details.fullName);
+    if (!entries) {
+        entries = [];
+        srcType.details.protocolCompatibility.set(destType.details.fullName, entries);
+    }
+
+    entries.push({
+        destType,
+        srcType,
+        treatSourceAsInstantiable,
+        flags,
+        isCompatible,
+    });
+
+    if (entries.length > maxProtocolCompatibilityCacheEntries) {
+        entries.shift();
+    }
 }
 
 function assignClassToProtocolInternal(
