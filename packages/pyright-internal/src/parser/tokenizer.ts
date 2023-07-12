@@ -91,6 +91,8 @@ const _keywords: Map<string, KeywordType> = new Map([
     ['True', KeywordType.True],
 ]);
 
+const _softKeywords = new Set(['match', 'case', 'type']);
+
 const _operatorInfo: { [key: number]: OperatorFlags } = {
     [OperatorType.Add]: OperatorFlags.Unary | OperatorFlags.Binary,
     [OperatorType.AddEqual]: OperatorFlags.Assignment,
@@ -362,6 +364,19 @@ export class Tokenizer {
 
     static getOperatorInfo(operatorType: OperatorType): OperatorFlags {
         return _operatorInfo[operatorType];
+    }
+
+    static isKeyword(name: string, includeSoftKeywords = false): boolean {
+        const keyword = _keywords.get(name);
+        if (!keyword) {
+            return false;
+        }
+
+        if (includeSoftKeywords) {
+            return true;
+        }
+
+        return !_softKeywords.has(name);
     }
 
     static isOperatorAssignment(operatorType?: OperatorType): boolean {

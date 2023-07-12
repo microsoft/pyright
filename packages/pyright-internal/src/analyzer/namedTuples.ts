@@ -18,26 +18,13 @@ import {
     ParseNodeType,
     StringListNode,
 } from '../parser/parseNodes';
+import { Tokenizer } from '../parser/tokenizer';
 import { getFileInfo } from './analyzerNodeInfo';
 import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
+import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
-import {
-    AnyType,
-    ClassType,
-    ClassTypeFlags,
-    combineTypes,
-    FunctionParameter,
-    FunctionType,
-    FunctionTypeFlags,
-    isClassInstance,
-    isInstantiableClass,
-    NoneType,
-    TupleTypeArgument,
-    Type,
-    UnknownType,
-} from './types';
 import {
     computeMroLinearization,
     convertToInstance,
@@ -46,6 +33,21 @@ import {
     specializeTupleClass,
     synthesizeTypeVarForSelfCls,
 } from './typeUtils';
+import {
+    AnyType,
+    ClassType,
+    ClassTypeFlags,
+    FunctionParameter,
+    FunctionType,
+    FunctionTypeFlags,
+    NoneType,
+    TupleTypeArgument,
+    Type,
+    UnknownType,
+    combineTypes,
+    isClassInstance,
+    isInstantiableClass,
+} from './types';
 
 // Creates a new custom tuple factory class with named values.
 // Supports both typed and untyped variants.
@@ -58,6 +60,25 @@ export function createNamedTupleType(
 ): ClassType {
     const fileInfo = getFileInfo(errorNode);
     let className = 'namedtuple';
+
+    // The "rename" parameter is supported only in the untyped version.
+    let allowRename = false;
+    if (!includesTypes) {
+        const renameArg = argList.find(
+            (arg) => arg.argumentCategory === ArgumentCategory.Simple && arg.name?.value === 'rename'
+        );
+
+        if (renameArg?.valueExpression) {
+            const renameValue = evaluateStaticBoolExpression(
+                renameArg.valueExpression,
+                fileInfo.executionEnvironment,
+                fileInfo.definedConstants
+            );
+            if (renameValue === true) {
+                allowRename = true;
+            }
+        }
+    }
 
     if (argList.length === 0) {
         evaluator.addError(Localizer.Diagnostic.namedTupleFirstArg(), errorNode);
@@ -156,6 +177,14 @@ export function createNamedTupleType(
                 entries.forEach((entryName, index) => {
                     entryName = entryName.trim();
                     if (entryName) {
+                        entryName = renameKeyword(
+                            evaluator,
+                            entryName,
+                            allowRename,
+                            entriesArg.valueExpression!,
+                            index
+                        );
+
                         const entryType = UnknownType.create();
                         const paramInfo: FunctionParameter = {
                             category: ParameterCategory.Simple,
@@ -232,6 +261,8 @@ export function createNamedTupleType(
                         entryName = entryNameNode.strings.map((s) => s.value).join('');
                         if (!entryName) {
                             evaluator.addError(Localizer.Diagnostic.namedTupleEmptyName(), entryNameNode);
+                        } else {
+                            entryName = renameKeyword(evaluator, entryName, allowRename, entryNameNode, index);
                         }
                     } else {
                         addGenericGetAttribute = true;
@@ -411,4 +442,28 @@ export function updateNamedTupleBaseClass(
     });
 
     return isUpdateNeeded;
+}
+
+function renameKeyword(
+    evaluator: TypeEvaluator,
+    name: string,
+    allowRename: boolean,
+    errorNode: ExpressionNode,
+    index: number
+): string {
+    // Determine whether the name is a keyword in python.
+    const isKeyword = Tokenizer.isKeyword(name);
+
+    if (!isKeyword) {
+        // No rename necessary.
+        return name;
+    }
+
+    if (allowRename) {
+        // Rename based on index.
+        return `_${index}`;
+    }
+
+    evaluator.addError(Localizer.Diagnostic.namedTupleNameKeyword(), errorNode);
+    return name;
 }
