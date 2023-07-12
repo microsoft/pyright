@@ -1,24 +1,28 @@
 import datetime
-from _typeshed import ReadableBuffer, Unused
+from _typeshed import Unused
 from collections import OrderedDict
 from collections.abc import Iterator
 from re import Match, Pattern
 from typing import Any, overload
-from typing_extensions import Final, Literal, Self, TypeAlias
+from typing_extensions import Final, Literal, Never, Self, TypeAlias
 
 _RetType: TypeAlias = type[float | datetime.datetime]
+_Expressions: TypeAlias = list[str]  # fixed-length list of 5 or 6 strings
 
-step_search_re: Pattern[str]
-only_int_re: Pattern[str]
-star_or_int_re: Pattern[str]
-special_dow_re: Pattern[str]
-hash_expression_re: Pattern[str]
-VALID_LEN_EXPRESSION: Final[list[int]]
-ALPHAS: Final[dict[str, int]]
-DOW_ALPHAS: Final[dict[str, int]]
-MONTHS: Final[str]
 M_ALPHAS: Final[dict[str, int]]
+DOW_ALPHAS: Final[dict[str, int]]
+ALPHAS: Final[dict[str, int]]
+step_search_re: Final[Pattern[str]]
+only_int_re: Final[Pattern[str]]
+
 WEEKDAYS: Final[str]
+MONTHS: Final[str]
+star_or_int_re: Final[Pattern[str]]
+special_dow_re: Final[Pattern[str]]
+re_star: Final[Pattern[str]]
+hash_expression_re: Final[Pattern[str]]
+VALID_LEN_EXPRESSION: Final[list[int]]
+EXPRESSIONS: dict[tuple[str, bytes], _Expressions]
 
 def timedelta_to_seconds(td: datetime.timedelta) -> float: ...
 
@@ -32,32 +36,44 @@ class CroniterNotAlphaError(CroniterError): ...
 def datetime_to_timestamp(d: datetime.datetime) -> float: ...
 
 class croniter(Iterator[Any]):
-    MONTHS_IN_YEAR: Literal[12]
-    RANGES: tuple[tuple[int, int], ...]
-    DAYS: tuple[
-        Literal[31],
-        Literal[28],
-        Literal[31],
-        Literal[30],
-        Literal[31],
-        Literal[30],
-        Literal[31],
-        Literal[31],
-        Literal[30],
-        Literal[31],
-        Literal[30],
-        Literal[31],
+    MONTHS_IN_YEAR: Final[Literal[12]]
+    RANGES: Final[tuple[tuple[int, int], tuple[int, int], tuple[int, int], tuple[int, int], tuple[int, int], tuple[int, int]]]
+    DAYS: Final[
+        tuple[
+            Literal[31],
+            Literal[28],
+            Literal[31],
+            Literal[30],
+            Literal[31],
+            Literal[30],
+            Literal[31],
+            Literal[31],
+            Literal[30],
+            Literal[31],
+            Literal[30],
+            Literal[31],
+        ]
     ]
-    ALPHACONV: tuple[dict[str, Any], ...]
-    LOWMAP: tuple[dict[int, Any], ...]
-    LEN_MEANS_ALL: tuple[int, ...]
-    bad_length: str
+    ALPHACONV: Final[
+        tuple[dict[Never, Never], dict[Never, Never], dict[str, str], dict[str, int], dict[str, int], dict[Never, Never]]
+    ]
+    LOWMAP: Final[
+        tuple[dict[Never, Never], dict[Never, Never], dict[int, int], dict[int, int], dict[int, int], dict[Never, Never]]
+    ]
+    LEN_MEANS_ALL: Final[tuple[int, int, int, int, int, int]]
+    bad_length: Final[str]
+
     tzinfo: datetime.tzinfo | None
-    cur: float
-    expanded: list[list[str]]
+
+    # Initialized to None, but immediately set to a float.
     start_time: float
     dst_start_time: float
-    nth_weekday_of_month: dict[str, Any]
+    cur: float
+
+    expanded: list[list[str]]
+    nth_weekday_of_month: dict[str, set[int]]
+    expressions: _Expressions
+
     def __init__(
         self,
         expr_format: str,
@@ -67,6 +83,7 @@ class croniter(Iterator[Any]):
         max_years_between_matches: int | None = None,
         is_prev: bool = False,
         hash_id: str | bytes | None = None,
+        implement_cron_bug: bool = False,
     ) -> None: ...
     # Most return value depend on ret_type, which can be passed in both as a method argument and as
     # a constructor argument.
@@ -84,9 +101,9 @@ class croniter(Iterator[Any]):
     def iter(self, ret_type: _RetType | None = ...) -> Iterator[Any]: ...
     def is_leap(self, year: int) -> bool: ...
     @classmethod
-    def expand(cls, expr_format: str, hash_id: str | bytes | None = None) -> tuple[list[list[str]], dict[str, Any]]: ...
+    def expand(cls, expr_format: str, hash_id: bytes | None = None) -> tuple[list[list[str]], dict[str, set[int]]]: ...
     @classmethod
-    def is_valid(cls, expression: str, hash_id: str | bytes | None = None) -> bool: ...
+    def is_valid(cls, expression: str, hash_id: bytes | None = None) -> bool: ...
     @classmethod
     def match(cls, cron_expression: str, testdate: float | datetime.datetime | None, day_or: bool = True) -> bool: ...
 
@@ -114,25 +131,19 @@ class HashExpander:
     ) -> int: ...
     @overload
     def do(
-        self, idx: int, hash_type: str, hash_id: ReadableBuffer, range_end: int | None = None, range_begin: int | None = None
+        self, idx: int, hash_type: str, hash_id: bytes, range_end: int | None = None, range_begin: int | None = None
     ) -> int: ...
     @overload
     def do(
-        self,
-        idx: int,
-        hash_type: str = "h",
-        *,
-        hash_id: ReadableBuffer,
-        range_end: int | None = None,
-        range_begin: int | None = None,
+        self, idx: int, hash_type: str = "h", *, hash_id: bytes, range_end: int | None = None, range_begin: int | None = None
     ) -> int: ...
-    def match(self, efl: Unused, idx: Unused, expr: str, hash_id: Unused = None, **kw: Unused) -> Match[str] | None: ...
+    def match(self, efl: Unused, idx: Unused, expr: str, hash_id: bytes | None = None, **kw: Unused) -> Match[str] | None: ...
     def expand(
         self,
         efl: object,
         idx: int,
         expr: str,
-        hash_id: ReadableBuffer | None = None,
+        hash_id: bytes | None = None,
         match: Match[str] | None | Literal[""] = "",
         **kw: object,
     ) -> str: ...

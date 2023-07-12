@@ -10,7 +10,7 @@ from typing_extensions import Final, Literal, TypeAlias
 
 from PyInstaller.building import _PyiBlockCipher
 from PyInstaller.building.build_main import Analysis
-from PyInstaller.building.datastruct import TOC, Target, _TOCTuple
+from PyInstaller.building.datastruct import Target, _TOCTuple
 from PyInstaller.building.splash import Splash
 from PyInstaller.utils.win32.versioninfo import VSVersionInfo
 from PyInstaller.utils.win32.winmanifest import Manifest
@@ -51,14 +51,14 @@ class PYZ(Target):
     name: str
     cipher: _PyiBlockCipher
     dependencies: list[_TOCTuple]  # type: ignore[assignment]
-    toc: TOC
+    toc: list[_TOCTuple]
     code_dict: dict[str, CodeType]
-    def __init__(self, *tocs: TOC, name: str | None = None, cipher: _PyiBlockCipher = None) -> None: ...
+    def __init__(self, *tocs: Iterable[_TOCTuple], name: str | None = None, cipher: _PyiBlockCipher = None) -> None: ...
     def assemble(self) -> None: ...
 
 class PKG(Target):
     xformdict: ClassVar[dict[str, str]]
-    toc: TOC
+    toc: list[_TOCTuple]
     cdict: Mapping[str, bool]
     name: str
     exclude_binaries: bool
@@ -70,7 +70,7 @@ class PKG(Target):
     entitlements_file: FileDescriptorOrPath | None
     def __init__(
         self,
-        toc: TOC,
+        toc: Iterable[_TOCTuple],
         name: str | None = None,
         cdict: Mapping[str, bool] | None = None,
         exclude_binaries: bool = False,
@@ -107,10 +107,10 @@ class EXE(Target):
     entitlements_file: FileDescriptorOrPath | None
     upx: bool
     pkgname: str
-    toc: TOC
+    toc: list[_TOCTuple]
     pkg: PKG
-    dependencies: TOC
-    exefiles: TOC
+    dependencies: list[_TOCTuple]
+    exefiles: list[_TOCTuple]
     def __init__(
         self,
         *args: Iterable[_TOCTuple] | PYZ | Splash,
@@ -150,7 +150,7 @@ class COLLECT(Target):
     entitlements_file: FileDescriptorOrPath | None
     upx_binaries: bool
     name: str
-    toc: TOC
+    toc: list[_TOCTuple]
     def __init__(
         self,
         *args: Iterable[_TOCTuple] | EXE,

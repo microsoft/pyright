@@ -63,8 +63,9 @@ class Connection(Generic[_C]):
     password: Any
     db: Any
     unix_socket: Any
+    charset: str
+    collation: str | None
     bind_address: Any
-    charset: Any
     use_unicode: Any
     client_flag: Any
     cursorclass: Any
@@ -88,6 +89,7 @@ class Connection(Generic[_C]):
         port: int = 0,
         unix_socket: Incomplete | None = None,
         charset: str = "",
+        collation: str | None = None,
         sql_mode: Incomplete | None = None,
         read_default_file: Incomplete | None = None,
         conv=None,
@@ -119,7 +121,7 @@ class Connection(Generic[_C]):
         binary_prefix: bool | None = False,
         program_name: Incomplete | None = None,
         server_public_key: bytes | None = None,
-    ): ...
+    ) -> None: ...
     @overload
     def __init__(
         self: Connection[_C],  # different between overloads
@@ -131,6 +133,7 @@ class Connection(Generic[_C]):
         port: int = 0,
         unix_socket: Incomplete | None = None,
         charset: str = "",
+        collation: str | None = None,
         sql_mode: Incomplete | None = None,
         read_default_file: Incomplete | None = None,
         conv=None,
@@ -162,7 +165,7 @@ class Connection(Generic[_C]):
         binary_prefix: bool | None = False,
         program_name: Incomplete | None = None,
         server_public_key: bytes | None = None,
-    ): ...
+    ) -> None: ...
     socket: Any
     rfile: Any
     wfile: Any

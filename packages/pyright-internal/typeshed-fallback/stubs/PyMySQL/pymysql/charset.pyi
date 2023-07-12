@@ -3,8 +3,8 @@ from typing import Any
 MBLENGTH: Any
 
 class Charset:
-    is_default: Any
-    def __init__(self, id, name, collation, is_default): ...
+    is_default: bool
+    def __init__(self, id, name, collation, is_default: bool = False) -> None: ...
 
 class Charsets:
     def add(self, c): ...

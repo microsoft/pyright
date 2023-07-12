@@ -1,10 +1,10 @@
-from typing import Any
+from _typeshed import Incomplete
 
 class ContainerIO:
-    fh: Any
+    fh: Incomplete
     pos: int
-    offset: Any
-    length: Any
+    offset: Incomplete
+    length: Incomplete
     def __init__(self, file, offset, length) -> None: ...
     def isatty(self): ...
     def seek(self, offset, mode=0) -> None: ...

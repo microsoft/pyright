@@ -1,7 +1,6 @@
 from _typeshed import Incomplete, StrPath
-from collections.abc import Iterable
 
-from PyInstaller.building.datastruct import TOC, Target, _TOCTuple
+from PyInstaller.building.datastruct import Target, _TOCTuple
 
 splash_requirements: list[str]
 
@@ -24,8 +23,8 @@ class Splash(Target):
     uses_tkinter: Incomplete
     script: Incomplete
     splash_requirements: Incomplete
-    binaries: TOC
-    def __init__(self, image_file: StrPath, binaries: TOC, datas: Iterable[_TOCTuple], **kwargs: Incomplete) -> None: ...
+    binaries: list[_TOCTuple]
+    def __init__(self, image_file: StrPath, binaries: list[_TOCTuple], datas: list[_TOCTuple], **kwargs: Incomplete) -> None: ...
     def assemble(self) -> None: ...
     def test_tk_version(self) -> None: ...
     def generate_script(self) -> str: ...

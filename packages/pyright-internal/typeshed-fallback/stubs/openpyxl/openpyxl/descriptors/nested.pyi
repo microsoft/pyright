@@ -74,14 +74,14 @@ class NestedValue(Nested[_T], Convertible[_T, _N]):  # type: ignore[misc]
     # str | Blip
     @overload
     def __set__(
-        self: NestedValue[str, bool] | NestedValue[Blip, bool],
+        self: NestedValue[str, _N] | NestedValue[Blip, _N],
         instance: Serialisable | Strict,
         value: object,  # Not[None] when _N = False
     ) -> None: ...
     # bool
     @overload
     def __set__(
-        self: NestedValue[bool, bool],
+        self: NestedValue[bool, _N],
         instance: Serialisable | Strict,
         value: _HasTagAndGet[_ConvertibleToBool] | _ConvertibleToBool,
     ) -> None: ...
@@ -145,21 +145,21 @@ class NestedText(NestedValue[_T, _N]):
     # str
     @overload
     def __set__(  # type: ignore[misc] # Incompatible return type because of NoReturn
-        self: NestedValue[str, bool], instance: Serialisable | Strict, value: object  # Not[None] when _N = False
+        self: NestedText[str, _N], instance: Serialisable | Strict, value: object  # Not[None] when _N = False
     ) -> None: ...
     # int
     @overload
     def __set__(
-        self: NestedValue[int, Literal[True]], instance: Serialisable | Strict, value: _ConvertibleToInt | None
+        self: NestedText[int, Literal[True]], instance: Serialisable | Strict, value: _ConvertibleToInt | None
     ) -> None: ...
     @overload
-    def __set__(self: NestedValue[int, Literal[False]], instance: Serialisable | Strict, value: _ConvertibleToInt) -> None: ...
+    def __set__(self: NestedText[int, Literal[False]], instance: Serialisable | Strict, value: _ConvertibleToInt) -> None: ...
     # If expected type (_T) is not str, it's impossible to use an Element as the value
     @overload
-    def __set__(self: NestedValue[_T, Literal[True]], instance: Serialisable | Strict, value: _HasTagAndGet[Any]) -> NoReturn: ...
+    def __set__(self: NestedText[_T, Literal[True]], instance: Serialisable | Strict, value: _HasTagAndGet[Any]) -> NoReturn: ...
     # Anything else
     @overload
-    def __set__(self: NestedValue[_T, Literal[True]], instance: Serialisable | Strict, value: _T | int | Any | None) -> None: ...
+    def __set__(self: NestedText[_T, Literal[True]], instance: Serialisable | Strict, value: _T | int | Any | None) -> None: ...
     def from_tree(self, node: _HasTagAndText) -> str: ...  # type: ignore[override]
     def to_tree(self, tagname: str | None = None, value: Incomplete | None = None, namespace: str | None = None) -> Element: ...
 

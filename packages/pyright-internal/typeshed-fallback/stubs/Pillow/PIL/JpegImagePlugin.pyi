@@ -1,5 +1,5 @@
 from _typeshed import Incomplete
-from typing import Any, ClassVar
+from typing import ClassVar
 from typing_extensions import Literal
 
 from .ImageFile import ImageFile
@@ -10,24 +10,23 @@ def COM(self, marker) -> None: ...
 def SOF(self, marker) -> None: ...
 def DQT(self, marker) -> None: ...
 
-MARKER: Any
+MARKER: Incomplete
 
 class JpegImageFile(ImageFile):
     format: ClassVar[Literal["JPEG", "MPO"]]
     format_description: ClassVar[str]
     def load_read(self, read_bytes): ...
-    mode: Any
-    tile: Any
-    decoderconfig: Any
+    mode: Incomplete
+    tile: Incomplete
+    decoderconfig: Incomplete
     def draft(self, mode, size): ...
-    im: Any
+    im: Incomplete
     def load_djpeg(self) -> None: ...
     def getxmp(self): ...
 
-RAWMODE: Any
-zigzag_index: Any
-samplings: Any
+RAWMODE: Incomplete
+zigzag_index: Incomplete
+samplings: Incomplete
 
-def convert_dict_qtables(qtables): ...
 def get_sampling(im): ...
 def jpeg_factory(fp: Incomplete | None = None, filename: Incomplete | None = None): ...

@@ -1,9 +1,8 @@
 from _typeshed import Incomplete
-from typing import Any
 
 class Iterator:
-    im: Any
-    position: Any
+    im: Incomplete
+    position: Incomplete
     def __init__(self, im) -> None: ...
     def __getitem__(self, ix): ...
     def __iter__(self): ...

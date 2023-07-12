@@ -3,7 +3,7 @@ from collections.abc import Callable, Iterable, Iterator, MutableMapping, Sequen
 from enum import IntEnum
 from pathlib import Path
 from typing import Any, ClassVar, Protocol, SupportsBytes
-from typing_extensions import Literal, Self, TypeAlias
+from typing_extensions import Final, Literal, Self, TypeAlias, TypeGuard
 
 from PIL.PyAccess import PyAccess
 
@@ -29,26 +29,21 @@ _ConversionMatrix: TypeAlias = (
 # `str` values are only accepted if mode="RGB" for an `Image` object
 # `float` values are only accepted for certain modes such as "F"
 # See https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.new
-_Color: TypeAlias = int | tuple[int] | tuple[int, int, int] | tuple[int, int, int, int] | str | float | tuple[float]
+_Color: TypeAlias = (
+    int | tuple[int] | tuple[int, int] | tuple[int, int, int] | tuple[int, int, int, int] | str | float | tuple[float]
+)
 
 class _Writeable(SupportsWrite[bytes], Protocol):
     def seek(self, __offset: int) -> Any: ...
 
-NORMAL: Literal[0]  # deprecated
-SEQUENCE: Literal[1]  # deprecated
-CONTAINER: Literal[2]  # deprecated
-
 class DecompressionBombWarning(RuntimeWarning): ...
 class DecompressionBombError(Exception): ...
 
-MAX_IMAGE_PIXELS: int | None
-USE_CFFI_ACCESS: Incomplete
+MAX_IMAGE_PIXELS: Final[int]
 
-LINEAR: Literal[Resampling.BILINEAR]  # deprecated
-CUBIC: Literal[Resampling.BICUBIC]  # deprecated
-ANTIALIAS: Literal[Resampling.LANCZOS]  # deprecated
+USE_CFFI_ACCESS: bool
 
-def isImageType(t): ...
+def isImageType(t: object) -> TypeGuard[Image]: ...
 
 class Transpose(IntEnum):
     FLIP_LEFT_RIGHT: Literal[0]
@@ -124,12 +119,6 @@ class Quantize(IntEnum):
     FASTOCTREE: Literal[2]
     LIBIMAGEQUANT: Literal[3]
 
-# All Quantize items
-MEDIANCUT: Literal[0]
-MAXCOVERAGE: Literal[1]
-FASTOCTREE: Literal[2]
-LIBIMAGEQUANT: Literal[3]
-
 ID: list[str]
 OPEN: dict[str, Any]
 MIME: dict[str, str]
@@ -147,30 +136,29 @@ def getmodebandnames(mode: _Mode) -> tuple[str, ...]: ...
 def getmodebands(mode: _Mode) -> int: ...
 def preinit() -> None: ...
 def init() -> None: ...
-def coerce_e(value) -> _E: ...
 
 class _E:
     scale: Incomplete
-    data: Incomplete
-    def __init__(self, scale, data) -> None: ...
-    def __neg__(self): ...
+    offset: Incomplete
+    def __init__(self, scale, offset) -> None: ...
+    def __neg__(self) -> _E: ...
     def __add__(self, other) -> _E: ...
     __radd__ = __add__
     def __sub__(self, other): ...
     def __rsub__(self, other): ...
     def __mul__(self, other) -> _E: ...
     __rmul__ = __mul__
-    def __truediv__(self, other): ...
+    def __truediv__(self, other) -> _E: ...
 
 _ImageState: TypeAlias = tuple[dict[str, Any], str, tuple[int, int], Any, bytes]
 
 class Image:
     format: ClassVar[str | None]
     format_description: ClassVar[str | None]
-    im: Any
+    im: Incomplete
     mode: _Mode
-    palette: Any
-    info: dict[Any, Any]
+    palette: Incomplete
+    info: dict[Incomplete, Incomplete]
     readonly: int
     pyaccess: PyAccess | None
     is_animated: bool  # not present on all Image objects
@@ -218,7 +206,7 @@ class Image:
     def draft(self, mode: _Mode, size: _Size) -> None: ...
     def filter(self, filter: Filter | Callable[[], Filter]) -> Image: ...
     def getbands(self) -> tuple[str, ...]: ...
-    def getbbox(self) -> tuple[int, int, int, int] | None: ...
+    def getbbox(self, *, alpha_only: bool = True) -> tuple[int, int, int, int] | None: ...
     def getcolors(self, maxcolors: int = 256) -> list[tuple[int, int]]: ...
     def getdata(self, band: int | None = None): ...
     def getextrema(self): ...

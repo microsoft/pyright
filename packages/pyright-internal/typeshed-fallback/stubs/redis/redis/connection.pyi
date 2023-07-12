@@ -89,6 +89,8 @@ class AbstractConnection:
     credential_provider: CredentialProvider | None
     password: str | None
     username: str | None
+    socket_timeout: float | None
+    socket_connect_timeout: float | None
     retry_on_timeout: bool
     retry_on_error: list[type[Exception]]
     retry: Retry
@@ -101,6 +103,8 @@ class AbstractConnection:
         self,
         db: int = 0,
         password: str | None = None,
+        socket_timeout: float | None = None,
+        socket_connect_timeout: float | None = None,
         retry_on_timeout: bool = False,
         retry_on_error: list[type[Exception]] = ...,
         encoding: str = "utf-8",
@@ -137,8 +141,6 @@ class AbstractConnection:
 class Connection(AbstractConnection):
     host: str
     port: int
-    socket_timeout: float | None
-    socket_connect_timeout: float | None
     socket_keepalive: bool
     socket_keepalive_options: Mapping[str, int | str]
     socket_type: int
@@ -146,14 +148,14 @@ class Connection(AbstractConnection):
         self,
         host: str = "localhost",
         port: int = 6379,
-        socket_timeout: float | None = None,
-        socket_connect_timeout: float | None = None,
         socket_keepalive: bool = False,
         socket_keepalive_options: Mapping[str, int | str] | None = None,
         socket_type: int = 0,
         *,
         db: int = 0,
         password: str | None = None,
+        socket_timeout: float | None = None,
+        socket_connect_timeout: float | None = None,
         retry_on_timeout: bool = False,
         retry_on_error: list[type[Exception]] = ...,
         encoding: str = "utf-8",
@@ -225,14 +227,14 @@ class SSLConnection(Connection):
 
 class UnixDomainSocketConnection(AbstractConnection):
     path: str
-    socket_timeout: float | None
     def __init__(
         self,
         path: str = "",
-        socket_timeout: float | None = None,
         *,
         db: int = 0,
         password: str | None = None,
+        socket_timeout: float | None = None,
+        socket_connect_timeout: float | None = None,
         retry_on_timeout: bool = False,
         retry_on_error: list[type[Exception]] = ...,
         encoding: str = "utf-8",

@@ -3,7 +3,7 @@ import tkinter
 from _typeshed import ReadableBuffer, StrOrBytesPath, SupportsRead
 from typing import Any
 
-from PIL.Image import Image, _Box, _Mode, _Size
+from PIL.Image import Image, _Mode, _Size
 
 class PhotoImage(tkinter._PhotoImageLike):
     tk: _tkinter.TkappType
@@ -26,8 +26,7 @@ class PhotoImage(tkinter._PhotoImageLike):
     def __del__(self) -> None: ...
     def width(self) -> int: ...
     def height(self) -> int: ...
-    # box is deprecated and unused
-    def paste(self, im: Image, box: _Box | None = None) -> None: ...
+    def paste(self, im: Image) -> None: ...
 
 class BitmapImage(tkinter._BitmapImageLike):
     def __init__(

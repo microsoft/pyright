@@ -1,10 +1,9 @@
-from _typeshed import Unused
-from typing import Any
+from _typeshed import Incomplete, Unused
 
 from .ContainerIO import ContainerIO
 
 class TarIO(ContainerIO):
-    fh: Any
+    fh: Incomplete
     def __init__(self, tarfile, file) -> None: ...
     def __enter__(self): ...
     def __exit__(self, *args: Unused) -> None: ...

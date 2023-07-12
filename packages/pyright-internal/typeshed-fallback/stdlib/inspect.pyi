@@ -128,8 +128,21 @@ if sys.version_info >= (3, 11):
         "walktree",
     ]
 
+    if sys.version_info >= (3, 12):
+        __all__ += [
+            "markcoroutinefunction",
+            "AGEN_CLOSED",
+            "AGEN_CREATED",
+            "AGEN_RUNNING",
+            "AGEN_SUSPENDED",
+            "getasyncgenlocals",
+            "getasyncgenstate",
+            "BufferFlags",
+        ]
+
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
+_F = TypeVar("_F", bound=Callable[..., Any])
 _T_cont = TypeVar("_T_cont", contravariant=True)
 _V_cont = TypeVar("_V_cont", contravariant=True)
 
@@ -183,6 +196,9 @@ def ismodule(object: object) -> TypeGuard[ModuleType]: ...
 def isclass(object: object) -> TypeGuard[type[Any]]: ...
 def ismethod(object: object) -> TypeGuard[MethodType]: ...
 def isfunction(object: object) -> TypeGuard[FunctionType]: ...
+
+if sys.version_info >= (3, 12):
+    def markcoroutinefunction(func: _F) -> _F: ...
 
 if sys.version_info >= (3, 8):
     @overload
@@ -359,6 +375,17 @@ class _ParameterKind(enum.IntEnum):
     if sys.version_info >= (3, 8):
         @property
         def description(self) -> str: ...
+
+if sys.version_info >= (3, 12):
+    AGEN_CREATED: Literal["AGEN_CREATED"]
+    AGEN_RUNNING: Literal["AGEN_RUNNING"]
+    AGEN_SUSPENDED: Literal["AGEN_SUSPENDED"]
+    AGEN_CLOSED: Literal["AGEN_CLOSED"]
+
+    def getasyncgenstate(
+        agen: AsyncGenerator[Any, Any]
+    ) -> Literal["AGEN_CREATED", "AGEN_RUNNING", "AGEN_SUSPENDED", "AGEN_CLOSED"]: ...
+    def getasyncgenlocals(agen: AsyncGeneratorType[Any, Any]) -> dict[str, Any]: ...
 
 class Parameter:
     def __init__(self, name: str, kind: _ParameterKind, *, default: Any = ..., annotation: Any = ...) -> None: ...

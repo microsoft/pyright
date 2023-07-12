@@ -10,9 +10,6 @@ class Format(IntEnum):
     DXT1: int
     UNCOMPRESSED: int
 
-FORMAT_DXT1: Literal[Format.DXT1]
-FORMAT_UNCOMPRESSED: Literal[Format.UNCOMPRESSED]
-
 class FtexImageFile(ImageFile):
     format: ClassVar[Literal["FTEX"]]
     format_description: ClassVar[str]

@@ -1,6 +1,6 @@
 from _typeshed import Incomplete
 from enum import IntEnum
-from typing import Any, ClassVar
+from typing import ClassVar
 from typing_extensions import Literal
 
 from .ImageFile import ImageFile
@@ -15,17 +15,17 @@ LOADING_STRATEGY: LoadingStrategy
 class GifImageFile(ImageFile):
     format: ClassVar[Literal["GIF"]]
     format_description: ClassVar[str]
-    global_palette: Any
+    global_palette: Incomplete
     def data(self): ...
     @property
     def n_frames(self): ...
     @property
     def is_animated(self): ...
-    im: Any
+    im: Incomplete
     def seek(self, frame) -> None: ...
     def tell(self): ...
 
-RAWMODE: Any
+RAWMODE: Incomplete
 
 def get_interlace(im): ...
 def getheader(im, palette: Incomplete | None = None, info: Incomplete | None = None): ...

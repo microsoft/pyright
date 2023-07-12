@@ -24,11 +24,11 @@ class Target:
     invcnum: ClassVar[int]
     tocfilename: LiteralString
     tocbasename: LiteralString
-    dependencies: TOC
+    dependencies: list[_TOCTuple]
     def __init__(self) -> None: ...
     def __postinit__(self) -> None: ...
 
-class Tree(Target, TOC):
+class Tree(Target, list[_TOCTuple]):
     root: str | None
     prefix: str | None
     excludes: Sequence[str]

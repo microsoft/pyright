@@ -1,13 +1,14 @@
-from typing import Any, ClassVar
+from _typeshed import Incomplete
+from typing import ClassVar
 from typing_extensions import Literal
 
 from ._imaging import _PixelAccessor
 from .ImageFile import ImageFile
 
 class IcoFile:
-    buf: Any
-    entry: Any
-    nb_items: Any
+    buf: Incomplete
+    entry: Incomplete
+    nb_items: Incomplete
     def __init__(self, buf): ...
     def sizes(self): ...
     def getentryindex(self, size, bpp: bool = False): ...
@@ -21,7 +22,7 @@ class IcoImageFile(ImageFile):
     def size(self): ...
     @size.setter
     def size(self, value) -> None: ...
-    im: Any
-    mode: Any
+    im: Incomplete
+    mode: Incomplete
     def load(self) -> _PixelAccessor: ...
     def load_seek(self) -> None: ...

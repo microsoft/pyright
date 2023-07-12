@@ -1,9 +1,10 @@
-from typing import Any, ClassVar
+from _typeshed import Incomplete
+from typing import ClassVar
 from typing_extensions import Final, Literal
 
 from .ImageFile import ImageFile, PyDecoder
 
-BIT2MODE: Any
+BIT2MODE: Incomplete
 
 class BmpImageFile(ImageFile):
     RAW: Final = 0
@@ -14,7 +15,7 @@ class BmpImageFile(ImageFile):
     PNG: Final = 5
     format_description: ClassVar[str]
     format: ClassVar[Literal["BMP", "DIB", "CUR"]]
-    COMPRESSIONS: Any
+    COMPRESSIONS: Incomplete
 
 class BmpRleDecoder(PyDecoder):
     def decode(self, buffer): ...
@@ -22,4 +23,4 @@ class BmpRleDecoder(PyDecoder):
 class DibImageFile(BmpImageFile):
     format: ClassVar[Literal["DIB"]]
 
-SAVE: Any
+SAVE: Incomplete

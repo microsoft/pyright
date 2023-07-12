@@ -1,15 +1,14 @@
 from _typeshed import Incomplete
-from typing import Any
 
 from .Image import Image
 
 class ImagePalette:
-    mode: Any
-    rawmode: Any
-    palette: Any
-    colors: Any
-    dirty: Any
-    def __init__(self, mode: str = "RGB", palette: Incomplete | None = None, size: int = 0) -> None: ...
+    mode: Incomplete
+    rawmode: Incomplete
+    palette: Incomplete
+    colors: Incomplete
+    dirty: Incomplete
+    def __init__(self, mode: str = "RGB", palette: Incomplete | None = None) -> None: ...
     def copy(self) -> ImagePalette: ...
     def getdata(self): ...
     def tobytes(self) -> bytes: ...

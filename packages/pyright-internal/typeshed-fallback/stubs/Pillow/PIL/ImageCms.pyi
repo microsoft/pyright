@@ -1,14 +1,12 @@
 import sys
 from _typeshed import Incomplete, Unused
 from enum import IntEnum
-from typing import Any
-from typing_extensions import Literal
 
 from .Image import ImagePointHandler
 
 DESCRIPTION: str
 VERSION: str
-core: Any
+core: Incomplete
 
 class Intent(IntEnum):
     PERCEPTUAL: int
@@ -16,31 +14,22 @@ class Intent(IntEnum):
     SATURATION: int
     ABSOLUTE_COLORIMETRIC: int
 
-INTENT_PERCEPTUAL: Literal[Intent.PERCEPTUAL]
-INTENT_RELATIVE_COLORIMETRIC: Literal[Intent.RELATIVE_COLORIMETRIC]
-INTENT_SATURATION: Literal[Intent.SATURATION]
-INTENT_ABSOLUTE_COLORIMETRIC: Literal[Intent.ABSOLUTE_COLORIMETRIC]
-
 class Direction(IntEnum):
     INPUT: int
     OUTPUT: int
     PROOF: int
 
-DIRECTION_INPUT: Literal[Direction.INPUT]
-DIRECTION_OUTPUT: Literal[Direction.OUTPUT]
-DIRECTION_PROOF: Literal[Direction.PROOF]
-
-FLAGS: Any
+FLAGS: Incomplete
 
 class ImageCmsProfile:
     def __init__(self, profile) -> None: ...
     def tobytes(self): ...
 
 class ImageCmsTransform(ImagePointHandler):
-    transform: Any
-    input_mode: Any
-    output_mode: Any
-    output_profile: Any
+    transform: Incomplete
+    input_mode: Incomplete
+    output_mode: Incomplete
+    output_profile: Incomplete
     def __init__(
         self,
         input,

@@ -1,4 +1,4 @@
-version = "4.20.*"
+version = "4.21.*"
 partial_stub = true
 
 [tool.stubtest]

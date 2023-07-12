@@ -62,6 +62,7 @@ from stripe.api_resources.review import Review as Review
 from stripe.api_resources.search_result_object import SearchResultObject as SearchResultObject
 from stripe.api_resources.setup_attempt import SetupAttempt as SetupAttempt
 from stripe.api_resources.setup_intent import SetupIntent as SetupIntent
+from stripe.api_resources.shipping_rate import ShippingRate as ShippingRate
 from stripe.api_resources.sku import SKU as SKU
 from stripe.api_resources.source import Source as Source
 from stripe.api_resources.source_transaction import SourceTransaction as SourceTransaction

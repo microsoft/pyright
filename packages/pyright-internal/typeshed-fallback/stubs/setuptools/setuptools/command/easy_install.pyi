@@ -1,6 +1,7 @@
 from _typeshed import Incomplete
-from collections.abc import Iterator
-from typing import Any
+from collections.abc import Iterable, Iterator
+from typing import ClassVar
+from typing_extensions import Self, TypedDict
 
 from pkg_resources import Environment
 
@@ -11,46 +12,46 @@ __all__ = ["easy_install", "PthDistributions", "extract_wininst_cfg", "get_exe_p
 class easy_install(Command):
     description: str
     command_consumes_arguments: bool
-    user_options: Any
-    boolean_options: Any
-    negative_opt: Any
-    create_index: Any
+    user_options: Incomplete
+    boolean_options: Incomplete
+    negative_opt: Incomplete
+    create_index: Incomplete
     user: int
-    zip_ok: Any
-    install_dir: Any
-    index_url: Any
-    find_links: Any
-    build_directory: Any
-    args: Any
-    optimize: Any
-    upgrade: Any
-    editable: Any
-    root: Any
-    version: Any
-    install_purelib: Any
-    install_platlib: Any
-    install_headers: Any
-    install_lib: Any
-    install_scripts: Any
-    install_data: Any
-    install_base: Any
-    install_platbase: Any
-    install_userbase: Any
-    install_usersite: Any
-    no_find_links: Any
-    package_index: Any
-    pth_file: Any
-    site_dirs: Any
-    installed_projects: Any
-    verbose: Any
+    zip_ok: Incomplete
+    install_dir: Incomplete
+    index_url: Incomplete
+    find_links: Incomplete
+    build_directory: Incomplete
+    args: Incomplete
+    optimize: Incomplete
+    upgrade: Incomplete
+    editable: Incomplete
+    root: Incomplete
+    version: Incomplete
+    install_purelib: Incomplete
+    install_platlib: Incomplete
+    install_headers: Incomplete
+    install_lib: Incomplete
+    install_scripts: Incomplete
+    install_data: Incomplete
+    install_base: Incomplete
+    install_platbase: Incomplete
+    install_userbase: Incomplete
+    install_usersite: Incomplete
+    no_find_links: Incomplete
+    package_index: Incomplete
+    pth_file: Incomplete
+    site_dirs: Incomplete
+    installed_projects: Incomplete
+    verbose: Incomplete
     def initialize_options(self) -> None: ...
     def delete_blockers(self, blockers) -> None: ...
-    config_vars: Any
-    script_dir: Any
-    all_site_dirs: Any
-    shadow_path: Any
-    local_index: Any
-    outputs: Any
+    config_vars: Incomplete
+    script_dir: Incomplete
+    all_site_dirs: Incomplete
+    shadow_path: Incomplete
+    local_index: Incomplete
+    outputs: Incomplete
     def finalize_options(self) -> None: ...
     def expand_basedirs(self) -> None: ...
     def expand_dirs(self) -> None: ...
@@ -88,17 +89,17 @@ class easy_install(Command):
     def unpack_and_compile(self, egg_path, destination): ...
     def byte_compile(self, to_compile) -> None: ...
     def create_home_path(self) -> None: ...
-    INSTALL_SCHEMES: Any
-    DEFAULT_SCHEME: Any
+    INSTALL_SCHEMES: Incomplete
+    DEFAULT_SCHEME: Incomplete
 
 def extract_wininst_cfg(dist_filename): ...
 def get_exe_prefixes(exe_filename): ...
 
 class PthDistributions(Environment):
     dirty: bool
-    filename: Any
-    sitedirs: Any
-    basedir: Any
+    filename: Incomplete
+    sitedirs: Incomplete
+    basedir: Incomplete
     paths: list[str]
     def __init__(self, filename, sitedirs=()) -> None: ...
     def save(self) -> None: ...
@@ -107,16 +108,20 @@ class PthDistributions(Environment):
     def make_relative(self, path): ...
 
 class RewritePthDistributions(PthDistributions):
-    prelude: Any
-    postlude: Any
+    prelude: Incomplete
+    postlude: Incomplete
+
+class _SplitArgs(TypedDict, total=False):
+    comments: bool
+    posix: bool
 
 class CommandSpec(list[str]):
-    options: Any
-    split_args: Any
+    options: list[Incomplete]
+    split_args: ClassVar[_SplitArgs]
     @classmethod
     def best(cls) -> type[CommandSpec]: ...
     @classmethod
-    def from_param(cls, param) -> CommandSpec: ...
+    def from_param(cls, param: str | Self | Iterable[str] | None) -> Self: ...
     @classmethod
     def from_environment(cls) -> CommandSpec: ...
     @classmethod
@@ -124,31 +129,22 @@ class CommandSpec(list[str]):
     def install_options(self, script_text: str) -> None: ...
     def as_header(self) -> str: ...
 
-class WindowsCommandSpec(CommandSpec):
-    split_args: Any
+class WindowsCommandSpec(CommandSpec): ...
 
 class ScriptWriter:
-    template: Any
-    command_spec_class: Any
-    @classmethod
-    def get_script_args(cls, dist, executable: Incomplete | None = None, wininst: bool = False) -> Iterator[tuple[str, str]]: ...
-    @classmethod
-    def get_script_header(cls, script_text, executable: Incomplete | None = None, wininst: bool = False) -> str: ...
+    template: ClassVar[str]
+    command_spec_class: ClassVar[type[CommandSpec]]
     @classmethod
     def get_args(cls, dist, header: Incomplete | None = None) -> Iterator[tuple[str, str]]: ...
     @classmethod
-    def get_writer(cls, force_windows: bool) -> type[ScriptWriter]: ...
-    @classmethod
     def best(cls) -> type[ScriptWriter]: ...
     @classmethod
-    def get_header(cls, script_text: str = "", executable: Incomplete | None = None) -> str: ...
+    def get_header(cls, script_text: str = "", executable: str | CommandSpec | Iterable[str] | None = None) -> str: ...
 
 class WindowsScriptWriter(ScriptWriter):
-    command_spec_class: Any
+    command_spec_class: ClassVar[type[WindowsCommandSpec]]
     @classmethod
-    def get_writer(cls): ...
-    @classmethod
-    def best(cls): ...
+    def best(cls) -> type[WindowsScriptWriter]: ...
 
 class WindowsExecutableLauncherWriter(WindowsScriptWriter): ...
 class EasyInstallDeprecationWarning(SetuptoolsDeprecationWarning): ...

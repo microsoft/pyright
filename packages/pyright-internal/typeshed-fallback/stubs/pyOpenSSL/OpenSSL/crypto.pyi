@@ -16,6 +16,8 @@ FILETYPE_TEXT: int
 
 TYPE_RSA: int
 TYPE_DSA: int
+TYPE_DH: int
+TYPE_EC: int
 
 class _EllipticCurve:
     def __init__(self, lib: Incomplete | None, nid: int, name: str) -> None: ...

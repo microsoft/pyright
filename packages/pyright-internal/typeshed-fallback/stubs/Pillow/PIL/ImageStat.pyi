@@ -1,9 +1,8 @@
 from _typeshed import Incomplete
-from typing import Any
 
 class Stat:
-    h: Any
-    bands: Any
+    h: Incomplete
+    bands: Incomplete
     def __init__(self, image_or_list, mask: Incomplete | None = None) -> None: ...
     def __getattr__(self, id: str): ...
 

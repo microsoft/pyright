@@ -1,4 +1,5 @@
-from typing import Any, ClassVar
+from _typeshed import Incomplete
+from typing import ClassVar
 from typing_extensions import Literal, TypeAlias
 
 from ._imaging import _PixelAccessor
@@ -12,7 +13,7 @@ class WebPImageFile(ImageFile):
     format_description: ClassVar[str]
     def getxmp(self) -> _XMP_Tags: ...
     def seek(self, frame) -> None: ...
-    fp: Any
-    tile: Any
+    fp: Incomplete
+    tile: Incomplete
     def load(self) -> _PixelAccessor: ...
     def tell(self): ...

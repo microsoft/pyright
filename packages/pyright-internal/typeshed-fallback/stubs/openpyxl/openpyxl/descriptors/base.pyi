@@ -96,13 +96,13 @@ class Convertible(Typed[_T, _N]):
     # str | Blip
     @overload
     def __set__(
-        self: Convertible[str, bool] | Convertible[Blip, bool],
+        self: Convertible[str, _N] | Convertible[Blip, _N],
         instance: Serialisable | Strict,
         value: object,  # Not[None] when _N = False
     ) -> None: ...
     # bool
     @overload
-    def __set__(self: Convertible[bool, bool], instance: Serialisable | Strict, value: _ConvertibleToBool) -> None: ...
+    def __set__(self: Convertible[bool, _N], instance: Serialisable | Strict, value: _ConvertibleToBool) -> None: ...
     # int
     @overload
     def __set__(

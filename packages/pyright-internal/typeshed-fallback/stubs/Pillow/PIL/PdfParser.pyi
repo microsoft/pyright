@@ -23,9 +23,9 @@ class IndirectReference:
 class IndirectObjectDef(IndirectReference): ...
 
 class XrefTable:
-    existing_entries: Any
-    new_entries: Any
-    deleted_entries: Any
+    existing_entries: Incomplete
+    new_entries: Incomplete
+    deleted_entries: Incomplete
     reading_finished: bool
     def __init__(self) -> None: ...
     def __setitem__(self, key, value) -> None: ...
@@ -37,14 +37,14 @@ class XrefTable:
     def write(self, f): ...
 
 class PdfName:
-    name: Any
+    name: Incomplete
     def __init__(self, name) -> None: ...
     def name_as_str(self): ...
     def __eq__(self, other): ...
     def __hash__(self) -> int: ...
     @classmethod
     def from_pdf_stream(cls, data): ...
-    allowed_chars: Any
+    allowed_chars: Incomplete
     def __bytes__(self) -> bytes: ...
 
 class PdfArray(list[Any]):
@@ -56,38 +56,38 @@ class PdfDict(collections.UserDict[bytes, Any]):
     def __bytes__(self) -> bytes: ...
 
 class PdfBinary:
-    data: Any
+    data: Incomplete
     def __init__(self, data) -> None: ...
     def __bytes__(self) -> bytes: ...
 
 class PdfStream:
-    dictionary: Any
-    buf: Any
+    dictionary: Incomplete
+    buf: Incomplete
     def __init__(self, dictionary, buf) -> None: ...
     def decode(self): ...
 
-def pdf_repr(x: Any) -> bytes: ...
+def pdf_repr(x: Incomplete) -> bytes: ...
 
 class PdfParser:
-    filename: Any
-    buf: Any
-    f: Any
-    start_offset: Any
+    filename: Incomplete
+    buf: Incomplete
+    f: Incomplete
+    start_offset: Incomplete
     should_close_buf: bool
     should_close_file: bool
-    cached_objects: Any
+    cached_objects: Incomplete
     file_size_total: int
-    root: Any
-    root_ref: Any
-    info: Any
-    info_ref: Any
-    page_tree_root: Any
-    pages: Any
-    orig_pages: Any
-    pages_ref: Any
-    last_xref_section_offset: Any
-    trailer_dict: Any
-    xref_table: Any
+    root: Incomplete
+    root_ref: Incomplete
+    info: Incomplete
+    info_ref: Incomplete
+    page_tree_root: Incomplete
+    pages: Incomplete
+    orig_pages: Incomplete
+    pages_ref: Incomplete
+    last_xref_section_offset: Incomplete
+    trailer_dict: Incomplete
+    xref_table: Incomplete
     def __init__(
         self,
         filename: Incomplete | None = None,
@@ -114,55 +114,55 @@ class PdfParser:
     def del_root(self) -> None: ...
     @staticmethod
     def get_buf_from_file(f): ...
-    file_size_this: Any
+    file_size_this: Incomplete
     def read_pdf_info(self) -> None: ...
     def next_object_id(self, offset: Incomplete | None = None): ...
     delimiter: bytes
     delimiter_or_ws: bytes
     whitespace: bytes
     whitespace_or_hex: bytes
-    whitespace_optional: Any
-    whitespace_mandatory: Any
+    whitespace_optional: Incomplete
+    whitespace_mandatory: Incomplete
     whitespace_optional_no_nl: bytes
     newline_only: bytes
-    newline: Any
-    re_trailer_end: Any
-    re_trailer_prev: Any
+    newline: Incomplete
+    re_trailer_end: Incomplete
+    re_trailer_prev: Incomplete
     def read_trailer(self) -> None: ...
     def read_prev_trailer(self, xref_section_offset) -> None: ...
-    re_whitespace_optional: Any
-    re_name: Any
-    re_dict_start: Any
-    re_dict_end: Any
+    re_whitespace_optional: Incomplete
+    re_name: Incomplete
+    re_dict_start: Incomplete
+    re_dict_end: Incomplete
     @classmethod
     def interpret_trailer(cls, trailer_data): ...
-    re_hashes_in_name: Any
+    re_hashes_in_name: Incomplete
     @classmethod
     def interpret_name(cls, raw, as_text: bool = False): ...
-    re_null: Any
-    re_true: Any
-    re_false: Any
-    re_int: Any
-    re_real: Any
-    re_array_start: Any
-    re_array_end: Any
-    re_string_hex: Any
-    re_string_lit: Any
-    re_indirect_reference: Any
-    re_indirect_def_start: Any
-    re_indirect_def_end: Any
-    re_comment: Any
-    re_stream_start: Any
-    re_stream_end: Any
+    re_null: Incomplete
+    re_true: Incomplete
+    re_false: Incomplete
+    re_int: Incomplete
+    re_real: Incomplete
+    re_array_start: Incomplete
+    re_array_end: Incomplete
+    re_string_hex: Incomplete
+    re_string_lit: Incomplete
+    re_indirect_reference: Incomplete
+    re_indirect_def_start: Incomplete
+    re_indirect_def_end: Incomplete
+    re_comment: Incomplete
+    re_stream_start: Incomplete
+    re_stream_end: Incomplete
     @classmethod
     def get_value(cls, data, offset, expect_indirect: Incomplete | None = None, max_nesting: int = -1): ...
-    re_lit_str_token: Any
-    escaped_chars: Any
+    re_lit_str_token: Incomplete
+    escaped_chars: Incomplete
     @classmethod
     def get_literal_string(cls, data, offset): ...
-    re_xref_section_start: Any
-    re_xref_subsection_start: Any
-    re_xref_entry: Any
+    re_xref_section_start: Incomplete
+    re_xref_subsection_start: Incomplete
+    re_xref_entry: Incomplete
     def read_xref_table(self, xref_section_offset): ...
     def read_indirect(self, ref, max_nesting: int = -1): ...
     def linearize_page_tree(self, node: Incomplete | None = None): ...

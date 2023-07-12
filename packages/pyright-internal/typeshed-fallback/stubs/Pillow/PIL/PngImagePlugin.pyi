@@ -1,34 +1,27 @@
 from _typeshed import Incomplete, Unused
 from enum import IntEnum
-from typing import Any, ClassVar
+from typing import ClassVar
 from typing_extensions import Literal
 
 from ._binary import o8 as o8
 from .ImageFile import ImageFile
 
-is_cid: Any
-MAX_TEXT_CHUNK: Any
-MAX_TEXT_MEMORY: Any
+is_cid: Incomplete
+MAX_TEXT_CHUNK: Incomplete
+MAX_TEXT_MEMORY: Incomplete
 
 class Disposal(IntEnum):
     OP_NONE: int
     OP_BACKGROUND: int
     OP_PREVIOUS: int
 
-APNG_DISPOSE_OP_NONE: Literal[Disposal.OP_NONE]
-APNG_DISPOSE_OP_BACKGROUND: Literal[Disposal.OP_BACKGROUND]
-APNG_DISPOSE_OP_PREVIOUS: Literal[Disposal.OP_PREVIOUS]
-
 class Blend(IntEnum):
     OP_SOURCE: int
     OP_OVER: int
 
-APNG_BLEND_OP_SOURCE: Literal[Blend.OP_SOURCE]
-APNG_BLEND_OP_OVER: Literal[Blend.OP_OVER]
-
 class ChunkStream:
-    fp: Any
-    queue: Any
+    fp: Incomplete
+    queue: Incomplete
     def __init__(self, fp) -> None: ...
     def read(self): ...
     def __enter__(self): ...
@@ -41,28 +34,28 @@ class ChunkStream:
     def verify(self, endchunk: bytes = b"IEND"): ...
 
 class iTXt(str):
-    lang: Any
-    tkey: Any
+    lang: Incomplete
+    tkey: Incomplete
     @staticmethod
     def __new__(cls, text, lang: Incomplete | None = None, tkey: Incomplete | None = None): ...
 
 class PngInfo:
-    chunks: Any
+    chunks: Incomplete
     def __init__(self) -> None: ...
     def add(self, cid, data, after_idat: bool = False) -> None: ...
     def add_itxt(self, key, value, lang: str = "", tkey: str = "", zip: bool = False) -> None: ...
     def add_text(self, key, value, zip: bool = False): ...
 
 class PngStream(ChunkStream):
-    im_info: Any
-    im_text: Any
-    im_size: Any
-    im_mode: Any
-    im_tile: Any
-    im_palette: Any
-    im_custom_mimetype: Any
-    im_n_frames: Any
-    rewind_state: Any
+    im_info: Incomplete
+    im_text: Incomplete
+    im_size: Incomplete
+    im_mode: Incomplete
+    im_tile: Incomplete
+    im_palette: Incomplete
+    im_custom_mimetype: Incomplete
+    im_n_frames: Incomplete
+    rewind_state: Incomplete
     text_memory: int
     def __init__(self, fp) -> None: ...
     def check_text_memory(self, chunklen) -> None: ...
@@ -70,7 +63,7 @@ class PngStream(ChunkStream):
     def rewind(self) -> None: ...
     def chunk_iCCP(self, pos, length): ...
     def chunk_IHDR(self, pos, length): ...
-    im_idat: Any
+    im_idat: Incomplete
     def chunk_IDAT(self, pos, length) -> None: ...
     def chunk_IEND(self, pos, length) -> None: ...
     def chunk_PLTE(self, pos, length): ...
@@ -92,15 +85,15 @@ class PngImageFile(ImageFile):
     format_description: ClassVar[str]
     @property
     def text(self): ...
-    fp: Any
+    fp: Incomplete
     def verify(self) -> None: ...
     def seek(self, frame) -> None: ...
     def tell(self): ...
-    decoderconfig: Any
+    decoderconfig: Incomplete
     def load_prepare(self) -> None: ...
     def load_read(self, read_bytes): ...
-    png: Any
-    im: Any
+    png: Incomplete
+    im: Incomplete
     def load_end(self) -> None: ...
     def getexif(self): ...
     def getxmp(self): ...
@@ -108,15 +101,15 @@ class PngImageFile(ImageFile):
 def putchunk(fp, cid, *data) -> None: ...
 
 class _idat:
-    fp: Any
-    chunk: Any
+    fp: Incomplete
+    chunk: Incomplete
     def __init__(self, fp, chunk) -> None: ...
     def write(self, data) -> None: ...
 
 class _fdat:
-    fp: Any
-    chunk: Any
-    seq_num: Any
+    fp: Incomplete
+    chunk: Incomplete
+    seq_num: Incomplete
     def __init__(self, fp, chunk, seq_num) -> None: ...
     def write(self, data) -> None: ...
 

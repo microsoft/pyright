@@ -47,6 +47,7 @@ class ImageDraw:
         rotation: float = 0,
         fill: _Ink | None = None,
         outline: _Ink | None = None,
+        width: float = 1,
     ) -> None: ...
     def rectangle(
         self,
@@ -99,26 +100,6 @@ class ImageDraw:
         stroke_fill: _Ink | None = None,
         embedded_color: bool = False,
     ) -> None: ...
-    def textsize(
-        self,
-        text: str | bytes,
-        font: _Font | None = None,
-        spacing: float = 4,
-        direction: Literal["rtl", "ltr", "ttb"] | None = None,
-        features: Sequence[str] | None = None,
-        language: str | None = None,
-        stroke_width: int = 0,
-    ) -> tuple[int, int]: ...
-    def multiline_textsize(
-        self,
-        text: str | bytes,
-        font: _Font | None = None,
-        spacing: float = 4,
-        direction: Literal["rtl", "ltr", "ttb"] | None = None,
-        features: Sequence[str] | None = None,
-        language: str | None = None,
-        stroke_width: int = 0,
-    ) -> tuple[int, int]: ...
     def textlength(
         self,
         text: str | bytes,
