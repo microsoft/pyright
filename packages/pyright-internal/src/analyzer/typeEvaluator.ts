@@ -6105,7 +6105,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // We limit type narrowing for index expressions to built-in types that are
             // known to have symmetric __getitem__ and __setitem__ methods (i.e. the value
             // passed to __setitem__ is the same type as the value returned by __getitem__).
-            let baseTypeSupportsIndexNarrowing = true;
+            let baseTypeSupportsIndexNarrowing = !isAny(baseTypeResult.type);
             mapSubtypesExpandTypeVars(baseTypeResult.type, /* conditionFilter */ undefined, (subtype) => {
                 if (
                     !isClassInstance(subtype) ||
@@ -20236,6 +20236,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let typedDecls = symbol.getTypedDeclarations();
 
         if (typedDecls.length === 0) {
+            // If the symbol has no type declaration but is assigned many times,
+            // treat it as though it has an explicit type annotation of "Unknown".
+            // This will avoid a pathological performance condition for unannotated
+            // code that reassigns the same variable hundreds of times. If the symbol
+            // effectively has an "Any" annotation, it won't be narrowed.
+            if (symbol.getDeclarations().length > maxDeclarationsToUseForInference) {
+                return { type: UnknownType.create() };
+            }
+
             // There was no declaration with a defined type.
             return { type: undefined };
         }
