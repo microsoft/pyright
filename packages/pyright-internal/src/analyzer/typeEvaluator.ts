@@ -8841,27 +8841,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     case TypeCategory.OverloadedFunction: {
                         // Handle the 'cast' call as a special case.
                         if (expandedSubtype.overloads[0].details.builtInName === 'cast' && argList.length === 2) {
-                            // Verify that the cast is necessary.
-                            const castToType = getTypeOfArgumentExpectingType(argList[0]).type;
-                            const castFromType = getTypeOfArgument(argList[1]).type;
-                            if (TypeBase.isInstantiable(castToType) && !isUnknown(castToType)) {
-                                if (
-                                    isTypeSame(convertToInstance(castToType), castFromType, {
-                                        ignorePseudoGeneric: true,
-                                    })
-                                ) {
-                                    addDiagnostic(
-                                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportUnnecessaryCast,
-                                        DiagnosticRule.reportUnnecessaryCast,
-                                        Localizer.Diagnostic.unnecessaryCast().format({
-                                            type: printType(castFromType),
-                                        }),
-                                        errorNode
-                                    );
-                                }
-                            }
-
-                            return convertToInstance(castToType);
+                            return evaluateCastCall(argList, errorNode);
                         }
 
                         const functionResult = validateOverloadedFunctionArguments(
@@ -9298,6 +9278,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             specializedInitSelfType,
             overloadsUsedForCall,
         };
+    }
+
+    // Evaluates the type of the "cast" call.
+    function evaluateCastCall(argList: FunctionArgument[], errorNode: ExpressionNode) {
+        // Verify that the cast is necessary.
+        const castToType = getTypeOfArgumentExpectingType(argList[0]).type;
+        const castFromType = getTypeOfArgument(argList[1]).type;
+
+        if (TypeBase.isInstantiable(castToType) && !isUnknown(castToType)) {
+            if (
+                isTypeSame(convertToInstance(castToType), castFromType, {
+                    ignorePseudoGeneric: true,
+                })
+            ) {
+                addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportUnnecessaryCast,
+                    DiagnosticRule.reportUnnecessaryCast,
+                    Localizer.Diagnostic.unnecessaryCast().format({
+                        type: printType(castFromType),
+                    }),
+                    errorNode
+                );
+            }
+        }
+
+        return convertToInstance(castToType);
     }
 
     // Expands any unpacked tuples within an argument list.
