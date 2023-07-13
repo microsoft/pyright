@@ -50,7 +50,7 @@ type StringLookupMap = { [key: string]: string | StringLookupMap };
 let localizedStrings: StringLookupMap | undefined = undefined;
 let defaultStrings: StringLookupMap = {};
 
-function getRawString(key: string): string {
+function getRawStringDefault(key: string): string {
     if (localizedStrings === undefined) {
         localizedStrings = initialize();
     }
@@ -63,6 +63,16 @@ function getRawString(key: string): string {
     }
 
     fail(`Missing localized string for key "${key}"`);
+}
+
+let getRawString = getRawStringDefault;
+
+// Function allowing different strings to be used for messages.
+// Returns the previous function used for getting messages.
+export function setGetRawString(func: (key: string) => string): (key: string) => string {
+    const oldLookup = getRawString;
+    getRawString = func;
+    return oldLookup;
 }
 
 export function getRawStringFromMap(map: StringLookupMap, keyParts: string[]): string | undefined {

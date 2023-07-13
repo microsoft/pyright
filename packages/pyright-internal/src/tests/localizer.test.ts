@@ -9,7 +9,7 @@
 
 import * as assert from 'assert';
 
-import { Localizer, ParameterizedString } from '../localization/localize';
+import { Localizer, ParameterizedString, setGetRawString } from '../localization/localize';
 
 const namespaces = [Localizer.Diagnostic, Localizer.DiagnosticAddendum, Localizer.CodeAction];
 
@@ -44,4 +44,26 @@ test('Raw strings present', () => {
             stringContentMap.set(formatString, key);
         });
     });
+});
+
+test('Override a specific string', () => {
+    // eslint-disable-next-line prefer-const
+    let originalRawString: ((key: string) => string) | undefined;
+    function overrideImportResolve(key: string): string {
+        if (key === 'Diagnostic.importResolveFailure') {
+            return 'Import is {importName}';
+        }
+        return originalRawString!(key);
+    }
+    originalRawString = setGetRawString(overrideImportResolve);
+
+    const value = Localizer.Diagnostic.importResolveFailure().format({ importName: 'foo' });
+
+    try {
+        assert.equal(value, 'Import is foo');
+        const nonMovedValue = Localizer.Diagnostic.abstractMethodInvocation().format({ method: 'foo' });
+        assert.equal(nonMovedValue, 'Method "foo" cannot be called because it is abstract');
+    } finally {
+        setGetRawString(originalRawString);
+    }
 });
