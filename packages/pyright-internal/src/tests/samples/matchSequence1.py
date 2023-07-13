@@ -32,6 +32,14 @@ def test_unknown(value_to_match):
             reveal_type(g1, expected_text="list[Unknown]")
 
 
+def test_any(value_to_match: Any):
+    match value_to_match:
+        case [*a1]:
+            reveal_type(a1, expected_text="list[Any]")
+        case b1:
+            reveal_type(b1, expected_text="Any")
+
+
 def test_list(value_to_match: List[str]):
     match value_to_match:
         case a1, a2:
