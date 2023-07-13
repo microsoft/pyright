@@ -397,8 +397,14 @@ export function assignTypeToTypeVar(
     // If the source is a class that is missing type arguments, fill
     // in missing type arguments with Unknown.
     if ((flags & AssignTypeFlags.AllowUnspecifiedTypeArguments) === 0) {
-        if (isClass(adjSrcType) && adjSrcType.includeSubclasses) {
-            adjSrcType = specializeWithDefaultTypeArgs(adjSrcType);
+        if (isClass(adjSrcType)) {
+            // Skip this if the source is a concrete class and the dest is
+            // not a type[T]. This combination is used for class decorators
+            // such as dataclass_transform, and we need to retain the original
+            // unspecialized class in this case.
+            if (adjSrcType.includeSubclasses || TypeBase.isInstantiable(destType)) {
+                adjSrcType = specializeWithDefaultTypeArgs(adjSrcType);
+            }
         }
     }
 
