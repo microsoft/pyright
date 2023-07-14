@@ -22,6 +22,9 @@
         "prepack": "npm run clean && shx cp ../../README.md . && shx cp ../../LICENSE.txt . && npm run build",
         "webpack": "webpack --mode development --progress"
     },
+    "optionalDependencies": {
+        "fsevents": "~2.3.2"
+    },
     "devDependencies": {
         "@types/copy-webpack-plugin": "^10.1.0",
         "@types/node": "^17.0.45",
