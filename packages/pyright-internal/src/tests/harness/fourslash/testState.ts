@@ -119,7 +119,8 @@ const testAccessHost = new TestAccessHost(vfs.MODULE_PATH, [libFolder, distlibFo
 
 export class TestState {
     private readonly _cancellationToken: TestCancellationToken;
-    private readonly _files: string[] = [];
+    private readonly _vfsFiles: vfs.FileSet;
+    protected readonly files: string[] = [];
     private readonly _hostSpecificFeatures: HostSpecificFeatures;
 
     readonly testFS: vfs.TestFileSystem;
@@ -143,9 +144,14 @@ export class TestState {
         public testData: FourSlashData,
         mountPaths?: Map<string, string>,
         hostSpecificFeatures?: HostSpecificFeatures,
-        testFS?: vfs.TestFileSystem
+        testFS?: vfs.TestFileSystem,
+        // Setting delayFileInitialization to true enables derived class constructors to execute
+        // before any files are opened. When set to true, initializeFiles() must be called separately
+        // after construction completes.
+        delayFileInitialization = false
     ) {
         const vfsInfo = createVfsInfoFromFourSlashData(projectRoot, testData);
+        this._vfsFiles = vfsInfo.files;
 
         this.testFS =
             testFS ??
@@ -161,7 +167,7 @@ export class TestState {
         this._hostSpecificFeatures = hostSpecificFeatures ?? new TestFeatures();
 
         this.fs = new PyrightFileSystem(this.testFS);
-        this._files = vfsInfo.sourceFileNames;
+        this.files = vfsInfo.sourceFileNames;
 
         this.rawConfigJson = vfsInfo.rawConfigJson;
         const configOptions = this._convertGlobalOptionsToConfigOptions(vfsInfo.projectRoot, mountPaths);
@@ -201,16 +207,8 @@ export class TestState {
             this._hostSpecificFeatures.runIndexer(this.workspace, indexerWithoutStdLib, indexerOptions);
         }
 
-        if (this._files.length > 0) {
-            // Open the first file by default
-            this.openFile(this._files[0]);
-        }
-
-        for (const filePath of this._files) {
-            const file = vfsInfo.files[filePath] as vfs.File;
-            if (file.meta?.[MetadataOptionNames.ipythonMode]) {
-                this.program.getSourceFile(filePath)?.test_enableIPythonMode(true);
-            }
+        if (!delayFileInitialization) {
+            this.initializeFiles();
         }
     }
 
@@ -224,6 +222,20 @@ export class TestState {
 
     get program(): Program {
         return this.workspace.service.test_program;
+    }
+
+    initializeFiles() {
+        if (this.files.length > 0) {
+            // Open the first file by default
+            this.openFile(this.files[0]);
+        }
+
+        for (const filePath of this.files) {
+            const file = this._vfsFiles[filePath] as vfs.File;
+            if (file.meta?.[MetadataOptionNames.ipythonMode]) {
+                this.program.getSourceFile(filePath)?.test_enableIPythonMode(true);
+            }
+        }
     }
 
     dispose() {
@@ -423,12 +435,14 @@ export class TestState {
     }
 
     // Opens a file given its 0-based index or fileName
-    openFile(indexOrName: number | string): void {
-        const fileToOpen: FourSlashFile = this._findFile(indexOrName);
+    openFile(indexOrName: number | string): FourSlashFile {
+        const fileToOpen: FourSlashFile = this.findFile(indexOrName);
         fileToOpen.fileName = normalizeSlashes(fileToOpen.fileName);
         this.activeFile = fileToOpen;
 
         this.program.setFileOpened(this.activeFile.fileName, 1, fileToOpen.content);
+
+        return fileToOpen;
     }
 
     openFiles(indexOrNames: (number | string)[]): void {
@@ -1425,6 +1439,29 @@ export class TestState {
         }
     }
 
+    protected findFile(indexOrName: string | number): FourSlashFile {
+        if (typeof indexOrName === 'number') {
+            const index = indexOrName;
+            if (index >= this.testData.files.length) {
+                throw new Error(
+                    `File index (${index}) in openFile was out of range. There are only ${this.testData.files.length} files in this test.`
+                );
+            } else {
+                return this.testData.files[index];
+            }
+        } else if (isString(indexOrName)) {
+            const { file, availableNames } = this._tryFindFileWorker(indexOrName);
+            if (!file) {
+                throw new Error(
+                    `No test file named "${indexOrName}" exists. Available file names are: ${availableNames.join(', ')}`
+                );
+            }
+            return file;
+        } else {
+            return debug.assertNever(indexOrName);
+        }
+    }
+
     protected getCompletionResults(
         state: TestState,
         marker: Marker,
@@ -1583,7 +1620,7 @@ export class TestState {
     }
 
     private _getTextRangeCollection(fileName: string): TextRangeCollection<TextRange> {
-        if (fileName in this._files) {
+        if (fileName in this.files) {
             return this._getParseResult(fileName).tokenizerOutput.lines;
         }
 
@@ -1692,29 +1729,6 @@ export class TestState {
         );
     }
 
-    private _findFile(indexOrName: string | number): FourSlashFile {
-        if (typeof indexOrName === 'number') {
-            const index = indexOrName;
-            if (index >= this.testData.files.length) {
-                throw new Error(
-                    `File index (${index}) in openFile was out of range. There are only ${this.testData.files.length} files in this test.`
-                );
-            } else {
-                return this.testData.files[index];
-            }
-        } else if (isString(indexOrName)) {
-            const { file, availableNames } = this._tryFindFileWorker(indexOrName);
-            if (!file) {
-                throw new Error(
-                    `No test file named "${indexOrName}" exists. Available file names are: ${availableNames.join(', ')}`
-                );
-            }
-            return file;
-        } else {
-            return debug.assertNever(indexOrName);
-        }
-    }
-
     private _tryFindFileWorker(name: string): {
         readonly file: FourSlashFile | undefined;
         readonly availableNames: readonly string[];
@@ -1778,7 +1792,7 @@ export class TestState {
     }
 
     private _getDiagnosticsPerFile() {
-        const sourceFiles = this._files.map((f) => this.program.getSourceFile(f));
+        const sourceFiles = this.files.map((f) => this.program.getSourceFile(f));
         const results = sourceFiles.map((sourceFile, index) => {
             if (sourceFile) {
                 const diagnostics = sourceFile.getDiagnostics(this.configOptions) || [];
@@ -1793,7 +1807,7 @@ export class TestState {
                 };
                 return [filePath, value] as [string, typeof value];
             } else {
-                this.raiseError(`Source file not found for ${this._files[index]}`);
+                this.raiseError(`Source file not found for ${this.files[index]}`);
             }
         });
 
@@ -1818,7 +1832,7 @@ export class TestState {
         // directly set files to track rather than using fileSpec from config
         // to discover those files from file system
         service.test_program.setTrackedFiles(
-            this._files
+            this.files
                 .filter((path) => {
                     const fileExtension = getFileExtension(path).toLowerCase();
                     return fileExtension === '.py' || fileExtension === '.pyi';

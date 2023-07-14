@@ -53,6 +53,7 @@ import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { PrintTypeFlags } from './typePrinter';
 import { TypeStubWriter } from './typeStubWriter';
 import { Type } from './types';
+import { FileSystem } from '../common/fileSystem';
 
 const _maxImportDepth = 256;
 
@@ -113,6 +114,45 @@ interface UpdateImportInfo {
 
 export type PreCheckCallback = (parseResults: ParseResults, evaluator: TypeEvaluator) => void;
 
+export type SourceFileFactory = (
+    fs: FileSystem,
+    filePath: string,
+    moduleName: string,
+    isThirdPartyImport: boolean,
+    isThirdPartyPyTypedPresent: boolean,
+    editMode: boolean,
+    console?: ConsoleInterface,
+    logTracker?: LogTracker,
+    realFilePath?: string,
+    ipythonMode?: IPythonMode
+) => SourceFile;
+
+function DefaultSourceFileFactory(
+    fs: FileSystem,
+    filePath: string,
+    moduleName: string,
+    isThirdPartyImport: boolean,
+    isThirdPartyPyTypedPresent: boolean,
+    editMode: boolean,
+    console?: ConsoleInterface,
+    logTracker?: LogTracker,
+    realFilePath?: string,
+    ipythonMode?: IPythonMode
+) {
+    return new SourceFile(
+        fs,
+        filePath,
+        moduleName,
+        isThirdPartyImport,
+        isThirdPartyPyTypedPresent,
+        editMode,
+        console,
+        logTracker,
+        realFilePath,
+        ipythonMode
+    );
+}
+
 export interface OpenFileOptions {
     isTracked: boolean;
     ipythonMode: IPythonMode;
@@ -144,14 +184,15 @@ export class Program {
 
     private _parsedFileCount = 0;
     private _preCheckCallback: PreCheckCallback | undefined;
-
     private _isEditMode = false;
+    private _sourceFileFactory: SourceFileFactory;
 
     constructor(
         initialImportResolver: ImportResolver,
         initialConfigOptions: ConfigOptions,
         console?: ConsoleInterface,
         logTracker?: LogTracker,
+        sourceFileFactory?: SourceFileFactory,
         private _disableChecker?: boolean,
         cacheManager?: CacheManager,
         id?: string
@@ -160,6 +201,7 @@ export class Program {
         this._logTracker = logTracker ?? new LogTracker(console, 'FG');
         this._importResolver = initialImportResolver;
         this._configOptions = initialConfigOptions;
+        this._sourceFileFactory = sourceFileFactory ?? DefaultSourceFileFactory;
 
         this._cacheManager = cacheManager ?? new CacheManager();
         this._cacheManager.registerCacheOwner(this);
@@ -333,7 +375,7 @@ export class Program {
             return sourceFileInfo.sourceFile;
         }
 
-        const sourceFile = new SourceFile(
+        const sourceFile = this._sourceFileFactory(
             this.fileSystem,
             filePath,
             importName,
@@ -364,7 +406,7 @@ export class Program {
         let sourceFileInfo = this.getSourceFileInfo(filePath);
         if (!sourceFileInfo) {
             const importName = this._getImportNameForFile(filePath);
-            const sourceFile = new SourceFile(
+            const sourceFile = this._sourceFileFactory(
                 this.fileSystem,
                 filePath,
                 importName,
@@ -1546,7 +1588,7 @@ export class Program {
 
     private _createInterimFileInfo(filePath: string) {
         const importName = this._getImportNameForFile(filePath);
-        const sourceFile = new SourceFile(
+        const sourceFile = this._sourceFileFactory(
             this.fileSystem,
             filePath,
             importName,
@@ -1852,7 +1894,11 @@ export class Program {
         return false;
     }
 
-    private _checkTypes(fileToCheck: SourceFileInfo, token: CancellationToken, chainedByList?: SourceFileInfo[]) {
+    private _checkTypes(
+        fileToCheck: SourceFileInfo,
+        token: CancellationToken,
+        chainedByList?: (SourceFileInfo | undefined)[]
+    ) {
         return this._logTracker.log(`analyzing: ${fileToCheck.sourceFile.getFilePath()}`, (logState) => {
             // If the file isn't needed because it was eliminated from the
             // transitive closure or deleted, skip the file rather than wasting
@@ -1936,7 +1982,7 @@ export class Program {
 
     private _checkDependentFiles(
         fileToCheck: SourceFileInfo,
-        chainedByList: SourceFileInfo[] | undefined,
+        chainedByList: (SourceFileInfo | undefined)[] | undefined,
         token: CancellationToken
     ) {
         if (fileToCheck.sourceFile.getIPythonMode() !== IPythonMode.CellDocs) {
@@ -1965,7 +2011,14 @@ export class Program {
             const handle = this._cacheManager.pauseTracking();
             try {
                 for (let i = chainedByList.length - 1; i >= startIndex; i--) {
-                    this._checkTypes(chainedByList[i], token, chainedByList);
+                    const file = chainedByList[i];
+                    if (!file) {
+                        continue;
+                    }
+
+                    if (!this._checkTypes(file, token, chainedByList)) {
+                        chainedByList[i] = undefined;
+                    }
                 }
             } finally {
                 handle.dispose();
@@ -1975,9 +2028,9 @@ export class Program {
         const dependentFiles = [];
         for (let i = startIndex; i < chainedByList.length; i++) {
             const file = chainedByList[i];
-
-            const parseResults = file.sourceFile.getParseResults();
-            if (parseResults) {
+            const parseResults = file?.sourceFile.getParseResults();
+            if (file && parseResults) {
+                assert(!file.sourceFile.isBindingRequired());
                 dependentFiles.push(parseResults);
             }
         }

@@ -27,7 +27,7 @@
         "tmp": "^0.2.1",
         "vscode-jsonrpc": "8.1.0",
         "vscode-languageserver": "8.1.0",
-        "vscode-languageserver-textdocument": "^1.0.10",
+        "vscode-languageserver-textdocument": "1.0.10",
         "vscode-languageserver-types": "3.17.3",
         "vscode-uri": "^3.0.7"
     },

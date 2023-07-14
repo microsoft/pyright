@@ -8,6 +8,7 @@
  * methods.
  */
 
+import { Disposable } from 'vscode-jsonrpc';
 import * as debug from './debug';
 
 export enum LogLevel {
@@ -125,8 +126,9 @@ export class StderrConsole implements ConsoleInterface {
     }
 }
 
-export class ConsoleWithLogLevel implements ConsoleInterface {
+export class ConsoleWithLogLevel implements ConsoleInterface, Disposable {
     private _maxLevel = 2;
+    private _disposed = false;
 
     constructor(private _console: ConsoleInterface, private _name = '') {}
 
@@ -154,6 +156,10 @@ export class ConsoleWithLogLevel implements ConsoleInterface {
         this._maxLevel = maxLevel;
     }
 
+    dispose() {
+        this._disposed = true;
+    }
+
     error(message: string) {
         this._log(LogLevel.Error, `${this._prefix}${message}`);
     }
@@ -176,6 +182,9 @@ export class ConsoleWithLogLevel implements ConsoleInterface {
 
     private _log(level: LogLevel, message: string): void {
         if (this._getNumericalLevel(level) > this._maxLevel) {
+            return;
+        }
+        if (this._disposed) {
             return;
         }
 

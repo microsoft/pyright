@@ -28,7 +28,7 @@ import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
 import { Localizer } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
-import { ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
+import { IParser, ModuleImport, ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { IgnoreComment } from '../parser/tokenizer';
 import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
@@ -202,7 +202,7 @@ export class SourceFile {
         console?: ConsoleInterface,
         logTracker?: LogTracker,
         realFilePath?: string,
-        ipythonMode = IPythonMode.None
+        ipythonMode?: IPythonMode
     ) {
         this.fileSystem = fs;
         this._console = console || new StandardConsole();
@@ -239,7 +239,7 @@ export class SourceFile {
 
         // 'FG' or 'BG' based on current thread.
         this._logTracker = logTracker ?? new LogTracker(console, isMainThread ? 'FG' : 'BG');
-        this._ipythonMode = ipythonMode;
+        this._ipythonMode = ipythonMode ?? IPythonMode.None;
     }
 
     getRealFilePath(): string {
@@ -403,6 +403,10 @@ export class SourceFile {
                 this._writableData.moduleSymbolTable = undefined;
             }
         }
+    }
+
+    getFileContentsVersion() {
+        return this._writableData.fileContentsVersion;
     }
 
     getClientVersion() {
@@ -574,7 +578,7 @@ export class SourceFile {
 
             try {
                 // Parse the token stream, building the abstract syntax tree.
-                const parseResults = parseFile(
+                const parseResults = this._parseFile(
                     configOptions,
                     this._filePath,
                     fileContents!,
@@ -827,6 +831,10 @@ export class SourceFile {
 
     test_enableIPythonMode(enable: boolean) {
         this._ipythonMode = enable ? IPythonMode.CellDocs : IPythonMode.None;
+    }
+
+    protected createParser(): IParser {
+        return new Parser();
     }
 
     // Computes an updated set of accumulated diagnostics for the file
@@ -1296,28 +1304,28 @@ export class SourceFile {
     private _getPathForLogging(filepath: string) {
         return getPathForLogging(this.fileSystem, filepath);
     }
-}
 
-export function parseFile(
-    configOptions: ConfigOptions,
-    filePath: string,
-    fileContents: string,
-    ipythonMode: IPythonMode,
-    diagSink: DiagnosticSink
-) {
-    // Use the configuration options to determine the environment in which
-    // this source file will be executed.
-    const execEnvironment = configOptions.findExecEnvironment(filePath);
+    private _parseFile(
+        configOptions: ConfigOptions,
+        filePath: string,
+        fileContents: string,
+        ipythonMode: IPythonMode,
+        diagSink: DiagnosticSink
+    ) {
+        // Use the configuration options to determine the environment in which
+        // this source file will be executed.
+        const execEnvironment = configOptions.findExecEnvironment(filePath);
 
-    const parseOptions = new ParseOptions();
-    parseOptions.ipythonMode = ipythonMode;
-    if (filePath.endsWith('pyi')) {
-        parseOptions.isStubFile = true;
+        const parseOptions = new ParseOptions();
+        parseOptions.ipythonMode = ipythonMode;
+        if (filePath.endsWith('pyi')) {
+            parseOptions.isStubFile = true;
+        }
+        parseOptions.pythonVersion = execEnvironment.pythonVersion;
+        parseOptions.skipFunctionAndClassBody = configOptions.indexGenerationMode ?? false;
+
+        // Parse the token stream, building the abstract syntax tree.
+        const parser = this.createParser();
+        return parser.parseSourceFile(fileContents, parseOptions, diagSink);
     }
-    parseOptions.pythonVersion = execEnvironment.pythonVersion;
-    parseOptions.skipFunctionAndClassBody = configOptions.indexGenerationMode ?? false;
-
-    // Parse the token stream, building the abstract syntax tree.
-    const parser = new Parser();
-    return parser.parseSourceFile(fileContents, parseOptions, diagSink);
 }

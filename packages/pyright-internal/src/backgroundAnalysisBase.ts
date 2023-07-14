@@ -11,7 +11,7 @@ import { MessageChannel, MessagePort, Worker, parentPort, threadId, workerData }
 
 import { AnalysisCompleteCallback, AnalysisResults, analyzeProgram, nullCallback } from './analyzer/analysis';
 import { ImportResolver } from './analyzer/importResolver';
-import { OpenFileOptions, Program } from './analyzer/program';
+import { OpenFileOptions, Program, SourceFileFactory } from './analyzer/program';
 import {
     BackgroundThreadBase,
     InitializationData,
@@ -36,7 +36,7 @@ import { FileSystem } from './common/fileSystem';
 import { Host, HostKind } from './common/host';
 import { LogTracker } from './common/logTracker';
 import { Range } from './common/textRange';
-import { InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
+import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
 
 export class BackgroundAnalysisBase {
     private _worker: Worker | undefined;
@@ -103,7 +103,7 @@ export class BackgroundAnalysisBase {
         });
     }
 
-    startAnalysis(program: Program, token: CancellationToken) {
+    startAnalysis(program: BackgroundAnalysisProgram, token: CancellationToken) {
         this._startOrResumeAnalysis('analyze', program, token);
     }
 
@@ -209,7 +209,7 @@ export class BackgroundAnalysisBase {
 
     protected handleAnalysisResponse(
         msg: AnalysisResponse,
-        program: Program,
+        program: BackgroundAnalysisProgram,
         port1: MessagePort,
         port2: MessagePort,
         token: CancellationToken
@@ -244,7 +244,7 @@ export class BackgroundAnalysisBase {
 
     private _startOrResumeAnalysis(
         requestType: 'analyze' | 'resumeAnalysis',
-        program: Program,
+        program: BackgroundAnalysisProgram,
         token: CancellationToken
     ) {
         const { port1, port2 } = new MessageChannel();
@@ -264,7 +264,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     protected importResolver: ImportResolver;
     protected logTracker: LogTracker;
 
-    protected constructor(fileSystem?: FileSystem) {
+    protected constructor(fileSystem?: FileSystem, sourceFileFactory?: SourceFileFactory) {
         super(workerData as InitializationData, fileSystem);
 
         // Stash the base directory into a global variable.
@@ -277,7 +277,13 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         const console = this.getConsole();
         this.logTracker = new LogTracker(console, `BG(${threadId})`);
 
-        this._program = new Program(this.importResolver, this._configOptions, console, this.logTracker);
+        this._program = new Program(
+            this.importResolver,
+            this._configOptions,
+            console,
+            this.logTracker,
+            sourceFileFactory
+        );
 
         // Create the extensions bound to the program for this background thread
         Extensions.createProgramExtensions(this._program, {

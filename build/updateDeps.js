@@ -19,6 +19,7 @@ async function main() {
         'vscode-languageclient',
         'vscode-languageserver',
         'vscode-languageserver-protocol',
+        'vscode-languageserver-textdocument',
         'vscode-languageserver-types',
         // Minor version changes have breaks; require a manual update.
         'typescript',

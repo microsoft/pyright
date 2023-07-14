@@ -387,7 +387,7 @@ export class WorkspaceFactory {
         pythonPathKind: WorkspacePythonPathKind,
         kinds: string[]
     ) {
-        // Update the kind based of the uri is local or not
+        // Update the kind based if the uri is local or not
         if (!kinds.includes(WellKnownWorkspaceKinds.Default) && (!this._uriParser.isLocal(rootUri) || this._isWeb)) {
             // Web based workspace should be limited.
             kinds = [...kinds, WellKnownWorkspaceKinds.Limited];
@@ -408,9 +408,6 @@ export class WorkspaceFactory {
             searchPathsToWatch: [],
         };
 
-        // Tell our owner we added something
-        this._onWorkspaceCreated(result);
-
         // Stick in our map
         const key = this._getWorkspaceKey(result);
 
@@ -418,6 +415,11 @@ export class WorkspaceFactory {
         this._remove(result);
         this._console.log(`WorkspaceFactory ${this._id} add ${key}`);
         this._map.set(key, result);
+
+        // Tell our owner we added something. Order matters here as we
+        // don't want to fire the workspace created while the old copy of this
+        // workspace is still in the map.
+        this._onWorkspaceCreated(result);
 
         return result;
     }

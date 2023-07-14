@@ -49,7 +49,7 @@ import {
 } from './tokenizerTypes';
 
 // This must be a Map, as operations like {}["constructor"] succeed.
-const _keywords: Map<string, KeywordType> = new Map([
+const PythonKeywords: Map<string, KeywordType> = new Map([
     ['and', KeywordType.And],
     ['as', KeywordType.As],
     ['assert', KeywordType.Assert],
@@ -205,7 +205,7 @@ interface FStringContext {
     activeReplacementField?: FStringReplacementFieldContext;
 }
 
-export class Tokenizer {
+export class Tokenizer<KeywordT extends number> {
     private _cs = new CharacterStream('');
     private _tokens: Token[] = [];
     private _prevLineStart = 0;
@@ -243,6 +243,8 @@ export class Tokenizer {
 
     // ipython mode
     private _ipythonMode = IPythonMode.None;
+
+    constructor(private readonly _keywords: Map<string, KeywordT> | Map<string, KeywordType> = PythonKeywords) {}
 
     tokenize(
         text: string,
@@ -366,8 +368,8 @@ export class Tokenizer {
         return _operatorInfo[operatorType];
     }
 
-    static isKeyword(name: string, includeSoftKeywords = false): boolean {
-        const keyword = _keywords.get(name);
+    static isPythonKeyword(name: string, includeSoftKeywords = false): boolean {
+        const keyword = PythonKeywords.get(name);
         if (!keyword) {
             return false;
         }
@@ -853,9 +855,14 @@ export class Tokenizer {
 
         if (this._cs.position > start) {
             const value = this._cs.getText().substring(start, this._cs.position);
-            if (_keywords.has(value)) {
+            if (this._keywords.has(value)) {
                 this._tokens.push(
-                    KeywordToken.create(start, this._cs.position - start, _keywords.get(value)!, this._getComments())
+                    KeywordToken.create(
+                        start,
+                        this._cs.position - start,
+                        this._keywords.get(value)!,
+                        this._getComments()
+                    )
                 );
             } else {
                 this._tokens.push(IdentifierToken.create(start, this._cs.position - start, value, this._getComments()));
