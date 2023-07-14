@@ -18,7 +18,7 @@ import { Range } from '../common/textRange';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
 import { CacheManager } from './cacheManager';
 import { ImportResolver } from './importResolver';
-import { MaxAnalysisTime, OpenFileOptions, Program } from './program';
+import { MaxAnalysisTime, OpenFileOptions, Program, SourceFileFactory } from './program';
 
 export enum InvalidatedReason {
     Reanalyzed,
@@ -41,13 +41,15 @@ export class BackgroundAnalysisProgram {
         private _backgroundAnalysis?: BackgroundAnalysisBase,
         private readonly _maxAnalysisTime?: MaxAnalysisTime,
         private readonly _disableChecker?: boolean,
-        cacheManager?: CacheManager
+        cacheManager?: CacheManager,
+        sourceFileFactory?: SourceFileFactory
     ) {
         this._program = new Program(
             this.importResolver,
             this.configOptions,
             this._console,
             undefined,
+            sourceFileFactory,
             this._disableChecker,
             cacheManager,
             serviceId
@@ -151,7 +153,7 @@ export class BackgroundAnalysisProgram {
 
     startAnalysis(token: CancellationToken): boolean {
         if (this._backgroundAnalysis) {
-            this._backgroundAnalysis.startAnalysis(this.program, token);
+            this._backgroundAnalysis.startAnalysis(this, token);
             return false;
         }
 

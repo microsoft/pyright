@@ -501,7 +501,8 @@ export class CompletionProvider {
                             classResults.classType,
                             isDeclaredStaticMethod,
                             isProperty,
-                            decl
+                            decl,
+                            decl.node.isAsync
                         );
                         text = `${methodSignature}:\n${methodBody}`;
                     }
@@ -527,7 +528,8 @@ export class CompletionProvider {
         classType: ClassType,
         isStaticMethod: boolean,
         isProperty: boolean,
-        decl: FunctionDeclaration
+        decl: FunctionDeclaration,
+        insertAwait?: boolean
     ) {
         let sb = this.parseResults.tokenizerOutput.predominantTabSequence;
 
@@ -550,7 +552,7 @@ export class CompletionProvider {
             sb += 'return ';
         }
 
-        if (decl.node.isAsync) {
+        if (insertAwait) {
             sb += 'await ';
         }
 

@@ -115,6 +115,12 @@ let cacheKey: { host: TestHost; mountPaths: Map<string, string> } | undefined;
 let localCIFSCache: TestFileSystem | undefined;
 let localCSFSCache: TestFileSystem | undefined;
 
+export function clearCache() {
+    cacheKey = undefined;
+    localCIFSCache = undefined;
+    localCSFSCache = undefined;
+}
+
 function getBuiltLocal(
     host: TestHost,
     ignoreCase: boolean,

@@ -452,7 +452,7 @@ function renameKeyword(
     index: number
 ): string {
     // Determine whether the name is a keyword in python.
-    const isKeyword = Tokenizer.isKeyword(name);
+    const isKeyword = Tokenizer.isPythonKeyword(name);
 
     if (!isKeyword) {
         // No rename necessary.

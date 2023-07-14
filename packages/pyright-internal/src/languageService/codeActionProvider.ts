@@ -24,6 +24,14 @@ import { Localizer } from '../localization/localize';
 import { Workspace } from '../workspaceFactory';
 
 export class CodeActionProvider {
+    static mightSupport(kinds: CodeActionKind[] | undefined): boolean {
+        if (!kinds || kinds.length === 0) {
+            return true;
+        }
+
+        // Only support quick fix actions
+        return kinds.some((s) => s.startsWith(CodeActionKind.QuickFix));
+    }
     static async getCodeActionsForPosition(
         workspace: Workspace,
         filePath: string,
@@ -34,6 +42,11 @@ export class CodeActionProvider {
         throwIfCancellationRequested(token);
 
         const codeActions: CodeAction[] = [];
+
+        if (!this.mightSupport(kinds)) {
+            // Early exit if code actions are going to be filtered anyway.
+            return [];
+        }
 
         if (!workspace.disableLanguageServices) {
             const diags = await workspace.service.getDiagnosticsForRange(filePath, range, token);
