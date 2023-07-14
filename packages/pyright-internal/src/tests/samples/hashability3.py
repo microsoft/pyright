@@ -1,18 +1,21 @@
 # This sample tests that __hash__ is set to None if
-# __hash__isn't set but __eq__ is
+# __hash__ isn't set but __eq__ is.
 
 
 class A:
     ...
 
-# This shouldn't error
+
 A().__hash__()
 
 
 class B:
     def __eq__(self, value: object) -> bool:
         ...
+
     ...
 
-# This should error because __hash__ is set to None by Python
+
+# This should generate an error because __hash__ is implicitly set to None
+# for a class that defines __eq__ but not __hash__.
 B().__hash__()

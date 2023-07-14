@@ -150,8 +150,8 @@ test('Hashability2', () => {
     TestUtils.validateResults(analysisResults, 6);
 });
 
-test('Hash1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['hash1.py']);
+test('Hashability3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['hashability3.py']);
     TestUtils.validateResults(analysisResults, 1);
 });
 
