@@ -5405,6 +5405,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ) {
                     setSymbolAccessed(AnalyzerNodeInfo.getFileInfo(errorNode), memberInfo.symbol, errorNode);
                 }
+
+                // Special-case `__init_subclass` and `__class_getitem__` because
+                // these are always treated as class methods even if they're not
+                // decorated as such.
+                if (memberName === '__init_subclass__' || memberName === '__class_getitem__') {
+                    if (isFunction(type) && !FunctionType.isClassMethod(type)) {
+                        type = FunctionType.cloneWithNewFlags(type, type.details.flags | FunctionTypeFlags.ClassMethod);
+                    }
+                }
             }
 
             const descriptorResult = applyDescriptorAccessMethod(

@@ -1411,7 +1411,7 @@ export function* getClassIterator(classType: Type, flags = ClassIteratorFlags.De
         let foundSkipMroClass = skipMroClass === undefined;
 
         for (const mroClass of classType.details.mro) {
-            // Are we still searching fro teh skipMroClass?
+            // Are we still searching for the skipMroClass?
             if (!foundSkipMroClass && skipMroClass) {
                 if (!isClass(mroClass)) {
                     foundSkipMroClass = true;
