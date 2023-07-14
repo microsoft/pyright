@@ -61,6 +61,7 @@ import {
 import {
     addConditionToType,
     applySolvedTypeVars,
+    containsAnyOrUnknown,
     convertToInstance,
     doForEachSubtype,
     getTypeCondition,
@@ -207,7 +208,7 @@ function narrowTypeBasedOnSequencePattern(
         }
 
         let isPlausibleMatch = true;
-        let isDefiniteMatch = true;
+        let isDefiniteMatch = !containsAnyOrUnknown(type, /* recurse */ false);
         const narrowedEntryTypes: Type[] = [];
         let canNarrowTuple = entry.isTuple;
 
