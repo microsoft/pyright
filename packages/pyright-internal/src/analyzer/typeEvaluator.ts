@@ -17627,19 +17627,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // Determine if the pre-narrowed subject type contains an object.
-        let subjectIsObject = false;
-        doForEachSubtype(makeTopLevelTypeVarsConcrete(subjectType), (subtype) => {
-            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
-                subjectIsObject = true;
-            }
-        });
-
         const narrowedSubjectType = assignTypeToPatternTargets(
             evaluatorInterface,
             subjectType,
             !!subjectTypeResult.isIncomplete,
-            subjectIsObject,
             node.pattern
         );
 

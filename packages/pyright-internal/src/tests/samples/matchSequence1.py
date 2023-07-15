@@ -1,7 +1,7 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain sequence patterns.
 
-from typing import Any, Generic, List, Literal, Protocol, Tuple, TypeVar, Union
+from typing import Any, Generic, Iterator, List, Literal, Protocol, Reversible, Sequence, Tuple, TypeVar, Union
 
 def test_unknown(value_to_match):
     match value_to_match:
@@ -38,6 +38,28 @@ def test_any(value_to_match: Any):
             reveal_type(a1, expected_text="list[Any]")
         case b1:
             reveal_type(b1, expected_text="Any")
+
+
+def test_reversible(value_to_match: Reversible[int]):
+    match value_to_match:
+        case [*a1]:
+            reveal_type(a1, expected_text="list[int]")
+        case b1:
+            reveal_type(b1, expected_text="Reversible[int]")
+
+
+_T_co = TypeVar("_T_co", covariant=True)
+
+class SeqProto(Protocol[_T_co]):
+    def __reversed__(self) -> Iterator[_T_co]: ...
+
+def test_protocol(value_to_match: SeqProto[str]):
+    match value_to_match:
+        case [*a1]:
+            reveal_type(a1, expected_text="list[str]")
+        case b1:
+            reveal_type(b1, expected_text="SeqProto[str]")
+
 
 
 def test_list(value_to_match: List[str]):
@@ -159,39 +181,39 @@ def test_union(value_to_match: Union[Tuple[complex, complex], Tuple[int, str, fl
             reveal_type(a2, expected_text="str | float | Any")
             reveal_type(a3, expected_text="float | str | Any")
             reveal_type(a4, expected_text="complex | str | float | Any")
-            reveal_type(value_to_match, expected_text="tuple[int, str, float, complex] | List[str] | tuple[float, float, float, float] | Any")
+            reveal_type(value_to_match, expected_text="tuple[int, str, float, complex] | List[str] | tuple[float, float, float, float] | Sequence[Any]")
 
         case *b1, b2 if value_to_match[0] == 0:
             reveal_type(b1, expected_text="list[complex] | list[int | str | float] | list[str] | list[float] | list[Any]")
             reveal_type(b2, expected_text="complex | str | float | Any")
-            reveal_type(value_to_match, expected_text="Tuple[complex, complex] | Tuple[int, str, float, complex] | List[str] | Tuple[float, ...] | Any")
+            reveal_type(value_to_match, expected_text="Tuple[complex, complex] | Tuple[int, str, float, complex] | List[str] | Tuple[float, ...] | Sequence[Any]")
 
         case c1, *c2 if value_to_match[0] == 0:
             reveal_type(c1, expected_text="complex | int | str | float | Any")
             reveal_type(c2, expected_text="list[complex] | list[str | float | complex] | list[str] | list[float] | list[Any]")
-            reveal_type(value_to_match, expected_text="Tuple[complex, complex] | Tuple[int, str, float, complex] | List[str] | Tuple[float, ...] | Any")
+            reveal_type(value_to_match, expected_text="Tuple[complex, complex] | Tuple[int, str, float, complex] | List[str] | Tuple[float, ...] | Sequence[Any]")
 
         case d1, *d2, d3 if value_to_match[0] == 0:
             reveal_type(d1, expected_text="complex | int | str | float | Any")
             reveal_type(d2, expected_text="list[str | float] | list[str] | list[float] | list[Any]")
             reveal_type(d3, expected_text="complex | str | float | Any")
-            reveal_type(value_to_match, expected_text="Tuple[complex, complex] | Tuple[int, str, float, complex] | List[str] | Tuple[float, ...] | Any")
+            reveal_type(value_to_match, expected_text="Tuple[complex, complex] | Tuple[int, str, float, complex] | List[str] | Tuple[float, ...] | Sequence[Any]")
         
         case 3, e1:
             reveal_type(e1, expected_text="complex | float | Any")
-            reveal_type(value_to_match, expected_text="tuple[Literal[3], complex] | tuple[Literal[3], float] | Any")
+            reveal_type(value_to_match, expected_text="tuple[Literal[3], complex] | tuple[Literal[3], float] | Sequence[Any]")
        
         case "hi", *f1:
             reveal_type(f1, expected_text="list[str] | list[Any]")
-            reveal_type(value_to_match, expected_text="List[str] | Any")
+            reveal_type(value_to_match, expected_text="List[str] | Sequence[Any]")
        
         case *g1, 3j:
             reveal_type(g1, expected_text="list[complex] | list[int | str | float] | list[Any]")
-            reveal_type(value_to_match, expected_text="tuple[complex, complex] | Tuple[int, str, float, complex] | Any")
+            reveal_type(value_to_match, expected_text="tuple[complex, complex] | Tuple[int, str, float, complex] | Sequence[Any]")
        
         case *h1, "hi":
             reveal_type(h1, expected_text="list[str] | list[Any]")
-            reveal_type(value_to_match, expected_text="List[str] | Any")
+            reveal_type(value_to_match, expected_text="List[str] | Sequence[Any]")
 
 
 class SupportsLessThan(Protocol):
@@ -238,56 +260,73 @@ def test_exceptions(seq: Union[str, bytes, bytearray]):
             reveal_type(y, expected_text="Never")
             return seq
 
-def test_object(seq: object):
+def test_object1(seq: object):
     match seq:
         case (a1, a2) as a3:
-            reveal_type(a1, expected_text="object")
-            reveal_type(a2, expected_text="object")
-            reveal_type(a3, expected_text="Sequence[object]")
-            reveal_type(seq, expected_text="Sequence[object]")
+            reveal_type(a1, expected_text="Unknown")
+            reveal_type(a2, expected_text="Unknown")
+            reveal_type(a3, expected_text="Sequence[Unknown]")
+            reveal_type(seq, expected_text="Sequence[Unknown]")
 
         case (*b1, b2) as b3:
-            reveal_type(b1, expected_text="list[object]")
-            reveal_type(b2, expected_text="object")
-            reveal_type(b3, expected_text="Sequence[object]")
-            reveal_type(seq, expected_text="Sequence[object]")
+            reveal_type(b1, expected_text="list[Unknown]")
+            reveal_type(b2, expected_text="Unknown")
+            reveal_type(b3, expected_text="Sequence[Unknown]")
+            reveal_type(seq, expected_text="Sequence[Unknown]")
 
         case (c1, *c2) as c3:
-            reveal_type(c1, expected_text="object")
-            reveal_type(c2, expected_text="list[object]")
-            reveal_type(c3, expected_text="Sequence[object]")
-            reveal_type(seq, expected_text="Sequence[object]")
+            reveal_type(c1, expected_text="Unknown")
+            reveal_type(c2, expected_text="list[Unknown]")
+            reveal_type(c3, expected_text="Sequence[Unknown]")
+            reveal_type(seq, expected_text="Sequence[Unknown]")
 
         case (d1, *d2, d3) as d4:
-            reveal_type(d1, expected_text="object")
-            reveal_type(d2, expected_text="list[object]")
-            reveal_type(d3, expected_text="object")
-            reveal_type(d4, expected_text="Sequence[object]")
-            reveal_type(seq, expected_text="Sequence[object]")
+            reveal_type(d1, expected_text="Unknown")
+            reveal_type(d2, expected_text="list[Unknown]")
+            reveal_type(d3, expected_text="Unknown")
+            reveal_type(d4, expected_text="Sequence[Unknown]")
+            reveal_type(seq, expected_text="Sequence[Unknown]")
         
         case (3, *e1) as e2:
-            reveal_type(e1, expected_text="list[object]")
-            reveal_type(e2, expected_text="Sequence[object | int]")
-            reveal_type(seq, expected_text="Sequence[object | int]")
+            reveal_type(e1, expected_text="list[Unknown]")
+            reveal_type(e2, expected_text="Sequence[Unknown]")
+            reveal_type(seq, expected_text="Sequence[Unknown]")
         
         case ("hi", *f1) as f2: 
-            reveal_type(f1, expected_text="list[object]")
-            reveal_type(f2, expected_text="Sequence[object | str]")
-            reveal_type(seq, expected_text="Sequence[object | str]") 
+            reveal_type(f1, expected_text="list[Unknown]")
+            reveal_type(f2, expected_text="Sequence[Unknown]")
+            reveal_type(seq, expected_text="Sequence[Unknown]") 
        
         case (*g1, "hi") as g2:
-            reveal_type(g1, expected_text="list[object]")
-            reveal_type(g2, expected_text="Sequence[object | str]") 
-            reveal_type(seq, expected_text="Sequence[object | str]") 
+            reveal_type(g1, expected_text="list[Unknown]")
+            reveal_type(g2, expected_text="Sequence[Unknown]") 
+            reveal_type(seq, expected_text="Sequence[Unknown]") 
 
         case [1, "hi", True] as h1: 
             reveal_type(h1, expected_text="Sequence[int | str | bool]")
             reveal_type(seq, expected_text="Sequence[int | str | bool]")
 
         case [1, i1] as i2:
-            reveal_type(i1, expected_text="object")
-            reveal_type(i2, expected_text="Sequence[object | int]") 
-            reveal_type(seq, expected_text="Sequence[object | int]")
+            reveal_type(i1, expected_text="Unknown")
+            reveal_type(i2, expected_text="Sequence[Unknown]") 
+            reveal_type(seq, expected_text="Sequence[Unknown]")
+
+def test_object2(value_to_match: object):
+    match value_to_match:
+        case [*a1]:
+            reveal_type(a1, expected_text="list[Unknown]")
+        case b1:
+            reveal_type(b1, expected_text="object")
+
+
+def test_sequence(value_to_match: Sequence[Any]):
+    match value_to_match:
+        case [*a1]:
+            reveal_type(a1, expected_text="list[Any]")
+        case b1:
+            reveal_type(b1, expected_text="Never")
+
+
 
 _T = TypeVar('_T')
 
