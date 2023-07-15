@@ -1,7 +1,7 @@
 # This sample tests the type checker's detection of overlapping
 # overload declarations.
 
-from typing import Any, Generic, Literal, Protocol, Sequence, TypeVar, overload
+from typing import Any, AnyStr, Generic, Literal, Protocol, Sequence, TypeVar, overload
 
 
 @overload
@@ -348,3 +348,20 @@ def func19(a: Any, b: DProto1) -> Any:
 
 def func19(a: Any, b: Any) -> Any:
     return a + b
+
+
+AllStr = bytes | str
+
+
+@overload
+def func20(choices: AnyStr) -> AnyStr:
+    ...
+
+
+@overload
+def func20(choices: AllStr) -> AllStr:
+    ...
+
+
+def func20(choices: AllStr) -> AllStr:
+    ...

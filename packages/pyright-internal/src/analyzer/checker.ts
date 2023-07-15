@@ -2500,9 +2500,7 @@ export class Checker extends ParseTreeWalker {
             /* diag */ undefined,
             new TypeVarContext(getTypeVarScopeId(functionType)),
             /* srcTypeVarContext */ undefined,
-            AssignTypeFlags.SkipSolveTypeVars |
-                AssignTypeFlags.SkipFunctionReturnTypeCheck |
-                AssignTypeFlags.OverloadOverlapCheck
+            AssignTypeFlags.SkipFunctionReturnTypeCheck | AssignTypeFlags.OverloadOverlapCheck
         );
     }
 
