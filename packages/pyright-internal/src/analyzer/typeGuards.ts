@@ -997,7 +997,9 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
         return transformPossibleRecursiveTypeAlias(subtype);
     });
 
-    return evaluator.mapSubtypesExpandTypeVars(
+    let resultIncludesNoneSubtype = false;
+
+    const result = evaluator.mapSubtypesExpandTypeVars(
         expandedType,
         /* conditionFilter */ undefined,
         (subtype, unexpandedSubtype) => {
@@ -1017,6 +1019,7 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
 
             // See if it's a match for object.
             if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
+                resultIncludesNoneSubtype = true;
                 return isPositiveTest
                     ? addConditionToType(NoneType.createInstance(), subtype.condition)
                     : adjustedSubtype;
@@ -1024,12 +1027,24 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
 
             // See if it's a match for None.
             if (isNoneInstance(subtype) === isPositiveTest) {
+                resultIncludesNoneSubtype = true;
                 return subtype;
             }
 
             return undefined;
         }
     );
+
+    // If this is a positive test and the result is a union that includes None,
+    // we can eliminate all the non-None subtypes include Any or Unknown. If some
+    // of the subtypes are None types with conditions, retain those.
+    if (isPositiveTest && resultIncludesNoneSubtype) {
+        return mapSubtypes(result, (subtype) => {
+            return isNoneInstance(subtype) ? subtype : undefined;
+        });
+    }
+
+    return result;
 }
 
 // Handle type narrowing for expressions of the form "x is ..." and "x is not ...".
