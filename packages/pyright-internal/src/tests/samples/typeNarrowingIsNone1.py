@@ -4,7 +4,7 @@
 
 # pyright: strict, reportUnusedVariable=false
 
-from typing import TypeVar
+from typing import Any, Literal, Protocol, TypeVar
 
 
 def func1(x: int | None):
@@ -54,3 +54,29 @@ def func4(x: _T2) -> _T2:
     else:
         reveal_type(x, expected_text="_T2@func4")
         return x
+
+
+def func5(x: Any | None):
+    if x is None:
+        reveal_type(x, expected_text="None")
+    else:
+        reveal_type(x, expected_text="Any")
+
+
+def func6(x: Any | object | None):
+    if x is None:
+        reveal_type(x, expected_text="None")
+    else:
+        reveal_type(x, expected_text="Any | object")
+
+
+class NoneProto(Protocol):
+    def __bool__(self) -> Literal[False]:
+        ...
+
+
+def func7(x: NoneProto | None):
+    if x is None:
+        reveal_type(x, expected_text="None")
+    else:
+        reveal_type(x, expected_text="NoneProto")
