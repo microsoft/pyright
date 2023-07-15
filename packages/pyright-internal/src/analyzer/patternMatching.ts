@@ -98,7 +98,7 @@ const classPatternSpecialCases = [
 
 interface SequencePatternInfo {
     subtype: Type;
-    definiteNoMatch: boolean;
+    isDefiniteNoMatch: boolean;
     entryTypes: Type[];
     isIndeterminateLength?: boolean;
     isTuple?: boolean;
@@ -195,11 +195,11 @@ function narrowTypeBasedOnSequencePattern(
     isPositiveTest: boolean
 ): Type {
     type = transformPossibleRecursiveTypeAlias(type);
-    let sequenceInfo = getSequencePatternInfo(evaluator, type, pattern.entries.length, pattern.starEntryIndex);
+    let sequenceInfo = getSequencePatternInfo(evaluator, pattern, type);
 
     // Further narrow based on pattern entry types.
     sequenceInfo = sequenceInfo.filter((entry) => {
-        if (entry.definiteNoMatch) {
+        if (entry.isDefiniteNoMatch) {
             if (isPositiveTest) {
                 return false;
             } else {
@@ -1099,10 +1099,11 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type): MappingPat
 // sufficient length, it sets definiteNoMatch to true.
 function getSequencePatternInfo(
     evaluator: TypeEvaluator,
-    type: Type,
-    entryCount: number,
-    starEntryIndex: number | undefined
+    pattern: PatternSequenceNode,
+    type: Type
 ): SequencePatternInfo[] {
+    const entryCount = pattern.entries.length;
+    const starEntryIndex = pattern.starEntryIndex;
     const sequenceInfo: SequencePatternInfo[] = [];
     const minEntryCount = starEntryIndex === undefined ? entryCount : entryCount - 1;
 
@@ -1116,7 +1117,7 @@ function getSequencePatternInfo(
                 subtype,
                 entryTypes: [concreteSubtype],
                 isIndeterminateLength: true,
-                definiteNoMatch: false,
+                isDefiniteNoMatch: false,
             });
             return;
         }
@@ -1128,7 +1129,7 @@ function getSequencePatternInfo(
                     entryTypes: [convertToInstance(concreteSubtype)],
                     isIndeterminateLength: true,
                     isObject: true,
-                    definiteNoMatch: false,
+                    isDefiniteNoMatch: false,
                 });
                 return;
             }
@@ -1169,7 +1170,7 @@ function getSequencePatternInfo(
                                 entryTypes: [combineTypes(specializedSequence.tupleTypeArguments.map((t) => t.type))],
                                 isIndeterminateLength: true,
                                 isTuple: true,
-                                definiteNoMatch: false,
+                                isDefiniteNoMatch: false,
                             });
                             pushedEntry = true;
                         } else {
@@ -1183,7 +1184,7 @@ function getSequencePatternInfo(
                                     entryTypes: specializedSequence.tupleTypeArguments.map((t) => t.type),
                                     isIndeterminateLength: false,
                                     isTuple: true,
-                                    definiteNoMatch: false,
+                                    isDefiniteNoMatch: false,
                                 });
                                 pushedEntry = true;
                             }
@@ -1198,7 +1199,7 @@ function getSequencePatternInfo(
                                 : UnknownType.create(),
                         ],
                         isIndeterminateLength: true,
-                        definiteNoMatch: false,
+                        isDefiniteNoMatch: false,
                     });
                     pushedEntry = true;
                 }
@@ -1211,7 +1212,7 @@ function getSequencePatternInfo(
                 subtype,
                 entryTypes: [],
                 isIndeterminateLength: true,
-                definiteNoMatch: true,
+                isDefiniteNoMatch: true,
             });
         }
     });
@@ -1278,25 +1279,22 @@ function getTypeOfPatternSequenceEntry(
 }
 
 // Recursively assigns the specified type to the pattern and any capture
-// nodes within it
+// nodes within it. It returns the narrowed type, as dictated by the pattern.
 export function assignTypeToPatternTargets(
     evaluator: TypeEvaluator,
     type: Type,
     isTypeIncomplete: boolean,
     isSubjectObject: boolean,
     pattern: PatternAtomNode
-) {
+): Type {
     // Further narrow the type based on this pattern.
-    type = narrowTypeBasedOnPattern(evaluator, type, pattern, /* positiveTest */ true);
+    const narrowedType = narrowTypeBasedOnPattern(evaluator, type, pattern, /* positiveTest */ true);
 
     switch (pattern.nodeType) {
         case ParseNodeType.PatternSequence: {
-            const sequenceInfo = getSequencePatternInfo(
-                evaluator,
-                type,
-                pattern.entries.length,
-                pattern.starEntryIndex
-            ).filter((seqInfo) => !seqInfo.definiteNoMatch);
+            const sequenceInfo = getSequencePatternInfo(evaluator, pattern, narrowedType).filter(
+                (seqInfo) => !seqInfo.isDefiniteNoMatch
+            );
 
             pattern.entries.forEach((entry, index) => {
                 const entryType = combineTypes(
@@ -1321,15 +1319,27 @@ export function assignTypeToPatternTargets(
 
         case ParseNodeType.PatternAs: {
             if (pattern.target) {
-                evaluator.assignTypeToExpression(pattern.target, type, isTypeIncomplete, pattern.target);
+                evaluator.assignTypeToExpression(pattern.target, narrowedType, isTypeIncomplete, pattern.target);
             }
 
+            let runningNarrowedType = narrowedType;
             pattern.orPatterns.forEach((orPattern) => {
-                assignTypeToPatternTargets(evaluator, type, isTypeIncomplete, isSubjectObject, orPattern);
+                assignTypeToPatternTargets(
+                    evaluator,
+                    runningNarrowedType,
+                    isTypeIncomplete,
+                    isSubjectObject,
+                    orPattern
+                );
 
                 // OR patterns are evaluated left to right, so we can narrow
                 // the type as we go.
-                type = narrowTypeBasedOnPattern(evaluator, type, orPattern, /* positiveTest */ false);
+                runningNarrowedType = narrowTypeBasedOnPattern(
+                    evaluator,
+                    runningNarrowedType,
+                    orPattern,
+                    /* positiveTest */ false
+                );
             });
             break;
         }
@@ -1338,19 +1348,19 @@ export function assignTypeToPatternTargets(
             if (pattern.isWildcard) {
                 if (!isTypeIncomplete) {
                     const fileInfo = getFileInfo(pattern);
-                    if (isUnknown(type)) {
+                    if (isUnknown(narrowedType)) {
                         evaluator.addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                             DiagnosticRule.reportUnknownVariableType,
                             Localizer.Diagnostic.wildcardPatternTypeUnknown(),
                             pattern.target
                         );
-                    } else if (isPartlyUnknown(type)) {
+                    } else if (isPartlyUnknown(narrowedType)) {
                         const diagAddendum = new DiagnosticAddendum();
                         diagAddendum.addMessage(
                             Localizer.DiagnosticAddendum.typeOfSymbol().format({
                                 name: '_',
-                                type: evaluator.printType(type, { expandTypeAlias: true }),
+                                type: evaluator.printType(narrowedType, { expandTypeAlias: true }),
                             })
                         );
                         evaluator.addDiagnostic(
@@ -1362,13 +1372,13 @@ export function assignTypeToPatternTargets(
                     }
                 }
             } else {
-                evaluator.assignTypeToExpression(pattern.target, type, isTypeIncomplete, pattern.target);
+                evaluator.assignTypeToExpression(pattern.target, narrowedType, isTypeIncomplete, pattern.target);
             }
             break;
         }
 
         case ParseNodeType.PatternMapping: {
-            const mappingInfo = getMappingPatternInfo(evaluator, type);
+            const mappingInfo = getMappingPatternInfo(evaluator, narrowedType);
 
             pattern.entries.forEach((mappingEntry) => {
                 const keyTypes: Type[] = [];
@@ -1474,9 +1484,9 @@ export function assignTypeToPatternTargets(
         case ParseNodeType.PatternClass: {
             const argTypes: Type[][] = pattern.arguments.map((arg) => []);
 
-            evaluator.mapSubtypesExpandTypeVars(type, /* conditionFilter */ undefined, (expandedSubtype) => {
+            evaluator.mapSubtypesExpandTypeVars(narrowedType, /* conditionFilter */ undefined, (expandedSubtype) => {
                 if (isClassInstance(expandedSubtype)) {
-                    doForEachSubtype(type, (subjectSubtype) => {
+                    doForEachSubtype(narrowedType, (subjectSubtype) => {
                         const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subjectSubtype);
 
                         if (isAnyOrUnknown(concreteSubtype)) {
@@ -1535,6 +1545,8 @@ export function assignTypeToPatternTargets(
             break;
         }
     }
+
+    return narrowedType;
 }
 
 function wrapTypeInList(evaluator: TypeEvaluator, node: ParseNode, type: Type): Type {

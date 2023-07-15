@@ -17635,15 +17635,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         });
 
-        // Apply positive narrowing for the current case statement.
-        subjectType = narrowTypeBasedOnPattern(
-            evaluatorInterface,
-            subjectType,
-            node.pattern,
-            /* isPositiveTest */ true
-        );
-
-        assignTypeToPatternTargets(
+        const narrowedSubjectType = assignTypeToPatternTargets(
             evaluatorInterface,
             subjectType,
             !!subjectTypeResult.isIncomplete,
@@ -17653,7 +17645,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         writeTypeCache(
             node,
-            { type: subjectType, isIncomplete: !!subjectTypeResult.isIncomplete },
+            { type: narrowedSubjectType, isIncomplete: !!subjectTypeResult.isIncomplete },
             EvaluatorFlags.None
         );
     }
