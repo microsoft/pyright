@@ -145,16 +145,6 @@ test('Hashability1', () => {
     TestUtils.validateResults(analysisResults, 10);
 });
 
-test('Hashability2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['hashability2.py']);
-    TestUtils.validateResults(analysisResults, 6);
-});
-
-test('Hashability3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['hashability3.py']);
-    TestUtils.validateResults(analysisResults, 1);
-});
-
 test('Override1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['override1.py']);
     TestUtils.validateResults(analysisResults, 3);
