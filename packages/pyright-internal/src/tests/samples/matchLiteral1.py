@@ -7,22 +7,22 @@ def test_unknown(value_to_match):
         case 3 as a1, -3 as a2:
             reveal_type(a1, expected_text="Literal[3]")
             reveal_type(a2, expected_text="Literal[-3]")
-            reveal_type(value_to_match, expected_text="Unknown")
+            reveal_type(value_to_match, expected_text="Sequence[int]")
 
         case 3j as b1, -3 + 5j as b2:
             reveal_type(b1, expected_text="complex")
             reveal_type(b2, expected_text="complex")
-            reveal_type(value_to_match, expected_text="Unknown")
+            reveal_type(value_to_match, expected_text="Sequence[complex]")
 
         case "hi" as c1, None as c2:
             reveal_type(c1, expected_text="Literal['hi']")
             reveal_type(c2, expected_text="None")
-            reveal_type(value_to_match, expected_text="Unknown")
+            reveal_type(value_to_match, expected_text="Sequence[str | None]")
 
         case True as d1, False as d2:
             reveal_type(d1, expected_text="Literal[True]")
             reveal_type(d2, expected_text="Literal[False]")
-            reveal_type(value_to_match, expected_text="Unknown")
+            reveal_type(value_to_match, expected_text="Sequence[bool]")
 
 
 def test_tuple(value_to_match: tuple[int | float | str | complex, ...]):
