@@ -431,7 +431,7 @@ class _FormatMapMapping(Protocol):
 class _TranslateTable(Protocol):
     def __getitem__(self, __key: int) -> str | int | None: ...
 
-class str(Sequence[str]):
+class str:
     @overload
     def __new__(cls, object: object = ...) -> Self: ...
     @overload
