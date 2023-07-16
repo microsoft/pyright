@@ -21256,98 +21256,62 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let isCompatible = true;
 
-        if (srcTypeArgs) {
-            for (let srcArgIndex = 0; srcArgIndex < srcTypeArgs.length; srcArgIndex++) {
-                const srcTypeArg = srcTypeArgs[srcArgIndex];
+        srcTypeArgs?.forEach((srcTypeArg, srcArgIndex) => {
+            // In most cases, the number of type args should match the number
+            // of type arguments, but there are a few special cases where this
+            // isn't true (e.g. assigning a Tuple[X, Y, Z] to a tuple[W]).
+            const destArgIndex = srcArgIndex >= destTypeArgs.length ? destTypeArgs.length - 1 : srcArgIndex;
+            const destTypeArg = destArgIndex >= 0 ? destTypeArgs[destArgIndex] : UnknownType.create();
+            const destTypeParam = destArgIndex < destTypeParams.length ? destTypeParams[destArgIndex] : undefined;
+            const assignmentDiag = new DiagnosticAddendum();
+            const variance = destTypeParam ? TypeVarType.getVariance(destTypeParam) : Variance.Covariant;
+            let effectiveFlags: AssignTypeFlags;
+            let errorSource: () => ParameterizedString<{ name: string; sourceType: string; destType: string }>;
 
-                // In most cases, the number of type args should match the number
-                // of type arguments, but there are a few special cases where this
-                // isn't true (e.g. assigning a Tuple[X, Y, Z] to a tuple[W]).
-                const destArgIndex = srcArgIndex >= destTypeArgs.length ? destTypeArgs.length - 1 : srcArgIndex;
-                const destTypeArg = destArgIndex >= 0 ? destTypeArgs[destArgIndex] : UnknownType.create();
-                const destTypeParam = destArgIndex < destTypeParams.length ? destTypeParams[destArgIndex] : undefined;
-                const assignmentDiag = new DiagnosticAddendum();
+            if (variance === Variance.Covariant) {
+                effectiveFlags = flags | AssignTypeFlags.RetainLiteralsForTypeVar;
+                errorSource = Localizer.DiagnosticAddendum.typeVarIsCovariant;
+            } else if (variance === Variance.Contravariant) {
+                effectiveFlags =
+                    (flags ^ AssignTypeFlags.ReverseTypeVarMatching) | AssignTypeFlags.RetainLiteralsForTypeVar;
+                errorSource = Localizer.DiagnosticAddendum.typeVarIsContravariant;
+            } else {
+                effectiveFlags = flags | AssignTypeFlags.EnforceInvariance | AssignTypeFlags.RetainLiteralsForTypeVar;
+                errorSource = Localizer.DiagnosticAddendum.typeVarIsInvariant;
+            }
 
-                if (!destTypeParam || TypeVarType.getVariance(destTypeParam) === Variance.Covariant) {
-                    if (
-                        !assignType(
-                            destTypeArg,
-                            srcTypeArg,
-                            assignmentDiag,
-                            destTypeVarContext,
-                            srcTypeVarContext,
-                            flags | AssignTypeFlags.RetainLiteralsForTypeVar,
-                            recursionCount
-                        )
-                    ) {
-                        if (diag) {
-                            if (destTypeParam) {
-                                const childDiag = diag.createAddendum();
-                                childDiag.addMessage(
-                                    Localizer.DiagnosticAddendum.typeVarIsCovariant().format({
-                                        name: TypeVarType.getReadableName(destTypeParam),
-                                    })
-                                );
-                                childDiag.addAddendum(assignmentDiag);
-                            } else {
-                                diag.addAddendum(assignmentDiag);
-                            }
-                        }
-                        isCompatible = false;
-                    }
-                } else if (TypeVarType.getVariance(destTypeParam) === Variance.Contravariant) {
-                    if (
-                        !assignType(
-                            srcTypeArg,
-                            destTypeArg,
-                            assignmentDiag,
-                            srcTypeVarContext,
-                            destTypeVarContext,
-                            (flags ^ AssignTypeFlags.ReverseTypeVarMatching) | AssignTypeFlags.RetainLiteralsForTypeVar,
-                            recursionCount
-                        )
-                    ) {
-                        if (diag) {
+            if (
+                !assignType(
+                    variance === Variance.Contravariant ? srcTypeArg : destTypeArg,
+                    variance === Variance.Contravariant ? destTypeArg : srcTypeArg,
+                    assignmentDiag,
+                    variance === Variance.Contravariant ? srcTypeVarContext : destTypeVarContext,
+                    variance === Variance.Contravariant ? destTypeVarContext : srcTypeVarContext,
+                    effectiveFlags,
+                    recursionCount
+                )
+            ) {
+                // Don't report errors with type variables in "pseudo-random"
+                // classes since these type variables are not real.
+                if (!ClassType.isPseudoGenericClass(destType)) {
+                    if (diag) {
+                        if (destTypeParam) {
                             const childDiag = diag.createAddendum();
+
                             childDiag.addMessage(
-                                Localizer.DiagnosticAddendum.typeVarIsContravariant().format({
+                                errorSource().format({
                                     name: TypeVarType.getReadableName(destTypeParam),
+                                    ...printSrcDestTypes(srcTypeArg, destTypeArg),
                                 })
                             );
-                            childDiag.addAddendum(assignmentDiag);
-                        }
-                        isCompatible = false;
-                    }
-                } else {
-                    if (
-                        !assignType(
-                            destTypeArg,
-                            srcTypeArg,
-                            assignmentDiag,
-                            destTypeVarContext,
-                            srcTypeVarContext,
-                            flags | AssignTypeFlags.EnforceInvariance | AssignTypeFlags.RetainLiteralsForTypeVar,
-                            recursionCount
-                        )
-                    ) {
-                        // Don't report errors with type variables in "pseudo-random"
-                        // classes since these type variables are not real.
-                        if (!ClassType.isPseudoGenericClass(destType)) {
-                            if (diag) {
-                                const childDiag = diag.createAddendum();
-                                childDiag.addMessage(
-                                    Localizer.DiagnosticAddendum.typeVarIsInvariant().format({
-                                        name: TypeVarType.getReadableName(destTypeParam),
-                                    })
-                                );
-                                childDiag.addAddendum(assignmentDiag);
-                            }
-                            isCompatible = false;
+                        } else {
+                            diag.addAddendum(assignmentDiag);
                         }
                     }
+                    isCompatible = false;
                 }
             }
-        }
+        });
 
         return isCompatible;
     }

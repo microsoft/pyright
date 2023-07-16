@@ -1367,11 +1367,17 @@ export namespace Localizer {
         export const typeVarDefaultOutOfScope = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarDefaultOutOfScope'));
         export const typeVarIsContravariant = () =>
-            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarIsContravariant'));
+            new ParameterizedString<{ name: string; sourceType: string; destType: string }>(
+                getRawString('DiagnosticAddendum.typeVarIsContravariant')
+            );
         export const typeVarIsCovariant = () =>
-            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarIsCovariant'));
+            new ParameterizedString<{ name: string; sourceType: string; destType: string }>(
+                getRawString('DiagnosticAddendum.typeVarIsCovariant')
+            );
         export const typeVarIsInvariant = () =>
-            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarIsInvariant'));
+            new ParameterizedString<{ name: string; sourceType: string; destType: string }>(
+                getRawString('DiagnosticAddendum.typeVarIsInvariant')
+            );
         export const typeVarsMissing = () =>
             new ParameterizedString<{ names: string }>(getRawString('DiagnosticAddendum.typeVarsMissing'));
         export const typeVarNotAllowed = () => getRawString('DiagnosticAddendum.typeVarNotAllowed');

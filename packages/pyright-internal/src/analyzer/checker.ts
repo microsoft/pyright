@@ -4317,38 +4317,16 @@ export class Checker extends ParseTreeWalker {
             let declaredReturnType = functionType.details.declaredReturnType;
 
             if (declaredReturnType) {
-                if (isUnknown(declaredReturnType)) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportUnknownVariableType,
-                        DiagnosticRule.reportUnknownVariableType,
-                        Localizer.Diagnostic.declaredReturnTypeUnknown(),
-                        returnAnnotation
-                    );
-                } else if (isPartlyUnknown(declaredReturnType)) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportUnknownVariableType,
-                        DiagnosticRule.reportUnknownVariableType,
-                        Localizer.Diagnostic.declaredReturnTypePartiallyUnknown().format({
-                            returnType: this._evaluator.printType(declaredReturnType, { expandTypeAlias: true }),
-                        }),
-                        returnAnnotation
-                    );
-                }
+                this._reportUnknownReturnResult(node, declaredReturnType);
 
-                const diag = new DiagnosticAddendum();
                 if (
                     isTypeVar(declaredReturnType) &&
                     declaredReturnType.details.declaredVariance === Variance.Contravariant
                 ) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeVarIsContravariant().format({
-                            name: TypeVarType.getReadableName(declaredReturnType),
-                        })
-                    );
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.returnTypeContravariant() + diag.getString(),
+                        Localizer.Diagnostic.returnTypeContravariant(),
                         returnAnnotation
                     );
                 }
@@ -4400,23 +4378,27 @@ export class Checker extends ParseTreeWalker {
             }
         } else {
             const inferredReturnType = this._evaluator.getFunctionInferredReturnType(functionType);
-            if (isUnknown(inferredReturnType)) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
-                    DiagnosticRule.reportUnknownParameterType,
-                    Localizer.Diagnostic.returnTypeUnknown(),
-                    node.name
-                );
-            } else if (isPartlyUnknown(inferredReturnType)) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
-                    DiagnosticRule.reportUnknownParameterType,
-                    Localizer.Diagnostic.returnTypePartiallyUnknown().format({
-                        returnType: this._evaluator.printType(inferredReturnType, { expandTypeAlias: true }),
-                    }),
-                    node.name
-                );
-            }
+            this._reportUnknownReturnResult(node, inferredReturnType);
+        }
+    }
+
+    private _reportUnknownReturnResult(node: FunctionNode, returnType: Type) {
+        if (isUnknown(returnType)) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
+                DiagnosticRule.reportUnknownParameterType,
+                Localizer.Diagnostic.returnTypeUnknown(),
+                node.name
+            );
+        } else if (isPartlyUnknown(returnType)) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
+                DiagnosticRule.reportUnknownParameterType,
+                Localizer.Diagnostic.returnTypePartiallyUnknown().format({
+                    returnType: this._evaluator.printType(returnType, { expandTypeAlias: true }),
+                }),
+                node.name
+            );
         }
     }
 
