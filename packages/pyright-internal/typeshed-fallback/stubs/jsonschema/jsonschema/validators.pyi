@@ -19,28 +19,28 @@ _Schema: TypeAlias = Mapping[str, Any]
 # This class does not exist at runtime. Compatible classes are created at
 # runtime by create().
 class _Validator:
-    VALIDATORS: ClassVar[dict[Any, Any]]
-    META_SCHEMA: ClassVar[dict[Any, Any]]
-    TYPE_CHECKER: ClassVar[Any]
-    FORMAT_CHECKER: ClassVar[Any]
+    VALIDATORS: ClassVar[dict[Incomplete, Incomplete]]
+    META_SCHEMA: ClassVar[dict[Incomplete, Incomplete]]
+    TYPE_CHECKER: ClassVar[Incomplete]
+    FORMAT_CHECKER: ClassVar[Incomplete]
     @staticmethod
     def ID_OF(schema: _Schema) -> str: ...
     schema: _Schema
-    resolver: Any
-    format_checker: Any
-    evolve: Any
+    resolver: Incomplete
+    format_checker: Incomplete
+    evolve: Incomplete
     def __init__(self, schema: _Schema, resolver: Incomplete | None = ..., format_checker: Incomplete | None = ...) -> None: ...
     @classmethod
     def check_schema(cls, schema: _Schema, format_checker: FormatChecker | Unset = ...) -> None: ...
-    def iter_errors(self, instance, _schema: _Schema | None = ...) -> Generator[Any, None, None]: ...
+    def iter_errors(self, instance, _schema: _Schema | None = ...) -> Generator[Incomplete, None, None]: ...
     def descend(
         self, instance, schema: _Schema, path: Incomplete | None = ..., schema_path: Incomplete | None = ...
-    ) -> Generator[Any, None, None]: ...
+    ) -> Generator[Incomplete, None, None]: ...
     def validate(self, *args, **kwargs) -> None: ...
     def is_type(self, instance, type): ...
     def is_valid(self, instance, _schema: _Schema | None = ...) -> bool: ...
 
-def validates(version: str) -> Callable[..., Any]: ...
+def validates(version: str) -> Callable[..., Incomplete]: ...
 def create(
     meta_schema: _Schema,
     validators: Mapping[str, _ValidatorCallback] | tuple[()] = (),
@@ -66,17 +66,17 @@ class Draft7Validator(_Validator): ...
 class Draft201909Validator(_Validator): ...
 class Draft202012Validator(_Validator): ...
 
-_Handler: TypeAlias = Callable[[str], Any]
+_Handler: TypeAlias = Callable[[str], Incomplete]
 
 class RefResolver:
-    referrer: dict[str, Any]
-    cache_remote: Any
+    referrer: dict[str, Incomplete]
+    cache_remote: Incomplete
     handlers: dict[str, _Handler]
     store: URIDict
     def __init__(
         self,
         base_uri: str,
-        referrer: dict[str, Any],
+        referrer: dict[str, Incomplete],
         store: SupportsKeysAndGetItem[str, str] | Iterable[tuple[str, str]] = ...,
         cache_remote: bool = True,
         handlers: SupportsKeysAndGetItem[str, _Handler] | Iterable[tuple[str, _Handler]] = (),

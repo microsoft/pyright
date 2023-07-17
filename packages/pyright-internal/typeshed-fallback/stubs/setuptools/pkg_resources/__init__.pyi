@@ -9,7 +9,7 @@ from re import Pattern
 from typing import IO, Any, ClassVar, Protocol, TypeVar, overload, type_check_only
 from typing_extensions import Literal, Self, TypeAlias
 
-_Version: TypeAlias = Incomplete  # from packaging.version
+from ._vendor.packaging import requirements as packaging_requirements, version as packaging_version
 
 _T = TypeVar("_T")
 _D = TypeVar("_D", bound=Distribution)
@@ -83,16 +83,14 @@ class Environment:
 
 def parse_requirements(strs: str | Iterable[str]) -> Generator[Requirement, None, None]: ...
 
-class Requirement:
+class RequirementParseError(packaging_requirements.InvalidRequirement): ...
+
+class Requirement(packaging_requirements.Requirement):
     unsafe_name: str
     project_name: str
     key: str
-    extras: tuple[str, ...]
+    extras: tuple[str, ...]  # type: ignore[assignment]  # incompatible override of attribute on base class
     specs: list[tuple[str, str]]
-    url: str | None
-    # TODO: change this to packaging.markers.Marker | None once we can import
-    #       packaging.markers
-    marker: Incomplete | None
     def __init__(self, requirement_string: str) -> None: ...
     @staticmethod
     def parse(s: str | Iterable[str]) -> Requirement: ...
@@ -268,7 +266,7 @@ class Distribution(NullProvider):
     @property
     def version(self) -> str: ...
     @property
-    def parsed_version(self) -> tuple[str, ...]: ...
+    def parsed_version(self) -> packaging_version.Version: ...
     py_version: str
     platform: str | None
     precedence: int
@@ -339,7 +337,7 @@ class FileMetadata(EmptyProvider):
 
 class PEP440Warning(RuntimeWarning): ...
 
-parse_version = _Version
+parse_version = packaging_version.Version
 
 def yield_lines(iterable: _NestedStr) -> Generator[str, None, None]: ...
 def split_sections(s: _NestedStr) -> Generator[tuple[str | None, list[str]], None, None]: ...

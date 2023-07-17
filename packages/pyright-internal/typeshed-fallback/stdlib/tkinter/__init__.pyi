@@ -500,7 +500,7 @@ class Misc:
     bbox = grid_bbox
     def grid_columnconfigure(
         self,
-        index: _GridIndex,
+        index: _GridIndex | list[int] | tuple[int, ...],
         cnf: _GridIndexInfo = {},
         *,
         minsize: _ScreenUnits = ...,
@@ -510,7 +510,7 @@ class Misc:
     ) -> _GridIndexInfo | Any: ...  # can be None but annoying to check
     def grid_rowconfigure(
         self,
-        index: _GridIndex,
+        index: _GridIndex | list[int] | tuple[int, ...],
         cnf: _GridIndexInfo = {},
         *,
         minsize: _ScreenUnits = ...,
