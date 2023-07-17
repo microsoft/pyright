@@ -1816,11 +1816,7 @@ function narrowTypeForTypedDictKey(
 
             if (isPositiveTest) {
                 if (!tdEntry) {
-                    // If the class is final, we can say with certainty that if
-                    // the TypedDict doesn't define this entry, it is not this type.
-                    // If it's not final, we can't say this because it could be a
-                    // subclass of this TypedDict that adds more fields.
-                    return ClassType.isFinal(subtype) ? undefined : subtype;
+                    return undefined;
                 }
 
                 // If the entry is currently not required and not marked provided, we can mark
