@@ -140,7 +140,7 @@ export function validateConstructorArguments(
             validatedArgExpressions = true;
         } else if (returnResult.returnType) {
             const transformed = applyConstructorTransform(evaluator, errorNode, argList, type, {
-                argumentErrors: returnResult.argumentErrors,
+                argumentErrors: !!returnResult.argumentErrors,
                 returnType: returnResult.returnType,
                 isTypeIncomplete: !!returnResult.isTypeIncomplete,
             });
@@ -206,7 +206,7 @@ function validateNewAndInitMethods(
         if (newCallResult.argumentErrors) {
             argumentErrors = true;
         } else {
-            appendArray(overloadsUsedForCall, newCallResult.overloadsUsedForCall);
+            appendArray(overloadsUsedForCall, newCallResult.overloadsUsedForCall ?? []);
         }
 
         if (newCallResult.isTypeIncomplete) {
@@ -272,7 +272,7 @@ function validateNewAndInitMethods(
 
             if (initCallResult.argumentErrors) {
                 argumentErrors = true;
-            } else {
+            } else if (initCallResult.overloadsUsedForCall) {
                 overloadsUsedForCall.push(...initCallResult.overloadsUsedForCall);
             }
 
@@ -313,7 +313,7 @@ function validateNewAndInitMethods(
 
         if (callResult.argumentErrors) {
             argumentErrors = true;
-        } else {
+        } else if (callResult.overloadsUsedForCall) {
             appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
         }
 
@@ -375,7 +375,7 @@ function validateNewMethod(
     } else {
         newReturnType = callResult.returnType;
 
-        if (overloadsUsedForCall.length === 0) {
+        if (overloadsUsedForCall.length === 0 && callResult.overloadsUsedForCall) {
             overloadsUsedForCall.push(...callResult.overloadsUsedForCall);
         }
     }
@@ -478,7 +478,9 @@ function validateInitMethod(
                         argumentErrors = true;
                     }
 
-                    appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
+                    if (callResult.overloadsUsedForCall) {
+                        appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
+                    }
 
                     return applyExpectedSubtypeForConstructor(evaluator, type, expectedSubType, typeVarContext);
                 }
@@ -528,7 +530,7 @@ function validateInitMethod(
 
         if (callResult.argumentErrors) {
             argumentErrors = true;
-        } else {
+        } else if (callResult.overloadsUsedForCall) {
             overloadsUsedForCall.push(...callResult.overloadsUsedForCall);
         }
     }

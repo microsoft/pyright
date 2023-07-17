@@ -323,7 +323,7 @@ export interface CallResult {
     isTypeIncomplete?: boolean | undefined;
 
     // Were any errors discovered when evaluating argument types?
-    argumentErrors: boolean;
+    argumentErrors?: boolean;
 
     // Did one or more arguments evaluated to Any or Unknown?
     anyOrUnknownArgument?: UnknownType | AnyType;
@@ -341,7 +341,7 @@ export interface CallResult {
     // The overload or overloads used to satisfy the call. There can
     // be multiple overloads in the case where the call type is a union
     // or we have used union expansion for arguments.
-    overloadsUsedForCall: FunctionType[];
+    overloadsUsedForCall?: FunctionType[];
 
     // Types of individual arguments.
     argResults?: ArgResult[];
