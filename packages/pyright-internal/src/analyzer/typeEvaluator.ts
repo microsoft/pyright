@@ -4209,7 +4209,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // Verify that the name does not refer to a (non type alias) variable.
                     if (effectiveTypeInfo.includesVariableDecl && !type.typeAliasInfo) {
                         let isAllowedTypeForVariable = isTypeVar(type) || isTypeAliasPlaceholder(type);
-                        if (isClass(type) && !type.includeSubclasses) {
+
+                        if (isClass(type) && !type.includeSubclasses && !symbol.hasTypedDeclarations()) {
                             // This check exempts class types that are created by calling
                             // NewType, NamedTuple, and by invoking a metaclass directly.
                             isAllowedTypeForVariable = true;
@@ -9295,7 +9296,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Evaluates the type of the "cast" call.
     function evaluateCastCall(argList: FunctionArgument[], errorNode: ExpressionNode) {
         // Verify that the cast is necessary.
-        const castToType = getTypeOfArgumentExpectingType(argList[0]).type;
+        const castToType = getTypeOfArgumentExpectingType(argList[0], { enforceTypeAnnotationRules: true }).type;
         const castFromType = getTypeOfArgument(argList[1]).type;
 
         if (TypeBase.isInstantiable(castToType) && !isUnknown(castToType)) {
@@ -18816,14 +18817,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // used in cases where the argument is expected to be a type
     // and therefore follows the normal rules of types (e.g. they
     // can be forward-declared in stubs, etc.).
-    function getTypeOfArgumentExpectingType(arg: FunctionArgument): TypeResult {
+    function getTypeOfArgumentExpectingType(arg: FunctionArgument, options?: ExpectedTypeOptions): TypeResult {
         if (arg.typeResult) {
             return { type: arg.typeResult.type, isIncomplete: arg.typeResult.isIncomplete };
         }
 
         // If there was no defined type provided, there should always
         // be a value expression from which we can retrieve the type.
-        return getTypeOfExpressionExpectingType(arg.valueExpression!);
+        return getTypeOfExpressionExpectingType(arg.valueExpression!, options);
     }
 
     function getTypeOfExpressionExpectingType(node: ExpressionNode, options?: ExpectedTypeOptions): TypeResult {
@@ -18859,6 +18860,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!options?.allowParamSpec) {
             flags |= EvaluatorFlags.DisallowParamSpec;
+        }
+
+        if (options?.enforceTypeAnnotationRules) {
+            flags |= EvaluatorFlags.ExpectingTypeAnnotation;
         }
 
         return getTypeOfExpression(node, flags);

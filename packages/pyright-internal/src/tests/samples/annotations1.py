@@ -1,7 +1,7 @@
 # This sample tests the handling of type annotations within a
 # python source file (as opposed to a stub file).
 
-from typing import Optional, Type, Union
+from typing import TypeVar, Union
 import uuid
 from datetime import datetime
 
@@ -9,7 +9,7 @@ from datetime import datetime
 class ClassA:
     # This should generate an error because ClassA
     # is not yet defined at the time it's used.
-    def func0(self) -> Optional[ClassA]:
+    def func0(self) -> ClassA | None:
         return None
 
 
@@ -20,18 +20,16 @@ class ClassB(ClassA):
     # This should generate an error because ClassC
     # is a forward reference, which is not allowed
     # in a python source file.
-    def func2(self) -> Optional[ClassC]:
+    def func2(self) -> ClassC | None:
         return None
 
-    def func3(self) -> "Optional[ClassC]":
+    def func3(self) -> "ClassC | None":
         return None
 
-    def func4(self) -> Optional["ClassC"]:
+    def func4(self) -> "ClassC | None":
         return None
 
-    # This should generate an error for Python versions 3.9
-    # and earlier.
-    def func5(self) -> "Optional"[int]:
+    def func5(self) -> "int | None":
         return None
 
 
@@ -100,12 +98,12 @@ def func11():
         f("")
 
 
-def func12(x: Type[int]):
+def func12(x: type[int]):
     # These should not generate an error because they are used
     # in a location that is not considered a type annotation, so the
     # normal annotation limitations do not apply here.
     print(Union[x, x])
-    print(Optional[x])
+    print(x | None)
 
 
 # This should generate an error because foo isn't defined.
@@ -114,3 +112,21 @@ foo: int = foo
 
 class ClassJ:
     datetime: datetime
+
+
+T = TypeVar("T")
+
+
+def func13(x: type[T]) -> type[T]:
+    return x
+
+
+v1 = func13(int)
+
+# This should generate an error because variables are not allowed
+# in a type annotation.
+v2: v1 = 1
+
+# This should generate an error because variables are not allowed
+# in a type annotation.
+v3: list[v1] = [1]
