@@ -2170,6 +2170,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let classOrObjectBase: ClassType | undefined;
         let memberAccessClass: Type | undefined;
         let bindFunction = true;
+        let useDescriptorSetterType = false;
 
         switch (expression.nodeType) {
             case ParseNodeType.Name: {
@@ -2228,6 +2229,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (classMemberInfo?.isInstanceMember) {
                         bindFunction = false;
                     }
+
+                    useDescriptorSetterType = true;
                 } else if (isInstantiableClass(baseType)) {
                     classMemberInfo = lookUpClassMember(
                         baseType,
@@ -2291,7 +2294,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let declaredType = getDeclaredTypeOfSymbol(symbol)?.type;
             if (declaredType) {
                 // If it's a descriptor, we need to get the setter type.
-                if (isClassInstance(declaredType)) {
+                if (useDescriptorSetterType && isClassInstance(declaredType)) {
                     const setterInfo = lookUpClassMember(declaredType, '__set__');
                     const setter = setterInfo ? getTypeOfMember(setterInfo) : undefined;
                     if (setterInfo && setter && isFunction(setter) && setter.details.parameters.length >= 3) {
