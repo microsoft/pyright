@@ -7647,30 +7647,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     addError(Localizer.Diagnostic.revealLocalsArgs(), node);
                 }
             } else {
-                // Check for an attempt to invoke an abstract static or class method.
-                if (
-                    isFunction(baseTypeResult.type) &&
-                    baseTypeResult.type.boundToType &&
-                    isInstantiableClass(baseTypeResult.type.boundToType) &&
-                    !baseTypeResult.type.boundToType.includeSubclasses
-                ) {
-                    if (FunctionType.isAbstractMethod(baseTypeResult.type)) {
-                        if (
-                            FunctionType.isStaticMethod(baseTypeResult.type) ||
-                            FunctionType.isClassMethod(baseTypeResult.type)
-                        ) {
-                            addDiagnostic(
-                                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.abstractMethodInvocation().format({
-                                    method: baseTypeResult.type.details.name,
-                                }),
-                                node.leftExpression
-                            );
-                        }
-                    }
-                }
-
                 const callResult = validateCallArguments(
                     node,
                     argList,
@@ -8761,6 +8737,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             );
                             argumentErrors = true;
                             return undefined;
+                        }
+
+                        // Check for an attempt to invoke an abstract static or class method.
+                        if (
+                            expandedSubtype.boundToType &&
+                            isInstantiableClass(expandedSubtype.boundToType) &&
+                            !expandedSubtype.boundToType.includeSubclasses
+                        ) {
+                            if (FunctionType.isAbstractMethod(expandedSubtype)) {
+                                if (
+                                    FunctionType.isStaticMethod(expandedSubtype) ||
+                                    FunctionType.isClassMethod(expandedSubtype)
+                                ) {
+                                    addDiagnostic(
+                                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet
+                                            .reportGeneralTypeIssues,
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        Localizer.Diagnostic.abstractMethodInvocation().format({
+                                            method: expandedSubtype.details.name,
+                                        }),
+                                        errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode
+                                    );
+                                }
+                            }
                         }
 
                         // The stdlib collections/__init__.pyi stub file defines namedtuple
