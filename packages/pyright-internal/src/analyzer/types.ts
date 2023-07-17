@@ -734,7 +734,11 @@ export namespace ClassType {
             return type.cached.typeBaseInstantiableType as ClassType;
         }
 
-        return TypeBase.cloneTypeAsInstantiable(type, /* cache */ true);
+        const newInstance = TypeBase.cloneTypeAsInstantiable(type, /* cache */ true);
+        newInstance.flags &= ~TypeFlags.SpecialForm;
+        newInstance.includeSubclasses = true;
+
+        return newInstance;
     }
 
     export function cloneForSpecialization(
