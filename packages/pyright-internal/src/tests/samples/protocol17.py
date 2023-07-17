@@ -97,3 +97,7 @@ class Protocol9(Protocol[_T1_co]):
 class Protocol10(Protocol[_T1_co]):
     def m1(self) -> type[_T1_co]:
         ...
+
+
+class Protocol11(Protocol[_T1]):
+    x: _T1 | None

@@ -20904,6 +20904,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         });
 
+        if (!isAssignable) {
+            return false;
+        }
+
         // Now handle generic base classes.
         destType.details.baseClasses.forEach((baseClass) => {
             if (
@@ -21652,42 +21656,40 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isUnion(destType)) {
+            // If both the source and dest are unions, use assignFromUnionType which has
+            // special-case logic to handle this case.
             if (isUnion(srcType)) {
-                if (
-                    assignFromUnionType(
-                        destType,
-                        srcType,
-                        /* diag */ undefined,
-                        destTypeVarContext,
-                        srcTypeVarContext,
-                        originalFlags,
-                        recursionCount
-                    )
-                ) {
-                    return true;
+                return assignFromUnionType(
+                    destType,
+                    srcType,
+                    /* diag */ undefined,
+                    destTypeVarContext,
+                    srcTypeVarContext,
+                    originalFlags,
+                    recursionCount
+                );
+            }
+
+            const clonedDestTypeVarContext = destTypeVarContext?.clone();
+            const clonedSrcTypeVarContext = srcTypeVarContext?.clone();
+            if (
+                assignToUnionType(
+                    destType,
+                    srcType,
+                    /* diag */ undefined,
+                    clonedDestTypeVarContext,
+                    clonedSrcTypeVarContext,
+                    originalFlags,
+                    recursionCount
+                )
+            ) {
+                if (destTypeVarContext && clonedDestTypeVarContext) {
+                    destTypeVarContext.copyFromClone(clonedDestTypeVarContext);
                 }
-            } else {
-                const clonedDestTypeVarContext = destTypeVarContext?.clone();
-                const clonedSrcTypeVarContext = srcTypeVarContext?.clone();
-                if (
-                    assignToUnionType(
-                        destType,
-                        srcType,
-                        /* diag */ undefined,
-                        clonedDestTypeVarContext,
-                        clonedSrcTypeVarContext,
-                        originalFlags,
-                        recursionCount
-                    )
-                ) {
-                    if (destTypeVarContext && clonedDestTypeVarContext) {
-                        destTypeVarContext.copyFromClone(clonedDestTypeVarContext);
-                    }
-                    if (srcTypeVarContext && clonedSrcTypeVarContext) {
-                        srcTypeVarContext.copyFromClone(clonedSrcTypeVarContext);
-                    }
-                    return true;
+                if (srcTypeVarContext && clonedSrcTypeVarContext) {
+                    srcTypeVarContext.copyFromClone(clonedSrcTypeVarContext);
                 }
+                return true;
             }
         }
 
@@ -22429,7 +22431,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !isSubtypeSubsumed &&
                     !assignType(
                         destType,
-                        concreteSubtype,
+                        subtype,
                         diag?.createAddendum(),
                         destTypeVarContext,
                         srcTypeVarContext,
