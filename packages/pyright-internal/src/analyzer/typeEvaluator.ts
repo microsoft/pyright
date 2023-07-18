@@ -14592,12 +14592,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // with this type alias.
             typeParameters = [];
 
-            // Skip this for a simple TypeVar (one that's not part of a union).
-            if (!isTypeVar(type) || TypeBase.isAnnotated(type)) {
-                doForEachSubtype(type, (subtype) => {
-                    addTypeVarsToListIfUnique(typeParameters!, getTypeVarArgumentsRecursive(subtype));
-                });
-            }
+            doForEachSubtype(type, (subtype) => {
+                addTypeVarsToListIfUnique(typeParameters!, getTypeVarArgumentsRecursive(subtype));
+            });
 
             // Don't include any synthesized type variables.
             typeParameters = typeParameters.filter((typeVar) => !typeVar.details.isSynthesized);

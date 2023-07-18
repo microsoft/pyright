@@ -43,3 +43,10 @@ d: D_Alias[Any] = D()
 item = d[0]
 
 x: int = D_Alias[Any]()[0]
+
+E: TypeAlias = _T
+
+e1: E[int] = 3
+
+# This should generate an error if reportMissingTypeArgument is enabled.
+e2: E = 3
