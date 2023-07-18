@@ -8708,358 +8708,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             callTypeResult.type,
             /* conditionFilter */ undefined,
             (expandedSubtype, unexpandedSubtype) => {
-                switch (expandedSubtype.category) {
-                    case TypeCategory.Unknown:
-                    case TypeCategory.Any: {
-                        // Touch all of the args so they're marked accessed. Don't bother
-                        // doing this if the call type is incomplete because this will need
-                        // to be done again once it is complete.
-                        if (!callTypeResult.isIncomplete) {
-                            argList.forEach((arg) => {
-                                if (arg.valueExpression && !isSpeculativeModeInUse(arg.valueExpression)) {
-                                    getTypeOfArgument(arg);
-                                }
-                            });
-                        }
+                const callResult = validateCallArgumentsForSubtype(
+                    errorNode,
+                    argList,
+                    expandedSubtype,
+                    unexpandedSubtype,
+                    !!callTypeResult.isIncomplete,
+                    typeVarContext,
+                    skipUnknownArgCheck,
+                    inferenceContext,
+                    recursionCount
+                );
 
-                        return expandedSubtype;
-                    }
-
-                    case TypeCategory.Function: {
-                        if (TypeBase.isInstantiable(expandedSubtype)) {
-                            addDiagnostic(
-                                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.callableNotInstantiable().format({
-                                    type: printType(expandedSubtype),
-                                }),
-                                errorNode
-                            );
-                            argumentErrors = true;
-                            return undefined;
-                        }
-
-                        // Check for an attempt to invoke an abstract static or class method.
-                        if (
-                            expandedSubtype.boundToType &&
-                            isInstantiableClass(expandedSubtype.boundToType) &&
-                            !expandedSubtype.boundToType.includeSubclasses
-                        ) {
-                            if (FunctionType.isAbstractMethod(expandedSubtype)) {
-                                if (
-                                    FunctionType.isStaticMethod(expandedSubtype) ||
-                                    FunctionType.isClassMethod(expandedSubtype)
-                                ) {
-                                    addDiagnostic(
-                                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet
-                                            .reportGeneralTypeIssues,
-                                        DiagnosticRule.reportGeneralTypeIssues,
-                                        Localizer.Diagnostic.abstractMethodInvocation().format({
-                                            method: expandedSubtype.details.name,
-                                        }),
-                                        errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode
-                                    );
-                                }
-                            }
-                        }
-
-                        // The stdlib collections/__init__.pyi stub file defines namedtuple
-                        // as a function rather than a class, so we need to check for it here.
-                        if (expandedSubtype.details.builtInName === 'namedtuple') {
-                            addDiagnostic(
-                                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportUntypedNamedTuple,
-                                DiagnosticRule.reportUntypedNamedTuple,
-                                Localizer.Diagnostic.namedTupleNoTypes(),
-                                errorNode
-                            );
-                            return createNamedTupleType(
-                                evaluatorInterface,
-                                errorNode,
-                                argList,
-                                /* includesTypes */ false
-                            );
-                        }
-
-                        // Handle the NewType specially, replacing the normal return type.
-                        if (expandedSubtype.details.builtInName === 'NewType') {
-                            return createNewType(errorNode, argList);
-                        }
-
-                        let effectiveTypeVarContext = typeVarContext;
-                        if (!effectiveTypeVarContext) {
-                            // If a typeVarContext wasn't provided by the caller, allocate one here.
-                            effectiveTypeVarContext = new TypeVarContext(getTypeVarScopeIds(expandedSubtype));
-
-                            // There are certain cases, such as with super().__new__(cls) calls where
-                            // the call is a constructor but the proper TypeVar scope has been lost.
-                            // We'll add a wildcard TypeVar scope here. This is a bit of a hack and
-                            // we may need to revisit this in the future.
-                            if (FunctionType.isConstructorMethod(expandedSubtype)) {
-                                effectiveTypeVarContext.addSolveForScope(WildcardTypeVarScopeId);
-                            }
-                        }
-
-                        const functionResult = validateFunctionArguments(
-                            errorNode,
-                            argList,
-                            { type: expandedSubtype, isIncomplete: callTypeResult.isIncomplete },
-                            effectiveTypeVarContext,
-                            skipUnknownArgCheck,
-                            inferenceContext
-                        );
-
-                        if (functionResult.isTypeIncomplete) {
-                            isTypeIncomplete = true;
-                        }
-
-                        if (functionResult.overloadsUsedForCall) {
-                            appendArray(overloadsUsedForCall, functionResult.overloadsUsedForCall);
-                        }
-
-                        if (functionResult.argumentErrors) {
-                            argumentErrors = true;
-                        } else {
-                            specializedInitSelfType = functionResult.specializedInitSelfType;
-
-                            // Call the function transform logic to handle special-cased functions.
-                            const transformed = applyFunctionTransform(
-                                evaluatorInterface,
-                                errorNode,
-                                argList,
-                                expandedSubtype,
-                                {
-                                    argumentErrors: !!functionResult.argumentErrors,
-                                    returnType: functionResult.returnType ?? UnknownType.create(isTypeIncomplete),
-                                    isTypeIncomplete,
-                                }
-                            );
-
-                            functionResult.returnType = transformed.returnType;
-                            if (transformed.isTypeIncomplete) {
-                                isTypeIncomplete = true;
-                            }
-                            if (transformed.argumentErrors) {
-                                argumentErrors = true;
-                            }
-                        }
-
-                        if (expandedSubtype.details.builtInName === '__import__') {
-                            // For the special __import__ type, we'll override the return type to be "Any".
-                            // This is required because we don't know what module was imported, and we don't
-                            // want to fail type checks when accessing members of the resulting module type.
-                            return AnyType.create();
-                        }
-
-                        return functionResult.returnType;
-                    }
-
-                    case TypeCategory.OverloadedFunction: {
-                        // Handle the 'cast' call as a special case.
-                        if (expandedSubtype.overloads[0].details.builtInName === 'cast' && argList.length === 2) {
-                            return evaluateCastCall(argList, errorNode);
-                        }
-
-                        const callResult = validateOverloadedFunctionArguments(
-                            errorNode,
-                            argList,
-                            { type: expandedSubtype, isIncomplete: callTypeResult.isIncomplete },
-                            typeVarContext,
-                            skipUnknownArgCheck,
-                            inferenceContext
-                        );
-
-                        if (callResult.overloadsUsedForCall) {
-                            appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
-                        }
-
-                        if (callResult.isTypeIncomplete) {
-                            isTypeIncomplete = true;
-                        }
-
-                        if (callResult.argumentErrors) {
-                            argumentErrors = true;
-                        } else {
-                            specializedInitSelfType = callResult.specializedInitSelfType;
-
-                            // Call the function transform logic to handle special-cased functions.
-                            const transformed = applyFunctionTransform(
-                                evaluatorInterface,
-                                errorNode,
-                                argList,
-                                expandedSubtype,
-                                {
-                                    argumentErrors: !!callResult.argumentErrors,
-                                    returnType: callResult.returnType ?? UnknownType.create(isTypeIncomplete),
-                                    isTypeIncomplete,
-                                }
-                            );
-
-                            callResult.returnType = transformed.returnType;
-                            if (transformed.isTypeIncomplete) {
-                                isTypeIncomplete = true;
-                            }
-                            if (transformed.argumentErrors) {
-                                argumentErrors = true;
-                            }
-                        }
-
-                        return callResult.returnType ?? UnknownType.create();
-                    }
-
-                    case TypeCategory.Class: {
-                        if (TypeBase.isInstantiable(expandedSubtype)) {
-                            const callResult = validateInstantiableClassCall(
-                                errorNode,
-                                argList,
-                                expandedSubtype,
-                                unexpandedSubtype,
-                                skipUnknownArgCheck,
-                                inferenceContext
-                            );
-
-                            if (callResult.argumentErrors) {
-                                argumentErrors = true;
-                            } else if (callResult.overloadsUsedForCall) {
-                                overloadsUsedForCall.push(...callResult.overloadsUsedForCall);
-                            }
-
-                            if (callResult.isTypeIncomplete) {
-                                isTypeIncomplete = true;
-                            }
-
-                            return callResult.returnType;
-                        }
-
-                        const memberType = getTypeOfObjectMember(
-                            errorNode,
-                            expandedSubtype,
-                            '__call__',
-                            /* usage */ undefined,
-                            /* diag */ undefined,
-                            MemberAccessFlags.SkipAttributeAccessOverride
-                        )?.type;
-
-                        if (memberType) {
-                            const callResult = validateCallArguments(
-                                errorNode,
-                                argList,
-                                { type: memberType },
-                                typeVarContext,
-                                skipUnknownArgCheck,
-                                inferenceContext,
-                                recursionCount
-                            );
-
-                            if (callResult.argumentErrors) {
-                                argumentErrors = true;
-                            } else if (callResult.overloadsUsedForCall) {
-                                appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
-                            }
-
-                            if (
-                                isTypeVar(unexpandedSubtype) &&
-                                TypeBase.isInstantiable(unexpandedSubtype) &&
-                                isClass(expandedSubtype) &&
-                                ClassType.isBuiltIn(expandedSubtype, 'type')
-                            ) {
-                                // Handle the case where a Type[T] is being called. We presume this
-                                // will instantiate an object of type T.
-                                return convertToInstance(unexpandedSubtype);
-                            }
-
-                            return callResult.returnType ?? UnknownType.create();
-                        }
-
-                        if (!memberType || !isAnyOrUnknown(memberType)) {
-                            addDiagnostic(
-                                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.objectNotCallable().format({
-                                    type: printType(expandedSubtype),
-                                }),
-                                errorNode
-                            );
-                        }
-
-                        return UnknownType.create();
-                    }
-
-                    case TypeCategory.None: {
-                        if (TypeBase.isInstantiable(expandedSubtype)) {
-                            if (noneType && isInstantiableClass(noneType)) {
-                                const functionResult = validateCallArguments(
-                                    errorNode,
-                                    argList,
-                                    { type: noneType },
-                                    typeVarContext,
-                                    skipUnknownArgCheck,
-                                    inferenceContext,
-                                    recursionCount
-                                );
-
-                                if (functionResult.isTypeIncomplete) {
-                                    isTypeIncomplete = true;
-                                }
-
-                                if (functionResult.argumentErrors) {
-                                    argumentErrors = true;
-                                }
-                            }
-
-                            return NoneType.createInstance();
-                        }
-
-                        addDiagnostic(
-                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
-                            DiagnosticRule.reportOptionalCall,
-                            Localizer.Diagnostic.noneNotCallable(),
-                            errorNode
-                        );
-
-                        return undefined;
-                    }
-
-                    // TypeVars should have been expanded in most cases,
-                    // but we still need to handle the case of Type[T] where
-                    // T is a constrained type that contains a union. We also
-                    // need to handle recursive type aliases.
-                    case TypeCategory.TypeVar: {
-                        expandedSubtype = transformPossibleRecursiveTypeAlias(expandedSubtype);
-
-                        const callResult = validateCallArguments(
-                            errorNode,
-                            argList,
-                            { type: expandedSubtype },
-                            typeVarContext,
-                            skipUnknownArgCheck,
-                            inferenceContext,
-                            recursionCount
-                        );
-
-                        if (callResult.overloadsUsedForCall) {
-                            appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
-                        }
-
-                        if (callResult.argumentErrors) {
-                            argumentErrors = true;
-                        }
-
-                        return callResult.returnType ?? UnknownType.create();
-                    }
-
-                    case TypeCategory.Module: {
-                        addDiagnostic(
-                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.moduleNotCallable(),
-                            errorNode
-                        );
-
-                        return undefined;
-                    }
+                if (callResult.argumentErrors) {
+                    argumentErrors = true;
                 }
 
-                return undefined;
+                if (callResult.isTypeIncomplete) {
+                    isTypeIncomplete = true;
+                }
+
+                if (callResult.overloadsUsedForCall) {
+                    appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
+                }
+
+                specializedInitSelfType = callResult.specializedInitSelfType;
+
+                return callResult.returnType;
             }
         );
 
@@ -9079,7 +8754,318 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         };
     }
 
-    function validateInstantiableClassCall(
+    function validateCallArgumentsForSubtype(
+        errorNode: ExpressionNode,
+        argList: FunctionArgument[],
+        expandedCallType: Type,
+        unexpandedCallType: Type,
+        isCallTypeIncomplete: boolean,
+        typeVarContext: TypeVarContext | undefined,
+        skipUnknownArgCheck: boolean,
+        inferenceContext: InferenceContext | undefined,
+        recursionCount: number
+    ): CallResult {
+        switch (expandedCallType.category) {
+            case TypeCategory.Never:
+            case TypeCategory.Unknown:
+            case TypeCategory.Any: {
+                // Touch all of the args so they're marked accessed. Don't bother
+                // doing this if the call type is incomplete because this will need
+                // to be done again once it is complete.
+                if (!isCallTypeIncomplete) {
+                    argList.forEach((arg) => {
+                        if (arg.valueExpression && !isSpeculativeModeInUse(arg.valueExpression)) {
+                            getTypeOfArgument(arg);
+                        }
+                    });
+                }
+
+                return { returnType: expandedCallType };
+            }
+
+            case TypeCategory.Function: {
+                return validateCallForFunction(
+                    errorNode,
+                    argList,
+                    expandedCallType,
+                    isCallTypeIncomplete,
+                    typeVarContext,
+                    skipUnknownArgCheck,
+                    inferenceContext
+                );
+            }
+
+            case TypeCategory.OverloadedFunction: {
+                return validateCallForOverloadedFunction(
+                    errorNode,
+                    argList,
+                    expandedCallType,
+                    isCallTypeIncomplete,
+                    typeVarContext,
+                    skipUnknownArgCheck,
+                    inferenceContext
+                );
+            }
+
+            case TypeCategory.Class: {
+                if (TypeBase.isInstantiable(expandedCallType)) {
+                    return validateCallForInstantiableClass(
+                        errorNode,
+                        argList,
+                        expandedCallType,
+                        unexpandedCallType,
+                        skipUnknownArgCheck,
+                        inferenceContext
+                    );
+                }
+
+                return validateCallForClassInstance(
+                    errorNode,
+                    argList,
+                    expandedCallType,
+                    unexpandedCallType,
+                    typeVarContext,
+                    skipUnknownArgCheck,
+                    inferenceContext,
+                    recursionCount
+                );
+            }
+
+            case TypeCategory.None: {
+                if (TypeBase.isInstantiable(expandedCallType)) {
+                    if (noneType && isInstantiableClass(noneType)) {
+                        const callResult = validateCallForInstantiableClass(
+                            errorNode,
+                            argList,
+                            noneType,
+                            noneType,
+                            skipUnknownArgCheck,
+                            inferenceContext
+                        );
+
+                        return { ...callResult, returnType: NoneType.createInstance() };
+                    }
+
+                    return { returnType: NoneType.createInstance() };
+                }
+
+                addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
+                    DiagnosticRule.reportOptionalCall,
+                    Localizer.Diagnostic.noneNotCallable(),
+                    errorNode
+                );
+
+                return { argumentErrors: true };
+            }
+
+            // TypeVars should have been expanded in most cases,
+            // but we still need to handle the case of Type[T] where
+            // T is a constrained type that contains a union. We also
+            // need to handle recursive type aliases.
+            case TypeCategory.TypeVar: {
+                return validateCallArguments(
+                    errorNode,
+                    argList,
+                    { type: transformPossibleRecursiveTypeAlias(expandedCallType), isIncomplete: isCallTypeIncomplete },
+                    typeVarContext,
+                    skipUnknownArgCheck,
+                    inferenceContext,
+                    recursionCount
+                );
+            }
+
+            case TypeCategory.Module: {
+                addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.moduleNotCallable(),
+                    errorNode
+                );
+
+                return { argumentErrors: true };
+            }
+        }
+
+        return { argumentErrors: true };
+    }
+
+    function validateCallForFunction(
+        errorNode: ExpressionNode,
+        argList: FunctionArgument[],
+        expandedCallType: FunctionType,
+        isCallTypeIncomplete: boolean,
+        typeVarContext: TypeVarContext | undefined,
+        skipUnknownArgCheck: boolean,
+        inferenceContext: InferenceContext | undefined
+    ): CallResult {
+        if (TypeBase.isInstantiable(expandedCallType)) {
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.callableNotInstantiable().format({
+                    type: printType(expandedCallType),
+                }),
+                errorNode
+            );
+            return { returnType: undefined, argumentErrors: true };
+        }
+
+        // Check for an attempt to invoke an abstract static or class method.
+        if (
+            expandedCallType.boundToType &&
+            isInstantiableClass(expandedCallType.boundToType) &&
+            !expandedCallType.boundToType.includeSubclasses
+        ) {
+            if (FunctionType.isAbstractMethod(expandedCallType)) {
+                if (FunctionType.isStaticMethod(expandedCallType) || FunctionType.isClassMethod(expandedCallType)) {
+                    addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.abstractMethodInvocation().format({
+                            method: expandedCallType.details.name,
+                        }),
+                        errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode
+                    );
+                }
+            }
+        }
+
+        // The stdlib collections/__init__.pyi stub file defines namedtuple
+        // as a function rather than a class, so we need to check for it here.
+        if (expandedCallType.details.builtInName === 'namedtuple') {
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportUntypedNamedTuple,
+                DiagnosticRule.reportUntypedNamedTuple,
+                Localizer.Diagnostic.namedTupleNoTypes(),
+                errorNode
+            );
+
+            return {
+                returnType: createNamedTupleType(evaluatorInterface, errorNode, argList, /* includesTypes */ false),
+            };
+        }
+
+        // Handle the NewType specially, replacing the normal return type.
+        if (expandedCallType.details.builtInName === 'NewType') {
+            return { returnType: createNewType(errorNode, argList) };
+        }
+
+        let effectiveTypeVarContext = typeVarContext;
+        if (!effectiveTypeVarContext) {
+            // If a typeVarContext wasn't provided by the caller, allocate one here.
+            effectiveTypeVarContext = new TypeVarContext(getTypeVarScopeIds(expandedCallType));
+
+            // There are certain cases, such as with super().__new__(cls) calls where
+            // the call is a constructor but the proper TypeVar scope has been lost.
+            // We'll add a wildcard TypeVar scope here. This is a bit of a hack and
+            // we may need to revisit this in the future.
+            if (FunctionType.isConstructorMethod(expandedCallType)) {
+                effectiveTypeVarContext.addSolveForScope(WildcardTypeVarScopeId);
+            }
+        }
+
+        const functionResult = validateFunctionArguments(
+            errorNode,
+            argList,
+            { type: expandedCallType, isIncomplete: isCallTypeIncomplete },
+            effectiveTypeVarContext,
+            skipUnknownArgCheck,
+            inferenceContext
+        );
+
+        let isTypeIncomplete = !!functionResult.isTypeIncomplete;
+        let returnType = functionResult.returnType;
+
+        let argumentErrors = !!functionResult.argumentErrors;
+        if (!argumentErrors) {
+            // Call the function transform logic to handle special-cased functions.
+            const transformed = applyFunctionTransform(evaluatorInterface, errorNode, argList, expandedCallType, {
+                argumentErrors: !!functionResult.argumentErrors,
+                returnType: functionResult.returnType ?? UnknownType.create(isTypeIncomplete),
+                isTypeIncomplete,
+            });
+
+            returnType = transformed.returnType;
+            if (transformed.isTypeIncomplete) {
+                isTypeIncomplete = true;
+            }
+            if (transformed.argumentErrors) {
+                argumentErrors = true;
+            }
+        }
+
+        if (expandedCallType.details.builtInName === '__import__') {
+            // For the special __import__ type, we'll override the return type to be "Any".
+            // This is required because we don't know what module was imported, and we don't
+            // want to fail type checks when accessing members of the resulting module type.
+            returnType = AnyType.create();
+        }
+
+        return {
+            returnType,
+            isTypeIncomplete,
+            argumentErrors,
+            overloadsUsedForCall: functionResult.overloadsUsedForCall,
+            specializedInitSelfType: functionResult.specializedInitSelfType,
+        };
+    }
+
+    function validateCallForOverloadedFunction(
+        errorNode: ExpressionNode,
+        argList: FunctionArgument[],
+        expandedCallType: OverloadedFunctionType,
+        isCallTypeIncomplete: boolean,
+        typeVarContext: TypeVarContext | undefined,
+        skipUnknownArgCheck: boolean,
+        inferenceContext: InferenceContext | undefined
+    ): CallResult {
+        // Handle the 'cast' call as a special case.
+        if (expandedCallType.overloads[0].details.builtInName === 'cast' && argList.length === 2) {
+            return { returnType: evaluateCastCall(argList, errorNode) };
+        }
+
+        const callResult = validateOverloadedFunctionArguments(
+            errorNode,
+            argList,
+            { type: expandedCallType, isIncomplete: isCallTypeIncomplete },
+            typeVarContext,
+            skipUnknownArgCheck,
+            inferenceContext
+        );
+
+        let returnType = callResult.returnType ?? UnknownType.create();
+        let isTypeIncomplete = !!callResult.isTypeIncomplete;
+        let argumentErrors = !!callResult.argumentErrors;
+
+        if (!argumentErrors) {
+            // Call the function transform logic to handle special-cased functions.
+            const transformed = applyFunctionTransform(evaluatorInterface, errorNode, argList, expandedCallType, {
+                argumentErrors: !!callResult.argumentErrors,
+                returnType: callResult.returnType ?? UnknownType.create(isTypeIncomplete),
+                isTypeIncomplete,
+            });
+
+            returnType = transformed.returnType;
+            if (transformed.isTypeIncomplete) {
+                isTypeIncomplete = true;
+            }
+
+            if (transformed.argumentErrors) {
+                argumentErrors = true;
+            }
+        }
+
+        return {
+            returnType,
+            isTypeIncomplete,
+            argumentErrors,
+            overloadsUsedForCall: callResult.overloadsUsedForCall,
+            specializedInitSelfType: callResult.specializedInitSelfType,
+        };
+    }
+
+    function validateCallForInstantiableClass(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
         expandedCallType: ClassType,
@@ -9327,6 +9313,67 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return { returnType, overloadsUsedForCall, argumentErrors, isTypeIncomplete };
+    }
+
+    function validateCallForClassInstance(
+        errorNode: ExpressionNode,
+        argList: FunctionArgument[],
+        expandedCallType: ClassType,
+        unexpandedCallType: Type,
+        typeVarContext: TypeVarContext | undefined,
+        skipUnknownArgCheck: boolean,
+        inferenceContext: InferenceContext | undefined,
+        recursionCount: number
+    ): CallResult {
+        const memberType = getTypeOfObjectMember(
+            errorNode,
+            expandedCallType,
+            '__call__',
+            /* usage */ undefined,
+            /* diag */ undefined,
+            MemberAccessFlags.SkipAttributeAccessOverride
+        )?.type;
+
+        if (!memberType) {
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.objectNotCallable().format({
+                    type: printType(expandedCallType),
+                }),
+                errorNode
+            );
+
+            return { returnType: UnknownType.create(), argumentErrors: true };
+        }
+
+        const callResult = validateCallArguments(
+            errorNode,
+            argList,
+            { type: memberType },
+            typeVarContext,
+            skipUnknownArgCheck,
+            inferenceContext,
+            recursionCount
+        );
+
+        let returnType = callResult.returnType ?? UnknownType.create();
+        if (
+            isTypeVar(unexpandedCallType) &&
+            TypeBase.isInstantiable(unexpandedCallType) &&
+            isClass(expandedCallType) &&
+            ClassType.isBuiltIn(expandedCallType, 'type')
+        ) {
+            // Handle the case where a Type[T] is being called. We presume this
+            // will instantiate an object of type T.
+            returnType = convertToInstance(unexpandedCallType);
+        }
+
+        return {
+            returnType,
+            argumentErrors: callResult.argumentErrors,
+            overloadsUsedForCall: callResult.overloadsUsedForCall,
+        };
     }
 
     // Evaluates the type of the "cast" call.
