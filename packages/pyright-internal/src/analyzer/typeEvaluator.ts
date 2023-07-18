@@ -21717,10 +21717,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return true;
                 }
 
-                diag?.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType))
-                );
-                return false;
+                if (!isUnion(destType)) {
+                    diag?.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                            printSrcDestTypes(srcType, destType)
+                        )
+                    );
+                    return false;
+                }
             }
         }
 
@@ -22379,6 +22383,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // whose primary type matches.
             remainingSrcSubtypes.forEach((srcSubtype) => {
                 const destTypeIndex = remainingDestSubtypes.findIndex((destSubtype) => {
+                    if (isTypeSame(destSubtype, srcSubtype)) {
+                        return true;
+                    }
+
                     if (
                         isClass(srcSubtype) &&
                         isClass(destSubtype) &&
@@ -22420,6 +22428,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If there is are remaining dest subtypes and they're all type variables,
             // attempt to assign the remaining source subtypes to them.
             if (canUseFastPath && (remainingDestSubtypes.length !== 0 || remainingSrcSubtypes.length !== 0)) {
+                if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+                    // If we have no src subtypes remaining but not all dest types have been subsumed
+                    // by other dest types, then the types are not compatible if we're enforcing invariance.
+                    if (remainingSrcSubtypes.length === 0) {
+                        return remainingDestSubtypes.every((destSubtype) =>
+                            isTypeSubsumedByOtherType(destSubtype, destType.subtypes, recursionCount)
+                        );
+                    }
+                }
+
                 const isReversed = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
                 const effectiveDestSubtypes = isReversed ? remainingSrcSubtypes : remainingDestSubtypes;
 
@@ -22512,21 +22530,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     recursionCount
                 )
             ) {
-                const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
-
                 // Determine if the current subtype is subsumed by another subtype
                 // in the same union. If so, we can ignore this.
-                let isSubtypeSubsumed = false;
-                srcType.subtypes.forEach((innerSubtype) => {
-                    if (
-                        !isSubtypeSubsumed &&
-                        !isTypeSame(innerSubtype, subtype) &&
-                        !isAnyOrUnknown(innerSubtype) &&
-                        isProperSubtype(innerSubtype, concreteSubtype, recursionCount)
-                    ) {
-                        isSubtypeSubsumed = true;
-                    }
-                });
+                const isSubtypeSubsumed = isTypeSubsumedByOtherType(subtype, srcType.subtypes, recursionCount);
 
                 // Try again with a concrete version of the subtype.
                 if (
@@ -22554,6 +22560,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return true;
+    }
+
+    // Determines whether a type is "subsumed by" (i.e. is a proper subtype of) one
+    // of the other types in a list.
+    function isTypeSubsumedByOtherType(type: Type, otherTypes: Type[], recursionCount = 0) {
+        const concreteType = makeTopLevelTypeVarsConcrete(type);
+
+        for (const otherType of otherTypes) {
+            if (isTypeSame(otherType, type)) {
+                continue;
+            }
+
+            if (!isAnyOrUnknown(otherType) && isProperSubtype(otherType, concreteType, recursionCount)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // Determines whether the srcType is a subtype of destType but the converse
