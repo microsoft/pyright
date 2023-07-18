@@ -5602,7 +5602,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     type: ClassType.isClassProperty(lookupClass)
                                         ? baseTypeClass
                                         : isAccessedThroughObject
-                                        ? bindToType || ClassType.cloneAsInstance(baseTypeClass)
+                                        ? bindToType ?? ClassType.cloneAsInstance(baseTypeClass)
                                         : NoneType.createInstance(),
                                 },
                             },
@@ -5801,6 +5801,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // If this function is an instance member (e.g. a lambda that was
                 // assigned to an instance variable), don't perform any binding.
                 if (!isAccessedThroughObject || (memberInfo && !memberInfo.isInstanceMember)) {
+                    let effectiveBindToType = bindToType;
+
+                    if (bindToType && !isInstantiableMetaclass(baseTypeClass)) {
+                        // If bindToType is an instantiable class or TypeVar but we're targeting
+                        // an instance method (in a non-metaclass), we need to convert
+                        // the bindToType to an instance.
+                        const targetMethod = isFunction(concreteSubtype)
+                            ? concreteSubtype
+                            : concreteSubtype.overloads[0];
+                        if (FunctionType.isInstanceMethod(targetMethod) && !TypeBase.isInstance(bindToType)) {
+                            effectiveBindToType = convertToInstance(bindToType) as ClassType | TypeVarType;
+                        }
+                    }
+
                     return bindFunctionToClassOrObject(
                         isAccessedThroughObject ? ClassType.cloneAsInstance(baseTypeClass) : baseTypeClass,
                         concreteSubtype,
@@ -5808,7 +5822,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         errorNode,
                         /* recursionCount */ undefined,
                         treatConstructorAsClassMember,
-                        bindToType
+                        effectiveBindToType
                     );
                 }
             }
