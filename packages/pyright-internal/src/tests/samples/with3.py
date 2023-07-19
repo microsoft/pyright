@@ -2,7 +2,7 @@
 # that suppress exceptions, as indicated by a return type of "bool"
 # for the __exit__ or __aexit__ method.
 
-from contextlib import suppress
+from contextlib import suppress, AsyncExitStack
 
 
 def test1() -> None:
@@ -64,3 +64,10 @@ def test4() -> None:
     # This should generate an error because the
     # code is reachable.
     return 1
+
+
+# This should generate an error because AsyncExitStack
+# may swallow exceptions.
+async def test5() -> str:
+    async with AsyncExitStack():
+        return "from exit stack"

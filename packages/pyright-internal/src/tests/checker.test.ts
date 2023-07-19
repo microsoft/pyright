@@ -164,7 +164,7 @@ test('With2', () => {
 test('With3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['with3.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('With4', () => {

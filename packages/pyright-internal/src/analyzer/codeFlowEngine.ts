@@ -1686,7 +1686,22 @@ export function getCodeFlowEngine(
                 const exitType = evaluator.getTypeOfObjectMember(node, cmType, exitMethodName)?.type;
 
                 if (exitType && isFunction(exitType) && exitType.details.declaredReturnType) {
-                    const returnType = exitType.details.declaredReturnType;
+                    let returnType = exitType.details.declaredReturnType;
+
+                    // If it's an __aexit__ method, its return type will typically be wrapped
+                    // in a Coroutine, so we need to extract the return type from the third
+                    // type argument.
+                    if (isAsync && FunctionType.isAsync(exitType)) {
+                        if (
+                            isClassInstance(returnType) &&
+                            ClassType.isBuiltIn(returnType, 'Coroutine') &&
+                            returnType.typeArguments &&
+                            returnType.typeArguments.length >= 3
+                        ) {
+                            returnType = returnType.typeArguments[2];
+                        }
+                    }
+
                     cmSwallowsExceptions = false;
                     if (isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'bool')) {
                         if (returnType.literalValue === undefined || returnType.literalValue === true) {
