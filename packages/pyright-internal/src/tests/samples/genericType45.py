@@ -47,3 +47,11 @@ def func3(v: list[float | T]) -> float | T:
     x5: list[float | int | T] = v
 
     return v[0]
+
+
+def func4(v: list[Any | int | str]):
+    x1: list[Any | int] = v
+
+    x2: list[Any | list[str]] = v
+
+    x3: list[Any | int | str | list[str]] = v

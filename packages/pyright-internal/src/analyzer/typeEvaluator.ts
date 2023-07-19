@@ -22433,7 +22433,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // by other dest types, then the types are not compatible if we're enforcing invariance.
                     if (remainingSrcSubtypes.length === 0) {
                         return remainingDestSubtypes.every((destSubtype) =>
-                            isTypeSubsumedByOtherType(destSubtype, destType.subtypes, recursionCount)
+                            isTypeSubsumedByOtherType(
+                                destSubtype,
+                                destType.subtypes,
+                                /* allowAnyToSubsume */ true,
+                                recursionCount
+                            )
                         );
                     }
                 }
@@ -22532,7 +22537,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 // Determine if the current subtype is subsumed by another subtype
                 // in the same union. If so, we can ignore this.
-                const isSubtypeSubsumed = isTypeSubsumedByOtherType(subtype, srcType.subtypes, recursionCount);
+                const isSubtypeSubsumed = isTypeSubsumedByOtherType(
+                    subtype,
+                    srcType.subtypes,
+                    /* allowAnyToSubsume */ false,
+                    recursionCount
+                );
 
                 // Try again with a concrete version of the subtype.
                 if (
@@ -22564,7 +22574,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Determines whether a type is "subsumed by" (i.e. is a proper subtype of) one
     // of the other types in a list.
-    function isTypeSubsumedByOtherType(type: Type, otherTypes: Type[], recursionCount = 0) {
+    function isTypeSubsumedByOtherType(type: Type, otherTypes: Type[], allowAnyToSubsume: boolean, recursionCount = 0) {
         const concreteType = makeTopLevelTypeVarsConcrete(type);
 
         for (const otherType of otherTypes) {
@@ -22572,7 +22582,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 continue;
             }
 
-            if (!isAnyOrUnknown(otherType) && isProperSubtype(otherType, concreteType, recursionCount)) {
+            if (isAnyOrUnknown(otherType)) {
+                if (allowAnyToSubsume) {
+                    return true;
+                }
+            } else if (isProperSubtype(otherType, concreteType, recursionCount)) {
                 return true;
             }
         }
