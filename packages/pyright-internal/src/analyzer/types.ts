@@ -2520,6 +2520,12 @@ export namespace TypeVarType {
         // By this point, the variance should have been inferred.
         assert(variance !== Variance.Auto, 'Expected variance to be inferred');
 
+        // If we're in the process of computing variance, it will still be
+        // unknown. Default to covariant in this case.
+        if (variance === Variance.Unknown) {
+            return Variance.Covariant;
+        }
+
         return variance;
     }
 

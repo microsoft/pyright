@@ -24,6 +24,13 @@ vco2_1: ShouldBeCovariant2[float] = ShouldBeCovariant2[int]()
 vco2_2: ShouldBeCovariant2[int] = ShouldBeCovariant2[float]()
 
 
+class ShouldBeCovariant3[T]:
+    def method1(self) -> "ShouldBeCovariant2[T]":
+        ...
+ 
+
+vco3_1: ShouldBeCovariant3[float] = ShouldBeCovariant3[int]()
+
 
 class ShouldBeInvariant1[T]:
     def __init__(self, value: T) -> None:
