@@ -4876,7 +4876,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const getTypeOfNoneBase = (subtype: NoneType) => {
+        function getTypeOfNoneBase(subtype: NoneType) {
             if (noneType && isInstantiableClass(noneType)) {
                 if (TypeBase.isInstance(subtype)) {
                     return getTypeOfObjectMember(
@@ -4891,7 +4891,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
             return undefined;
-        };
+        }
 
         if (isParamSpec(baseType) && baseType.paramSpecAccess) {
             baseType = makeTopLevelTypeVarsConcrete(baseType);
@@ -4956,16 +4956,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return { type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
                 }
 
-                return getTypeOfMemberAccessWithBaseType(
-                    node,
-                    {
-                        type: makeTopLevelTypeVarsConcrete(baseType),
-                        bindToType: baseType,
-                        isIncomplete,
-                    },
-                    usage,
-                    EvaluatorFlags.None
-                );
+                if (!baseType.details.isVariadic) {
+                    return getTypeOfMemberAccessWithBaseType(
+                        node,
+                        {
+                            type: makeTopLevelTypeVarsConcrete(baseType),
+                            bindToType: baseType,
+                            isIncomplete,
+                        },
+                        usage,
+                        EvaluatorFlags.None
+                    );
+                }
+
+                break;
             }
 
             case TypeCategory.Class: {
