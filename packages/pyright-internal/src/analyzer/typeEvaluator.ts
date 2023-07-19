@@ -339,6 +339,12 @@ interface MatchArgsToParamsResult {
     // A higher relevance means that it should be considered
     // first, before lower relevance overloads.
     relevance: number;
+
+    // A score that indicates how well the overload matches with
+    // supplied arguments. Used to pick the "best" for purposes
+    // of error reporting when no matches are found. The higher
+    // the score, the worse the match.
+    argumentMatchScore: number;
 }
 
 export interface MemberAccessTypeResult {
@@ -8239,7 +8245,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If there were multiple possible matches, evaluate the type as
             // Unknown, but include the "possible types" to allow for completion
             // suggestions.
-            if (!isDefinitiveMatchFound) {
+            if (!isDefinitiveMatchFound && possibleMatchResults.length > 0) {
                 possibleMatchResults = filterOverloadMatchesForAnyArgs(possibleMatchResults);
 
                 // Did the filtering produce a single result? If so, we're done.
@@ -8532,22 +8538,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { argumentErrors: true, isTypeIncomplete: false, overloadsUsedForCall: [] };
         }
 
-        // Create a helper function that evaluates the overload that matches
-        // the arg/param lists.
-        function evaluateUsingLastMatchingOverload(skipUnknownArgCheck: boolean) {
-            // Find the match with the largest overload index (i.e. the last overload
-            // that was in the overload list).
-            const lastMatch = filteredMatchResults.reduce((previous, current) => {
-                return current.overloadIndex > previous.overloadIndex ? current : previous;
+        // Create a helper function that evaluates the overload that best
+        // matches the arg/param lists.
+        function evaluateUsingBestMatchingOverload(skipUnknownArgCheck: boolean) {
+            // Find the match with the smallest argument match score. If there
+            // are more than one with the same score, use the one with the
+            // largest index. Later overloads tend to be more general.
+            const bestMatch = filteredMatchResults.reduce((previous, current) => {
+                if (current.argumentMatchScore === previous.argumentMatchScore) {
+                    return current.overloadIndex > previous.overloadIndex ? current : previous;
+                }
+                return current.argumentMatchScore < previous.argumentMatchScore ? current : previous;
             });
 
             const effectiveTypeVarContext = typeVarContext ?? new TypeVarContext();
-            effectiveTypeVarContext.addSolveForScope(getTypeVarScopeIds(lastMatch.overload));
+            effectiveTypeVarContext.addSolveForScope(getTypeVarScopeIds(bestMatch.overload));
             effectiveTypeVarContext.unlock();
 
             return validateFunctionArgumentTypesWithContext(
                 errorNode,
-                lastMatch,
+                bestMatch,
                 effectiveTypeVarContext,
                 skipUnknownArgCheck,
                 inferenceContext
@@ -8558,7 +8568,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // use the normal type matching mechanism because it is faster and
         // will provide a clearer error message.
         if (filteredMatchResults.length === 1) {
-            return evaluateUsingLastMatchingOverload(/* skipUnknownArgCheck */ false);
+            return evaluateUsingBestMatchingOverload(/* skipUnknownArgCheck */ false);
         }
 
         let expandedArgTypes: (Type | undefined)[][] | undefined = [argList.map((arg) => undefined)];
@@ -8618,7 +8628,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // in speculative mode because it's very expensive, and we're going to
         // suppress the diagnostic anyway.
         if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
-            const result = evaluateUsingLastMatchingOverload(/* skipUnknownArgCheck */ true);
+            const result = evaluateUsingBestMatchingOverload(/* skipUnknownArgCheck */ true);
 
             // Replace the result with an unknown type since we don't know
             // what overload should have been used.
@@ -10477,6 +10487,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             paramSpecArgList,
             activeParam,
             relevance,
+            argumentMatchScore: 0,
         };
     }
 
@@ -10651,6 +10662,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const type = matchResults.overload;
         let isTypeIncomplete = matchResults.isTypeIncomplete;
         let argumentErrors = false;
+        let argumentMatchScore = 0;
         let specializedInitSelfType: Type | undefined;
         let anyOrUnknownArgument: UnknownType | AnyType | undefined;
         const typeCondition = getTypeCondition(type);
@@ -10775,7 +10787,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let condition: TypeCondition[] = [];
         const argResults: ArgResult[] = [];
 
-        matchResults.argParams.forEach((argParam) => {
+        matchResults.argParams.forEach((argParam, argParamIndex) => {
             const argResult = validateArgType(
                 argParam,
                 typeVarContext,
@@ -10791,6 +10803,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (!argResult.isCompatible) {
                 argumentErrors = true;
+
+                // Add the inverse index so earlier parameters represent larger errors.
+                // This will help the heuristics in the overload error paths to pick the
+                // most likely intended overload if none of them match.
+                argumentMatchScore += 1 + (matchResults.argParams.length - argParamIndex);
             }
 
             if (argResult.isTypeIncomplete) {
@@ -10834,6 +10851,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 )
             ) {
                 argumentErrors = true;
+                argumentMatchScore += 1;
             }
         } else if (type.details.paramSpec) {
             if (!sawParamSpecArgs || !sawParamSpecKwargs) {
@@ -10846,6 +10864,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 }
                 argumentErrors = true;
+                argumentMatchScore += 1;
             }
         }
 
@@ -10955,6 +10974,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (specializedInitSelfType) {
             specializedInitSelfType = applySolvedTypeVars(specializedInitSelfType, typeVarContext);
         }
+
+        matchResults.argumentMatchScore = argumentMatchScore;
 
         return {
             argumentErrors,
