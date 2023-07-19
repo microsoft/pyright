@@ -279,6 +279,7 @@
         "namedTupleEmptyName": "Les noms dans un tuple nommé ne peuvent pas être vides",
         "namedTupleFirstArg": "Nom de classe de tuple nommé attendu en tant que premier argument",
         "namedTupleMultipleInheritance": "L’héritage multiple avec NamedTuple n’est pas pris en charge",
+        "namedTupleNameKeyword": "Les noms de champs ne peuvent pas être un mot-clé",
         "namedTupleNameType": "Tuple à deux entrées attendu spécifiant le nom et le type de l’entrée",
         "namedTupleNameUnique": "Les noms dans un tuple nommé doivent être uniques",
         "namedTupleNoTypes": "« namedtuple » ne fournit aucun type pour les entrées de tuple ; utilisez « NamedTuple » à la place",

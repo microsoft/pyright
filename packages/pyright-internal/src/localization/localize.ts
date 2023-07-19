@@ -9,12 +9,19 @@
 
 import { fail } from '../common/debug';
 
-import enUsStrings = require('./package.nls.en-us.json');
+import csStrings = require('./package.nls.cs.json');
 import deStrings = require('./package.nls.de.json');
+import enUsStrings = require('./package.nls.en-us.json');
 import esStrings = require('./package.nls.es.json');
 import frStrings = require('./package.nls.fr.json');
+import itStrings = require('./package.nls.it.json');
 import jaStrings = require('./package.nls.ja.json');
+import koStrings = require('./package.nls.ko.json');
+import plStrings = require('./package.nls.pl.json');
+import ptBrStrings = require('./package.nls.pt-br.json');
+import qpsPlocStrings = require('./package.nls.qps-ploc.json');
 import ruStrings = require('./package.nls.ru.json');
+import trStrings = require('./package.nls.tr.json');
 import zhCnStrings = require('./package.nls.zh-cn.json');
 import zhTwStrings = require('./package.nls.zh-tw.json');
 
@@ -36,12 +43,20 @@ export class ParameterizedString<T extends {}> {
 
 const defaultLocale = 'en-us';
 const stringMapsByLocale: Map<string, any> = new Map([
+    ['cs', csStrings],
     ['de', deStrings],
     ['en-us', enUsStrings],
+    ['en', enUsStrings],
     ['es', esStrings],
     ['fr', frStrings],
+    ['it', itStrings],
     ['ja', jaStrings],
+    ['ko', koStrings],
+    ['pl', plStrings],
+    ['pt-br', ptBrStrings],
+    ['qps-ploc', qpsPlocStrings],
     ['ru', ruStrings],
+    ['tr', trStrings],
     ['zh-cn', zhCnStrings],
     ['zh-tw', zhTwStrings],
 ]);

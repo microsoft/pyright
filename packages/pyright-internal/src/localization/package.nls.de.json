@@ -279,6 +279,7 @@
         "namedTupleEmptyName": "Namen innerhalb eines benannten Tupels dürfen nicht leer sein.",
         "namedTupleFirstArg": "Es wird ein benannter Tupelklassenname als erstes Argument erwartet.",
         "namedTupleMultipleInheritance": "Mehrfachvererbung mit NamedTuple wird nicht unterstützt.",
+        "namedTupleNameKeyword": "Feldnamen dürfen kein Schlüsselwort sein.",
         "namedTupleNameType": "Es wurde ein Tupel mit zwei Einträgen unter Angabe von Eintragsname und -typ erwartet.",
         "namedTupleNameUnique": "Namen innerhalb eines benannten Tupels müssen eindeutig sein.",
         "namedTupleNoTypes": "\"namedtuple\" stellt keine Typen für Tupeleinträge bereit; verwenden Sie stattdessen \"NamedTuple\".",

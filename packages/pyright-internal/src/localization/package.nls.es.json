@@ -279,6 +279,7 @@
         "namedTupleEmptyName": "Los nombres de una tupla con nombre no pueden estar vacíos",
         "namedTupleFirstArg": "Nombre de clase de tupla como primer argumento",
         "namedTupleMultipleInheritance": "No se admite la herencia múltiple con NamedTuple",
+        "namedTupleNameKeyword": "Los nombres de campo no pueden ser una palabra clave",
         "namedTupleNameType": "Tupla de dos entradas esperada que especifica el nombre y el tipo de entrada",
         "namedTupleNameUnique": "Los nombres dentro de una tupla con nombre deben ser únicos",
         "namedTupleNoTypes": "\"namedtuple\" no proporciona tipos para las entradas de tupla; utilice en su lugar \"NamedTuple\".",

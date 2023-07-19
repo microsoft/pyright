@@ -279,6 +279,7 @@
         "namedTupleEmptyName": "名前付きタプル内の名前を空にすることはできません",
         "namedTupleFirstArg": "最初の引数として名前付きタプル クラス名が必要です",
         "namedTupleMultipleInheritance": "NamedTuple による複数の継承はサポートされていません",
+        "namedTupleNameKeyword": "フィールド名をキーワードにすることはできません",
         "namedTupleNameType": "エントリ名と型を指定する 2 エントリタプルが必要です",
         "namedTupleNameUnique": "名前付きタプル内の名前は一意である必要があります",
         "namedTupleNoTypes": "\"namedtuple\" はタプル エントリに型を提供しません。代わりに \"NamedTuple\" を使用してください",

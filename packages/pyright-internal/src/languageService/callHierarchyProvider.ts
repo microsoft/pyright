@@ -35,7 +35,7 @@ import { Position, rangesAreEqual } from '../common/textRange';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { CallNode, MemberAccessNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { DocumentSymbolCollectorUseCase } from './documentSymbolCollector';
+import { DocumentSymbolCollector, DocumentSymbolCollectorUseCase } from './documentSymbolCollector';
 import { canNavigateToFile } from './navigationUtils';
 
 export class CallHierarchyProvider {
@@ -285,7 +285,8 @@ export class CallHierarchyProvider {
             declaration,
             parseResults,
             this._evaluator,
-            this._token
+            this._token,
+            this._program
         );
 
         const incomingCalls = callFinder.findCalls();
@@ -445,7 +446,8 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         private _declaration: Declaration,
         private _parseResults: ParseResults,
         private _evaluator: TypeEvaluator,
-        private _cancellationToken: CancellationToken
+        private _cancellationToken: CancellationToken,
+        private _program: ProgramView
     ) {
         super();
     }
@@ -468,14 +470,15 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
 
         // Don't bother doing any more work if the name doesn't match.
         if (nameNode && nameNode.value === this._symbolName) {
-            const declarations = this._evaluator.getDeclarationsForNameNode(nameNode);
+            const declarations = DocumentSymbolCollector.getDeclarationsForNode(
+                this._program,
+                nameNode,
+                /* resolveLocalName */ true,
+                DocumentSymbolCollectorUseCase.Reference,
+                this._cancellationToken
+            );
 
             if (declarations) {
-                const resolvedDecls = declarations
-                    .map((decl) => {
-                        return this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
-                    })
-                    .filter((decl) => decl !== undefined);
                 if (this._declaration.type === DeclarationType.Alias) {
                     const resolvedCurDecls = this._evaluator.resolveAliasDeclaration(
                         this._declaration,
@@ -483,12 +486,12 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                     );
                     if (
                         resolvedCurDecls &&
-                        resolvedDecls.some((decl) => DeclarationUtils.areDeclarationsSame(decl!, resolvedCurDecls))
+                        declarations.some((decl) => DeclarationUtils.areDeclarationsSame(decl!, resolvedCurDecls))
                     ) {
                         this._addIncomingCallForDeclaration(nameNode!);
                     }
                 } else if (
-                    resolvedDecls.some((decl) => DeclarationUtils.areDeclarationsSame(decl!, this._declaration))
+                    declarations.some((decl) => DeclarationUtils.areDeclarationsSame(decl!, this._declaration))
                 ) {
                     this._addIncomingCallForDeclaration(nameNode!);
                 }

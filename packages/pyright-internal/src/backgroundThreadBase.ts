@@ -73,7 +73,7 @@ export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
     const getFileSpec = (fileSpec: any): FileSpec => {
         return {
             wildcardRoot: fileSpec.wildcardRoot,
-            regExp: new RegExp(fileSpec.regExp.source),
+            regExp: new RegExp(fileSpec.regExp.source, fileSpec.regExp.flags),
             hasDirectoryWildcard: fileSpec.hasDirectoryWildcard,
         };
     };
