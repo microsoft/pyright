@@ -18,6 +18,8 @@ import { combinePaths, getBaseFileName, normalizePath, normalizeSlashes } from '
 import { PythonVersion } from '../common/pythonVersion';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { TestFileSystem } from './harness/vfs/filesystem';
+import { createConfigOptionsFrom } from '../backgroundThreadBase';
+import { TestAccessHost } from './harness/testAccessHost';
 
 const options = { console: new NullConsole() };
 
@@ -304,4 +306,17 @@ test('FindFilesInMemoryOnly', () => {
 
     const fileList = service.test_getFileNamesFromFileSpecs();
     assert(fileList.filter((f) => f === untitled));
+});
+
+test('verify config fileSpecs after cloning', () => {
+    const fs = new TestFileSystem(/* ignoreCase */ true);
+    const configFile = {
+        ignore: ['**/node_modules/**'],
+    };
+
+    const config = new ConfigOptions(process.cwd());
+    config.initializeFromJson(configFile, undefined, new NullConsole(), fs, new TestAccessHost());
+    const cloned = createConfigOptionsFrom(config);
+
+    assert.deepEqual(config.ignore, cloned.ignore);
 });

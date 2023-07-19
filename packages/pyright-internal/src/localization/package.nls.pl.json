@@ -279,6 +279,7 @@
         "namedTupleEmptyName": "Nazwy w nazwanej krotce nie mogą być puste",
         "namedTupleFirstArg": "Oczekiwano nazwanej nazwy klasy krotki jako pierwszego argumentu",
         "namedTupleMultipleInheritance": "Wielokrotne dziedziczenie z kotki NamedTuple nie jest obsługiwane",
+        "namedTupleNameKeyword": "Nazwy pól nie mogą być słowem kluczowym",
         "namedTupleNameType": "Oczekiwano krotki z dwoma wpisami określającej nazwę i typ wpisu",
         "namedTupleNameUnique": "Nazwy w nazwanej krotce muszą być unikatowe",
         "namedTupleNoTypes": "Krotka „namedtuple” nie zapewnia typów wpisów krotki; zamiast tego użyj „NamedTuple”.",

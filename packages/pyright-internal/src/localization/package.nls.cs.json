@@ -279,6 +279,7 @@
         "namedTupleEmptyName": "Názvy v pojmenované řazené kolekci členů nemůžou být prázdné.",
         "namedTupleFirstArg": "Jako první argument byl očekáván název pojmenované třídy řazené kolekce členů",
         "namedTupleMultipleInheritance": "Vícenásobná dědičnost s NamedTuple se nepodporuje",
+        "namedTupleNameKeyword": "Názvy polí nemůžou být klíčové slovo.",
         "namedTupleNameType": "Očekávala se řazená kolekce členů se dvěma položkami určující název a typ položky",
         "namedTupleNameUnique": "Názvy v pojmenované řazené kolekci členů musí být jedinečné",
         "namedTupleNoTypes": "namedtuple neposkytuje žádné typy pro položky řazené kolekce členů; místo toho použijte NamedTuple",

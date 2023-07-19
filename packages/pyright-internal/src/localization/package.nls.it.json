@@ -279,6 +279,7 @@
         "namedTupleEmptyName": "I nomi all'interno di una tupla denominata non possono essere vuoti",
         "namedTupleFirstArg": "Previsto nome della classe di tupla denominata come primo argomento",
         "namedTupleMultipleInheritance": "L'ereditarietà multipla con NamedTuple non è supportata",
+        "namedTupleNameKeyword": "I nomi dei campi non possono essere una parola chiave",
         "namedTupleNameType": "Prevista tupla a due voci che specifica il nome e il tipo della voce",
         "namedTupleNameUnique": "I nomi all'interno di una tupla denominata devono essere univoci",
         "namedTupleNoTypes": "\"namedtuple\" non fornisce tipi per le voci di tupla; usare invece \"NamedTuple\"",

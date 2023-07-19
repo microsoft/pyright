@@ -1126,3 +1126,49 @@ test('Complex type arguments', async () => {
         },
     });
 });
+
+test('Enum member', async () => {
+    const code = `
+// @filename: test.py
+//// from enum import Enum
+//// 
+//// class MyEnum(Enum):
+////     this = 1
+////     that = 2
+//// 
+//// print(MyEnum.[|/*marker*/|])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: 'this',
+                    kind: CompletionItemKind.EnumMember,
+                    documentation: '```python\nthis: Literal[MyEnum.this]\n```',
+                },
+            ],
+        },
+    });
+});
+
+test('no member of Enum member', async () => {
+    const code = `
+// @filename: test.py
+//// from enum import Enum
+//// 
+//// class MyEnum(Enum):
+////     this = 1
+////     that = 2
+//// 
+//// print(MyEnum.this.[|/*marker*/|])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('exact', 'markdown', {
+        ['marker']: { completions: [] },
+    });
+});

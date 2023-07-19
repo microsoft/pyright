@@ -279,6 +279,7 @@
         "namedTupleEmptyName": "命名元组中的名称不能为空",
         "namedTupleFirstArg": "应将命名元组类名称作为第一个参数",
         "namedTupleMultipleInheritance": "不支持使用 NamedTuple 进行多个继承",
+        "namedTupleNameKeyword": "字段名称不能是关键字",
         "namedTupleNameType": "应为指定条目名称和类型的双条目元组",
         "namedTupleNameUnique": "命名元组中的名称必须唯一",
         "namedTupleNoTypes": "“namedtuple”不提供元组条目的类型；请改用“NamedTuple”",

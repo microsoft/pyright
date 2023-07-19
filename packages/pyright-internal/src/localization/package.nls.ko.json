@@ -279,6 +279,7 @@
         "namedTupleEmptyName": "명명된 튜플 내의 이름은 비워 둘 수 없습니다.",
         "namedTupleFirstArg": "명명된 튜플 클래스 이름이 첫 번째 인수로 필요합니다.",
         "namedTupleMultipleInheritance": "NamedTuple을 사용한 여러 상속은 지원되지 않습니다.",
+        "namedTupleNameKeyword": "필드 이름은 키워드일 수 없습니다.",
         "namedTupleNameType": "항목 이름 및 형식을 지정하는 2개 항목 튜플이 필요합니다.",
         "namedTupleNameUnique": "명명된 튜플 내의 이름은 고유해야 합니다.",
         "namedTupleNoTypes": "\"namedtuple\"은 튜플 항목에 대한 형식을 제공하지 않습니다. 대신 \"NamedTuple\" 사용",

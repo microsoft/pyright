@@ -279,6 +279,7 @@
         "namedTupleEmptyName": "Adlandırılmış demet içindeki adlar boş olamaz",
         "namedTupleFirstArg": "İlk bağımsız değişken olarak adlandırılmış demet sınıf adı bekleniyordu",
         "namedTupleMultipleInheritance": "NamedTuple bulunan birden çok devralma desteklenmiyor",
+        "namedTupleNameKeyword": "Alan adları anahtar sözcük olamaz",
         "namedTupleNameType": "Girdi adını ve türünü belirten iki girdili demet bekleniyordu",
         "namedTupleNameUnique": "Adlandırılmış demet içindeki adlar benzersiz olmalıdır",
         "namedTupleNoTypes": "\"namedtuple\" demet girdileri için tür sağlamaz; bunun yerine \"NamedTuple\" kullanın",

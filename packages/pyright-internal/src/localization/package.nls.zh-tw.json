@@ -279,6 +279,7 @@
         "namedTupleEmptyName": "具名元組內的名稱不可為空白",
         "namedTupleFirstArg": "預期為具名 Tuple 類別名稱作為第一個引數",
         "namedTupleMultipleInheritance": "不支援使用 NamedTuple 的多重繼承",
+        "namedTupleNameKeyword": "欄位名稱不能是關鍵字",
         "namedTupleNameType": "指定項目名稱和類型預期有兩個項目 Tuple",
         "namedTupleNameUnique": "具名 Tuple 內的名稱必須是唯一的",
         "namedTupleNoTypes": "\"namedtuple\" 未提供 Tuple 項目的類型; 請改為使用 \"NamedTuple\"",
