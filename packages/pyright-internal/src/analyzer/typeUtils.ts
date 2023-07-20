@@ -3667,6 +3667,19 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         if (typeVar.scopeId && this._typeVarContext.hasSolveForScope(typeVar.scopeId)) {
             let replacement = signatureContext.getTypeVarType(typeVar, !!this._options.useNarrowBoundOnly);
 
+            // If the type is unknown, see if there's a known wide bound that we can use.
+            if (
+                replacement &&
+                isUnknown(replacement) &&
+                !this._options.useNarrowBoundOnly &&
+                this._options.unknownIfNotFound
+            ) {
+                const entry = signatureContext.getTypeVar(typeVar);
+                if (entry?.wideBound) {
+                    replacement = entry?.wideBound;
+                }
+            }
+
             // If there was no narrow bound but there is a wide bound that
             // contains literals or a TypeVar, we'll use the wide bound even if
             // "useNarrowBoundOnly" is specified.

@@ -10635,7 +10635,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* isTypeArgumentExplicit */ false
                     );
 
-                    effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext);
+                    effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext, {
+                        unknownIfNotFound: true,
+                    });
                 }
             } else if (isFunction(effectiveReturnType)) {
                 // If the return type is a callable and the expected type is a union that
