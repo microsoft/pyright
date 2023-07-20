@@ -84,6 +84,10 @@ export class SemanticTokensWalker extends ParseTreeWalker {
                     this._addItem(node.memberName.start, node.memberName.length, SemanticTokenTypes.class, []);
                     break;
                 }
+
+            case TypeCategory.Module:
+                this._addItem(node.memberName.start, node.memberName.length, SemanticTokenTypes.namespace, []);
+                break;
             // fallthrough
 
             default:
