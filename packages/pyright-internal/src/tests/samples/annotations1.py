@@ -1,7 +1,7 @@
 # This sample tests the handling of type annotations within a
 # python source file (as opposed to a stub file).
 
-from typing import TypeVar, Union
+from typing import Any, Callable, TypeVar, Union
 import uuid
 from datetime import datetime
 
@@ -43,9 +43,9 @@ def func10():
 
 # This should generate an error because function calls
 # are not allowed within a type annotation.
-x: func10()
+x1: func10()
 
-y: """
+x2: """
     Union[
         int,
         str
@@ -76,7 +76,7 @@ class ClassD:
 
 # This should generate an error because modules are not allowed in
 # type annotations.
-z: typing
+x3: typing
 
 
 class ClassG:
@@ -106,8 +106,8 @@ def func12(x: type[int]):
     print(x | None)
 
 
-# This should generate an error because foo isn't defined.
-foo: int = foo
+# This should generate an error because x4 isn't defined.
+x4: int = x4
 
 
 class ClassJ:
@@ -121,12 +121,24 @@ def func13(x: type[T]) -> type[T]:
     return x
 
 
-v1 = func13(int)
+x5 = func13(int)
 
 # This should generate an error because variables are not allowed
 # in a type annotation.
-v2: v1 = 1
+x6: x5 = 1
 
 # This should generate an error because variables are not allowed
 # in a type annotation.
-v3: list[v1] = [1]
+x7: list[x5] = [1]
+
+# This should generate an error because a Callable isn't allowed
+# in a "type".
+x8: type[Callable]
+
+# This should generate an error because a Callable isn't allowed
+# in a "type".
+x9: type[func11]
+
+# This should generate an error because a Callable isn't allowed
+# in a "type".
+x10: type[Callable[..., Any]]
