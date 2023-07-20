@@ -18626,10 +18626,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Handle "type" specially, since it needs to act like "Type"
             // in Python 3.9 and newer.
             if (ClassType.isBuiltIn(classType, 'type') && typeArgs) {
-                // PEP 484 says that type[Any] should be considered
-                // equivalent to type.
-                if (typeArgs.length === 1 && isAnyOrUnknown(typeArgs[0].type)) {
-                    return { type: classType };
+                if (typeArgs.length >= 1) {
+                    // PEP 484 says that type[Any] should be considered
+                    // equivalent to type.
+                    if (isAnyOrUnknown(typeArgs[0].type)) {
+                        return { type: classType };
+                    }
+
+                    // Treat type[function] as illegal.
+                    if (isFunction(typeArgs[0].type) || isOverloadedFunction(typeArgs[0].type)) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeAnnotationWithCallable(),
+                            typeArgs[0].node
+                        );
+
+                        return { type: UnknownType.create() };
+                    }
                 }
 
                 const typeClass = getTypingType(errorNode, 'Type');

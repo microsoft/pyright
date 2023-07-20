@@ -429,6 +429,7 @@
         "typeArgListExpected": "Expected ParamSpec, ellipsis, or list of types",
         "typeAnnotationCall": "Call expression not allowed in type expression",
         "typeAnnotationVariable": "Variable not allowed in type expression",
+        "typeAnnotationWithCallable": "Type argument for \"type\" must be a class; callables are not supported",
         "typeArgListNotAllowed": "List expression not allowed for this type argument",
         "typeArgsExpectingNone": "Expected no type arguments for class \"{name}\"",
         "typeArgsMismatchOne": "Expected one type argument but received {received}",

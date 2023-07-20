@@ -869,6 +869,7 @@ export namespace Localizer {
         export const typeAliasTypeParamInvalid = () => getRawString('Diagnostic.typeAliasTypeParamInvalid');
         export const typeAnnotationCall = () => getRawString('Diagnostic.typeAnnotationCall');
         export const typeAnnotationVariable = () => getRawString('Diagnostic.typeAnnotationVariable');
+        export const typeAnnotationWithCallable = () => getRawString('Diagnostic.typeAnnotationWithCallable');
         export const typeArgListExpected = () => getRawString('Diagnostic.typeArgListExpected');
         export const typeArgListNotAllowed = () => getRawString('Diagnostic.typeArgListNotAllowed');
         export const typeArgsExpectingNone = () =>
