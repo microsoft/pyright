@@ -28,6 +28,7 @@ import {
     FunctionType,
     OverloadedFunctionType,
     Type,
+    TypeBase,
     TypeCategory,
     UnknownType,
     combineTypes,
@@ -115,10 +116,15 @@ export function getFunctionTooltip(
     const indentStr =
         functionSignatureDisplay === SignatureDisplayType.formatted ? '\n' + ' '.repeat(functionParamIndentOffset) : '';
     const funcParts = evaluator.printFunctionParts(type);
-    const paramSignature = formatSignature(funcParts, indentStr, functionSignatureDisplay);
+    const paramSignature = `${formatSignature(funcParts, indentStr, functionSignatureDisplay)} -> ${funcParts[1]}`;
+
+    if (TypeBase.isInstantiable(type)) {
+        return `${labelFormatted}${functionName}: type[${paramSignature}]`;
+    }
+
     const sep = isProperty ? ': ' : '';
     const defKeyword = isProperty ? '' : 'def ';
-    return `${labelFormatted}${defKeyword}${functionName}${sep}${paramSignature} -> ${funcParts[1]}`;
+    return `${labelFormatted}${defKeyword}${functionName}${sep}${paramSignature}`;
 }
 
 export function getConstructorTooltip(
