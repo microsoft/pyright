@@ -6,13 +6,14 @@ import { ParseResults } from '../parser/parser';
 
 import { TypeInlayHintsWalker } from '../analyzer/typeInlayHintsWalker';
 import { Position, getEmptyPosition } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
 import { HoverProvider } from './hoverProvider';
 
 export class InlayHintsProvider {
     private readonly _parseResults: ParseResults | undefined;
 
-    constructor(private _program: ProgramView, private _filePath: string, private _token: CancellationToken) {
-        this._parseResults = this._program.getParseResults(this._filePath);
+    constructor(private _program: ProgramView, private _fileUri: Uri, private _token: CancellationToken) {
+        this._parseResults = this._program.getParseResults(this._fileUri);
     }
 
     async onInlayHints(): Promise<InlayHint[] | null> {
@@ -80,7 +81,7 @@ export class InlayHintsProvider {
     }
 
     private async getHoverAtOffset(position: Position) {
-        const hover = new HoverProvider(this._program, this._filePath, position, 'markdown', this._token);
+        const hover = new HoverProvider(this._program, this._fileUri, position, 'markdown', this._token);
         return hover.getHover();
     }
 

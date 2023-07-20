@@ -1,9 +1,7 @@
-import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { CallSignature } from '../analyzer/typeEvaluatorTypes';
 import { ProgramView } from '../common/extensibility';
 import {
-    ArgumentNode,
     AssignmentNode,
     CallNode,
     FunctionNode,
@@ -124,57 +122,51 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
         return undefined;
     }
 
-    private getParameterNameHint(node: ArgumentNode): string | undefined {
-        const result = getCallNodeAndActiveParameterIndex(node, node.start, this._parseResults.tokenizerOutput.tokens);
-        if (!result?.callNode || result.callNode.arguments[result.activeIndex].name) {
-            return undefined;
+    _generateHintsForCallNode(node: CallNode) {
+        const matchedArgs = this._program.evaluator?.matchCallArgsToParams(node);
+        if (!matchedArgs) {
+            return;
+        }
+        // sort matches by relevance and use the most relevant match
+        matchedArgs.sort((r1, r2) => r2.relevance - r1.relevance);
+        const match = matchedArgs[0];
+
+        if (match.argumentErrors) {
+            return;
         }
 
-        const signatureInfo = this._program.evaluator?.getCallSignatureInfo(
-            result.callNode,
-            result.activeIndex,
-            result.activeOrFake
-        );
-        if (!signatureInfo) {
-            return undefined;
-        }
-
-        const sig = signatureInfo.signatures[0];
-        if (isIgnoredBuiltin(sig)) {
-            return undefined;
-        }
-
-        const activeParam = sig.activeParam;
-        if (activeParam?.category !== ParameterCategory.Simple) {
-            return undefined;
-        }
-
-        // Arguments starting with double underscores usually come from type stubs,
-        // they're probably not very informative. If necessary, an option can be added
-        // whether to hide such names or not.
-        if (activeParam.name?.startsWith('__')) {
-            return undefined;
-        }
-
-        return activeParam.name;
-    }
-
-    override visitArgument(node: ArgumentNode): boolean {
-        if (node.parent) {
-            if (node.parent.nodeType === ParseNodeType.Assignment) {
-                return false;
+        for (const p of match.argParams) {
+            const argNode = p.argument.valueExpression;
+            if (!argNode) {
+                continue;
             }
-            const paramName = this.getParameterNameHint(node);
-            if (paramName) {
+            // If the argument is specified as a keyword argument, there is no need to generate a hint
+            if (p.argument.name) {
+                continue;
+            }
+            if (p.paramCategory !== ParameterCategory.Simple) {
+                continue;
+            }
+            // Arguments starting with double underscores usually come from type stubs,
+            // they're probably not very informative. If necessary, an option can be added
+            // whether to hide such names or not.
+            if (p.paramName?.startsWith('__')) {
+                continue;
+            }
+            if (p.paramName) {
                 this.featureItems.push({
                     inlayHintType: 'parameter',
-                    startOffset: node.start,
-                    endOffset: node.start + node.length - 1,
-                    value: paramName,
+                    startOffset: argNode.start,
+                    endOffset: argNode.start + argNode.length - 1,
+                    value: p.paramName,
                 });
             }
         }
-        return super.visitArgument(node);
+    }
+
+    override visitCall(node: CallNode): boolean {
+        this._generateHintsForCallNode(node);
+        return super.visitCall(node);
     }
 
     override visitFunction(node: FunctionNode): boolean {

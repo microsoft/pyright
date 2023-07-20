@@ -179,6 +179,7 @@ import {
     FunctionArgument,
     FunctionTypeResult,
     MemberAccessDeprecationInfo,
+    MatchArgsToParamsResult,
     PrintTypeOptions,
     ResolveAliasOptions,
     TypeEvaluator,
@@ -186,7 +187,7 @@ import {
     TypeResultWithNode,
     ValidateArgTypeParams,
     ValidateTypeArgsOptions,
-    maxSubtypesForInferredType,
+    maxSubtypesForInferredType
 } from './typeEvaluatorTypes';
 import * as TypePrinter from './typePrinter';
 import {
@@ -347,28 +348,6 @@ interface GetTypeArgsOptions {
     isFinalAnnotation?: boolean;
     isClassVarAnnotation?: boolean;
     supportsTypedDictTypeArg?: boolean;
-}
-
-interface MatchArgsToParamsResult {
-    overload: FunctionType;
-    overloadIndex: number;
-
-    argumentErrors: boolean;
-    isTypeIncomplete: boolean;
-    argParams: ValidateArgTypeParams[];
-    activeParam?: FunctionParameter | undefined;
-    paramSpecTarget?: TypeVarType | undefined;
-    paramSpecArgList?: FunctionArgument[] | undefined;
-
-    // A higher relevance means that it should be considered
-    // first, before lower relevance overloads.
-    relevance: number;
-
-    // A score that indicates how well the overload matches with
-    // supplied arguments. Used to pick the "best" for purposes
-    // of error reporting when no matches are found. The higher
-    // the score, the worse the match.
-    argumentMatchScore: number;
 }
 
 export interface MemberAccessTypeResult {
@@ -2256,6 +2235,122 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return undefined;
+    }
+
+    function matchCallArgsToParams(callNode: CallNode): MatchArgsToParamsResult[] | undefined {
+        const exprNode = callNode.leftExpression;
+        const callType = getType(exprNode);
+        if (callType === undefined) {
+            return undefined;
+        }
+
+        const argList: FunctionArgument[] = [];
+
+        callNode.arguments.forEach((arg) => {
+            argList.push({
+                valueExpression: arg.valueExpression,
+                argumentCategory: arg.argumentCategory,
+                name: arg.name,
+            });
+        });
+
+        const calls: MatchArgsToParamsResult[] = [];
+
+        function addOneFunctionToSignature(type: FunctionType) {
+            useSpeculativeMode(callNode!, () => {
+                const callResult = matchFunctionArgumentsToParameters(exprNode, argList, { type }, 0);
+                calls.push(callResult);
+            });
+        }
+
+        function addFunctionToSignature(type: FunctionType | OverloadedFunctionType) {
+            if (isFunction(type)) {
+                addOneFunctionToSignature(type);
+            } else {
+                OverloadedFunctionType.getOverloads(type).forEach((func) => {
+                    addOneFunctionToSignature(func);
+                });
+            }
+        }
+
+        doForEachSubtype(callType, (subtype) => {
+            switch (subtype.category) {
+                case TypeCategory.Function:
+                case TypeCategory.OverloadedFunction: {
+                    addFunctionToSignature(subtype);
+                    break;
+                }
+
+                case TypeCategory.Class: {
+                    if (TypeBase.isInstantiable(subtype)) {
+                        let constructorType: FunctionType | OverloadedFunctionType | undefined;
+
+                        // Try to get the `__init__` method first because it typically has more
+                        // type information than `__new__`.
+                        const initMethodResult = getBoundInitMethod(
+                            evaluatorInterface,
+                            callNode,
+                            ClassType.cloneAsInstance(subtype),
+                            /* additionalFlags */ MemberAccessFlags.Default
+                        );
+
+                        if (initMethodResult && !initMethodResult.typeErrors) {
+                            if (isFunction(initMethodResult.type) || isOverloadedFunction(initMethodResult.type)) {
+                                constructorType = initMethodResult.type;
+                            }
+                        }
+
+                        const isObjectInit =
+                            constructorType &&
+                            isFunction(constructorType) &&
+                            constructorType.details.fullName === 'builtins.object.__init__';
+                        const isDefaultParams =
+                            constructorType &&
+                            isFunction(constructorType) &&
+                            FunctionType.hasDefaultParameters(constructorType);
+
+                        // If there was no `__init__` or the only `__init__` that was found was from
+                        // the `object` class or accepts only default parameters(* args, ** kwargs),
+                        // see if we can find a better signature from the `__new__` method.
+                        if (!constructorType || isObjectInit || isDefaultParams) {
+                            const newMethodResult = getBoundNewMethod(
+                                evaluatorInterface,
+                                callNode,
+                                subtype,
+                                /* additionalFlags */ MemberAccessFlags.Default
+                            );
+
+                            if (newMethodResult && !newMethodResult.typeErrors && isFunction(newMethodResult.type)) {
+                                if (
+                                    isFunction(newMethodResult.type) &&
+                                    newMethodResult.type.details.fullName !== 'builtins.object.__new__'
+                                ) {
+                                    constructorType = newMethodResult.type;
+                                } else if (isOverloadedFunction(newMethodResult.type)) {
+                                    constructorType = newMethodResult.type;
+                                }
+                            }
+                        }
+
+                        if (constructorType) {
+                            addFunctionToSignature(constructorType);
+                        }
+                    } else {
+                        const methodType = getBoundMagicMethod(subtype, '__call__');
+                        if (methodType) {
+                            addFunctionToSignature(methodType);
+                        }
+                    }
+                    break;
+                }
+            }
+        });
+
+        if (calls.length === 0) {
+            return undefined;
+        }
+
+        return calls;
     }
 
     // Returns the signature(s) associated with a call node that contains
@@ -26635,6 +26730,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getTypeOfMagicMethodCall,
         bindFunctionToClassOrObject,
         getCallSignatureInfo,
+        matchCallArgsToParams,
         getAbstractSymbols,
         narrowConstrainedTypeVar,
         assignType,
