@@ -222,12 +222,12 @@ export function getTypeNarrowingCallback(
                 }
             }
 
-            // Look for "X is Y" or "X is not Y" where Y is a an enum or bool literal.
             if (isOrIsNotOperator) {
                 if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
                     const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
                     const rightType = rightTypeResult.type;
 
+                    // Look for "X is Y" or "X is not Y" where Y is a an enum or bool literal.
                     if (
                         isClassInstance(rightType) &&
                         (ClassType.isEnumClass(rightType) || ClassType.isBuiltIn(rightType, 'bool')) &&
@@ -246,9 +246,19 @@ export function getTypeNarrowingCallback(
                             };
                         };
                     }
+
+                    // Look for X is <class> or X is not <class>.
+                    if (isInstantiableClass(rightType)) {
+                        return (type: Type) => {
+                            return {
+                                type: narrowTypeForClassComparison(evaluator, type, rightType, adjIsPositiveTest),
+                                isIncomplete: !!rightTypeResult.isIncomplete,
+                            };
+                        };
+                    }
                 }
 
-                // Look for X[<literal>] is <literal> or X[<literal>] is not <literal>
+                // Look for X[<literal>] is <literal> or X[<literal>] is not <literal>.
                 if (
                     testExpression.leftExpression.nodeType === ParseNodeType.Index &&
                     testExpression.leftExpression.items.length === 1 &&
@@ -2076,6 +2086,54 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: Cl
             return unexpandedSubtype;
         }
     );
+}
+
+// Attempts to narrow a type based on a comparison with a class using "is" or
+// "is not". This pattern is sometimes used for sentinels.
+function narrowTypeForClassComparison(
+    evaluator: TypeEvaluator,
+    referenceType: Type,
+    classType: ClassType,
+    isPositiveTest: boolean
+): Type {
+    return mapSubtypes(referenceType, (subtype) => {
+        const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
+        if (isPositiveTest) {
+            if (isNoneInstance(concreteSubtype)) {
+                return undefined;
+            }
+
+            if (isClassInstance(concreteSubtype) && TypeBase.isInstance(subtype)) {
+                return undefined;
+            }
+
+            if (isInstantiableClass(concreteSubtype) && ClassType.isFinal(concreteSubtype)) {
+                if (
+                    !ClassType.isSameGenericClass(concreteSubtype, classType) &&
+                    !isIsinstanceFilterSuperclass(
+                        evaluator,
+                        concreteSubtype,
+                        classType,
+                        classType,
+                        /* isInstanceCheck */ false
+                    )
+                ) {
+                    return undefined;
+                }
+            }
+        } else {
+            if (
+                isInstantiableClass(concreteSubtype) &&
+                ClassType.isSameGenericClass(classType, concreteSubtype) &&
+                ClassType.isFinal(classType)
+            ) {
+                return undefined;
+            }
+        }
+
+        return subtype;
+    });
 }
 
 // Attempts to narrow a type (make it more constrained) based on a comparison
