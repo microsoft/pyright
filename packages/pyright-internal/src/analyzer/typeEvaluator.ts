@@ -147,7 +147,7 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags, indeterminateSymbolId } from './symbol';
 import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from './symbolUtils';
-import { SpeculativeTypeTracker } from './typeCacheUtils';
+import { SpeculativeModeOptions, SpeculativeTypeTracker } from './typeCacheUtils';
 import {
     AbstractMethod,
     AnnotationTypeOptions,
@@ -2877,7 +2877,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function isDiagnosticSuppressedForNode(node: ParseNode) {
         return (
             suppressedNodeStack.some((suppressedNode) => ParseTreeUtils.isNodeContainedWithin(node, suppressedNode)) ||
-            isSpeculativeModeInUse(node)
+            speculativeTypeTracker.isSpeculative(node, /* ignoreIfDiagnosticsAllowed */ true)
         );
     }
 
@@ -3607,24 +3607,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function mapSubtypesExpandTypeVars(
         type: Type,
         conditionFilter: TypeCondition[] | undefined,
-        callback: (expandedSubtype: Type, unexpandedSubtype: Type) => Type | undefined
+        callback: (expandedSubtype: Type, unexpandedSubtype: Type, isLastIteration: boolean) => Type | undefined
     ): Type {
         const newSubtypes: Type[] = [];
         let typeChanged = false;
 
-        const expandSubtype = (unexpandedType: Type) => {
+        function expandSubtype(unexpandedType: Type, isLastSubtype: boolean) {
             let expandedType = isUnion(unexpandedType) ? unexpandedType : makeTopLevelTypeVarsConcrete(unexpandedType);
 
             expandedType = transformPossibleRecursiveTypeAlias(expandedType);
 
-            doForEachSubtype(expandedType, (subtype) => {
+            doForEachSubtype(expandedType, (subtype, index, allSubtypes) => {
                 if (conditionFilter) {
                     if (!TypeCondition.isCompatible(getTypeCondition(subtype), conditionFilter)) {
                         return undefined;
                     }
                 }
 
-                let transformedType = callback(subtype, unexpandedType);
+                let transformedType = callback(
+                    subtype,
+                    unexpandedType,
+                    isLastSubtype && index === allSubtypes.length - 1
+                );
                 if (transformedType !== unexpandedType) {
                     typeChanged = true;
                 }
@@ -3633,6 +3637,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const typeCondition = getTypeCondition(subtype)?.filter(
                         (condition) => condition.isConstrainedTypeVar
                     );
+
                     if (typeCondition && typeCondition.length > 0) {
                         transformedType = addConditionToType(transformedType, typeCondition);
                     }
@@ -3641,14 +3646,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
                 return undefined;
             });
-        };
+        }
 
         if (isUnion(type)) {
-            type.subtypes.forEach((subtype) => {
-                expandSubtype(subtype);
+            type.subtypes.forEach((subtype, index) => {
+                expandSubtype(subtype, index === type.subtypes.length - 1);
             });
         } else {
-            expandSubtype(type);
+            expandSubtype(type, /* isLastSubtype */ true);
         }
 
         if (!typeChanged) {
@@ -7594,6 +7599,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): TypeResult {
         let baseTypeResult: TypeResult | undefined;
 
+        // Check for the use of `type(x)` within a type annotation. This isn't
+        // allowed, and it's a common mistake, so we want to emit a diagnostic
+        // that guides the user to the right solution.
         if (
             (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0 &&
             node.leftExpression.nodeType === ParseNodeType.Name &&
@@ -8735,34 +8743,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let returnType = mapSubtypesExpandTypeVars(
             callTypeResult.type,
             /* conditionFilter */ undefined,
-            (expandedSubtype, unexpandedSubtype) => {
-                const callResult = validateCallArgumentsForSubtype(
-                    errorNode,
-                    argList,
-                    expandedSubtype,
-                    unexpandedSubtype,
-                    !!callTypeResult.isIncomplete,
-                    typeVarContext,
-                    skipUnknownArgCheck,
-                    inferenceContext,
-                    recursionCount
+            (expandedSubtype, unexpandedSubtype, isLastIteration) => {
+                return useSpeculativeMode(
+                    isLastIteration ? undefined : errorNode,
+                    () => {
+                        const callResult = validateCallArgumentsForSubtype(
+                            errorNode,
+                            argList,
+                            expandedSubtype,
+                            unexpandedSubtype,
+                            !!callTypeResult.isIncomplete,
+                            typeVarContext,
+                            skipUnknownArgCheck,
+                            inferenceContext,
+                            recursionCount
+                        );
+
+                        if (callResult.argumentErrors) {
+                            argumentErrors = true;
+                        }
+
+                        if (callResult.isTypeIncomplete) {
+                            isTypeIncomplete = true;
+                        }
+
+                        if (callResult.overloadsUsedForCall) {
+                            appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
+                        }
+
+                        specializedInitSelfType = callResult.specializedInitSelfType;
+
+                        return callResult.returnType;
+                    },
+                    {
+                        allowDiagnostics: true,
+                    }
                 );
-
-                if (callResult.argumentErrors) {
-                    argumentErrors = true;
-                }
-
-                if (callResult.isTypeIncomplete) {
-                    isTypeIncomplete = true;
-                }
-
-                if (callResult.overloadsUsedForCall) {
-                    appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
-                }
-
-                specializedInitSelfType = callResult.specializedInitSelfType;
-
-                return callResult.returnType;
             }
         );
 
@@ -13478,7 +13494,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isIncomplete = true;
                 }
             },
-            inferenceContext?.expectedType
+            {
+                dependentType: inferenceContext?.expectedType,
+            }
         );
 
         // Mark the function type as no longer being evaluated.
@@ -19157,13 +19175,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function useSpeculativeMode<T>(
         speculativeNode: ParseNode | undefined,
         callback: () => T,
-        dependentType?: Type | undefined
+        options?: SpeculativeModeOptions
     ) {
         if (!speculativeNode) {
             return callback();
         }
 
-        speculativeTypeTracker.enterSpeculativeContext(speculativeNode, dependentType);
+        speculativeTypeTracker.enterSpeculativeContext(speculativeNode, options);
 
         try {
             const result = callback();

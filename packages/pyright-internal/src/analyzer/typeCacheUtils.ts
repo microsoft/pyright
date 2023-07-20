@@ -23,6 +23,7 @@ interface SpeculativeContext {
     speculativeRootNode: ParseNode;
     entriesToUndo: SpeculativeEntry[];
     dependentType: Type | undefined;
+    allowDiagnostics?: boolean;
 }
 
 interface DependentType {
@@ -42,6 +43,17 @@ export interface SpeculativeTypeEntry {
     dependentTypes?: DependentType[];
 }
 
+export interface SpeculativeModeOptions {
+    // If specified, the type cached speculative result depends on
+    // this dependent type.
+    dependentType?: Type;
+
+    // Normally, diagnostics are suppressed for nodes under
+    // a speculative root, but this can be overridden by specifying
+    // this option.
+    allowDiagnostics?: boolean;
+}
+
 // This class maintains a stack of "speculative type contexts". When
 // a context is popped off the stack, all of the speculative type cache
 // entries that were created within that context are removed from the
@@ -58,20 +70,21 @@ export class SpeculativeTypeTracker {
     private _speculativeTypeCache = new Map<number, SpeculativeTypeEntry[]>();
     private _activeDependentTypes: DependentType[] = [];
 
-    enterSpeculativeContext(speculativeRootNode: ParseNode, dependentType: Type | undefined) {
+    enterSpeculativeContext(speculativeRootNode: ParseNode, options?: SpeculativeModeOptions) {
         this._speculativeContextStack.push({
             speculativeRootNode,
             entriesToUndo: [],
-            dependentType,
+            dependentType: options?.dependentType,
+            allowDiagnostics: options?.allowDiagnostics,
         });
 
         // Retain a list of active dependent types. This information is already
         // contained within the speculative context stack, but we retain a copy
         // in this alternate form for performance reasons.
-        if (dependentType) {
+        if (options?.dependentType) {
             this._activeDependentTypes.push({
                 speculativeRootNode,
-                dependentType,
+                dependentType: options.dependentType,
             });
         }
     }
@@ -92,7 +105,7 @@ export class SpeculativeTypeTracker {
         });
     }
 
-    isSpeculative(node: ParseNode | undefined) {
+    isSpeculative(node: ParseNode | undefined, ignoreIfDiagnosticsAllowed = false) {
         if (this._speculativeContextStack.length === 0) {
             return false;
         }
@@ -102,8 +115,11 @@ export class SpeculativeTypeTracker {
         }
 
         for (let i = this._speculativeContextStack.length - 1; i >= 0; i--) {
-            if (ParseTreeUtils.isNodeContainedWithin(node, this._speculativeContextStack[i].speculativeRootNode)) {
-                return true;
+            const stackEntry = this._speculativeContextStack[i];
+            if (ParseTreeUtils.isNodeContainedWithin(node, stackEntry.speculativeRootNode)) {
+                if (!ignoreIfDiagnosticsAllowed || !stackEntry.allowDiagnostics) {
+                    return true;
+                }
             }
         }
 
