@@ -13881,13 +13881,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return true;
     }
 
-    // Converts the type parameters for a Callable type. It should
-    // have zero to two parameters. The first parameter, if present, should be
-    // either an ellipsis or a list of parameter types. The second parameter, if
-    // present, should specify the return type.
+    // Evaluates the type arguments for a Callable type. It should have zero
+    // to two arguments.The first argument, if present, should be an ellipsis,
+    // a ParamSpec, a Concatenate, or a list of positional parameter types.
+    // The second argument, if present, should specify the return type.
     function createCallableType(typeArgs: TypeResultWithNode[] | undefined, errorNode: ParseNode): FunctionType {
-        // Create a new function that is marked as "static" so there is later
-        // no attempt to bind it as though it's an instance or class method.
         const functionType = FunctionType.createInstantiable(FunctionTypeFlags.None);
         TypeBase.setSpecialForm(functionType);
         functionType.details.declaredReturnType = UnknownType.create();
