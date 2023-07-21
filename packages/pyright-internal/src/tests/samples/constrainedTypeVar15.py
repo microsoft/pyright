@@ -1,7 +1,7 @@
 # This sample tests the case where a constrained TypeVar is used
 # as an argument for a constructor or function call.
 
-from typing import TypeVar, Generic
+from typing import AnyStr, Iterable, TypeVar, Generic
 from dataclasses import dataclass
 
 
@@ -26,3 +26,7 @@ def func1(a: Data[_T]) -> _T:
         reveal_type(value, expected_text="ClassA*")
 
     return value
+
+
+def func2(val: AnyStr, objs: Iterable[AnyStr]) -> AnyStr:
+    return val.join(objs)
