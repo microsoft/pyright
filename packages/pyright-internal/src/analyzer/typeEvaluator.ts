@@ -518,13 +518,13 @@ export interface EvaluatorOptions {
     verifyTypeCacheEvaluatorFlags: boolean;
 }
 
-// Describes a "callback hook" that is called when a class type is
+// Describes a "deferred class completion" that is run when a class type is
 // fully created and the "PartiallyEvaluated" flag has just been cleared.
 // This allows us to properly compute information like the MRO which
 // depends on a full understanding of base classes.
-interface ClassTypeHook {
-    dependency: ClassType;
-    callback: () => void;
+interface DeferredClassCompletion {
+    dependsUpon: ClassType;
+    classesToComplete: ClassNode[];
 }
 
 interface TypeCacheEntry {
@@ -544,7 +544,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let typeCache = new Map<number, TypeCacheEntry>();
     let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
     let expectedTypeCache = new Map<number, Type>();
-    let classTypeHooks: ClassTypeHook[] = [];
+    let deferredClassCompletions: DeferredClassCompletion[] = [];
     let cancellationToken: CancellationToken | undefined;
     let isBasicTypesInitialized = false;
     let noneType: Type | undefined;
@@ -15492,10 +15492,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // If the base class is partially evaluated, install a callback
                             // so we can fix up this class (e.g. compute the MRO) when the
                             // dependent class is completed.
-                            classTypeHooks.push({
-                                dependency: argType,
-                                callback: () => completeClassTypeDeferred(classType, node, node.name),
-                            });
+                            registerDeferredClassCompletion(node, argType);
                         }
 
                         if (ClassType.isBuiltIn(argType, 'Protocol')) {
@@ -15942,8 +15939,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        // Run any class hooks that depend on this class.
-        runClassTypeHooks(classType);
+        // Run any deferred class completions that depend on this class.
+        runDeferredClassCompletions(classType);
+
+        // If there are any outstanding deferred class completions registered that
+        // were not removed by the call to runDeferredClassCompletions, assume that
+        // the current class may depend on them and register for deferred completion.
+        registerDeferredClassCompletion(node, /* dependsUpon */ undefined);
 
         // Synthesize TypedDict methods.
         if (ClassType.isTypedDictClass(classType)) {
@@ -16268,23 +16270,52 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
-    // Runs any registered "callback hooks" that depend on the specified class type.
-    // This allows us to complete any work that requires dependent classes to be
-    // completed.
-    function runClassTypeHooks(type: ClassType) {
-        classTypeHooks.forEach((hook) => {
-            if (ClassType.isSameGenericClass(hook.dependency, type)) {
-                hook.callback();
+    // Records the fact that the specified class requires "deferred completion" because
+    // one of its base classes has not yet been fully evaluated. If the caller passes
+    // undefined for "dependsUpon", then the class is added to all outstanding deferred
+    // completions.
+    function registerDeferredClassCompletion(classToComplete: ClassNode, dependsUpon: ClassType | undefined) {
+        if (dependsUpon) {
+            // See if there is an existing entry for this dependency.
+            const entry = deferredClassCompletions.find((e) =>
+                ClassType.isSameGenericClass(e.dependsUpon, dependsUpon)
+            );
+            if (entry) {
+                entry.classesToComplete.push(classToComplete);
+            } else {
+                deferredClassCompletions.push({ dependsUpon, classesToComplete: [classToComplete] });
+            }
+        } else {
+            deferredClassCompletions.forEach((e) => {
+                e.classesToComplete.push(classToComplete);
+            });
+        }
+    }
+
+    // Runs any registered "deferred class completions" that depend on the specified
+    // class type. This allows us to complete any work that requires dependent classes
+    // to be completed.
+    function runDeferredClassCompletions(type: ClassType) {
+        deferredClassCompletions.forEach((e) => {
+            if (ClassType.isSameGenericClass(e.dependsUpon, type)) {
+                e.classesToComplete.forEach((classNode) => {
+                    const classType = readTypeCache(classNode.name, EvaluatorFlags.None);
+                    if (classType) {
+                        completeClassTypeDeferred(classType as ClassType, classNode.name);
+                    }
+                });
             }
         });
 
-        // Remove any hooks that depend on this type.
-        classTypeHooks = classTypeHooks.filter((hook) => !ClassType.isSameGenericClass(hook.dependency, type));
+        // Remove any completions that depend on this type.
+        deferredClassCompletions = deferredClassCompletions.filter(
+            (e) => !ClassType.isSameGenericClass(e.dependsUpon, type)
+        );
     }
 
     // Recomputes the MRO and effective metaclass for the class after dependent
     // classes have been fully constructed.
-    function completeClassTypeDeferred(type: ClassType, node: ClassNode, errorNode: ParseNode) {
+    function completeClassTypeDeferred(type: ClassType, errorNode: ParseNode) {
         // Recompute the MRO linearization.
         if (!computeMroLinearization(type)) {
             addError(Localizer.Diagnostic.methodOrdering(), errorNode);
