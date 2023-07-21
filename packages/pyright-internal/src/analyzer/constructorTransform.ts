@@ -16,6 +16,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
 import { ArgumentCategory, ExpressionNode, ParameterCategory } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
+import { createFunctionFromConstructor } from './constructors';
 import { getParameterListDetails, ParameterSource } from './parameterUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { FunctionArgument, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
@@ -26,8 +27,10 @@ import {
     FunctionTypeFlags,
     isClassInstance,
     isFunction,
+    isInstantiableClass,
     isOverloadedFunction,
     isTypeSame,
+    isTypeVar,
     OverloadedFunctionType,
     Type,
 } from './types';
@@ -90,7 +93,18 @@ function applyPartialTransform(
     }
 
     const origFunctionTypeResult = evaluator.getTypeOfArgument(argList[0]);
-    const origFunctionType = origFunctionTypeResult.type;
+    let origFunctionType = origFunctionTypeResult.type;
+
+    if (isTypeVar(origFunctionType)) {
+        origFunctionType = evaluator.makeTopLevelTypeVarsConcrete(origFunctionType);
+    }
+
+    if (isInstantiableClass(origFunctionType)) {
+        const constructor = createFunctionFromConstructor(evaluator, origFunctionType);
+        if (constructor) {
+            origFunctionType = constructor;
+        }
+    }
 
     // Evaluate the inferred return type if necessary.
     evaluator.inferReturnTypeIfNecessary(origFunctionType);
