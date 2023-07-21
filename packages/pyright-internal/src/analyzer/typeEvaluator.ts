@@ -3607,7 +3607,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function mapSubtypesExpandTypeVars(
         type: Type,
         conditionFilter: TypeCondition[] | undefined,
-        callback: (expandedSubtype: Type, unexpandedSubtype: Type, isLastIteration: boolean) => Type | undefined
+        callback: (expandedSubtype: Type, unexpandedSubtype: Type, isLastIteration: boolean) => Type | undefined,
+        recursionCount = 0
     ): Type {
         const newSubtypes: Type[] = [];
         let typeChanged = false;
@@ -3619,9 +3620,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             doForEachSubtype(expandedType, (subtype, index, allSubtypes) => {
                 if (conditionFilter) {
-                    if (!TypeCondition.isCompatible(getTypeCondition(subtype), conditionFilter)) {
+                    const filteredType = applyConditionFilterToType(subtype, conditionFilter, recursionCount);
+                    if (!filteredType) {
                         return undefined;
                     }
+
+                    subtype = filteredType;
                 }
 
                 let transformedType = callback(
@@ -3667,6 +3671,60 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             UnionType.addTypeAliasSource(newType, type);
         }
         return newType;
+    }
+
+    function applyConditionFilterToType(
+        type: Type,
+        conditionFilter: TypeCondition[],
+        recursionCount: number
+    ): Type | undefined {
+        if (recursionCount > maxTypeRecursionCount) {
+            return type;
+        }
+        recursionCount++;
+
+        // If the type has a condition associated with it, make sure it's compatible.
+        if (!TypeCondition.isCompatible(getTypeCondition(type), conditionFilter)) {
+            return undefined;
+        }
+
+        // If the type is generic, see if any of its type arguments should be filtered.
+        // This is possible only in cases where the type parameter is covariant.
+
+        // TODO - handle functions and tuples
+        if (isClass(type) && type.typeArguments && !type.tupleTypeArguments) {
+            inferTypeParameterVarianceForClass(type);
+
+            let typeWasTransformed = false;
+
+            const filteredTypeArgs = type.typeArguments.map((typeArg, index) => {
+                const variance = TypeVarType.getVariance(type.details.typeParameters[index]);
+                if (variance !== Variance.Covariant) {
+                    return typeArg;
+                }
+
+                const filteredTypeArg = mapSubtypesExpandTypeVars(
+                    typeArg,
+                    conditionFilter,
+                    (expandedSubtype) => {
+                        return expandedSubtype;
+                    },
+                    recursionCount
+                );
+
+                if (filteredTypeArg !== typeArg) {
+                    typeWasTransformed = true;
+                }
+
+                return filteredTypeArg;
+            });
+
+            if (typeWasTransformed) {
+                return ClassType.cloneForSpecialization(type, filteredTypeArgs, /* isTypeArgumentExplicit */ true);
+            }
+        }
+
+        return type;
     }
 
     function markNamesAccessed(node: ParseNode, names: string[]) {
