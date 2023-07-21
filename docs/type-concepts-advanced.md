@@ -155,6 +155,7 @@ def func4(x: str | None):
 ```
 
 ### Narrowing for Implied Else
+
 When an “if” or “elif” clause is used without a corresponding “else”, Pyright will generally assume that the code can “fall through” without executing the “if” or “elif” block. However, there are cases where the analyzer can determine that a fall-through is not possible because the “if” or “elif” is guaranteed to be executed based on type analysis.
 
 ```python
@@ -220,6 +221,24 @@ reveal_type(b) # list[Any]
 c: Iterable[str] = [""]
 b = c
 reveal_type(b) # list[Any]
+```
+
+### Narrowing for Captured Variables
+
+If a variable’s type is narrowed in an outer scope and the variable is subsequently captured by an inner-scoped function or lambda, Pyright retains the narrowed type if it can determine that the value of the captured variable is not modified on any code path after the inner-scope function or lambda is defined and is not modified in another scope via a `nonlocal` or `global` binding.
+
+```python
+def func(val: int | None):
+    if val is not None:
+
+        def inner_1() -> None:
+            reveal_type(val)  # int
+            print(val + 1)
+
+        inner_2 = lambda: reveal_type(val) + 1  # int
+
+        inner_1()
+        inner_2()
 ```
 
 ### Constrained Type Variables

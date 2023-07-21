@@ -104,3 +104,18 @@ def func9(x: str | None):
         return x.upper()
 
     return x.upper()
+
+
+def func10(cond: bool, val: str):
+    x: str | None = val if cond else None
+    y: str | None = val if cond else None
+
+    def inner1():
+        nonlocal x
+        x = None
+
+    if x is not None and y is not None:
+
+        def inner2():
+            reveal_type(x, expected_text="str | None")
+            reveal_type(y, expected_text="str")
