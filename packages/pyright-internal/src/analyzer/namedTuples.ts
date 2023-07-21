@@ -136,6 +136,7 @@ export function createNamedTupleType(
     if (ParseTreeUtils.isAssignmentToDefaultsFollowingNamedTuple(errorNode)) {
         constructorType.details.flags |= FunctionTypeFlags.DisableDefaultChecks;
     }
+    constructorType.details.typeVarScopeId = classType.details.typeVarScopeId;
     FunctionType.addParameter(constructorType, {
         category: ParameterCategory.Simple,
         name: 'cls',
