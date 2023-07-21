@@ -4329,15 +4329,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): FlowNodeTypeResult | undefined {
         // This function applies only to variables, parameters, and imports, not to other
         // types of symbols.
+        const decls = symbolWithScope.symbol.getDeclarations();
         if (
-            !symbolWithScope.symbol
-                .getDeclarations()
-                .every(
-                    (decl) =>
-                        decl.type === DeclarationType.Variable ||
-                        decl.type === DeclarationType.Parameter ||
-                        decl.type === DeclarationType.Alias
-                )
+            !decls.every(
+                (decl) =>
+                    decl.type === DeclarationType.Variable ||
+                    decl.type === DeclarationType.Parameter ||
+                    decl.type === DeclarationType.Alias
+            )
+        ) {
+            return undefined;
+        }
+
+        // If the symbol is modified in scopes other than the one in which it is
+        // declared (e.g. through a nonlocal or global binding), it is not eligible
+        // for code flow analysis.
+        if (
+            !decls.every(
+                (decl) =>
+                    decl.type === DeclarationType.Parameter ||
+                    ScopeUtils.getScopeForNode(decl.node) === symbolWithScope.scope
+            )
         ) {
             return undefined;
         }
@@ -4390,7 +4402,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             );
                         })
                     ) {
-                        return getFlowTypeOfReference(node, symbolWithScope.symbol.id, effectiveType, innerScopeNode);
+                        let typeAtStart = effectiveType;
+                        if (symbolWithScope.symbol.isInitiallyUnbound()) {
+                            typeAtStart = UnboundType.create();
+                        }
+
+                        return getFlowTypeOfReference(node, symbolWithScope.symbol.id, typeAtStart, innerScopeNode);
                     }
                 }
             }
