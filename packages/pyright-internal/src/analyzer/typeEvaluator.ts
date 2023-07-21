@@ -9074,14 +9074,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!effectiveTypeVarContext) {
             // If a typeVarContext wasn't provided by the caller, allocate one here.
             effectiveTypeVarContext = new TypeVarContext(getTypeVarScopeIds(expandedCallType));
-
-            // There are certain cases, such as with super().__new__(cls) calls where
-            // the call is a constructor but the proper TypeVar scope has been lost.
-            // We'll add a wildcard TypeVar scope here. This is a bit of a hack and
-            // we may need to revisit this in the future.
-            if (FunctionType.isConstructorMethod(expandedCallType)) {
-                effectiveTypeVarContext.addSolveForScope(WildcardTypeVarScopeId);
-            }
         }
 
         const functionResult = validateFunctionArguments(
