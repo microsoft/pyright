@@ -12682,10 +12682,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Dict and MutableMapping types have invariant value types, so they
         // cannot be narrowed further. Other super-types like Mapping, Collection,
         // and Iterable use covariant value types, so they can be narrowed.
-        const isValueTypeInvariant =
-            isClassInstance(inferenceContext.expectedType) &&
-            (ClassType.isBuiltIn(inferenceContext.expectedType, 'dict') ||
-                ClassType.isBuiltIn(inferenceContext.expectedType, 'MutableMapping'));
+        let isValueTypeInvariant = false;
+        if (isClassInstance(inferenceContext.expectedType)) {
+            if (inferenceContext.expectedType.details.typeParameters.length >= 2) {
+                const valueTypeParam = inferenceContext.expectedType.details.typeParameters[1];
+                if (TypeVarType.getVariance(valueTypeParam) === Variance.Invariant) {
+                    isValueTypeInvariant = true;
+                }
+            }
+        }
 
         // Infer the key and value types if possible.
         if (
