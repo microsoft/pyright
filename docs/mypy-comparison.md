@@ -372,6 +372,20 @@ reveal_type(v2)  # mypy: T, pyright: str
 ```
 
 
+### Constraint Solver: Overloads and ParamSpec
+
+If a function accepts a `Callable` parameterized with a `ParamSpec`, pyright allows you to pass an overloaded function as an argument. The constraint solver solves the type variables for each overload signature independently and then “unions” the results. Mypy uses only the first overload in this case and ignores all subsequent overloads.
+
+```python
+def wrap(func: Callable[P, T]) -> Callable[P, T]:
+    ...
+
+# 'max' is an overloaded built-in function
+max2 = wrap(max)
+reveal_type(max2) # Mypy includes only the first overload, pyright includes all
+```
+
+
 ### Constrained Type Variables
 
 When mypy analyzes a class or function that has in-scope constrained TypeVars, it analyzes the class or function multiple times, once for each constraint. This can produce multiple errors.
