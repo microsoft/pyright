@@ -48,6 +48,17 @@ def func7() -> Callable[P, None] | None:
     return
 
 
+def func8() -> Callable[[T], T]:
+    ...
+
+
+func9 = func8()
+v1 = func9(func9)
+reveal_type(v1, expected_text="(T(1)@func8) -> T(1)@func8")
+v2 = func9(func9(func9))
+reveal_type(v2, expected_text="(T(2)(1)@func8) -> T(2)(1)@func8")
+
+
 class A(Generic[T]):
     def method1(self) -> Callable[[T], T] | None:
         x: Optional[T] = None
