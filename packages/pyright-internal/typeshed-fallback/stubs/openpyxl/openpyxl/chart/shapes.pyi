@@ -3,11 +3,13 @@ from typing import ClassVar
 from typing_extensions import Literal, TypeAlias
 
 from openpyxl.descriptors.base import Alias, NoneSet, Typed, _ConvertibleToBool
-from openpyxl.descriptors.nested import EmptyTag, _HasTagAndGet
+from openpyxl.descriptors.nested import EmptyTag
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.drawing.fill import GradientFillProperties, PatternFillProperties
 from openpyxl.drawing.geometry import CustomGeometry2D, PresetGeometry2D, Scene3D, Shape3D, Transform2D
 from openpyxl.drawing.line import LineProperties
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _GraphicalPropertiesBwMode: TypeAlias = Literal[
     "clr", "auto", "gray", "ltGray", "invGray", "grayWhite", "blackGray", "blackWhite", "black", "white", "hidden"

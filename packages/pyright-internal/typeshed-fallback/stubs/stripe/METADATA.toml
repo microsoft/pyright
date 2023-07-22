@@ -1,4 +1,5 @@
 version = "3.5.*"
+upstream_repository = "https://github.com/stripe/stripe-python"
 partial_stub = true
 
 [tool.stubtest]

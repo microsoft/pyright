@@ -15,7 +15,7 @@ from openpyxl.descriptors.base import (
     _ConvertibleToInt,
 )
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedNoneSet, NestedValue, _HasTagAndGet, _NestedNoneSetParam
+from openpyxl.descriptors.nested import NestedNoneSet, NestedValue, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.drawing.colors import ColorChoice, HSLColor, RGBPercent as _RGBPercent, SchemeColor, SystemColor, _PresetColors
 from openpyxl.drawing.effect import (
@@ -37,6 +37,8 @@ from openpyxl.drawing.effect import (
     LuminanceEffect,
     TintEffect,
 )
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _PatternFillPropertiesPrst: TypeAlias = Literal[
     "pct5",

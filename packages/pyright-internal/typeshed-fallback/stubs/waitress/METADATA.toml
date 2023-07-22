@@ -1,4 +1,5 @@
 version = "2.1.*"
+upstream_repository = "https://github.com/Pylons/waitress"
 requires = []
 partial_stub = true
 

@@ -11,8 +11,10 @@ from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.trendline import Trendline
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedBool, NestedInteger, NestedNoneSet, NestedText, _HasTagAndGet, _NestedNoneSetParam
+from openpyxl.descriptors.nested import NestedBool, NestedInteger, NestedNoneSet, NestedText, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _SeriesShape: TypeAlias = Literal["cone", "coneToMax", "box", "cylinder", "pyramid", "pyramidToMax"]
 

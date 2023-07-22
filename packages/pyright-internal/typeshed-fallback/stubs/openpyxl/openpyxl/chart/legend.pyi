@@ -7,8 +7,10 @@ from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.text import RichText
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedBool, NestedInteger, NestedSet, _HasTagAndGet
+from openpyxl.descriptors.nested import NestedBool, NestedInteger, NestedSet
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _LegendLegendPos: TypeAlias = Literal["b", "tr", "l", "r", "t"]
 

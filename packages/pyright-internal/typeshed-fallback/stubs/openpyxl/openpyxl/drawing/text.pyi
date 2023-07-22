@@ -16,12 +16,14 @@ from openpyxl.descriptors.base import (
     _ConvertibleToInt,
 )
 from openpyxl.descriptors.excel import Coordinate, ExtensionList
-from openpyxl.descriptors.nested import EmptyTag, NestedBool, NestedInteger, NestedText, NestedValue, _HasTagAndGet
+from openpyxl.descriptors.nested import EmptyTag, NestedBool, NestedInteger, NestedText, NestedValue
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.drawing.effect import Color, EffectContainer, EffectList
 from openpyxl.drawing.fill import Blip, BlipFillProperties, GradientFillProperties, PatternFillProperties
 from openpyxl.drawing.geometry import Scene3D
 from openpyxl.drawing.line import LineProperties
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _CharacterPropertiesU: TypeAlias = Literal[
     "words",

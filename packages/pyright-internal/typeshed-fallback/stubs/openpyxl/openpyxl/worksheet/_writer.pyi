@@ -1,5 +1,16 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, ReadableBuffer, StrPath, Unused
 from collections.abc import Generator
+from typing import Protocol
+from typing_extensions import TypeAlias
+
+# WorksheetWriter.read has an explicit BytesIO branch. Let's make sure this protocol is viable for BytesIO too.
+class _SupportsCloseAndWrite(Protocol):
+    def write(self, __buffer: ReadableBuffer) -> Unused: ...
+    def close(self) -> Unused: ...
+
+# et_xmlfile.xmlfile accepts a str | _SupportsCloseAndWrite
+# lxml.etree.xmlfile should accept a StrPath | _SupportsClose https://lxml.de/api/lxml.etree.xmlfile-class.html
+_OutType: TypeAlias = _SupportsCloseAndWrite | StrPath
 
 ALL_TEMP_FILES: list[str]
 
@@ -7,9 +18,9 @@ def create_temporary_file(suffix: str = ""): ...
 
 class WorksheetWriter:
     ws: Incomplete
-    out: Incomplete
+    out: _OutType
     xf: Incomplete
-    def __init__(self, ws, out: Incomplete | None = None) -> None: ...
+    def __init__(self, ws, out: _OutType | None = None) -> None: ...
     def write_properties(self) -> None: ...
     def write_dimensions(self) -> None: ...
     def write_format(self) -> None: ...

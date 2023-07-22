@@ -7,8 +7,9 @@ from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.updown_bars import UpDownBars
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedBool, NestedSet, _HasTagAndGet
+from openpyxl.descriptors.nested import NestedBool, NestedSet
 
+from ..xml._functions_overloads import _HasTagAndGet
 from ._chart import ChartBase
 
 _LineChartBaseGrouping: TypeAlias = Literal["percentStacked", "standard", "stacked"]

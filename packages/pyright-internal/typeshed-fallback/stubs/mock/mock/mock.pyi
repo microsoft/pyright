@@ -2,7 +2,7 @@ from _typeshed import Incomplete
 from collections.abc import Callable, Coroutine, Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from types import TracebackType
-from typing import Any, Generic, TypeVar, overload
+from typing import Any, ClassVar, Generic, TypeVar, overload
 from typing_extensions import Literal, ParamSpec, Self
 
 _F = TypeVar("_F", bound=Callable[..., Any])
@@ -22,6 +22,7 @@ __all__ = (
     "call",
     "create_autospec",
     "AsyncMock",
+    "ThreadingMock",
     "FILTER_DIR",
     "NonCallableMock",
     "NonCallableMagicMock",
@@ -328,7 +329,12 @@ class AsyncMockMixin(Base):
     __annotations__: dict[str, Any] | None  # type: ignore[assignment]
 
 class AsyncMagicMixin(MagicMixin): ...
-class AsyncMock(AsyncMockMixin, AsyncMagicMixin, Mock): ...
+
+class AsyncMock(AsyncMockMixin, AsyncMagicMixin, Mock):
+    # Improving the `reset_mock` signature.
+    # It is defined on `AsyncMockMixin` with `*args, **kwargs`, which is not ideal.
+    # But, `NonCallableMock` super-class has the better version.
+    def reset_mock(self, visited: Any = None, *, return_value: bool = False, side_effect: bool = False) -> None: ...
 
 class MagicProxy(Base):
     name: str
@@ -378,3 +384,17 @@ class PropertyMock(Mock):
     def __set__(self, obj: Any, value: Any) -> None: ...
 
 def seal(mock: Any) -> None: ...
+
+class ThreadingMixin(Base):
+    DEFAULT_TIMEOUT: ClassVar[float | None]
+
+    def __init__(self, *args: Any, timeout: float | None = ..., **kwargs: Any) -> None: ...
+    def reset_mock(self, *args: Any, **kwargs: Any) -> None: ...
+    def wait_until_called(self, *, timeout: float | None = ...) -> None: ...
+    def wait_until_any_call_with(self, *args: Any, **kwargs: Any) -> None: ...
+
+class ThreadingMock(ThreadingMixin, MagicMixin, Mock):
+    # Improving the `reset_mock` signature.
+    # It is defined on `ThreadingMixin` with `*args, **kwargs`, which is not ideal.
+    # But, `NonCallableMock` super-class has the better version.
+    def reset_mock(self, visited: Any = None, *, return_value: bool = False, side_effect: bool = False) -> None: ...

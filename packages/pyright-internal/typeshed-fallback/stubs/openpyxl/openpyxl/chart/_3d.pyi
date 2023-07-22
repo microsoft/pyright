@@ -6,8 +6,10 @@ from openpyxl.chart.picture import PictureOptions
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedBool, NestedInteger, NestedMinMax, _HasTagAndGet
+from openpyxl.descriptors.nested import NestedBool, NestedInteger, NestedMinMax
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 class View3D(Serialisable):
     tagname: ClassVar[str]

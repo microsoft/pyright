@@ -8,8 +8,10 @@ from openpyxl.chart.text import RichText, Text
 from openpyxl.descriptors import Strict, Typed
 from openpyxl.descriptors.base import Alias, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedBool, _HasTagAndGet
+from openpyxl.descriptors.nested import NestedBool
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 class Title(Serialisable):
     tagname: ClassVar[str]

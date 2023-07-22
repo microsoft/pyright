@@ -1,4 +1,5 @@
 version = "0.20.*"
+upstream_repository = "https://github.com/MartinThoma/flake8-simplify"
 partial_stub = true
 
 [tool.stubtest]

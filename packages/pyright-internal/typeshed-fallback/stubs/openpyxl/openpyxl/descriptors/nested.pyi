@@ -1,6 +1,6 @@
 from _typeshed import Incomplete, Unused
-from collections.abc import Callable, Iterable
-from typing import Any, ClassVar, NoReturn, Protocol, TypeVar, overload
+from collections.abc import Iterable
+from typing import Any, ClassVar, NoReturn, overload
 from typing_extensions import Literal, TypeAlias
 
 from openpyxl.descriptors import Strict
@@ -9,18 +9,8 @@ from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.drawing.fill import Blip
 from openpyxl.xml.functions import Element
 
+from ..xml._functions_overloads import _HasTagAndGet, _HasTagAndText
 from .base import _M, _N, _T, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt, _ExpectedTypeParam
-
-_T_co = TypeVar("_T_co", covariant=True)
-
-# Usually an Element() from either lxml or xml.etree (has a 'tag' element)
-class _HasTagAndGet(Protocol[_T_co]):
-    tag: Any  # str | None | Callable[..., Any]
-    def get(self, __value: str) -> _T_co | None: ...
-
-class _HasTagAndText(Protocol):
-    tag: str | Callable[..., Any]
-    text: str
 
 _NestedNoneSetParam: TypeAlias = _HasTagAndGet[_T | Literal["none"] | None] | _T | Literal["none"] | None
 

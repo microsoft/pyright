@@ -1020,7 +1020,7 @@ test('ParamSpec40', () => {
 
 test('ParamSpec41', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec41.py']);
-    TestUtils.validateResults(results, 0);
+    TestUtils.validateResults(results, 1);
 });
 
 test('ParamSpec42', () => {

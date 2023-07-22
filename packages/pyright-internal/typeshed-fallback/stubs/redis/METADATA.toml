@@ -1,4 +1,5 @@
 version = "4.6.0"
+upstream_repository = "https://github.com/redis/redis-py"
 # Requires a version of cryptography with a `py.typed` file
 requires = ["cryptography>=35.0.0", "types-pyOpenSSL"]
 partial_stub = true

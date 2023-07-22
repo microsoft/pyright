@@ -6,8 +6,9 @@ from openpyxl.chart.axis import NumericAxis
 from openpyxl.chart.label import DataLabelList
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToFloat
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedBool, NestedMinMax, NestedNoneSet, _HasTagAndGet, _NestedNoneSetParam
+from openpyxl.descriptors.nested import NestedBool, NestedMinMax, NestedNoneSet, _NestedNoneSetParam
 
+from ..xml._functions_overloads import _HasTagAndGet
 from ._chart import ChartBase
 
 _BubbleChartSizeRepresents: TypeAlias = Literal["area", "w"]

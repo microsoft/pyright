@@ -1,4 +1,5 @@
 version = "2.49.*"
+upstream_repository = "https://github.com/boto/boto"
 requires = []
 partial_stub = true
 

@@ -6,8 +6,9 @@ from openpyxl.chart.axis import NumericAxis, TextAxis
 from openpyxl.chart.label import DataLabelList
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedBool, NestedNoneSet, _HasTagAndGet, _NestedNoneSetParam
+from openpyxl.descriptors.nested import NestedBool, NestedNoneSet, _NestedNoneSetParam
 
+from ..xml._functions_overloads import _HasTagAndGet
 from ._chart import ChartBase as ChartBase
 
 _ScatterChartScatterStyle: TypeAlias = Literal["line", "lineMarker", "marker", "smooth", "smoothMarker"]

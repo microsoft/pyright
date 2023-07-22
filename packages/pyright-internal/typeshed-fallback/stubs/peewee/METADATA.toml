@@ -1,1 +1,2 @@
 version = "3.16.*"
+upstream_repository = "https://github.com/coleifer/peewee"

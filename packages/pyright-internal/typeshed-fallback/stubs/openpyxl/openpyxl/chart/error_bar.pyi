@@ -6,8 +6,10 @@ from openpyxl.chart.data_source import NumDataSource
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToFloat
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedBool, NestedFloat, NestedNoneSet, NestedSet, _HasTagAndGet, _NestedNoneSetParam
+from openpyxl.descriptors.nested import NestedBool, NestedFloat, NestedNoneSet, NestedSet, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _ErrorBarsErrBarType: TypeAlias = Literal["both", "minus", "plus"]
 _ErrorBarsErrValType: TypeAlias = Literal["cust", "fixedVal", "percentage", "stdDev", "stdErr"]

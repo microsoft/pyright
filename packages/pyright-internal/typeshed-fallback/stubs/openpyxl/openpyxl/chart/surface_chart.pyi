@@ -6,9 +6,10 @@ from openpyxl.chart.axis import NumericAxis, SeriesAxis, TextAxis
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedBool, NestedInteger, _HasTagAndGet
+from openpyxl.descriptors.nested import NestedBool, NestedInteger
 from openpyxl.descriptors.serialisable import Serialisable
 
+from ..xml._functions_overloads import _HasTagAndGet
 from ._3d import _3DBase
 from ._chart import ChartBase
 

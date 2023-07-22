@@ -42,6 +42,7 @@ class Child1:
     def cm1(cls: type["Child1"]):
         ...
 
+    # This should generate an error.
     @classmethod
     # This should generate an error.
     def cm2(cls: "Child1"):
@@ -56,6 +57,7 @@ class Child1:
     def cm4(cls: type[_TChild1]) -> _TChild1:
         ...
 
+    # This should generate an error.
     @classmethod
     # This should generate an error.
     def cm5(cls: _TChild1) -> _TChild1:

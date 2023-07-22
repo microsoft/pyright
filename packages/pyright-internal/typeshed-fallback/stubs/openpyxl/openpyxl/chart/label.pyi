@@ -6,8 +6,10 @@ from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.text import RichText
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedBool, NestedInteger, NestedNoneSet, NestedString, _HasTagAndGet, _NestedNoneSetParam
+from openpyxl.descriptors.nested import NestedBool, NestedInteger, NestedNoneSet, NestedString, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable as Serialisable
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _DataLabelBaseDLblPos: TypeAlias = Literal["bestFit", "b", "ctr", "inBase", "inEnd", "l", "outEnd", "r", "t"]
 

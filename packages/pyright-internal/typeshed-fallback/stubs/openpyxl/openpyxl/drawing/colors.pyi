@@ -5,8 +5,10 @@ from typing_extensions import Final, Literal, TypeAlias
 from openpyxl.descriptors import Strict, Typed
 from openpyxl.descriptors.base import Alias, Integer, MinMax, Set, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import EmptyTag, NestedInteger, NestedNoneSet, NestedValue, _HasTagAndGet, _NestedNoneSetParam
+from openpyxl.descriptors.nested import EmptyTag, NestedInteger, NestedNoneSet, NestedValue, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _ColorSetType: TypeAlias = Literal[
     "dk1", "lt1", "dk2", "lt2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6", "hlink", "folHlink"

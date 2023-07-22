@@ -6,8 +6,9 @@ from openpyxl.chart.axis import ChartLines, NumericAxis, SeriesAxis, TextAxis
 from openpyxl.chart.label import DataLabelList
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedBool, NestedNoneSet, NestedSet, _HasTagAndGet, _NestedNoneSetParam
+from openpyxl.descriptors.nested import NestedBool, NestedNoneSet, NestedSet, _NestedNoneSetParam
 
+from ..xml._functions_overloads import _HasTagAndGet
 from ._3d import _3DBase
 from ._chart import ChartBase
 
