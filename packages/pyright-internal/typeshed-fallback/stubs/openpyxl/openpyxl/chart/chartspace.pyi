@@ -11,9 +11,11 @@ from openpyxl.chart.text import RichText
 from openpyxl.chart.title import Title
 from openpyxl.descriptors.base import Alias, String, Typed, _ConvertibleToBool, _ConvertibleToFloat
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedBool, NestedMinMax, NestedNoneSet, NestedString, _HasTagAndGet, _NestedNoneSetParam
+from openpyxl.descriptors.nested import NestedBool, NestedMinMax, NestedNoneSet, NestedString, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.drawing.colors import ColorMapping
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _ChartContainerDispBlanksAs: TypeAlias = Literal["span", "gap", "zero"]
 

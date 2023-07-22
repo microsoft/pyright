@@ -8,8 +8,10 @@ from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.text import RichText
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedInteger, NestedText, _HasTagAndGet
+from openpyxl.descriptors.nested import NestedInteger, NestedText
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 class PivotSource(Serialisable):
     tagname: ClassVar[str]

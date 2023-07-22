@@ -1,4 +1,5 @@
 version = "2.9.*"
+upstream_repository = "https://github.com/psycopg/psycopg2"
 partial_stub = true
 
 [tool.stubtest]

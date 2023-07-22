@@ -1,4 +1,5 @@
 version = "4.65.*"
+upstream_repository = "https://github.com/tqdm/tqdm"
 
 [tool.stubtest]
 extras = ["slack", "telegram"]

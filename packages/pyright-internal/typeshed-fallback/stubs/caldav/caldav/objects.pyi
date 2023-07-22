@@ -1,14 +1,15 @@
 import datetime
 from _typeshed import Incomplete
-from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import TypeVar, overload
+from collections import defaultdict
+from collections.abc import Callable, Container, Iterable, Iterator, Mapping, Sequence
+from typing import Any, TypeVar, overload
 from typing_extensions import Literal, Self, TypeAlias
 from urllib.parse import ParseResult, SplitResult
 
 from vobject.base import VBase
 
 from .davclient import DAVClient
-from .elements.cdav import CalendarQuery, CompFilter, ScheduleInboxURL, ScheduleOutboxURL
+from .elements.cdav import CalendarData, CalendarQuery, CompFilter, ScheduleInboxURL, ScheduleOutboxURL
 from .lib.url import URL
 
 _CC = TypeVar("_CC", bound=CalendarObjectResource)
@@ -125,6 +126,7 @@ class Calendar(DAVObject):
         include_completed: bool = False,
         sort_keys: Sequence[str] = (),
         split_expanded: bool = True,
+        props: list[CalendarData] | None = None,
         **kwargs,
     ) -> list[CalendarObjectResource]: ...
     @overload
@@ -136,6 +138,7 @@ class Calendar(DAVObject):
         include_completed: bool = False,
         sort_keys: Sequence[str] = (),
         split_expanded: bool = True,
+        props: list[CalendarData] | None = None,
         **kwargs,
     ) -> list[_CC]: ...
     @overload
@@ -147,6 +150,7 @@ class Calendar(DAVObject):
         include_completed: bool = False,
         sort_keys: Sequence[str] = (),
         split_expanded: bool = True,
+        props: list[CalendarData] | None = None,
         **kwargs,
     ) -> list[_CC]: ...
     def build_search_xml_query(
@@ -161,6 +165,7 @@ class Calendar(DAVObject):
         expand: bool | None = None,
         start: datetime.datetime | None = None,
         end: datetime.datetime | None = None,
+        props: list[CalendarData] | None = None,
         *,
         uid=...,
         summary=...,
@@ -168,6 +173,7 @@ class Calendar(DAVObject):
         description=...,
         location=...,
         status=...,
+        **kwargs: str,
     ) -> tuple[CalendarQuery, _CompClass]: ...
     def freebusy_request(self, start: datetime.datetime, end: datetime.datetime) -> FreeBusy: ...
     def todos(
@@ -221,6 +227,13 @@ class CalendarObjectResource(DAVObject):
     def add_organizer(self) -> None: ...
     def split_expanded(self) -> list[Self]: ...
     def expand_rrule(self, start: datetime.datetime, end: datetime.datetime) -> None: ...
+    def get_relatives(
+        self,
+        reltypes: Container[str] | None = None,
+        relfilter: Callable[[Any], bool] | None = None,
+        fetch_objects: bool = True,
+        ignore_missing: bool = True,
+    ) -> defaultdict[str, set[str]]: ...
     def add_attendee(self, attendee, no_default_parameters: bool = False, **parameters) -> None: ...
     def is_invite_request(self) -> bool: ...
     def accept_invite(self, calendar: Incomplete | None = None) -> None: ...

@@ -389,7 +389,7 @@ test('ParamNames1', () => {
 
 test('ParamType1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramType1.py']);
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 9);
 });
 
 test('Python2', () => {

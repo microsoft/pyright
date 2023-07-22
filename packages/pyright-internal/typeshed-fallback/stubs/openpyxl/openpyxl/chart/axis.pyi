@@ -14,10 +14,11 @@ from openpyxl.descriptors.nested import (
     NestedMinMax,
     NestedNoneSet,
     NestedSet,
-    _HasTagAndGet,
     _NestedNoneSetParam,
 )
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _ScalingOrientation: TypeAlias = Literal["maxMin", "minMax"]
 _BaseAxisAxPos: TypeAlias = Literal["b", "l", "r", "t"]

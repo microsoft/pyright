@@ -2,8 +2,10 @@ from typing import ClassVar
 from typing_extensions import Literal, TypeAlias
 
 from openpyxl.descriptors.base import _ConvertibleToBool, _ConvertibleToFloat
-from openpyxl.descriptors.nested import NestedBool, NestedFloat, NestedNoneSet, _HasTagAndGet, _NestedNoneSetParam
+from openpyxl.descriptors.nested import NestedBool, NestedFloat, NestedNoneSet, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _PictureOptionsPictureFormat: TypeAlias = Literal["stretch", "stack", "stackScale"]
 

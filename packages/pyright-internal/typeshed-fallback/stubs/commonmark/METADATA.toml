@@ -1,4 +1,5 @@
 version = "0.9.*"
+upstream_repository = "https://github.com/rtfd/commonmark.py"
 partial_stub = true
 
 [tool.stubtest]

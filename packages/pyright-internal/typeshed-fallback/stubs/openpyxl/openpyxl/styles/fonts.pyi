@@ -10,10 +10,11 @@ from openpyxl.descriptors.nested import (
     NestedMinMax,
     NestedNoneSet,
     NestedString,
-    _HasTagAndGet,
     _NestedNoneSetParam,
 )
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _FontU: TypeAlias = Literal["single", "double", "singleAccounting", "doubleAccounting"]
 _FontVertAlign: TypeAlias = Literal["superscript", "subscript", "baseline"]

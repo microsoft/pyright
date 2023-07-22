@@ -6,8 +6,10 @@ from openpyxl.chart.picture import PictureOptions
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedBool, NestedInteger, NestedMinMax, NestedNoneSet, _HasTagAndGet, _NestedNoneSetParam
+from openpyxl.descriptors.nested import NestedBool, NestedInteger, NestedMinMax, NestedNoneSet, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _MarkerSymbol: TypeAlias = Literal[
     "circle", "dash", "diamond", "dot", "picture", "plus", "square", "star", "triangle", "x", "auto"

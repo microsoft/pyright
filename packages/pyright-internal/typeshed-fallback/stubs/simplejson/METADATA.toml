@@ -1,4 +1,5 @@
 version = "3.19.*"
+upstream_repository = "https://github.com/simplejson/simplejson"
 partial_stub = true
 
 [tool.stubtest]

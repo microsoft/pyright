@@ -16,10 +16,12 @@ from openpyxl.descriptors.base import (
     _ConvertibleToInt,
 )
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedInteger, _HasTagAndGet
+from openpyxl.descriptors.nested import NestedInteger
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.pivot.fields import Error, Missing, Number, Text, TupleList
 from openpyxl.pivot.table import PivotArea
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _RangePrGroupBy: TypeAlias = Literal["range", "seconds", "minutes", "hours", "days", "months", "quarters", "years"]
 _CacheSourceType: TypeAlias = Literal["worksheet", "external", "consolidation", "scenario"]

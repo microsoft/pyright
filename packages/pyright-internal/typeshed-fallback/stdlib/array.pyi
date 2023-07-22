@@ -6,6 +6,9 @@ from collections.abc import Iterable
 from typing import Any, Generic, MutableSequence, TypeVar, overload  # noqa: Y022
 from typing_extensions import Literal, Self, SupportsIndex, TypeAlias
 
+if sys.version_info >= (3, 12):
+    from types import GenericAlias
+
 _IntTypeCode: TypeAlias = Literal["b", "B", "h", "H", "i", "I", "l", "L", "q", "Q"]
 _FloatTypeCode: TypeAlias = Literal["f", "d"]
 _UnicodeTypeCode: TypeAlias = Literal["u"]
@@ -83,5 +86,7 @@ class array(MutableSequence[_T], Generic[_T]):
     def __deepcopy__(self, __unused: Any) -> array[_T]: ...
     def __buffer__(self, __flags: int) -> memoryview: ...
     def __release_buffer__(self, __buffer: memoryview) -> None: ...
+    if sys.version_info >= (3, 12):
+        def __class_getitem__(cls, item: Any) -> GenericAlias: ...
 
 ArrayType = array

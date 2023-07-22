@@ -13,9 +13,11 @@ from openpyxl.descriptors.base import (
     _ConvertibleToInt,
 )
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import EmptyTag, NestedInteger, NestedNoneSet, _HasTagAndGet, _NestedNoneSetParam
+from openpyxl.descriptors.nested import EmptyTag, NestedInteger, NestedNoneSet, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.drawing.fill import GradientFillProperties, PatternFillProperties
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _LineEndPropertiesType: TypeAlias = Literal["none", "triangle", "stealth", "diamond", "oval", "arrow"]
 _LineEndPropertiesWLen: TypeAlias = Literal["sm", "med", "lg"]

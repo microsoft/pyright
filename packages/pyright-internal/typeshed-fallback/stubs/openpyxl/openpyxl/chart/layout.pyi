@@ -4,8 +4,10 @@ from typing_extensions import Literal, TypeAlias
 
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToFloat
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedMinMax, NestedNoneSet, NestedSet, _HasTagAndGet, _NestedNoneSetParam
+from openpyxl.descriptors.nested import NestedMinMax, NestedNoneSet, NestedSet, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 _ManualLayoutMode: TypeAlias = Literal["edge", "factor"]
 _ManualLayoutLayoutTarget: TypeAlias = Literal["inner", "outer"]

@@ -5,8 +5,10 @@ from typing_extensions import Literal
 from openpyxl.descriptors import Strict
 from openpyxl.descriptors.base import Alias, Bool, Integer, String, Typed, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import NestedInteger, NestedText, _HasTagAndGet
+from openpyxl.descriptors.nested import NestedInteger, NestedText
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _HasTagAndGet
 
 class NumFmt(Serialisable):
     formatCode: String[Literal[False]]

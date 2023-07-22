@@ -1,4 +1,5 @@
 version = "2.0.*"
+upstream_repository = "https://github.com/pyinvoke/invoke"
 obsolete_since = "2.1.2" # Released on 2023-05-15
 partial_stub = true
 

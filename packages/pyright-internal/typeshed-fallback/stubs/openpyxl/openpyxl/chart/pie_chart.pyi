@@ -6,17 +6,10 @@ from openpyxl.chart.axis import ChartLines
 from openpyxl.chart.label import DataLabelList
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToFloat
 from openpyxl.descriptors.excel import ExtensionList
-from openpyxl.descriptors.nested import (
-    NestedBool,
-    NestedFloat,
-    NestedMinMax,
-    NestedNoneSet,
-    NestedSet,
-    _HasTagAndGet,
-    _NestedNoneSetParam,
-)
+from openpyxl.descriptors.nested import NestedBool, NestedFloat, NestedMinMax, NestedNoneSet, NestedSet, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
 
+from ..xml._functions_overloads import _HasTagAndGet
 from ._chart import ChartBase
 
 _ProjectedPieChartOfPieType: TypeAlias = Literal["pie", "bar"]
