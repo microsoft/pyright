@@ -11115,7 +11115,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // specific use case. We may need to make this more sophisticated in
         // the future.
         if (isFunction(returnType) && !returnType.details.name) {
-            return FunctionType.cloneWithNewTypeVarScopeId(returnType, WildcardTypeVarScopeId);
+            const typeVarsInReturnType = getTypeVarArgumentsRecursive(returnType);
+
+            // If there are no unsolved type variables, we're done. If there are
+            // unsolved type parameters, treat them as though they are rescoped
+            // to the callable.
+            if (typeVarsInReturnType.length > 0) {
+                return FunctionType.cloneWithNewTypeVarScopeId(
+                    returnType,
+                    WildcardTypeVarScopeId,
+                    typeVarsInReturnType
+                );
+            }
         }
 
         return returnType;
