@@ -21204,12 +21204,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 } else {
                     const primaryDecl = symbol.getDeclarations()[0];
-                    // Class and instance variables that are mutable need to
-                    // enforce invariance.
-                    const flags =
-                        primaryDecl?.type === DeclarationType.Variable && !isFinalVariableDeclaration(primaryDecl)
-                            ? AssignTypeFlags.EnforceInvariance
-                            : AssignTypeFlags.Default;
+
+                    let flags = AssignTypeFlags.Default;
+                    if (
+                        primaryDecl?.type === DeclarationType.Variable &&
+                        !isFinalVariableDeclaration(primaryDecl) &&
+                        !ClassType.isFrozenDataClass(destType)
+                    ) {
+                        // Class and instance variables that are mutable need to
+                        // enforce invariance.
+                        flags |= AssignTypeFlags.EnforceInvariance;
+                    }
+
                     if (
                         !assignType(
                             destMemberType,

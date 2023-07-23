@@ -77,7 +77,7 @@ test('AutoVariance1', () => {
     configOptions.defaultPythonVersion = PythonVersion.V3_12;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['autoVariance1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 11);
+    TestUtils.validateResults(analysisResults, 12);
 });
 
 test('AutoVariance2', () => {

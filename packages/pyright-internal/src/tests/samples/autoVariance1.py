@@ -1,6 +1,7 @@
 # This sample tests variance inference for type variables that use
 # autovariance.
 
+from dataclasses import dataclass
 from typing import Iterator, Sequence
 
 
@@ -30,6 +31,14 @@ class ShouldBeCovariant3[T]:
  
 
 vco3_1: ShouldBeCovariant3[float] = ShouldBeCovariant3[int]()
+
+
+@dataclass(frozen=True)
+class ShouldBeCovariant4[T]:
+    x: T
+
+vo4_1: ShouldBeCovariant4[int] = ShouldBeCovariant4(1)
+vo4_2: ShouldBeCovariant4[float] = vo4_1
 
 
 class ShouldBeInvariant1[T]:
@@ -82,6 +91,15 @@ vinv3_3: ShouldBeInvariant3[str, float] = ShouldBeInvariant3[str, int]()
 
 # This should generate an error based on variance
 vinv3_4: ShouldBeInvariant3[str, int] = ShouldBeInvariant3[str, float]()
+
+@dataclass
+class ShouldBeInvariant4[T]:
+    x: T
+
+vinv4_1: ShouldBeInvariant4[int] = ShouldBeInvariant4(1)
+
+# This should generate an error based on variance
+vinv4_2: ShouldBeInvariant4[float] = vinv4_1
 
 
 class ShouldBeContravariant1[T]:
