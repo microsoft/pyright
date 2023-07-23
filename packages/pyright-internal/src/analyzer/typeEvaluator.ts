@@ -193,6 +193,7 @@ import {
     combineVariances,
     computeMroLinearization,
     containsAnyOrUnknown,
+    containsAnyRecursive,
     containsLiteralType,
     convertParamSpecValueToType,
     convertToInstance,
@@ -24075,7 +24076,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const expectedTypeArgType = typeVarContext.getPrimarySignature().getTypeVarType(typeParam);
 
                 if (expectedTypeArgType) {
-                    if (isAny(expectedTypeArgType) || isAnyOrUnknown(typeArg)) {
+                    if (containsAnyRecursive(expectedTypeArgType) || isAnyOrUnknown(typeArg)) {
                         replacedTypeArg = true;
                         return expectedTypeArgType;
                     } else if (isClassInstance(expectedTypeArgType) && isClassInstance(typeArg)) {
@@ -24110,13 +24111,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const narrowedType = mapSubtypes(assignedType, (assignedSubtype) => {
             const narrowedSubtype = mapSubtypes(declaredType, (declaredSubtype) => {
                 // We can't narrow "Any".
-                if (isAnyOrUnknown(declaredType)) {
-                    return declaredType;
+                if (isAnyOrUnknown(declaredSubtype)) {
+                    return declaredSubtype;
                 }
 
                 if (assignType(declaredSubtype, assignedSubtype)) {
                     // If the source is generic and has unspecified type arguments,
-                    // see if we can determine then based on the declared type.
+                    // see if we can determine them based on the declared type.
                     if (isInstantiableClass(declaredSubtype) && isInstantiableClass(assignedSubtype)) {
                         const result = replaceTypeArgsWithAny(node, declaredSubtype, assignedSubtype);
                         if (result) {
@@ -24137,6 +24138,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return declaredSubtype;
                     }
 
+                    // If the assigned subtype is Any, stick with the declared type.
+                    if (isAny(assignedSubtype)) {
+                        return declaredSubtype;
+                    }
+
+                    // If the declared type doesn't contain any `Any` but the assigned
+                    // type does, stick with the declared type.
+                    if (containsAnyRecursive(assignedSubtype) && !containsAnyRecursive(declaredSubtype)) {
+                        return declaredSubtype;
+                    }
+
                     return assignedSubtype;
                 }
 
@@ -24152,15 +24164,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return narrowedSubtype;
         });
 
-        // If the result of narrowing is Any, stick with the declared (unnarrowed) type.
         // If the result of narrowing is an Unknown that is incomplete, propagate the
         // incomplete type for the benefit of code flow analysis.
         // If the result of narrowing is a complete Unknown, combine the Unknown type
         // with the declared type. In strict mode, this will retain the "unknown type"
         // diagnostics while still providing reasonable completion suggestions.
-        if (isAny(narrowedType)) {
-            return declaredType;
-        } else if (isIncompleteUnknown(narrowedType)) {
+        if (isIncompleteUnknown(narrowedType)) {
             return narrowedType;
         } else if (isUnknown(narrowedType)) {
             return combineTypes([narrowedType, declaredType]);

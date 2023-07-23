@@ -5,10 +5,10 @@ from typing import Any
 
 
 def func_or(a: dict[str, Any] | None):
-    a = a or dict()
+    a = a or {"": 0}
     reveal_type(a, expected_text="dict[str, Any]")
 
 
 def func_and():
-    a: dict[str, Any] | None = True and dict()
+    a: dict[str, Any] | None = True and {"": 0}
     reveal_type(a, expected_text="dict[str, Any]")
