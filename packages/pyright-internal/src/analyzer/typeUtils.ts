@@ -240,9 +240,9 @@ export class UniqueSignatureTracker {
         });
     }
 
-    addSignature(signature: FunctionType, offset: number) {
+    addSignature(signature: FunctionType | OverloadedFunctionType, offset: number) {
         // If this function is part of a broader overload, use the overload instead.
-        const effectiveSignature = signature.overloaded ?? signature;
+        const effectiveSignature = isFunction(signature) ? signature.overloaded ?? signature : signature;
 
         const existingSignature = this.findSignature(effectiveSignature);
         if (existingSignature) {
@@ -3627,8 +3627,6 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
         let updatedSourceType: Type = sourceType;
         const existingSignature = this._signatureTracker.findSignature(sourceType);
         if (existingSignature) {
-            const typeVarContext = new TypeVarContext(getTypeVarScopeId(sourceType));
-
             let offsetIndex = existingSignature.expressionOffsets.findIndex(
                 (offset) => offset === this._expressionOffset
             );
@@ -3637,6 +3635,8 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
             }
 
             if (offsetIndex > 0) {
+                const typeVarContext = new TypeVarContext(getTypeVarScopeIds(sourceType));
+
                 // Create new type variables with the same scope but with
                 // different (unique) names.
                 sourceType.details.typeParameters.forEach((typeParam) => {
