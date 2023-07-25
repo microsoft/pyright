@@ -67,6 +67,7 @@ import {
     getTypeCondition,
     getTypeVarScopeId,
     isLiteralType,
+    isMetaclassInstance,
     isPartlyUnknown,
     isTupleClass,
     isUnboundedTupleClass,
@@ -672,10 +673,23 @@ function narrowTypeBasedOnClassPattern(
         }
 
         const classInstance = convertToInstance(classType);
+        const isPatternMetaclass = isMetaclassInstance(classInstance);
+
         return evaluator.mapSubtypesExpandTypeVars(
             type,
             /* conditionFilter */ undefined,
             (subjectSubtypeExpanded, subjectSubtypeUnexpanded) => {
+                // Handle the case where the class pattern references type() or a subtype thereof
+                // and the subject type is an instantiable class itself.
+                if (isPatternMetaclass && isInstantiableClass(subjectSubtypeExpanded)) {
+                    const metaclass = subjectSubtypeExpanded.details.effectiveMetaclass ?? UnknownType.create();
+                    if (isInstantiableClass(classType) && evaluator.assignType(classType, metaclass)) {
+                        return undefined;
+                    }
+
+                    return subjectSubtypeExpanded;
+                }
+
                 if (!isNoneInstance(subjectSubtypeExpanded) && !isClassInstance(subjectSubtypeExpanded)) {
                     return subjectSubtypeUnexpanded;
                 }
@@ -764,12 +778,29 @@ function narrowTypeBasedOnClassPattern(
             }
 
             if (isInstantiableClass(expandedSubtype)) {
+                const expandedSubtypeInstance = convertToInstance(expandedSubtype);
+                const isPatternMetaclass = isMetaclassInstance(expandedSubtypeInstance);
+
                 return evaluator.mapSubtypesExpandTypeVars(
                     type,
                     /* conditionFilter */ undefined,
                     (subjectSubtypeExpanded) => {
                         if (isAnyOrUnknown(subjectSubtypeExpanded)) {
                             return convertToInstance(unexpandedSubtype);
+                        }
+
+                        // Handle the case where the class pattern references type() or a subtype thereof
+                        // and the subject type is a class itself.
+                        if (isPatternMetaclass && isInstantiableClass(subjectSubtypeExpanded)) {
+                            const metaclass = subjectSubtypeExpanded.details.effectiveMetaclass ?? UnknownType.create();
+                            if (
+                                evaluator.assignType(expandedSubtype, metaclass) ||
+                                evaluator.assignType(metaclass, expandedSubtype)
+                            ) {
+                                return subjectSubtypeExpanded;
+                            }
+
+                            return undefined;
                         }
 
                         if (
