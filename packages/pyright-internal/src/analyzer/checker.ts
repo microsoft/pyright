@@ -865,18 +865,21 @@ export class Checker extends ParseTreeWalker {
     override visitListComprehensionIf(node: ListComprehensionIfNode): boolean {
         this._validateConditionalIsBool(node.testExpression);
         this._reportUnnecessaryConditionExpression(node.testExpression);
+        this._reportOptionalConditionExpression(node.testExpression);
         return true;
     }
 
     override visitIf(node: IfNode): boolean {
         this._validateConditionalIsBool(node.testExpression);
         this._reportUnnecessaryConditionExpression(node.testExpression);
+        this._reportOptionalConditionExpression(node.testExpression);
         return true;
     }
 
     override visitWhile(node: WhileNode): boolean {
         this._validateConditionalIsBool(node.testExpression);
         this._reportUnnecessaryConditionExpression(node.testExpression);
+        this._reportOptionalConditionExpression(node.testExpression);
         return true;
     }
 
@@ -1310,6 +1313,7 @@ export class Checker extends ParseTreeWalker {
         this._evaluator.getType(node);
         this._validateConditionalIsBool(node.testExpression);
         this._reportUnnecessaryConditionExpression(node.testExpression);
+        this._reportOptionalConditionExpression(node.testExpression);
         return true;
     }
 
@@ -1714,6 +1718,50 @@ export class Checker extends ParseTreeWalker {
                     type: this._evaluator.printType(operandType),
                 }) + diag.getString(),
                 node
+            );
+        }
+    }
+
+    private _reportOptionalConditionExpression(expression: ExpressionNode) {
+        if (expression.nodeType === ParseNodeType.BinaryOperation) {
+            if (expression.operator === OperatorType.And || expression.operator === OperatorType.Or) {
+                this._reportOptionalConditionExpression(expression.leftExpression);
+                this._reportOptionalConditionExpression(expression.rightExpression);
+            }
+
+            return;
+        } else if (expression.nodeType === ParseNodeType.UnaryOperation) {
+            if (expression.operator === OperatorType.Not) {
+                this._reportOptionalConditionExpression(expression.expression);
+            }
+
+            return;
+        }
+
+        const exprTypeResult = this._evaluator.getTypeOfExpression(expression);
+        let foundNone = false;
+        let foundNonBool = false;
+
+        doForEachSubtype(exprTypeResult.type, (subtype) => {
+            subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
+            if (isNoneInstance(subtype)) {
+                foundNone = true;
+            } else if (isClassInstance(subtype) && !ClassType.isBuiltIn(subtype, 'bool')) {
+                const memberInfo = lookUpClassMember(subtype, '__bool__', ClassMemberLookupFlags.SkipInstanceVariables);
+
+                if (memberInfo) {
+                    foundNonBool = true;
+                }
+            }
+        });
+
+        if (foundNone && foundNonBool) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                'Possible bug',
+                expression
             );
         }
     }
