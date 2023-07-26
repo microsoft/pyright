@@ -18,7 +18,7 @@ import { Range } from '../common/textRange';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
 import { CacheManager } from './cacheManager';
 import { ImportResolver } from './importResolver';
-import { MaxAnalysisTime, OpenFileOptions, Program, SourceFileFactory } from './program';
+import { MaxAnalysisTime, OpenFileOptions, Program, ISourceFileFactory } from './program';
 
 export enum InvalidatedReason {
     Reanalyzed,
@@ -42,7 +42,7 @@ export class BackgroundAnalysisProgram {
         private readonly _maxAnalysisTime?: MaxAnalysisTime,
         private readonly _disableChecker?: boolean,
         cacheManager?: CacheManager,
-        sourceFileFactory?: SourceFileFactory
+        sourceFileFactory?: ISourceFileFactory
     ) {
         this._program = new Program(
             this.importResolver,
