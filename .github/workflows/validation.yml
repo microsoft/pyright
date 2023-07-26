@@ -35,7 +35,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      - run: npm install
+      - run: npm run install:all
 
       - run: npx lerna exec --stream --no-bail -- tsc --noEmit
 
@@ -101,7 +101,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      - run: npm install
+      - run: npm run install:all
 
       - name: npm test (pyright-internal)
         run: npm test
@@ -130,7 +130,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      - run: npm install
+      - run: npm run install:all
 
       - run: npm publish --dry-run
         working-directory: packages/pyright

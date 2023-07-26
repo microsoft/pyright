@@ -114,44 +114,48 @@ interface UpdateImportInfo {
 
 export type PreCheckCallback = (parseResults: ParseResults, evaluator: TypeEvaluator) => void;
 
-export type SourceFileFactory = (
-    fs: FileSystem,
-    filePath: string,
-    moduleName: string,
-    isThirdPartyImport: boolean,
-    isThirdPartyPyTypedPresent: boolean,
-    editMode: boolean,
-    console?: ConsoleInterface,
-    logTracker?: LogTracker,
-    realFilePath?: string,
-    ipythonMode?: IPythonMode
-) => SourceFile;
-
-function DefaultSourceFileFactory(
-    fs: FileSystem,
-    filePath: string,
-    moduleName: string,
-    isThirdPartyImport: boolean,
-    isThirdPartyPyTypedPresent: boolean,
-    editMode: boolean,
-    console?: ConsoleInterface,
-    logTracker?: LogTracker,
-    realFilePath?: string,
-    ipythonMode?: IPythonMode
-) {
-    return new SourceFile(
-        fs,
-        filePath,
-        moduleName,
-        isThirdPartyImport,
-        isThirdPartyPyTypedPresent,
-        editMode,
-        console,
-        logTracker,
-        realFilePath,
-        ipythonMode
-    );
+export interface ISourceFileFactory {
+    createSourceFile(
+        fs: FileSystem,
+        filePath: string,
+        moduleName: string,
+        isThirdPartyImport: boolean,
+        isThirdPartyPyTypedPresent: boolean,
+        editMode: boolean,
+        console?: ConsoleInterface,
+        logTracker?: LogTracker,
+        realFilePath?: string,
+        ipythonMode?: IPythonMode
+    ): SourceFile;
 }
+
+const DefaultSourceFileFactory: ISourceFileFactory = {
+    createSourceFile(
+        fs: FileSystem,
+        filePath: string,
+        moduleName: string,
+        isThirdPartyImport: boolean,
+        isThirdPartyPyTypedPresent: boolean,
+        editMode: boolean,
+        console?: ConsoleInterface,
+        logTracker?: LogTracker,
+        realFilePath?: string,
+        ipythonMode?: IPythonMode
+    ) {
+        return new SourceFile(
+            fs,
+            filePath,
+            moduleName,
+            isThirdPartyImport,
+            isThirdPartyPyTypedPresent,
+            editMode,
+            console,
+            logTracker,
+            realFilePath,
+            ipythonMode
+        );
+    },
+};
 
 export interface OpenFileOptions {
     isTracked: boolean;
@@ -185,14 +189,14 @@ export class Program {
     private _parsedFileCount = 0;
     private _preCheckCallback: PreCheckCallback | undefined;
     private _isEditMode = false;
-    private _sourceFileFactory: SourceFileFactory;
+    private _sourceFileFactory: ISourceFileFactory;
 
     constructor(
         initialImportResolver: ImportResolver,
         initialConfigOptions: ConfigOptions,
         console?: ConsoleInterface,
         logTracker?: LogTracker,
-        sourceFileFactory?: SourceFileFactory,
+        sourceFileFactory?: ISourceFileFactory,
         private _disableChecker?: boolean,
         cacheManager?: CacheManager,
         id?: string
@@ -375,7 +379,7 @@ export class Program {
             return sourceFileInfo.sourceFile;
         }
 
-        const sourceFile = this._sourceFileFactory(
+        const sourceFile = this._sourceFileFactory.createSourceFile(
             this.fileSystem,
             filePath,
             importName,
@@ -406,7 +410,7 @@ export class Program {
         let sourceFileInfo = this.getSourceFileInfo(filePath);
         if (!sourceFileInfo) {
             const importName = this._getImportNameForFile(filePath);
-            const sourceFile = this._sourceFileFactory(
+            const sourceFile = this._sourceFileFactory.createSourceFile(
                 this.fileSystem,
                 filePath,
                 importName,
@@ -1079,11 +1083,14 @@ export class Program {
         for (let i = 0; i < this._sourceFileList.length; ) {
             const fileInfo = this._sourceFileList[i];
             if (!this._isFileNeeded(fileInfo)) {
-                fileDiagnostics.push({
-                    filePath: fileInfo.sourceFile.getFilePath(),
-                    version: fileInfo.sourceFile.getClientVersion(),
-                    diagnostics: [],
-                });
+                // Clear only if there are any errors for this file.
+                if (fileInfo.diagnosticsVersion !== undefined) {
+                    fileDiagnostics.push({
+                        filePath: fileInfo.sourceFile.getFilePath(),
+                        version: fileInfo.sourceFile.getClientVersion(),
+                        diagnostics: [],
+                    });
+                }
 
                 fileInfo.sourceFile.prepareForClose();
                 this._removeSourceFileFromListAndMap(fileInfo.sourceFile.getFilePath(), i);
@@ -1104,11 +1111,14 @@ export class Program {
                     if (!this._isFileNeeded(importedFile)) {
                         const indexToRemove = this._sourceFileList.findIndex((fi) => fi === importedFile);
                         if (indexToRemove >= 0 && indexToRemove < i) {
-                            fileDiagnostics.push({
-                                filePath: importedFile.sourceFile.getFilePath(),
-                                version: importedFile.sourceFile.getClientVersion(),
-                                diagnostics: [],
-                            });
+                            // Clear if there are any errors for this import.
+                            if (importedFile.diagnosticsVersion !== undefined) {
+                                fileDiagnostics.push({
+                                    filePath: importedFile.sourceFile.getFilePath(),
+                                    version: importedFile.sourceFile.getClientVersion(),
+                                    diagnostics: [],
+                                });
+                            }
 
                             importedFile.sourceFile.prepareForClose();
                             this._removeSourceFileFromListAndMap(importedFile.sourceFile.getFilePath(), indexToRemove);
@@ -1588,7 +1598,7 @@ export class Program {
 
     private _createInterimFileInfo(filePath: string) {
         const importName = this._getImportNameForFile(filePath);
-        const sourceFile = this._sourceFileFactory(
+        const sourceFile = this._sourceFileFactory.createSourceFile(
             this.fileSystem,
             filePath,
             importName,
@@ -1894,11 +1904,7 @@ export class Program {
         return false;
     }
 
-    private _checkTypes(
-        fileToCheck: SourceFileInfo,
-        token: CancellationToken,
-        chainedByList?: (SourceFileInfo | undefined)[]
-    ) {
+    private _checkTypes(fileToCheck: SourceFileInfo, token: CancellationToken, chainedByList?: SourceFileInfo[]) {
         return this._logTracker.log(`analyzing: ${fileToCheck.sourceFile.getFilePath()}`, (logState) => {
             // If the file isn't needed because it was eliminated from the
             // transitive closure or deleted, skip the file rather than wasting
@@ -1982,7 +1988,7 @@ export class Program {
 
     private _checkDependentFiles(
         fileToCheck: SourceFileInfo,
-        chainedByList: (SourceFileInfo | undefined)[] | undefined,
+        chainedByList: SourceFileInfo[] | undefined,
         token: CancellationToken
     ) {
         if (fileToCheck.sourceFile.getIPythonMode() !== IPythonMode.CellDocs) {
@@ -2011,14 +2017,7 @@ export class Program {
             const handle = this._cacheManager.pauseTracking();
             try {
                 for (let i = chainedByList.length - 1; i >= startIndex; i--) {
-                    const file = chainedByList[i];
-                    if (!file) {
-                        continue;
-                    }
-
-                    if (!this._checkTypes(file, token, chainedByList)) {
-                        chainedByList[i] = undefined;
-                    }
+                    this._checkTypes(chainedByList[i], token, chainedByList);
                 }
             } finally {
                 handle.dispose();
@@ -2029,8 +2028,13 @@ export class Program {
         for (let i = startIndex; i < chainedByList.length; i++) {
             const file = chainedByList[i];
             const parseResults = file?.sourceFile.getParseResults();
-            if (file && parseResults) {
-                assert(!file.sourceFile.isBindingRequired());
+            if (!parseResults) {
+                continue;
+            }
+
+            // We might not have the file info if binding failed for whatever reasons.
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(parseResults.parseTree);
+            if (fileInfo && fileInfo.accessedSymbolSet) {
                 dependentFiles.push(parseResults);
             }
         }

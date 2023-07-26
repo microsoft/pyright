@@ -2748,8 +2748,8 @@ export class CompletionProvider {
             return true;
         }
 
-        // If an argument then show parens for classes.
-        if (node.parent?.nodeType === ParseNodeType.Argument) {
+        // If an argument then show parens for classes if not a class argument.
+        if (node.parent?.nodeType === ParseNodeType.Argument && node.parent.parent?.nodeType !== ParseNodeType.Class) {
             return true;
         }
 
