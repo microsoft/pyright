@@ -372,7 +372,7 @@ reveal_type(v2)  # mypy: T, pyright: str
 ```
 
 
-### Constraint Solver: Overloads and ParamSpec
+#### Constraint Solver: Overloads and ParamSpec
 
 If a function accepts a `Callable` parameterized with a `ParamSpec`, pyright allows you to pass an overloaded function as an argument. The constraint solver solves the type variables for each overload signature independently and then “unions” the results. Mypy uses only the first overload in this case and ignores all subsequent overloads.
 
