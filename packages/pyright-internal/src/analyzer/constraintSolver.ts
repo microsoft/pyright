@@ -412,12 +412,19 @@ export function assignTypeToTypeVar(
         if (isEffectivelyInstantiable(adjSrcType)) {
             adjSrcType = convertToInstance(adjSrcType, /* includeSubclasses */ false);
         } else {
-            diag?.addMessage(
-                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
-                    evaluator.printSrcDestTypes(srcType, destType)
-                )
-            );
-            return false;
+            // Handle the case of a TypeVar that has a bound of `type`.
+            const concreteAdjSrcType = evaluator.makeTopLevelTypeVarsConcrete(adjSrcType);
+
+            if (isEffectivelyInstantiable(concreteAdjSrcType)) {
+                adjSrcType = convertToInstance(concreteAdjSrcType);
+            } else {
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                        evaluator.printSrcDestTypes(srcType, destType)
+                    )
+                );
+                return false;
+            }
         }
     } else if (
         isTypeVar(srcType) &&

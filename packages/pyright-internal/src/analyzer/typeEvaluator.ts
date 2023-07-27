@@ -5636,7 +5636,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // a descriptor protocol, only 'get' operations are allowed. If it's accessed
                         // through the object, all access methods are supported.
                         if (isAccessedThroughObject || usage.method === 'get') {
-                            lookupClass = convertToInstance(concreteSubtype.details.effectiveMetaclass) as ClassType;
+                            lookupClass = ClassType.cloneAsInstance(concreteSubtype.details.effectiveMetaclass);
                             isAccessedThroughMetaclass = true;
                         } else {
                             lookupClass = undefined;
