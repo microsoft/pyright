@@ -1988,12 +1988,18 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
     let result = mapSubtypes(type, (subtype) => {
         switch (subtype.category) {
             case TypeCategory.Class: {
-                // Handle Type[x] as a special case.
-                if (ClassType.isBuiltIn(subtype, 'Type')) {
-                    if (!subtype.typeArguments || subtype.typeArguments.length < 1) {
-                        return UnknownType.create();
+                // Handle type[x] as a special case.
+                if (ClassType.isBuiltIn(subtype, 'type')) {
+                    if (TypeBase.isInstance(subtype)) {
+                        if (!subtype.typeArguments || subtype.typeArguments.length < 1) {
+                            return UnknownType.create();
+                        } else {
+                            return subtype.typeArguments[0];
+                        }
                     } else {
-                        return convertToInstantiable(subtype.typeArguments[0]);
+                        if (subtype.typeArguments && subtype.typeArguments.length > 0) {
+                            return convertToInstantiable(subtype.typeArguments[0]);
+                        }
                     }
                 }
 
