@@ -406,7 +406,6 @@
         "starStarWildcardNotAllowed": "** ne peut pas être utilisé avec le caractère générique « _ »",
         "staticClsSelfParam": "Les méthodes statiques ne doivent pas prendre de paramètre « self » ou « cls »",
         "stdlibModuleOverridden": "\"{path}\" remplace le module stdlib \"{name}\"",
-        "strictTypeGuardReturnType": "Le type de retour de StrictTypeGuard (« {returnType} ») n’est pas assignable au type de paramètre de valeur (« {type} »)",
         "stringNonAsciiBytes": "Caractère non-ASCII non autorisé dans le littéral de chaîne d'octets",
         "stringNotSubscriptable": "L’expression de chaîne ne peut pas être en indice dans l’annotation de type ; placer l’annotation entière entre guillemets",
         "stringUnsupportedEscape": "Séquence d'échappement non prise en charge dans le littéral de chaîne",

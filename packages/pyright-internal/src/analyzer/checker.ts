@@ -656,7 +656,7 @@ export class Checker extends ParseTreeWalker {
             // Verify common dunder signatures.
             this._validateDunderSignatures(node, functionTypeResult.functionType, containingClassNode !== undefined);
 
-            // Verify TypeGuard or StrictTypeGuard functions.
+            // Verify TypeGuard functions.
             this._validateTypeGuardFunction(node, functionTypeResult.functionType, containingClassNode !== undefined);
 
             this._validateFunctionTypeVarUsage(node, functionTypeResult);
@@ -4209,10 +4209,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const isNormalTypeGuard = ClassType.isBuiltIn(returnType, 'TypeGuard');
-        const isStrictTypeGuard = ClassType.isBuiltIn(returnType, 'StrictTypeGuard');
-
-        if (!isNormalTypeGuard && !isStrictTypeGuard) {
+        if (!ClassType.isBuiltIn(returnType, 'TypeGuard')) {
             return;
         }
 
@@ -4235,35 +4232,6 @@ export class Checker extends ParseTreeWalker {
                 Localizer.Diagnostic.typeGuardParamCount(),
                 node.name
             );
-        }
-
-        if (isStrictTypeGuard) {
-            const typeGuardType = returnType.typeArguments[0];
-
-            // Determine the type of the first parameter.
-            const paramIndex = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;
-            if (paramIndex >= functionType.details.parameters.length) {
-                return;
-            }
-
-            const paramType = FunctionType.getEffectiveParameterType(functionType, paramIndex);
-
-            // Verify that the typeGuardType is a narrower type than the paramType.
-            if (!this._evaluator.assignType(paramType, typeGuardType)) {
-                const returnAnnotation =
-                    node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation;
-                if (returnAnnotation) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.strictTypeGuardReturnType().format({
-                            type: this._evaluator.printType(paramType),
-                            returnType: this._evaluator.printType(typeGuardType),
-                        }),
-                        returnAnnotation
-                    );
-                }
-            }
         }
     }
 

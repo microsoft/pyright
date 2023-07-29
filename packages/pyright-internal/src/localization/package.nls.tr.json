@@ -406,7 +406,6 @@
         "starStarWildcardNotAllowed": "\"_\" joker karakteriyle ** kullanılamaz",
         "staticClsSelfParam": "Static metotları \"self\" veya \"cls\" parametresi almamalıdır",
         "stdlibModuleOverridden": "\"{path}\", \"{name}\" stdlib modülünü geçersiz kılıyor",
-        "strictTypeGuardReturnType": "StrictTypeGuard’ın dönüş türü (\"{returnType}\") değer parametresi türüne (\"{type}\") atanamaz",
         "stringNonAsciiBytes": "ASCII olmayan karaktere bayt sabit değerli dizesinde izin verilmez",
         "stringNotSubscriptable": "Tür ek açıklamasında dize ifadesi alt simge olarak belirtilemez; ek açıklamanın tamamını tırnak içine alın",
         "stringUnsupportedEscape": "Dize sabit değerinde desteklenmeyen kaçış dizisi",

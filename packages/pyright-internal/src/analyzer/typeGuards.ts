@@ -695,7 +695,7 @@ export function getTypeNarrowingCallback(
                     return (
                         type.details.declaredReturnType &&
                         isClassInstance(type.details.declaredReturnType) &&
-                        ClassType.isBuiltIn(type.details.declaredReturnType, ['TypeGuard', 'StrictTypeGuard'])
+                        ClassType.isBuiltIn(type.details.declaredReturnType, 'TypeGuard')
                     );
                 };
 

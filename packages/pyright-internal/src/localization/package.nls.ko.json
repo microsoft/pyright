@@ -406,7 +406,6 @@
         "starStarWildcardNotAllowed": "**는 와일드카드 \"_\"와 함께 사용할 수 없습니다.",
         "staticClsSelfParam": "정적 메서드는 \"self\" 또는 \"cls\" 매개 변수를 사용하면 안 됩니다.",
         "stdlibModuleOverridden": "‘{path}’이(가) ‘{name}’ stdlib 모듈을 재정의하고 있습니다.",
-        "strictTypeGuardReturnType": "StrictTypeGuard의 반환 형식(\"{returnType}\")은 값 매개 변수 형식(\"{type}\")에 할당할 수 없습니다.",
         "stringNonAsciiBytes": "ASCII가 아닌 문자는 바이트 문자열 리터럴에 허용되지 않습니다.",
         "stringNotSubscriptable": "형식 주석에는 문자열 식을 첨자할 수 없습니다. 전체 주석을 따옴표로 묶습니다.",
         "stringUnsupportedEscape": "문자열 리터럴에 지원되지 않는 이스케이프 시퀀스가 있습니다.",

@@ -406,7 +406,6 @@
         "starStarWildcardNotAllowed": "** はワイルドカード \"_\" と共に使用できません",
         "staticClsSelfParam": "静的メソッドに \"self\" または \"cls\" パラメーターを指定することはできません",
         "stdlibModuleOverridden": "\"{path}\" は stdlib モジュール \"{name}\" をオーバーライドしています",
-        "strictTypeGuardReturnType": "StrictTypeGuard (\"{returnType}\") の戻り値の型は、値パラメーター型 (\"{type}\") に割り当てできません",
         "stringNonAsciiBytes": "非 ASCII 文字はバイト文字列リテラルでは使用できません",
         "stringNotSubscriptable": "型注釈では文字列式を添字にすることはできません。注釈全体を引用符で囲んでください",
         "stringUnsupportedEscape": "文字列リテラルでサポートされていないエスケープ シーケンス",

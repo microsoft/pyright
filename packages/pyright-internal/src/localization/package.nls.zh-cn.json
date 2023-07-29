@@ -406,7 +406,6 @@
         "starStarWildcardNotAllowed": "** 不能与通配符“_”一起使用",
         "staticClsSelfParam": "静态方法不应采用“self”或“cls”参数",
         "stdlibModuleOverridden": "\"{path}\"正在替代 stdlib 模块\"{name}\"",
-        "strictTypeGuardReturnType": "StrictTypeGuard(\"{returnType}\")的返回类型不可分配给值参数类型 (\"{type}\")",
         "stringNonAsciiBytes": "不允许使用非 ASCII 字符(以字节为单位)字符串文本",
         "stringNotSubscriptable": "字符串表达式不能在类型批注中下标；将整个批注括在引号中",
         "stringUnsupportedEscape": "字符串文本中不受支持的转义序列",

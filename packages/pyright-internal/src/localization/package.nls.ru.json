@@ -406,7 +406,6 @@
         "starStarWildcardNotAllowed": "** нельзя использовать с символом подстановки \"_\"",
         "staticClsSelfParam": "Статические методы не принимают в качестве параметра \"self\" и \"cls\"",
         "stdlibModuleOverridden": "\"{path}\" переопределяет модуль stdlib \"{name}\"",
-        "strictTypeGuardReturnType": "Тип значения, возвращаемого StrictTypeGuard (\"{returnType}\"), нельзя присвоить типу параметра значения (\"{type}\")",
         "stringNonAsciiBytes": "Символы, отличные от ASCII, не допускаются в строковом литерале байтов",
         "stringNotSubscriptable": "От строкового выражения нельзя взять подстроку в заметке типа; заключите всю заметку в кавычки",
         "stringUnsupportedEscape": "Неподдерживаемая escape-последовательность в строковом литерале",

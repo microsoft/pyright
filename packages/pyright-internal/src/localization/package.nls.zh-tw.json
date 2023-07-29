@@ -406,7 +406,6 @@
         "starStarWildcardNotAllowed": "** 不能與萬用字元 \"_\" 搭配使用",
         "staticClsSelfParam": "靜態方法不應採用 \"self\" 或 \"cls\" 參數",
         "stdlibModuleOverridden": "\"{path}\" 正在覆寫 stdlib 模組 \"{name}\"",
-        "strictTypeGuardReturnType": "StrictTypeGuard 的傳回類型 (\"{returnType}\") 不能指派至數值參數類型 (\"{type}\")",
         "stringNonAsciiBytes": "位元組字串常值中不允許非 ASCII 字元",
         "stringNotSubscriptable": "字串運算式不能在類型註釋中下標; 以引號括住整個註釋",
         "stringUnsupportedEscape": "字串常值中不支援的逸出序列",

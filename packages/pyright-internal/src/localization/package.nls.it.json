@@ -406,7 +406,6 @@
         "starStarWildcardNotAllowed": "** non può essere usato con il carattere jolly \"_\"",
         "staticClsSelfParam": "I metodi statici non devono accettare un parametro \"self\" o \"cls\"",
         "stdlibModuleOverridden": "\"{path}\" sta eseguendo l'override del modulo stdlib \"{name}\"",
-        "strictTypeGuardReturnType": "Il tipo restituito di StrictTypeGuard (\"{returnType}\") non è assegnabile al tipo di parametro di valore (\"{type}\")",
         "stringNonAsciiBytes": "Carattere non ASCII non consentito nel valore letterale stringa dei byte",
         "stringNotSubscriptable": "L'espressione stringa non può essere in pedice nell'annotazione di tipo. Racchiudere l'intera annotazione tra virgolette",
         "stringUnsupportedEscape": "Sequenza di escape non supportata nel valore letterale stringa",

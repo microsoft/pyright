@@ -1,10 +1,10 @@
-# This sample tests the StrictTypeGuard form.
+# This sample tests the TypeGuard using "strict" semantics.
 
 from typing import Any, Literal, Mapping, Sequence, TypeVar, Union
-from typing_extensions import StrictTypeGuard
+from typing_extensions import TypeGuard
 
 
-def is_str1(val: Union[str, int]) -> StrictTypeGuard[str]:
+def is_str1(val: Union[str, int]) -> TypeGuard[str]:
     return isinstance(val, str)
 
 
@@ -15,7 +15,7 @@ def func1(val: Union[str, int]):
         reveal_type(val, expected_text="int")
 
 
-def is_true(o: object) -> StrictTypeGuard[Literal[True]]:
+def is_true(o: object) -> TypeGuard[Literal[True]]:
     ...
 
 
@@ -28,7 +28,7 @@ def func2(val: bool):
     reveal_type(val, expected_text="bool")
 
 
-def is_list(val: object) -> StrictTypeGuard[list[Any]]:
+def is_list(val: object) -> TypeGuard[list[Any]]:
     return isinstance(val, list)
 
 
@@ -50,7 +50,7 @@ _K = TypeVar("_K")
 _V = TypeVar("_V")
 
 
-def is_dict(val: Mapping[_K, _V]) -> StrictTypeGuard[dict[_K, _V]]:
+def is_dict(val: Mapping[_K, _V]) -> TypeGuard[dict[_K, _V]]:
     return isinstance(val, dict)
 
 
@@ -61,7 +61,7 @@ def func5(val: dict[_K, _V] | Mapping[_K, _V]):
         reveal_type(val, expected_text="dict[_K@func5, _V@func5]")
 
 
-def is_cardinal_direction(val: str) -> StrictTypeGuard[Literal["N", "S", "E", "W"]]:
+def is_cardinal_direction(val: str) -> TypeGuard[Literal["N", "S", "E", "W"]]:
     return val in ("N", "S", "E", "W")
 
 
@@ -87,12 +87,5 @@ class Koala(Animal):
 T = TypeVar("T")
 
 
-def is_marsupial(val: Animal) -> StrictTypeGuard[Kangaroo | Koala]:
+def is_marsupial(val: Animal) -> TypeGuard[Kangaroo | Koala]:
     return isinstance(val, Kangaroo | Koala)
-
-
-# This should generate an error because list[T] isn't assignable to list[T | None].
-def has_no_nones(
-    val: list[T | None],
-) -> StrictTypeGuard[list[T]]:
-    return None not in val

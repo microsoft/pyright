@@ -485,6 +485,3 @@ else:
 # PEP 705
 ReadOnly: _SpecialForm
 
-
-# Proposed extension to PEP 647
-StrictTypeGuard: _SpecialForm = ...
