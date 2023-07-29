@@ -406,7 +406,6 @@
         "starStarWildcardNotAllowed": "Symbolu ** nie można używać z symbolem wieloznacznym „_”",
         "staticClsSelfParam": "Metody statyczne nie powinny przyjmować parametru „self” ani „cls”.",
         "stdlibModuleOverridden": "Ścieżka „{path}” zastępuje moduł stdlib „{name}”",
-        "strictTypeGuardReturnType": "Zwracanego typu StrictTypeGuard („{returnType}”) nie można przypisać do typu parametru wartości („{type}”)",
         "stringNonAsciiBytes": "Znak inny niż ASCII jest niedozwolony w literale ciągu bajtów",
         "stringNotSubscriptable": "Wyrażenie ciągu nie może być indeksowane w adnotacji typu; ujmij całą adnotację w cudzysłów",
         "stringUnsupportedEscape": "Nieobsługiwana sekwencja ucieczki w literale ciągu",

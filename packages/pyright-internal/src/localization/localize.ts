@@ -821,11 +821,6 @@ export namespace Localizer {
         export const staticClsSelfParam = () => getRawString('Diagnostic.staticClsSelfParam');
         export const stdlibModuleOverridden = () =>
             new ParameterizedString<{ name: string; path: string }>(getRawString('Diagnostic.stdlibModuleOverridden'));
-
-        export const strictTypeGuardReturnType = () =>
-            new ParameterizedString<{ type: string; returnType: string }>(
-                getRawString('Diagnostic.strictTypeGuardReturnType')
-            );
         export const stringNonAsciiBytes = () => getRawString('Diagnostic.stringNonAsciiBytes');
         export const stringNotSubscriptable = () => getRawString('Diagnostic.stringNotSubscriptable');
         export const stringUnsupportedEscape = () => getRawString('Diagnostic.stringUnsupportedEscape');

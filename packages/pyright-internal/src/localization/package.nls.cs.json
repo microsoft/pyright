@@ -406,7 +406,6 @@
         "starStarWildcardNotAllowed": "** není možné použít se zástupným znakem _",
         "staticClsSelfParam": "Statické metody by neměly přijímat parametr self nebo cls",
         "stdlibModuleOverridden": "„{path}“ přepisuje modul stdlib „{name}“",
-        "strictTypeGuardReturnType": "Návratový typ StrictTypeGuard ({returnType}) se nedá přiřadit k typu parametru hodnoty ({type})",
         "stringNonAsciiBytes": "Znak jiný než ASCII není povolený v bajtech řetězcového literálu",
         "stringNotSubscriptable": "Řetězcový výraz není možné v poznámce typu zadat jako dolní index uzavření celé poznámky do uvozovek",
         "stringUnsupportedEscape": "Nepodporovaná řídicí sekvence v řetězcovém literálu",

@@ -406,7 +406,6 @@
         "starStarWildcardNotAllowed": "** não pode ser usado com curinga \"_\"",
         "staticClsSelfParam": "Os métodos estáticos não devem usar um parâmetro \"self\" ou \"cls\"",
         "stdlibModuleOverridden": "\"{path}\" está substituindo o módulo stdlib \"{name}\"",
-        "strictTypeGuardReturnType": "O tipo de retorno strictTypeGuard (\"{returnType}\") não é atribuível ao tipo de parâmetro de valor (\"{type}\")",
         "stringNonAsciiBytes": "Caractere não ASCII não permitido em literal de cadeia de caracteres de bytes",
         "stringNotSubscriptable": "A expressão de cadeia de caracteres não pode ser subscrito na anotação de tipo. Coloque a anotação inteira entre aspas",
         "stringUnsupportedEscape": "Sequência de escape sem suporte no literal de cadeia de caracteres",

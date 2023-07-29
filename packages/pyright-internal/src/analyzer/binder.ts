@@ -4055,7 +4055,6 @@ export class Binder extends ParseTreeWalker {
             'OrderedDict',
             'Concatenate',
             'TypeGuard',
-            'StrictTypeGuard',
             'Unpack',
             'Self',
             'NoReturn',

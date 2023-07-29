@@ -2527,7 +2527,6 @@ export function requiresTypeArguments(classType: ClassType) {
             'Literal',
             'Annotated',
             'TypeGuard',
-            'StrictTypeGuard',
         ];
 
         if (specialClasses.some((t) => t === (classType.aliasName || classType.details.name))) {

@@ -406,7 +406,6 @@
         "starStarWildcardNotAllowed": "** no puede utilizarse con el comodín \"_\".",
         "staticClsSelfParam": "Los métodos estáticos no deben tomar un parámetro \"auto\" o \"cls\".",
         "stdlibModuleOverridden": "\"{path}\" está reemplazando el módulo stdlib \"{name}\"",
-        "strictTypeGuardReturnType": "El tipo de retorno de StrictTypeGuard (\"{returnType}\") no es asignable al tipo de parámetro de valor (\"{type}\")",
         "stringNonAsciiBytes": "Carácter no ASCII no permitido en el literal de cadena de bytes",
         "stringNotSubscriptable": "La expresión de cadena no puede ir entre comillas en la anotación de tipo; encierre toda la anotación entre comillas.",
         "stringUnsupportedEscape": "Secuencia de escape no admitida en el literal de cadena",

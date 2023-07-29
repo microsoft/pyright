@@ -406,7 +406,6 @@
         "starStarWildcardNotAllowed": "** kann nicht zusammen mit Platzhalter \"_\" verwendet werden",
         "staticClsSelfParam": "Statische Methoden dürfen keinen \"self\"- oder \"cls\"-Parameter annehmen.",
         "stdlibModuleOverridden": "\"{path}\" überschreibt das stdlib-Modul \"{name}\"",
-        "strictTypeGuardReturnType": "Der Rückgabetyp von StrictTypeGuard (\"{returnType}\") kann dem Wertparametertyp nicht zugewiesen werden (\"{type}\").",
         "stringNonAsciiBytes": "Ein Nicht-ASCII-Zeichen ist im Zeichenfolgenliteral in Bytes nicht zulässig.",
         "stringNotSubscriptable": "Der Zeichenfolgenausdruck kann nicht in der Typanmerkung tiefgestellt werden; schließen Sie die gesamte Anmerkung in Anführungszeichen ein",
         "stringUnsupportedEscape": "Nicht unterstützte Escapesequenz im Zeichenfolgenliteral.",
