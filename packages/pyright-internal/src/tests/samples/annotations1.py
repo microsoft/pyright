@@ -117,11 +117,7 @@ class ClassJ:
 T = TypeVar("T")
 
 
-def func13(x: type[T]) -> type[T]:
-    return x
-
-
-x5 = func13(int)
+x5: type[int] = int
 
 # This should generate an error because variables are not allowed
 # in a type annotation.
