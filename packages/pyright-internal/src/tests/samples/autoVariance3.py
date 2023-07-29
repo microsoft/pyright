@@ -2,6 +2,7 @@
 
 from typing import Generic, Iterator, Sequence
 from typing_extensions import TypeVar
+from dataclasses import dataclass
 
 T = TypeVar("T", infer_variance=True)
 K = TypeVar("K", infer_variance=True)
@@ -95,12 +96,32 @@ vinv3_3: ShouldBeInvariant3[str, float] = ShouldBeInvariant3[str, int]()
 vinv3_4: ShouldBeInvariant3[str, int] = ShouldBeInvariant3[str, float]()
 
 
+@dataclass
+class ShouldBeInvariant4[T]:
+    x: T
+
+vinv4_1: ShouldBeInvariant4[int] = ShouldBeInvariant4(1)
+
+# This should generate an error based on variance
+vinv4_2: ShouldBeInvariant4[float] = vinv4_1
+
+
+class ShouldBeInvariant5[T]:
+    def __init__(self, x: T) -> None:
+        self.x = x
+
+vinv5_1: ShouldBeInvariant5[int] = ShouldBeInvariant5(1)
+
+# This should generate an error based on variance
+vinv5_2: ShouldBeInvariant5[float] = vinv5_1
+
+
 class ShouldBeContravariant1(Generic[T]):
     def __init__(self, value: T) -> None:
-        self._value = value
+        pass
 
     def set_value(self, value: T):
-        self._value = value
+        pass
 
 
 # This should generate an error based on variance

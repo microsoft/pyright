@@ -21193,7 +21193,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isAssignable = true;
 
         destType.details.fields.forEach((symbol, name) => {
-            if (!isAssignable || !symbol.isClassMember() || symbol.isIgnoredForProtocolMatch()) {
+            if (!isAssignable || symbol.isIgnoredForProtocolMatch()) {
                 return;
             }
 
@@ -21205,60 +21205,58 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const memberInfo = lookUpClassMember(srcType, name);
             assert(memberInfo !== undefined);
 
-            let destMemberType = getDeclaredTypeOfSymbol(symbol)?.type;
-            if (destMemberType) {
-                const srcMemberType = getTypeOfMember(memberInfo!);
-                destMemberType = partiallySpecializeType(destMemberType, destType);
+            let destMemberType = getEffectiveTypeOfSymbol(symbol);
+            const srcMemberType = getTypeOfMember(memberInfo!);
+            destMemberType = partiallySpecializeType(destMemberType, destType);
 
-                // Properties require special processing.
+            // Properties require special processing.
+            if (
+                isClassInstance(destMemberType) &&
+                ClassType.isPropertyClass(destMemberType) &&
+                isClassInstance(srcMemberType) &&
+                ClassType.isPropertyClass(srcMemberType)
+            ) {
                 if (
-                    isClassInstance(destMemberType) &&
-                    ClassType.isPropertyClass(destMemberType) &&
-                    isClassInstance(srcMemberType) &&
-                    ClassType.isPropertyClass(srcMemberType)
+                    !assignProperty(
+                        evaluatorInterface,
+                        ClassType.cloneAsInstantiable(destMemberType),
+                        ClassType.cloneAsInstantiable(srcMemberType),
+                        destType,
+                        srcType,
+                        diag,
+                        typeVarContext,
+                        /* selfTypeVarContext */ undefined,
+                        recursionCount
+                    )
                 ) {
-                    if (
-                        !assignProperty(
-                            evaluatorInterface,
-                            ClassType.cloneAsInstantiable(destMemberType),
-                            ClassType.cloneAsInstantiable(srcMemberType),
-                            destType,
-                            srcType,
-                            diag,
-                            typeVarContext,
-                            /* selfTypeVarContext */ undefined,
-                            recursionCount
-                        )
-                    ) {
-                        isAssignable = false;
-                    }
-                } else {
-                    const primaryDecl = symbol.getDeclarations()[0];
+                    isAssignable = false;
+                }
+            } else {
+                const primaryDecl = symbol.getDeclarations()[0];
 
-                    let flags = AssignTypeFlags.Default;
-                    if (
-                        primaryDecl?.type === DeclarationType.Variable &&
-                        !isFinalVariableDeclaration(primaryDecl) &&
-                        !ClassType.isFrozenDataClass(destType)
-                    ) {
-                        // Class and instance variables that are mutable need to
-                        // enforce invariance.
-                        flags |= AssignTypeFlags.EnforceInvariance;
-                    }
+                let flags = AssignTypeFlags.Default;
+                if (
+                    primaryDecl?.type === DeclarationType.Variable &&
+                    !isFinalVariableDeclaration(primaryDecl) &&
+                    !ClassType.isFrozenDataClass(destType)
+                ) {
+                    // Class and instance variables that are mutable need to
+                    // enforce invariance.
+                    flags |= AssignTypeFlags.EnforceInvariance;
+                }
 
-                    if (
-                        !assignType(
-                            destMemberType,
-                            srcMemberType,
-                            diag,
-                            typeVarContext,
-                            /* srcTypeVarContext */ undefined,
-                            flags,
-                            recursionCount
-                        )
-                    ) {
-                        isAssignable = false;
-                    }
+                if (
+                    !assignType(
+                        destMemberType,
+                        srcMemberType,
+                        diag,
+                        typeVarContext,
+                        /* srcTypeVarContext */ undefined,
+                        flags,
+                        recursionCount
+                    )
+                ) {
+                    isAssignable = false;
                 }
             }
         });
