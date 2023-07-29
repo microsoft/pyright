@@ -103,7 +103,12 @@ export class EnumLiteral {
 export type LiteralValue = number | bigint | boolean | string | EnumLiteral;
 
 export type TypeSourceId = number;
-export const maxTypeRecursionCount = 32;
+
+// This constant controls the maximum number of nested types (i.e. types
+// used as type arguments or parameter types in other types) before we
+// give up. This constant was previously set to 32, but there were certain
+// pathological recursive types where this resulted in a hang.
+export const maxTypeRecursionCount = 10;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
