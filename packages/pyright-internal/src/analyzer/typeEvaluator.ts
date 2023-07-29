@@ -21241,8 +21241,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !ClassType.isFrozenDataClass(destType)
                 ) {
                     // Class and instance variables that are mutable need to
-                    // enforce invariance.
-                    flags |= AssignTypeFlags.EnforceInvariance;
+                    // enforce invariance. We will exempt variables that are
+                    // private or protected, since these are presumably
+                    // not modifiable outside of the class.
+                    if (!isPrivateOrProtectedName(name)) {
+                        flags |= AssignTypeFlags.EnforceInvariance;
+                    }
                 }
 
                 if (
