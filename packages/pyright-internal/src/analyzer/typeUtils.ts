@@ -790,7 +790,7 @@ export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
         type,
         type.details.typeParameters.map((param) => param.details.defaultType ?? UnknownType.create()),
         /* isTypeArgumentExplicit */ false,
-        !!type.includeSubclasses
+        /* includeSubclasses */ true
     );
 }
 
@@ -2056,7 +2056,7 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
     return result;
 }
 
-export function convertToInstantiable(type: Type): Type {
+export function convertToInstantiable(type: Type, includeSubclasses = true): Type {
     // See if we've already performed this conversion and cached it.
     if (type.cached?.instantiableType) {
         return type.cached.instantiableType;
@@ -2065,7 +2065,7 @@ export function convertToInstantiable(type: Type): Type {
     let result = mapSubtypes(type, (subtype) => {
         switch (subtype.category) {
             case TypeCategory.Class: {
-                return ClassType.cloneAsInstantiable(subtype);
+                return ClassType.cloneAsInstantiable(subtype, includeSubclasses);
             }
 
             case TypeCategory.None: {
@@ -3726,7 +3726,21 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                             /* isTypeArgumentExplicit */ true
                         );
                     } else {
-                        replacement = convertToInstantiable(replacement);
+                        replacement = convertToInstantiable(replacement, /* includeSubclasses */ false);
+                    }
+                } else {
+                    // If the TypeVar is not instantiable (i.e. not a type[T]), then
+                    // it represents an instance of a type. If the replacement includes
+                    // a generic class that has not been specialized, specialize it
+                    // now with default type arguments.
+                    if (this._options.unknownIfNotFound) {
+                        replacement = mapSubtypes(replacement, (subtype) => {
+                            if (isClassInstance(subtype) && !subtype.includeSubclasses) {
+                                return specializeWithDefaultTypeArgs(subtype);
+                            }
+
+                            return subtype;
+                        });
                     }
                 }
 

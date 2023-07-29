@@ -729,14 +729,16 @@ export namespace ClassType {
         return newInstance;
     }
 
-    export function cloneAsInstantiable(type: ClassType): ClassType {
-        if (type.cached?.typeBaseInstantiableType) {
+    export function cloneAsInstantiable(type: ClassType, includeSubclasses = true): ClassType {
+        if (includeSubclasses && type.cached?.typeBaseInstantiableType) {
             return type.cached.typeBaseInstantiableType as ClassType;
         }
 
-        const newInstance = TypeBase.cloneTypeAsInstantiable(type, /* cache */ true);
+        const newInstance = TypeBase.cloneTypeAsInstantiable(type, includeSubclasses);
         newInstance.flags &= ~TypeFlags.SpecialForm;
-        newInstance.includeSubclasses = true;
+        if (includeSubclasses) {
+            newInstance.includeSubclasses = true;
+        }
 
         return newInstance;
     }
