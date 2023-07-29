@@ -293,11 +293,17 @@ test('TypeAliasType2', () => {
 });
 
 test('TypedDictReadOnly1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly1.py']);
+    const configOptions = new ConfigOptions('.');
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 5);
 });
 
 test('TypedDictReadOnly2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly2.py']);
+    const configOptions = new ConfigOptions('.');
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 9);
 });

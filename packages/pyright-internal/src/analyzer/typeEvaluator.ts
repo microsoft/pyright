@@ -6769,7 +6769,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isInstantiableClass(concreteSubtype) && ClassType.isBuiltIn(concreteSubtype, 'ClassVar');
 
                     // Inlined TypedDicts are supported only for 'dict' (and not for 'Dict').
+                    // This feature is currently experimental.
                     const supportsTypedDictTypeArg =
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures &&
                         isInstantiableClass(concreteSubtype) &&
                         ClassType.isBuiltIn(concreteSubtype, 'dict') &&
                         !concreteSubtype.aliasName;
@@ -14985,7 +14987,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ['ReadOnly', { alias: '', module: 'builtins' }],
         ]);
 
-        const aliasMapEntry = specialTypes.get(assignedName);
+        let aliasMapEntry = specialTypes.get(assignedName);
+
+        // Support ReadOnly only as an experimental feature.
+        if (
+            assignedName === 'ReadOnly' &&
+            !AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures
+        ) {
+            aliasMapEntry = undefined;
+        }
+
         if (aliasMapEntry) {
             const cachedType = readTypeCache(node, EvaluatorFlags.None);
             if (cachedType) {
@@ -18755,9 +18766,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return { type: createConcatenateType(errorNode, classType, typeArgs) };
                 }
 
-                case 'TypeGuard':
-                case 'StrictTypeGuard': {
+                case 'TypeGuard': {
                     return { type: createTypeGuardType(errorNode, classType, typeArgs, flags) };
+                }
+
+                case 'StrictTypeGuard': {
+                    if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
+                        return { type: createTypeGuardType(errorNode, classType, typeArgs, flags) };
+                    }
+                    break;
                 }
 
                 case 'Unpack': {
@@ -18765,9 +18782,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Required':
-                case 'NotRequired':
-                case 'ReadOnly': {
+                case 'NotRequired': {
                     return createRequiredOrReadOnlyType(classType, errorNode, typeArgs, flags);
+                }
+
+                case 'ReadOnly': {
+                    if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
+                        return createRequiredOrReadOnlyType(classType, errorNode, typeArgs, flags);
+                    }
+                    break;
                 }
 
                 case 'Self': {

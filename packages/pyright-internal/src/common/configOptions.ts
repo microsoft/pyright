@@ -104,6 +104,10 @@ export interface DiagnosticRuleSet {
     // Use strict type rules for parameters assigned default of None?
     strictParameterNoneValue: boolean;
 
+    // Enable experimental features that are not yet part of the
+    // official Python typing spec?
+    enableExperimentalFeatures: boolean;
+
     // Enable support for type: ignore comments?
     enableTypeIgnoreComments: boolean;
 
@@ -332,10 +336,11 @@ export function getBooleanDiagnosticRules(includeNonOverridable = false) {
     ];
 
     if (includeNonOverridable) {
-        // Do not include this this one because we don't
+        // Do not include this these because we don't
         // want to override it in strict mode or support
         // it within pyright comments.
         boolRules.push(DiagnosticRule.enableTypeIgnoreComments);
+        boolRules.push(DiagnosticRule.enableExperimentalFeatures);
     }
 
     return boolRules;
@@ -430,6 +435,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         strictDictionaryInference: false,
         analyzeUnannotatedFunctions: true,
         strictParameterNoneValue: true,
+        enableExperimentalFeatures: false,
         enableTypeIgnoreComments: true,
         reportGeneralTypeIssues: 'none',
         reportPropertyTypeMismatch: 'none',
@@ -512,6 +518,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         strictDictionaryInference: false,
         analyzeUnannotatedFunctions: true,
         strictParameterNoneValue: true,
+        enableExperimentalFeatures: false,
         enableTypeIgnoreComments: true,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
@@ -594,6 +601,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         strictDictionaryInference: true,
         analyzeUnannotatedFunctions: true,
         strictParameterNoneValue: true,
+        enableExperimentalFeatures: false, // Not overridden by strict mode
         enableTypeIgnoreComments: true, // Not overridden by strict mode
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',

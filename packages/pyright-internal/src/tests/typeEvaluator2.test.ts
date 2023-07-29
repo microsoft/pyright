@@ -1438,7 +1438,9 @@ test('TypedDict22', () => {
 });
 
 test('TypedDictInline1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictInline1.py']);
+    const configOptions = new ConfigOptions('.');
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
 
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictInline1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 8);
 });

@@ -16,6 +16,7 @@ export enum DiagnosticRule {
     strictDictionaryInference = 'strictDictionaryInference',
     analyzeUnannotatedFunctions = 'analyzeUnannotatedFunctions',
     strictParameterNoneValue = 'strictParameterNoneValue',
+    enableExperimentalFeatures = 'enableExperimentalFeatures',
     enableTypeIgnoreComments = 'enableTypeIgnoreComments',
 
     reportGeneralTypeIssues = 'reportGeneralTypeIssues',

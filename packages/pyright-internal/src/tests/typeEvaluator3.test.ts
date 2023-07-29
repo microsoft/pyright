@@ -935,14 +935,18 @@ test('TypeGuard2', () => {
 });
 
 test('TypeGuard3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard3.py']);
+    const configOptions = new ConfigOptions('.');
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
 
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard3.py'], configOptions);
     TestUtils.validateResults(analysisResults, 1);
 });
 
 test('TypeGuard4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard4.py']);
+    const configOptions = new ConfigOptions('.');
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
 
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard4.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 

@@ -56,6 +56,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 <a name="enableTypeIgnoreComments"></a> **enableTypeIgnoreComments** [boolean]: PEP 484 defines support for "# type: ignore" comments. This switch enables or disables support for these comments. The default value for this setting is `true`. This does not affect "# pyright: ignore" comments.
 
+<a name="enableExperimentalFeatures"></a> **enableExperimentalFeatures** [boolean]: Enables a set of experimental (mostly undocumented) features that correspond to proposed or exploratory changes to the Python typing standard. These features will likely change or be removed, so they should not be used except for experimentation purposes.
+
 <a name="reportGeneralTypeIssues"></a> **reportGeneralTypeIssues** [boolean or string, optional]: Generate or suppress diagnostics for general type inconsistencies, unsupported operations, argument/parameter mismatches, etc. This covers all of the basic type-checking rules not covered by other rules. It does not include syntax errors. The default value for this setting is `"error"`.
 
 <a name="reportPropertyTypeMismatch"></a> **reportPropertyTypeMismatch** [boolean or string, optional]: Generate or suppress diagnostics for properties where the type of the value passed to the setter is not assignable to the value returned by the getter. Such mismatches violate the intended use of properties, which are meant to act like variables. The default value for this setting is `"none"`.
@@ -296,12 +298,13 @@ The following table lists the default severity levels for each diagnostic rule w
 
 | Diagnostic Rule                           | Off        | Basic      | Strict     |
 | :---------------------------------------- | :--------- | :--------- | :--------- |
-| strictListInference                       | false      | false      | true       |
-| strictDictionaryInference                 | false      | false      | true       |
-| strictSetInference                        | false      | false      | true       |
 | analyzeUnannotatedFunctions               | true       | true       | true       |
 | strictParameterNoneValue                  | true       | true       | true       |
 | enableTypeIgnoreComments                  | true       | true       | true       |
+| strictListInference                       | false      | false      | true       |
+| strictDictionaryInference                 | false      | false      | true       |
+| strictSetInference                        | false      | false      | true       |
+| enableExperimentalFeatures                | false      | false      | false      |
 | reportMissingModuleSource                 | "warning"  | "warning"  | "warning"  |
 | reportMissingImports                      | "warning"  | "error"    | "error"    |
 | reportUndefinedVariable                   | "warning"  | "error"    | "error"    |
