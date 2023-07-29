@@ -74,9 +74,6 @@ export function validateConstructorArguments(
     skipUnknownArgCheck: boolean,
     inferenceContext: InferenceContext | undefined
 ): CallResult {
-    // If there a custom `__call__` method on the metaclass, assume that it
-    // overrides the normal `type.__call__` logic and don't perform the usual
-    // __new__ and __init__ validation.
     const metaclassResult = validateMetaclassCall(
         evaluator,
         errorNode,
@@ -85,8 +82,17 @@ export function validateConstructorArguments(
         skipUnknownArgCheck,
         inferenceContext
     );
+
     if (metaclassResult) {
-        return metaclassResult;
+        const metaclassReturnType = metaclassResult.returnType ?? UnknownType.create();
+
+        // If there a custom `__call__` method on the metaclass that returns
+        // something other than Any or an instance of the class, assume that it
+        // overrides the normal `type.__call__` logic and don't perform the usual
+        // __new__ and __init__ validation.
+        if (metaclassResult.argumentErrors || !evaluator.assignType(convertToInstance(type), metaclassReturnType)) {
+            return metaclassResult;
+        }
     }
 
     // Determine whether the class overrides the object.__new__ method.
@@ -107,7 +113,7 @@ export function validateConstructorArguments(
 
     // If there is a constructor transform, evaluate all arguments speculatively
     // so we can later re-evaluate them in the context of the transform.
-    const returnResult = evaluator.useSpeculativeMode(useConstructorTransform ? errorNode : undefined, () => {
+    let returnResult = evaluator.useSpeculativeMode(useConstructorTransform ? errorNode : undefined, () => {
         return validateNewAndInitMethods(
             evaluator,
             errorNode,
@@ -167,6 +173,21 @@ export function validateConstructorArguments(
                 evaluator.getTypeOfExpression(arg.valueExpression);
             }
         });
+    }
+
+    // Reconcile the metaclass __call__ return type and the __new__ return type.
+    // This is a heuristic because we have no way of knowing how these actually
+    // interact based on the method signatures alone.
+    if (metaclassResult?.returnType) {
+        // If the __new__ and __init__ methods returned `Any` or `Unknown` or `NoReturn`,
+        // use the metaclass return type instead.
+        if (!returnResult.returnType || isAnyOrUnknown(returnResult.returnType)) {
+            if (!isAnyOrUnknown(metaclassResult.returnType)) {
+                returnResult = { ...returnResult, returnType: metaclassResult.returnType };
+            }
+        } else if (returnResult.returnType && isNever(returnResult.returnType)) {
+            returnResult = { ...returnResult, returnType: metaclassResult.returnType };
+        }
     }
 
     return returnResult;

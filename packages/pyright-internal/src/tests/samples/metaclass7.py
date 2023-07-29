@@ -3,36 +3,42 @@
 # that are created from it.
 
 
-class FactoryMetaClass1(type):
+class MetaClass1(type):
     def __call__(cls, **kwargs):
-        return cls()
+        return object.__new__(**kwargs)
 
 
-class BaseFactory1:
+class Class1(metaclass=MetaClass1):
     def __new__(cls, *args, **kwargs):
-        raise RuntimeError("You cannot instantiate BaseFactory")
+        raise RuntimeError("Cannot instantiate directly")
 
 
-class Factory1(BaseFactory1, metaclass=FactoryMetaClass1):
-    ...
+v1 = Class1()
+reveal_type(v1, expected_text="Class1")
 
 
-v1 = Factory1()
-reveal_type(v1, expected_text="Factory1")
+class MetaClass2(type):
+    pass
 
 
-class FactoryMetaClass2(type):
-    ...
-
-
-class BaseFactory2:
+class Class2(metaclass=MetaClass2):
     def __new__(cls, *args, **kwargs):
-        raise RuntimeError("You cannot instantiate BaseFactory")
+        raise RuntimeError("Cannot instantiate directly")
 
 
-class Factory2(BaseFactory2, metaclass=FactoryMetaClass2):
-    ...
-
-
-v2 = Factory2()
+v2 = Class2()
 reveal_type(v2, expected_text="NoReturn")
+
+
+class MetaClass3(type):
+    def __call__(cls, *args, **kwargs):
+        return super().__call__(*args, **kwargs)
+
+
+class Class3(metaclass=MetaClass3):
+    def __new__(cls, *args, **kwargs):
+        raise RuntimeError("You cannot instantiate BaseFactory")
+
+
+v3 = Class3()
+reveal_type(v3, expected_text="Any")
