@@ -11070,18 +11070,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 let useStrictTypeGuardSemantics = false;
 
-                if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
-                    // Determine the type of the first parameter.
-                    const paramIndex = type.boundToType ? 1 : 0;
-                    if (paramIndex < type.details.parameters.length) {
-                        const paramType = FunctionType.getEffectiveParameterType(type, paramIndex);
+                // Determine the type of the first parameter.
+                const paramIndex = type.boundToType ? 1 : 0;
+                if (paramIndex < type.details.parameters.length) {
+                    const paramType = FunctionType.getEffectiveParameterType(type, paramIndex);
 
-                        // If the type guard meets the requirements that the first parameter
-                        // type is a proper subtype of the return type, we can use strict
-                        // type guard semantics.
-                        if (assignType(paramType, returnType.typeArguments[0])) {
-                            useStrictTypeGuardSemantics = true;
-                        }
+                    // If the type guard meets the requirements that the first parameter
+                    // type is a proper subtype of the return type, we can use strict
+                    // type guard semantics.
+                    if (assignType(paramType, returnType.typeArguments[0])) {
+                        useStrictTypeGuardSemantics = true;
                     }
                 }
 
