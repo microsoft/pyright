@@ -374,6 +374,11 @@ test('InferredTypes2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('InferredTypes3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['inferredTypes3.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('CallSite2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite2.py']);
     TestUtils.validateResults(analysisResults, 0);

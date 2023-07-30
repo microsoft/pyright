@@ -1856,6 +1856,10 @@ export function specializeForBaseClass(srcType: ClassType, baseClass: ClassType)
     return specializedType as ClassType;
 }
 
+export function derivesFromStdlibClass(classType: ClassType, className: string) {
+    return classType.details.mro.some((mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, className));
+}
+
 // If ignoreUnknown is true, an unknown base class is ignored when
 // checking for derivation. If ignoreUnknown is false, a return value
 // of true is assumed.
