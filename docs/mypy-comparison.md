@@ -289,6 +289,13 @@ When pyright evaluates a call to a constructor, it attempts to follow the runtim
 By comparison, mypy first evaluates the `__init__` method if present, and it ignores the annotated return type of the `__new__` method.
 
 
+### `None` Return Type
+
+If the return type of a function is declared as `None`, an attempt to call that function and consume the returned value is flagged as an error by mypy. The justification is that this is a common source of bugs.
+
+Pyright does not special-case `None` in this manner because there are legitimate use cases, and in our experience, this class of bug is rare.
+
+
 ### Constraint Solver Behaviors
 
 When evaluating a call expression that invokes a generic class constructor or a generic function, a type checker performs a process called “constraint solving” to solve the type variables found within the target function signature. The solved type variables are then applied to the return type of that function to determine the final type of the call expression. This process is called “constraint solving” because it takes into account various constraints that are specified for each type variable. These constraints include variance rules and type variable bounds.
