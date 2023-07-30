@@ -311,7 +311,7 @@ StrOrInt: TypeAlias = str | int
 ```
 
 #### Abstract Classes and Methods
-Classes that must be subclassed should derive from `ABC`, and methods or properties that must be overridden should be decorated with the `@abstractmethod` decorator. This allows type checkers to validate that the required methods have been overridden and provide developers with useful error messages when they are not. It is customary to implement an abstract method by raising a `NotImplementedError` exception.
+Classes that must be subclassed should derive from `ABC`, and methods or properties that must be overridden should be decorated with the `@abstractmethod` decorator. This allows type checkers to validate that the required methods have been overridden and provide developers with useful error messages when they are not. It is customary to implement an abstract method by raising a `NotImplementedError` exception or subclass thereof.
 
 ```python
 from abc import ABC, abstractmethod

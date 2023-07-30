@@ -12,7 +12,7 @@ def make_api_request(auth: str) -> str:
     return "meow"
 
 
-def testfunc() -> None:
+def func1() -> None:
     resp = open("test")
     auth = resp.read()
 

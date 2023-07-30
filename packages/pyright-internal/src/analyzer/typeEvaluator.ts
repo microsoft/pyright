@@ -200,6 +200,7 @@ import {
     convertToInstantiable,
     convertTypeToParamSpecValue,
     derivesFromClassRecursive,
+    derivesFromStdlibClass,
     doForEachSubtype,
     ensureFunctionSignaturesAreUnique,
     explodeGenericClass,
@@ -17540,9 +17541,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return inferredReturnType ? { type: inferredReturnType, isIncomplete } : undefined;
     }
 
-    // Determines whether the function consists only of a "raise" statement
-    // and the exception type raised is a NotImplementedError. This is commonly
-    // used for abstract methods that
+    // Determines whether the method consists only of a "raise" statement
+    // and the exception type raised is a NotImplementedError or a subclass
+    // thereof. This is commonly used for abstract methods.
     function methodAlwaysRaisesNotImplemented(functionDecl?: FunctionDeclaration): boolean {
         if (
             !functionDecl ||
@@ -17564,7 +17565,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 : isClassInstance(raiseType)
                 ? raiseType
                 : undefined;
-            if (!classType || !ClassType.isBuiltIn(classType, 'NotImplementedError')) {
+            if (!classType || !derivesFromStdlibClass(classType, 'NotImplementedError')) {
                 return false;
             }
         }
