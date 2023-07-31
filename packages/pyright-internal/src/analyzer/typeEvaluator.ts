@@ -20692,7 +20692,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ) {
         const specializedReturnType = FunctionType.getSpecializedReturnType(type);
         if (specializedReturnType) {
-            return adjustCallableReturnType(specializedReturnType);
+            return specializedReturnType;
         }
 
         if (inferTypeIfNeeded) {
