@@ -147,3 +147,14 @@ reveal_type(
     val4,
     expected_text="type[list[Overload[(a: (**P(1)@test_5) -> type[T(1)@test_5], *, b: Literal[False] | None = ...) -> type[list[type[T(1)@test_5]]], (a: T(1)@test_5, *args: int, b: Literal[False] | None = ...) -> type[list[T(1)@test_5]], (a: T(1)@test_5, *args: int, b: Literal[True] = ...) -> type[list[T(1)@test_5]], (a: Any, *args: int, b: Any = ...) -> Any]]]",
 )
+
+
+def test_6(g: Callable[[B], C]) -> Callable[[Callable[[A], B]], Callable[[A], C]]:
+    ...
+
+
+val5 = test_6(test_6)
+reveal_type(
+    val5,
+    expected_text="((A@test_6) -> ((B(1)@test_6) -> C(1)@test_6)) -> ((A@test_6) -> ((((A(1)@test_6) -> B(1)@test_6)) -> ((A(1)@test_6) -> C(1)@test_6)))",
+)

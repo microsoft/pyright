@@ -11007,10 +11007,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // We'll leave TypeVars unsolved if the call is a recursive
-        // call to a generic function.
-        const unknownIfNotFound = !ParseTreeUtils.getTypeVarScopesForNode(errorNode).some((typeVarScope) =>
-            typeVarContext.hasSolveForScope(typeVarScope)
-        );
+        // call to a generic function or if this isn't a callable
+        // return with type parameters that are rescoped from the original
+        // function to the returned callable.
+        const unknownIfNotFound =
+            !ParseTreeUtils.getTypeVarScopesForNode(errorNode).some((typeVarScope) =>
+                typeVarContext.hasSolveForScope(typeVarScope)
+            ) && !type.details.rescopedTypeParameters;
 
         let specializedReturnType = applySolvedTypeVars(returnType, typeVarContext, {
             unknownIfNotFound,
@@ -17064,7 +17067,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Note that the type parameters have been rescoped so they are not
         // considered valid for the body of this function.
-        functionType.details.rescopedTypeParameters = rescopedTypeVars;
+        if (rescopedTypeVars.length > 0) {
+            functionType.details.rescopedTypeParameters = rescopedTypeVars;
+        }
     }
 
     function adjustParameterAnnotatedType(param: ParameterNode, type: Type): Type {
