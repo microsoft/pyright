@@ -158,3 +158,14 @@ reveal_type(
     val5,
     expected_text="((A@test_6) -> ((B(1)@test_6) -> C(1)@test_6)) -> ((A@test_6) -> ((((A(1)@test_6) -> B(1)@test_6)) -> ((A(1)@test_6) -> C(1)@test_6)))",
 )
+
+
+def test_7(
+    g: Callable[[C], D]
+) -> Callable[[Callable[[A], Callable[[B], C]]], Callable[[A], Callable[[B], D]]]:
+    val6 = test_6(test_6)(test_6)(g)
+    reveal_type(
+        val6,
+        expected_text="((A(1)@test_6) -> ((A(2)@test_6) -> C@test_7)) -> ((A(1)@test_6) -> ((A(2)@test_6) -> D@test_7))",
+    )
+    return val6

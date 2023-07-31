@@ -46,6 +46,7 @@ import {
     NeverType,
     NoneType,
     OverloadedFunctionType,
+    SignatureWithOffsets,
     SpecializedFunctionTypes,
     TupleTypeArgument,
     Type,
@@ -210,11 +211,6 @@ export interface InferenceContext {
     signatureTracker?: UniqueSignatureTracker;
 }
 
-export interface SignatureWithOffsets {
-    type: FunctionType | OverloadedFunctionType;
-    expressionOffsets: number[];
-}
-
 // Tracks whether a function signature has been seen before within
 // an expression. For example, in the expression "foo(foo, foo)", the
 // signature for "foo" will be seen three times at three different
@@ -222,10 +218,22 @@ export interface SignatureWithOffsets {
 // type variables for each instance because they are independent of
 // each other.
 export class UniqueSignatureTracker {
-    private _signaturesSeen: SignatureWithOffsets[];
+    private _trackedSignatures: SignatureWithOffsets[];
 
     constructor() {
-        this._signaturesSeen = [];
+        this._trackedSignatures = [];
+    }
+
+    getTrackedSignatures() {
+        return this._trackedSignatures;
+    }
+
+    addTrackedSignatures(signatures: SignatureWithOffsets[]) {
+        signatures.forEach((s) => {
+            s.expressionOffsets.forEach((offset) => {
+                this.addSignature(s.type, offset);
+            });
+        });
     }
 
     findSignature(signature: FunctionType | OverloadedFunctionType): SignatureWithOffsets | undefined {
@@ -235,7 +243,7 @@ export class UniqueSignatureTracker {
             effectiveSignature = signature.overloaded;
         }
 
-        return this._signaturesSeen.find((s) => {
+        return this._trackedSignatures.find((s) => {
             return isTypeSame(effectiveSignature, s.type);
         });
     }
@@ -250,7 +258,7 @@ export class UniqueSignatureTracker {
                 existingSignature.expressionOffsets.push(offset);
             }
         } else {
-            this._signaturesSeen.push({ type: effectiveSignature, expressionOffsets: [offset] });
+            this._trackedSignatures.push({ type: effectiveSignature, expressionOffsets: [offset] });
         }
     }
 }
@@ -3628,6 +3636,10 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
         sourceType: FunctionType,
         recursionCount: number
     ): FunctionType | OverloadedFunctionType {
+        if (sourceType.trackedSignatures) {
+            this._signatureTracker.addTrackedSignatures(sourceType.trackedSignatures);
+        }
+
         // If this function is not generic, there's no need to check for uniqueness.
         if (sourceType.details.typeParameters.length === 0) {
             return super.transformTypeVarsInFunctionType(sourceType, recursionCount);

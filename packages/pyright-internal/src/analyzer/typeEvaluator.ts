@@ -276,6 +276,7 @@ import {
     NeverType,
     NoneType,
     OverloadedFunctionType,
+    SignatureWithOffsets,
     TupleTypeArgument,
     Type,
     TypeBase,
@@ -11095,7 +11096,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        specializedReturnType = adjustCallableReturnType(specializedReturnType);
+        specializedReturnType = adjustCallableReturnType(
+            specializedReturnType,
+            signatureTracker.getTrackedSignatures()
+        );
 
         if (specializedInitSelfType) {
             specializedInitSelfType = applySolvedTypeVars(specializedInitSelfType, typeVarContext);
@@ -11149,12 +11153,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return [];
     }
 
-    function adjustCallableReturnType(returnType: Type): Type {
-        // If the return type includes a generic Callable type, set the type var
-        // scope to a wildcard to allow these type vars to be solved. This won't
-        // work with overloads or unions of callables. It's intended for a
-        // specific use case. We may need to make this more sophisticated in
-        // the future.
+    // If the return type includes a generic Callable type, set the type var
+    // scope to a wildcard to allow these type vars to be solved. This won't
+    // work with overloads or unions of callables. It's intended for a
+    // specific use case. We may need to make this more sophisticated in
+    // the future.
+    // The trackedSignatures parameter supplies a list of function signatures
+    // that were used for the function and the arguments passed to it. This is
+    // important because the callable return value may be called again with
+    // one of these signatures, so we may need to "uniquify" the type parameters
+    // to avoid conflicts.
+    function adjustCallableReturnType(returnType: Type, trackedSignatures?: SignatureWithOffsets[]): Type {
         if (isFunction(returnType) && !returnType.details.name) {
             const typeVarsInReturnType = getTypeVarArgumentsRecursive(returnType);
 
@@ -11165,7 +11174,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return FunctionType.cloneWithNewTypeVarScopeId(
                     returnType,
                     WildcardTypeVarScopeId,
-                    typeVarsInReturnType
+                    typeVarsInReturnType,
+                    trackedSignatures
                 );
             }
         }
@@ -20692,7 +20702,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ) {
         const specializedReturnType = FunctionType.getSpecializedReturnType(type);
         if (specializedReturnType) {
-            return adjustCallableReturnType(specializedReturnType);
+            return adjustCallableReturnType(specializedReturnType, /* trackedSignatures */ undefined);
         }
 
         if (inferTypeIfNeeded) {

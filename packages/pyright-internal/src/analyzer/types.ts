@@ -1374,6 +1374,11 @@ export interface CallSiteInferenceTypeCacheEntry {
     returnType: Type;
 }
 
+export interface SignatureWithOffsets {
+    type: FunctionType | OverloadedFunctionType;
+    expressionOffsets: number[];
+}
+
 export interface FunctionType extends TypeBase {
     category: TypeCategory.Function;
 
@@ -1408,6 +1413,12 @@ export interface FunctionType extends TypeBase {
     // If this function is part of an overloaded function, this
     // refers back to the overloaded function type.
     overloaded?: OverloadedFunctionType;
+
+    // If this function is a callable that was returned by another
+    // function call, the signatures of the function that was used
+    // for that call and any other signatures that were passed as
+    // arguments to it.
+    trackedSignatures?: SignatureWithOffsets[];
 }
 
 export namespace FunctionType {
@@ -1658,7 +1669,8 @@ export namespace FunctionType {
     export function cloneWithNewTypeVarScopeId(
         type: FunctionType,
         newScopeId: TypeVarScopeId,
-        typeParameters: TypeVarType[]
+        typeParameters: TypeVarType[],
+        trackedSignatures?: SignatureWithOffsets[]
     ): FunctionType {
         const newFunction = TypeBase.cloneType(type);
 
@@ -1666,6 +1678,7 @@ export namespace FunctionType {
         newFunction.details = { ...type.details };
         newFunction.details.typeVarScopeId = newScopeId;
         newFunction.details.typeParameters = typeParameters;
+        newFunction.trackedSignatures = trackedSignatures;
 
         return newFunction;
     }
