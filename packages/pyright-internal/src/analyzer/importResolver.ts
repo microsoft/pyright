@@ -2097,15 +2097,6 @@ export class ImportResolver {
             if (this.dirExistsCached(customTypeshedPath)) {
                 typeshedPath = customTypeshedPath;
             }
-        } else {
-            const pythonSearchPaths = this.getPythonSearchPaths(importFailureInfo);
-            for (const searchPath of pythonSearchPaths) {
-                const possibleTypeshedPath = combinePaths(searchPath, 'typeshed');
-                if (this.dirExistsCached(possibleTypeshedPath)) {
-                    typeshedPath = possibleTypeshedPath;
-                    break;
-                }
-            }
         }
 
         // If typeshed directory wasn't found in other locations, use the fallback.
