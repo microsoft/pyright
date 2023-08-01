@@ -12,7 +12,8 @@ c = *a, *b
 print(c)
 
 # This should always generate an error.
-*a, *b = (
-    1,
-    2,
-)
+*a, *b = (1, 2)
+
+
+def func1(x: str):
+    "".join([*sorted([x])])

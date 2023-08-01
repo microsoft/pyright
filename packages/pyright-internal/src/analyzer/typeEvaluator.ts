@@ -1327,6 +1327,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 };
                 typeResult = {
                     type: iteratorTypeResult.type,
+                    typeErrors: iterTypeResult.typeErrors,
                     unpackedType: iterType,
                     isIncomplete: iteratorTypeResult.isIncomplete,
                 };
