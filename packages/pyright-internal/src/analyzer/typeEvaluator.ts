@@ -4452,11 +4452,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 return true;
                             }
 
-                            // Assume alias declarations are also always safe to narrow.
-                            if (decl.type === DeclarationType.Alias) {
-                                return true;
-                            }
-
                             const declCodeFlowNode = AnalyzerNodeInfo.getFlowNode(decl.node);
                             if (!declCodeFlowNode) {
                                 return false;
