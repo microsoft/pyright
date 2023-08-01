@@ -13,7 +13,7 @@ For absolute (non-relative) imports, Pyright employs the following resolution or
 
     * Try to resolve using any of the **extra paths** defined for the execution environment in the config file. If no execution environment applies, use the `python.analysis.extraPaths` setting. Extra paths are searched in the order in which they are provided in the config file or setting.
 
-    * If no execution environment or extraPaths are configured, try to resolve using the **local directory `src`**. It is common for Python projects to place local source files within a directory of this name.
+    * If no execution environment is configured, try to resolve using the **local directory `src`**. It is common for Python projects to place local source files within a directory of this name.
 
 3. Try to resolve using **stubs or inlined types found within installed packages**. Pyright uses the configured Python environment to determine whether a package has been installed. For more details about how to configure your Python environment for Pyright, see below. If a Python environment is configured, Pyright looks in the `lib/site-packages`, `Lib/site-packages`, or `python*/site-packages` subdirectory. If no site-packages directory can be found, Pyright attempts to run the configured Python interpreter and ask it for its search paths. If no Python environment is configured, Pyright will use the default Python interpreter by invoking `python`.
     

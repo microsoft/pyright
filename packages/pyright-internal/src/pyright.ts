@@ -310,6 +310,9 @@ async function processArgs(): Promise<ExitStatus> {
         options.verboseOutput = true;
     }
 
+    // Always enable autoSearchPaths when using the command line.
+    options.autoSearchPaths = true;
+
     if (args.lib) {
         console.warn(`The --lib option is deprecated. Pyright now defaults to using library code to infer types.`);
     }

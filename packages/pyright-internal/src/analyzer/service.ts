@@ -592,7 +592,7 @@ export class AnalyzerService {
         configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;
         configOptions.ensureDefaultExtraPaths(
             this.fs,
-            commandLineOptions.autoSearchPaths || false,
+            commandLineOptions.autoSearchPaths ?? false,
             commandLineOptions.extraPaths
         );
 
