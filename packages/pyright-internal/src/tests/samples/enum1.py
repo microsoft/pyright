@@ -164,6 +164,9 @@ def func2(e: type[Enum]):
     values = {v.value for v in e}
     reveal_type(values, expected_text="set[Any]")
 
+    names = {v.name for v in e}
+    reveal_type(names, expected_text="set[str]")
+
 
 class TestEnum11(Enum):
     (A, B, C) = range(3)
