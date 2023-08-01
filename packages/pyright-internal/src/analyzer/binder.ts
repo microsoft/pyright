@@ -1732,6 +1732,8 @@ export class Binder extends ParseTreeWalker {
         const dataclassesSymbolsOfInterest = ['InitVar'];
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
 
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+
         let resolvedPath = '';
         if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib) {
             resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
@@ -1873,6 +1875,8 @@ export class Binder extends ParseTreeWalker {
             node.imports.forEach((importSymbolNode) => {
                 const importedName = importSymbolNode.name.value;
                 const nameNode = importSymbolNode.alias || importSymbolNode.name;
+
+                AnalyzerNodeInfo.setFlowNode(importSymbolNode, this._currentFlowNode!);
 
                 const symbol = this._bindNameToScope(this._currentScope, nameNode);
 
@@ -2486,6 +2490,8 @@ export class Binder extends ParseTreeWalker {
         symbol: Symbol
     ) {
         const firstNamePartValue = node.module.nameParts[0].value;
+
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
 
         // See if there's already a matching alias declaration for this import.
         // if so, we'll update it rather than creating a new one. This is required
