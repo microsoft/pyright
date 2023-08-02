@@ -119,3 +119,30 @@ callable4(func3, 1.0)
 
 # This should generate an error.
 callable4(func3, y=1)
+
+
+@overload
+def func4(x: str) -> str:
+    ...
+
+
+@overload
+def func4(x: int) -> int:
+    ...
+
+
+def func4(x: str | int):
+    return x
+
+
+# This will generate a warning because "R" is not used
+# in an explicit return type.
+def callable5(f: Callable[P, R]):
+    def inner(*args: P.args, **kwargs: P.kwargs) -> list[R]:
+        return [f(*args, **kwargs)]
+
+    return inner
+
+
+callable5(func4)(0)
+callable5(func4)("")

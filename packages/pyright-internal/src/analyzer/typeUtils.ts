@@ -3958,6 +3958,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         const filteredOverloads: FunctionType[] = [];
         doForEachSubtype(combineTypes(overloadTypes), (subtype) => {
             assert(isFunction(subtype));
+            subtype = FunctionType.cloneWithNewFlags(subtype, subtype.details.flags | FunctionTypeFlags.Overloaded);
             filteredOverloads.push(subtype);
         });
 
