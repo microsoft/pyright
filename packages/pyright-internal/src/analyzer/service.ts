@@ -20,7 +20,8 @@ import { ConsoleInterface, LogLevel, StandardConsole, log } from '../common/cons
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditAction } from '../common/editAction';
 import { EditableProgram, Extensions, ProgramMutator, ProgramView } from '../common/extensibility';
-import { FileSystem, FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileSystem';
+import { FileSystem } from '../common/fileSystem';
+import { FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileWatcher';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
 import { defaultStubsDirectory } from '../common/pathConsts';
 import {

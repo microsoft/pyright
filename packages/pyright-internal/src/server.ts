@@ -36,6 +36,7 @@ import { WorkspaceFileWatcherProvider, createFromRealFileSystem } from './common
 import { LanguageServerBase, ServerSettings } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 import { Workspace } from './workspaceFactory';
+import { PyrightFileSystem } from './pyrightFileSystem';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
 
@@ -60,7 +61,7 @@ export class PyrightServer extends LanguageServerBase {
                 productName: 'Pyright',
                 rootDirectory,
                 version,
-                fileSystem,
+                fileSystem: new PyrightFileSystem(fileSystem),
                 fileWatcherHandler: fileWatcherProvider,
                 cancellationProvider: new FileBasedCancellationProvider('bg'),
                 maxAnalysisTimeInForeground,

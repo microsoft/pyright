@@ -100,7 +100,8 @@ import {
 import { DiagnosticRule } from './common/diagnosticRules';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { Extensions } from './common/extensibility';
-import { FileSystem, FileWatcherEventType, FileWatcherHandler } from './common/fileSystem';
+import { FileSystem } from './common/fileSystem';
+import { FileWatcherEventType, FileWatcherHandler } from './common/fileWatcher';
 import { Host } from './common/host';
 import { fromLSPAny } from './common/lspUtils';
 import { convertPathToUri, deduplicateFolders, getDirectoryPath, getFileName, isFile } from './common/pathUtils';
@@ -118,7 +119,7 @@ import { canNavigateToFile } from './languageService/navigationUtils';
 import { ReferencesProvider } from './languageService/referencesProvider';
 import { SignatureHelpProvider } from './languageService/signatureHelpProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
-import { PyrightFileSystem } from './pyrightFileSystem';
+import { PyrightFileSystem, SupportUriToPathMapping } from './pyrightFileSystem';
 import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
 import { RenameProvider } from './languageService/renameProvider';
 import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvider';
@@ -187,7 +188,7 @@ export interface ServerOptions {
     rootDirectory: string;
     version: string;
     cancellationProvider: CancellationProvider;
-    fileSystem: FileSystem;
+    fileSystem: PyrightFileSystem;
     fileWatcherHandler: FileWatcherHandler;
     maxAnalysisTimeInForeground?: MaxAnalysisTime;
     disableChecker?: boolean;
@@ -340,7 +341,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected workspaceFactory: WorkspaceFactory;
     protected openFileMap = new Map<string, TextDocument>();
     protected cacheManager: CacheManager;
-    protected fs: PyrightFileSystem;
+
+    protected uriMapper: SupportUriToPathMapping;
+    protected fs: FileSystem;
+
     protected uriParser: UriParser;
 
     constructor(
@@ -363,7 +367,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         this.cacheManager = new CacheManager();
 
-        this.fs = new PyrightFileSystem(this.serverOptions.fileSystem);
+        this.uriMapper = this.serverOptions.fileSystem;
+        this.fs = this.serverOptions.fileSystem;
+
         this.uriParser = uriParserFactory(this.fs);
 
         this.workspaceFactory = new WorkspaceFactory(
@@ -1159,7 +1165,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected async onDidOpenTextDocument(params: DidOpenTextDocumentParams, ipythonMode = IPythonMode.None) {
         const filePath = this.uriParser.decodeTextDocumentUri(params.textDocument.uri);
 
-        if (!this.fs.addUriMap(params.textDocument.uri, filePath)) {
+        if (!this.uriMapper.addUriMap(params.textDocument.uri, filePath)) {
             // We do not support opening 1 file with 2 different uri.
             return;
         }
@@ -1185,7 +1191,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.recordUserInteractionTime();
 
         const filePath = this.uriParser.decodeTextDocumentUri(params.textDocument.uri);
-        if (!this.fs.hasUriMapEntry(params.textDocument.uri, filePath)) {
+        if (!this.uriMapper.hasUriMapEntry(params.textDocument.uri, filePath)) {
             // We do not support opening 1 file with 2 different uri.
             return;
         }
@@ -1209,7 +1215,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     protected async onDidCloseTextDocument(params: DidCloseTextDocumentParams) {
         const filePath = this.uriParser.decodeTextDocumentUri(params.textDocument.uri);
-        if (!this.fs.removeUriMap(params.textDocument.uri, filePath)) {
+        if (!this.uriMapper.removeUriMap(params.textDocument.uri, filePath)) {
             // We do not support opening 1 file with 2 different uri.
             return;
         }
@@ -1299,6 +1305,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         ];
     }
 
+    protected getDiagCode(_diag: AnalyzerDiagnostic, rule: string | undefined): string | undefined {
+        return rule;
+    }
+
     protected onAnalysisCompletedHandler(fs: FileSystem, results: AnalysisResults): void {
         // Send the computed diagnostics to the client.
         results.diagnostics.forEach((fileDiag) => {
@@ -1307,7 +1317,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             }
 
             this._sendDiagnostics(this.convertDiagnostics(fs, fileDiag));
-            this.fs.pendingRequest(fileDiag.filePath, fileDiag.diagnostics.length > 0);
+            this.uriMapper.pendingRequest(fileDiag.filePath, fileDiag.diagnostics.length > 0);
         });
 
         if (!this._progressReporter.isEnabled(results)) {
@@ -1377,9 +1387,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         });
     }
 
-    protected getDocumentationUrlForDiagnosticRule(rule: string): string | undefined {
-        // Configuration.md is configured to have a link for every rule name.
-        return `https://github.com/microsoft/pyright/blob/main/docs/configuration.md#${rule}`;
+    protected getDocumentationUrlForDiagnostic(diag: AnalyzerDiagnostic): string | undefined {
+        const rule = diag.getRule();
+        if (rule) {
+            // Configuration.md is configured to have a link for every rule name.
+            return `https://github.com/microsoft/pyright/blob/main/docs/configuration.md#${rule}`;
+        }
+        return undefined;
     }
 
     protected abstract createProgressReporter(): ProgressReporter;
@@ -1478,7 +1492,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         diags.forEach((diag) => {
             const severity = convertCategoryToSeverity(diag.category);
             const rule = diag.getRule();
-            const vsDiag = Diagnostic.create(diag.range, diag.message, severity, rule, this.serverOptions.productName);
+            const code = this.getDiagCode(diag, rule);
+            const vsDiag = Diagnostic.create(diag.range, diag.message, severity, code, this.serverOptions.productName);
 
             if (
                 diag.category === DiagnosticCategory.UnusedCode ||
@@ -1527,7 +1542,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             }
 
             if (rule) {
-                const ruleDocUrl = this.getDocumentationUrlForDiagnosticRule(rule);
+                const ruleDocUrl = this.getDocumentationUrlForDiagnostic(diag);
                 if (ruleDocUrl) {
                     vsDiag.codeDescription = {
                         href: ruleDocUrl,

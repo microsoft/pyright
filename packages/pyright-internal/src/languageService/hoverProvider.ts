@@ -409,16 +409,7 @@ export class HoverProvider {
                 }
 
                 let type = this._getType(node);
-                const resolvedType =
-                    Extensions.getProgramExtensions(resolvedDecl.node)
-                        .map((e) =>
-                            e.typeProviderExtension?.tryGetFunctionNodeType(
-                                resolvedDecl.node,
-                                this._evaluator,
-                                this._token
-                            )
-                        )
-                        .find((t) => !!t) || this._getType(resolvedDecl.node.name);
+                const resolvedType = this._getType(resolvedDecl.node.name);
                 type = isAnyOrUnknown(type) ? resolvedType : type;
                 const signatureString = getToolTipForType(
                     type,

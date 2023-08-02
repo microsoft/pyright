@@ -438,6 +438,7 @@
         "typeAliasTypeParamInvalid": "Seznam parametrů typu musí být řazená kolekce členů obsahující pouze typeVar, TypeVarTuple nebo ParamSpec",
         "typeAnnotationCall": "Výraz volání není ve výrazu typu povolený",
         "typeAnnotationVariable": "Proměnná není ve výrazu typu povolená",
+        "typeAnnotationWithCallable": "Type argument for \"type\" must be a class; callables are not supported",
         "typeArgListExpected": "Očekával se parametr ParamSpec, tři tečky nebo seznam typů",
         "typeArgListNotAllowed": "Výraz seznamu není pro tento argument typu povolený",
         "typeArgsExpectingNone": "Pro třídu {name} se neočekávaly žádné argumenty typu",

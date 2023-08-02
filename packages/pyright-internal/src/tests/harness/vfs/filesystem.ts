@@ -10,18 +10,12 @@
 import { Dirent, ReadStream, WriteStream } from 'fs';
 import { URI } from 'vscode-uri';
 
-import {
-    FileSystem,
-    FileWatcher,
-    FileWatcherEventHandler,
-    FileWatcherEventType,
-    MkDirOptions,
-    TmpfileOptions,
-} from '../../../common/fileSystem';
+import { FileSystem, MkDirOptions, TmpfileOptions } from '../../../common/fileSystem';
 import * as pathUtil from '../../../common/pathUtils';
 import { bufferFrom, createIOError } from '../utils';
 import { Metadata, SortedMap, closeIterator, getIterator, nextResult } from './../utils';
 import { ValidationFlags, validate } from './pathValidation';
+import { FileWatcher, FileWatcherEventHandler, FileWatcherEventType } from '../../../common/fileWatcher';
 
 export const MODULE_PATH = pathUtil.normalizeSlashes('/');
 

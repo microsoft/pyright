@@ -438,6 +438,7 @@
         "typeAliasTypeParamInvalid": "A lista de parâmetros de tipo deve ser uma tupla contendo apenas TypeVar, TypeVarTuple ou ParamSpec",
         "typeAnnotationCall": "Expressão de chamada não permitida na expressão de tipo",
         "typeAnnotationVariable": "Variável não permitida na expressão de tipo",
+        "typeAnnotationWithCallable": "Type argument for \"type\" must be a class; callables are not supported",
         "typeArgListExpected": "ParamSpec, reticências ou lista de tipos esperados",
         "typeArgListNotAllowed": "Expressão de lista não permitida para este argumento de tipo",
         "typeArgsExpectingNone": "Nenhum argumento de tipo era esperado para a classe \"{name}\"",

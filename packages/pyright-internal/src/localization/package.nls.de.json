@@ -438,6 +438,7 @@
         "typeAliasTypeParamInvalid": "Die Typparameterliste muss ein Tupel sein, das nur TypeVar, TypeVarTuple oder ParamSpec enthält.",
         "typeAnnotationCall": "Der Aufrufausdruck ist im Typausdruck nicht zulässig",
         "typeAnnotationVariable": "Variable im Typausdruck nicht zulässig",
+        "typeAnnotationWithCallable": "Type argument for \"type\" must be a class; callables are not supported",
         "typeArgListExpected": "ParamSpec, Ellipse oder Liste der Typen erwartet",
         "typeArgListNotAllowed": "Der Listenausdruck ist für dieses Typargument nicht zulässig.",
         "typeArgsExpectingNone": "Für die Klasse \"{name}\" werden keine Typargumente erwartet.",

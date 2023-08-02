@@ -438,6 +438,7 @@
         "typeAliasTypeParamInvalid": "型別參數清單必須是只包含 TypeVar、TypeVarTuple 或 ParamSpec 的元組",
         "typeAnnotationCall": "型別運算式中不允許呼叫運算式",
         "typeAnnotationVariable": "型別運算式中不允許變數",
+        "typeAnnotationWithCallable": "Type argument for \"type\" must be a class; callables are not supported",
         "typeArgListExpected": "預期為 ParamSpec、省略符號或類型清單",
         "typeArgListNotAllowed": "此型別引數不允許清單運算式",
         "typeArgsExpectingNone": "預期類別 \"{name}\" 沒有類型引數",
