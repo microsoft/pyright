@@ -80,8 +80,8 @@ const PlusRegExp = /\+/g;
 const UnescapedMarkdownCharsRegExp = /(?<!\\)([_*~[\]])/g;
 const linkRegExp = /(\[.*\]\(.*\))/g;
 
-const CodeBlockStartRegExp = /^\s*```(\w*)/;
-const CodeBlockEndRegExp = /^\s*```/;
+const CodeBlockStartRegExp = /^\s*(?<block>`{3}(?!`)|~{3}(?!~))(\w*)/;
+const CodeBlockEndRegExp = /^\s*(?<block>`{3}(?!`)|~{3}(?!~))/;
 
 const HtmlEscapes: RegExpReplacement[] = [
     { exp: /</g, replacement: '&lt;' },
@@ -124,6 +124,7 @@ class DocStringConverter {
     private _blockIndent = 0;
 
     private _tableState: RestTableState | undefined;
+    private _lastBacktickString: string | undefined;
 
     constructor(input: string) {
         this._state = this._parseText;
@@ -156,7 +157,8 @@ class DocStringConverter {
             this._state === this._parseDocTest ||
             this._state === this._parseLiteralBlock
         ) {
-            this._trimOutputAndAppendLine('```');
+            // See what the current backtick block is. We want to match it.
+            this._trimOutputAndAppendLine(this._lastBacktickString || '```');
         } else if (this._insideInlineCode) {
             this._trimOutputAndAppendLine('`', /* noNewLine */ true);
         }
@@ -427,9 +429,10 @@ class DocStringConverter {
         const match = this._currentLine().match(CodeBlockStartRegExp);
         if (match !== null) {
             this._blockIndent = this._currentIndent();
+            this._lastBacktickString = match[1];
 
             // Remove indentation and preserve language tag.
-            this._appendLine('```' + match[1]);
+            this._appendLine(match[1] + match[2]);
 
             this._pushAndSetState(this._parseBacktickBlock);
             this._eatLine();
@@ -441,7 +444,9 @@ class DocStringConverter {
     private _parseBacktickBlock(): void {
         // Only match closing ``` at same indent level of opening.
         if (CodeBlockEndRegExp.test(this._currentLine()) && this._currentIndent() === this._blockIndent) {
-            this._appendLine('```');
+            const match = this._currentLine().match(CodeBlockEndRegExp);
+            this._lastBacktickString = match ? match[1] : '```';
+            this._appendLine(this._lastBacktickString);
             this._appendLine();
             this._popState();
         } else {

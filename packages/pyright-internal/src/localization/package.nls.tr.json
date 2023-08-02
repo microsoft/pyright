@@ -438,6 +438,7 @@
         "typeAliasTypeParamInvalid": "Tür parametresi listesi yalnızca TypeVar, TypeVarTuple veya ParamSpec içeren bir demet olmalıdır",
         "typeAnnotationCall": "Tür ifadesinde çağrı ifadesine izin verilmiyor",
         "typeAnnotationVariable": "Tür ifadesinde değişkene izin verilmiyor",
+        "typeAnnotationWithCallable": "Type argument for \"type\" must be a class; callables are not supported",
         "typeArgListExpected": "ParamSpec, üç nokta veya tür listesi bekleniyordu",
         "typeArgListNotAllowed": "Bu tür bağımsız değişkeni için liste ifadesine izin verilmiyor",
         "typeArgsExpectingNone": "\"{name}\" sınıfı için tür bağımsız değişkeni beklenmiyordu",

@@ -9,7 +9,7 @@
 import * as chokidar from 'chokidar';
 
 import { ConsoleInterface } from './console';
-import { FileWatcher, FileWatcherEventHandler, FileWatcherProvider } from './fileSystem';
+import { FileWatcher, FileWatcherEventHandler, FileWatcherProvider } from './fileWatcher';
 
 const _isMacintosh = process.platform === 'darwin';
 const _isLinux = process.platform === 'linux';

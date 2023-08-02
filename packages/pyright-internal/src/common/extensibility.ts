@@ -6,7 +6,7 @@
 * Language service extensibility.
 */
 
-import { CancellationToken, CodeAction, CompletionList, ExecuteCommandParams } from 'vscode-languageserver';
+import { CancellationToken, CompletionList, ExecuteCommandParams } from 'vscode-languageserver';
 
 import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { Declaration } from '../analyzer/declaration';
@@ -14,10 +14,9 @@ import { ImportResolver } from '../analyzer/importResolver';
 import * as prog from '../analyzer/program';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { Type } from '../analyzer/types';
 import { LanguageServerBase, LanguageServerInterface } from '../languageServerBase';
 import { CompletionOptions } from '../languageService/completionProvider';
-import { FunctionNode, ParameterNode, ParseNode } from '../parser/parseNodes';
+import { ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { ConfigOptions, SignatureDisplayType } from './configOptions';
 import { ConsoleInterface } from './console';
@@ -34,8 +33,7 @@ export interface LanguageServiceExtension {
 export interface ProgramExtension {
     readonly completionListExtension?: CompletionListExtension;
     readonly declarationProviderExtension?: DeclarationProviderExtension;
-    readonly typeProviderExtension?: TypeProviderExtension;
-    readonly codeActionExtension?: CodeActionExtension;
+
     fileDirty?: (filePath: string) => void;
     clearCache?: () => void;
 }
@@ -189,27 +187,6 @@ export interface DeclarationProviderExtension {
     ): Declaration[];
 }
 
-export interface TypeProviderExtension {
-    tryGetParameterNodeType(
-        node: ParameterNode,
-        evaluator: TypeEvaluator,
-        token: CancellationToken,
-        context?: {}
-    ): Type | undefined;
-    tryGetFunctionNodeType(node: FunctionNode, evaluator: TypeEvaluator, token: CancellationToken): Type | undefined;
-}
-
-export interface CodeActionExtension {
-    addCodeActions(
-        evaluator: TypeEvaluator,
-        filePath: string,
-        range: Range,
-        parseResults: ParseResults,
-        codeActions: CodeAction[],
-        token: CancellationToken
-    ): void;
-}
-
 interface OwnedProgramExtension extends ProgramExtension {
     readonly view: ProgramView;
 }
@@ -294,11 +271,16 @@ export namespace Extensions {
         const filePath =
             typeof nodeOrFilePath === 'string' ? nodeOrFilePath.toString() : getFileInfo(nodeOrFilePath).filePath;
         const bestProgram = getBestProgram(filePath);
-        return programExtensions.filter((s) => s.view === bestProgram) as ProgramExtension[];
+
+        return getProgramExtensionsForView(bestProgram);
     }
 
     export function getLanguageServiceExtensions() {
         return languageServiceExtensions as LanguageServiceExtension[];
+    }
+
+    export function getProgramExtensionsForView(view: ProgramView) {
+        return programExtensions.filter((s) => s.view === view) as ProgramExtension[];
     }
 
     export function unregister() {

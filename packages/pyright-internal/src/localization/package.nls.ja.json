@@ -438,6 +438,7 @@
         "typeAliasTypeParamInvalid": "型パラメーター リストは、TypeVar、TypeVarTuple、または ParamSpec のみを含むタプルである必要があります",
         "typeAnnotationCall": "型式では呼び出し式を使用できません",
         "typeAnnotationVariable": "型式では変数を使用できません",
+        "typeAnnotationWithCallable": "Type argument for \"type\" must be a class; callables are not supported",
         "typeArgListExpected": "ParamSpec、省略記号、または型の一覧が必要です",
         "typeArgListNotAllowed": "この型引数にはリスト式を使用できません",
         "typeArgsExpectingNone": "クラス \"{name}\" に型引数が必要ありません",

@@ -37,6 +37,7 @@ import { Host, HostKind } from './common/host';
 import { LogTracker } from './common/logTracker';
 import { Range } from './common/textRange';
 import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
+import { PyrightFileSystem } from './pyrightFileSystem';
 
 export class BackgroundAnalysisBase {
     private _worker: Worker | undefined;
@@ -264,7 +265,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     protected importResolver: ImportResolver;
     protected logTracker: LogTracker;
 
-    protected constructor(fileSystem?: FileSystem, sourceFileFactory?: ISourceFileFactory) {
+    protected constructor(fileSystem?: PyrightFileSystem, sourceFileFactory?: ISourceFileFactory) {
         super(workerData as InitializationData, fileSystem);
 
         // Stash the base directory into a global variable.

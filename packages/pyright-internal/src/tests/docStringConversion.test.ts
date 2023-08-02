@@ -14,6 +14,7 @@ import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../anal
 const singleTick = '`';
 const doubleTick = '``';
 const tripleTick = '```';
+const tripleTilda = '~~~';
 
 test('PlaintextIndention', () => {
     const all: string[][] = [
@@ -270,6 +271,34 @@ And some text after.
     _testConvertToMarkdown(docstring, markdown);
 });
 
+test('MarkdownStyleTildaBlock', () => {
+    const docstring = `Backtick block:
+
+${tripleTilda}
+print(foo_bar)
+
+if True:
+    print(bar_foo)
+${tripleTilda}
+
+And some text after.
+`;
+
+    const markdown = `Backtick block:
+
+${tripleTilda}
+print(foo_bar)
+
+if True:
+    print(bar_foo)
+${tripleTilda}
+
+And some text after.
+`;
+
+    _testConvertToMarkdown(docstring, markdown);
+});
+
 test('RestLiteralBlock', () => {
     const docstring = `
 Take a look at this code::
@@ -421,6 +450,14 @@ test('UnfinishedBacktickBlock', () => {
     const docstring = '```\nsomething\n';
 
     const markdown = '```\nsomething\n```\n';
+
+    _testConvertToMarkdown(docstring, markdown);
+});
+
+test('UnfinishedTildaBlock', () => {
+    const docstring = '~~~\nsomething\n';
+
+    const markdown = '~~~\nsomething\n~~~\n';
 
     _testConvertToMarkdown(docstring, markdown);
 });
@@ -854,6 +891,73 @@ ${tripleTick}python
         ${tripleTick}
         """
 ${tripleTick}
+`;
+    _testConvertToMarkdown(docstring, markdown);
+});
+
+test('IndentedCodeBlockTilda', () => {
+    const docstring = `
+Expected:
+    ${tripleTilda}python
+    def some_fn():
+        """
+        Backticks on a different indentation level don't close the code block.
+        ${tripleTilda}
+        """
+    ${tripleTilda}
+`;
+
+    const markdown = `
+Expected:
+${tripleTilda}python
+    def some_fn():
+        """
+        Backticks on a different indentation level don't close the code block.
+        ${tripleTilda}
+        """
+${tripleTilda}
+`;
+    _testConvertToMarkdown(docstring, markdown);
+});
+
+test('MixedCodeBlockBacktick', () => {
+    const docstring = `
+Expected:
+    ${tripleTick}python
+    def some_fn():
+        """
+        Backticks on a different indentation level don't close the code block.
+        ${tripleTick}
+        """
+    ${tripleTick}
+Expected:
+    ${tripleTilda}python
+    def some_fn():
+        """
+        Backticks on a different indentation level don't close the code block.
+        ${tripleTick}
+        """
+    ${tripleTilda}
+`;
+
+    const markdown = `
+Expected:
+${tripleTick}python
+    def some_fn():
+        """
+        Backticks on a different indentation level don't close the code block.
+        ${tripleTick}
+        """
+${tripleTick}
+
+Expected:
+${tripleTilda}python
+    def some_fn():
+        """
+        Backticks on a different indentation level don't close the code block.
+        ${tripleTick}
+        """
+${tripleTilda}
 `;
     _testConvertToMarkdown(docstring, markdown);
 });

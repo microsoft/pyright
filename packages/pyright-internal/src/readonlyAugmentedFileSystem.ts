@@ -10,16 +10,9 @@
 import type * as fs from 'fs';
 
 import { appendArray, getOrAdd } from './common/collectionUtils';
-import {
-    FileSystem,
-    FileWatcher,
-    FileWatcherEventHandler,
-    MkDirOptions,
-    Stats,
-    TmpfileOptions,
-    VirtualDirent,
-} from './common/fileSystem';
+import { FileSystem, MkDirOptions, Stats, TmpfileOptions, VirtualDirent } from './common/fileSystem';
 import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath, getFileName } from './common/pathUtils';
+import { FileWatcher, FileWatcherEventHandler } from './common/fileWatcher';
 
 export class ReadOnlyAugmentedFileSystem implements FileSystem {
     // Mapped file to original file map
