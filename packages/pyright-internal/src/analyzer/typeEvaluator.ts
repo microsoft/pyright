@@ -10693,24 +10693,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (isClassInstance(effectiveExpectedType) && !isTypeSame(effectiveReturnType, effectiveExpectedType)) {
                     const tempTypeVarContext = new TypeVarContext(getTypeVarScopeId(effectiveReturnType));
-                    populateTypeVarContextBasedOnExpectedType(
-                        evaluatorInterface,
-                        effectiveReturnType,
-                        effectiveExpectedType,
-                        tempTypeVarContext,
-                        liveTypeVarScopes,
-                        errorNode.start
-                    );
+                    if (
+                        populateTypeVarContextBasedOnExpectedType(
+                            evaluatorInterface,
+                            effectiveReturnType,
+                            effectiveExpectedType,
+                            tempTypeVarContext,
+                            liveTypeVarScopes,
+                            errorNode.start
+                        )
+                    ) {
+                        const genericReturnType = ClassType.cloneForSpecialization(
+                            effectiveReturnType,
+                            /* typeArguments */ undefined,
+                            /* isTypeArgumentExplicit */ false
+                        );
 
-                    const genericReturnType = ClassType.cloneForSpecialization(
-                        effectiveReturnType,
-                        /* typeArguments */ undefined,
-                        /* isTypeArgumentExplicit */ false
-                    );
-
-                    effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext, {
-                        unknownIfNotFound: true,
-                    });
+                        effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext, {
+                            unknownIfNotFound: true,
+                        });
+                    }
                 }
             } else if (isFunction(effectiveReturnType)) {
                 // If the return type is a callable and the expected type is a union that
