@@ -23,6 +23,7 @@ import {
     FileWatcher,
 } from './fileWatcher';
 
+
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();
 
@@ -38,6 +39,7 @@ export function createFromRealFileSystem(
 
 const DOT_ZIP = `.zip`;
 const DOT_EGG = `.egg`;
+const DOT_JAR = `.jar`;
 
 // Exactly the same as ZipOpenFS's getArchivePart, but supporting .egg files.
 // https://github.com/yarnpkg/berry/blob/64a16b3603ef2ccb741d3c44f109c9cfc14ba8dd/packages/yarnpkg-fslib/sources/ZipOpenFS.ts#L23
@@ -46,7 +48,10 @@ function getArchivePart(path: string) {
     if (idx <= 0) {
         idx = path.indexOf(DOT_EGG);
         if (idx <= 0) {
-            return null;
+            idx = path.indexOf(DOT_JAR);
+            if (idx <= 0) {
+                return null;
+            }
         }
     }
 
@@ -62,7 +67,7 @@ function getArchivePart(path: string) {
 }
 
 function hasZipOrEggExtension(p: string): boolean {
-    return p.endsWith(DOT_ZIP) || p.endsWith(DOT_EGG);
+    return p.endsWith(DOT_ZIP) || p.endsWith(DOT_EGG) || p.endsWith(DOT_JAR);
 }
 
 // "Magic" values for the zip file type. https://en.wikipedia.org/wiki/List_of_file_signatures
@@ -394,7 +399,7 @@ class RealFileSystem implements FileSystem {
     }
 
     isInZipOrEgg(path: string): boolean {
-        return /[^\\/]\.(?:egg|zip)[\\/]/.test(path) && yarnFS.isZip(path);
+        return /[^\\/]\.(?:egg|zip|jar)[\\/]/.test(path) && yarnFS.isZip(path);
     }
 
     dispose(): void {

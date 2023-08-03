@@ -93,6 +93,7 @@ function runTests(p: string): void {
 
 describe('zip', () => runTests('./samples/zipfs/basic.zip'));
 describe('egg', () => runTests('./samples/zipfs/basic.egg'));
+describe('jar', () => runTests('./samples/zipfs/basic.jar'));
 
 function runBadTests(p: string): void {
     const zipRoot = path.resolve(path.dirname(module.filename), p);
@@ -111,6 +112,8 @@ function runBadTests(p: string): void {
 
 describe('corrupt zip', () => runBadTests('./samples/zipfs/bad.zip'));
 describe('corrupt egg', () => runBadTests('./samples/zipfs/bad.egg'));
+describe('corrupt jar', () => runBadTests('./samples/zipfs/bad.jar'));
 
 describe('corrupt zip with magic', () => runBadTests('./samples/zipfs/corrupt.zip'));
 describe('corrupt egg with magic', () => runBadTests('./samples/zipfs/corrupt.egg'));
+describe('corrupt jar with magic', () => runBadTests('./samples/zipfs/corrupt.jar'));
