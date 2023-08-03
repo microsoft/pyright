@@ -23,7 +23,6 @@ import {
     FileWatcher,
 } from './fileWatcher';
 
-
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();
 
