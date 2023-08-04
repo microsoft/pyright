@@ -24362,7 +24362,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (matchIndex < 0) {
                 diag.addMessage(
-                    Localizer.DiagnosticAddendum.overrideOverloadNoMatch().format({ index: overrideOverloadIndex })
+                    Localizer.DiagnosticAddendum.overrideOverloadNoMatch().format({ index: overrideOverloadIndex + 1 })
                 );
                 return false;
             }
