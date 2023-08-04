@@ -1464,15 +1464,11 @@ export function* getClassIterator(classType: Type, flags = ClassIteratorFlags.De
     return undefined;
 }
 
-export function getClassFieldsRecursive(classType: ClassType, skipInitialClass = false): Map<string, ClassMember> {
+export function getClassFieldsRecursive(classType: ClassType): Map<string, ClassMember> {
     const memberMap = new Map<string, ClassMember>();
 
     // Evaluate the types of members from the end of the MRO to the beginning.
     ClassType.getReverseMro(classType).forEach((mroClass) => {
-        if (skipInitialClass && isClass(mroClass) && ClassType.isSameGenericClass(mroClass, classType)) {
-            return;
-        }
-
         const specializedMroClass = partiallySpecializeType(mroClass, classType);
 
         if (isClass(specializedMroClass)) {

@@ -5177,7 +5177,7 @@ export class Checker extends ParseTreeWalker {
             return getClassFieldsRecursive(specializedBaseClass);
         });
 
-        const childClassSymbolMap = getClassFieldsRecursive(classType, /* skipInitialClass */ true);
+        const childClassSymbolMap = getClassFieldsRecursive(classType);
 
         for (let symbolMapBaseIndex = 1; symbolMapBaseIndex < baseClassSymbolMaps.length; symbolMapBaseIndex++) {
             const baseSymbolMap = baseClassSymbolMaps[symbolMapBaseIndex];
