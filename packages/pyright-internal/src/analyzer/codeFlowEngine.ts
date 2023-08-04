@@ -270,7 +270,13 @@ export function getCodeFlowEngine(
             ) {
                 const cachedEntry = flowNodeTypeCache.cache.get(flowNode.id);
                 if (cachedEntry === undefined || !isIncompleteType(cachedEntry)) {
-                    fail('setIncompleteSubtype can be called only on a valid incomplete cache entry');
+                    fail(
+                        'setIncompleteSubtype can be called only on a valid incomplete cache entry: ' +
+                            `prev cache entry?: ${!cachedEntry} ` +
+                            `index=${index} ` +
+                            `isPending=${isPending}` +
+                            `evaluationCount=${evaluationCount}`
+                    );
                 }
 
                 const incompleteEntries = cachedEntry.incompleteSubtypes;
