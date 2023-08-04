@@ -24579,7 +24579,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     i < overrideParamDetails.positionOnlyParamCount &&
                     i >= baseParamDetails.positionOnlyParamCount
                 ) {
-                    if (!baseParam.isNameSynthesized) {
+                    if (
+                        !baseParam.isNameSynthesized &&
+                        baseParamDetails.params[i].source !== ParameterSource.PositionOnly
+                    ) {
                         diag?.addMessage(
                             Localizer.DiagnosticAddendum.overrideParamNamePositionOnly().format({
                                 index: i + 1,

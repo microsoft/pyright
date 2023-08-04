@@ -93,7 +93,12 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
             }
 
             if (isDunderName(p.name) || !p.name.startsWith('__')) {
-                break;
+                // We exempt "self" and "cls" in class and instance methods.
+                if (i > 0 || FunctionType.isStaticMethod(type)) {
+                    break;
+                }
+
+                continue;
             }
 
             positionOnlyIndex = i + 1;
