@@ -459,7 +459,6 @@ const FunctionTypeFlagsToString: [FunctionTypeFlags, string][] = [
     [FunctionTypeFlags.StubDefinition, 'StubDefinition'],
     [FunctionTypeFlags.SynthesizedMethod, 'SynthesizedMethod'],
     [FunctionTypeFlags.UnannotatedParams, 'UnannotatedParams'],
-    [FunctionTypeFlags.WrapReturnTypeInAwait, 'WrapReturnTypeInAwait'],
 ];
 
 function getFunctionTypeFlagsString(flags: FunctionTypeFlags) {
