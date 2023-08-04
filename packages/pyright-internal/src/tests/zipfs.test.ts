@@ -85,9 +85,9 @@ function runTests(p: string): void {
         }).toThrow(/read-only filesystem/);
     });
 
-    test('isInZipOrEgg', () => {
-        assert.strictEqual(fs.isInZipOrEgg(combinePaths(zipRoot, 'EGG-INFO', 'top_level.txt')), true);
-        assert.strictEqual(fs.isInZipOrEgg(module.filename), false);
+    test('isInZip', () => {
+        assert.strictEqual(fs.isInZip(combinePaths(zipRoot, 'EGG-INFO', 'top_level.txt')), true);
+        assert.strictEqual(fs.isInZip(module.filename), false);
     });
 }
 
@@ -105,8 +105,8 @@ function runBadTests(p: string): void {
         assert.strictEqual(stats.isFile(), true);
     });
 
-    test('isInZipOrEgg', () => {
-        assert.strictEqual(fs.isInZipOrEgg(combinePaths(zipRoot, 'EGG-INFO', 'top_level.txt')), false);
+    test('isInZip', () => {
+        assert.strictEqual(fs.isInZip(combinePaths(zipRoot, 'EGG-INFO', 'top_level.txt')), false);
     });
 }
 

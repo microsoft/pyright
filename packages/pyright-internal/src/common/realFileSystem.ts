@@ -13,15 +13,15 @@ import { isMainThread } from 'worker_threads';
 
 import { ConsoleInterface, NullConsole } from './console';
 import { FileSystem, MkDirOptions, TmpfileOptions } from './fileSystem';
-import { getRootLength } from './pathUtils';
 import {
+    FileWatcher,
+    FileWatcherEventHandler,
+    FileWatcherEventType,
+    FileWatcherHandler,
     FileWatcherProvider,
     nullFileWatcherProvider,
-    FileWatcherEventHandler,
-    FileWatcherHandler,
-    FileWatcherEventType,
-    FileWatcher,
 } from './fileWatcher';
+import { getRootLength } from './pathUtils';
 
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();
@@ -65,7 +65,7 @@ function getArchivePart(path: string) {
     return path.slice(0, nextCharIdx) as PortablePath;
 }
 
-function hasZipOrEggExtension(p: string): boolean {
+function hasZipExtension(p: string): boolean {
     return p.endsWith(DOT_ZIP) || p.endsWith(DOT_EGG) || p.endsWith(DOT_JAR);
 }
 
@@ -241,7 +241,7 @@ class RealFileSystem implements FileSystem {
         return yarnFS.readdirSync(path, { withFileTypes: true }).map((entry): fs.Dirent => {
             // Treat zip/egg files as directories.
             // See: https://github.com/yarnpkg/berry/blob/master/packages/vscode-zipfs/sources/ZipFSProvider.ts
-            if (hasZipOrEggExtension(entry.name)) {
+            if (hasZipExtension(entry.name)) {
                 if (entry.isFile() && yarnFS.isZip(path)) {
                     return {
                         name: entry.name,
@@ -277,7 +277,7 @@ class RealFileSystem implements FileSystem {
         const stat = yarnFS.statSync(path);
         // Treat zip/egg files as directories.
         // See: https://github.com/yarnpkg/berry/blob/master/packages/vscode-zipfs/sources/ZipFSProvider.ts
-        if (hasZipOrEggExtension(path)) {
+        if (hasZipExtension(path)) {
             if (stat.isFile() && yarnFS.isZip(path)) {
                 return {
                     ...stat,
@@ -397,7 +397,7 @@ class RealFileSystem implements FileSystem {
         return URI.file(path).toString();
     }
 
-    isInZipOrEgg(path: string): boolean {
+    isInZip(path: string): boolean {
         return /[^\\/]\.(?:egg|zip|jar)[\\/]/.test(path) && yarnFS.isZip(path);
     }
 
