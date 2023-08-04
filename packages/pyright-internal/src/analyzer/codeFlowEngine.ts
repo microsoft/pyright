@@ -1689,7 +1689,7 @@ export function getCodeFlowEngine(
                     // If it's an __aexit__ method, its return type will typically be wrapped
                     // in a Coroutine, so we need to extract the return type from the third
                     // type argument.
-                    if (isAsync && FunctionType.isAsync(exitType)) {
+                    if (isAsync) {
                         if (
                             isClassInstance(returnType) &&
                             ClassType.isBuiltIn(returnType, 'Coroutine') &&

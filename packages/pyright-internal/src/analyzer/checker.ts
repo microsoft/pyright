@@ -4313,7 +4313,11 @@ export class Checker extends ParseTreeWalker {
                     // If the function consists entirely of "...", assume that it's
                     // an abstract method or a protocol method and don't require that
                     // the return type matches. This check can also be skipped for an overload.
-                    if (!ParseTreeUtils.isSuiteEmpty(node.suite) && !FunctionType.isOverloaded(functionType)) {
+                    if (
+                        !ParseTreeUtils.isSuiteEmpty(node.suite) &&
+                        !FunctionType.isOverloaded(functionType) &&
+                        !FunctionType.isAsync(functionType)
+                    ) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,

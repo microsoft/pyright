@@ -123,7 +123,15 @@ export function getFunctionTooltip(
     }
 
     const sep = isProperty ? ': ' : '';
-    const defKeyword = isProperty ? '' : 'def ';
+    let defKeyword = '';
+    if (!isProperty) {
+        defKeyword = 'def ';
+
+        if (FunctionType.isAsync(type)) {
+            defKeyword = 'async ' + defKeyword;
+        }
+    }
+
     return `${labelFormatted}${defKeyword}${functionName}${sep}${paramSignature}`;
 }
 
