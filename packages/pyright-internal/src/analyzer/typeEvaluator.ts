@@ -5472,7 +5472,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // to leave the Self type generic (not specialized). We'll also
                 // skip this for __new__ methods because they are not bound
                 // to the class but rather assume the type of the cls argument.
-                const selfClass = bindToType || memberName === '__new__' ? undefined : classType;
+                const selfClass = !!bindToType || memberName === '__new__' ? undefined : classType;
 
                 const typeResult = getTypeOfMemberInternal(memberInfo, selfClass);
 
@@ -12520,8 +12520,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     magicMethodName,
                     /* usage */ undefined,
                     /* diag */ undefined,
-                    MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.AccessClassMembersOnly,
-                    subtype
+                    MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.AccessClassMembersOnly
                 )?.type;
             } else if (isInstantiableClass(concreteSubtype)) {
                 magicMethodType = getTypeOfClassMember(
@@ -17279,9 +17278,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function createAsyncFunction(node: FunctionNode, functionType: FunctionType): FunctionType {
+        assert(FunctionType.isAsync(functionType));
+
         // Clone the original function and replace its return type with an
-        // Awaitable[<returnType>].
-        const awaitableFunctionType = FunctionType.clone(functionType);
+        // Awaitable[<returnType>]. Mark the new function as no longer async.
+        const awaitableFunctionType = FunctionType.cloneWithNewFlags(
+            functionType,
+            functionType.flags & ~FunctionTypeFlags.Async
+        );
 
         if (functionType.details.declaredReturnType) {
             awaitableFunctionType.details.declaredReturnType = createAwaitableReturnType(
@@ -17289,12 +17293,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 functionType.details.declaredReturnType,
                 FunctionType.isGenerator(functionType)
             );
+        } else {
+            awaitableFunctionType.inferredReturnType = createAwaitableReturnType(
+                node,
+                getFunctionInferredReturnType(functionType),
+                FunctionType.isGenerator(functionType)
+            );
         }
-
-        // Note that the inferred type, once lazily computed, needs to wrap the
-        // resulting type in an awaitable.
-        functionType.details.flags |= FunctionTypeFlags.WrapReturnTypeInAwait;
-        awaitableFunctionType.details.flags |= FunctionTypeFlags.WrapReturnTypeInAwait;
 
         return awaitableFunctionType;
     }
@@ -20766,15 +20771,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (returnTypeResult?.isIncomplete) {
                             isIncomplete = true;
                         }
-
-                        // Do we need to wrap this in an awaitable?
-                        if (returnType && FunctionType.isWrapReturnTypeInAwait(type)) {
-                            returnType = createAwaitableReturnType(
-                                functionNode,
-                                returnType,
-                                !!type.details.declaration?.isGenerator
-                            );
-                        }
                     }
                 }
             }
@@ -20799,7 +20795,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             FunctionType.hasUnannotatedParams(type) &&
             !FunctionType.isStubDefinition(type) &&
             !FunctionType.isPyTypedDefinition(type) &&
-            !FunctionType.isWrapReturnTypeInAwait(type) &&
             args
         ) {
             const contextualReturnType = getFunctionInferredReturnTypeUsingArguments(type, args);
@@ -20945,15 +20940,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (contextualReturnType) {
             contextualReturnType = removeUnbound(contextualReturnType);
-
-            // Do we need to wrap this in an awaitable?
-            if (FunctionType.isWrapReturnTypeInAwait(type) && !isNever(contextualReturnType)) {
-                contextualReturnType = createAwaitableReturnType(
-                    functionNode,
-                    contextualReturnType,
-                    !!type.details.declaration?.isGenerator
-                );
-            }
 
             if (!isResultFromCache) {
                 // Cache the resulting type.

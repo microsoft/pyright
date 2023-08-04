@@ -1022,7 +1022,21 @@ export function populateTypeVarContextForSelfType(
     selfClass: ClassType
 ) {
     const synthesizedSelfTypeVar = synthesizeTypeVarForSelfCls(contextClassType, /* isClsParam */ false);
-    typeVarContext.setTypeVarType(synthesizedSelfTypeVar, convertToInstance(selfClass));
+    const selfInstance = convertToInstance(selfClass);
+
+    // We can't call stripLiteralValue here because that method requires the type evaluator.
+    // Instead, we'll do a simplified version of it here.
+    const selfWithoutLiteral = mapSubtypes(selfInstance, (subtype) => {
+        if (isClass(subtype)) {
+            if (subtype.literalValue !== undefined) {
+                return ClassType.cloneWithLiteral(subtype, /* value */ undefined);
+            }
+        }
+
+        return subtype;
+    });
+
+    typeVarContext.setTypeVarType(synthesizedSelfTypeVar, selfInstance, selfWithoutLiteral);
 }
 
 // Looks for duplicate function types within the type and ensures that

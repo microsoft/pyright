@@ -1281,9 +1281,6 @@ export const enum FunctionTypeFlags {
     // Function is declared with async keyword
     Async = 1 << 9,
 
-    // Indicates that return type should be wrapped in an awaitable type
-    WrapReturnTypeInAwait = 1 << 10,
-
     // Function is declared within a type stub fille
     StubDefinition = 1 << 11,
 
@@ -1896,10 +1893,6 @@ export namespace FunctionType {
 
     export function isAsync(type: FunctionType) {
         return (type.details.flags & FunctionTypeFlags.Async) !== 0;
-    }
-
-    export function isWrapReturnTypeInAwait(type: FunctionType) {
-        return (type.details.flags & FunctionTypeFlags.WrapReturnTypeInAwait) !== 0;
     }
 
     export function isStubDefinition(type: FunctionType) {
