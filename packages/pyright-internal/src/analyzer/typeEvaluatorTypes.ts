@@ -479,6 +479,7 @@ export interface TypeEvaluator {
     isAsymmetricDescriptorAssignment: (node: ParseNode) => boolean;
     suppressDiagnostics: (node: ParseNode, callback: () => void) => void;
 
+    getDictionaryTypeForStringNode: (node: StringNode) => Type | undefined;
     getDeclarationsForStringNode: (node: StringNode) => Declaration[] | undefined;
     getDeclarationsForNameNode: (node: NameNode, skipUnreachableCode?: boolean) => Declaration[] | undefined;
     getTypeForDeclaration: (declaration: Declaration) => DeclaredSymbolTypeInfo;

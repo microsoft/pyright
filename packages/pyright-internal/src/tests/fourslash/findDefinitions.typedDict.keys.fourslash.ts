@@ -36,10 +36,14 @@
 //// foo(item={[|/*marker5*/'title'|]})
 //// foo(item={'title': [|/*marker6*/'title'|]})
 //// foo(item={[|/*marker7*/'name'|]})
+////
+//// untyped = {'name': 'Robert'}
+//// untyped[[|/*marker8*/'name'|]]
+//// author[[|/*marker9*/'name'|]]
+//// post['author'][[|/*marker10*/'name'|]]
 
 {
     const rangeMap = helper.getRangesByText();
-
     helper.verifyFindDefinitions(
         {
             marker1: {
@@ -86,6 +90,25 @@
                 definitions: [],
             },
             marker7: {
+                definitions: rangeMap
+                    .get('name')!
+                    .filter((r) => !r.marker)
+                    .map((r) => {
+                        return { path: r.fileName, range: helper.convertPositionRange(r) };
+                    }),
+            },
+            marker8: {
+                definitions: [],
+            },
+            marker9: {
+                definitions: rangeMap
+                    .get('name')!
+                    .filter((r) => !r.marker)
+                    .map((r) => {
+                        return { path: r.fileName, range: helper.convertPositionRange(r) };
+                    }),
+            },
+            marker10: {
                 definitions: rangeMap
                     .get('name')!
                     .filter((r) => !r.marker)

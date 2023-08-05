@@ -19465,15 +19465,39 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return undefined;
     }
 
+    // Find the type of the dictionary that this string node is used as a key for.
+    // This can be in either a dictionary expression or an index operation.
+    function getDictionaryTypeForStringNode(node: StringNode): Type | undefined {
+        // If this a string key for a dictionary expression return the expected dictionary type
+        const expectedType = getExpectedType(node)?.type;
+        if (expectedType) {
+            return expectedType;
+        }
+
+        // If the string is indexing into an existing dictionary return the resolved dictionary type
+        if (
+            node.parent?.nodeType === ParseNodeType.StringList &&
+            node.parent.strings.length === 1 &&
+            node.parent.parent?.nodeType === ParseNodeType.Argument &&
+            node.parent.parent.parent?.nodeType === ParseNodeType.Index
+        ) {
+            const indexNode: IndexNode = node.parent.parent.parent;
+            const indexedType = getType(indexNode.baseExpression);
+            return indexedType;
+        }
+
+        return undefined;
+    }
+
     // In general, string nodes don't have any declarations associated with them, but
     // we need to handle the special case of string literals used as keys within a
     // dictionary expression where those keys are associated with a known TypedDict.
     function getDeclarationsForStringNode(node: StringNode): Declaration[] | undefined {
         const declarations: Declaration[] = [];
-        const expectedType = getExpectedType(node)?.type;
+        const type = getDictionaryTypeForStringNode(node);
 
-        if (expectedType) {
-            doForEachSubtype(expectedType, (subtype) => {
+        if (type) {
+            doForEachSubtype(type, (subtype) => {
                 // If the expected type is a TypedDict then the node is either a key expression
                 // or a single entry in a set. We then need to check that the value of the node
                 // is a valid entry in the TypedDict to avoid resolving declarations for
@@ -25422,6 +25446,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         isNodeReachable,
         isAsymmetricDescriptorAssignment: isAsymmetricAccessorAssignment,
         suppressDiagnostics,
+        getDictionaryTypeForStringNode,
         getDeclarationsForStringNode,
         getDeclarationsForNameNode,
         getTypeForDeclaration,
