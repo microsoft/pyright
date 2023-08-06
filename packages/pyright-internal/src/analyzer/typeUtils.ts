@@ -340,37 +340,43 @@ export function makeInferenceContext(
 }
 
 // Calls a callback for each subtype and combines the results
-// into a final type.
+// into a final type. It performs no memory allocations if the
+// transformed type is the same as the original.
 export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefined): Type {
     if (isUnion(type)) {
-        const newSubtypes: Type[] = [];
-        let typeChanged = false;
-
-        type.subtypes.forEach((subtype) => {
+        for (let i = 0; i < type.subtypes.length; i++) {
+            const subtype = type.subtypes[i];
             const transformedType = callback(subtype);
-            if (transformedType) {
-                if (transformedType !== subtype) {
-                    newSubtypes.push(addConditionToType(transformedType, getTypeCondition(type)));
-                    typeChanged = true;
-                } else {
-                    newSubtypes.push(subtype);
+
+            // Avoid doing any memory allocations until a change is detected.
+            if (subtype !== transformedType) {
+                const typesToCombine: Type[] = type.subtypes.slice(0, i);
+
+                // Create a helper lambda that accumulates transformed subtypes.
+                const accumulateSubtype = (newSubtype: Type | undefined) => {
+                    if (newSubtype) {
+                        typesToCombine.push(addConditionToType(newSubtype, getTypeCondition(type)));
+                    }
+                };
+
+                accumulateSubtype(transformedType);
+
+                for (i++; i < type.subtypes.length; i++) {
+                    accumulateSubtype(callback(type.subtypes[i]));
                 }
-            } else {
-                typeChanged = true;
+
+                const newType = combineTypes(typesToCombine);
+
+                // Do our best to retain type aliases.
+                if (newType.category === TypeCategory.Union) {
+                    UnionType.addTypeAliasSource(newType, type);
+                }
+
+                return newType;
             }
-        });
-
-        if (!typeChanged) {
-            return type;
         }
 
-        const newType = combineTypes(newSubtypes);
-
-        // Do our best to retain type aliases.
-        if (newType.category === TypeCategory.Union) {
-            UnionType.addTypeAliasSource(newType, type);
-        }
-        return newType;
+        return type;
     }
 
     const transformedSubtype = callback(type);
