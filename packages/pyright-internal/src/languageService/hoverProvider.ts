@@ -244,7 +244,7 @@ export class HoverProvider {
                 }
             }
         } else if (node.nodeType === ParseNodeType.String) {
-            const type = this._evaluator.getExpectedType(node)?.type;
+            const type = this._evaluator.getDictionaryTypeForStringNode(node);
             if (type !== undefined) {
                 this._tryAddPartsForTypedDictKey(node, type, results.parts);
             }

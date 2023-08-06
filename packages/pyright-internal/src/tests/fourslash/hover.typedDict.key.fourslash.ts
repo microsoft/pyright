@@ -35,6 +35,18 @@
 ////
 //// bar({[|/*marker9*/'title'|]})
 //// bar({[|/*marker10*/'age'|]})
+////
+//// untyped = {'name': 'Robert'}
+//// untyped[[|/*marker11*/'age'|]]
+//// untyped[[|/*marker12*/'name'|]]
+////
+//// user[[|/*marker13*/'name'|]]
+////
+//// def make_post_or_user() -> Post | User:
+////    ...
+////
+//// either = make_post_or_user()
+//// either[[|/*marker14*/'age'|]]
 
 helper.verifyHover('markdown', {
     marker1: '```python\n(key) name: str\n```\n---\nThe fullname of the User',
@@ -47,5 +59,10 @@ helper.verifyHover('markdown', {
     marker8: null,
     marker9: '```python\n(key) title: str\n```',
     marker10:
+        '```python\n(key) age: int\n```\n---\nThe age of the Post\n\n---\n```python\n(key) age: int\n```\n---\nThe age of the User, will not be over 200',
+    marker11: null,
+    marker12: null,
+    marker13: '```python\n(key) name: str\n```\n---\nThe fullname of the User',
+    marker14:
         '```python\n(key) age: int\n```\n---\nThe age of the Post\n\n---\n```python\n(key) age: int\n```\n---\nThe age of the User, will not be over 200',
 });
