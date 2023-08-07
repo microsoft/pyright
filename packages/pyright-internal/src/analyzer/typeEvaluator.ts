@@ -507,7 +507,7 @@ const maxRecursiveTypeAliasRecursionCount = 10;
 // This switch enables a special debug mode that attempts to catch
 // bugs due to inconsistent evaluation flags used when reading types
 // from the type cache.
-const verifyTypeCacheEvaluatorFlags = false;
+const verifyTypeCacheEvaluatorFlags = true;
 
 // This debugging option prints each expression and its evaluated type.
 const printExpressionTypes = false;
@@ -1222,6 +1222,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return typeResult;
+    }
+
+    function reportInvalidUseOfPep695TypeAlias(type: Type, node: ExpressionNode): boolean {
+        // PEP 695 type aliases cannot be used as instantiable classes.
+        if (type.typeAliasInfo?.name && type.typeAliasInfo.isPep695Syntax) {
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typeAliasNotAllowed().format({ name: type.typeAliasInfo.name }),
+                node
+            );
+
+            return true;
+        }
+
+        return false;
     }
 
     function validateTypeIsInstantiable(typeResult: TypeResult, flags: EvaluatorFlags, node: ExpressionNode) {
@@ -2226,7 +2242,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case ParseNodeType.MemberAccess: {
                 const baseType = makeTopLevelTypeVarsConcrete(
-                    getTypeOfExpression(expression.leftExpression, EvaluatorFlags.DoNotSpecialize).type
+                    getTypeOfExpression(expression.leftExpression, EvaluatorFlags.MemberAccessBaseDefaults).type
                 );
                 let classMemberInfo: ClassMember | undefined;
 
@@ -2264,7 +2280,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case ParseNodeType.Index: {
                 const baseType = makeTopLevelTypeVarsConcrete(
-                    getTypeOfExpression(expression.baseExpression, EvaluatorFlags.DoNotSpecialize).type
+                    getTypeOfExpression(expression.baseExpression, EvaluatorFlags.IndexBaseDefaults).type
                 );
 
                 if (baseType && isClassInstance(baseType)) {
@@ -3095,7 +3111,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         srcExpr?: ExpressionNode,
         expectedTypeDiagAddendum?: DiagnosticAddendum
     ) {
-        const baseTypeResult = getTypeOfExpression(target.leftExpression, EvaluatorFlags.DoNotSpecialize);
+        const baseTypeResult = getTypeOfExpression(target.leftExpression, EvaluatorFlags.MemberAccessBaseDefaults);
         const baseType = makeTopLevelTypeVarsConcrete(baseTypeResult.type);
 
         // Handle member accesses (e.g. self.x or cls.y).
@@ -3762,7 +3778,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Is the source expression a TypeVar() call?
         if (isTypeVar(type)) {
             if (srcExpr && srcExpr.nodeType === ParseNodeType.Call) {
-                const callType = getTypeOfExpression(srcExpr.leftExpression, EvaluatorFlags.DoNotSpecialize).type;
+                const callType = getTypeOfExpression(srcExpr.leftExpression, EvaluatorFlags.CallBaseDefaults).type;
                 if (
                     isInstantiableClass(callType) &&
                     (ClassType.isBuiltIn(callType, 'TypeVar') ||
@@ -3810,7 +3826,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Index: {
-                const baseTypeResult = getTypeOfExpression(target.baseExpression, EvaluatorFlags.DoNotSpecialize);
+                const baseTypeResult = getTypeOfExpression(target.baseExpression, EvaluatorFlags.IndexBaseDefaults);
 
                 getTypeOfIndexWithBaseType(
                     target,
@@ -4002,7 +4018,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.MemberAccess: {
-                const baseTypeResult = getTypeOfExpression(node.leftExpression, EvaluatorFlags.DoNotSpecialize);
+                const baseTypeResult = getTypeOfExpression(
+                    node.leftExpression,
+                    EvaluatorFlags.MemberAccessBaseDefaults
+                );
                 const memberType = getTypeOfMemberAccessWithBaseType(
                     node,
                     baseTypeResult,
@@ -4015,7 +4034,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Index: {
-                const baseTypeResult = getTypeOfExpression(node.baseExpression, EvaluatorFlags.DoNotSpecialize);
+                const baseTypeResult = getTypeOfExpression(node.baseExpression, EvaluatorFlags.IndexBaseDefaults);
                 getTypeOfIndexWithBaseType(node, baseTypeResult, { method: 'del' }, EvaluatorFlags.None);
                 writeTypeCache(node, { type: UnboundType.create() }, EvaluatorFlags.None);
                 break;
@@ -4367,6 +4386,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        if ((flags & EvaluatorFlags.DisallowPep695TypeAlias) !== 0) {
+            if (reportInvalidUseOfPep695TypeAlias(type, node)) {
+                type = UnknownType.create();
+            }
+        }
+
         if ((flags & EvaluatorFlags.ExpectingInstantiableType) !== 0) {
             if ((flags & EvaluatorFlags.AllowGenericClassType) === 0) {
                 if (isInstantiableClass(type) && ClassType.isBuiltIn(type, 'Generic')) {
@@ -4707,6 +4732,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type.typeAliasInfo.name,
                 type.typeAliasInfo.fullName,
                 type.typeAliasInfo.typeVarScopeId,
+                type.typeAliasInfo.isPep695Syntax,
                 type.typeAliasInfo.typeParameters,
                 defaultTypeArgs
             );
@@ -4844,7 +4870,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfMemberAccess(node: MemberAccessNode, flags: EvaluatorFlags): TypeResult {
         const baseTypeFlags =
-            EvaluatorFlags.DoNotSpecialize |
+            EvaluatorFlags.MemberAccessBaseDefaults |
             (flags &
                 (EvaluatorFlags.ExpectingTypeAnnotation |
                     EvaluatorFlags.VariableTypeAnnotation |
@@ -6169,7 +6195,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeOfIndex(node: IndexNode, flags = EvaluatorFlags.None): TypeResult {
-        const baseTypeResult = getTypeOfExpression(node.baseExpression, flags | EvaluatorFlags.DoNotSpecialize);
+        const baseTypeResult = getTypeOfExpression(node.baseExpression, flags | EvaluatorFlags.IndexBaseDefaults);
 
         // If this is meant to be a type and the base expression is a string expression,
         // emit an error because this will generate a runtime exception in Python versions
@@ -6609,6 +6635,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             baseType.typeAliasInfo.name,
             baseType.typeAliasInfo.fullName,
             baseType.typeAliasInfo.typeVarScopeId,
+            baseType.typeAliasInfo.isPep695Syntax,
             baseType.typeAliasInfo.typeParameters,
             aliasTypeArgs
         );
@@ -6635,6 +6662,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 baseTypeResult.type.details.recursiveTypeAliasName!,
                 '',
                 baseTypeResult.type.details.recursiveTypeAliasScopeId!,
+                baseTypeResult.type.details.recursiveTypeAliasIsPep695Syntax!,
                 baseTypeResult.type.details.recursiveTypeParameters,
                 typeArgTypes
             );
@@ -7704,7 +7732,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else {
             baseTypeResult = getTypeOfExpression(
                 node.leftExpression,
-                EvaluatorFlags.DoNotSpecialize | (flags & EvaluatorFlags.AllowForwardReferences)
+                EvaluatorFlags.CallBaseDefaults | (flags & EvaluatorFlags.AllowForwardReferences)
             );
         }
 
@@ -7874,7 +7902,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         function getLambdaType() {
             return getTypeOfExpression(
                 node.leftExpression,
-                EvaluatorFlags.DoNotSpecialize,
+                EvaluatorFlags.CallBaseDefaults,
                 makeInferenceContext(expectedType)
             );
         }
@@ -7889,7 +7917,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // If bidirectional type inference failed, use normal type inference instead.
         if (typeResult.typeErrors) {
-            typeResult = getTypeOfExpression(node.leftExpression, EvaluatorFlags.DoNotSpecialize);
+            typeResult = getTypeOfExpression(node.leftExpression, EvaluatorFlags.CallBaseDefaults);
         }
 
         return typeResult;
@@ -11536,7 +11564,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ? EvaluatorFlags.AllowMissingTypeArgs |
                       EvaluatorFlags.EvaluateStringLiteralAsType |
                       EvaluatorFlags.DisallowParamSpec |
-                      EvaluatorFlags.DisallowTypeVarTuple
+                      EvaluatorFlags.DisallowTypeVarTuple |
+                      EvaluatorFlags.DisallowPep695TypeAlias
                     : EvaluatorFlags.DoNotSpecialize;
                 const exprTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
@@ -12282,6 +12311,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             nameNode,
             nameNode,
             valueExpr,
+            /* isPep695Syntax */ false,
             /* typeParamNodes */ undefined,
             () => typeParameters ?? []
         );
@@ -14839,6 +14869,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         type: Type,
         name: NameNode,
         errorNode: ExpressionNode,
+        isPep695Syntax: boolean,
         typeParameters?: TypeVarType[],
         typeParamNodes?: TypeParameterNode[]
     ): Type {
@@ -14913,6 +14944,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             name.value,
             ParseTreeUtils.getClassFullName(name, fileInfo.moduleName, name.value),
             typeAliasScopeId,
+            isPep695Syntax,
             typeParameters.length > 0 ? typeParameters : undefined
         );
     }
@@ -15182,6 +15214,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeAliasTypeVar.details.recursiveTypeAliasName = typeAliasNameNode.value;
                     const scopeId = ParseTreeUtils.getScopeIdForNode(typeAliasNameNode);
                     typeAliasTypeVar.details.recursiveTypeAliasScopeId = scopeId;
+                    typeAliasTypeVar.details.recursiveTypeAliasIsPep695Syntax = false;
                     typeAliasTypeVar.scopeId = scopeId;
 
                     // Write the type back to the type cache. It will be replaced below.
@@ -15253,7 +15286,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         rightHandType = transformTypeForTypeAlias(
                             rightHandType,
                             typeAliasNameNode,
-                            node.rightExpression
+                            node.rightExpression,
+                            /* isPep695Syntax */ false
                         );
 
                         if (isTypeAliasRecursive(typeAliasTypeVar!, rightHandType)) {
@@ -15318,7 +15352,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 // See if this is a call to TypedDict. We want to support
                 // recursive type references in a TypedDict call.
-                const callType = getTypeOfExpression(callLeftNode, EvaluatorFlags.DoNotSpecialize).type;
+                const callType = getTypeOfExpression(callLeftNode, EvaluatorFlags.CallBaseDefaults).type;
 
                 if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'TypedDict')) {
                     return true;
@@ -15333,13 +15367,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // path does not handle traditional type aliases, which are treated as
     // variables since they use normal variable assignment syntax.
     function getTypeOfTypeAlias(node: TypeAliasNode): Type {
-        return getTypeOfTypeAliasCommon(node, node.name, node.expression, node.typeParameters?.parameters, () => {
-            let typeParameters: TypeVarType[] = [];
-            if (node.typeParameters) {
-                typeParameters = evaluateTypeParameterList(node.typeParameters);
+        return getTypeOfTypeAliasCommon(
+            node,
+            node.name,
+            node.expression,
+            /* isPep695Syntax */ true,
+            node.typeParameters?.parameters,
+            () => {
+                let typeParameters: TypeVarType[] = [];
+                if (node.typeParameters) {
+                    typeParameters = evaluateTypeParameterList(node.typeParameters);
+                }
+                return typeParameters;
             }
-            return typeParameters;
-        });
+        );
     }
 
     // This function is common to the handling of "type" statements and explicit
@@ -15348,6 +15389,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         declNode: ParseNode,
         nameNode: NameNode,
         valueNode: ExpressionNode,
+        isPep695Syntax: boolean,
         typeParamNodes: TypeParameterNode[] | undefined,
         getTypeParamCallback: () => TypeVarType[] | undefined
     ) {
@@ -15363,6 +15405,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeAliasTypeVar.details.recursiveTypeAliasName = nameNode.value;
         const scopeId = ParseTreeUtils.getScopeIdForNode(nameNode);
         typeAliasTypeVar.details.recursiveTypeAliasScopeId = scopeId;
+        typeAliasTypeVar.details.recursiveTypeAliasIsPep695Syntax = isPep695Syntax;
         typeAliasTypeVar.scopeId = scopeId;
 
         // Write the type to the type cache. It will be replaced below.
@@ -15395,7 +15438,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isIncomplete = true;
         }
 
-        aliasType = transformTypeForTypeAlias(aliasType, nameNode, valueNode, typeParameters, typeParamNodes);
+        aliasType = transformTypeForTypeAlias(
+            aliasType,
+            nameNode,
+            valueNode,
+            isPep695Syntax,
+            typeParameters,
+            typeParamNodes
+        );
 
         if (isTypeAliasRecursive(typeAliasTypeVar, aliasType)) {
             addDiagnostic(
@@ -15530,7 +15580,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             EvaluatorFlags.DisallowNakedGeneric |
             EvaluatorFlags.DisallowTypeVarsWithScopeId |
             EvaluatorFlags.AssociateTypeVarsWithCurrentScope |
-            EvaluatorFlags.EnforceTypeVarVarianceConsistency;
+            EvaluatorFlags.EnforceTypeVarVarianceConsistency |
+            EvaluatorFlags.DisallowPep695TypeAlias;
         if (fileInfo.isStubFile) {
             exprFlags |= EvaluatorFlags.AllowForwardReferences;
         }
@@ -18277,13 +18328,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         continue;
                     }
 
-                    flags = EvaluatorFlags.DoNotSpecialize;
+                    flags = EvaluatorFlags.CallBaseDefaults;
                     break;
                 }
             } else if (parent.nodeType === ParseNodeType.Index) {
                 // The base expression of an index expression is not contextual.
                 if (nodeToEvaluate === parent.baseExpression) {
-                    flags = EvaluatorFlags.DoNotSpecialize;
+                    flags = EvaluatorFlags.IndexBaseDefaults;
                     break;
                 }
             } else if (parent.nodeType === ParseNodeType.StringList && nodeToEvaluate === parent.typeAnnotation) {
@@ -20115,7 +20166,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (resolvedDecl.inferredTypeSource?.nodeType === ParseNodeType.Call) {
                     const baseTypeResult = getTypeOfExpression(
                         resolvedDecl.inferredTypeSource.leftExpression,
-                        EvaluatorFlags.DoNotSpecialize
+                        EvaluatorFlags.CallBaseDefaults
                     );
                     const callType = baseTypeResult.type;
 
@@ -20188,7 +20239,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     inferredType = transformTypeForTypeAlias(
                         inferredType,
                         resolvedDecl.typeAliasName,
-                        resolvedDecl.node
+                        resolvedDecl.node,
+                        /* isPep695Syntax */ false
                     );
 
                     isUnambiguousType = true;
