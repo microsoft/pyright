@@ -648,7 +648,7 @@ function narrowTypeBasedOnClassPattern(
     pattern: PatternClassNode,
     isPositiveTest: boolean
 ): Type {
-    let exprType = evaluator.getTypeOfExpression(pattern.className, EvaluatorFlags.DoNotSpecialize).type;
+    let exprType = evaluator.getTypeOfExpression(pattern.className, EvaluatorFlags.CallBaseDefaults).type;
 
     // If this is a class (but not a type alias that refers to a class),
     // specialize it with Unknown type arguments.
@@ -1598,7 +1598,7 @@ function wrapTypeInList(evaluator: TypeEvaluator, node: ParseNode, type: Type): 
 }
 
 export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternClassNode) {
-    const exprType = evaluator.getTypeOfExpression(pattern.className, EvaluatorFlags.DoNotSpecialize).type;
+    const exprType = evaluator.getTypeOfExpression(pattern.className, EvaluatorFlags.CallBaseDefaults).type;
 
     if (isAnyOrUnknown(exprType)) {
         return;
@@ -1675,7 +1675,7 @@ export function getPatternSubtypeNarrowingCallback(
             if (ClassType.isBuiltIn(indexType, ['int', 'str'])) {
                 const unnarrowedReferenceTypeResult = evaluator.getTypeOfExpression(
                     subjectExpression.baseExpression,
-                    EvaluatorFlags.DoNotSpecialize
+                    EvaluatorFlags.CallBaseDefaults
                 );
                 const unnarrowedReferenceType = unnarrowedReferenceTypeResult.type;
 

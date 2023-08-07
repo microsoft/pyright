@@ -201,7 +201,7 @@ export function synthesizeDataClassMethods(
                     if (statement.rightExpression.nodeType === ParseNodeType.Call) {
                         const callTypeResult = evaluator.getTypeOfExpression(
                             statement.rightExpression.leftExpression,
-                            EvaluatorFlags.DoNotSpecialize
+                            EvaluatorFlags.CallBaseDefaults
                         );
                         const callType = callTypeResult.type;
 
@@ -461,7 +461,7 @@ export function synthesizeDataClassMethods(
                 if (statement.rightExpression.nodeType === ParseNodeType.Call) {
                     const callType = evaluator.getTypeOfExpression(
                         statement.rightExpression.leftExpression,
-                        EvaluatorFlags.DoNotSpecialize
+                        EvaluatorFlags.CallBaseDefaults
                     ).type;
 
                     if (

@@ -140,6 +140,18 @@ export const enum EvaluatorFlags {
 
     // Allow Unpack annotation for TypedDict.
     AllowUnpackedTypedDict = 1 << 23,
+
+    // Disallow a type alias defined with a "type" statement.
+    DisallowPep695TypeAlias = 1 << 24,
+
+    // Defaults used for evaluating the LHS of a call expression.
+    CallBaseDefaults = DoNotSpecialize | DisallowPep695TypeAlias,
+
+    // Defaults used for evaluating the LHS of a member access expression.
+    IndexBaseDefaults = DoNotSpecialize,
+
+    // Defaults used for evaluating the LHS of a member access expression.
+    MemberAccessBaseDefaults = DoNotSpecialize | DisallowPep695TypeAlias,
 }
 
 export interface TypeResult<T extends Type = Type> {

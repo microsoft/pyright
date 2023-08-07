@@ -741,6 +741,7 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
                     type.typeAliasInfo.name,
                     type.typeAliasInfo.fullName,
                     type.typeAliasInfo.typeVarScopeId,
+                    type.typeAliasInfo.isPep695Syntax,
                     type.typeAliasInfo.typeParameters,
                     type.typeAliasInfo.typeArguments
                 );
@@ -2072,6 +2073,7 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
             type.typeAliasInfo.name,
             type.typeAliasInfo.fullName,
             type.typeAliasInfo.typeVarScopeId,
+            type.typeAliasInfo.isPep695Syntax,
             type.typeAliasInfo.typeParameters,
             type.typeAliasInfo.typeArguments
         );
@@ -2123,6 +2125,7 @@ export function convertToInstantiable(type: Type, includeSubclasses = true): Typ
             type.typeAliasInfo.name,
             type.typeAliasInfo.fullName,
             type.typeAliasInfo.typeVarScopeId,
+            type.typeAliasInfo.isPep695Syntax,
             type.typeAliasInfo.typeParameters,
             type.typeAliasInfo.typeArguments
         );
@@ -3097,6 +3100,7 @@ class TypeVarTransformer {
                         type.typeAliasInfo.name,
                         type.typeAliasInfo.fullName,
                         type.typeAliasInfo.typeVarScopeId,
+                        type.typeAliasInfo.isPep695Syntax,
                         type.typeAliasInfo.typeParameters,
                         typeArgs
                     );
@@ -3258,6 +3262,7 @@ class TypeVarTransformer {
                   type.typeAliasInfo.name,
                   type.typeAliasInfo.fullName,
                   type.typeAliasInfo.typeVarScopeId,
+                  type.typeAliasInfo.isPep695Syntax,
                   type.typeAliasInfo.typeParameters,
                   newTypeArgs
               )
