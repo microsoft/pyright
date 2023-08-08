@@ -10,6 +10,7 @@
 
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { Localizer } from '../localization/localize';
+import { assignTypeToTypeVar } from './constraintSolver';
 import { DeclarationType } from './declaration';
 import { assignProperty } from './properties';
 import { TypeEvaluator } from './typeEvaluatorTypes';
@@ -24,9 +25,7 @@ import {
     ModuleType,
     ProtocolCompatibility,
     Type,
-    TypeVarType,
     UnknownType,
-    Variance,
 } from './types';
 import {
     applySolvedTypeVars,
@@ -642,41 +641,51 @@ export function assignModuleToProtocol(
     return typesAreConsistent;
 }
 
+// Given a (possibly-specialized) destType and an optional typeVarContext, creates
+// a new typeVarContext that combines the constraints from both the destType and
+// the destTypeVarContext.
 function createProtocolTypeVarContext(
     evaluator: TypeEvaluator,
     destType: ClassType,
     destTypeVarContext: TypeVarContext | undefined
-) {
+): TypeVarContext {
     const protocolTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
-    if (destType?.typeArguments) {
-        // Infer the type parameter variance because we need it below.
-        evaluator.inferTypeParameterVarianceForClass(destType);
 
-        let specializedDestType = destType;
-        if (destTypeVarContext) {
-            specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, {
-                useNarrowBoundOnly: true,
-            }) as ClassType;
+    let specializedDestType = destType;
+    if (destTypeVarContext) {
+        specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, {
+            useNarrowBoundOnly: true,
+        }) as ClassType;
+    }
+
+    destType.details.typeParameters.forEach((typeParam, index) => {
+        if (specializedDestType.typeArguments && index < specializedDestType.typeArguments.length) {
+            const typeArg = specializedDestType.typeArguments[index];
+
+            if (!requiresSpecialization(typeArg)) {
+                assignTypeToTypeVar(
+                    evaluator,
+                    typeParam,
+                    typeArg,
+                    /* diag */ undefined,
+                    protocolTypeVarContext,
+                    AssignTypeFlags.PopulatingExpectedType
+                );
+            }
         }
 
-        // Populate the typeVarContext with any concrete constraints that
-        // have already been solved.
-        destType.details.typeParameters.forEach((typeParam, index) => {
-            if (index < specializedDestType.typeArguments!.length) {
-                const typeArg = specializedDestType.typeArguments![index];
-
-                if (!requiresSpecialization(typeArg)) {
-                    const typeParamVariance = TypeVarType.getVariance(typeParam);
-                    protocolTypeVarContext.setTypeVarType(
-                        typeParam,
-                        typeParamVariance !== Variance.Contravariant ? typeArg : undefined,
-                        /* narrowBoundNoLiterals */ undefined,
-                        typeParamVariance !== Variance.Covariant ? typeArg : undefined
-                    );
-                }
+        if (destTypeVarContext) {
+            const entry = destTypeVarContext.getPrimarySignature().getTypeVar(typeParam);
+            if (entry) {
+                protocolTypeVarContext.setTypeVarType(
+                    typeParam,
+                    entry.narrowBound,
+                    entry.narrowBoundNoLiterals,
+                    entry.wideBound
+                );
             }
-        });
-    }
+        }
+    });
 
     return protocolTypeVarContext;
 }
