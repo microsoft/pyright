@@ -24047,6 +24047,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         effectiveSrcType.details.docString
                     );
                     remainingFunction.details.typeVarScopeId = effectiveSrcType.details.typeVarScopeId;
+                    remainingFunction.details.constructorTypeVarScopeId =
+                        effectiveSrcType.details.constructorTypeVarScopeId;
                     remainingParams.forEach((param) => {
                         FunctionType.addParameter(remainingFunction, param);
                     });
