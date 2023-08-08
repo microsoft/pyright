@@ -24217,7 +24217,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const expectedTypeArgType = typeVarContext.getPrimarySignature().getTypeVarType(typeParam);
 
                 if (expectedTypeArgType) {
-                    if (containsAnyRecursive(expectedTypeArgType) || isAnyOrUnknown(typeArg)) {
+                    if (isAnyOrUnknown(expectedTypeArgType) || isAnyOrUnknown(typeArg)) {
                         replacedTypeArg = true;
                         return expectedTypeArgType;
                     } else if (isClassInstance(expectedTypeArgType) && isClassInstance(typeArg)) {
@@ -24231,6 +24231,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (recursiveReplacement) {
                             replacedTypeArg = true;
                             return recursiveReplacement;
+                        }
+                    } else if (containsAnyRecursive(expectedTypeArgType)) {
+                        // If the expected type arg contains an Any, we can replace it with
+                        // a version that doesn't contain Any if the replacement doesn't violate
+                        // the variance of the type parameter.
+                        const variance = TypeVarType.getVariance(typeParam);
+                        const isSubtype = assignType(expectedTypeArgType, typeArg);
+                        const isSupertype = assignType(typeArg, expectedTypeArgType);
+
+                        if (
+                            (variance === Variance.Contravariant || isSubtype) &&
+                            (variance === Variance.Covariant || isSupertype)
+                        ) {
+                            replacedTypeArg = true;
+                            return expectedTypeArgType;
                         }
                     }
                 }
