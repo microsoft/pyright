@@ -438,7 +438,7 @@
         "typeAliasTypeParamInvalid": "Список параметров типа должен быть кортежем, содержащим только TypeVar, TypeVarTuple или ParamSpec",
         "typeAnnotationCall": "Выражение вызова не разрешено в выражении типа",
         "typeAnnotationVariable": "Переменная не разрешена в выражении типа",
-        "typeAnnotationWithCallable": "Type argument for \"type\" must be a class; callables are not supported",
+        "typeAnnotationWithCallable": "Аргумент типа для \"type\" должен быть классом. Вызываемые объекты не поддерживаются",
         "typeArgListExpected": "Ожидается ParamSpec, многоточие или список типов",
         "typeArgListNotAllowed": "Выражение списка не разрешено для аргумента этого типа",
         "typeArgsExpectingNone": "Для класса \"{name}\" не ожидается аргументов типа",

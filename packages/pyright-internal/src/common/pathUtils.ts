@@ -26,6 +26,7 @@ import {
 } from './stringUtils';
 
 let _fsCaseSensitivity: boolean | undefined = undefined;
+let _underTest: boolean = false;
 
 export interface FileSpec {
     // File specs can contain wildcard characters (**, *, ?). This
@@ -975,13 +976,22 @@ export function normalizePathCase(fs: FileSystem, path: string) {
     return path.toLowerCase();
 }
 
+export function setTestingMode(underTest: boolean) {
+    _underTest = underTest;
+}
+
+const isFileSystemCaseSensitiveMap = new WeakMap<FileSystem, boolean>();
+
 export function isFileSystemCaseSensitive(fs: FileSystem) {
-    if (_fsCaseSensitivity !== undefined) {
+    if (!_underTest && _fsCaseSensitivity !== undefined) {
         return _fsCaseSensitivity;
     }
 
-    _fsCaseSensitivity = isFileSystemCaseSensitiveInternal(fs);
-    return _fsCaseSensitivity;
+    if (!isFileSystemCaseSensitiveMap.has(fs)) {
+        _fsCaseSensitivity = isFileSystemCaseSensitiveInternal(fs);
+        isFileSystemCaseSensitiveMap.set(fs, _fsCaseSensitivity);
+    }
+    return !!isFileSystemCaseSensitiveMap.get(fs);
 }
 
 export function isFileSystemCaseSensitiveInternal(fs: FileSystem) {
@@ -1005,7 +1015,11 @@ export function isFileSystemCaseSensitiveInternal(fs: FileSystem) {
     } finally {
         if (filePath) {
             // remove temp file created
-            fs.unlinkSync(filePath);
+            try {
+                fs.unlinkSync(filePath);
+            } catch (e: any) {
+                /* ignored */
+            }
         }
     }
 }

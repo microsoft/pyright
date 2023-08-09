@@ -438,7 +438,7 @@
         "typeAliasTypeParamInvalid": "类型参数列表必须是仅包含 TypeVar、TypeVarTuple 或 ParamSpec 的元组",
         "typeAnnotationCall": "类型表达式中不允许使用调用表达式",
         "typeAnnotationVariable": "类型表达式中不允许使用变量",
-        "typeAnnotationWithCallable": "Type argument for \"type\" must be a class; callables are not supported",
+        "typeAnnotationWithCallable": "“type”的类型参数必须为类; 不支持可调用项",
         "typeArgListExpected": "应为 ParamSpec、省略号或类型列表",
         "typeArgListNotAllowed": "不允许此类型参数使用列表表达式",
         "typeArgsExpectingNone": "类“{name}”不应有类型参数",

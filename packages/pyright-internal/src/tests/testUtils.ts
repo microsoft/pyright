@@ -19,13 +19,15 @@ import { IPythonMode } from '../analyzer/sourceFile';
 import { NameTypeWalker } from '../analyzer/testWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { cloneDiagnosticRuleSet, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
-import { ConsoleWithLogLevel } from '../common/console';
+import { ConsoleWithLogLevel, NullConsole } from '../common/console';
 import { fail } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { FullAccessHost } from '../common/fullAccessHost';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { ParseOptions, Parser, ParseResults } from '../parser/parser';
+import { ServiceProvider } from '../common/serviceProvider';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 
 // This is a bit gross, but it's necessary to allow the fallback typeshed
 // directory to be located when running within the jest environment. This
@@ -161,8 +163,10 @@ export function typeAnalyzeSampleFiles(
 
     const fs = createFromRealFileSystem();
     const importResolver = new ImportResolver(fs, configOptions, new FullAccessHost(fs));
+    const serviceProvider = new ServiceProvider();
+    serviceProvider.add(ServiceKeys.console, console || new NullConsole());
 
-    const program = new Program(importResolver, configOptions, console);
+    const program = new Program(importResolver, configOptions, serviceProvider);
     const filePaths = fileNames.map((name) => resolveSampleFilePath(name));
     program.setTrackedFiles(filePaths);
 
