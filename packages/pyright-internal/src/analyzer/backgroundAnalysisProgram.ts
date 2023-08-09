@@ -11,14 +11,15 @@ import { CancellationToken } from 'vscode-languageserver';
 
 import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
-import { ConsoleInterface } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { Range } from '../common/textRange';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
 import { CacheManager } from './cacheManager';
 import { ImportResolver } from './importResolver';
-import { MaxAnalysisTime, OpenFileOptions, Program, ISourceFileFactory } from './program';
+import { MaxAnalysisTime, OpenFileOptions, Program } from './program';
+import { ServiceProvider } from '../common/serviceProvider';
+import '../common/serviceProviderExtensions';
 
 export enum InvalidatedReason {
     Reanalyzed,
@@ -35,21 +36,19 @@ export class BackgroundAnalysisProgram {
 
     constructor(
         protected readonly serviceId: string,
-        private readonly _console: ConsoleInterface,
+        private readonly _serviceProvider: ServiceProvider,
         private _configOptions: ConfigOptions,
         private _importResolver: ImportResolver,
         private _backgroundAnalysis?: BackgroundAnalysisBase,
         private readonly _maxAnalysisTime?: MaxAnalysisTime,
         private readonly _disableChecker?: boolean,
-        cacheManager?: CacheManager,
-        sourceFileFactory?: ISourceFileFactory
+        cacheManager?: CacheManager
     ) {
         this._program = new Program(
             this.importResolver,
             this.configOptions,
-            this._console,
+            this._serviceProvider,
             undefined,
-            sourceFileFactory,
             this._disableChecker,
             cacheManager,
             serviceId
@@ -162,7 +161,7 @@ export class BackgroundAnalysisProgram {
             this._maxAnalysisTime,
             this._configOptions,
             this._onAnalysisCompletion,
-            this._console,
+            this._serviceProvider.console(),
             token
         );
     }
@@ -198,7 +197,7 @@ export class BackgroundAnalysisProgram {
             /* maxTime */ undefined,
             this._configOptions,
             this._onAnalysisCompletion,
-            this._console,
+            this._serviceProvider.console(),
             token
         );
         return this._program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
@@ -273,7 +272,7 @@ export class BackgroundAnalysisProgram {
 
 export type BackgroundAnalysisProgramFactory = (
     serviceId: string,
-    console: ConsoleInterface,
+    serviceProvider: ServiceProvider,
     configOptions: ConfigOptions,
     importResolver: ImportResolver,
     backgroundAnalysis?: BackgroundAnalysisBase,

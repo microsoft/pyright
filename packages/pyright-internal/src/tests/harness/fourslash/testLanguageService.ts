@@ -35,12 +35,13 @@ import {
 } from '../../../workspaceFactory';
 import { TestAccessHost } from '../testAccessHost';
 import { HostSpecificFeatures } from './testState';
+import { ServiceProvider } from '../../../common/serviceProvider';
 
 export class TestFeatures implements HostSpecificFeatures {
     importResolverFactory: ImportResolverFactory = AnalyzerService.createImportResolver;
     backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory = (
         serviceId: string,
-        console: ConsoleInterface,
+        serviceProvider: ServiceProvider,
         configOptions: ConfigOptions,
         importResolver: ImportResolver,
         backgroundAnalysis?: BackgroundAnalysisBase,
@@ -49,7 +50,7 @@ export class TestFeatures implements HostSpecificFeatures {
     ) =>
         new BackgroundAnalysisProgram(
             serviceId,
-            console,
+            serviceProvider,
             configOptions,
             importResolver,
             backgroundAnalysis,

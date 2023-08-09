@@ -49,10 +49,9 @@ export namespace SupportUriToPathMapping {
     }
 }
 
-export class PyrightFileSystem
-    extends ReadOnlyAugmentedFileSystem
-    implements SupportPartialStubs, SupportUriToPathMapping
-{
+export interface IPyrightFileSystem extends FileSystem, SupportPartialStubs, SupportUriToPathMapping {}
+
+export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IPyrightFileSystem {
     // Root paths processed
     private readonly _rootSearched = new Set<string>();
 

@@ -37,6 +37,8 @@ import { LanguageServerBase, ServerSettings } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 import { Workspace } from './workspaceFactory';
 import { PyrightFileSystem } from './pyrightFileSystem';
+import { ServiceProvider } from './common/serviceProvider';
+import { ServiceKeys } from './common/serviceProviderExtensions';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
 
@@ -55,13 +57,17 @@ export class PyrightServer extends LanguageServerBase {
         const console = new ConsoleWithLogLevel(connection.console);
         const fileWatcherProvider = new WorkspaceFileWatcherProvider();
         const fileSystem = createFromRealFileSystem(console, fileWatcherProvider);
+        const serviceProvider = new ServiceProvider([
+            { key: ServiceKeys.fs, value: new PyrightFileSystem(fileSystem) },
+            { key: ServiceKeys.console, value: console },
+        ]);
 
         super(
             {
                 productName: 'Pyright',
                 rootDirectory,
                 version,
-                fileSystem: new PyrightFileSystem(fileSystem),
+                serviceProvider,
                 fileWatcherHandler: fileWatcherProvider,
                 cancellationProvider: new FileBasedCancellationProvider('bg'),
                 maxAnalysisTimeInForeground,

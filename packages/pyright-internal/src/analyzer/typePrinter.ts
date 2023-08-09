@@ -169,7 +169,7 @@ export function printLiteralValue(type: ClassType, quotation = "'"): string {
                 literalStr = `'${literalStr
                     .substring(1, literalStr.length - 1)
                     .replace(escapedDoubleQuoteRegEx, '"')
-                    .replace(singleTickRegEx, "\\'")}'`;
+                    .replace(singleTickRegEx, "\\'")}'`; // CodeQL [SM02383] Code ql is just wrong here. We don't need to replace backslashes.
             }
         }
     } else if (typeof literalValue === 'boolean') {

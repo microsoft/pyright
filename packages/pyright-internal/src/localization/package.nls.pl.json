@@ -438,7 +438,7 @@
         "typeAliasTypeParamInvalid": "Lista parametrów typu musi być krotką zawierającą tylko parametry TypeVar, TypeVarTuple lub ParamSpec",
         "typeAnnotationCall": "Wyrażenie wywołania jest niedozwolone w wyrażeniu typu",
         "typeAnnotationVariable": "Zmienna niedozwolona w wyrażeniu typu",
-        "typeAnnotationWithCallable": "Type argument for \"type\" must be a class; callables are not supported",
+        "typeAnnotationWithCallable": "Argument typu „type” musi być klasą; elementy wywoływane nie są obsługiwane",
         "typeArgListExpected": "Oczekiwano parametru ParamSpec, wielokropka lub listy typów",
         "typeArgListNotAllowed": "Wyrażenie listy jest niedozwolone dla tego argumentu typu",
         "typeArgsExpectingNone": "Oczekiwano braku argumentów typu dla klasy „{name}”",

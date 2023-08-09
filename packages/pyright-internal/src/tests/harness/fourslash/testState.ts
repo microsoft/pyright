@@ -46,6 +46,7 @@ import {
     getFileSpec,
     normalizePath,
     normalizeSlashes,
+    setTestingMode,
 } from '../../../common/pathUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../../../common/positionUtils';
 import { DocumentRange, Position, Range as PositionRange, TextRange, rangesAreEqual } from '../../../common/textRange';
@@ -210,6 +211,8 @@ export class TestState {
         if (!delayFileInitialization) {
             this.initializeFiles();
         }
+
+        setTestingMode(true);
     }
 
     get importResolver(): ImportResolver {
@@ -951,7 +954,7 @@ export class TestState {
 
             const expectedCompletions = map[markerName].completions;
             const provider = this.getCompletionResults(this, marker, docFormat, abbrMap);
-            const results = provider.getCompletions();
+            const results = await provider.getCompletions();
             if (results) {
                 if (verifyMode === 'exact') {
                     if (results.items.length !== expectedCompletions.length) {
@@ -1472,7 +1475,7 @@ export class TestState {
                 readonly importName: string;
             };
         }
-    ): { getCompletions(): CompletionList | null; resolveCompletionItem(item: CompletionItem): void } {
+    ): { getCompletions(): Promise<CompletionList | null>; resolveCompletionItem(item: CompletionItem): void } {
         const filePath = marker.fileName;
         const completionPosition = this.convertOffsetToPosition(filePath, marker.position);
 
@@ -1482,7 +1485,7 @@ export class TestState {
             lazyEdit: false,
         };
 
-        return new CompletionProvider(
+        const provider = new CompletionProvider(
             this.program,
             this.workspace.rootPath,
             filePath,
@@ -1490,6 +1493,11 @@ export class TestState {
             options,
             CancellationToken.None
         );
+
+        return {
+            getCompletions: () => Promise.resolve(provider.getCompletions()),
+            resolveCompletionItem: (i) => provider.resolveCompletionItem(i),
+        };
     }
 
     protected getFileContent(fileName: string): string {

@@ -17,6 +17,7 @@ import { ConsoleInterface } from './common/console';
 import { FileSystem } from './common/fileSystem';
 import { FullAccessHost } from './common/fullAccessHost';
 import { Host } from './common/host';
+import { ServiceProvider } from './common/serviceProvider';
 
 export class BackgroundAnalysis extends BackgroundAnalysisBase {
     constructor(console: ConsoleInterface) {
@@ -35,8 +36,8 @@ export class BackgroundAnalysis extends BackgroundAnalysisBase {
 }
 
 export class BackgroundAnalysisRunner extends BackgroundAnalysisRunnerBase {
-    constructor() {
-        super();
+    constructor(serviceProvider: ServiceProvider) {
+        super(serviceProvider);
     }
 
     protected override createHost(): Host {

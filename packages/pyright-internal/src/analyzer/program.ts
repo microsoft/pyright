@@ -54,6 +54,9 @@ import { PrintTypeFlags } from './typePrinter';
 import { TypeStubWriter } from './typeStubWriter';
 import { Type } from './types';
 import { FileSystem } from '../common/fileSystem';
+import { ServiceProvider } from '../common/serviceProvider';
+import '../common/serviceProviderExtensions';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 
 const _maxImportDepth = 256;
 
@@ -129,34 +132,6 @@ export interface ISourceFileFactory {
     ): SourceFile;
 }
 
-const DefaultSourceFileFactory: ISourceFileFactory = {
-    createSourceFile(
-        fs: FileSystem,
-        filePath: string,
-        moduleName: string,
-        isThirdPartyImport: boolean,
-        isThirdPartyPyTypedPresent: boolean,
-        editMode: boolean,
-        console?: ConsoleInterface,
-        logTracker?: LogTracker,
-        realFilePath?: string,
-        ipythonMode?: IPythonMode
-    ) {
-        return new SourceFile(
-            fs,
-            filePath,
-            moduleName,
-            isThirdPartyImport,
-            isThirdPartyPyTypedPresent,
-            editMode,
-            console,
-            logTracker,
-            realFilePath,
-            ipythonMode
-        );
-    },
-};
-
 export interface OpenFileOptions {
     isTracked: boolean;
     ipythonMode: IPythonMode;
@@ -194,18 +169,17 @@ export class Program {
     constructor(
         initialImportResolver: ImportResolver,
         initialConfigOptions: ConfigOptions,
-        console?: ConsoleInterface,
+        private _serviceProvider: ServiceProvider,
         logTracker?: LogTracker,
-        sourceFileFactory?: ISourceFileFactory,
         private _disableChecker?: boolean,
         cacheManager?: CacheManager,
         id?: string
     ) {
-        this._console = console || new StandardConsole();
-        this._logTracker = logTracker ?? new LogTracker(console, 'FG');
+        this._console = _serviceProvider.tryGet(ServiceKeys.console) || new StandardConsole();
+        this._logTracker = logTracker ?? new LogTracker(this._console, 'FG');
         this._importResolver = initialImportResolver;
         this._configOptions = initialConfigOptions;
-        this._sourceFileFactory = sourceFileFactory ?? DefaultSourceFileFactory;
+        this._sourceFileFactory = _serviceProvider.sourceFileFactory();
 
         this._cacheManager = cacheManager ?? new CacheManager();
         this._cacheManager.registerCacheOwner(this);
@@ -968,7 +942,7 @@ export class Program {
         const program = new Program(
             this._importResolver,
             this._configOptions,
-            this._console,
+            this._serviceProvider,
             new LogTracker(this._console, 'Cloned')
         );
 
