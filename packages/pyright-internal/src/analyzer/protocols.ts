@@ -663,13 +663,18 @@ function createProtocolTypeVarContext(
             const typeArg = specializedDestType.typeArguments[index];
 
             if (!requiresSpecialization(typeArg)) {
+                // If the caller hasn't provided a destTypeVarContext, assume that
+                // the destType represents an "expected type" and populate the
+                // typeVarContext accordingly. For example, if the destType is
+                // MyProto[Literal[0]], we want to constrain the type argument to be
+                // no wider than Literal[0] if the type param is not contravariant.
                 assignTypeToTypeVar(
                     evaluator,
                     typeParam,
                     typeArg,
                     /* diag */ undefined,
                     protocolTypeVarContext,
-                    AssignTypeFlags.PopulatingExpectedType
+                    destTypeVarContext ? AssignTypeFlags.Default : AssignTypeFlags.PopulatingExpectedType
                 );
             }
         }
