@@ -30,3 +30,12 @@ class SupportsGetItem(Protocol[T]):
 
 def func3(a: tuple[Any, ...]):
     x: SupportsGetItem[Literal["a"]] = a
+
+
+def func4(x: SupportsGetItem[T]) -> T:
+    return x[0]
+
+
+def func5(x: list[int] | list[str]) -> None:
+    y = func4(x)
+    reveal_type(y, expected_text="int | str")
