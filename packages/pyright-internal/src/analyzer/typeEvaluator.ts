@@ -3881,7 +3881,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 assignTypeToExpression(
                     target.valueExpression,
                     type,
-                    /* isIncomplete */ false,
+                    isTypeIncomplete,
                     srcExpr,
                     ignoreEmptyContainers,
                     allowAssignmentToFinalVar,
