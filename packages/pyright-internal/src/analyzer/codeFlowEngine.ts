@@ -274,7 +274,7 @@ export function getCodeFlowEngine(
                         'setIncompleteSubtype can be called only on a valid incomplete cache entry: ' +
                             `prev cache entry?: ${!cachedEntry} ` +
                             `index=${index} ` +
-                            `isPending=${isPending}` +
+                            `isPending=${isPending} ` +
                             `evaluationCount=${evaluationCount}`
                     );
                 }
@@ -956,16 +956,16 @@ export function getCodeFlowEngine(
                                             ? UnknownType.create(/* isIncomplete */ true)
                                             : NeverType.createNever()),
                                     flowTypeResult.isIncomplete,
-                                    /* isPending */ false,
+                                    /* isPending */ firstAntecedentTypeIsPending,
                                     entryEvaluationCount + 1
                                 );
                             } catch (e) {
-                                setIncompleteSubtype(
+                                cacheEntry = setIncompleteSubtype(
                                     loopNode,
                                     index,
                                     UnknownType.create(/* isIncomplete */ true),
                                     /* isIncomplete */ true,
-                                    /* isPending */ false,
+                                    /* isPending */ firstAntecedentTypeIsPending,
                                     entryEvaluationCount + 1
                                 );
                                 throw e;
