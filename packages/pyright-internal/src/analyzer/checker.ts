@@ -2714,7 +2714,7 @@ export class Checker extends ParseTreeWalker {
                     UnknownType.create();
 
                 resultingExceptionType = mapSubtypes(iterableType, (subtype) => {
-                    if (isAnyOrUnknown(subtype)) {
+                    if (isAnyOrUnknown(subtype) || isNever(subtype)) {
                         return subtype;
                     }
 
@@ -6319,7 +6319,7 @@ export class Checker extends ParseTreeWalker {
                 });
 
                 // Were all of the exception types overridden?
-                if (typesOfThisExcept.length === overriddenExceptionCount) {
+                if (typesOfThisExcept.length > 0 && typesOfThisExcept.length === overriddenExceptionCount) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
