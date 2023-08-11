@@ -416,7 +416,6 @@ const nonSubscriptableBuiltinTypes: Map<string, PythonVersion> = new Map([
 const typePromotions: Map<string, string[]> = new Map([
     ['builtins.float', ['builtins.int']],
     ['builtins.complex', ['builtins.float', 'builtins.int']],
-    ['builtins.bytes', ['builtins.bytearray', 'builtins.memoryview']],
 ]);
 
 interface SymbolResolutionStackEntry {
