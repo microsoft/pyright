@@ -340,37 +340,43 @@ export function makeInferenceContext(
 }
 
 // Calls a callback for each subtype and combines the results
-// into a final type.
+// into a final type. It performs no memory allocations if the
+// transformed type is the same as the original.
 export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefined): Type {
     if (isUnion(type)) {
-        const newSubtypes: Type[] = [];
-        let typeChanged = false;
-
-        type.subtypes.forEach((subtype) => {
+        for (let i = 0; i < type.subtypes.length; i++) {
+            const subtype = type.subtypes[i];
             const transformedType = callback(subtype);
-            if (transformedType) {
-                if (transformedType !== subtype) {
-                    newSubtypes.push(addConditionToType(transformedType, getTypeCondition(type)));
-                    typeChanged = true;
-                } else {
-                    newSubtypes.push(subtype);
+
+            // Avoid doing any memory allocations until a change is detected.
+            if (subtype !== transformedType) {
+                const typesToCombine: Type[] = type.subtypes.slice(0, i);
+
+                // Create a helper lambda that accumulates transformed subtypes.
+                const accumulateSubtype = (newSubtype: Type | undefined) => {
+                    if (newSubtype) {
+                        typesToCombine.push(addConditionToType(newSubtype, getTypeCondition(type)));
+                    }
+                };
+
+                accumulateSubtype(transformedType);
+
+                for (i++; i < type.subtypes.length; i++) {
+                    accumulateSubtype(callback(type.subtypes[i]));
                 }
-            } else {
-                typeChanged = true;
+
+                const newType = combineTypes(typesToCombine);
+
+                // Do our best to retain type aliases.
+                if (newType.category === TypeCategory.Union) {
+                    UnionType.addTypeAliasSource(newType, type);
+                }
+
+                return newType;
             }
-        });
-
-        if (!typeChanged) {
-            return type;
         }
 
-        const newType = combineTypes(newSubtypes);
-
-        // Do our best to retain type aliases.
-        if (newType.category === TypeCategory.Union) {
-            UnionType.addTypeAliasSource(newType, type);
-        }
-        return newType;
+        return type;
     }
 
     const transformedSubtype = callback(type);
@@ -735,6 +741,7 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
                     type.typeAliasInfo.name,
                     type.typeAliasInfo.fullName,
                     type.typeAliasInfo.typeVarScopeId,
+                    type.typeAliasInfo.isPep695Syntax,
                     type.typeAliasInfo.typeParameters,
                     type.typeAliasInfo.typeArguments
                 );
@@ -1022,7 +1029,21 @@ export function populateTypeVarContextForSelfType(
     selfClass: ClassType
 ) {
     const synthesizedSelfTypeVar = synthesizeTypeVarForSelfCls(contextClassType, /* isClsParam */ false);
-    typeVarContext.setTypeVarType(synthesizedSelfTypeVar, convertToInstance(selfClass));
+    const selfInstance = convertToInstance(selfClass);
+
+    // We can't call stripLiteralValue here because that method requires the type evaluator.
+    // Instead, we'll do a simplified version of it here.
+    const selfWithoutLiteral = mapSubtypes(selfInstance, (subtype) => {
+        if (isClass(subtype)) {
+            if (subtype.literalValue !== undefined) {
+                return ClassType.cloneWithLiteral(subtype, /* value */ undefined);
+            }
+        }
+
+        return subtype;
+    });
+
+    typeVarContext.setTypeVarType(synthesizedSelfTypeVar, selfInstance, selfWithoutLiteral);
 }
 
 // Looks for duplicate function types within the type and ensures that
@@ -1464,15 +1485,11 @@ export function* getClassIterator(classType: Type, flags = ClassIteratorFlags.De
     return undefined;
 }
 
-export function getClassFieldsRecursive(classType: ClassType, skipInitialClass = false): Map<string, ClassMember> {
+export function getClassFieldsRecursive(classType: ClassType): Map<string, ClassMember> {
     const memberMap = new Map<string, ClassMember>();
 
     // Evaluate the types of members from the end of the MRO to the beginning.
     ClassType.getReverseMro(classType).forEach((mroClass) => {
-        if (skipInitialClass && isClass(mroClass) && ClassType.isSameGenericClass(mroClass, classType)) {
-            return;
-        }
-
         const specializedMroClass = partiallySpecializeType(mroClass, classType);
 
         if (isClass(specializedMroClass)) {
@@ -2056,6 +2073,7 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
             type.typeAliasInfo.name,
             type.typeAliasInfo.fullName,
             type.typeAliasInfo.typeVarScopeId,
+            type.typeAliasInfo.isPep695Syntax,
             type.typeAliasInfo.typeParameters,
             type.typeAliasInfo.typeArguments
         );
@@ -2107,6 +2125,7 @@ export function convertToInstantiable(type: Type, includeSubclasses = true): Typ
             type.typeAliasInfo.name,
             type.typeAliasInfo.fullName,
             type.typeAliasInfo.typeVarScopeId,
+            type.typeAliasInfo.isPep695Syntax,
             type.typeAliasInfo.typeParameters,
             type.typeAliasInfo.typeArguments
         );
@@ -3081,6 +3100,7 @@ class TypeVarTransformer {
                         type.typeAliasInfo.name,
                         type.typeAliasInfo.fullName,
                         type.typeAliasInfo.typeVarScopeId,
+                        type.typeAliasInfo.isPep695Syntax,
                         type.typeAliasInfo.typeParameters,
                         typeArgs
                     );
@@ -3242,6 +3262,7 @@ class TypeVarTransformer {
                   type.typeAliasInfo.name,
                   type.typeAliasInfo.fullName,
                   type.typeAliasInfo.typeVarScopeId,
+                  type.typeAliasInfo.isPep695Syntax,
                   type.typeAliasInfo.typeParameters,
                   newTypeArgs
               )

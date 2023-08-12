@@ -2714,7 +2714,7 @@ export class Checker extends ParseTreeWalker {
                     UnknownType.create();
 
                 resultingExceptionType = mapSubtypes(iterableType, (subtype) => {
-                    if (isAnyOrUnknown(subtype)) {
+                    if (isAnyOrUnknown(subtype) || isNever(subtype)) {
                         return subtype;
                     }
 
@@ -4313,7 +4313,11 @@ export class Checker extends ParseTreeWalker {
                     // If the function consists entirely of "...", assume that it's
                     // an abstract method or a protocol method and don't require that
                     // the return type matches. This check can also be skipped for an overload.
-                    if (!ParseTreeUtils.isSuiteEmpty(node.suite) && !FunctionType.isOverloaded(functionType)) {
+                    if (
+                        !ParseTreeUtils.isSuiteEmpty(node.suite) &&
+                        !FunctionType.isOverloaded(functionType) &&
+                        !FunctionType.isAsync(functionType)
+                    ) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -5177,7 +5181,7 @@ export class Checker extends ParseTreeWalker {
             return getClassFieldsRecursive(specializedBaseClass);
         });
 
-        const childClassSymbolMap = getClassFieldsRecursive(classType, /* skipInitialClass */ true);
+        const childClassSymbolMap = getClassFieldsRecursive(classType);
 
         for (let symbolMapBaseIndex = 1; symbolMapBaseIndex < baseClassSymbolMaps.length; symbolMapBaseIndex++) {
             const baseSymbolMap = baseClassSymbolMaps[symbolMapBaseIndex];
@@ -6315,7 +6319,7 @@ export class Checker extends ParseTreeWalker {
                 });
 
                 // Were all of the exception types overridden?
-                if (typesOfThisExcept.length === overriddenExceptionCount) {
+                if (typesOfThisExcept.length > 0 && typesOfThisExcept.length === overriddenExceptionCount) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,

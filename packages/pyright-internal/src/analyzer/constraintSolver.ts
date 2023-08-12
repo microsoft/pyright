@@ -365,7 +365,7 @@ export function assignTypeToTypeVar(
                     )
                 ) {
                     if (!typeVarContext.isLocked() && isTypeVarInScope) {
-                        typeVarContext.setTypeVarType(destType, constrainedType);
+                        updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curWideTypeBound);
                     }
                 } else {
                     diag?.addMessage(
@@ -380,7 +380,7 @@ export function assignTypeToTypeVar(
         } else {
             // Assign the type to the type var.
             if (!typeVarContext.isLocked() && isTypeVarInScope) {
-                typeVarContext.setTypeVarType(destType, constrainedType);
+                updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curWideTypeBound);
             }
         }
 
@@ -708,29 +708,49 @@ export function assignTypeToTypeVar(
     }
 
     if (!typeVarContext.isLocked() && isTypeVarInScope) {
-        let newNarrowTypeBoundNoLiterals: Type | undefined;
-
-        if (
-            newNarrowTypeBound &&
-            (flags & (AssignTypeFlags.PopulatingExpectedType | AssignTypeFlags.RetainLiteralsForTypeVar)) === 0
-        ) {
-            const strippedLiteral = isVariadicTypeVar(destType)
-                ? stripLiteralValueForUnpackedTuple(evaluator, newNarrowTypeBound)
-                : evaluator.stripLiteralValue(newNarrowTypeBound);
-
-            // Strip the literals from the narrow type bound and see if it is still
-            // narrower than the wide bound.
-            if (strippedLiteral !== newNarrowTypeBound) {
-                if (!newWideTypeBound || evaluator.assignType(newWideTypeBound, strippedLiteral)) {
-                    newNarrowTypeBoundNoLiterals = strippedLiteral;
-                }
-            }
-        }
-
-        typeVarContext.setTypeVarType(destType, newNarrowTypeBound, newNarrowTypeBoundNoLiterals, newWideTypeBound);
+        updateTypeVarType(
+            evaluator,
+            typeVarContext,
+            destType,
+            newNarrowTypeBound,
+            newWideTypeBound,
+            (flags & (AssignTypeFlags.PopulatingExpectedType | AssignTypeFlags.RetainLiteralsForTypeVar)) !== 0
+        );
     }
 
     return true;
+}
+
+// Updates the narrow and wide type bounds for a type variable. It also calculates the
+// narrowTypeBoundNoLiterals, which is a variant of the narrow type bound that has
+// literals stripped. By default, the constraint solver always uses the "no literals"
+// type in its solutions unless the version with literals is required to satisfy
+// the wide type bound.
+export function updateTypeVarType(
+    evaluator: TypeEvaluator,
+    typeVarContext: TypeVarContext,
+    destType: TypeVarType,
+    narrowTypeBound: Type | undefined,
+    wideTypeBound: Type | undefined,
+    forceRetainLiterals = false
+) {
+    let narrowTypeBoundNoLiterals: Type | undefined;
+
+    if (narrowTypeBound && !forceRetainLiterals) {
+        const strippedLiteral = isVariadicTypeVar(destType)
+            ? stripLiteralValueForUnpackedTuple(evaluator, narrowTypeBound)
+            : evaluator.stripLiteralValue(narrowTypeBound);
+
+        // Strip the literals from the narrow type bound and see if it is still
+        // narrower than the wide bound.
+        if (strippedLiteral !== narrowTypeBound) {
+            if (!wideTypeBound || evaluator.assignType(wideTypeBound, strippedLiteral)) {
+                narrowTypeBoundNoLiterals = strippedLiteral;
+            }
+        }
+    }
+
+    typeVarContext.setTypeVarType(destType, narrowTypeBound, narrowTypeBoundNoLiterals, wideTypeBound);
 }
 
 function assignTypeToParamSpec(
@@ -806,6 +826,7 @@ function assignTypeToParamSpec(
                         FunctionType.addParameter(newFunction, param);
                     });
                     newFunction.details.typeVarScopeId = srcType.details.typeVarScopeId;
+                    newFunction.details.constructorTypeVarScopeId = srcType.details.constructorTypeVarScopeId;
                     newFunction.details.paramSpecTypeVarScopeId = srcType.details.paramSpecTypeVarScopeId;
                     newFunction.details.docString = srcType.details.docString;
                     newFunction.details.paramSpec = srcType.details.paramSpec;
@@ -846,7 +867,7 @@ export function populateTypeVarContextBasedOnExpectedType(
 ): boolean {
     if (isAny(expectedType)) {
         type.details.typeParameters.forEach((typeParam) => {
-            typeVarContext.setTypeVarType(typeParam, expectedType);
+            updateTypeVarType(evaluator, typeVarContext, typeParam, expectedType, expectedType);
         });
         return true;
     }
@@ -891,10 +912,11 @@ export function populateTypeVarContextBasedOnExpectedType(
                 if (typeArgValue) {
                     const variance = TypeVarType.getVariance(entry.typeVar);
 
-                    typeVarContext.setTypeVarType(
+                    updateTypeVarType(
+                        evaluator,
+                        typeVarContext,
                         entry.typeVar,
                         variance === Variance.Covariant ? undefined : typeArgValue,
-                        /* narrowBoundNoLiterals */ undefined,
                         variance === Variance.Contravariant ? undefined : typeArgValue
                     );
 
@@ -1016,10 +1038,11 @@ export function populateTypeVarContextBasedOnExpectedType(
                             typeArgValue = UnknownType.create();
                         }
 
-                        typeVarContext.setTypeVarType(
+                        updateTypeVarType(
+                            evaluator,
+                            typeVarContext,
                             targetTypeVar,
                             variance === Variance.Covariant ? undefined : typeArgValue,
-                            /* narrowBoundNoLiterals */ undefined,
                             variance === Variance.Contravariant ? undefined : typeArgValue
                         );
                     } else {

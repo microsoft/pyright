@@ -270,7 +270,13 @@ export function getCodeFlowEngine(
             ) {
                 const cachedEntry = flowNodeTypeCache.cache.get(flowNode.id);
                 if (cachedEntry === undefined || !isIncompleteType(cachedEntry)) {
-                    fail('setIncompleteSubtype can be called only on a valid incomplete cache entry');
+                    fail(
+                        'setIncompleteSubtype can be called only on a valid incomplete cache entry: ' +
+                            `prev cache entry?: ${!cachedEntry} ` +
+                            `index=${index} ` +
+                            `isPending=${isPending} ` +
+                            `evaluationCount=${evaluationCount}`
+                    );
                 }
 
                 const incompleteEntries = cachedEntry.incompleteSubtypes;
@@ -950,16 +956,16 @@ export function getCodeFlowEngine(
                                             ? UnknownType.create(/* isIncomplete */ true)
                                             : NeverType.createNever()),
                                     flowTypeResult.isIncomplete,
-                                    /* isPending */ false,
+                                    /* isPending */ firstAntecedentTypeIsPending,
                                     entryEvaluationCount + 1
                                 );
                             } catch (e) {
-                                setIncompleteSubtype(
+                                cacheEntry = setIncompleteSubtype(
                                     loopNode,
                                     index,
                                     UnknownType.create(/* isIncomplete */ true),
                                     /* isIncomplete */ true,
-                                    /* isPending */ false,
+                                    /* isPending */ firstAntecedentTypeIsPending,
                                     entryEvaluationCount + 1
                                 );
                                 throw e;
@@ -1446,7 +1452,7 @@ export function getCodeFlowEngine(
             let subtypeCount = 0;
 
             // Evaluate the call base type.
-            const callTypeResult = evaluator.getTypeOfExpression(node.leftExpression, EvaluatorFlags.DoNotSpecialize);
+            const callTypeResult = evaluator.getTypeOfExpression(node.leftExpression, EvaluatorFlags.CallBaseDefaults);
             const callType = callTypeResult.type;
 
             doForEachSubtype(callType, (callSubtype) => {
@@ -1689,7 +1695,7 @@ export function getCodeFlowEngine(
                     // If it's an __aexit__ method, its return type will typically be wrapped
                     // in a Coroutine, so we need to extract the return type from the third
                     // type argument.
-                    if (isAsync && FunctionType.isAsync(exitType)) {
+                    if (isAsync) {
                         if (
                             isClassInstance(returnType) &&
                             ClassType.isBuiltIn(returnType, 'Coroutine') &&

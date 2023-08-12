@@ -2,7 +2,8 @@
 # This functionality is controlled by the reportIncompatibleMethodOverride
 # diagnostic rule.
 
-from typing import Any, Generic, Iterable, ParamSpec, TypeVar
+
+from typing import Generic, Iterable, ParamSpec, TypeVar
 
 
 class A1:
@@ -17,8 +18,7 @@ class A2:
 
 # This should generate an error because func1 is incompatible.
 class ASub(A1, A2):
-    def func1(self, *args: Any, **kwargs: Any) -> str:
-        ...
+    ...
 
 
 class B1:

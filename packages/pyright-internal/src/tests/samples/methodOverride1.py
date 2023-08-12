@@ -166,6 +166,9 @@ class ParentClass:
     def my_method44(self, *args: Any, **kwargs: Any) -> None:
         ...
 
+    def my_method45(self, __i: int) -> None:
+        ...
+
 
 T_ChildClass = TypeVar("T_ChildClass", bound="ChildClass")
 
@@ -348,6 +351,9 @@ class ChildClass(ParentClass):
 
     # This should generate an error because kwargs is missing.
     def my_method44(self, *args) -> None:
+        ...
+
+    def my_method45(self, i: int, /) -> None:
         ...
 
 

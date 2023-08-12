@@ -124,6 +124,10 @@ export interface TypeAliasInfo {
     fullName: string;
     typeVarScopeId: TypeVarScopeId;
 
+    // Indicates whether the type alias was declared with the
+    // "type" syntax introduced in PEP 695.
+    isPep695Syntax: boolean;
+
     // Type parameters, if type alias is generic
     typeParameters?: TypeVarType[] | undefined;
 
@@ -260,6 +264,7 @@ export namespace TypeBase {
         name: string,
         fullName: string,
         typeVarScopeId: TypeVarScopeId,
+        isPep695Syntax: boolean,
         typeParams?: TypeVarType[],
         typeArgs?: Type[]
     ): Type {
@@ -271,6 +276,7 @@ export namespace TypeBase {
             typeParameters: typeParams,
             typeArguments: typeArgs,
             typeVarScopeId,
+            isPep695Syntax,
         };
 
         return typeClone;
@@ -1281,9 +1287,6 @@ export const enum FunctionTypeFlags {
     // Function is declared with async keyword
     Async = 1 << 9,
 
-    // Indicates that return type should be wrapped in an awaitable type
-    WrapReturnTypeInAwait = 1 << 10,
-
     // Function is declared within a type stub fille
     StubDefinition = 1 << 11,
 
@@ -1898,10 +1901,6 @@ export namespace FunctionType {
         return (type.details.flags & FunctionTypeFlags.Async) !== 0;
     }
 
-    export function isWrapReturnTypeInAwait(type: FunctionType) {
-        return (type.details.flags & FunctionTypeFlags.WrapReturnTypeInAwait) !== 0;
-    }
-
     export function isStubDefinition(type: FunctionType) {
         return (type.details.flags & FunctionTypeFlags.StubDefinition) !== 0;
     }
@@ -2316,6 +2315,7 @@ export interface TypeVarDetails {
     // Used for recursive type aliases.
     recursiveTypeAliasName?: string | undefined;
     recursiveTypeAliasScopeId?: TypeVarScopeId | undefined;
+    recursiveTypeAliasIsPep695Syntax?: boolean;
 
     // Type parameters for a recursive type alias.
     recursiveTypeParameters?: TypeVarType[] | undefined;

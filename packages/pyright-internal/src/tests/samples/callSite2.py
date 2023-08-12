@@ -1,12 +1,16 @@
 # This sample tests pyright's ability to perform return type
 # analysis of functions based on call-site arguments.
 
-# pyright: strict
+from .callSite1 import add, add2, async_call
 
-from .callSite1 import add  # pyright: ignore[reportUnknownVariableType]
+v1 = add(1, 2)
+reveal_type(v1, expected_text="Literal[3]")
 
-must_be_int = add(1, 2)
-result1: int = must_be_int
+v2 = add("hi", "there")
+reveal_type(v2, expected_text="Literal['hithere']")
 
-must_be_str = add("hi", "there")
-result2: str = must_be_str
+v3 = add2(1, 2)
+reveal_type(v3, expected_text="Unknown")
+
+v4 = async_call(1)
+reveal_type(v4, expected_text="Coroutine[Any, Any, Unknown]")

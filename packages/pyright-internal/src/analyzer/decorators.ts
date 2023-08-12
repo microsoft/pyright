@@ -74,7 +74,7 @@ export function getFunctionFlagsFromDecorators(evaluator: TypeEvaluator, node: F
         // Some stub files (e.g. builtins.pyi) rely on forward declarations of decorators.
         let evaluatorFlags = fileInfo.isStubFile ? EvaluatorFlags.AllowForwardReferences : EvaluatorFlags.None;
         if (decoratorNode.expression.nodeType !== ParseNodeType.Call) {
-            evaluatorFlags |= EvaluatorFlags.DoNotSpecialize;
+            evaluatorFlags |= EvaluatorFlags.CallBaseDefaults;
         }
 
         const decoratorTypeResult = evaluator.getTypeOfExpression(decoratorNode.expression, evaluatorFlags);
@@ -120,7 +120,7 @@ export function applyFunctionDecorator(
     // Some stub files (e.g. builtins.pyi) rely on forward declarations of decorators.
     let evaluatorFlags = fileInfo.isStubFile ? EvaluatorFlags.AllowForwardReferences : EvaluatorFlags.None;
     if (decoratorNode.expression.nodeType !== ParseNodeType.Call) {
-        evaluatorFlags |= EvaluatorFlags.DoNotSpecialize;
+        evaluatorFlags |= EvaluatorFlags.CallBaseDefaults;
     }
 
     const decoratorTypeResult = evaluator.getTypeOfExpression(decoratorNode.expression, evaluatorFlags);
@@ -142,7 +142,7 @@ export function applyFunctionDecorator(
     if (decoratorNode.expression.nodeType === ParseNodeType.Call) {
         const decoratorCallType = evaluator.getTypeOfExpression(
             decoratorNode.expression.leftExpression,
-            evaluatorFlags | EvaluatorFlags.DoNotSpecialize
+            evaluatorFlags | EvaluatorFlags.CallBaseDefaults
         ).type;
 
         if (isFunction(decoratorCallType)) {
@@ -191,7 +191,7 @@ export function applyFunctionDecorator(
         if (decoratorNode.expression.nodeType === ParseNodeType.MemberAccess) {
             const baseType = evaluator.getTypeOfExpression(
                 decoratorNode.expression.leftExpression,
-                evaluatorFlags | EvaluatorFlags.DoNotSpecialize
+                evaluatorFlags | EvaluatorFlags.MemberAccessBaseDefaults
             ).type;
 
             if (isProperty(baseType)) {
@@ -290,14 +290,14 @@ export function applyClassDecorator(
     const fileInfo = getFileInfo(decoratorNode);
     let flags = fileInfo.isStubFile ? EvaluatorFlags.AllowForwardReferences : EvaluatorFlags.None;
     if (decoratorNode.expression.nodeType !== ParseNodeType.Call) {
-        flags |= EvaluatorFlags.DoNotSpecialize;
+        flags |= EvaluatorFlags.CallBaseDefaults;
     }
     const decoratorType = evaluator.getTypeOfExpression(decoratorNode.expression, flags).type;
 
     if (decoratorNode.expression.nodeType === ParseNodeType.Call) {
         const decoratorCallType = evaluator.getTypeOfExpression(
             decoratorNode.expression.leftExpression,
-            flags | EvaluatorFlags.DoNotSpecialize
+            flags | EvaluatorFlags.CallBaseDefaults
         ).type;
 
         if (isFunction(decoratorCallType)) {
@@ -375,7 +375,7 @@ export function applyClassDecorator(
             callNode = decoratorNode.expression;
             const decoratorCallType = evaluator.getTypeOfExpression(
                 callNode.leftExpression,
-                flags | EvaluatorFlags.DoNotSpecialize
+                flags | EvaluatorFlags.CallBaseDefaults
             ).type;
             dataclassBehaviors = getDataclassDecoratorBehaviors(decoratorCallType);
         } else {
@@ -396,7 +396,7 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
     // Evaluate the type of the decorator expression.
     let flags = getFileInfo(node).isStubFile ? EvaluatorFlags.AllowForwardReferences : EvaluatorFlags.None;
     if (node.expression.nodeType !== ParseNodeType.Call) {
-        flags |= EvaluatorFlags.DoNotSpecialize;
+        flags |= EvaluatorFlags.CallBaseDefaults;
     }
 
     const decoratorTypeResult = evaluator.getTypeOfExpression(node.expression, flags);

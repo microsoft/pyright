@@ -17,7 +17,6 @@ export enum LogLevel {
     Info = 'info',
     Log = 'log',
 }
-
 export interface ConsoleInterface {
     error: (message: string) => void;
     warn: (message: string) => void;

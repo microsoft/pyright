@@ -84,7 +84,7 @@ async function runCode(code: string, state: TestState, cb?: jest.DoneCallback) {
         const wrappedCode = `(async function(helper, Consts) {
 ${code}
 })`;
-        const f = eval(wrappedCode);
+        const f = eval(wrappedCode); // CodeQL [SM01632] test code that doesn't need to be secure.
         await f(state, Consts);
         markDone();
     } catch (ex) {

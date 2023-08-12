@@ -438,7 +438,7 @@
         "typeAliasTypeParamInvalid": "형식 매개 변수 목록은 TypeVar, TypeVarTuple 또는 ParamSpec만 포함하는 튜플이어야 합니다.",
         "typeAnnotationCall": "형식 식에는 호출 식을 사용할 수 없습니다.",
         "typeAnnotationVariable": "형식 식에는 변수를 사용할 수 없습니다.",
-        "typeAnnotationWithCallable": "Type argument for \"type\" must be a class; callables are not supported",
+        "typeAnnotationWithCallable": "\"type\"에 대한 형식 인수는 클래스여야 합니다. 콜러블은 지원되지 않습니다.",
         "typeArgListExpected": "ParamSpec, 줄임표 또는 형식 목록이 필요합니다.",
         "typeArgListNotAllowed": "이 형식 인수에는 목록 식을 사용할 수 없습니다.",
         "typeArgsExpectingNone": "클래스 \"{name}\"에 형식 인수가 필요하지 않습니다.",

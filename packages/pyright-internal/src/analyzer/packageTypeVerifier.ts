@@ -23,6 +23,8 @@ import {
     stripFileExtension,
     tryStat,
 } from '../common/pathUtils';
+import { ServiceProvider } from '../common/serviceProvider';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { getEmptyRange, Range } from '../common/textRange';
 import { DeclarationType, FunctionDeclaration, VariableDeclaration } from './declaration';
 import { createImportedModuleDescriptor, ImportResolver } from './importResolver';
@@ -105,7 +107,9 @@ export class PackageTypeVerifier {
             this._configOptions,
             new FullAccessHost(this._fileSystem)
         );
-        this._program = new Program(this._importResolver, this._configOptions);
+        const serviceProvider = new ServiceProvider([{ key: ServiceKeys.console, value: console }]);
+
+        this._program = new Program(this._importResolver, this._configOptions, serviceProvider);
     }
 
     verify(): PackageTypeReport {

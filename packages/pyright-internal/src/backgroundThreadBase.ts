@@ -12,10 +12,11 @@ import { OperationCanceledException, setCancellationFolderName } from './common/
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface, LogLevel } from './common/console';
 import * as debug from './common/debug';
-import { FileSystem } from './common/fileSystem';
 import { FileSpec } from './common/pathUtils';
 import { createFromRealFileSystem } from './common/realFileSystem';
-import { PyrightFileSystem } from './pyrightFileSystem';
+import { ServiceProvider } from './common/serviceProvider';
+import './common/serviceProviderExtensions';
+import { ServiceKeys } from './common/serviceProviderExtensions';
 
 export class BackgroundConsole implements ConsoleInterface {
     // We always generate logs in the background. For the foreground,
@@ -42,24 +43,38 @@ export class BackgroundConsole implements ConsoleInterface {
 }
 
 export class BackgroundThreadBase {
-    private _console = new BackgroundConsole();
-    protected fs: FileSystem;
+    private readonly _serviceProvider: ServiceProvider;
 
-    protected constructor(data: InitializationData, fileSystem?: PyrightFileSystem) {
+    protected constructor(data: InitializationData, serviceProvider?: ServiceProvider) {
         setCancellationFolderName(data.cancellationFolderName);
 
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = data.rootDirectory;
 
-        this.fs = fileSystem ?? new PyrightFileSystem(createFromRealFileSystem(this.getConsole()));
+        // Make sure there's a file system and a console interface.
+        this._serviceProvider = serviceProvider ?? new ServiceProvider();
+        if (!this._serviceProvider.tryGet(ServiceKeys.console)) {
+            this._serviceProvider.add(ServiceKeys.console, new BackgroundConsole());
+        }
+        if (!this._serviceProvider.tryGet(ServiceKeys.fs)) {
+            this._serviceProvider.add(ServiceKeys.fs, createFromRealFileSystem(this.getConsole()));
+        }
+    }
+
+    protected get fs() {
+        return this._serviceProvider.fs();
     }
 
     protected log(level: LogLevel, msg: string) {
-        parentPort?.postMessage({ requestType: 'log', data: { level: level, message: msg } });
+        //parentPort?.postMessage({ requestType: 'log', data: { level: level, message: msg } });
     }
 
     protected getConsole() {
-        return this._console;
+        return this._serviceProvider.console();
+    }
+
+    protected getServiceProvider() {
+        return this._serviceProvider;
     }
 
     protected handleShutdown() {

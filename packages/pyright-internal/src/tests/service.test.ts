@@ -9,6 +9,111 @@ import assert from 'assert';
 import { getDirectoryPath } from '../common/pathUtils';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 
+test('random library file changed', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleLibraryFileWatchChanges('/site-packages/test.py', ['/site-packages']),
+        true
+    );
+});
+
+test('random library file starting with . changed', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleLibraryFileWatchChanges('/site-packages/.test.py', ['/site-packages']),
+        false
+    );
+});
+
+test('random library file changed, nested search paths', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleLibraryFileWatchChanges('/lib/.venv/site-packages/myFile.py', [
+            '/lib',
+            '/lib/.venv/site-packages',
+        ]),
+        true
+    );
+});
+
+test('random library file changed, nested search paths, fs is not case sensitive', () => {
+    const code = `
+// global options
+// @ignoreCase: true
+        `;
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleLibraryFileWatchChanges('/lib/.venv/site-packages/myFile.py', [
+            '/lib',
+            '/LIB/.venv/site-packages',
+        ]),
+        true
+    );
+});
+
+test('random library file changed, nested search paths, fs is case sensitive', () => {
+    const code = `
+// global options
+// @ignoreCase: false
+        `;
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleLibraryFileWatchChanges('/lib/.venv/site-packages/myFile.py', [
+            '/lib',
+            '/LIB/.venv/site-packages',
+        ]),
+        false
+    );
+});
+
+test('random library file starting with . changed, fs is not case sensitive', () => {
+    const code = `
+// global options
+// @ignoreCase: true
+    `;
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleLibraryFileWatchChanges('/lib/.test.py', [
+            '/LIB',
+            '/lib/site-packages',
+        ]),
+        false
+    );
+});
+
+test('random library file starting with . changed, fs is case sensitive', () => {
+    const code = `
+// global options
+// @ignoreCase: false
+    `;
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleLibraryFileWatchChanges('/lib/.test.py', [
+            '/LIB',
+            '/lib/site-packages',
+        ]),
+        true
+    );
+});
+
+test('random library file under a folder starting with . changed', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleLibraryFileWatchChanges('/site-packages/.testFolder/test.py', [
+            '/site-packages',
+        ]),
+        false
+    );
+});
+
 test('basic file change', () => {
     const code = `
 // @filename: test.py
