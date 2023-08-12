@@ -85,14 +85,15 @@ function runTests(p: string): void {
         }).toThrow(/read-only filesystem/);
     });
 
-    test('isInZipOrEgg', () => {
-        assert.strictEqual(fs.isInZipOrEgg(combinePaths(zipRoot, 'EGG-INFO', 'top_level.txt')), true);
-        assert.strictEqual(fs.isInZipOrEgg(module.filename), false);
+    test('isInZip', () => {
+        assert.strictEqual(fs.isInZip(combinePaths(zipRoot, 'EGG-INFO', 'top_level.txt')), true);
+        assert.strictEqual(fs.isInZip(module.filename), false);
     });
 }
 
 describe('zip', () => runTests('./samples/zipfs/basic.zip'));
 describe('egg', () => runTests('./samples/zipfs/basic.egg'));
+describe('jar', () => runTests('./samples/zipfs/basic.jar'));
 
 function runBadTests(p: string): void {
     const zipRoot = path.resolve(path.dirname(module.filename), p);
@@ -104,13 +105,15 @@ function runBadTests(p: string): void {
         assert.strictEqual(stats.isFile(), true);
     });
 
-    test('isInZipOrEgg', () => {
-        assert.strictEqual(fs.isInZipOrEgg(combinePaths(zipRoot, 'EGG-INFO', 'top_level.txt')), false);
+    test('isInZip', () => {
+        assert.strictEqual(fs.isInZip(combinePaths(zipRoot, 'EGG-INFO', 'top_level.txt')), false);
     });
 }
 
 describe('corrupt zip', () => runBadTests('./samples/zipfs/bad.zip'));
 describe('corrupt egg', () => runBadTests('./samples/zipfs/bad.egg'));
+describe('corrupt jar', () => runBadTests('./samples/zipfs/bad.jar'));
 
 describe('corrupt zip with magic', () => runBadTests('./samples/zipfs/corrupt.zip'));
 describe('corrupt egg with magic', () => runBadTests('./samples/zipfs/corrupt.egg'));
+describe('corrupt jar with magic', () => runBadTests('./samples/zipfs/corrupt.jar'));

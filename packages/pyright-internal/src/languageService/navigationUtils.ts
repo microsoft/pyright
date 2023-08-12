@@ -11,7 +11,7 @@ import { convertPathToUri } from '../common/pathUtils';
 import { DocumentRange } from '../common/textRange';
 
 export function canNavigateToFile(fs: ReadOnlyFileSystem, path: string): boolean {
-    return !fs.isInZipOrEgg(path);
+    return !fs.isInZip(path);
 }
 
 export function convertDocumentRangesToLocation(fs: ReadOnlyFileSystem, ranges: DocumentRange[]): Location[] {

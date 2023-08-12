@@ -66,7 +66,7 @@ export interface ReadOnlyFileSystem {
 
     getUri(path: string): string;
 
-    isInZipOrEgg(path: string): boolean;
+    isInZip(path: string): boolean;
 }
 
 export interface FileSystem extends ReadOnlyFileSystem {

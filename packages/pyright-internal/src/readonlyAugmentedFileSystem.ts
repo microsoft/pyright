@@ -11,8 +11,8 @@ import type * as fs from 'fs';
 
 import { appendArray, getOrAdd } from './common/collectionUtils';
 import { FileSystem, MkDirOptions, Stats, TmpfileOptions, VirtualDirent } from './common/fileSystem';
-import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath, getFileName } from './common/pathUtils';
 import { FileWatcher, FileWatcherEventHandler } from './common/fileWatcher';
+import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath, getFileName } from './common/pathUtils';
 
 export class ReadOnlyAugmentedFileSystem implements FileSystem {
     // Mapped file to original file map
@@ -166,8 +166,8 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
         return this._reverseEntryMap.get(mappedFilePath) ?? mappedFilePath;
     }
 
-    isInZipOrEgg(path: string): boolean {
-        return this.realFS.isInZipOrEgg(path);
+    isInZip(path: string): boolean {
+        return this.realFS.isInZip(path);
     }
 
     dispose(): void {
