@@ -20849,9 +20849,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !FunctionType.isPyTypedDefinition(type) &&
             args
         ) {
-            const contextualReturnType = getFunctionInferredReturnTypeUsingArguments(type, args);
-            if (contextualReturnType) {
-                returnType = contextualReturnType;
+            let hasDecorators = false;
+            let isAsync = false;
+            const declNode = type.details.declaration?.node;
+            if (declNode) {
+                if (declNode.decorators.length > 0) {
+                    hasDecorators = true;
+                }
+                if (declNode.isAsync) {
+                    isAsync = true;
+                }
+            }
+
+            // We can't use this technique if decorators or async are used because they
+            // would need to be applied to the inferred return type.
+            if (!hasDecorators && !isAsync) {
+                const contextualReturnType = getFunctionInferredReturnTypeUsingArguments(type, args);
+                if (contextualReturnType) {
+                    returnType = contextualReturnType;
+                }
             }
         }
 
