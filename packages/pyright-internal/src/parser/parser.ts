@@ -2758,13 +2758,13 @@ export class Parser {
             if (this._getLanguageVersion() < PythonVersion.V3_3) {
                 this._addError(Localizer.Diagnostic.yieldFromIllegal(), nextToken);
             }
-            return YieldFromNode.create(yieldToken, this._parseTestExpression(/* allowAssignmentExpression */ true));
+            return YieldFromNode.create(yieldToken, this._parseTestExpression(/* allowAssignmentExpression */ false));
         }
 
         let exprList: ExpressionNode | undefined;
         if (!this._isNextTokenNeverExpression()) {
             exprList = this._parseTestOrStarListAsExpression(
-                /* allowAssignmentExpression */ true,
+                /* allowAssignmentExpression */ false,
                 /* allowMultipleUnpack */ true,
                 ErrorExpressionCategory.MissingExpression,
                 () => Localizer.Diagnostic.expectedYieldExpr()
