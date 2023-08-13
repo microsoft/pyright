@@ -94,6 +94,7 @@ import { OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTy
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
+import { getNameNodeForDeclaration } from './declarationUtils';
 import { ImportResolver, ImportedModuleDescriptor, createImportedModuleDescriptor } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
@@ -5778,7 +5779,7 @@ export class Checker extends ParseTreeWalker {
                                 name: memberName,
                                 className: baseClassAndSymbol.classType.details.name,
                             }) + diagAddendum.getString(),
-                            lastDecl.node
+                            getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
                         );
 
                         const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
@@ -5849,7 +5850,7 @@ export class Checker extends ParseTreeWalker {
                                 name: memberName,
                                 className: baseClassAndSymbol.classType.details.name,
                             }),
-                            lastDecl.node
+                            getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
                         );
 
                         const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
