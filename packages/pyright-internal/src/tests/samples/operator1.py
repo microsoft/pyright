@@ -2,6 +2,9 @@
 # custom operator overrides.
 
 
+from typing import NoReturn
+
+
 class A:
     def __eq__(self, Foo):
         return "equal"
@@ -97,3 +100,12 @@ class E:
 e = E()
 
 _ = e + e
+
+
+class F:
+    def __add__(self, other: object) -> NoReturn:
+        ...
+
+
+f = F() + ""
+reveal_type(f, expected_text="NoReturn")
