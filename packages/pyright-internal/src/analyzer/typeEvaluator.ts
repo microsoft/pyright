@@ -15921,6 +15921,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ? new Map<string, Symbol>(innerScope.symbolTable)
             : new Map<string, Symbol>();
 
+        // Determine whether the class should inherit __hash__. If a class defines
+        // __eq__ but doesn't define __hash__ then __hash__ is set to None.
+        if (classType.details.fields.has('__eq__') && !classType.details.fields.has('__hash__')) {
+            classType.details.fields.set(
+                '__hash__',
+                Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.ClassVar, NoneType.createInstance())
+            );
+        }
+
         // Determine whether the class's instance variables are constrained
         // to those defined by __slots__. We need to do this prior to dataclass
         // processing because dataclasses can implicitly add to the slots
