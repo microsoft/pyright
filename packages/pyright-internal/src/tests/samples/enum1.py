@@ -175,3 +175,18 @@ class TestEnum11(Enum):
 te11_A = TestEnum11.A
 reveal_type(te11_A, expected_text="Literal[TestEnum11.A]")
 reveal_type(te11_A.value, expected_text="int")
+
+
+def func3() -> None:
+    pass
+
+
+class TestEnum12(Enum):
+    a = 1
+    b = lambda: None
+    c = func3
+
+
+reveal_type(TestEnum12.a, expected_text="Literal[TestEnum12.a]")
+reveal_type(TestEnum12.b, expected_text="() -> None")
+reveal_type(TestEnum12.c, expected_text="() -> None")

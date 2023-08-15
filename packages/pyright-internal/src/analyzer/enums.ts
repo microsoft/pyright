@@ -38,10 +38,12 @@ import {
     Type,
     UnknownType,
     combineTypes,
+    findSubtype,
     isClass,
     isClassInstance,
     isFunction,
     isInstantiableClass,
+    isOverloadedFunction,
 } from './types';
 
 export function isKnownEnumType(className: string) {
@@ -349,6 +351,12 @@ export function transformTypeForPossibleEnumClass(
 
     // The spec excludes descriptors.
     if (isClassInstance(valueType) && valueType.details.fields.get('__get__')) {
+        isMemberOfEnumeration = false;
+    }
+
+    // The enum spec doesn't explicitly specify this, but it
+    // appears that callables are excluded.
+    if (!findSubtype(valueType, (subtype) => !isFunction(subtype) && !isOverloadedFunction(subtype))) {
         isMemberOfEnumeration = false;
     }
 
