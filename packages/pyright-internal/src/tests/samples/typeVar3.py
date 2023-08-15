@@ -70,3 +70,7 @@ def foo() -> Callable[[T], T]:
         return v
 
     return inner
+
+
+# This should generate an error.
+list[T]()

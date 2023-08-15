@@ -100,9 +100,9 @@ export const enum EvaluatorFlags {
     // used in an outer scope.
     DisallowTypeVarsWithScopeId = 1 << 11,
 
-    // TypeVars within this expression must refer to type vars
+    // TypeVars within this expression do not need to refer to type vars
     // used in an outer scope.
-    DisallowTypeVarsWithoutScopeId = 1 << 12,
+    AllowTypeVarsWithoutScopeId = 1 << 12,
 
     // TypeVars within this expression that are otherwise not
     // associated with an outer scope should be associated with
