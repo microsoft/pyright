@@ -1495,11 +1495,14 @@ export class Checker extends ParseTreeWalker {
         }
 
         this._conditionallyReportShadowedImport(node);
+
         if (!node.isWildcardImport) {
             node.imports.forEach((importAs) => {
                 this._evaluator.evaluateTypesForStatement(importAs);
             });
         } else {
+            this._evaluator.evaluateTypesForStatement(node);
+
             const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
             if (
                 importInfo &&

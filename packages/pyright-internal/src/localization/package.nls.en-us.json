@@ -438,6 +438,7 @@
         "typeArgsTooFew": "Too few type arguments provided for \"{name}\"; expected {expected} but received {received}",
         "typeArgsTooMany": "Too many type arguments provided for \"{name}\"; expected {expected} but received {received}",
         "typeAssignmentMismatch": "Expression of type \"{sourceType}\" cannot be assigned to declared type \"{destType}\"",
+        "typeAssignmentMismatchWildcard": "Import symbol \"{name}\" has type \"{sourceType}\", which cannot be assigned to declared type \"{destType}\"",
         "typeCallNotAllowed": "type() call should not be used in type annotation",
         "typeCommentDeprecated": "Use of type comments is deprecated; use type annotation instead",
         "typedDictAccess": "Could not access item in TypedDict",

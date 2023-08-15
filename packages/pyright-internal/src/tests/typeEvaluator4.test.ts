@@ -212,6 +212,11 @@ test('Import16', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Import18', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import18.py']);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('DunderAll1', () => {
     const configOptions = new ConfigOptions('.');
 
