@@ -39,7 +39,7 @@ test('Generator1', () => {
 test('Generator2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator2.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Generator3', () => {

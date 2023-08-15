@@ -1040,6 +1040,7 @@ export class Checker extends ParseTreeWalker {
     override visitYieldFrom(node: YieldFromNode) {
         const yieldFromType = this._evaluator.getType(node.expression) || UnknownType.create();
         let yieldType: Type | undefined;
+        let sendType: Type | undefined;
 
         if (isClassInstance(yieldFromType) && ClassType.isBuiltIn(yieldFromType, 'Coroutine')) {
             // Handle the case of old-style (pre-await) coroutines.
@@ -1055,6 +1056,7 @@ export class Checker extends ParseTreeWalker {
             const generatorTypeArgs = getGeneratorTypeArgs(yieldType);
             if (generatorTypeArgs) {
                 yieldType = generatorTypeArgs.length >= 1 ? generatorTypeArgs[0] : UnknownType.create();
+                sendType = generatorTypeArgs.length >= 2 ? generatorTypeArgs[1] : undefined;
             } else {
                 yieldType =
                     this._evaluator.getTypeOfIterator({ type: yieldFromType }, /* isAsync */ false, node)?.type ??
@@ -1062,7 +1064,7 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        this._validateYieldType(node, yieldType);
+        this._validateYieldType(node, yieldType, sendType);
 
         return true;
     }
@@ -6177,7 +6179,7 @@ export class Checker extends ParseTreeWalker {
 
     // Determines whether a yield or yield from node is compatible with the
     // return type annotation of the containing function.
-    private _validateYieldType(node: YieldNode | YieldFromNode, yieldType: Type) {
+    private _validateYieldType(node: YieldNode | YieldFromNode, yieldType: Type, sendType?: Type) {
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
         if (!enclosingFunctionNode || !enclosingFunctionNode.returnTypeAnnotation) {
             return;
@@ -6227,8 +6229,9 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        const generatorTypeArgs = [yieldType, sendType ?? UnknownType.create(), UnknownType.create()];
         const specializedGenerator = ClassType.cloneAsInstance(
-            ClassType.cloneForSpecialization(generatorType, [yieldType], /* isTypeArgumentExplicit */ true)
+            ClassType.cloneForSpecialization(generatorType, generatorTypeArgs, /* isTypeArgumentExplicit */ true)
         );
 
         const diagAddendum = new DiagnosticAddendum();

@@ -47,3 +47,19 @@ def generator4(
     x = yield from arg
     reveal_type(x, expected_text="int | str")
     return x
+
+
+def generator5() -> Generator[None, float, None]:
+    x: float = yield
+
+
+def generator6() -> Generator[None, int, None]:
+    yield from generator5()
+
+def generator7() -> Generator[None, int, None]:
+    x: float = yield
+
+
+def generator8() -> Generator[None, float, None]:
+    # This should generate an error because of the send type.
+    yield from generator7()
