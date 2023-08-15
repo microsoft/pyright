@@ -579,6 +579,7 @@ export class Checker extends ParseTreeWalker {
                 this.walk(param.typeAnnotationComment);
             }
 
+            // Look for method parameters that are typed with TypeVars that have the wrong variance.
             if (functionTypeResult) {
                 const annotationNode = param.typeAnnotation || param.typeAnnotationComment;
                 if (annotationNode && index < functionTypeResult.functionType.details.parameters.length) {
@@ -586,6 +587,7 @@ export class Checker extends ParseTreeWalker {
                     const exemptMethods = ['__init__', '__new__'];
 
                     if (
+                        containingClassNode &&
                         isTypeVar(paramType) &&
                         paramType.details.declaredVariance === Variance.Covariant &&
                         !paramType.details.isSynthesized &&
