@@ -889,6 +889,10 @@ export namespace Localizer {
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('Diagnostic.typeAssignmentMismatch')
             );
+        export const typeAssignmentMismatchWildcard = () =>
+            new ParameterizedString<{ name: string; sourceType: string; destType: string }>(
+                getRawString('Diagnostic.typeAssignmentMismatchWildcard')
+            );
         export const typeCallNotAllowed = () => getRawString('Diagnostic.typeCallNotAllowed');
         export const typeCommentDeprecated = () => getRawString('Diagnostic.typeCommentDeprecated');
         export const typedDictAccess = () => getRawString('Diagnostic.typedDictAccess');

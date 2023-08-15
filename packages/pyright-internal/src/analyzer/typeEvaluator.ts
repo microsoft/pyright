@@ -83,7 +83,9 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CodeFlowAnalyzer, FlowNodeTypeOptions, FlowNodeTypeResult, getCodeFlowEngine } from './codeFlowEngine';
 import {
     CodeFlowReferenceExpressionNode,
+    FlowFlags,
     FlowNode,
+    FlowWildcardImport,
     createKeyForReference,
     isCodeFlowSupportedForReference,
     wildcardImportReferenceKey,
@@ -18059,27 +18061,74 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return;
         }
 
-        // Use the first element of the name parts as the symbol.
-        const symbolNameNode = node.module.nameParts[0];
+        if (node.isWildcardImport) {
+            // Write back a dummy type so we don't evaluate this node again.
+            writeTypeCache(node, { type: AnyType.create() }, EvaluatorFlags.None);
 
-        // Look up the symbol to find the alias declaration.
-        let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.value);
-        if (!symbolType) {
-            return;
-        }
+            const flowNode = AnalyzerNodeInfo.getFlowNode(node);
+            if (flowNode && (flowNode.flags & FlowFlags.WildcardImport) !== 0) {
+                const wildcardFlowNode = flowNode as FlowWildcardImport;
+                wildcardFlowNode.names.forEach((name) => {
+                    const importedSymbolType = getAliasedSymbolTypeForName(node, name);
 
-        // Is there a cached module type associated with this node? If so, use
-        // it instead of the type we just created.
-        const cachedModuleType = readTypeCache(node, EvaluatorFlags.None) as ModuleType;
-        if (cachedModuleType && isModule(cachedModuleType) && symbolType) {
-            if (isTypeSame(symbolType, cachedModuleType)) {
-                symbolType = cachedModuleType;
+                    if (!importedSymbolType) {
+                        return;
+                    }
+
+                    const symbolWithScope = lookUpSymbolRecursive(node, name, /* honorCodeFlow */ false);
+                    if (!symbolWithScope) {
+                        return;
+                    }
+
+                    const declaredType = getDeclaredTypeOfSymbol(symbolWithScope.symbol)?.type;
+                    if (!declaredType) {
+                        return;
+                    }
+
+                    const diagAddendum = new DiagnosticAddendum();
+
+                    if (!assignType(declaredType, importedSymbolType, diagAddendum)) {
+                        addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeAssignmentMismatchWildcard().format({
+                                ...printSrcDestTypes(importedSymbolType, declaredType),
+                                name,
+                            }) + diagAddendum.getString(),
+                            node,
+                            node.wildcardToken ?? node
+                        );
+                    }
+                });
             }
+        } else {
+            // Use the first element of the name parts as the symbol.
+            const symbolNameNode = node.module.nameParts[0];
+
+            // Look up the symbol to find the alias declaration.
+            let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.value);
+            if (!symbolType) {
+                return;
+            }
+
+            // Is there a cached module type associated with this node? If so, use
+            // it instead of the type we just created.
+            const cachedModuleType = readTypeCache(node, EvaluatorFlags.None) as ModuleType;
+            if (cachedModuleType && isModule(cachedModuleType) && symbolType) {
+                if (isTypeSame(symbolType, cachedModuleType)) {
+                    symbolType = cachedModuleType;
+                }
+            }
+
+            assignTypeToNameNode(
+                symbolNameNode,
+                symbolType,
+                /* isIncomplete */ false,
+                /* ignoreEmptyContainers */ false
+            );
+
+            writeTypeCache(node, { type: symbolType }, EvaluatorFlags.None);
         }
-
-        assignTypeToNameNode(symbolNameNode, symbolType, /* isIncomplete */ false, /* ignoreEmptyContainers */ false);
-
-        writeTypeCache(node, { type: symbolType }, EvaluatorFlags.None);
     }
 
     function evaluateTypesForTypeAnnotationNode(node: TypeAnnotationNode) {
