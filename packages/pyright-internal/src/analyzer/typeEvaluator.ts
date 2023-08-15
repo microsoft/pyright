@@ -12719,7 +12719,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         expectedDiagAddendum?: DiagnosticAddendum
     ): TypeResult | undefined {
         inferenceContext.expectedType = transformPossibleRecursiveTypeAlias(inferenceContext.expectedType);
-        const concreteExpectedType = makeTopLevelTypeVarsConcrete(inferenceContext.expectedType);
+        let concreteExpectedType = makeTopLevelTypeVarsConcrete(inferenceContext.expectedType);
 
         if (!isClassInstance(concreteExpectedType)) {
             return undefined;
@@ -12731,6 +12731,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Handle TypedDict's as a special case.
         if (ClassType.isTypedDictClass(concreteExpectedType)) {
+            // Remove any conditions associated with the type so the resulting type isn't
+            // considered compatible with a bound TypeVar.
+            concreteExpectedType = TypeBase.cloneForCondition(concreteExpectedType, undefined);
+
             const expectedTypedDictEntries = getTypedDictMembersForClass(evaluatorInterface, concreteExpectedType);
 
             // Infer the key and value types if possible.
@@ -12750,22 +12754,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isIncomplete = true;
             }
 
-            if (ClassType.isTypedDictClass(concreteExpectedType)) {
-                const resultTypedDict = assignToTypedDict(
-                    evaluatorInterface,
-                    concreteExpectedType,
-                    keyTypes,
-                    valueTypes,
-                    // Don't overwrite existing expectedDiagAddendum messages if they were
-                    // already provided by getKeyValueTypesFromDictionary.
-                    expectedDiagAddendum?.isEmpty() ? expectedDiagAddendum : undefined
-                );
-                if (resultTypedDict) {
-                    return {
-                        type: resultTypedDict,
-                        isIncomplete,
-                    };
-                }
+            const resultTypedDict = assignToTypedDict(
+                evaluatorInterface,
+                concreteExpectedType,
+                keyTypes,
+                valueTypes,
+                // Don't overwrite existing expectedDiagAddendum messages if they were
+                // already provided by getKeyValueTypesFromDictionary.
+                expectedDiagAddendum?.isEmpty() ? expectedDiagAddendum : undefined
+            );
+            if (resultTypedDict) {
+                return {
+                    type: resultTypedDict,
+                    isIncomplete,
+                };
             }
 
             return undefined;

@@ -1437,6 +1437,18 @@ test('TypedDict22', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypedDict23', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict23.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypedDict24', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict24.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('TypedDictInline1', () => {
     const configOptions = new ConfigOptions('.');
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
