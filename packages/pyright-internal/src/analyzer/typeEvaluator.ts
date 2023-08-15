@@ -228,6 +228,7 @@ import {
     isPartlyUnknown,
     isProperty,
     isTupleClass,
+    isTupleIndexUnambiguous,
     isTypeAliasPlaceholder,
     isTypeAliasRecursive,
     isTypeVarLimitedToCallable,
@@ -7093,13 +7094,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const indexValue = valueType.literalValue;
                 const tupleType = getSpecializedTupleType(baseType);
 
-                if (tupleType && tupleType.tupleTypeArguments && !isUnboundedTupleClass(tupleType)) {
-                    if (indexValue >= 0 && indexValue < tupleType.tupleTypeArguments.length) {
-                        return { type: tupleType.tupleTypeArguments[indexValue].type };
-                    } else if (indexValue < 0 && tupleType.tupleTypeArguments.length + indexValue >= 0) {
-                        return {
-                            type: tupleType.tupleTypeArguments[tupleType.tupleTypeArguments.length + indexValue].type,
-                        };
+                if (tupleType && tupleType.tupleTypeArguments) {
+                    if (isTupleIndexUnambiguous(tupleType, indexValue)) {
+                        if (indexValue >= 0 && indexValue < tupleType.tupleTypeArguments.length) {
+                            return { type: tupleType.tupleTypeArguments[indexValue].type };
+                        } else if (indexValue < 0 && tupleType.tupleTypeArguments.length + indexValue >= 0) {
+                            return {
+                                type: tupleType.tupleTypeArguments[tupleType.tupleTypeArguments.length + indexValue]
+                                    .type,
+                            };
+                        }
                     }
                 }
             } else if (isClassInstance(valueType) && ClassType.isBuiltIn(valueType, 'slice')) {

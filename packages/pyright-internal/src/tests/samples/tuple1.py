@@ -185,10 +185,19 @@ def func13(
     v13[0]
 
     v14 = e[0]
-    reveal_type(v14, expected_text="int | str | float")
+    reveal_type(v14, expected_text="int")
 
-    v15 = f[0]
-    reveal_type(v15, expected_text="int | Union[*Ts@func13] | float")
+    v15 = e[1]
+    reveal_type(v15, expected_text="int | str | float")
+
+    v16 = f[0]
+    reveal_type(v16, expected_text="int")
+
+    v17 = f[1]
+    reveal_type(v17, expected_text="int | Union[*Ts@func13] | float")
+
+    v18 = f[-1]
+    reveal_type(v18, expected_text="int | Union[*Ts@func13] | float")
 
 
 def func14():
