@@ -2105,6 +2105,10 @@ function narrowTypeForClassComparison(
             }
 
             if (isClassInstance(concreteSubtype) && TypeBase.isInstance(subtype)) {
+                if (ClassType.isBuiltIn(concreteSubtype, 'type')) {
+                    return classType;
+                }
+
                 return undefined;
             }
 
