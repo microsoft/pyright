@@ -12,4 +12,5 @@ from ._constants import (
     __version__ as __version__,
 )
 
+DEBUG: bool
 open = load_workbook

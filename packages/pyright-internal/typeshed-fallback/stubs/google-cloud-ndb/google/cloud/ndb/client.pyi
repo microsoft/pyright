@@ -14,12 +14,14 @@ class Client:
     client_info: Incomplete
     secure: bool
     stub: Incomplete
+    database: str | None
     def __init__(
         self,
         project: str | None = ...,
         namespace: str | None = ...,
         credentials: Incomplete | None = ...,
         client_options: Incomplete | None = ...,
+        database: str | None = None,
     ) -> None: ...
     @contextmanager
     def context(

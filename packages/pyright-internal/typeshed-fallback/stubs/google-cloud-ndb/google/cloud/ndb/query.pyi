@@ -91,6 +91,7 @@ OR = DisjunctionNode
 class QueryOptions(_options.ReadOptions):
     project: Any
     namespace: Any
+    database: str | None
     def __init__(self, config: Incomplete | None = ..., context: Incomplete | None = ..., **kwargs) -> None: ...
 
 class Query:
@@ -106,6 +107,7 @@ class Query:
     keys_only: Any
     projection: Any
     distinct_on: Any
+    database: str | None
     def __init__(
         self,
         kind: Incomplete | None = ...,

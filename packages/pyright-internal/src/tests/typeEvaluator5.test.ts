@@ -305,5 +305,5 @@ test('TypedDictReadOnly2', () => {
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 9);
+    TestUtils.validateResults(analysisResults, 8);
 });

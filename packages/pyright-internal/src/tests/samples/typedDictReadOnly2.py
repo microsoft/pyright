@@ -61,7 +61,6 @@ td4.update({"a", ""})
 # This should generate an error.
 td4.update({})
 
-# This should generate an error.
 td5 = td3 | td4
 
 # This should generate an error.

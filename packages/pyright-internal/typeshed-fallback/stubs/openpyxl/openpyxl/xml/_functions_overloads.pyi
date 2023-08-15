@@ -20,13 +20,14 @@ class _HasTag(Protocol):
 class _HasText(Protocol):
     text: str
 
+class _HasAttrib(Protocol):
+    attrib: Iterable[Any]  # AnyOf[dict[str, str], Iterable[tuple[str, str]]]
+
 class _HasTagAndGet(_HasTag, Protocol[_T_co]):
     def get(self, __value: str) -> _T_co | None: ...
 
 class _HasTagAndText(_HasTag, _HasText, Protocol): ...  # noqa: Y046
-
-class _HasTagAndTextAndAttrib(_HasTag, _HasText, Protocol):  # noqa: Y046
-    attrib: Iterable[Any]  # AnyOf[dict[str, str], Iterable[tuple[str, str]]]
+class _HasTagAndTextAndAttrib(_HasTag, _HasText, _HasAttrib, Protocol): ...  # noqa: Y046
 
 class _ParentElement(Protocol[_T]):
     def makeelement(self, __tag: str, __attrib: dict[str, str]) -> _T: ...

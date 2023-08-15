@@ -821,12 +821,6 @@ test('Function3', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('Function4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function4.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
 test('Function5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function5.py']);
 

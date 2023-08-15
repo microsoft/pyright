@@ -91,7 +91,7 @@ class ChartSpace(Serialisable):
     protection: Typed[Protection, Literal[True]]
     chart: Typed[ChartContainer, Literal[False]]
     spPr: Typed[GraphicalProperties, Literal[True]]
-    graphicalProperties: Alias
+    graphical_properties: Alias
     txPr: Typed[RichText, Literal[True]]
     textProperties: Alias
     externalData: Typed[ExternalData, Literal[True]]
