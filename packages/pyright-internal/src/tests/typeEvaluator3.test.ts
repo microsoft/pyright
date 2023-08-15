@@ -27,7 +27,7 @@ test('Module2', () => {
 test('Ellipsis1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['ellipsis1.pyi']);
 
-    TestUtils.validateResults(analysisResults, 11);
+    TestUtils.validateResults(analysisResults, 10);
 });
 
 test('Generator1', () => {

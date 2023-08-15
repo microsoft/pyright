@@ -6531,6 +6531,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                 if (isParamSpec(typeArg)) {
                                     functionType.details.paramSpec = typeArg;
+                                } else if (isEllipsisType(typeArg)) {
+                                    FunctionType.addDefaultParameters(functionType);
+                                    functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
                                 }
                             } else {
                                 FunctionType.addParameter(functionType, {
@@ -14078,6 +14081,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                 if (isParamSpec(typeArg)) {
                                     functionType.details.paramSpec = typeArg;
+                                } else if (isEllipsisType(typeArg)) {
+                                    FunctionType.addDefaultParameters(functionType);
+                                    functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
                                 }
                             } else {
                                 FunctionType.addParameter(functionType, {
@@ -14606,7 +14612,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else {
             typeArgs.forEach((typeArg, index) => {
                 if (index === typeArgs.length - 1) {
-                    if (!isParamSpec(typeArg.type)) {
+                    if (!isParamSpec(typeArg.type) && !isEllipsisType(typeArg.type)) {
                         addError(Localizer.Diagnostic.concatenateParamSpecMissing(), typeArg.node);
                     }
                 } else {
@@ -14673,7 +14679,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeArgs.forEach((typeArg, index) => {
                     if (isEllipsisType(typeArg.type)) {
                         if (!isTupleTypeParam) {
-                            addError(Localizer.Diagnostic.ellipsisContext(), typeArg.node);
+                            if (!allowParamSpec) {
+                                addError(Localizer.Diagnostic.ellipsisContext(), typeArg.node);
+                            }
                         } else if (typeArgs!.length !== 2 || index !== 1) {
                             addError(Localizer.Diagnostic.ellipsisSecondArg(), typeArg.node);
                         } else {
@@ -19136,6 +19144,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 if (index === concatTypeArgs.length - 1) {
                                     if (isParamSpec(typeArg)) {
                                         functionType.details.paramSpec = typeArg;
+                                    } else if (isEllipsisType(typeArg)) {
+                                        FunctionType.addDefaultParameters(functionType);
+                                        functionType.details.flags |=
+                                            FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
                                     }
                                 } else {
                                     FunctionType.addParameter(functionType, {
