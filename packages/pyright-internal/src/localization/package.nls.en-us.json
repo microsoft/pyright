@@ -610,6 +610,7 @@
         "memberIsInitVar": "Member \"{name}\" is an init-only field",
         "memberIsInvariant": "\"{name}\" is invariant because it is mutable",
         "memberIsNotFinalInProtocol": "\"{name}\" is not marked Final in protocol",
+        "memberIsWritableInProtocol": "\"{name}\" is writable in protocol",
         "memberTypeMismatch": "\"{name}\" is an incompatible type",
         "memberUnknown": "Member \"{name}\" is unknown",
         "missingProtocolMember": "Member \"{name}\" is declared in protocol class \"{classType}\"",

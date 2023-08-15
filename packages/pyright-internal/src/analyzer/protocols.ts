@@ -13,6 +13,7 @@ import { Localizer } from '../localization/localize';
 import { assignTypeToTypeVar } from './constraintSolver';
 import { DeclarationType } from './declaration';
 import { assignProperty } from './properties';
+import { getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
@@ -479,6 +480,24 @@ function assignClassToProtocolInternal(
                     }
                 }
                 typesAreConsistent = false;
+            }
+
+            const destPrimaryDecl = getLastTypedDeclaredForSymbol(symbol);
+            const srcPrimaryDecl = getLastTypedDeclaredForSymbol(srcMemberInfo.symbol);
+
+            if (
+                destPrimaryDecl?.type === DeclarationType.Variable &&
+                srcPrimaryDecl?.type === DeclarationType.Variable
+            ) {
+                const isDestConst = !!destPrimaryDecl.isConstant;
+                const isSrcConst = ClassType.isReadOnlyInstanceVariables(srcType) || !!srcPrimaryDecl.isConstant;
+
+                if (!isDestConst && isSrcConst) {
+                    if (subDiag) {
+                        subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsWritableInProtocol().format({ name }));
+                    }
+                    typesAreConsistent = false;
+                }
             }
         });
     });

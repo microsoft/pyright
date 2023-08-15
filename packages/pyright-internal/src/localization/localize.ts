@@ -1190,6 +1190,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsInvariant'));
         export const memberIsNotFinalInProtocol = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsNotFinalInProtocol'));
+        export const memberIsWritableInProtocol = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsWritableInProtocol'));
         export const memberSetClassVar = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberSetClassVar'));
         export const memberTypeMismatch = () =>
