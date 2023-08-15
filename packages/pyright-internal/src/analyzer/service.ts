@@ -47,6 +47,8 @@ import {
     tryRealpath,
     tryStat,
 } from '../common/pathUtils';
+import { ServiceProvider } from '../common/serviceProvider';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
 import { AnalysisCompleteCallback } from './analysis';
@@ -66,8 +68,6 @@ import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import { IPythonMode } from './sourceFile';
 import { TypeEvaluator } from './typeEvaluatorTypes';
-import { ServiceProvider } from '../common/serviceProvider';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
 
 export const configFileNames = ['pyrightconfig.json'];
 export const pyprojectTomlName = 'pyproject.toml';
