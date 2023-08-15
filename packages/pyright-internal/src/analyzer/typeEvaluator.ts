@@ -1584,8 +1584,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (options?.associateTypeVarsWithScope) {
             evaluatorFlags |= EvaluatorFlags.AssociateTypeVarsWithCurrentScope;
-        } else {
-            evaluatorFlags |= EvaluatorFlags.DisallowTypeVarsWithoutScopeId;
         }
 
         if (options?.allowUnpackedTypedDict) {
@@ -4621,7 +4619,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
                     }
                 }
-            } else if ((flags & EvaluatorFlags.DisallowTypeVarsWithoutScopeId) !== 0) {
+            } else if ((flags & EvaluatorFlags.AllowTypeVarsWithoutScopeId) === 0) {
                 if (
                     (type.scopeId === undefined || scopedTypeVarInfo.foundInterveningClass) &&
                     !type.details.isSynthesized
@@ -4877,7 +4875,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     EvaluatorFlags.AllowForwardReferences |
                     EvaluatorFlags.NotParsedByInterpreter |
                     EvaluatorFlags.DisallowTypeVarsWithScopeId |
-                    EvaluatorFlags.DisallowTypeVarsWithoutScopeId |
                     EvaluatorFlags.AssociateTypeVarsWithCurrentScope));
         const baseTypeResult = getTypeOfExpression(node.leftExpression, baseTypeFlags);
 
@@ -12285,7 +12282,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             typeParameters = [];
             let isTypeParamListValid = true;
             typeParamsExpr.expressions.map((expr) => {
-                let entryType = getTypeOfExpression(expr, EvaluatorFlags.ExpectingInstantiableType).type;
+                let entryType = getTypeOfExpression(
+                    expr,
+                    EvaluatorFlags.ExpectingInstantiableType | EvaluatorFlags.AllowTypeVarsWithoutScopeId
+                ).type;
+
                 if (isTypeVar(entryType)) {
                     if (entryType.scopeId) {
                         isTypeParamListValid = false;
@@ -19273,8 +19274,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.DisallowClassVar;
 
-        if (!options?.allowTypeVarsWithoutScopeId) {
-            flags |= EvaluatorFlags.DisallowTypeVarsWithoutScopeId;
+        if (options?.allowTypeVarsWithoutScopeId) {
+            flags |= EvaluatorFlags.AllowTypeVarsWithoutScopeId;
         }
 
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
