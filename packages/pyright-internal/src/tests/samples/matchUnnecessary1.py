@@ -63,3 +63,24 @@ def func3(json_object: JsonObject) -> None:
             }
         }:
             pass
+
+
+TA1 = tuple[Literal["a", "b", "c"], int]
+
+
+def func4(vals: list[str]) -> TA1:
+    x: TA1 = ("c", 0)
+
+    for val in vals:
+        match x[0]:
+            case "b":
+                if val.startswith("x"):
+                    x = ("a", 1)
+                continue
+            case "c":
+                if val.startswith("y"):
+                    x = ("b", 2)
+                continue
+            case _:
+                pass
+    return x

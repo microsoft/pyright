@@ -18012,7 +18012,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         for (const caseStatement of node.parent.cases) {
             if (caseStatement === node) {
                 if (fileInfo.diagnosticRuleSet.reportUnnecessaryComparison !== 'none') {
-                    checkForUnusedPattern(evaluatorInterface, node.pattern, subjectType);
+                    if (!subjectTypeResult.isIncomplete) {
+                        checkForUnusedPattern(evaluatorInterface, node.pattern, subjectType);
+                    }
                 }
                 break;
             }
