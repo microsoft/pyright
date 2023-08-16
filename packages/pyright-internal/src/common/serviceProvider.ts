@@ -6,15 +6,15 @@
  * Container for different services used within the application.
  */
 
-export interface IServiceKey {}
+interface InternalKey {}
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export class ServiceKey<T> implements IServiceKey {}
+export class ServiceKey<T> implements InternalKey {}
 
 export class ServiceProvider {
-    private _container: Map<IServiceKey, any> = new Map<IServiceKey, any>();
+    private _container: Map<InternalKey, any> = new Map<InternalKey, any>();
 
-    constructor(initialServices: { key: IServiceKey; value: any }[] = []) {
+    constructor(initialServices: { key: InternalKey; value: any }[] = []) {
         initialServices.forEach((entry) => {
             this.add(entry.key, entry.value);
         });

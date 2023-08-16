@@ -351,7 +351,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     constructor(
         protected serverOptions: ServerOptions,
         protected connection: Connection,
-        readonly console: ConsoleInterface,
         uriParserFactory = (fs: FileSystem) => new UriParser(fs)
     ) {
         // Stash the base directory into a global variable.
@@ -400,6 +399,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         // Setup extensions
         Extensions.createLanguageServiceExtensions(this);
+    }
+
+    get console(): ConsoleInterface {
+        return this.serverOptions.serviceProvider.console();
     }
 
     // Provides access to the client's window.
