@@ -57,6 +57,7 @@ export class PyrightServer extends LanguageServerBase {
         const console = new ConsoleWithLogLevel(connection.console);
         const fileWatcherProvider = new WorkspaceFileWatcherProvider();
         const fileSystem = createFromRealFileSystem(console, fileWatcherProvider);
+
         const serviceProvider = new ServiceProvider([
             { key: ServiceKeys.fs, value: new PyrightFileSystem(fileSystem) },
             { key: ServiceKeys.console, value: console },
@@ -73,8 +74,7 @@ export class PyrightServer extends LanguageServerBase {
                 maxAnalysisTimeInForeground,
                 supportedCodeActions: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
             },
-            connection,
-            console
+            connection
         );
 
         this._controller = new CommandController(this);

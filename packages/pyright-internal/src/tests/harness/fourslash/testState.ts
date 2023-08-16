@@ -954,7 +954,7 @@ export class TestState {
 
             const expectedCompletions = map[markerName].completions;
             const provider = this.getCompletionResults(this, marker, docFormat, abbrMap);
-            const results = await provider.getCompletions();
+            const results = provider.getCompletions();
             if (results) {
                 if (verifyMode === 'exact') {
                     if (results.items.length !== expectedCompletions.length) {
@@ -1475,7 +1475,7 @@ export class TestState {
                 readonly importName: string;
             };
         }
-    ): { getCompletions(): Promise<CompletionList | null>; resolveCompletionItem(item: CompletionItem): void } {
+    ): { getCompletions(): CompletionList | null; resolveCompletionItem(item: CompletionItem): void } {
         const filePath = marker.fileName;
         const completionPosition = this.convertOffsetToPosition(filePath, marker.position);
 
@@ -1495,7 +1495,7 @@ export class TestState {
         );
 
         return {
-            getCompletions: () => Promise.resolve(provider.getCompletions()),
+            getCompletions: () => provider.getCompletions(),
             resolveCompletionItem: (i) => provider.resolveCompletionItem(i),
         };
     }
