@@ -285,6 +285,7 @@ import {
     TypeBase,
     TypeCategory,
     TypeCondition,
+    TypeFlags,
     TypeVarScopeType,
     TypeVarType,
     TypedDictEntry,
@@ -1229,7 +1230,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function reportInvalidUseOfPep695TypeAlias(type: Type, node: ExpressionNode): boolean {
         // PEP 695 type aliases cannot be used as instantiable classes.
-        if (type.typeAliasInfo?.name && type.typeAliasInfo.isPep695Syntax) {
+        if (type.typeAliasInfo?.name && type.typeAliasInfo.isPep695Syntax && TypeBase.isSpecialForm(type)) {
             addDiagnostic(
                 AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -14956,6 +14957,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const boundTypeVars = typeParameters.filter(
             (typeVar) => typeVar.scopeId !== typeAliasScopeId && typeVar.scopeType === TypeVarScopeType.Class
         );
+
         if (boundTypeVars.length > 0) {
             addError(
                 Localizer.Diagnostic.genericTypeAliasBoundTypeVar().format({
@@ -14965,7 +14967,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        return TypeBase.cloneForTypeAlias(
+        const typeAlias = TypeBase.cloneForTypeAlias(
             type,
             name.value,
             ParseTreeUtils.getClassFullName(name, fileInfo.moduleName, name.value),
@@ -14973,6 +14975,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isPep695Syntax,
             typeParameters.length > 0 ? typeParameters : undefined
         );
+
+        // All PEP 695 type aliases are special forms because they are
+        // TypeAliasType objects at runtime.
+        if (isPep695Syntax) {
+            typeAlias.flags |= TypeFlags.SpecialForm;
+        }
+
+        return typeAlias;
     }
 
     function createSpecialBuiltInClass(node: ParseNode, assignedName: string, aliasMapEntry: AliasMapEntry): ClassType {

@@ -1,7 +1,7 @@
 # This sample tests error cases associated with the "type" statement
 # introduced in PEP 695.
 
-from typing import Callable
+from typing import Any, Callable
 
 
 T1 = 0
@@ -63,3 +63,7 @@ def func2(x: object):
     if isinstance(x, TA10):
         reveal_type(x)
 
+type TA11 = Callable[..., Any]
+
+def func3(cb: TA11):
+    cb()
