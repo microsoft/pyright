@@ -1700,7 +1700,9 @@ export class ImportResolver {
             if (bestImportSoFar.pyTypedInfo && !newImport.pyTypedInfo) {
                 return bestImportSoFar;
             } else if (!bestImportSoFar.pyTypedInfo && newImport.pyTypedInfo) {
-                return newImport;
+                if (bestImportSoFar.importType === newImport.importType) {
+                    return newImport;
+                }
             }
 
             // Prefer pyi over py.
