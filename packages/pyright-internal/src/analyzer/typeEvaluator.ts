@@ -8152,7 +8152,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 bindToType = secondArgType;
             } else if (isInstantiableClass(secondArgType)) {
                 if (isInstantiableClass(targetClassType)) {
-                    if (!derivesFromClassRecursive(secondArgType, targetClassType, /* ignoreUnknown */ true)) {
+                    if (
+                        !ClassType.isBuiltIn(targetClassType, 'type') &&
+                        !derivesFromClassRecursive(secondArgType, targetClassType, /* ignoreUnknown */ true)
+                    ) {
                         reportError = true;
                     }
                 }
