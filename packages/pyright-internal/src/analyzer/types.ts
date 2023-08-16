@@ -1653,6 +1653,7 @@ export namespace FunctionType {
                 });
             }
 
+            newFunction.details.paramSpecTypeVarScopeId = paramSpecValue.details.typeVarScopeId;
             newFunction.details.paramSpec = paramSpecValue.details.paramSpec;
         }
 
