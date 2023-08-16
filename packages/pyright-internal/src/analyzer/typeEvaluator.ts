@@ -9100,6 +9100,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        let effectiveTypeVarContext = typeVarContext;
+        if (!effectiveTypeVarContext) {
+            // If a typeVarContext wasn't provided by the caller, allocate one here.
+            effectiveTypeVarContext = new TypeVarContext(getTypeVarScopeIds(expandedCallType));
+        }
+
         // The stdlib collections/__init__.pyi stub file defines namedtuple
         // as a function rather than a class, so we need to check for it here.
         if (expandedCallType.details.builtInName === 'namedtuple') {
@@ -9110,20 +9116,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 errorNode
             );
 
-            return {
+            const result: CallResult = {
                 returnType: createNamedTupleType(evaluatorInterface, errorNode, argList, /* includesTypes */ false),
             };
+
+            validateFunctionArguments(
+                errorNode,
+                argList,
+                { type: expandedCallType },
+                effectiveTypeVarContext,
+                skipUnknownArgCheck
+            );
+
+            return result;
         }
 
         // Handle the NewType specially, replacing the normal return type.
         if (expandedCallType.details.builtInName === 'NewType') {
             return { returnType: createNewType(errorNode, argList) };
-        }
-
-        let effectiveTypeVarContext = typeVarContext;
-        if (!effectiveTypeVarContext) {
-            // If a typeVarContext wasn't provided by the caller, allocate one here.
-            effectiveTypeVarContext = new TypeVarContext(getTypeVarScopeIds(expandedCallType));
         }
 
         const functionResult = validateFunctionArguments(
@@ -9318,9 +9328,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (className === 'NamedTuple') {
-                return {
+                const result: CallResult = {
                     returnType: createNamedTupleType(evaluatorInterface, errorNode, argList, /* includesTypes */ true),
                 };
+
+                const initTypeResult = getTypeOfObjectMember(
+                    errorNode,
+                    ClassType.cloneAsInstance(expandedCallType),
+                    '__init__'
+                );
+
+                if (initTypeResult && isOverloadedFunction(initTypeResult.type)) {
+                    validateOverloadedFunctionArguments(
+                        errorNode,
+                        argList,
+                        { type: initTypeResult.type },
+                        /* typeVarContext */ undefined,
+                        skipUnknownArgCheck,
+                        /* inferenceContext */ undefined
+                    );
+                }
+
+                return result;
             }
 
             if (className === 'NewType') {
@@ -16040,7 +16069,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // Determine the effective metaclass and detect metaclass conflicts.
+        // Determine the effective metaclass.
         if (metaclassNode) {
             const metaclassType = getTypeOfExpression(metaclassNode, exprFlags).type;
             if (isInstantiableClass(metaclassType) || isUnknown(metaclassType)) {
