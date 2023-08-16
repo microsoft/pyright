@@ -24057,19 +24057,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             targetIncludesParamSpec &&
             srcType.details.paramSpec?.nameWithScope === destType.details.paramSpec?.nameWithScope
         ) {
-            const srcParamCount = srcType.details.parameters.length;
-            const destParamCount = destType.details.parameters.length;
-
-            if (srcParamCount !== destParamCount) {
-                // If the dest has an extra position-only parameter separator appended
-                // to the end of the signature, it's OK.
-                if (
-                    srcParamCount !== destParamCount - 1 ||
-                    destType.details.parameters[destParamCount - 1].category !== ParameterCategory.Simple ||
-                    !!destType.details.parameters[destParamCount - 1].name
-                ) {
-                    canAssign = false;
-                }
+            if (srcParamDetails.params.length !== destParamDetails.params.length) {
+                canAssign = false;
             }
         }
 
