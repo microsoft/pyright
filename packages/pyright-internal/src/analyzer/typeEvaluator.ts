@@ -24528,30 +24528,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // has additional overloads that are not present in the override.
 
         let previousMatchIndex = -1;
-        let overrideOverloadIndex = 0;
         const baseOverloads = OverloadedFunctionType.getOverloads(baseMethod);
 
         for (const overrideOverload of OverloadedFunctionType.getOverloads(overrideMethod)) {
-            const matchIndex = baseOverloads.findIndex((baseOverload) => {
+            let possibleMatchIndex: number | undefined;
+
+            let matchIndex = baseOverloads.findIndex((baseOverload, index) => {
                 // If the override isn't applicable for this base class, skip the check.
                 if (baseClass && !isOverrideMethodApplicable(baseOverload, baseClass)) {
                     return false;
                 }
 
-                return validateOverrideMethodInternal(
+                const isCompatible = validateOverrideMethodInternal(
                     baseOverload,
                     overrideOverload,
                     /* diag */ undefined,
                     enforceParamNames,
                     /* exemptSelfClsParam */ false
                 );
+
+                // If the override is compatible but the match is one that is below the previous
+                // matched index, keep looking for additional matches. Record the fact that
+                // we found at least one match.
+                if (isCompatible && index <= previousMatchIndex && possibleMatchIndex === undefined) {
+                    possibleMatchIndex = index;
+                    return false;
+                }
+
+                return isCompatible;
             });
 
+            if (matchIndex < 0 && possibleMatchIndex !== undefined) {
+                matchIndex = possibleMatchIndex;
+            }
+
             if (matchIndex < 0) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.overrideOverloadNoMatch().format({ index: overrideOverloadIndex + 1 })
-                );
-                return false;
+                continue;
             }
 
             if (matchIndex < previousMatchIndex) {
@@ -24560,7 +24572,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             previousMatchIndex = matchIndex;
-            overrideOverloadIndex++;
+        }
+
+        if (previousMatchIndex < baseOverloads.length - 1) {
+            // We didn't find matches for all of the base overloads.
+            diag.addMessage(Localizer.DiagnosticAddendum.overrideOverloadNoMatch());
+            return false;
         }
 
         return true;
