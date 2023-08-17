@@ -728,6 +728,12 @@ export class Parser {
             casePattern = PatternSequenceNode.create(patternList.list[0], patternList.list);
         }
 
+        if (casePattern.nodeType !== ParseNodeType.Error) {
+            const globalNameMap = new Map<string, NameNode>();
+            const localNameMap = new Map<string, NameNode>();
+            this._reportDuplicatePatternCaptureTargets(casePattern, globalNameMap, localNameMap);
+        }
+
         let guardExpression: ExpressionNode | undefined;
         if (this._consumeTokenIfKeyword(KeywordType.If)) {
             guardExpression = this._parseTestExpression(/* allowAssignmentExpression */ true);
@@ -749,6 +755,93 @@ export class Parser {
         }
 
         return false;
+    }
+
+    // Reports any situations where a capture target (a variable that receives part of a pattern)
+    // appears twice within the same pattern. This is complicated by the fact that duplicate targets
+    // are allowed in separate "or" clauses, so we need to track the targets we've seen globally
+    // as well as the targets we've seen locally within the current "or" clause.
+    private _reportDuplicatePatternCaptureTargets(
+        node: PatternAtomNode,
+        globalNameMap: Map<string, NameNode>,
+        localNameMap: Map<string, NameNode>
+    ) {
+        const reportTargetIfDuplicate = (nameNode: NameNode) => {
+            if (globalNameMap.has(nameNode.value) || localNameMap.has(nameNode.value)) {
+                this._addError(
+                    Localizer.Diagnostic.duplicateCapturePatternTarget().format({
+                        name: nameNode.value,
+                    }),
+                    nameNode
+                );
+            } else {
+                localNameMap.set(nameNode.value, nameNode);
+            }
+        };
+
+        switch (node.nodeType) {
+            case ParseNodeType.PatternSequence: {
+                node.entries.forEach((subpattern) => {
+                    this._reportDuplicatePatternCaptureTargets(subpattern, globalNameMap, localNameMap);
+                });
+                break;
+            }
+
+            case ParseNodeType.PatternClass: {
+                node.arguments.forEach((arg) => {
+                    this._reportDuplicatePatternCaptureTargets(arg.pattern, globalNameMap, localNameMap);
+                });
+                break;
+            }
+
+            case ParseNodeType.PatternAs: {
+                if (node.target) {
+                    reportTargetIfDuplicate(node.target);
+                }
+
+                const orLocalNameMaps = node.orPatterns.map((subpattern) => {
+                    const orLocalNameMap = new Map<string, NameNode>();
+                    this._reportDuplicatePatternCaptureTargets(subpattern, localNameMap, orLocalNameMap);
+                    return orLocalNameMap;
+                });
+
+                const combinedLocalOrNameMap = new Map<string, NameNode>();
+                orLocalNameMaps.forEach((orLocalNameMap) => {
+                    orLocalNameMap.forEach((node) => {
+                        if (!combinedLocalOrNameMap.has(node.value)) {
+                            combinedLocalOrNameMap.set(node.value, node);
+                            reportTargetIfDuplicate(node);
+                        }
+                    });
+                });
+                break;
+            }
+
+            case ParseNodeType.PatternCapture: {
+                if (!node.isWildcard) {
+                    reportTargetIfDuplicate(node.target);
+                }
+                break;
+            }
+
+            case ParseNodeType.PatternMapping: {
+                node.entries.forEach((mapEntry) => {
+                    if (mapEntry.nodeType === ParseNodeType.PatternMappingExpandEntry) {
+                        reportTargetIfDuplicate(mapEntry.target);
+                    } else {
+                        this._reportDuplicatePatternCaptureTargets(mapEntry.keyPattern, globalNameMap, localNameMap);
+                        this._reportDuplicatePatternCaptureTargets(mapEntry.valuePattern, globalNameMap, localNameMap);
+                    }
+                });
+                break;
+            }
+
+            case ParseNodeType.PatternLiteral:
+            case ParseNodeType.PatternValue:
+            case ParseNodeType.Error: {
+                break;
+            }
+        }
     }
 
     private _getPatternTargetNames(node: PatternAtomNode, nameSet: Set<string>): void {
@@ -814,32 +907,10 @@ export class Parser {
                 entry.orPatterns[0].nodeType === ParseNodeType.PatternCapture &&
                 entry.orPatterns[0].isStar
         );
+
         if (starEntries.length > 1) {
             this._addError(Localizer.Diagnostic.duplicateStarPattern(), starEntries[1].orPatterns[0]);
         }
-
-        // Look for redundant capture targets.
-        const captureTargetMap = new Map<string, PatternAtomNode>();
-        patternList.list.forEach((asPattern) => {
-            asPattern.orPatterns.forEach((patternAtom) => {
-                if (
-                    patternAtom.nodeType === ParseNodeType.PatternCapture &&
-                    !patternAtom.isStar &&
-                    !patternAtom.isWildcard
-                ) {
-                    if (captureTargetMap.has(patternAtom.target.value)) {
-                        this._addError(
-                            Localizer.Diagnostic.duplicateCapturePatternTarget().format({
-                                name: patternAtom.target.value,
-                            }),
-                            patternAtom
-                        );
-                    } else {
-                        captureTargetMap.set(patternAtom.target.value, patternAtom);
-                    }
-                }
-            });
-        });
 
         return patternList;
     }
