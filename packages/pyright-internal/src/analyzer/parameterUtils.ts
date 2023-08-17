@@ -14,9 +14,11 @@ import {
     FunctionType,
     isClassInstance,
     isPositionOnlySeparator,
+    isTypeVar,
     isUnpackedClass,
     isVariadicTypeVar,
     Type,
+    TypeVarType,
 } from './types';
 import { partiallySpecializeType } from './typeUtils';
 
@@ -62,6 +64,7 @@ export interface ParameterListDetails {
     hasUnpackedVariadicTypeVar: boolean;
     hasUnpackedTypedDict: boolean;
     unpackedKwargsTypedDictType?: ClassType;
+    paramSpec?: TypeVarType;
 }
 
 // Examines the input parameters within a function signature and creates a
@@ -75,6 +78,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
         params: [],
         hasUnpackedVariadicTypeVar: false,
         hasUnpackedTypedDict: false,
+        paramSpec: type.details.paramSpec,
     };
 
     let positionOnlyIndex = type.details.parameters.findIndex((p) => isPositionOnlySeparator(p));
@@ -281,6 +285,24 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
             );
         }
     });
+
+    // If the signature ends in `*args: P.args, **kwargs: P.kwargs`,
+    // extract the ParamSpec P.
+    if (result.params.length >= 2) {
+        const secondLastParam = result.params[result.params.length - 2].param;
+        const lastParam = result.params[result.params.length - 1].param;
+
+        if (
+            secondLastParam.category === ParameterCategory.ArgsList &&
+            isTypeVar(secondLastParam.type) &&
+            secondLastParam.type.paramSpecAccess === 'args' &&
+            lastParam.category === ParameterCategory.KwargsDict &&
+            isTypeVar(lastParam.type) &&
+            lastParam.type.paramSpecAccess === 'kwargs'
+        ) {
+            result.paramSpec = TypeVarType.cloneForParamSpecAccess(secondLastParam.type, undefined);
+        }
+    }
 
     return result;
 }

@@ -24966,7 +24966,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Verify that one or the other method doesn't contain a ParamSpec.
-        if (baseMethod.details.paramSpec && !overrideMethod.details.paramSpec) {
+        if (baseParamDetails.paramSpec && !overrideParamDetails.paramSpec) {
             diag?.addMessage(Localizer.DiagnosticAddendum.paramSpecMissingInOverride());
             canOverride = false;
         }

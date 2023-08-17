@@ -2,7 +2,10 @@
 # diagnostic check.
 
 
-class Base:
+from typing import Generic, ParamSpec, TypeVar
+
+
+class Base1:
     def f1(self, *, kwarg0: int) -> None:
         ...
 
@@ -37,7 +40,7 @@ class Base:
         ...
 
 
-class Derived(Base):
+class Derived1(Base1):
     def f1(self, arg0: int = 0, *, kwarg0: int, kwarg1: int = 0) -> None:
         ...
 
@@ -71,4 +74,18 @@ class Derived(Base):
         ...
 
     def g6(self, __a: int, b: str, c: str = "hi", *, kwarg0: int) -> None:
+        ...
+
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+class Base2(Generic[P, R]):
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
+        ...
+
+
+class Derived2(Base2[P, R]):
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
         ...
