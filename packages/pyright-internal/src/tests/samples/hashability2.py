@@ -29,8 +29,8 @@ class D(B, C):
 
 
 # Both of these should generate an error because B is unhashable.
-s3 = {UnhashableSub()}
-d3 = {UnhashableSub(): 100}
+s3 = {D()}
+d3 = {D(): 100}
 
 
 class E:
