@@ -203,3 +203,33 @@ class Child2_4(Parent2[str]):
     @classmethod
     def method4(cls, x: Any) -> Any:
         ...
+
+
+class Parent3:
+    @overload
+    def method(self, x: int) -> int:
+        ...
+
+    @overload
+    def method(self, x: str) -> str:
+        ...
+
+    def method(self, x: int | str) -> int | str:
+        return x
+
+
+class Child3_1(Parent3):
+    @overload
+    def method(self, x: int) -> int:
+        ...
+
+    @overload
+    def method(self, x: str) -> str:
+        ...
+
+    @overload
+    def method(self, x: list[float]) -> list[float]:
+        ...
+
+    def method(self, x: int | str | list[float]) -> int | str | list[float]:
+        return x

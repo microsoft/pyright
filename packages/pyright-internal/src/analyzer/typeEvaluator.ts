@@ -24528,7 +24528,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // has additional overloads that are not present in the override.
 
         let previousMatchIndex = -1;
-        let overrideOverloadIndex = 0;
         const baseOverloads = OverloadedFunctionType.getOverloads(baseMethod);
 
         for (const overrideOverload of OverloadedFunctionType.getOverloads(overrideMethod)) {
@@ -24548,10 +24547,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             if (matchIndex < 0) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.overrideOverloadNoMatch().format({ index: overrideOverloadIndex + 1 })
-                );
-                return false;
+                continue;
             }
 
             if (matchIndex < previousMatchIndex) {
@@ -24560,7 +24556,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             previousMatchIndex = matchIndex;
-            overrideOverloadIndex++;
+        }
+
+        if (previousMatchIndex < baseOverloads.length - 1) {
+            // We didn't find matches for all of the base overloads.
+            diag.addMessage(Localizer.DiagnosticAddendum.overrideOverloadNoMatch());
+            return false;
         }
 
         return true;
