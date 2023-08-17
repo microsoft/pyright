@@ -17102,12 +17102,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             validateTypeParameterDefault(bestErrorNode, typeParam, functionType.details.typeParameters.slice(0, index));
         });
 
+        // If it's an async function, wrap the return type in an Awaitable or Generator.
+        const preDecoratedType = node.isAsync ? createAsyncFunction(node, functionType) : functionType;
+
         // Clear the "partially evaluated" flag to indicate that the functionType
         // is fully evaluated.
         functionType.details.flags &= ~FunctionTypeFlags.PartiallyEvaluated;
-
-        // If it's an async function, wrap the return type in an Awaitable or Generator.
-        const preDecoratedType = node.isAsync ? createAsyncFunction(node, functionType) : functionType;
 
         // Apply all of the decorators in reverse order.
         let decoratedType: Type = preDecoratedType;
@@ -17409,7 +17409,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Awaitable[<returnType>]. Mark the new function as no longer async.
         const awaitableFunctionType = FunctionType.cloneWithNewFlags(
             functionType,
-            functionType.details.flags & ~FunctionTypeFlags.Async
+            functionType.details.flags & ~(FunctionTypeFlags.Async | FunctionTypeFlags.PartiallyEvaluated)
         );
 
         if (functionType.details.declaredReturnType) {

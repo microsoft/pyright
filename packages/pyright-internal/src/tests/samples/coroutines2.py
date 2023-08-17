@@ -18,3 +18,7 @@ async def inner(sleep: int, message: str) -> str:
 
 async def outer():
     await inspector(inner(1, "test"))
+
+
+async def recursive1():
+    await recursive1()
