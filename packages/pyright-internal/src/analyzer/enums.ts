@@ -39,6 +39,7 @@ import {
     UnknownType,
     combineTypes,
     findSubtype,
+    isAny,
     isClass,
     isClassInstance,
     isFunction,
@@ -445,6 +446,15 @@ export function getTypeOfEnumMember(
 
         if (literalValue) {
             assert(literalValue instanceof EnumLiteral);
+
+            // If there is no known value type for this literal value,
+            // return undefined. This will cause the caller to fall back
+            // on the definition of `value` within the class definition
+            // (if present).
+            if (isAny(literalValue.itemType)) {
+                return undefined;
+            }
+
             return { type: literalValue.itemType, isIncomplete };
         }
 
