@@ -2,7 +2,7 @@
 # diagnostic check.
 
 
-from typing import Generic, ParamSpec, TypeVar
+from typing import Any, Generic, ParamSpec, TypeVar
 
 
 class Base1:
@@ -82,10 +82,16 @@ R = TypeVar("R")
 
 
 class Base2(Generic[P, R]):
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
+    def method1(self, *args: P.args, **kwargs: P.kwargs) -> R:
+        ...
+
+    def method2(self, *args: P.args, **kwargs: P.kwargs) -> R:
         ...
 
 
 class Derived2(Base2[P, R]):
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
+    def method1(self, *args: P.args, **kwargs: P.kwargs) -> R:
+        ...
+
+    def method2(self, *args: Any, **kwargs: Any) -> R:
         ...

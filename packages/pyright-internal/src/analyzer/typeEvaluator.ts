@@ -24953,8 +24953,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Verify that one or the other method doesn't contain a ParamSpec.
         if (baseParamDetails.paramSpec && !overrideParamDetails.paramSpec) {
-            diag?.addMessage(Localizer.DiagnosticAddendum.paramSpecMissingInOverride());
-            canOverride = false;
+            // If the override uses an `*args: Any, **kwargs: Any` signature, we
+            // will allow this as an acceptable overload for a `*args: P.args, **kwargs: P.kwargs`.
+            const overrideHasArgsKwargs =
+                overrideParamDetails.argsIndex !== undefined &&
+                isAnyOrUnknown(overrideParamDetails.params[overrideParamDetails.argsIndex].type) &&
+                overrideParamDetails.kwargsIndex !== undefined &&
+                isAnyOrUnknown(overrideParamDetails.params[overrideParamDetails.kwargsIndex].type);
+
+            if (!overrideHasArgsKwargs) {
+                diag?.addMessage(Localizer.DiagnosticAddendum.paramSpecMissingInOverride());
+                canOverride = false;
+            }
         }
 
         // Now check the return type.
