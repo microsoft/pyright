@@ -124,6 +124,7 @@ import {
     ClassMember,
     ClassMemberLookupFlags,
     applySolvedTypeVars,
+    buildTypeVarContextFromSpecializedClass,
     convertToInstance,
     derivesFromAnyOrUnknown,
     derivesFromClassRecursive,
@@ -381,6 +382,8 @@ export class Checker extends ParseTreeWalker {
                 this._validateBaseClassOverrides(classTypeResult.classType);
                 this._validateSlotsClassVarConflict(classTypeResult.classType);
             }
+
+            this._validateMultipleInheritanceBaseClasses(classTypeResult.classType, node.name);
 
             this._validateMultipleInheritanceCompatibility(classTypeResult.classType, node.name);
 
@@ -5142,6 +5145,96 @@ export class Checker extends ParseTreeWalker {
                     );
                 }
             }
+        }
+    }
+
+    // Verifies that classes that have more than one base class do not have
+    // have conflicting type arguments.
+    private _validateMultipleInheritanceBaseClasses(classType: ClassType, errorNode: ParseNode) {
+        // Skip this check if the class has only one base class or one or more
+        // of the base classes are Any.
+        const filteredBaseClasses: ClassType[] = [];
+        for (const baseClass of classType.details.baseClasses) {
+            if (!isClass(baseClass)) {
+                return;
+            }
+
+            if (!ClassType.isBuiltIn(baseClass, ['Generic', 'Protocol', 'object'])) {
+                filteredBaseClasses.push(baseClass);
+            }
+        }
+
+        if (filteredBaseClasses.length < 2) {
+            return;
+        }
+
+        const diagAddendum = new DiagnosticAddendum();
+
+        for (const baseClass of filteredBaseClasses) {
+            const typeVarContext = buildTypeVarContextFromSpecializedClass(baseClass);
+
+            for (const baseClassMroClass of baseClass.details.mro) {
+                // There's no need to check for conflicts if this class isn't generic.
+                if (isClass(baseClassMroClass) && baseClassMroClass.details.typeParameters.length > 0) {
+                    const specializedBaseClassMroClass = applySolvedTypeVars(
+                        baseClassMroClass,
+                        typeVarContext
+                    ) as ClassType;
+
+                    // Find the corresponding class in the derived class's MRO list.
+                    const matchingMroClass = classType.details.mro.find(
+                        (mroClass) =>
+                            isClass(mroClass) && ClassType.isSameGenericClass(mroClass, specializedBaseClassMroClass)
+                    );
+
+                    if (matchingMroClass && isInstantiableClass(matchingMroClass)) {
+                        const matchingMroObject = ClassType.cloneAsInstance(matchingMroClass);
+                        const baseClassMroObject = ClassType.cloneAsInstance(specializedBaseClassMroClass);
+
+                        // If the types match exactly, we can shortcut the remainder of the MRO chain.
+                        // if (isTypeSame(matchingMroObject, baseClassMroObject)) {
+                        //     break;
+                        // }
+
+                        if (!this._evaluator.assignType(matchingMroObject, baseClassMroObject)) {
+                            const diag = new DiagnosticAddendum();
+                            const baseClassObject = convertToInstance(baseClass);
+
+                            if (isTypeSame(baseClassObject, baseClassMroObject)) {
+                                diag.addMessage(
+                                    Localizer.DiagnosticAddendum.baseClassIncompatible().format({
+                                        baseClass: this._evaluator.printType(baseClassObject),
+                                        type: this._evaluator.printType(matchingMroObject),
+                                    })
+                                );
+                            } else {
+                                diag.addMessage(
+                                    Localizer.DiagnosticAddendum.baseClassIncompatibleSubclass().format({
+                                        baseClass: this._evaluator.printType(baseClassObject),
+                                        subclass: this._evaluator.printType(baseClassMroObject),
+                                        type: this._evaluator.printType(matchingMroObject),
+                                    })
+                                );
+                            }
+
+                            diagAddendum.addAddendum(diag);
+
+                            // Break out of the inner loop so we don't report any redundant errors for this base class.
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!diagAddendum.isEmpty()) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.baseClassIncompatible().format({ type: classType.details.name }) +
+                    diagAddendum.getString(),
+                errorNode
+            );
         }
     }
 

@@ -247,9 +247,11 @@ export namespace Localizer {
         export const awaitNotInAsync = () => getRawString('Diagnostic.awaitNotInAsync');
         export const backticksIllegal = () => getRawString('Diagnostic.backticksIllegal');
         export const baseClassCircular = () => getRawString('Diagnostic.baseClassCircular');
-        export const baseClassInvalid = () => getRawString('Diagnostic.baseClassInvalid');
         export const baseClassFinal = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.baseClassFinal'));
+        export const baseClassIncompatible = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.baseClassIncompatible'));
+        export const baseClassInvalid = () => getRawString('Diagnostic.baseClassInvalid');
         export const baseClassMethodTypeIncompatible = () =>
             new ParameterizedString<{ classType: string; name: string }>(
                 getRawString('Diagnostic.baseClassMethodTypeIncompatible')
@@ -1116,6 +1118,14 @@ export namespace Localizer {
             new ParameterizedString<{ types: string }>(getRawString('DiagnosticAddendum.argumentTypes'));
         export const assignToNone = () => getRawString('DiagnosticAddendum.assignToNone');
         export const asyncHelp = () => getRawString('DiagnosticAddendum.asyncHelp');
+        export const baseClassIncompatible = () =>
+            new ParameterizedString<{ baseClass: string; type: string }>(
+                getRawString('DiagnosticAddendum.baseClassIncompatible')
+            );
+        export const baseClassIncompatibleSubclass = () =>
+            new ParameterizedString<{ baseClass: string; subclass: string; type: string }>(
+                getRawString('DiagnosticAddendum.baseClassIncompatibleSubclass')
+            );
         export const baseClassOverriddenType = () =>
             new ParameterizedString<{ baseClass: string; type: string }>(
                 getRawString('DiagnosticAddendum.baseClassOverriddenType')
