@@ -3787,7 +3787,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         ClassType.isBuiltIn(callType, 'TypeVarTuple') ||
                         ClassType.isBuiltIn(callType, 'ParamSpec'))
                 ) {
-                    if (target.nodeType !== ParseNodeType.Name || target.value !== type.details.name) {
+                    const typeVarTarget =
+                        target.nodeType === ParseNodeType.TypeAnnotation ? target.valueExpression : target;
+                    if (typeVarTarget.nodeType !== ParseNodeType.Name || typeVarTarget.value !== type.details.name) {
                         addError(
                             type.details.isParamSpec
                                 ? Localizer.Diagnostic.paramSpecAssignedName().format({
@@ -3796,7 +3798,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 : Localizer.Diagnostic.typeVarAssignedName().format({
                                       name: TypeVarType.getReadableName(type),
                                   }),
-                            target
+                            typeVarTarget
                         );
                     }
                 }
@@ -15319,16 +15321,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                // If there was a declared type, make sure the RHS value is compatible.
-                if (declaredType) {
-                    if (assignType(declaredType, srcType)) {
-                        // Narrow the resulting type if possible.
-                        if (!isAnyOrUnknown(srcType)) {
-                            srcType = narrowTypeBasedOnAssignment(node, declaredType, srcType);
-                        }
-                    }
-                }
-
                 // If this is an enum, transform the type as required.
                 rightHandType = srcType;
                 if (node.leftExpression.nodeType === ParseNodeType.Name && !node.typeAnnotationComment) {
@@ -15337,7 +15329,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             evaluatorInterface,
                             node.leftExpression,
                             () => rightHandType!
-                        ) || rightHandType;
+                        ) ?? rightHandType;
                 }
 
                 if (typeAliasNameNode) {
@@ -24407,30 +24399,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (assignType(declaredSubtype, assignedSubtype)) {
+                    // If the assigned subtype is Any, stick with the declared type.
+                    if (isAny(assignedSubtype)) {
+                        return declaredSubtype;
+                    }
+
                     // If the source is generic and has unspecified type arguments,
                     // see if we can determine them based on the declared type.
-                    if (isInstantiableClass(declaredSubtype) && isInstantiableClass(assignedSubtype)) {
+                    if (isClass(declaredSubtype) && isClass(assignedSubtype)) {
                         const result = replaceTypeArgsWithAny(node, declaredSubtype, assignedSubtype);
                         if (result) {
                             assignedSubtype = result;
                         }
-                    } else if (isClassInstance(declaredSubtype) && isClassInstance(assignedSubtype)) {
-                        const result = replaceTypeArgsWithAny(
-                            node,
-                            ClassType.cloneAsInstantiable(declaredSubtype),
-                            ClassType.cloneAsInstantiable(assignedSubtype)
-                        );
-                        if (result) {
-                            assignedSubtype = ClassType.cloneAsInstance(result);
-                        }
                     } else if (!isTypeVar(declaredSubtype) && isTypeVar(assignedSubtype)) {
                         // If the source is an unsolved TypeVar but the declared type is concrete,
                         // use the concrete type.
-                        return declaredSubtype;
-                    }
-
-                    // If the assigned subtype is Any, stick with the declared type.
-                    if (isAny(assignedSubtype)) {
                         return declaredSubtype;
                     }
 
