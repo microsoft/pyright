@@ -54,10 +54,10 @@ class Y(Generic[P2]):
 
 
 y1 = Y(x4)
-reveal_type(y1, expected_text="Y[(x: X[int, (...)])]")
+reveal_type(y1, expected_text="Y[(x: X[int, ...])]")
 
 y2 = y1.m1()
-reveal_type(y2, expected_text="X[int, (float, x: X[int, (...)])]")
+reveal_type(y2, expected_text="X[int, (float, x: X[int, ...])]")
 
 
 class Z(Generic[P1]):

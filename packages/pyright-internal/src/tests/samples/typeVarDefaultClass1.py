@@ -47,8 +47,8 @@ class ClassB1(Generic[P2, P3]):
 
 
 def func_b1(a: ClassB1, b: ClassB1[[float]], c: ClassB1[[float], [float]]):
-    reveal_type(a, expected_text="ClassB1[(int, str), (...)]")
-    reveal_type(b, expected_text="ClassB1[(float), (...)]")
+    reveal_type(a, expected_text="ClassB1[(int, str), ...]")
+    reveal_type(b, expected_text="ClassB1[(float), ...]")
     reveal_type(c, expected_text="ClassB1[(float), (float)]")
 
 

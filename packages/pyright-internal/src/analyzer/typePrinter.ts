@@ -812,10 +812,14 @@ function printFunctionType(
         const paramSignature = `(${parts[0].join(', ')})`;
 
         if (FunctionType.isParamSpecValue(type)) {
+            if (parts[0].length === 1 && parts[0][0] === '...') {
+                return parts[0][0];
+            }
+
             return paramSignature;
         }
-        const fullSignature = `${paramSignature} -> ${parts[1]}`;
 
+        const fullSignature = `${paramSignature} -> ${parts[1]}`;
         const parenthesizeCallable = (printTypeFlags & PrintTypeFlags.ParenthesizeCallable) !== 0;
         if (parenthesizeCallable) {
             return `(${fullSignature})`;

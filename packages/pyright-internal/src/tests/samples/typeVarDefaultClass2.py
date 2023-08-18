@@ -39,6 +39,7 @@ reveal_type(d1, expected_text="ClassD[int, int]")
 d2 = ClassD()
 reveal_type(d2, expected_text="ClassD[str, str]")
 
+
 # This should generate an error because T5 refers to itself.
 class ClassE(Generic[T5]):
     ...
@@ -56,6 +57,7 @@ reveal_type(h2, expected_text="ClassH[int, int, list[int]]")
 
 h3 = ClassH[int, float]()
 reveal_type(h3, expected_text="ClassH[int, float, list[float]]")
+
 
 # This should generate an error because T2 depends on T1.
 class ClassI(Generic[T2]):
@@ -118,16 +120,16 @@ class ClassPA(Generic[P1, P2, P3]):
 
 
 pa1 = ClassPA()
-reveal_type(pa1, expected_text="ClassPA[(...), (...), (...)]")
+reveal_type(pa1, expected_text="ClassPA[..., ..., ...]")
 
 pa2 = ClassPA[[str]]()
 reveal_type(pa2, expected_text="ClassPA[(str), (str), (str)]")
 
 pa3 = ClassPA[..., [float]]()
-reveal_type(pa3, expected_text="ClassPA[(...), (float), (float)]")
+reveal_type(pa3, expected_text="ClassPA[..., (float), (float)]")
 
 pa4 = ClassPA[..., [int, int], [float]]()
-reveal_type(pa4, expected_text="ClassPA[(...), (int, int), (float)]")
+reveal_type(pa4, expected_text="ClassPA[..., (int, int), (float)]")
 
 
 # This should generate an error because P1 depends on P2.
@@ -146,7 +148,7 @@ pc2 = ClassPC[float]()
 reveal_type(pc2, expected_text="ClassPC[float, (int, float)]")
 
 pc3 = ClassPC[float, ...]()
-reveal_type(pc3, expected_text="ClassPC[float, (...)]")
+reveal_type(pc3, expected_text="ClassPC[float, ...]")
 
 
 # This should generate an error because P4 depends on T1.
@@ -173,6 +175,7 @@ reveal_type(ta3, expected_text="ClassTA[int, float, int, float]")
 
 ta4 = ClassTA[int, float, *tuple[None, ...]]()
 reveal_type(ta4, expected_text="ClassTA[int, float, *tuple[None, ...]]")
+
 
 # This should generate an error because Ts1 depends on T2.
 class ClassTB(Generic[T1, *Ts1, T2]):
