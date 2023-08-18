@@ -640,7 +640,19 @@ export class Binder extends ParseTreeWalker {
     override visitCall(node: CallNode): boolean {
         this._disableTrueFalseTargets(() => {
             this.walk(node.leftExpression);
-            node.arguments.forEach((argNode) => {
+
+            // Sort all keyword arguments to the end of the parameter list. This is
+            // necessary because all positional arguments (including *args) are evaluated
+            // prior to any keyword arguments at runtime.
+            const positionalArgs = node.arguments.filter(
+                (arg) => !arg.name && arg.argumentCategory !== ArgumentCategory.UnpackedDictionary
+            );
+            const keywordArgs = node.arguments.filter(
+                (arg) => !!arg.name || arg.argumentCategory === ArgumentCategory.UnpackedDictionary
+            );
+            const sortedArgs = positionalArgs.concat(keywordArgs);
+
+            sortedArgs.forEach((argNode) => {
                 if (this._currentFlowNode) {
                     AnalyzerNodeInfo.setFlowNode(argNode, this._currentFlowNode);
                 }

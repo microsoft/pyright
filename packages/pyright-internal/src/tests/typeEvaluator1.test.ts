@@ -803,6 +803,12 @@ test('Call11', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Call12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call12.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('Function1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function1.py']);
 
