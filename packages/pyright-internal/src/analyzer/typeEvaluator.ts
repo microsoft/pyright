@@ -24385,6 +24385,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // If the declared and assigned types are the same generic type but the assigned type
+        // contains one or more unknowns, use the declared type instead.
+        if (ClassType.isSameGenericClass(declaredType, assignedType)) {
+            if (containsAnyRecursive(assignedType) && !containsAnyRecursive(declaredType)) {
+                return declaredType;
+            }
+        }
+
         return undefined;
     }
 
@@ -24404,14 +24412,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return declaredSubtype;
                     }
 
-                    // If the source is generic and has unspecified type arguments,
-                    // see if we can determine them based on the declared type.
-                    if (isClass(declaredSubtype) && isClass(assignedSubtype)) {
+                    if (
+                        isClass(declaredSubtype) &&
+                        isClass(assignedSubtype) &&
+                        TypeBase.isInstance(declaredSubtype) === TypeBase.isInstance(assignedSubtype)
+                    ) {
                         const result = replaceTypeArgsWithAny(node, declaredSubtype, assignedSubtype);
                         if (result) {
                             assignedSubtype = result;
                         }
-                    } else if (!isTypeVar(declaredSubtype) && isTypeVar(assignedSubtype)) {
+                        return assignedSubtype;
+                    }
+
+                    if (!isTypeVar(declaredSubtype) && isTypeVar(assignedSubtype)) {
                         // If the source is an unsolved TypeVar but the declared type is concrete,
                         // use the concrete type.
                         return declaredSubtype;

@@ -66,3 +66,8 @@ def func4(y: list[Any]):
 
     x3: Iterable[Any] = y
     reveal_type(x3, expected_text="list[Any]")
+
+
+def func5(v1: list[Any | None]):
+    x1: list[int | None] = v1
+    reveal_type(x1, expected_text="list[int | None]")
