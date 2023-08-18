@@ -15991,7 +15991,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (classType.details.fields.has('__eq__') && !classType.details.fields.has('__hash__')) {
             classType.details.fields.set(
                 '__hash__',
-                Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.ClassVar, NoneType.createInstance())
+                Symbol.createWithType(
+                    SymbolFlags.ClassMember | SymbolFlags.ClassVar | SymbolFlags.IgnoredForProtocolMatch,
+                    NoneType.createInstance()
+                )
             );
         }
 
