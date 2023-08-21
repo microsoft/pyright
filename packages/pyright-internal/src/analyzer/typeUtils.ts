@@ -3808,6 +3808,10 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                     }
                 }
 
+                if (isTypeVar(replacement) && typeVar.isVariadicInUnion && !replacement.isVariadicInUnion) {
+                    return TypeVarType.cloneForUnpacked(replacement, /* isInUnion */ true);
+                }
+
                 return replacement;
             }
 
