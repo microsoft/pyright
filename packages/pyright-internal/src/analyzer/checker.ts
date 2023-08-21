@@ -5626,7 +5626,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        if (baseClassAndSymbol.symbol.isIgnoredForOverrideChecks()) {
+        if (baseClassAndSymbol.symbol.isIgnoredForOverrideChecks() || overrideSymbol.isIgnoredForOverrideChecks()) {
             return;
         }
 

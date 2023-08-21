@@ -15984,7 +15984,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             classType.details.fields.set(
                 '__hash__',
                 Symbol.createWithType(
-                    SymbolFlags.ClassMember | SymbolFlags.ClassVar | SymbolFlags.IgnoredForProtocolMatch,
+                    SymbolFlags.ClassMember |
+                        SymbolFlags.ClassVar |
+                        SymbolFlags.IgnoredForProtocolMatch |
+                        SymbolFlags.IgnoredForOverrideChecks,
                     NoneType.createInstance()
                 )
             );
