@@ -11570,14 +11570,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isCompatible = true;
         const functionName = typeResult?.type.details.name;
         let skippedBareTypeVarExpectedType = false;
+        let skipSolveTypeVars = false;
 
         if (argParam.argument.valueExpression) {
             let expectedType: Type | undefined;
 
-            const isBareTypeVarExpectedType =
-                isTypeVar(argParam.paramType) && argParam.paramType.scopeId === typeResult?.type.details.typeVarScopeId;
+            // Is the expected type a "bare" in-scope TypeVar or a union of bare in-scope TypeVars?
+            let isExpectedTypeBareTypeVar = true;
+            doForEachSubtype(argParam.paramType, (subtype) => {
+                if (!isTypeVar(subtype) || subtype.scopeId !== typeResult?.type.details.typeVarScopeId) {
+                    isExpectedTypeBareTypeVar = false;
+                }
+            });
 
-            if (!options.skipBareTypeVarExpectedType || !isBareTypeVarExpectedType) {
+            if (!options.skipBareTypeVarExpectedType || !isExpectedTypeBareTypeVar) {
                 expectedType = argParam.paramType;
 
                 // If the parameter type is a function with a ParamSpec, don't apply
@@ -11595,6 +11601,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             } else {
                 skippedBareTypeVarExpectedType = true;
+
+                // If the expected type is a union of bare TypeVars, it's not clear which of the two
+                // (or both) should be constrained. We'll skip any attempt to solve the TypeVars during
+                // this pass and hope that subsequent arg assignments will help us establish the correct
+                // constraints.
+                if (isUnion(argParam.paramType)) {
+                    skipSolveTypeVars = true;
+                }
             }
 
             // If the expected type is unknown, don't use an expected type. Instead,
@@ -11753,7 +11767,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (!assignType(argParam.paramType, argType, diag.createAddendum(), typeVarContext)) {
+        if (
+            !assignType(
+                argParam.paramType,
+                argType,
+                diag.createAddendum(),
+                typeVarContext,
+                /* srcTypeVarContext */ undefined,
+                skipSolveTypeVars ? AssignTypeFlags.SkipSolveTypeVars : undefined
+            )
+        ) {
             // Mismatching parameter types are common in untyped code; don't bother spending time
             // printing types if the diagnostic is disabled.
             const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
