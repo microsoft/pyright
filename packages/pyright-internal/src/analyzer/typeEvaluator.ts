@@ -1927,6 +1927,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let memberInfo: ClassMemberLookup | undefined;
         const classDiag = diag ? new DiagnosticAddendum() : undefined;
         const metaclassDiag = diag ? new DiagnosticAddendum() : undefined;
+        let considerMetaclassOnly = (memberAccessFlags & MemberAccessFlags.ConsiderMetaclassOnly) !== 0;
 
         if (ClassType.isPartiallyEvaluated(classType)) {
             addDiagnostic(
@@ -1938,7 +1939,38 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: UnknownType.create() };
         }
 
-        if ((memberAccessFlags & MemberAccessFlags.ConsiderMetaclassOnly) === 0) {
+        const metaclass = classType.details.effectiveMetaclass;
+
+        // Look up the attribute in the metaclass first. If the member is a descriptor
+        // (an object with a __get__ method) and the access is a 'get', the Python runtime
+        // uses this metaclass descriptor to satisfy the lookup. Skip this costly lookup
+        // in the common case where the metaclass is 'type' since we know that `type` doesn't
+        // have any attributes that are descriptors.
+        if (
+            usage.method === 'get' &&
+            metaclass &&
+            isInstantiableClass(metaclass) &&
+            !ClassType.isBuiltIn(metaclass, 'type') &&
+            !ClassType.isSameGenericClass(metaclass, classType)
+        ) {
+            const metaclassMemberInfo = getTypeOfClassMemberName(
+                errorNode,
+                metaclass,
+                /* isAccessedThroughObject */ false,
+                memberName,
+                usage,
+                metaclassDiag,
+                memberAccessFlags,
+                classType
+            );
+
+            if (metaclassMemberInfo && isDescriptorInstance(metaclassMemberInfo.type)) {
+                considerMetaclassOnly = true;
+            }
+        }
+
+        // Look up the attribute in the class object.
+        if (!memberInfo && !considerMetaclassOnly) {
             memberInfo = getTypeOfClassMemberName(
                 errorNode,
                 classType,
