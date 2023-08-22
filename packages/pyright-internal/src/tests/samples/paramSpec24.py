@@ -30,7 +30,7 @@ class _wrapped_cache(_callable_cache[P, T], Generic[O, P, T]):
         ...
 
     @overload
-    def __get__(self, instance: O, owner: type[O]) -> Self:
+    def __get__(self, instance: O, owner: None) -> Self:
         ...
 
 

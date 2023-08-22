@@ -5765,14 +5765,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         if (usage.method === 'get') {
                             // Provide "owner" argument.
-                            // Use Any rather than None for the owner argument if accessing through an object.
-                            // None is more correct, but it doesn't really matter, and many descriptor classes
-                            // incorrectly annotate the owner parameter. Rather than create a bunch of noise,
-                            // we'll use Any here.
                             argList.push({
                                 argumentCategory: ArgumentCategory.Simple,
                                 typeResult: {
-                                    type: isAccessedThroughObject ? AnyType.create() : baseTypeClass,
+                                    type: isAccessedThroughObject ? NoneType.createInstance() : baseTypeClass,
                                 },
                             });
                         } else if (usage.method === 'set') {
