@@ -6842,9 +6842,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // This feature is currently experimental.
                     const supportsTypedDictTypeArg =
                         AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures &&
-                        isInstantiableClass(concreteSubtype) &&
-                        ClassType.isBuiltIn(concreteSubtype, 'dict') &&
-                        !concreteSubtype.aliasName;
+                        ClassType.isBuiltIn(concreteSubtype, ['dict', 'TypedDict']) &&
+                        !ClassType.isBuiltIn(concreteSubtype, 'Dict');
 
                     let typeArgs = getTypeArgs(node, flags, {
                         isAnnotatedClass,

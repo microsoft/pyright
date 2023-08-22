@@ -1,6 +1,6 @@
 # This sample tests support for inlined TypedDict definitions.
 
-from typing import Dict
+from typing import Dict, TypedDict
 
 
 td1: dict[{"a": int, "b": str}] = {"a": 0, "b": ""}
@@ -34,3 +34,6 @@ def func1(val: dict[{"a": int}]) -> dict[{"a": int}]:
 
 
 func1({"a": 3})
+
+
+td4: TypedDict[{"a": int, "b": str}] = {"a": 0, "b": ""}
