@@ -20,6 +20,7 @@ import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction } from '../common/editAction';
 import { EditableProgram, Extensions, ProgramView } from '../common/extensibility';
+import { FileSystem } from '../common/fileSystem';
 import { LogTracker } from '../common/logTracker';
 import {
     combinePaths,
@@ -32,6 +33,9 @@ import {
     stripFileExtension,
 } from '../common/pathUtils';
 import { convertRangeToTextRange } from '../common/positionUtils';
+import { ServiceProvider } from '../common/serviceProvider';
+import '../common/serviceProviderExtensions';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { Range, doRangesIntersect } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
 import { ParseResults } from '../parser/parser';
@@ -53,10 +57,6 @@ import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { PrintTypeFlags } from './typePrinter';
 import { TypeStubWriter } from './typeStubWriter';
 import { Type } from './types';
-import { FileSystem } from '../common/fileSystem';
-import { ServiceProvider } from '../common/serviceProvider';
-import '../common/serviceProviderExtensions';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
 
 const _maxImportDepth = 256;
 
@@ -690,16 +690,14 @@ export class Program {
     // This will allow the callback to execute a type evaluator with an associated
     // cancellation token and provide a read-only program.
     run<T>(callback: (p: ProgramView) => T, token: CancellationToken): T {
-        const evaluator = this._evaluator ?? this._createNewEvaluator();
-        return evaluator.runWithCancellationToken(token, () => callback(this));
+        return this._runEvaluatorWithCancellationToken(token, () => callback(this));
     }
 
     // This will allow the callback to execute a type evaluator with an associated
     // cancellation token and provide a mutable program. Should already be in edit mode when called.
     runEditMode(callback: (v: EditableProgram) => void, token: CancellationToken): void {
         if (this._isEditMode) {
-            const evaluator = this._evaluator ?? this._createNewEvaluator();
-            evaluator.runWithCancellationToken(token, () => callback(this));
+            return this._runEvaluatorWithCancellationToken(token, () => callback(this));
         }
     }
 
@@ -1039,7 +1037,7 @@ export class Program {
             // An unexpected exception occurred, potentially leaving the current evaluator
             // in an inconsistent state. Discard it and replace it with a fresh one. It is
             // Cancellation exceptions are known to handle this correctly.
-            if (!OperationCanceledException.is(e)) {
+            if (!OperationCanceledException.is(e) || e.isTypeCacheInvalid) {
                 this._createNewEvaluator();
             }
             throw e;

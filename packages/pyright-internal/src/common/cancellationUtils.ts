@@ -26,11 +26,15 @@ export function setCancellationFolderName(folderName?: string) {
 }
 
 export class OperationCanceledException extends ResponseError<void> {
+    // If true, indicates that the cancellation may have left the type cache
+    // in an invalid state.
+    isTypeCacheInvalid = false;
+
     constructor() {
         super(LSPErrorCodes.RequestCancelled, 'request cancelled');
     }
 
-    static is(e: any) {
+    static is(e: any): e is OperationCanceledException {
         return e.code === LSPErrorCodes.RequestCancelled;
     }
 }

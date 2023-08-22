@@ -17,7 +17,7 @@
 import { CancellationToken } from 'vscode-languageserver';
 
 import { Commands } from '../commands/commands';
-import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticLevel } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
@@ -15663,208 +15663,235 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             setSymbolResolutionPartialType(classSymbol, classDecl, classType);
         }
         classType.details.flags |= ClassTypeFlags.PartiallyEvaluated;
-        writeTypeCache(node, { type: classType }, /* flags */ undefined);
-        writeTypeCache(node.name, { type: classType }, /* flags */ undefined);
 
-        // Keep a list of unique type parameters that are used in the
-        // base class arguments.
-        let typeParameters: TypeVarType[] = [];
+        try {
+            writeTypeCache(node, { type: classType }, /* flags */ undefined);
+            writeTypeCache(node.name, { type: classType }, /* flags */ undefined);
 
-        if (node.typeParameters) {
-            typeParameters = evaluateTypeParameterList(node.typeParameters).map((t) => TypeVarType.cloneAsInstance(t));
-        }
+            // Keep a list of unique type parameters that are used in the
+            // base class arguments.
+            let typeParameters: TypeVarType[] = [];
 
-        // If the class derives from "Generic" directly, it will provide
-        // all of the type parameters in the specified order.
-        let genericTypeParameters: TypeVarType[] | undefined;
-        let protocolTypeParameters: TypeVarType[] | undefined;
-
-        const initSubclassArgs: FunctionArgument[] = [];
-        let metaclassNode: ExpressionNode | undefined;
-        let exprFlags =
-            EvaluatorFlags.ExpectingInstantiableType |
-            EvaluatorFlags.AllowGenericClassType |
-            EvaluatorFlags.DisallowNakedGeneric |
-            EvaluatorFlags.DisallowTypeVarsWithScopeId |
-            EvaluatorFlags.AssociateTypeVarsWithCurrentScope |
-            EvaluatorFlags.EnforceTypeVarVarianceConsistency |
-            EvaluatorFlags.DisallowPep695TypeAlias;
-        if (fileInfo.isStubFile) {
-            exprFlags |= EvaluatorFlags.AllowForwardReferences;
-        }
-
-        node.arguments.forEach((arg) => {
-            // Ignore unpacked arguments.
-            if (arg.argumentCategory === ArgumentCategory.UnpackedDictionary) {
-                // Evaluate the expression's type so symbols are marked accessed
-                // and errors are reported.
-                getTypeOfExpression(arg.valueExpression);
-                return;
+            if (node.typeParameters) {
+                typeParameters = evaluateTypeParameterList(node.typeParameters).map((t) =>
+                    TypeVarType.cloneAsInstance(t)
+                );
             }
 
-            if (!arg.name) {
-                let argType: Type;
+            // If the class derives from "Generic" directly, it will provide
+            // all of the type parameters in the specified order.
+            let genericTypeParameters: TypeVarType[] | undefined;
+            let protocolTypeParameters: TypeVarType[] | undefined;
 
-                if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
+            const initSubclassArgs: FunctionArgument[] = [];
+            let metaclassNode: ExpressionNode | undefined;
+            let exprFlags =
+                EvaluatorFlags.ExpectingInstantiableType |
+                EvaluatorFlags.AllowGenericClassType |
+                EvaluatorFlags.DisallowNakedGeneric |
+                EvaluatorFlags.DisallowTypeVarsWithScopeId |
+                EvaluatorFlags.AssociateTypeVarsWithCurrentScope |
+                EvaluatorFlags.EnforceTypeVarVarianceConsistency |
+                EvaluatorFlags.DisallowPep695TypeAlias;
+            if (fileInfo.isStubFile) {
+                exprFlags |= EvaluatorFlags.AllowForwardReferences;
+            }
+
+            node.arguments.forEach((arg) => {
+                // Ignore unpacked arguments.
+                if (arg.argumentCategory === ArgumentCategory.UnpackedDictionary) {
+                    // Evaluate the expression's type so symbols are marked accessed
+                    // and errors are reported.
                     getTypeOfExpression(arg.valueExpression);
-                    argType = UnknownType.create();
-                } else {
-                    argType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(arg.valueExpression, exprFlags).type);
+                    return;
                 }
 
-                // In some stub files, classes are conditionally defined (e.g. based
-                // on platform type). We'll assume that the conditional logic is correct
-                // and strip off the "unbound" union.
-                if (isUnion(argType)) {
-                    argType = removeUnbound(argType);
-                }
+                if (!arg.name) {
+                    let argType: Type;
 
-                if (!isAnyOrUnknown(argType) && !isUnbound(argType)) {
-                    if (isMetaclassInstance(argType)) {
-                        assert(isClassInstance(argType));
-                        argType =
-                            argType.typeArguments && argType.typeArguments.length > 0
-                                ? argType.typeArguments[0]
-                                : UnknownType.create();
-                    } else if (!isInstantiableClass(argType)) {
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.baseClassInvalid(),
-                            arg
-                        );
+                    if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
+                        getTypeOfExpression(arg.valueExpression);
                         argType = UnknownType.create();
                     } else {
-                        if (
-                            ClassType.isPartiallyEvaluated(argType) ||
-                            argType.details.mro.some((t) => isClass(t) && ClassType.isPartiallyEvaluated(t))
-                        ) {
-                            // If the base class is partially evaluated, install a callback
-                            // so we can fix up this class (e.g. compute the MRO) when the
-                            // dependent class is completed.
-                            registerDeferredClassCompletion(node, argType);
-                        }
-
-                        if (ClassType.isBuiltIn(argType, 'Protocol')) {
-                            if (
-                                !fileInfo.isStubFile &&
-                                !ClassType.isTypingExtensionClass(argType) &&
-                                fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_7
-                            ) {
-                                addError(Localizer.Diagnostic.protocolIllegal(), arg.valueExpression);
-                            }
-                            classType.details.flags |= ClassTypeFlags.ProtocolClass;
-                        }
-
-                        if (ClassType.isBuiltIn(argType, 'property')) {
-                            classType.details.flags |= ClassTypeFlags.PropertyClass;
-                        }
-
-                        // If the class directly derives from NamedTuple (in Python 3.6 or
-                        // newer), it's considered a (read-only) dataclass.
-                        if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_6) {
-                            if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
-                                classType.details.flags |=
-                                    ClassTypeFlags.DataClass |
-                                    ClassTypeFlags.SkipSynthesizedDataClassEq |
-                                    ClassTypeFlags.ReadOnlyInstanceVariables;
-                            }
-                        }
-
-                        // If the class directly derives from TypedDict or from a class that is
-                        // a TypedDict, it is considered a TypedDict.
-                        if (ClassType.isBuiltIn(argType, 'TypedDict') || ClassType.isTypedDictClass(argType)) {
-                            classType.details.flags |= ClassTypeFlags.TypedDictClass;
-                        } else if (ClassType.isTypedDictClass(classType) && !ClassType.isTypedDictClass(argType)) {
-                            // Exempt Generic from this test. As of Python 3.11, generic TypedDict
-                            // classes are supported.
-                            if (!isInstantiableClass(argType) || !ClassType.isBuiltIn(argType, 'Generic')) {
-                                // TypedDict classes must derive only from other TypedDict classes.
-                                addError(Localizer.Diagnostic.typedDictBaseClass(), arg);
-                            }
-                        }
-
-                        // Validate that the class isn't deriving from itself, creating a
-                        // circular dependency.
-                        if (derivesFromClassRecursive(argType, classType, /* ignoreUnknown */ true)) {
-                            addError(Localizer.Diagnostic.baseClassCircular(), arg);
-                            argType = UnknownType.create();
-                        }
-                    }
-                }
-
-                if (isUnknown(argType)) {
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportUntypedBaseClass,
-                        DiagnosticRule.reportUntypedBaseClass,
-                        Localizer.Diagnostic.baseClassUnknown(),
-                        arg
-                    );
-                }
-
-                // Check for a duplicate class.
-                if (
-                    classType.details.baseClasses.some((prevBaseClass) => {
-                        return (
-                            isInstantiableClass(prevBaseClass) &&
-                            isInstantiableClass(argType) &&
-                            ClassType.isSameGenericClass(argType, prevBaseClass)
-                        );
-                    })
-                ) {
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.duplicateBaseClass(),
-                        arg.name || arg
-                    );
-                }
-
-                classType.details.baseClasses.push(argType);
-                if (isInstantiableClass(argType)) {
-                    if (ClassType.isEnumClass(argType)) {
-                        classType.details.flags |= ClassTypeFlags.EnumClass;
-                    }
-
-                    // Determine if the class is abstract. Protocol classes support abstract methods
-                    // even though they don't derive from the ABCMeta class. We'll exclude built-in
-                    // protocol classes because these are known not to contain any abstract methods
-                    // and getAbstractMethods causes problems because of dependencies on some of these
-                    // built-in protocol classes.
-                    if (
-                        ClassType.supportsAbstractMethods(argType) ||
-                        (ClassType.isProtocolClass(argType) && !ClassType.isBuiltIn(argType))
-                    ) {
-                        classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
-                    }
-
-                    if (ClassType.isPropertyClass(argType)) {
-                        classType.details.flags |= ClassTypeFlags.PropertyClass;
-                    }
-
-                    if (ClassType.isFinal(argType)) {
-                        const className = printObjectTypeForClass(argType);
-                        addError(
-                            Localizer.Diagnostic.baseClassFinal().format({ type: className }),
-                            arg.valueExpression
+                        argType = makeTopLevelTypeVarsConcrete(
+                            getTypeOfExpression(arg.valueExpression, exprFlags).type
                         );
                     }
-                }
 
-                addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(argType));
-                if (isInstantiableClass(argType)) {
-                    if (ClassType.isBuiltIn(argType, 'Generic')) {
-                        // 'Generic' is implicitly added if type parameter syntax is used.
-                        if (node.typeParameters) {
+                    // In some stub files, classes are conditionally defined (e.g. based
+                    // on platform type). We'll assume that the conditional logic is correct
+                    // and strip off the "unbound" union.
+                    if (isUnion(argType)) {
+                        argType = removeUnbound(argType);
+                    }
+
+                    if (!isAnyOrUnknown(argType) && !isUnbound(argType)) {
+                        if (isMetaclassInstance(argType)) {
+                            assert(isClassInstance(argType));
+                            argType =
+                                argType.typeArguments && argType.typeArguments.length > 0
+                                    ? argType.typeArguments[0]
+                                    : UnknownType.create();
+                        } else if (!isInstantiableClass(argType)) {
                             addDiagnostic(
                                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.genericBaseClassNotAllowed(),
+                                Localizer.Diagnostic.baseClassInvalid(),
+                                arg
+                            );
+                            argType = UnknownType.create();
+                        } else {
+                            if (
+                                ClassType.isPartiallyEvaluated(argType) ||
+                                argType.details.mro.some((t) => isClass(t) && ClassType.isPartiallyEvaluated(t))
+                            ) {
+                                // If the base class is partially evaluated, install a callback
+                                // so we can fix up this class (e.g. compute the MRO) when the
+                                // dependent class is completed.
+                                registerDeferredClassCompletion(node, argType);
+                            }
+
+                            if (ClassType.isBuiltIn(argType, 'Protocol')) {
+                                if (
+                                    !fileInfo.isStubFile &&
+                                    !ClassType.isTypingExtensionClass(argType) &&
+                                    fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_7
+                                ) {
+                                    addError(Localizer.Diagnostic.protocolIllegal(), arg.valueExpression);
+                                }
+                                classType.details.flags |= ClassTypeFlags.ProtocolClass;
+                            }
+
+                            if (ClassType.isBuiltIn(argType, 'property')) {
+                                classType.details.flags |= ClassTypeFlags.PropertyClass;
+                            }
+
+                            // If the class directly derives from NamedTuple (in Python 3.6 or
+                            // newer), it's considered a (read-only) dataclass.
+                            if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_6) {
+                                if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
+                                    classType.details.flags |=
+                                        ClassTypeFlags.DataClass |
+                                        ClassTypeFlags.SkipSynthesizedDataClassEq |
+                                        ClassTypeFlags.ReadOnlyInstanceVariables;
+                                }
+                            }
+
+                            // If the class directly derives from TypedDict or from a class that is
+                            // a TypedDict, it is considered a TypedDict.
+                            if (ClassType.isBuiltIn(argType, 'TypedDict') || ClassType.isTypedDictClass(argType)) {
+                                classType.details.flags |= ClassTypeFlags.TypedDictClass;
+                            } else if (ClassType.isTypedDictClass(classType) && !ClassType.isTypedDictClass(argType)) {
+                                // Exempt Generic from this test. As of Python 3.11, generic TypedDict
+                                // classes are supported.
+                                if (!isInstantiableClass(argType) || !ClassType.isBuiltIn(argType, 'Generic')) {
+                                    // TypedDict classes must derive only from other TypedDict classes.
+                                    addError(Localizer.Diagnostic.typedDictBaseClass(), arg);
+                                }
+                            }
+
+                            // Validate that the class isn't deriving from itself, creating a
+                            // circular dependency.
+                            if (derivesFromClassRecursive(argType, classType, /* ignoreUnknown */ true)) {
+                                addError(Localizer.Diagnostic.baseClassCircular(), arg);
+                                argType = UnknownType.create();
+                            }
+                        }
+                    }
+
+                    if (isUnknown(argType)) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportUntypedBaseClass,
+                            DiagnosticRule.reportUntypedBaseClass,
+                            Localizer.Diagnostic.baseClassUnknown(),
+                            arg
+                        );
+                    }
+
+                    // Check for a duplicate class.
+                    if (
+                        classType.details.baseClasses.some((prevBaseClass) => {
+                            return (
+                                isInstantiableClass(prevBaseClass) &&
+                                isInstantiableClass(argType) &&
+                                ClassType.isSameGenericClass(argType, prevBaseClass)
+                            );
+                        })
+                    ) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.duplicateBaseClass(),
+                            arg.name || arg
+                        );
+                    }
+
+                    classType.details.baseClasses.push(argType);
+                    if (isInstantiableClass(argType)) {
+                        if (ClassType.isEnumClass(argType)) {
+                            classType.details.flags |= ClassTypeFlags.EnumClass;
+                        }
+
+                        // Determine if the class is abstract. Protocol classes support abstract methods
+                        // even though they don't derive from the ABCMeta class. We'll exclude built-in
+                        // protocol classes because these are known not to contain any abstract methods
+                        // and getAbstractMethods causes problems because of dependencies on some of these
+                        // built-in protocol classes.
+                        if (
+                            ClassType.supportsAbstractMethods(argType) ||
+                            (ClassType.isProtocolClass(argType) && !ClassType.isBuiltIn(argType))
+                        ) {
+                            classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
+                        }
+
+                        if (ClassType.isPropertyClass(argType)) {
+                            classType.details.flags |= ClassTypeFlags.PropertyClass;
+                        }
+
+                        if (ClassType.isFinal(argType)) {
+                            const className = printObjectTypeForClass(argType);
+                            addError(
+                                Localizer.Diagnostic.baseClassFinal().format({ type: className }),
                                 arg.valueExpression
                             );
-                        } else {
-                            if (!genericTypeParameters) {
-                                if (protocolTypeParameters) {
+                        }
+                    }
+
+                    addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(argType));
+                    if (isInstantiableClass(argType)) {
+                        if (ClassType.isBuiltIn(argType, 'Generic')) {
+                            // 'Generic' is implicitly added if type parameter syntax is used.
+                            if (node.typeParameters) {
+                                addDiagnostic(
+                                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    Localizer.Diagnostic.genericBaseClassNotAllowed(),
+                                    arg.valueExpression
+                                );
+                            } else {
+                                if (!genericTypeParameters) {
+                                    if (protocolTypeParameters) {
+                                        addDiagnostic(
+                                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                            DiagnosticRule.reportGeneralTypeIssues,
+                                            Localizer.Diagnostic.duplicateGenericAndProtocolBase(),
+                                            arg.valueExpression
+                                        );
+                                    }
+                                    genericTypeParameters = [];
+                                    addTypeVarsToListIfUnique(
+                                        genericTypeParameters,
+                                        getTypeVarArgumentsRecursive(argType)
+                                    );
+                                }
+                            }
+                        } else if (
+                            ClassType.isBuiltIn(argType, 'Protocol') &&
+                            argType.typeArguments &&
+                            argType.typeArguments.length > 0
+                        ) {
+                            if (!protocolTypeParameters) {
+                                if (genericTypeParameters) {
                                     addDiagnostic(
                                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                                         DiagnosticRule.reportGeneralTypeIssues,
@@ -15872,422 +15899,420 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         arg.valueExpression
                                     );
                                 }
-                                genericTypeParameters = [];
-                                addTypeVarsToListIfUnique(genericTypeParameters, getTypeVarArgumentsRecursive(argType));
-                            }
-                        }
-                    } else if (
-                        ClassType.isBuiltIn(argType, 'Protocol') &&
-                        argType.typeArguments &&
-                        argType.typeArguments.length > 0
-                    ) {
-                        if (!protocolTypeParameters) {
-                            if (genericTypeParameters) {
-                                addDiagnostic(
-                                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    Localizer.Diagnostic.duplicateGenericAndProtocolBase(),
-                                    arg.valueExpression
-                                );
-                            }
-                            protocolTypeParameters = [];
-                            addTypeVarsToListIfUnique(protocolTypeParameters, getTypeVarArgumentsRecursive(argType));
-
-                            if (node.typeParameters && protocolTypeParameters.length > 0) {
-                                addDiagnostic(
-                                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    Localizer.Diagnostic.protocolBaseClassWithTypeArgs(),
-                                    arg.valueExpression
-                                );
                                 protocolTypeParameters = [];
+                                addTypeVarsToListIfUnique(
+                                    protocolTypeParameters,
+                                    getTypeVarArgumentsRecursive(argType)
+                                );
+
+                                if (node.typeParameters && protocolTypeParameters.length > 0) {
+                                    addDiagnostic(
+                                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        Localizer.Diagnostic.protocolBaseClassWithTypeArgs(),
+                                        arg.valueExpression
+                                    );
+                                    protocolTypeParameters = [];
+                                }
                             }
                         }
                     }
-                }
-            } else if (arg.name.value === 'metaclass') {
-                if (metaclassNode) {
-                    addError(Localizer.Diagnostic.metaclassDuplicate(), arg);
-                } else {
-                    metaclassNode = arg.valueExpression;
-                }
-            } else if (
-                ClassType.isTypedDictClass(classType) &&
-                (arg.name.value === 'total' || arg.name.value === 'readonly')
-            ) {
-                // The "total" and "readonly" parameters apply only for TypedDict classes.
-                // PEP 589 specifies that the parameter must be either True or False.
-                const constArgValue = evaluateStaticBoolExpression(
-                    arg.valueExpression,
-                    fileInfo.executionEnvironment,
-                    fileInfo.definedConstants
-                );
-                if (constArgValue === undefined) {
-                    addError(
-                        Localizer.Diagnostic.typedDictBoolParam().format({ name: arg.name.value }),
-                        arg.valueExpression
-                    );
-                } else if (arg.name.value === 'total' && !constArgValue) {
-                    classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
-                } else if (arg.name.value === 'readonly' && constArgValue) {
-                    classType.details.flags |= ClassTypeFlags.DictValuesReadOnly;
-                }
-            } else {
-                // Collect arguments that will be passed to the `__init_subclass__`
-                // method described in PEP 487.
-                initSubclassArgs.push({
-                    argumentCategory: ArgumentCategory.Simple,
-                    node: arg,
-                    name: arg.name,
-                    valueExpression: arg.valueExpression,
-                });
-            }
-        });
-
-        // Check for NamedTuple multiple inheritance.
-        if (classType.details.baseClasses.length > 1) {
-            let derivesFromNamedTuple = false;
-            let foundIllegalBaseClass = false;
-
-            classType.details.baseClasses.forEach((baseClass) => {
-                if (isInstantiableClass(baseClass)) {
-                    if (ClassType.isBuiltIn(baseClass, 'NamedTuple')) {
-                        derivesFromNamedTuple = true;
-                    } else if (!ClassType.isBuiltIn(baseClass, 'Generic')) {
-                        foundIllegalBaseClass = true;
+                } else if (arg.name.value === 'metaclass') {
+                    if (metaclassNode) {
+                        addError(Localizer.Diagnostic.metaclassDuplicate(), arg);
+                    } else {
+                        metaclassNode = arg.valueExpression;
                     }
+                } else if (
+                    ClassType.isTypedDictClass(classType) &&
+                    (arg.name.value === 'total' || arg.name.value === 'readonly')
+                ) {
+                    // The "total" and "readonly" parameters apply only for TypedDict classes.
+                    // PEP 589 specifies that the parameter must be either True or False.
+                    const constArgValue = evaluateStaticBoolExpression(
+                        arg.valueExpression,
+                        fileInfo.executionEnvironment,
+                        fileInfo.definedConstants
+                    );
+                    if (constArgValue === undefined) {
+                        addError(
+                            Localizer.Diagnostic.typedDictBoolParam().format({ name: arg.name.value }),
+                            arg.valueExpression
+                        );
+                    } else if (arg.name.value === 'total' && !constArgValue) {
+                        classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
+                    } else if (arg.name.value === 'readonly' && constArgValue) {
+                        classType.details.flags |= ClassTypeFlags.DictValuesReadOnly;
+                    }
+                } else {
+                    // Collect arguments that will be passed to the `__init_subclass__`
+                    // method described in PEP 487.
+                    initSubclassArgs.push({
+                        argumentCategory: ArgumentCategory.Simple,
+                        node: arg,
+                        name: arg.name,
+                        valueExpression: arg.valueExpression,
+                    });
                 }
             });
 
-            if (derivesFromNamedTuple && foundIllegalBaseClass) {
-                addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.namedTupleMultipleInheritance(),
-                    node.name
-                );
-            }
-        }
+            // Check for NamedTuple multiple inheritance.
+            if (classType.details.baseClasses.length > 1) {
+                let derivesFromNamedTuple = false;
+                let foundIllegalBaseClass = false;
 
-        // Make sure we don't have 'object' derive from itself. Infinite
-        // recursion will result.
-        if (
-            !ClassType.isBuiltIn(classType, 'object') &&
-            classType.details.baseClasses.filter((baseClass) => isClass(baseClass)).length === 0
-        ) {
-            // If there are no other (known) base classes, the class implicitly derives from object.
-            classType.details.baseClasses.push(getBuiltInType(node, 'object'));
-        }
-
-        // If genericTypeParameters or protocolTypeParameters are provided,
-        // make sure that typeParameters is a proper subset.
-        genericTypeParameters = genericTypeParameters ?? protocolTypeParameters;
-        if (genericTypeParameters && !node.typeParameters) {
-            verifyGenericTypeParameters(node.name, typeParameters, genericTypeParameters);
-        }
-        classType.details.typeParameters = genericTypeParameters ?? typeParameters;
-
-        // Determine if one or more type parameters is autovariance.
-        if (
-            classType.details.typeParameters.some(
-                (param) => param.details.declaredVariance === Variance.Auto && param.computedVariance === undefined
-            )
-        ) {
-            classType.details.requiresVarianceInference = true;
-        }
-
-        // Make sure there's at most one variadic type parameter.
-        const variadics = classType.details.typeParameters.filter((param) => isVariadicTypeVar(param));
-        if (variadics.length > 1) {
-            addError(
-                Localizer.Diagnostic.variadicTypeParamTooManyClass().format({
-                    names: variadics.map((v) => `"${v.details.name}"`).join(', '),
-                }),
-                node.name,
-                TextRange.combine(node.arguments) || node.name
-            );
-        }
-
-        // Validate the default types for all type parameters.
-        classType.details.typeParameters.forEach((typeParam, index) => {
-            let bestErrorNode: ExpressionNode = node.name;
-            if (node.typeParameters && index < node.typeParameters.parameters.length) {
-                const typeParamNode = node.typeParameters.parameters[index];
-                bestErrorNode = typeParamNode.defaultExpression ?? typeParamNode.name;
-            }
-            validateTypeParameterDefault(bestErrorNode, typeParam, classType.details.typeParameters.slice(0, index));
-        });
-
-        if (!computeMroLinearization(classType)) {
-            addError(Localizer.Diagnostic.methodOrdering(), node.name);
-        }
-
-        // The scope for this class becomes the "fields" for the corresponding type.
-        const innerScope = ScopeUtils.getScopeForNode(node.suite);
-        classType.details.fields = innerScope?.symbolTable
-            ? new Map<string, Symbol>(innerScope.symbolTable)
-            : new Map<string, Symbol>();
-
-        // Determine whether the class should inherit __hash__. If a class defines
-        // __eq__ but doesn't define __hash__ then __hash__ is set to None.
-        if (classType.details.fields.has('__eq__') && !classType.details.fields.has('__hash__')) {
-            classType.details.fields.set(
-                '__hash__',
-                Symbol.createWithType(
-                    SymbolFlags.ClassMember |
-                        SymbolFlags.ClassVar |
-                        SymbolFlags.IgnoredForProtocolMatch |
-                        SymbolFlags.IgnoredForOverrideChecks,
-                    NoneType.createInstance()
-                )
-            );
-        }
-
-        // Determine whether the class's instance variables are constrained
-        // to those defined by __slots__. We need to do this prior to dataclass
-        // processing because dataclasses can implicitly add to the slots
-        // list.
-        const slotsNames = innerScope?.getSlotsNames();
-        if (slotsNames) {
-            classType.details.localSlotsNames = slotsNames;
-        }
-
-        // Determine if the class should be a "pseudo-generic" class, characterized
-        // by having an __init__ method with parameters that lack type annotations.
-        // For such classes, we'll treat them as generic, with the type arguments provided
-        // by the callers of the constructor.
-        if (!fileInfo.isStubFile && classType.details.typeParameters.length === 0) {
-            const initMethod = classType.details.fields.get('__init__');
-            if (initMethod) {
-                const initDecls = initMethod.getTypedDeclarations();
-                if (initDecls.length === 1 && initDecls[0].type === DeclarationType.Function) {
-                    const initDeclNode = initDecls[0].node;
-                    const initParams = initDeclNode.parameters;
-
-                    if (
-                        initParams.length > 1 &&
-                        !initParams.some(
-                            (param, index) => !!ParseTreeUtils.getTypeAnnotationForParameter(initDeclNode, index)
-                        )
-                    ) {
-                        const genericParams = initParams.filter(
-                            (param, index) =>
-                                index > 0 &&
-                                param.name &&
-                                param.category === ParameterCategory.Simple &&
-                                !param.defaultValue
-                        );
-
-                        if (genericParams.length > 0) {
-                            classType.details.flags |= ClassTypeFlags.PseudoGenericClass;
-
-                            // Create a type parameter for each simple, named parameter
-                            // in the __init__ method.
-                            classType.details.typeParameters = genericParams.map((param) => {
-                                const typeVar = TypeVarType.createInstance(
-                                    getPseudoGenericTypeVarName(param.name!.value)
-                                );
-                                typeVar.details.isSynthesized = true;
-                                typeVar.scopeId = ParseTreeUtils.getScopeIdForNode(initDeclNode);
-                                typeVar.details.boundType = UnknownType.create();
-                                return TypeVarType.cloneForScopeId(
-                                    typeVar,
-                                    ParseTreeUtils.getScopeIdForNode(node),
-                                    node.name.value,
-                                    TypeVarScopeType.Class
-                                );
-                            });
+                classType.details.baseClasses.forEach((baseClass) => {
+                    if (isInstantiableClass(baseClass)) {
+                        if (ClassType.isBuiltIn(baseClass, 'NamedTuple')) {
+                            derivesFromNamedTuple = true;
+                        } else if (!ClassType.isBuiltIn(baseClass, 'Generic')) {
+                            foundIllegalBaseClass = true;
                         }
                     }
-                }
-            }
-        }
+                });
 
-        // Determine if the class has a custom __class_getitem__ method. This applies
-        // only to classes that have no type parameters, since those with type parameters
-        // are assumed to follow normal subscripting semantics for generic classes.
-        if (classType.details.typeParameters.length === 0 && !ClassType.isBuiltIn(classType, 'type')) {
-            if (
-                classType.details.baseClasses.some(
-                    (baseClass) => isInstantiableClass(baseClass) && ClassType.hasCustomClassGetItem(baseClass)
-                ) ||
-                classType.details.fields.has('__class_getitem__')
-            ) {
-                classType.details.flags |= ClassTypeFlags.HasCustomClassGetItem;
-            }
-        }
-
-        // Determine the effective metaclass.
-        if (metaclassNode) {
-            const metaclassType = getTypeOfExpression(metaclassNode, exprFlags).type;
-            if (isInstantiableClass(metaclassType) || isUnknown(metaclassType)) {
-                if (requiresSpecialization(metaclassType, /* ignorePseudoGeneric */ true)) {
+                if (derivesFromNamedTuple && foundIllegalBaseClass) {
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.metaclassIsGeneric(),
-                        metaclassNode
+                        Localizer.Diagnostic.namedTupleMultipleInheritance(),
+                        node.name
                     );
                 }
-
-                classType.details.declaredMetaclass = metaclassType;
-                if (isInstantiableClass(metaclassType)) {
-                    if (ClassType.isBuiltIn(metaclassType, 'EnumMeta')) {
-                        classType.details.flags |= ClassTypeFlags.EnumClass;
-                    } else if (ClassType.isBuiltIn(metaclassType, 'ABCMeta')) {
-                        classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
-                    }
-                }
             }
-        }
 
-        const effectiveMetaclass = computeEffectiveMetaclass(classType, node.name);
-
-        // Clear the "partially constructed" flag.
-        classType.details.flags &= ~ClassTypeFlags.PartiallyEvaluated;
-
-        // Now determine the decorated type of the class.
-        let decoratedType: Type = classType;
-        let foundUnknown = false;
-
-        for (let i = node.decorators.length - 1; i >= 0; i--) {
-            const decorator = node.decorators[i];
-
-            const newDecoratedType = applyClassDecorator(evaluatorInterface, decoratedType, classType, decorator);
-            const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
-
-            if (unknownOrAny && isUnknown(unknownOrAny)) {
-                // Report this error only on the first unknown type.
-                if (!foundUnknown) {
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportUntypedClassDecorator,
-                        DiagnosticRule.reportUntypedClassDecorator,
-                        Localizer.Diagnostic.classDecoratorTypeUnknown(),
-                        node.decorators[i].expression
-                    );
-
-                    foundUnknown = true;
-                }
-            } else {
-                // Apply the decorator only if the type is known.
-                decoratedType = newDecoratedType;
+            // Make sure we don't have 'object' derive from itself. Infinite
+            // recursion will result.
+            if (
+                !ClassType.isBuiltIn(classType, 'object') &&
+                classType.details.baseClasses.filter((baseClass) => isClass(baseClass)).length === 0
+            ) {
+                // If there are no other (known) base classes, the class implicitly derives from object.
+                classType.details.baseClasses.push(getBuiltInType(node, 'object'));
             }
-        }
 
-        // Determine whether this class derives from (or has a metaclass) that imbues
-        // it with dataclass-like behaviors. If so, we'll apply those here.
-        let dataClassBehaviors: DataClassBehaviors | undefined;
-        if (isInstantiableClass(effectiveMetaclass) && effectiveMetaclass.details.classDataClassTransform) {
-            dataClassBehaviors = effectiveMetaclass.details.classDataClassTransform;
-        } else {
-            const baseClassDataTransform = classType.details.mro.find((mroClass) => {
-                return (
-                    isClass(mroClass) &&
-                    mroClass.details.classDataClassTransform !== undefined &&
-                    !ClassType.isSameGenericClass(mroClass, classType)
+            // If genericTypeParameters or protocolTypeParameters are provided,
+            // make sure that typeParameters is a proper subset.
+            genericTypeParameters = genericTypeParameters ?? protocolTypeParameters;
+            if (genericTypeParameters && !node.typeParameters) {
+                verifyGenericTypeParameters(node.name, typeParameters, genericTypeParameters);
+            }
+            classType.details.typeParameters = genericTypeParameters ?? typeParameters;
+
+            // Determine if one or more type parameters is autovariance.
+            if (
+                classType.details.typeParameters.some(
+                    (param) => param.details.declaredVariance === Variance.Auto && param.computedVariance === undefined
+                )
+            ) {
+                classType.details.requiresVarianceInference = true;
+            }
+
+            // Make sure there's at most one variadic type parameter.
+            const variadics = classType.details.typeParameters.filter((param) => isVariadicTypeVar(param));
+            if (variadics.length > 1) {
+                addError(
+                    Localizer.Diagnostic.variadicTypeParamTooManyClass().format({
+                        names: variadics.map((v) => `"${v.details.name}"`).join(', '),
+                    }),
+                    node.name,
+                    TextRange.combine(node.arguments) || node.name
+                );
+            }
+
+            // Validate the default types for all type parameters.
+            classType.details.typeParameters.forEach((typeParam, index) => {
+                let bestErrorNode: ExpressionNode = node.name;
+                if (node.typeParameters && index < node.typeParameters.parameters.length) {
+                    const typeParamNode = node.typeParameters.parameters[index];
+                    bestErrorNode = typeParamNode.defaultExpression ?? typeParamNode.name;
+                }
+                validateTypeParameterDefault(
+                    bestErrorNode,
+                    typeParam,
+                    classType.details.typeParameters.slice(0, index)
                 );
             });
 
-            if (baseClassDataTransform) {
-                dataClassBehaviors = (baseClassDataTransform as ClassType).details.classDataClassTransform!;
-            }
-        }
-
-        if (dataClassBehaviors) {
-            applyDataClassDefaultBehaviors(classType, dataClassBehaviors);
-            applyDataClassClassBehaviorOverrides(
-                evaluatorInterface,
-                node.name,
-                classType,
-                initSubclassArgs,
-                dataClassBehaviors
-            );
-        }
-
-        // Run any deferred class completions that depend on this class.
-        runDeferredClassCompletions(classType);
-
-        // If there are any outstanding deferred class completions registered that
-        // were not removed by the call to runDeferredClassCompletions, assume that
-        // the current class may depend on them and register for deferred completion.
-        registerDeferredClassCompletion(node, /* dependsUpon */ undefined);
-
-        // Synthesize TypedDict methods.
-        if (ClassType.isTypedDictClass(classType)) {
-            synthesizeTypedDictClassMethods(
-                evaluatorInterface,
-                node,
-                classType,
-                isClass(decoratedType) && ClassType.isFinal(decoratedType)
-            );
-        }
-
-        // Synthesize dataclass methods.
-        if (ClassType.isDataClass(classType)) {
-            const skipSynthesizedInit = ClassType.isSkipSynthesizedDataClassInit(classType);
-            let hasExistingInitMethod = skipSynthesizedInit;
-
-            // See if there's already a non-synthesized __init__ method.
-            // We shouldn't override it.
-            if (!skipSynthesizedInit) {
-                const initSymbol = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipBaseClasses);
-                if (initSymbol) {
-                    hasExistingInitMethod = true;
-                }
+            if (!computeMroLinearization(classType)) {
+                addError(Localizer.Diagnostic.methodOrdering(), node.name);
             }
 
-            let skipSynthesizeHash = false;
-            const hashSymbol = lookUpClassMember(classType, '__hash__', ClassMemberLookupFlags.SkipBaseClasses);
-            if (hashSymbol) {
-                skipSynthesizeHash = true;
+            // The scope for this class becomes the "fields" for the corresponding type.
+            const innerScope = ScopeUtils.getScopeForNode(node.suite);
+            classType.details.fields = innerScope?.symbolTable
+                ? new Map<string, Symbol>(innerScope.symbolTable)
+                : new Map<string, Symbol>();
+
+            // Determine whether the class should inherit __hash__. If a class defines
+            // __eq__ but doesn't define __hash__ then __hash__ is set to None.
+            if (classType.details.fields.has('__eq__') && !classType.details.fields.has('__hash__')) {
+                classType.details.fields.set(
+                    '__hash__',
+                    Symbol.createWithType(
+                        SymbolFlags.ClassMember |
+                            SymbolFlags.ClassVar |
+                            SymbolFlags.IgnoredForProtocolMatch |
+                            SymbolFlags.IgnoredForOverrideChecks,
+                        NoneType.createInstance()
+                    )
+                );
             }
 
-            synthesizeDataClassMethods(
-                evaluatorInterface,
-                node,
-                classType,
-                skipSynthesizedInit,
-                hasExistingInitMethod,
-                skipSynthesizeHash
-            );
-        }
+            // Determine whether the class's instance variables are constrained
+            // to those defined by __slots__. We need to do this prior to dataclass
+            // processing because dataclasses can implicitly add to the slots
+            // list.
+            const slotsNames = innerScope?.getSlotsNames();
+            if (slotsNames) {
+                classType.details.localSlotsNames = slotsNames;
+            }
 
-        // Build a complete list of all slots names defined by the class hierarchy.
-        // This needs to be done after dataclass processing.
-        if (classType.details.localSlotsNames) {
-            let isLimitedToSlots = true;
-            const extendedSlotsNames = Array.from(classType.details.localSlotsNames);
+            // Determine if the class should be a "pseudo-generic" class, characterized
+            // by having an __init__ method with parameters that lack type annotations.
+            // For such classes, we'll treat them as generic, with the type arguments provided
+            // by the callers of the constructor.
+            if (!fileInfo.isStubFile && classType.details.typeParameters.length === 0) {
+                const initMethod = classType.details.fields.get('__init__');
+                if (initMethod) {
+                    const initDecls = initMethod.getTypedDeclarations();
+                    if (initDecls.length === 1 && initDecls[0].type === DeclarationType.Function) {
+                        const initDeclNode = initDecls[0].node;
+                        const initParams = initDeclNode.parameters;
 
-            classType.details.baseClasses.forEach((baseClass) => {
-                if (isInstantiableClass(baseClass)) {
-                    if (
-                        !ClassType.isBuiltIn(baseClass, 'object') &&
-                        !ClassType.isBuiltIn(baseClass, 'type') &&
-                        !ClassType.isBuiltIn(baseClass, 'Generic')
-                    ) {
-                        if (baseClass.details.inheritedSlotsNames === undefined) {
-                            isLimitedToSlots = false;
-                        } else {
-                            appendArray(extendedSlotsNames, baseClass.details.inheritedSlotsNames);
+                        if (
+                            initParams.length > 1 &&
+                            !initParams.some(
+                                (param, index) => !!ParseTreeUtils.getTypeAnnotationForParameter(initDeclNode, index)
+                            )
+                        ) {
+                            const genericParams = initParams.filter(
+                                (param, index) =>
+                                    index > 0 &&
+                                    param.name &&
+                                    param.category === ParameterCategory.Simple &&
+                                    !param.defaultValue
+                            );
+
+                            if (genericParams.length > 0) {
+                                classType.details.flags |= ClassTypeFlags.PseudoGenericClass;
+
+                                // Create a type parameter for each simple, named parameter
+                                // in the __init__ method.
+                                classType.details.typeParameters = genericParams.map((param) => {
+                                    const typeVar = TypeVarType.createInstance(
+                                        getPseudoGenericTypeVarName(param.name!.value)
+                                    );
+                                    typeVar.details.isSynthesized = true;
+                                    typeVar.scopeId = ParseTreeUtils.getScopeIdForNode(initDeclNode);
+                                    typeVar.details.boundType = UnknownType.create();
+                                    return TypeVarType.cloneForScopeId(
+                                        typeVar,
+                                        ParseTreeUtils.getScopeIdForNode(node),
+                                        node.name.value,
+                                        TypeVarScopeType.Class
+                                    );
+                                });
+                            }
                         }
                     }
-                } else {
-                    isLimitedToSlots = false;
                 }
-            });
-
-            if (isLimitedToSlots) {
-                classType.details.inheritedSlotsNames = extendedSlotsNames;
             }
+
+            // Determine if the class has a custom __class_getitem__ method. This applies
+            // only to classes that have no type parameters, since those with type parameters
+            // are assumed to follow normal subscripting semantics for generic classes.
+            if (classType.details.typeParameters.length === 0 && !ClassType.isBuiltIn(classType, 'type')) {
+                if (
+                    classType.details.baseClasses.some(
+                        (baseClass) => isInstantiableClass(baseClass) && ClassType.hasCustomClassGetItem(baseClass)
+                    ) ||
+                    classType.details.fields.has('__class_getitem__')
+                ) {
+                    classType.details.flags |= ClassTypeFlags.HasCustomClassGetItem;
+                }
+            }
+
+            // Determine the effective metaclass.
+            if (metaclassNode) {
+                const metaclassType = getTypeOfExpression(metaclassNode, exprFlags).type;
+                if (isInstantiableClass(metaclassType) || isUnknown(metaclassType)) {
+                    if (requiresSpecialization(metaclassType, /* ignorePseudoGeneric */ true)) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.metaclassIsGeneric(),
+                            metaclassNode
+                        );
+                    }
+
+                    classType.details.declaredMetaclass = metaclassType;
+                    if (isInstantiableClass(metaclassType)) {
+                        if (ClassType.isBuiltIn(metaclassType, 'EnumMeta')) {
+                            classType.details.flags |= ClassTypeFlags.EnumClass;
+                        } else if (ClassType.isBuiltIn(metaclassType, 'ABCMeta')) {
+                            classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
+                        }
+                    }
+                }
+            }
+
+            const effectiveMetaclass = computeEffectiveMetaclass(classType, node.name);
+
+            // Clear the "partially constructed" flag.
+            classType.details.flags &= ~ClassTypeFlags.PartiallyEvaluated;
+
+            // Now determine the decorated type of the class.
+            let decoratedType: Type = classType;
+            let foundUnknown = false;
+
+            for (let i = node.decorators.length - 1; i >= 0; i--) {
+                const decorator = node.decorators[i];
+
+                const newDecoratedType = applyClassDecorator(evaluatorInterface, decoratedType, classType, decorator);
+                const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
+
+                if (unknownOrAny && isUnknown(unknownOrAny)) {
+                    // Report this error only on the first unknown type.
+                    if (!foundUnknown) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportUntypedClassDecorator,
+                            DiagnosticRule.reportUntypedClassDecorator,
+                            Localizer.Diagnostic.classDecoratorTypeUnknown(),
+                            node.decorators[i].expression
+                        );
+
+                        foundUnknown = true;
+                    }
+                } else {
+                    // Apply the decorator only if the type is known.
+                    decoratedType = newDecoratedType;
+                }
+            }
+
+            // Determine whether this class derives from (or has a metaclass) that imbues
+            // it with dataclass-like behaviors. If so, we'll apply those here.
+            let dataClassBehaviors: DataClassBehaviors | undefined;
+            if (isInstantiableClass(effectiveMetaclass) && effectiveMetaclass.details.classDataClassTransform) {
+                dataClassBehaviors = effectiveMetaclass.details.classDataClassTransform;
+            } else {
+                const baseClassDataTransform = classType.details.mro.find((mroClass) => {
+                    return (
+                        isClass(mroClass) &&
+                        mroClass.details.classDataClassTransform !== undefined &&
+                        !ClassType.isSameGenericClass(mroClass, classType)
+                    );
+                });
+
+                if (baseClassDataTransform) {
+                    dataClassBehaviors = (baseClassDataTransform as ClassType).details.classDataClassTransform!;
+                }
+            }
+
+            if (dataClassBehaviors) {
+                applyDataClassDefaultBehaviors(classType, dataClassBehaviors);
+                applyDataClassClassBehaviorOverrides(
+                    evaluatorInterface,
+                    node.name,
+                    classType,
+                    initSubclassArgs,
+                    dataClassBehaviors
+                );
+            }
+
+            // Run any deferred class completions that depend on this class.
+            runDeferredClassCompletions(classType);
+
+            // If there are any outstanding deferred class completions registered that
+            // were not removed by the call to runDeferredClassCompletions, assume that
+            // the current class may depend on them and register for deferred completion.
+            registerDeferredClassCompletion(node, /* dependsUpon */ undefined);
+
+            // Synthesize TypedDict methods.
+            if (ClassType.isTypedDictClass(classType)) {
+                synthesizeTypedDictClassMethods(
+                    evaluatorInterface,
+                    node,
+                    classType,
+                    isClass(decoratedType) && ClassType.isFinal(decoratedType)
+                );
+            }
+
+            // Synthesize dataclass methods.
+            if (ClassType.isDataClass(classType)) {
+                const skipSynthesizedInit = ClassType.isSkipSynthesizedDataClassInit(classType);
+                let hasExistingInitMethod = skipSynthesizedInit;
+
+                // See if there's already a non-synthesized __init__ method.
+                // We shouldn't override it.
+                if (!skipSynthesizedInit) {
+                    const initSymbol = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipBaseClasses);
+                    if (initSymbol) {
+                        hasExistingInitMethod = true;
+                    }
+                }
+
+                let skipSynthesizeHash = false;
+                const hashSymbol = lookUpClassMember(classType, '__hash__', ClassMemberLookupFlags.SkipBaseClasses);
+                if (hashSymbol) {
+                    skipSynthesizeHash = true;
+                }
+
+                synthesizeDataClassMethods(
+                    evaluatorInterface,
+                    node,
+                    classType,
+                    skipSynthesizedInit,
+                    hasExistingInitMethod,
+                    skipSynthesizeHash
+                );
+            }
+
+            // Build a complete list of all slots names defined by the class hierarchy.
+            // This needs to be done after dataclass processing.
+            if (classType.details.localSlotsNames) {
+                let isLimitedToSlots = true;
+                const extendedSlotsNames = Array.from(classType.details.localSlotsNames);
+
+                classType.details.baseClasses.forEach((baseClass) => {
+                    if (isInstantiableClass(baseClass)) {
+                        if (
+                            !ClassType.isBuiltIn(baseClass, 'object') &&
+                            !ClassType.isBuiltIn(baseClass, 'type') &&
+                            !ClassType.isBuiltIn(baseClass, 'Generic')
+                        ) {
+                            if (baseClass.details.inheritedSlotsNames === undefined) {
+                                isLimitedToSlots = false;
+                            } else {
+                                appendArray(extendedSlotsNames, baseClass.details.inheritedSlotsNames);
+                            }
+                        }
+                    } else {
+                        isLimitedToSlots = false;
+                    }
+                });
+
+                if (isLimitedToSlots) {
+                    classType.details.inheritedSlotsNames = extendedSlotsNames;
+                }
+            }
+
+            // Update the undecorated class type.
+            writeTypeCache(node.name, { type: classType }, EvaluatorFlags.None);
+
+            // Update the decorated class type.
+            writeTypeCache(node, { type: decoratedType }, EvaluatorFlags.None);
+
+            return { classType, decoratedType };
+        } catch (e) {
+            if (OperationCanceledException.is(e)) {
+                // If the work was canceled before the class types were updated, the
+                // class type in the type cache is in an invalid, partially-constructed state.
+                e.isTypeCacheInvalid = true;
+            }
+
+            throw e;
         }
-
-        // Update the undecorated class type.
-        writeTypeCache(node.name, { type: classType }, EvaluatorFlags.None);
-
-        // Update the decorated class type.
-        writeTypeCache(node, { type: decoratedType }, EvaluatorFlags.None);
-
-        return { classType, decoratedType };
     }
 
     // Determines whether the type parameters has a default that refers to another
