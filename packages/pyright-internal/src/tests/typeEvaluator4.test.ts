@@ -540,6 +540,11 @@ test('MemberAccess22', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('MemberAccess23', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess23.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('DataClassNamedTuple1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassNamedTuple1.py']);
 
