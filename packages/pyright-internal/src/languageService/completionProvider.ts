@@ -759,12 +759,19 @@ export class CompletionProvider {
             if (isClass(subtype)) {
                 const instance = TypeBase.isInstance(subtype);
                 if (ClassType.isEnumClass(subtype) && instance) {
-                    // We don't add members for instances of enum members.
+                    // We don't add members for instances of enum members, but do add members of `enum.Enum` itself.
                     // ex) 'MyEnum.member.' <= here
-                    return;
-                }
+                    const enumType = subtype.details.baseClasses.find(
+                        (t) => isClass(t) && ClassType.isBuiltIn(t, 'Enum')
+                    ) as ClassType | undefined;
+                    if (!enumType) {
+                        return;
+                    }
 
-                getMembersForClass(subtype, symbolTable, instance);
+                    getMembersForClass(enumType, symbolTable, /* instance */ true);
+                } else {
+                    getMembersForClass(subtype, symbolTable, instance);
+                }
             } else if (isModule(subtype)) {
                 getMembersForModule(subtype, symbolTable);
             } else if (isFunction(subtype) || isOverloadedFunction(subtype)) {

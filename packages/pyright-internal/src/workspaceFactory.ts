@@ -435,8 +435,10 @@ export class WorkspaceFactory {
         }
     }
 
-    private _getDefaultWorskpaceKey(pythonPath: string | undefined) {
-        return `${this._defaultWorkspacePath}:${pythonPath ? pythonPath : WorkspacePythonPathKind.Mutable}`;
+    private _getDefaultWorkspaceKey(pythonPath: string | undefined) {
+        return `${this._defaultWorkspacePath}:${
+            pythonPath !== undefined ? pythonPath : WorkspacePythonPathKind.Mutable
+        }`;
     }
 
     private _getWorkspaceKey(value: Workspace) {
@@ -567,7 +569,7 @@ export class WorkspaceFactory {
 
     private _getOrCreateDefaultWorkspace(pythonPath: string | undefined): Workspace {
         // Default key depends upon the pythonPath
-        let defaultWorkspace = this._map.get(this._getDefaultWorskpaceKey(pythonPath));
+        let defaultWorkspace = this._map.get(this._getDefaultWorkspaceKey(pythonPath));
         if (!defaultWorkspace) {
             // Create a default workspace for files that are outside
             // of all workspaces.

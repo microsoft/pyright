@@ -659,6 +659,7 @@ export class SourceFile {
                         typeIgnoreLines: new Map<number, IgnoreComment>(),
                         pyrightIgnoreLines: new Map<number, IgnoreComment>(),
                         predominantEndOfLineSequence: '\n',
+                        hasPredominantTabSequence: false,
                         predominantTabSequence: '    ',
                         predominantSingleQuoteCharacter: "'",
                     },

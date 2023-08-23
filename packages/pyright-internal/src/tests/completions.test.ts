@@ -1168,7 +1168,47 @@ test('no member of Enum member', async () => {
 
     const state = parseAndGetTestState(code).state;
 
-    await state.verifyCompletion('exact', 'markdown', {
-        ['marker']: { completions: [] },
+    await state.verifyCompletion('excluded', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: 'this',
+                    kind: undefined,
+                },
+                {
+                    label: 'that',
+                    kind: undefined,
+                },
+            ],
+        },
+    });
+});
+
+test('default Enum member', async () => {
+    const code = `
+// @filename: test.py
+//// from enum import Enum
+//// 
+//// class MyEnum(Enum):
+////     MemberOne = []
+//// 
+//// MyEnum.MemberOne.[|/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: 'name',
+                    kind: CompletionItemKind.Property,
+                },
+                {
+                    label: 'value',
+                    kind: CompletionItemKind.Property,
+                },
+            ],
+        },
     });
 });
