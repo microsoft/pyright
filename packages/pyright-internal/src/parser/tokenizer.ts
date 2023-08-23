@@ -143,7 +143,7 @@ const _byteOrderMarker = 0xfeff;
 
 const _maxStringTokenLength = 32 * 1024;
 
-export const defaultTabSize = 8;
+const defaultTabSize = 8;
 
 export interface TokenizerOutput {
     // List of all tokens.
@@ -163,6 +163,10 @@ export interface TokenizerOutput {
 
     // Line-end sequence ('/n', '/r', or '/r/n').
     predominantEndOfLineSequence: string;
+
+    // True if the tokenizer was able to identify the file's predominant
+    // tab sequence. False if predominantTabSequence is set to our default.
+    hasPredominantTabSequence: boolean;
 
     // Tab sequence ('/t or consecutive spaces).
     predominantTabSequence: string;
@@ -333,11 +337,14 @@ export class Tokenizer<KeywordT extends number> {
         }
 
         let predominantTabSequence = '    ';
+        let hasPredominantTabSequence = false;
         // If more than half of the indents use tab sequences,
         // assume we're using tabs rather than spaces.
         if (this._indentTabCount > this._indentCount / 2) {
+            hasPredominantTabSequence = true;
             predominantTabSequence = '\t';
         } else if (this._indentCount > 0) {
+            hasPredominantTabSequence = true;
             // Compute the average number of spaces per indent
             // to estimate the predominant tab value.
             let averageSpacePerIndent = Math.round(this._indentSpacesTotal / this._indentCount);
@@ -359,6 +366,7 @@ export class Tokenizer<KeywordT extends number> {
             typeIgnoreAll: this._typeIgnoreAll,
             pyrightIgnoreLines: this._pyrightIgnoreLines,
             predominantEndOfLineSequence,
+            hasPredominantTabSequence,
             predominantTabSequence,
             predominantSingleQuoteCharacter: this._singleQuoteCount >= this._doubleQuoteCount ? "'" : '"',
         };
