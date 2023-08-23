@@ -945,7 +945,7 @@ export function isCallableType(type: Type): boolean {
             return true;
         }
 
-        const callMember = lookUpObjectMember(type, '__call__');
+        const callMember = lookUpObjectMember(type, '__call__', ClassMemberLookupFlags.SkipInstanceVariables);
         return !!callMember;
     }
 
