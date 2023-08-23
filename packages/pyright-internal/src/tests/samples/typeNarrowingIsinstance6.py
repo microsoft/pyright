@@ -7,32 +7,30 @@ from typing import Any, Generic, Iterable, Sequence, TypeVar
 _T1 = TypeVar("_T1")
 
 
-class SomeClass(Generic[_T1]):
+class ParentA(Generic[_T1]):
     ...
 
 
-class OtherClass(SomeClass[_T1]):
+class ChildA1(ParentA[_T1]):
     ...
 
 
-def func1(a: SomeClass[int], b: SomeClass[str] | SomeClass[complex]) -> None:
-    if isinstance(a, OtherClass):
-        reveal_type(a, expected_text="OtherClass[int]")
+def func1(a: ParentA[int], b: ParentA[str] | ParentA[complex]) -> None:
+    if isinstance(a, ChildA1):
+        reveal_type(a, expected_text="ChildA1[int]")
 
-    if isinstance(b, OtherClass):
-        reveal_type(b, expected_text="OtherClass[str] | OtherClass[complex]")
+    if isinstance(b, ChildA1):
+        reveal_type(b, expected_text="ChildA1[str] | ChildA1[complex]")
 
 
 def func2(
-    a: type[SomeClass[int]], b: type[SomeClass[str]] | type[SomeClass[complex]]
+    a: type[ParentA[int]], b: type[ParentA[str]] | type[ParentA[complex]]
 ) -> None:
-    if issubclass(a, OtherClass):
-        reveal_type(a, expected_text="type[OtherClass[int]]")
+    if issubclass(a, ChildA1):
+        reveal_type(a, expected_text="type[ChildA1[int]]")
 
-    if issubclass(b, OtherClass):
-        reveal_type(
-            b, expected_text="type[OtherClass[str]] | type[OtherClass[complex]]"
-        )
+    if issubclass(b, ChildA1):
+        reveal_type(b, expected_text="type[ChildA1[str]] | type[ChildA1[complex]]")
 
 
 def func3(value: Iterable[_T1]) -> Sequence[_T1] | None:
@@ -43,35 +41,55 @@ def func3(value: Iterable[_T1]) -> Sequence[_T1] | None:
 _T2 = TypeVar("_T2", bound=float, covariant=True)
 
 
-class Parent1(Generic[_T2]):
+class ParentB(Generic[_T2]):
     pass
 
 
-class Child1(Parent1[_T2]):
+class ChildB1(ParentB[_T2]):
     pass
 
 
-def func4(var: Parent1[int]):
-    if isinstance(var, Child1):
-        reveal_type(var, expected_text="Child1[int]")
+def func4(var: ParentB[int]):
+    if isinstance(var, ChildB1):
+        reveal_type(var, expected_text="ChildB1[int]")
 
 
-def func5(var: Parent1[Any]):
-    if isinstance(var, Child1):
-        reveal_type(var, expected_text="Child1[Any]")
+def func5(var: ParentB[Any]):
+    if isinstance(var, ChildB1):
+        reveal_type(var, expected_text="ChildB1[Any]")
 
 
 _T3 = TypeVar("_T3", float, str)
 
 
-class Parent2(Generic[_T3]):
+class ParentC(Generic[_T3]):
     pass
 
 
-class Child2(Parent2[_T3]):
+class ChildC1(ParentC[_T3]):
     pass
 
 
-def func6(var: Parent2[int]):
-    if isinstance(var, Child2):
-        reveal_type(var, expected_text="Child2[float]")
+def func6(var: ParentC[int]):
+    if isinstance(var, ChildC1):
+        reveal_type(var, expected_text="ChildC1[float]")
+
+
+class ParentD(Generic[_T1]):
+    x: _T1
+
+
+class ChildD1(ParentD[_T1]):
+    ...
+
+
+class ChildD2(ParentD[int]):
+    ...
+
+
+def func7(a: ParentD[_T1]) -> _T1 | None:
+    if isinstance(a, ChildD1):
+        reveal_type(a, expected_text="ChildD1[_T1@func7]")
+
+    elif isinstance(a, ChildD2):
+        reveal_type(a, expected_text="ChildD2")

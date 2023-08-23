@@ -63,6 +63,7 @@ import {
 import {
     addConditionToType,
     applySolvedTypeVars,
+    AssignTypeFlags,
     ClassMember,
     computeMroLinearization,
     convertToInstance,
@@ -1284,7 +1285,16 @@ function narrowTypeForIsInstance(
                         // we haven't learned anything new about the variable type.
                         filteredTypes.push(addConditionToType(varType, constraints));
                     } else if (filterIsSubclass) {
-                        if (evaluator.assignType(varType, filterType)) {
+                        if (
+                            evaluator.assignType(
+                                varType,
+                                filterType,
+                                /* diag */ undefined,
+                                /* destTypeVarContext */ undefined,
+                                /* srcTypeVarContext */ undefined,
+                                AssignTypeFlags.IgnoreTypeVarScope
+                            )
+                        ) {
                             // If the variable type is a superclass of the isinstance
                             // filter, we can narrow the type to the subclass.
                             let specializedFilterType = filterType;
