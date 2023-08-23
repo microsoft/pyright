@@ -1307,29 +1307,35 @@ export function getCodeFlowEngine(
                 if (curFlowNode.flags & FlowFlags.NarrowForPattern) {
                     const narrowForPatternFlowNode = curFlowNode as FlowNarrowForPattern;
                     if (narrowForPatternFlowNode.statement.nodeType === ParseNodeType.Case) {
-                        const patternNode = narrowForPatternFlowNode.statement.pattern;
+                        const subjectType = evaluator.getTypeOfExpression(
+                            narrowForPatternFlowNode.subjectExpression
+                        ).type;
 
-                        if (
-                            patternNode.nodeType === ParseNodeType.PatternAs &&
-                            patternNode.orPatterns.length === 1 &&
-                            patternNode.orPatterns[0].nodeType === ParseNodeType.PatternClass
-                        ) {
-                            const classPatternNode = patternNode.orPatterns[0];
+                        if (isCompatibleWithConstrainedTypeVar(subjectType, typeVar)) {
+                            const patternNode = narrowForPatternFlowNode.statement.pattern;
 
-                            const classType = evaluator.getTypeOfExpression(
-                                classPatternNode.className,
-                                EvaluatorFlags.CallBaseDefaults
-                            ).type;
+                            if (
+                                patternNode.nodeType === ParseNodeType.PatternAs &&
+                                patternNode.orPatterns.length === 1 &&
+                                patternNode.orPatterns[0].nodeType === ParseNodeType.PatternClass
+                            ) {
+                                const classPatternNode = patternNode.orPatterns[0];
 
-                            if (isInstantiableClass(classType)) {
-                                const priorRemainingConstraints = narrowConstrainedTypeVarRecursive(
-                                    narrowForPatternFlowNode.antecedent,
-                                    typeVar
-                                );
+                                const classType = evaluator.getTypeOfExpression(
+                                    classPatternNode.className,
+                                    EvaluatorFlags.CallBaseDefaults
+                                ).type;
 
-                                return priorRemainingConstraints.filter((subtype) =>
-                                    ClassType.isSameGenericClass(subtype, classType)
-                                );
+                                if (isInstantiableClass(classType)) {
+                                    const priorRemainingConstraints = narrowConstrainedTypeVarRecursive(
+                                        narrowForPatternFlowNode.antecedent,
+                                        typeVar
+                                    );
+
+                                    return priorRemainingConstraints.filter((subtype) =>
+                                        ClassType.isSameGenericClass(subtype, classType)
+                                    );
+                                }
                             }
                         }
                     }
