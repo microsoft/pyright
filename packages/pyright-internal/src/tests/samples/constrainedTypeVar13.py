@@ -105,3 +105,22 @@ def func3(s: AnyStr, y: AnyStr | None = None) -> AnyStr:
         return ""
     else:
         raise NotImplementedError
+
+
+def func4(t: _T3) -> _T3:
+    match t:
+        case A():
+            return A()
+        case B():
+            return B()
+        case C():
+            return C()
+
+
+def func5(t: _T3) -> _T3:
+    if isinstance(t, A):
+        return A()
+    elif isinstance(t, B):
+        return B()
+    elif isinstance(t, C):
+        return C()

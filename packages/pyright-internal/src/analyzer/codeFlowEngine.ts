@@ -1286,7 +1286,6 @@ export function getCodeFlowEngine(
                         FlowFlags.WildcardImport |
                         FlowFlags.TrueNeverCondition |
                         FlowFlags.FalseNeverCondition |
-                        FlowFlags.NarrowForPattern |
                         FlowFlags.ExhaustedMatch |
                         FlowFlags.PostFinally |
                         FlowFlags.PreFinallyGate |
@@ -1297,7 +1296,6 @@ export function getCodeFlowEngine(
                         | FlowAssignment
                         | FlowWildcardImport
                         | FlowExhaustedMatch
-                        | FlowNarrowForPattern
                         | FlowPostFinally
                         | FlowPreFinallyGate
                         | FlowCall;
@@ -1305,6 +1303,42 @@ export function getCodeFlowEngine(
                     continue;
                 }
 
+                // Handle a case statement with a class pattern.
+                if (curFlowNode.flags & FlowFlags.NarrowForPattern) {
+                    const narrowForPatternFlowNode = curFlowNode as FlowNarrowForPattern;
+                    if (narrowForPatternFlowNode.statement.nodeType === ParseNodeType.Case) {
+                        const patternNode = narrowForPatternFlowNode.statement.pattern;
+
+                        if (
+                            patternNode.nodeType === ParseNodeType.PatternAs &&
+                            patternNode.orPatterns.length === 1 &&
+                            patternNode.orPatterns[0].nodeType === ParseNodeType.PatternClass
+                        ) {
+                            const classPatternNode = patternNode.orPatterns[0];
+
+                            const classType = evaluator.getTypeOfExpression(
+                                classPatternNode.className,
+                                EvaluatorFlags.CallBaseDefaults
+                            ).type;
+
+                            if (isInstantiableClass(classType)) {
+                                const priorRemainingConstraints = narrowConstrainedTypeVarRecursive(
+                                    narrowForPatternFlowNode.antecedent,
+                                    typeVar
+                                );
+
+                                return priorRemainingConstraints.filter((subtype) =>
+                                    ClassType.isSameGenericClass(subtype, classType)
+                                );
+                            }
+                        }
+                    }
+
+                    curFlowNode = narrowForPatternFlowNode.antecedent;
+                    continue;
+                }
+
+                // Handle an isinstance type guard.
                 if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
                     const conditionFlowNode = curFlowNode as FlowCondition;
                     const testExpression = conditionFlowNode.expression;
