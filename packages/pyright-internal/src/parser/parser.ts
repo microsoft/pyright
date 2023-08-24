@@ -408,6 +408,8 @@ export class Parser {
                     const operatorToken = peekToken as OperatorToken;
                     if (
                         operatorToken.operatorType !== OperatorType.Multiply &&
+                        operatorToken.operatorType !== OperatorType.Add &&
+                        operatorToken.operatorType !== OperatorType.BitwiseInvert &&
                         operatorToken.operatorType !== OperatorType.Subtract
                     ) {
                         isInvalidMatchToken = true;

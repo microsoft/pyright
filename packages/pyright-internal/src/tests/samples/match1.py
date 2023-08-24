@@ -211,3 +211,17 @@ def func6(subj: Any):
         # This should generate an error because j is used twice in the same pattern.
         case Point(x=j, y=j):
             pass
+
+def func7():
+    match +1:
+        case _:
+            pass
+        
+    match -1:
+        case _:
+            pass
+
+    match ~1:
+        case _:
+            pass
+
