@@ -5527,13 +5527,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (!type) {
+                let selfClass: ClassType | TypeVarType | undefined = classType;
+
                 // Determine whether to replace Self variables with a specific
                 // class. Avoid doing this if there's a "bindToType" specified
                 // because that case is used for super() calls where we want
                 // to leave the Self type generic (not specialized). We'll also
                 // skip this for __new__ methods because they are not bound
                 // to the class but rather assume the type of the cls argument.
-                const selfClass = !!bindToType || memberName === '__new__' ? undefined : classType;
+                if (bindToType) {
+                    if (isTypeVar(bindToType) && bindToType.details.isSynthesizedSelf) {
+                        selfClass = bindToType;
+                    } else {
+                        selfClass = undefined;
+                    }
+                } else if (memberName === '__new__') {
+                    selfClass = undefined;
+                }
 
                 const typeResult = getTypeOfMemberInternal(memberInfo, selfClass);
 
@@ -21266,7 +21276,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return UnknownType.create();
     }
 
-    function getTypeOfMemberInternal(member: ClassMember, selfClass: ClassType | undefined): TypeResult | undefined {
+    function getTypeOfMemberInternal(member: ClassMember, selfClass: ClassType | TypeVarType | undefined): TypeResult | undefined {
         if (isInstantiableClass(member.classType)) {
             const typeResult = getEffectiveTypeOfSymbolForUsage(member.symbol);
 

@@ -1470,6 +1470,12 @@ test('Self8', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Self9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self8.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('UnusedVariable1', () => {
     const configOptions = new ConfigOptions('.');
 
