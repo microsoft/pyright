@@ -1348,6 +1348,18 @@ function narrowTypeForIsInstance(
                         // the two types.
                         const className = `<subclass of ${varType.details.name} and ${concreteFilterType.details.name}>`;
                         const fileInfo = getFileInfo(errorNode);
+
+                        // The effective metaclass of the intersection is the narrower of the two metaclasses.
+                        let effectiveMetaclass = varType.details.effectiveMetaclass;
+                        if (concreteFilterType.details.effectiveMetaclass) {
+                            if (
+                                !effectiveMetaclass ||
+                                evaluator.assignType(effectiveMetaclass, concreteFilterType.details.effectiveMetaclass)
+                            ) {
+                                effectiveMetaclass = concreteFilterType.details.effectiveMetaclass;
+                            }
+                        }
+
                         let newClassType = ClassType.createInstantiable(
                             className,
                             ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
@@ -1356,7 +1368,7 @@ function narrowTypeForIsInstance(
                             ClassTypeFlags.None,
                             ParseTreeUtils.getTypeSourceId(errorNode),
                             /* declaredMetaclass */ undefined,
-                            varType.details.effectiveMetaclass,
+                            effectiveMetaclass,
                             varType.details.docString
                         );
                         newClassType.details.baseClasses = [ClassType.cloneAsInstantiable(varType), concreteFilterType];
