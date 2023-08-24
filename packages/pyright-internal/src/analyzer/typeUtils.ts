@@ -1027,7 +1027,7 @@ export function isTupleIndexUnambiguous(type: ClassType, index: number) {
 export function partiallySpecializeType(
     type: Type,
     contextClassType: ClassType,
-    selfClass?: ClassType,
+    selfClass?: ClassType | TypeVarType,
     typeClassType?: Type
 ): Type {
     // If the context class is not specialized (or doesn't need specialization),
@@ -1049,7 +1049,7 @@ export function partiallySpecializeType(
 export function populateTypeVarContextForSelfType(
     typeVarContext: TypeVarContext,
     contextClassType: ClassType,
-    selfClass: ClassType
+    selfClass: ClassType | TypeVarType
 ) {
     const synthesizedSelfTypeVar = synthesizeTypeVarForSelfCls(contextClassType, /* isClsParam */ false);
     const selfInstance = convertToInstance(selfClass);
