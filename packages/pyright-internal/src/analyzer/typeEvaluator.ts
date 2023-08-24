@@ -9550,7 +9550,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             '__call__',
             /* usage */ undefined,
             /* diag */ undefined,
-            MemberAccessFlags.SkipAttributeAccessOverride
+            MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.AccessClassMembersOnly
         )?.type;
 
         if (!memberType) {
@@ -11776,7 +11776,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (isClassInstance(argType)) {
-                    const callMember = lookUpObjectMember(argType, '__call__');
+                    const callMember = lookUpObjectMember(
+                        argType,
+                        '__call__',
+                        ClassMemberLookupFlags.SkipInstanceVariables
+                    );
                     if (callMember) {
                         const memberType = getTypeOfMember(callMember);
                         if (isOverloadedFunction(memberType)) {

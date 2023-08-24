@@ -65,6 +65,7 @@ import {
     applySolvedTypeVars,
     AssignTypeFlags,
     ClassMember,
+    ClassMemberLookupFlags,
     computeMroLinearization,
     convertToInstance,
     convertToInstantiable,
@@ -1437,7 +1438,11 @@ function narrowTypeForIsInstance(
                         if (TypeBase.isInstantiable(unexpandedType)) {
                             isCallable = true;
                         } else {
-                            isCallable = !!lookUpClassMember(varType, '__call__');
+                            isCallable = !!lookUpClassMember(
+                                varType,
+                                '__call__',
+                                ClassMemberLookupFlags.SkipInstanceVariables
+                            );
                         }
                     }
 
@@ -2252,7 +2257,12 @@ function narrowTypeForCallable(
                 }
 
                 // See if the object is callable.
-                const callMemberType = lookUpClassMember(subtype, '__call__');
+                const callMemberType = lookUpClassMember(
+                    subtype,
+                    '__call__',
+                    ClassMemberLookupFlags.SkipInstanceVariables
+                );
+
                 if (!callMemberType) {
                     if (!isPositiveTest) {
                         return subtype;
