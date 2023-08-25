@@ -8358,15 +8358,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     });
                 }
 
-                // Clone the typeVarContext so we don't modify the original. If this is
-                // not the first time through the loop, clone the type var context
-                // from the previous successful match.
-                const typeVarContextToClone =
-                    matchedOverloads.length > 0
-                        ? matchedOverloads[matchedOverloads.length - 1].typeVarContext.clone()
-                        : typeVarContext;
+                // Clone the typeVarContext so we don't modify the original.
                 const effectiveTypeVarContext =
-                    typeVarContextToClone?.clone() ?? new TypeVarContext(getTypeVarScopeId(overload));
+                    typeVarContext?.clone() ?? new TypeVarContext(getTypeVarScopeId(overload));
                 effectiveTypeVarContext.addSolveForScope(getTypeVarScopeIds(overload));
                 effectiveTypeVarContext.unlock();
 

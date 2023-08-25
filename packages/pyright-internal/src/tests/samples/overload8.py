@@ -1,7 +1,7 @@
 # This sample tests the expansion of union types during overload matching.
 
 
-from typing import Literal, TypeVar, overload
+from typing import AnyStr, Literal, TypeVar, overload
 
 
 class A:
@@ -131,3 +131,25 @@ def overloaded4(b: str | int) -> str | int:
 
 def func6(x: str | int) -> None:
     y: str | int = overloaded4(func5(x))
+
+
+@overload
+def overloaded5(pattern: AnyStr) -> AnyStr:
+    ...
+
+
+@overload
+def overloaded5(pattern: int) -> int:
+    ...
+
+
+def overloaded5(pattern: AnyStr | int) -> AnyStr | int:
+    return 0
+
+
+def func7(a: str | bytes) -> str | bytes:
+    return overloaded5(a)
+
+
+def func8(a: AnyStr | str | bytes) -> str | bytes:
+    return overloaded5(a)
