@@ -8139,7 +8139,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addError(Localizer.Diagnostic.superCallArgCount(), node.arguments[2]);
         }
 
-        const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
+        const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
+        const enclosingClass = enclosingFunction
+            ? ParseTreeUtils.getEnclosingClass(enclosingFunction, /* stopAtFunction */ true)
+            : undefined;
         const enclosingClassType = enclosingClass ? getTypeOfClass(enclosingClass)?.classType : undefined;
 
         // Determine which class the "super" call is applied to. If

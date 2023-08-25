@@ -406,7 +406,7 @@
         "superCallArgCount": "Expected no more than two arguments to \"super\" call",
         "superCallFirstArg": "Expected class type as first argument to \"super\" call but received \"{type}\"",
         "superCallSecondArg": "Second argument to \"super\" call must be object or class that derives from \"{type}\"",
-        "superCallZeroArgForm": "Zero-argument form of \"super\" call is valid only within a class",
+        "superCallZeroArgForm": "Zero-argument form of \"super\" call is valid only within a method",
         "symbolIsUnbound": "\"{name}\" is unbound",
         "symbolIsUndefined": "\"{name}\" is not defined",
         "symbolIsPossiblyUnbound": "\"{name}\" is possibly unbound",
