@@ -2845,18 +2845,30 @@ export class Checker extends ParseTreeWalker {
                     }
 
                     if (!implementationFunction) {
-                        let isProtocolMethod = false;
+                        let exemptMissingImplementation = false;
+
                         const containingClassNode = ParseTreeUtils.getEnclosingClassOrFunction(primaryDecl.node);
                         if (containingClassNode && containingClassNode.nodeType === ParseNodeType.Class) {
                             const classType = this._evaluator.getTypeOfClass(containingClassNode);
-                            if (classType && ClassType.isProtocolClass(classType.classType)) {
-                                isProtocolMethod = true;
+                            if (classType) {
+                                if (ClassType.isProtocolClass(classType.classType)) {
+                                    exemptMissingImplementation = true;
+                                } else if (ClassType.supportsAbstractMethods(classType.classType)) {
+                                    if (
+                                        isOverloadedFunction(type) &&
+                                        OverloadedFunctionType.getOverloads(type).every((overload) =>
+                                            FunctionType.isAbstractMethod(overload)
+                                        )
+                                    ) {
+                                        exemptMissingImplementation = true;
+                                    }
+                                }
                             }
                         }
 
                         // If this is a method within a protocol class, don't require that
                         // there is an implementation.
-                        if (!isProtocolMethod) {
+                        if (!exemptMissingImplementation) {
                             this._evaluator.addDiagnostic(
                                 this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
