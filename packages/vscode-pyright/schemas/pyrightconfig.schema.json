@@ -154,6 +154,12 @@
       "title": "Allow \"# type: ignore\" comments",
       "default": true
     },
+    "deprecateTypingAliases": {
+      "$id": "#/properties/deprecateTypingAliases",
+      "type": "boolean",
+      "title": "Treat typing-specific aliases to standard types as deprecated",
+      "default": true
+    },
     "reportGeneralTypeIssues": {
       "$id": "#/properties/reportGeneralTypeIssues",
       "$ref": "#/definitions/diagnostic",

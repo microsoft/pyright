@@ -56,6 +56,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 <a name="enableTypeIgnoreComments"></a> **enableTypeIgnoreComments** [boolean]: PEP 484 defines support for "# type: ignore" comments. This switch enables or disables support for these comments. The default value for this setting is `true`. This does not affect "# pyright: ignore" comments.
 
+<a name="deprecateTypingAliases"></a> **deprecateTypingAliases** [boolean]: PEP 585 indicates that aliases to types in standard collections that were introduced solely to support generics are deprecated as of Python 3.9. This switch controls whether these are treated as deprecated. This applies only when pythonVersion is 3.9 or newer. The default value for this setting is `false` but may be switched to `true` in the future.
+
 <a name="enableExperimentalFeatures"></a> **enableExperimentalFeatures** [boolean]: Enables a set of experimental (mostly undocumented) features that correspond to proposed or exploratory changes to the Python typing standard. These features will likely change or be removed, so they should not be used except for experimentation purposes.
 
 <a name="reportGeneralTypeIssues"></a> **reportGeneralTypeIssues** [boolean or string, optional]: Generate or suppress diagnostics for general type inconsistencies, unsupported operations, argument/parameter mismatches, etc. This covers all of the basic type-checking rules not covered by other rules. It does not include syntax errors. The default value for this setting is `"error"`.
@@ -304,6 +306,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | strictListInference                       | false      | false      | true       |
 | strictDictionaryInference                 | false      | false      | true       |
 | strictSetInference                        | false      | false      | true       |
+| deprecateTypingAliases                    | false      | false      | false      |
 | enableExperimentalFeatures                | false      | false      | false      |
 | reportMissingModuleSource                 | "warning"  | "warning"  | "warning"  |
 | reportMissingImports                      | "warning"  | "error"    | "error"    |
