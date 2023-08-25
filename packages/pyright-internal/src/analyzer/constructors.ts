@@ -35,7 +35,6 @@ import {
     buildTypeVarContextFromSpecializedClass,
     convertToInstance,
     doForEachSubtype,
-    ensureFunctionSignaturesAreUnique,
     getTypeVarScopeId,
     isPartlyUnknown,
     isTupleClass,
@@ -367,14 +366,6 @@ function validateNewMethod(
     let argumentErrors = false;
     const overloadsUsedForCall: FunctionType[] = [];
 
-    if (inferenceContext?.signatureTracker) {
-        newMethodTypeResult.type = ensureFunctionSignaturesAreUnique(
-            newMethodTypeResult.type,
-            inferenceContext.signatureTracker,
-            errorNode.start
-        );
-    }
-
     const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
     typeVarContext.addSolveForScope(getTypeVarScopeId(newMethodTypeResult.type));
     if (type.typeAliasInfo) {
@@ -442,14 +433,6 @@ function validateInitMethod(
     let isTypeIncomplete = false;
     let argumentErrors = false;
     const overloadsUsedForCall: FunctionType[] = [];
-
-    if (inferenceContext?.signatureTracker) {
-        initMethodType = ensureFunctionSignaturesAreUnique(
-            initMethodType,
-            inferenceContext.signatureTracker,
-            errorNode.start
-        );
-    }
 
     // If there is an expected type, analyze the __init__ call for each of the
     // subtypes that comprise the expected type. If one or more analyzes with no

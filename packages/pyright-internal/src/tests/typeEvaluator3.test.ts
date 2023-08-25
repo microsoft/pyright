@@ -1531,6 +1531,12 @@ test('Constructor27', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Constructor28', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor28.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('InconsistentConstructor1', () => {
     const configOptions = new ConfigOptions('.');
 
