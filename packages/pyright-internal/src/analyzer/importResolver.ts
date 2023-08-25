@@ -1386,6 +1386,12 @@ export class ImportResolver {
                         importFailureInfo.push(`Did not find file '${pyiFilePath}' or '${pyFilePath}'`);
                     }
                 }
+
+                if (!pyTypedInfo && lookForPyTyped) {
+                    if (this.fileExistsCached(combinePaths(fileDirectory, 'py.typed'))) {
+                        pyTypedInfo = getPyTypedInfo(this.fileSystem, fileDirectory);
+                    }
+                }
                 break;
             }
         }
