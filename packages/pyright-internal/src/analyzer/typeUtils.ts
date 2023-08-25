@@ -56,6 +56,7 @@ import {
     TypeFlags,
     TypeSameOptions,
     TypeVarScopeId,
+    TypeVarScopeType,
     TypeVarType,
     UnionType,
     UnknownType,
@@ -3709,16 +3710,18 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
                 // Create new type variables with the same scope but with
                 // different (unique) names.
                 sourceType.details.typeParameters.forEach((typeParam) => {
-                    let replacement: Type = TypeVarType.cloneForNewName(
-                        typeParam,
-                        `${typeParam.details.name}(${offsetIndex})`
-                    );
+                    if (typeParam.scopeType === TypeVarScopeType.Function) {
+                        let replacement: Type = TypeVarType.cloneForNewName(
+                            typeParam,
+                            `${typeParam.details.name}(${offsetIndex})`
+                        );
 
-                    if (replacement.details.isParamSpec) {
-                        replacement = convertTypeToParamSpecValue(replacement);
+                        if (replacement.details.isParamSpec) {
+                            replacement = convertTypeToParamSpecValue(replacement);
+                        }
+
+                        typeVarContext.setTypeVarType(typeParam, replacement);
                     }
-
-                    typeVarContext.setTypeVarType(typeParam, replacement);
                 });
 
                 updatedSourceType = applySolvedTypeVars(sourceType, typeVarContext);
