@@ -336,6 +336,7 @@ export function getBooleanDiagnosticRules(includeNonOverridable = false) {
         DiagnosticRule.strictDictionaryInference,
         DiagnosticRule.analyzeUnannotatedFunctions,
         DiagnosticRule.strictParameterNoneValue,
+        DiagnosticRule.enableExperimentalFeatures,
         DiagnosticRule.deprecateTypingAliases,
     ];
 
