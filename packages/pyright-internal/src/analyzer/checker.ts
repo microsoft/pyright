@@ -95,6 +95,7 @@ import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
 import { getNameNodeForDeclaration } from './declarationUtils';
+import { deprecatedAliases, deprecatedSpecialForms } from './deprecatedSymbols';
 import { ImportResolver, ImportedModuleDescriptor, createImportedModuleDescriptor } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
@@ -188,51 +189,6 @@ interface TypeVarUsageInfo {
     paramWithEllipsis: string | undefined;
     nodes: NameNode[];
 }
-
-interface DeprecatedForm {
-    version: PythonVersion;
-    fullName: string;
-    replacementText: string;
-}
-
-const deprecatedAliases = new Map<string, DeprecatedForm>([
-    ['Tuple', { version: PythonVersion.V3_9, fullName: 'builtins.tuple', replacementText: 'tuple' }],
-    ['List', { version: PythonVersion.V3_9, fullName: 'builtins.list', replacementText: 'list' }],
-    ['Dict', { version: PythonVersion.V3_9, fullName: 'builtins.dict', replacementText: 'dict' }],
-    ['Set', { version: PythonVersion.V3_9, fullName: 'builtins.set', replacementText: 'set' }],
-    ['FrozenSet', { version: PythonVersion.V3_9, fullName: 'builtins.frozenset', replacementText: 'frozenset' }],
-    ['Type', { version: PythonVersion.V3_9, fullName: 'builtins.type', replacementText: 'type' }],
-    ['Deque', { version: PythonVersion.V3_9, fullName: 'collections.deque', replacementText: 'collections.deque' }],
-    [
-        'DefaultDict',
-        {
-            version: PythonVersion.V3_9,
-            fullName: 'collections.defaultdict',
-            replacementText: 'collections.defaultdict',
-        },
-    ],
-    [
-        'OrderedDict',
-        {
-            version: PythonVersion.V3_9,
-            fullName: 'collections.OrderedDict',
-            replacementText: 'collections.OrderedDict',
-        },
-    ],
-    [
-        'Counter',
-        { version: PythonVersion.V3_9, fullName: 'collections.Counter', replacementText: 'collections.Counter' },
-    ],
-    [
-        'ChainMap',
-        { version: PythonVersion.V3_9, fullName: 'collections.ChainMap', replacementText: 'collections.ChainMap' },
-    ],
-]);
-
-const deprecatedSpecialForms = new Map<string, DeprecatedForm>([
-    ['Optional', { version: PythonVersion.V3_10, fullName: 'typing.Optional', replacementText: '| None' }],
-    ['Union', { version: PythonVersion.V3_10, fullName: 'typing.Union', replacementText: '|' }],
-]);
 
 // When enabled, this debug flag causes the code complexity of
 // functions to be emitted.
@@ -1471,7 +1427,13 @@ export class Checker extends ParseTreeWalker {
 
     override visitMemberAccess(node: MemberAccessNode) {
         const type = this._evaluator.getType(node);
-        this._reportDeprecatedUse(node.memberName, type);
+
+        const leftExprType = this._evaluator.getType(node.leftExpression);
+        this._reportDeprecatedUse(
+            node.memberName,
+            type,
+            leftExprType && isModule(leftExprType) && leftExprType.moduleName === 'typing'
+        );
 
         this._conditionallyReportPrivateUsage(node.memberName);
 
@@ -1558,8 +1520,17 @@ export class Checker extends ParseTreeWalker {
             break;
         }
 
+        let isImportFromTyping = false;
+        if (node.parent?.nodeType === ParseNodeType.ImportFrom) {
+            if (node.parent.module.leadingDots === 0 && node.parent.module.nameParts.length === 1) {
+                if (node.parent.module.nameParts[0].value === 'typing') {
+                    isImportFromTyping = true;
+                }
+            }
+        }
+
         const type = this._evaluator.getType(node.alias ?? node.name);
-        this._reportDeprecatedUse(node.name, type);
+        this._reportDeprecatedUse(node.name, type, isImportFromTyping);
 
         return false;
     }
@@ -3765,7 +3736,7 @@ export class Checker extends ParseTreeWalker {
         return false;
     }
 
-    private _reportDeprecatedUse(node: NameNode, type: Type | undefined) {
+    private _reportDeprecatedUse(node: NameNode, type: Type | undefined, isImportFromTyping = false) {
         if (!type) {
             return;
         }
@@ -3854,32 +3825,35 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        // We'll leave this disabled for now because this would be too noisy for most
-        // code bases. We may want to add it at some future date.
-        if (0) {
+        if (this._fileInfo.diagnosticRuleSet.deprecateTypingAliases) {
             const deprecatedForm = deprecatedAliases.get(node.value) ?? deprecatedSpecialForms.get(node.value);
 
             if (deprecatedForm) {
-                if (isInstantiableClass(type) && type.details.fullName === deprecatedForm.fullName) {
+                if (
+                    (isInstantiableClass(type) && type.details.fullName === deprecatedForm.fullName) ||
+                    type.typeAliasInfo?.fullName === deprecatedForm.fullName
+                ) {
                     if (this._fileInfo.executionEnvironment.pythonVersion >= deprecatedForm.version) {
-                        if (this._fileInfo.diagnosticRuleSet.reportDeprecated === 'none') {
-                            this._evaluator.addDeprecated(
-                                Localizer.Diagnostic.deprecatedType().format({
-                                    version: versionToString(deprecatedForm.version),
-                                    replacement: deprecatedForm.replacementText,
-                                }),
-                                node
-                            );
-                        } else {
-                            this._evaluator.addDiagnostic(
-                                this._fileInfo.diagnosticRuleSet.reportDeprecated,
-                                DiagnosticRule.reportDeprecated,
-                                Localizer.Diagnostic.deprecatedType().format({
-                                    version: versionToString(deprecatedForm.version),
-                                    replacement: deprecatedForm.replacementText,
-                                }),
-                                node
-                            );
+                        if (!deprecatedForm.typingImportOnly || isImportFromTyping) {
+                            if (this._fileInfo.diagnosticRuleSet.reportDeprecated === 'none') {
+                                this._evaluator.addDeprecated(
+                                    Localizer.Diagnostic.deprecatedType().format({
+                                        version: versionToString(deprecatedForm.version),
+                                        replacement: deprecatedForm.replacementText,
+                                    }),
+                                    node
+                                );
+                            } else {
+                                this._evaluator.addDiagnostic(
+                                    this._fileInfo.diagnosticRuleSet.reportDeprecated,
+                                    DiagnosticRule.reportDeprecated,
+                                    Localizer.Diagnostic.deprecatedType().format({
+                                        version: versionToString(deprecatedForm.version),
+                                        replacement: deprecatedForm.replacementText,
+                                    }),
+                                    node
+                                );
+                            }
                         }
                     }
                 }

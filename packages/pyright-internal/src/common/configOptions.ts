@@ -111,6 +111,9 @@ export interface DiagnosticRuleSet {
     // Enable support for type: ignore comments?
     enableTypeIgnoreComments: boolean;
 
+    // Treat old typing aliases as deprecated if pythonVersion >= 3.9?
+    deprecateTypingAliases: boolean;
+
     // Report general type issues?
     reportGeneralTypeIssues: DiagnosticLevel;
 
@@ -333,6 +336,7 @@ export function getBooleanDiagnosticRules(includeNonOverridable = false) {
         DiagnosticRule.strictDictionaryInference,
         DiagnosticRule.analyzeUnannotatedFunctions,
         DiagnosticRule.strictParameterNoneValue,
+        DiagnosticRule.deprecateTypingAliases,
     ];
 
     if (includeNonOverridable) {
@@ -340,7 +344,6 @@ export function getBooleanDiagnosticRules(includeNonOverridable = false) {
         // want to override it in strict mode or support
         // it within pyright comments.
         boolRules.push(DiagnosticRule.enableTypeIgnoreComments);
-        boolRules.push(DiagnosticRule.enableExperimentalFeatures);
     }
 
     return boolRules;
@@ -437,6 +440,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         strictParameterNoneValue: true,
         enableExperimentalFeatures: false,
         enableTypeIgnoreComments: true,
+        deprecateTypingAliases: false,
         reportGeneralTypeIssues: 'none',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'none',
@@ -520,6 +524,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         strictParameterNoneValue: true,
         enableExperimentalFeatures: false,
         enableTypeIgnoreComments: true,
+        deprecateTypingAliases: false,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'none',
@@ -601,8 +606,9 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         strictDictionaryInference: true,
         analyzeUnannotatedFunctions: true,
         strictParameterNoneValue: true,
-        enableExperimentalFeatures: false, // Not overridden by strict mode
+        enableExperimentalFeatures: false,
         enableTypeIgnoreComments: true, // Not overridden by strict mode
+        deprecateTypingAliases: false,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'error',
