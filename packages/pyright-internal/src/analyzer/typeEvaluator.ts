@@ -6245,14 +6245,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const baseTypeResult = getTypeOfExpression(node.baseExpression, flags | EvaluatorFlags.IndexBaseDefaults);
 
         // If this is meant to be a type and the base expression is a string expression,
-        // emit an error because this will generate a runtime exception in Python versions
-        // less than 3.10.
+        // emit an error because this is an illegal annotation form and will generate a
+        // runtime exception.
         if (flags & EvaluatorFlags.ExpectingInstantiableType) {
             if (node.baseExpression.nodeType === ParseNodeType.StringList) {
-                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-                if (!fileInfo.isStubFile && fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_10) {
-                    addError(Localizer.Diagnostic.stringNotSubscriptable(), node.baseExpression);
-                }
+                addError(Localizer.Diagnostic.stringNotSubscriptable(), node.baseExpression);
             }
         }
 
