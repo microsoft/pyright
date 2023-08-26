@@ -21951,6 +21951,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const variance = destTypeParam ? TypeVarType.getVariance(destTypeParam) : Variance.Covariant;
             let effectiveFlags: AssignTypeFlags;
             let errorSource: () => ParameterizedString<{ name: string; sourceType: string; destType: string }>;
+            let includeDiagAddendum = true;
 
             if (variance === Variance.Covariant) {
                 effectiveFlags = flags | AssignTypeFlags.RetainLiteralsForTypeVar;
@@ -21962,6 +21963,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else {
                 effectiveFlags = flags | AssignTypeFlags.EnforceInvariance | AssignTypeFlags.RetainLiteralsForTypeVar;
                 errorSource = Localizer.DiagnosticAddendum.typeVarIsInvariant;
+
+                // Omit the diagnostic addendum for the invariant case because it's obvious
+                // why two types are not the same.
+                includeDiagAddendum = false;
             }
 
             if (
@@ -21988,6 +21993,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     ...printSrcDestTypes(srcTypeArg, destTypeArg),
                                 })
                             );
+
+                            if (includeDiagAddendum) {
+                                childDiag.addAddendum(assignmentDiag);
+                            }
                         } else {
                             diag.addAddendum(assignmentDiag);
                         }
