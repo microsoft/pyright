@@ -441,6 +441,7 @@
         "typeAssignmentMismatch": "Expression of type \"{sourceType}\" cannot be assigned to declared type \"{destType}\"",
         "typeAssignmentMismatchWildcard": "Import symbol \"{name}\" has type \"{sourceType}\", which cannot be assigned to declared type \"{destType}\"",
         "typeCallNotAllowed": "type() call should not be used in type annotation",
+        "typeCheckOnly": "\"{name}\" is marked as @type_check_only and can be used only in type annotations",
         "typeCommentDeprecated": "Use of type comments is deprecated; use type annotation instead",
         "typedDictAccess": "Could not access item in TypedDict",
         "typedDictBadVar": "TypedDict classes can contain only type annotations",

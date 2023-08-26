@@ -896,6 +896,8 @@ export namespace Localizer {
                 getRawString('Diagnostic.typeAssignmentMismatchWildcard')
             );
         export const typeCallNotAllowed = () => getRawString('Diagnostic.typeCallNotAllowed');
+        export const typeCheckOnly = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeCheckOnly'));
         export const typeCommentDeprecated = () => getRawString('Diagnostic.typeCommentDeprecated');
         export const typedDictAccess = () => getRawString('Diagnostic.typedDictAccess');
         export const typedDictBadVar = () => getRawString('Diagnostic.typedDictBadVar');

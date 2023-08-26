@@ -89,6 +89,8 @@ export function getFunctionFlagsFromDecorators(evaluator: TypeEvaluator, node: F
                 flags |= FunctionTypeFlags.Final;
             } else if (decoratorType.details.builtInName === 'override') {
                 flags |= FunctionTypeFlags.Overridden;
+            } else if (decoratorType.details.builtInName === 'type_check_only') {
+                flags |= FunctionTypeFlags.TypeCheckOnly;
             }
         } else if (isInstantiableClass(decoratorType)) {
             if (ClassType.isBuiltIn(decoratorType, 'staticmethod')) {
@@ -184,6 +186,11 @@ export function applyFunctionDecorator(
 
         if (decoratorType.details.builtInName === 'deprecated') {
             undecoratedType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
+            return inputFunctionType;
+        }
+
+        if (decoratorType.details.builtInName === 'type_check_only') {
+            undecoratedType.details.flags |= FunctionTypeFlags.TypeCheckOnly;
             return inputFunctionType;
         }
 
@@ -353,6 +360,11 @@ export function applyClassDecorator(
             return inputClassType;
         }
 
+        if (decoratorType.details.builtInName === 'type_check_only') {
+            originalClassType.details.flags |= ClassTypeFlags.TypeCheckOnly;
+            return inputClassType;
+        }
+
         if (decoratorType.details.builtInName === 'deprecated') {
             originalClassType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
             return inputClassType;
@@ -400,13 +412,6 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
     }
 
     const decoratorTypeResult = evaluator.getTypeOfExpression(node.expression, flags);
-
-    // Special-case typing.type_check_only. It's used in many stdlib
-    // functions, and pyright treats it as a no-op, so don't waste
-    // time evaluating it.
-    if (isFunction(decoratorTypeResult.type) && decoratorTypeResult.type.details.builtInName === 'type_check_only') {
-        return functionOrClassType;
-    }
 
     // Special-case the combination of a classmethod decorator applied
     // to a property. This is allowed in Python 3.9, but it's not reflected
