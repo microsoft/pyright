@@ -1228,6 +1228,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return typeResult;
     }
 
+    // Reports the case where a function or class has been decorated with
+    // @type_check_only and is used in a value expression.
+    function reportUseOfTypeCheckOnly(type: Type, node: ExpressionNode) {
+        let isTypeCheckingOnly = false;
+        let name = '';
+
+        if (isInstantiableClass(type) && !type.includeSubclasses) {
+            isTypeCheckingOnly = ClassType.isTypeCheckOnly(type);
+            name = type.details.name;
+        } else if (isFunction(type)) {
+            isTypeCheckingOnly = FunctionType.isTypeCheckOnly(type);
+            name = type.details.name;
+        }
+
+        if (isTypeCheckingOnly) {
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+
+            if (!fileInfo.isStubFile) {
+                addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.typeCheckOnly().format({ name }),
+                    node
+                );
+            }
+        }
+    }
+
     function reportInvalidUseOfPep695TypeAlias(type: Type, node: ExpressionNode): boolean {
         // PEP 695 type aliases cannot be used as instantiable classes.
         if (type.typeAliasInfo?.name && type.typeAliasInfo.isPep695Syntax && TypeBase.isSpecialForm(type)) {
@@ -4422,6 +4450,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) === 0) {
+            reportUseOfTypeCheckOnly(type, node);
+        }
+
         if ((flags & EvaluatorFlags.DisallowPep695TypeAlias) !== 0) {
             if (reportInvalidUseOfPep695TypeAlias(type, node)) {
                 type = UnknownType.create();
@@ -5087,7 +5119,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return { type: UnknownType.create(isIncomplete), isIncomplete };
                 }
 
-                if (flags & EvaluatorFlags.ExpectingTypeAnnotation) {
+                if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
                     if (!isIncomplete) {
                         addDiagnostic(
                             AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -5399,6 +5431,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // reportFunctionMemberAccess rule is disabled, we don't trigger
             // additional reportUnknownMemberType diagnostics.
             type = isFunctionRule ? AnyType.create() : UnknownType.create();
+        }
+
+        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) === 0) {
+            reportUseOfTypeCheckOnly(type, node.memberName);
         }
 
         // Should we specialize the class?
@@ -6764,7 +6800,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.ConsiderMetaclassOnly
                         );
 
-                        if (flags & EvaluatorFlags.ExpectingTypeAnnotation) {
+                        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
                             // If the class doesn't derive from Generic, a type argument should not be allowed.
                             addDiagnostic(
                                 AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -15107,7 +15143,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // methods that are abstract are overridden and shouldn't
                 // cause the TypedDict to be marked as abstract.
                 if (isInstantiableClass(baseClass) && ClassType.isBuiltIn(baseClass, '_TypedDict')) {
-                    baseClass.details.flags &= ~ClassTypeFlags.SupportsAbstractMethods;
+                    baseClass = ClassType.cloneWithNewFlags(
+                        baseClass,
+                        baseClass.details.flags &
+                            ~(ClassTypeFlags.SupportsAbstractMethods | ClassTypeFlags.TypeCheckOnly)
+                    );
                 }
             }
         }

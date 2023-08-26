@@ -317,3 +317,38 @@ test('TypedDictReadOnly2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 8);
 });
+
+test('DataclassTransform1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform1.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+});
+
+test('DataclassTransform2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform2.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+});
+
+test('DataclassTransform3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform3.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+});
+
+test('DataclassTransform4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform4.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Async1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['async1.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+});
+
+test('TypeCheckOnly1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeCheckOnly1.py']);
+    TestUtils.validateResults(analysisResults, 5);
+});
