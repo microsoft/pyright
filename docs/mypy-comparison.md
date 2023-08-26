@@ -162,23 +162,6 @@ The following expression forms are not currently supported by mypy as type guard
 Pyright supports the [aliasing of conditional expressions](type-concepts-advanced.md#aliased-conditional-expression) used for type guards. Mypy does not currently support this, but it is a frequently-requested feature.
 
 
-### Narrowing for Implied Else
-
-Pyright supports a feature called [type narrowing for implied else](type-concepts-advanced.md#narrowing-for-implied-else) in cases where an `if` or `elif` clause has no associated `else` clause. This feature allows pyright to determine that all cases have already been handled by the `if` or `elif` statement and that the "implied else" would never be executed if it were present. This eliminates certain false positive errors. Mypy currently does not support this.
-
-```python
-class Color(Enum):
-    RED = 1
-    BLUE = 2
-
-def is_red(color: Color) -> bool:
-    if color == Color.RED:
-        return True
-    elif color == Color.BLUE:
-        return False
-    # mypy reports error: Missing return statement
-```
-
 ### Narrowing for Captured Variables
 
 If a variable’s type is narrowed in an outer scope and the variable is subsequently used within an inner-scoped function or lambda, mypy does not retain the narrowed type within the inner scope. Pyright retains the narrowed type if it can determine that the value of the captured variable is not modified on any code path after the inner-scope function or lambda is defined.
