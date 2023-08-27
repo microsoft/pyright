@@ -11487,6 +11487,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
 
                 const signatureTracker = new UniqueSignatureTracker();
+                const nestedArgList: FunctionArgument[] = [];
 
                 argList.forEach((arg) => {
                     if (arg.argumentCategory === ArgumentCategory.Simple) {
@@ -11517,6 +11518,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 }
                             } else if (argsParam) {
                                 paramType = argsParam.type;
+                            } else if (paramSpecType.details.paramSpec) {
+                                nestedArgList.push(arg);
                             } else {
                                 addDiagnostic(
                                     AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -11582,6 +11585,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
                 });
+
+                // Handle recursive ParamSpecs.
+                if (paramSpecType.details.paramSpec) {
+                    const boundTypeForParamSpec = srcTypeVarContext
+                        .getPrimarySignature()
+                        .getParamSpecType(paramSpecType.details.paramSpec);
+
+                    if (boundTypeForParamSpec) {
+                        const paramSpecArgResult = validateFunctionArgumentsForParamSpec(
+                            errorNode,
+                            nestedArgList,
+                            paramSpecType.details.paramSpec,
+                            srcTypeVarContext,
+                            conditionFilter
+                        );
+
+                        if (paramSpecArgResult.argumentErrors) {
+                            reportedArgError = true;
+                        }
+                    }
+                }
             });
         }
 
@@ -23975,7 +23999,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
                 }
-            } else {
+            } else if (!srcParamDetails.paramSpec) {
                 diag?.addMessage(
                     Localizer.DiagnosticAddendum.functionTooManyParams().format({
                         expected: srcPositionalCount,
