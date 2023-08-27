@@ -214,11 +214,16 @@ def func16(var: tuple[int, int]) -> str:
     raise NotImplementedError
 
 
-def func17(var: tuple[int, int, int]) -> str:
+def func17(var: tuple[int, ...]) -> str:
     raise NotImplementedError
 
 
-f: Callable[[tuple[int, ...]], str]
-f = func15
-f = func16
-f = func17
+f1: Callable[[tuple[int, ...]], str]
+
+# This should generate an error.
+f1 = func15
+
+# This should generate an error.
+f1 = func16
+
+f1 = func17

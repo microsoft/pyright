@@ -980,7 +980,7 @@ test('GenericType34', () => {
 test('GenericType35', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericType35.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('GenericType36', () => {

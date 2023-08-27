@@ -25,4 +25,4 @@ def func3(points: tuple[float, float] | tuple[str, str]) -> None:
 
 
 def test3(val: tuple[float, float]):
-    func3(tuple(val))
+    func3(val)

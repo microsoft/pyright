@@ -21666,17 +21666,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return isAssignable;
     }
 
-    // Adjusts the source type arguments list to match the length of the
-    // dest type arguments list if the dest list contains an unbounded
-    // or variadic entry.
-    function adjustSourceTupleTypeArgs(destTypeArgs: TupleTypeArgument[], srcTypeArgs: TupleTypeArgument[]) {
-        const destVariadicIndex = destTypeArgs.findIndex((t) => isVariadicTypeVar(t.type));
-        const destUnboundedIndex = destTypeArgs.findIndex((t) => t.isUnbounded);
+    // Adjusts the source and/or dest type arguments list to attempt to match
+    // the length of the src type arguments list if the dest or source contain
+    // entries with indeterminate length or variadic entries. It returns true
+    // if the source is potentially compatible with the dest type, false otherwise.
+    function adjustSrcTupleTypeArgs(destTypeArgs: TupleTypeArgument[], srcTypeArgs: TupleTypeArgument[]): boolean {
+        const destUnboundedIndex = destTypeArgs.findIndex((t) => t.isUnbounded || isVariadicTypeVar(t.type));
         const srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
 
-        // If the source is unbounded, expand the unbounded argument to try
-        // to make the source and dest arg counts match.
+        // If the src contains an unbounded type but the dest does not, it's incompatible.
+        if (srcUnboundedIndex >= 0 && destUnboundedIndex < 0) {
+            return false;
+        }
+
         if (srcUnboundedIndex >= 0) {
+            // The source is unbounded, so expand the unbounded argument to try
+            // to make the source and dest arg counts match.
             const typeToReplicate = srcTypeArgs.length > 0 ? srcTypeArgs[srcUnboundedIndex].type : AnyType.create();
 
             while (srcTypeArgs.length < destTypeArgs.length) {
@@ -21684,47 +21689,48 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // If the dest is unbounded or contains a variadic, determine which
-        // source args map to the unbounded or variadic arg.
-        if (destUnboundedIndex >= 0 || destVariadicIndex >= 0) {
-            // If there's a variadic within the destination, package up the corresponding
-            // source arguments into a tuple.
-            const srcArgsToCapture = srcTypeArgs.length - destTypeArgs.length + 1;
-            if (srcArgsToCapture >= 0) {
-                if (destVariadicIndex >= 0) {
-                    if (tupleClassType && isInstantiableClass(tupleClassType)) {
-                        const removedArgs = srcTypeArgs.splice(destVariadicIndex, srcArgsToCapture);
+        const srcArgsToCapture = srcTypeArgs.length - destTypeArgs.length + 1;
 
-                        // Package up the remaining type arguments into a tuple object.
-                        const variadicTuple = convertToInstance(
-                            specializeTupleClass(
-                                tupleClassType,
-                                removedArgs.map((typeArg) => {
-                                    return { type: typeArg.type, isUnbounded: typeArg.isUnbounded };
-                                }),
-                                /* isTypeArgumentExplicit */ true,
-                                /* isUnpackedTuple */ true
-                            )
-                        );
-                        srcTypeArgs.splice(destVariadicIndex, 0, {
-                            type: variadicTuple,
-                            isUnbounded: false,
-                        });
-                    }
-                } else {
-                    const removedArgTypes = srcTypeArgs.splice(destUnboundedIndex, srcArgsToCapture).map((t) => {
-                        if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type) && !t.type.isVariadicInUnion) {
-                            return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
-                        }
-                        return t.type;
-                    });
+        if (destUnboundedIndex >= 0 && srcArgsToCapture >= 0) {
+            // If the dest contains a variadic element, determine which source
+            // args map to this element and package them up into an unpacked tuple.
+            if (isVariadicTypeVar(destTypeArgs[destUnboundedIndex].type)) {
+                if (tupleClassType && isInstantiableClass(tupleClassType)) {
+                    const removedArgs = srcTypeArgs.splice(destUnboundedIndex, srcArgsToCapture);
+
+                    // Package up the remaining type arguments into a tuple object.
+                    const variadicTuple = convertToInstance(
+                        specializeTupleClass(
+                            tupleClassType,
+                            removedArgs.map((typeArg) => {
+                                return { type: typeArg.type, isUnbounded: typeArg.isUnbounded };
+                            }),
+                            /* isTypeArgumentExplicit */ true,
+                            /* isUnpackedTuple */ true
+                        )
+                    );
+
                     srcTypeArgs.splice(destUnboundedIndex, 0, {
-                        type: removedArgTypes.length > 0 ? combineTypes(removedArgTypes) : AnyType.create(),
+                        type: variadicTuple,
                         isUnbounded: false,
                     });
                 }
+            } else {
+                const removedArgTypes = srcTypeArgs.splice(destUnboundedIndex, srcArgsToCapture).map((t) => {
+                    if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type) && !t.type.isVariadicInUnion) {
+                        return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
+                    }
+                    return t.type;
+                });
+
+                srcTypeArgs.splice(destUnboundedIndex, 0, {
+                    type: removedArgTypes.length > 0 ? combineTypes(removedArgTypes) : AnyType.create(),
+                    isUnbounded: false,
+                });
             }
         }
+
+        return destTypeArgs.length === srcTypeArgs.length;
     }
 
     function assignTupleTypeArguments(
@@ -21738,17 +21744,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ) {
         const destTypeArgs = [...(destType.tupleTypeArguments ?? [])];
         const srcTypeArgs = [...(srcType.tupleTypeArguments ?? [])];
-        let srcUnboundedIndex: number;
+        const reverseMapping = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
 
-        if (flags & AssignTypeFlags.ReverseTypeVarMatching) {
-            adjustSourceTupleTypeArgs(srcTypeArgs, destTypeArgs);
-            srcUnboundedIndex = destTypeArgs.findIndex((t) => t.isUnbounded);
-        } else {
-            adjustSourceTupleTypeArgs(destTypeArgs, srcTypeArgs);
-            srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
-        }
-
-        if (srcTypeArgs.length === destTypeArgs.length) {
+        if (
+            adjustSrcTupleTypeArgs(
+                reverseMapping ? srcTypeArgs : destTypeArgs,
+                reverseMapping ? destTypeArgs : srcTypeArgs
+            )
+        ) {
             for (let argIndex = 0; argIndex < srcTypeArgs.length; argIndex++) {
                 const entryDiag = diag?.createAddendum();
 
@@ -21774,16 +21777,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
         } else {
-            if (srcUnboundedIndex < 0) {
+            if (srcTypeArgs.find((t) => t.isUnbounded)) {
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.tupleSizeIndeterminate().format({
+                        expected: destTypeArgs.length,
+                    })
+                );
+            } else {
                 diag?.addMessage(
                     Localizer.DiagnosticAddendum.tupleSizeMismatch().format({
                         expected: destTypeArgs.length,
                         received: srcTypeArgs.length,
                     })
                 );
-
-                return false;
             }
+
+            return false;
         }
 
         return true;
