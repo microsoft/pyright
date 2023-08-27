@@ -10,7 +10,6 @@ class ResourceOwner(UserResponse):
         self,
         role: str = "owner",
         id: Incomplete | None = None,
-        oauth_id: Incomplete | None = None,
         name: Incomplete | None = None,
         status: str = "active",
         links: Incomplete | None = None,

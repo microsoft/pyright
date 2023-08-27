@@ -6,6 +6,31 @@ from os import _ScandirIterator, stat_result
 from typing import Any, AnyStr, overload
 
 from aiofiles import ospath
+from aiofiles.ospath import wrap as wrap
+
+__all__ = [
+    "path",
+    "stat",
+    "rename",
+    "renames",
+    "replace",
+    "remove",
+    "unlink",
+    "mkdir",
+    "makedirs",
+    "rmdir",
+    "removedirs",
+    "link",
+    "symlink",
+    "readlink",
+    "listdir",
+    "scandir",
+    "access",
+    "wrap",
+]
+
+if sys.platform != "win32":
+    __all__ += ["statvfs", "sendfile"]
 
 path = ospath
 
@@ -90,8 +115,13 @@ async def listdir(path: StrPath | None, *, loop: AbstractEventLoop | None = ...,
 async def listdir(path: BytesPath, *, loop: AbstractEventLoop | None = ..., executor: Any = ...) -> list[bytes]: ...
 @overload
 async def listdir(path: int, *, loop: AbstractEventLoop | None = ..., executor: Any = ...) -> list[str]: ...
+async def access(
+    path: FileDescriptorOrPath, mode: int, *, dir_fd: int | None = None, effective_ids: bool = False, follow_symlinks: bool = True
+) -> bool: ...
 
 if sys.platform != "win32":
+    from os import statvfs_result
+
     @overload
     async def sendfile(
         out_fd: int, in_fd: int, offset: int | None, count: int, *, loop: AbstractEventLoop | None = ..., executor: Any = ...
@@ -109,3 +139,4 @@ if sys.platform != "win32":
         loop: AbstractEventLoop | None = ...,
         executor: Any = ...,
     ) -> int: ...  # FreeBSD and Mac OS X only
+    async def statvfs(path: FileDescriptorOrPath) -> statvfs_result: ...  # Unix only

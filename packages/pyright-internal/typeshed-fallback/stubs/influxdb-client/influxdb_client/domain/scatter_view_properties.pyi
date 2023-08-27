@@ -8,6 +8,7 @@ class ScatterViewProperties(ViewProperties):
     discriminator: Incomplete
     def __init__(
         self,
+        adaptive_zoom_hide: bool | None = None,
         time_format: Incomplete | None = None,
         type: Incomplete | None = None,
         queries: Incomplete | None = None,
@@ -40,6 +41,7 @@ class ScatterViewProperties(ViewProperties):
         legend_opacity: Incomplete | None = None,
         legend_orientation_threshold: Incomplete | None = None,
     ) -> None: ...
+    adaptive_zoom_hide: bool | None
     @property
     def time_format(self): ...
     @time_format.setter

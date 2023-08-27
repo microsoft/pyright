@@ -1,22 +1,25 @@
 from _typeshed import Incomplete
 
+from openpyxl import _VisibilityType
 from openpyxl.worksheet.worksheet import Worksheet
 
 def read_dimension(source): ...
 
 class ReadOnlyWorksheet:
-    cell: Incomplete
-    iter_rows: Incomplete
+    cell = Worksheet.cell
+    iter_rows = Worksheet.iter_rows
+    # Same as Worksheet.values
     @property
     def values(self): ...
+    # Same as Worksheet.rows
     @property
     def rows(self): ...
     __getitem__ = Worksheet.__getitem__
     __iter__ = Worksheet.__iter__
     parent: Incomplete
-    title: Incomplete
-    sheet_state: str
-    def __init__(self, parent_workbook, title, worksheet_path, shared_strings) -> None: ...
+    title: str
+    sheet_state: _VisibilityType
+    def __init__(self, parent_workbook, title: str, worksheet_path, shared_strings) -> None: ...
     def calculate_dimension(self, force: bool = False): ...
     def reset_dimensions(self) -> None: ...
     @property

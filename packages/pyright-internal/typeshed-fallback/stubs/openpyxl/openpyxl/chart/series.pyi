@@ -85,18 +85,20 @@ class Series(Serialisable):
     def to_tree(self, tagname: str | None = None, idx: Incomplete | None = None): ...  # type: ignore[override]
 
 class XYSeries(Series):
-    idx: Incomplete
-    order: Incomplete
-    tx: Incomplete
-    spPr: Incomplete
-    dPt: Incomplete
-    dLbls: Incomplete
-    trendline: Incomplete
-    errBars: Incomplete
-    xVal: Incomplete
-    yVal: Incomplete
-    invertIfNegative: Incomplete
-    bubbleSize: Incomplete
-    bubble3D: Incomplete
-    marker: Incomplete
-    smooth: Incomplete
+    # Same as parent
+    # idx = Series.idx
+    # order = Series.order
+    # tx = Series.tx
+    # spPr = Series.spPr
+    # dPt = Series.dPt
+    # dLbls = Series.dLbls
+    # trendline = Series.trendline
+    # errBars = Series.errBars
+    # xVal = Series.xVal
+    # yVal = Series.yVal
+    # invertIfNegative = Series.invertIfNegative
+    # bubbleSize = Series.bubbleSize
+    # bubble3D = Series.bubble3D
+    # marker = Series.marker
+    # smooth = Series.smooth
+    ...

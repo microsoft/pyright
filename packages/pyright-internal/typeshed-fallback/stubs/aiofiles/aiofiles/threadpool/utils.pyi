@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from types import coroutine as coroutine
 from typing import TypeVar
 
 _T = TypeVar("_T", bound=type)

@@ -8,6 +8,7 @@ class CheckViewProperties(ViewProperties):
     discriminator: Incomplete
     def __init__(
         self,
+        adaptive_zoom_hide: bool | None = None,
         type: Incomplete | None = None,
         shape: Incomplete | None = None,
         check_id: Incomplete | None = None,
@@ -19,6 +20,7 @@ class CheckViewProperties(ViewProperties):
         legend_opacity: Incomplete | None = None,
         legend_orientation_threshold: Incomplete | None = None,
     ) -> None: ...
+    adaptive_zoom_hide: bool | None
     @property
     def type(self): ...
     @type.setter

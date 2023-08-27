@@ -7,6 +7,7 @@ from .cell_range import CellRange
 
 class MergeCell(CellRange):
     tagname: ClassVar[str]
+    # Same as CellRange.coord
     @property
     def ref(self): ...
     __attrs__: ClassVar[tuple[str, ...]]

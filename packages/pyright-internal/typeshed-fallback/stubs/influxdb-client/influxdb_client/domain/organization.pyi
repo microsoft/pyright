@@ -9,6 +9,7 @@ class Organization:
         links: Incomplete | None = None,
         id: Incomplete | None = None,
         name: Incomplete | None = None,
+        default_storage_type: str | None = None,
         description: Incomplete | None = None,
         created_at: Incomplete | None = None,
         updated_at: Incomplete | None = None,
@@ -26,6 +27,7 @@ class Organization:
     def name(self): ...
     @name.setter
     def name(self, name) -> None: ...
+    default_storage_type: str | None
     @property
     def description(self): ...
     @description.setter

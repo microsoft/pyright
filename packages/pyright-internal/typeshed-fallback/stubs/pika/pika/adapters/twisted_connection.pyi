@@ -2,7 +2,7 @@
 # We don't want to force it as a dependency but that means we also can't test it with type-checkers given the current setup.
 
 from _typeshed import Incomplete
-from typing import NamedTuple, TypeVar
+from typing import Generic, NamedTuple, TypeVar
 
 import pika.connection
 from pika.adapters.utils import nbio_interface
@@ -16,11 +16,11 @@ _T = TypeVar("_T")
 
 LOGGER: Incomplete
 
-class ClosableDeferredQueue(DeferredQueue[_T]):  # pyright: ignore[reportUntypedBaseClass]
+class ClosableDeferredQueue(DeferredQueue[_T], Generic[_T]):  # pyright: ignore[reportUntypedBaseClass]
     closed: Failure | BaseException | None
     def __init__(self, size: Incomplete | None = ..., backlog: Incomplete | None = ...) -> None: ...
     # Returns a Deferred with an error if fails. None if success
-    def put(self, obj: _T) -> Deferred[Failure | BaseException] | None: ...  # type: ignore[override]  # pyright: ignore[reportInvalidTypeVarUse]
+    def put(self, obj: _T) -> Deferred[Failure | BaseException] | None: ...  # type: ignore[override]
     def get(self) -> Deferred[Failure | BaseException | _T]: ...
     pending: Incomplete
     def close(self, reason: BaseException | None) -> None: ...

@@ -1,4 +1,4 @@
-version = "23.1.*"
+version = "23.2.*"
 upstream_repository = "https://github.com/Tinche/aiofiles"
 
 [tool.stubtest]

@@ -5,19 +5,13 @@ class BucketRetentionRules:
     attribute_map: Incomplete
     discriminator: Incomplete
     def __init__(
-        self,
-        type: str = "expire",
-        every_seconds: Incomplete | None = None,
-        shard_group_duration_seconds: Incomplete | None = None,
+        self, type: str = "expire", every_seconds: int = 2592000, shard_group_duration_seconds: int | None = None
     ) -> None: ...
     @property
     def type(self): ...
     @type.setter
     def type(self, type) -> None: ...
-    @property
-    def every_seconds(self): ...
-    @every_seconds.setter
-    def every_seconds(self, every_seconds) -> None: ...
+    every_seconds: int
     @property
     def shard_group_duration_seconds(self): ...
     @shard_group_duration_seconds.setter

@@ -2,7 +2,6 @@ from _typeshed import Incomplete, OpenBinaryMode
 from asyncio import AbstractEventLoop
 from collections.abc import Generator, Iterable
 from tempfile import TemporaryDirectory
-from types import coroutine as coroutine
 from typing import TypeVar
 
 from aiofiles.base import AsyncBase as AsyncBase

@@ -291,7 +291,7 @@ class Task(Future[_T_co], Generic[_T_co]):  # type: ignore[type-var]  # pyright:
             coro: _TaskCompatibleCoro[_T_co],
             *,
             loop: AbstractEventLoop = ...,
-            name: str | None,
+            name: str | None = ...,
             context: Context | None = None,
             eager_start: bool = False,
         ) -> None: ...
@@ -301,7 +301,7 @@ class Task(Future[_T_co], Generic[_T_co]):  # type: ignore[type-var]  # pyright:
             coro: _TaskCompatibleCoro[_T_co],
             *,
             loop: AbstractEventLoop = ...,
-            name: str | None,
+            name: str | None = ...,
             context: Context | None = None,
         ) -> None: ...
     elif sys.version_info >= (3, 8):

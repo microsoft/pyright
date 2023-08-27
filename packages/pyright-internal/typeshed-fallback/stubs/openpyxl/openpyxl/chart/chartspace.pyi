@@ -2,6 +2,7 @@ from _typeshed import Incomplete, Unused
 from typing import ClassVar, overload
 from typing_extensions import Literal, TypeAlias
 
+from openpyxl.chart._3d import Surface, View3D
 from openpyxl.chart.legend import Legend
 from openpyxl.chart.pivot import PivotSource
 from openpyxl.chart.plotarea import PlotArea
@@ -24,10 +25,13 @@ class ChartContainer(Serialisable):
     title: Typed[Title, Literal[True]]
     autoTitleDeleted: NestedBool[Literal[True]]
     pivotFmts: Incomplete
-    view3D: Incomplete
-    floor: Incomplete
-    sideWall: Incomplete
-    backWall: Incomplete
+
+    # Same as _3DBase
+    view3D: Typed[View3D, Literal[True]]
+    floor: Typed[Surface, Literal[True]]
+    sideWall: Typed[Surface, Literal[True]]
+    backWall: Typed[Surface, Literal[True]]
+
     plotArea: Typed[PlotArea, Literal[False]]
     legend: Typed[Legend, Literal[True]]
     plotVisOnly: NestedBool[Literal[False]]
@@ -40,10 +44,10 @@ class ChartContainer(Serialisable):
         title: Title | None = None,
         autoTitleDeleted: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
         pivotFmts=(),
-        view3D: Incomplete | None = None,
-        floor: Incomplete | None = None,
-        sideWall: Incomplete | None = None,
-        backWall: Incomplete | None = None,
+        view3D: View3D | None = None,
+        floor: Surface | None = None,
+        sideWall: Surface | None = None,
+        backWall: Surface | None = None,
         plotArea: PlotArea | None = None,
         legend: Legend | None = None,
         plotVisOnly: _HasTagAndGet[_ConvertibleToBool] | _ConvertibleToBool = True,
