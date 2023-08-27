@@ -28,5 +28,5 @@ def func2(x: tuple[str]) -> int:
     ...
 
 
-v2 = deco2(func2)
-reveal_type(v2, expected_text="(str) -> int")
+# This should generate an error because of a tuple size mismatch.
+deco2(func2)
