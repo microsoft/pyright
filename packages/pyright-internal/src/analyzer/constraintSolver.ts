@@ -32,6 +32,7 @@ import {
     isUnpacked,
     isUnpackedClass,
     isVariadicTypeVar,
+    NoneType,
     TupleTypeArgument,
     Type,
     TypeBase,
@@ -795,7 +796,12 @@ function assignTypeToParamSpec(
 
             const existingType = signatureContext.getParamSpecType(destType);
             if (existingType) {
-                if (existingType.details.paramSpec === srcType.details.paramSpec) {
+                if (
+                    isTypeSame(
+                        existingType.details.paramSpec ?? NoneType.createInstance(),
+                        srcType.details.paramSpec ?? NoneType.createInstance()
+                    )
+                ) {
                     // Convert the remaining portion of the signature to a function
                     // for comparison purposes.
                     const existingFunction = convertParamSpecValueToType(existingType, /* omitParamSpec */ true);

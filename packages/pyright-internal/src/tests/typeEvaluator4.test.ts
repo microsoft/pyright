@@ -1069,6 +1069,11 @@ test('ParamSpec46', () => {
     TestUtils.validateResults(results, 2);
 });
 
+test('ParamSpec47', () => {
+    const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec47.py']);
+    TestUtils.validateResults(results, 2);
+});
+
 test('ClassVar1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classVar1.py']);
 
