@@ -2275,6 +2275,13 @@ export function containsAnyOrUnknown(type: Type, recurse: boolean): AnyType | Un
 
         override visitFunction(type: FunctionType) {
             if (this._recurse) {
+                // A function with a "..." type is effectively an "Any".
+                if (FunctionType.shouldSkipArgsKwargsCompatibilityCheck(type)) {
+                    this.anyOrUnknownType = this.anyOrUnknownType
+                        ? preserveUnknown(this.anyOrUnknownType, AnyType.create())
+                        : AnyType.create();
+                }
+
                 super.visitFunction(type);
             }
         }
