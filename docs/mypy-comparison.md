@@ -162,25 +162,6 @@ The following expression forms are not currently supported by mypy as type guard
 Pyright supports the [aliasing of conditional expressions](type-concepts-advanced.md#aliased-conditional-expression) used for type guards. Mypy does not currently support this, but it is a frequently-requested feature.
 
 
-### Narrowing for Captured Variables
-
-If a variable’s type is narrowed in an outer scope and the variable is subsequently used within an inner-scoped function or lambda, mypy does not retain the narrowed type within the inner scope. Pyright retains the narrowed type if it can determine that the value of the captured variable is not modified on any code path after the inner-scope function or lambda is defined.
-
-```python
-def func(val: int | None):
-    if val is not None:
-
-        def inner_1() -> None:
-            reveal_type(val)  # pyright: int, mypy: int | None
-            print(val + 1)  # mypy produces a false positive error here
-
-        inner_2 = lambda: reveal_type(val) + 1  # pyright: int, mypy: int | None
-
-        inner_1()
-        inner_2()
-```
-
-
 ### Narrowing Any
 
 Pyright never narrows `Any` when performing type narrowing for assignments. Mypy is inconsistent about when it applies type narrowing to `Any` type arguments.
