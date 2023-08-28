@@ -11215,7 +11215,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 let useStrictTypeGuardSemantics = false;
 
-                if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
+                if (true) {
                     // Determine the type of the first parameter.
                     const paramIndex = type.boundToType ? 1 : 0;
                     if (paramIndex < type.details.parameters.length) {
