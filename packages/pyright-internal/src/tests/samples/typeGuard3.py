@@ -89,3 +89,106 @@ T = TypeVar("T")
 
 def is_marsupial(val: Animal) -> TypeGuard[Kangaroo | Koala]:
     return isinstance(val, Kangaroo | Koala)
+
+
+class A1:
+    ...
+
+
+class A2(A1):
+    ...
+
+
+class B1:
+    ...
+
+
+class B2(B1):
+    ...
+
+
+class C1:
+    ...
+
+
+class C2(C1):
+    ...
+
+
+def guard1(val: A1 | B1 | C1) -> TypeGuard[A1 | B1]:
+    return isinstance(val, (A1, B1))
+
+
+def func7_1(val: A1 | B1 | C1):
+    if guard1(val):
+        reveal_type(val, expected_text="A1 | B1")
+    else:
+        reveal_type(val, expected_text="C1")
+
+
+def func7_2(val: A2 | B2 | C2):
+    if guard1(val):
+        reveal_type(val, expected_text="A2 | B2")
+    else:
+        reveal_type(val, expected_text="C2")
+
+
+def func7_3(val: A2 | B2 | C2 | Any):
+    if guard1(val):
+        reveal_type(val, expected_text="A2 | B2 | A1 | B1")
+    else:
+        reveal_type(val, expected_text="C2 | Any")
+
+
+def guard2(val: A1 | B1 | C1) -> TypeGuard[A2 | B2]:
+    return isinstance(val, (A2, B2))
+
+
+def func8_1(val: A1 | B1 | C1):
+    if guard2(val):
+        reveal_type(val, expected_text="A2 | B2")
+    else:
+        reveal_type(val, expected_text="A1 | B1 | C1")
+
+
+def func8_2(val: A2 | B2 | C2):
+    if guard2(val):
+        reveal_type(val, expected_text="A2 | B2")
+    else:
+        reveal_type(val, expected_text="C2")
+
+
+def func8_3(val: A2 | B2 | C2 | Any):
+    if guard2(val):
+        reveal_type(val, expected_text="A2 | B2")
+    else:
+        reveal_type(val, expected_text="C2 | Any")
+
+
+def guard3(val: A2 | B2 | C2) -> TypeGuard[A2 | B2 | Any]:
+    return isinstance(val, (A1, B1))
+
+
+def func3_1(val: A2 | C2):
+    if guard3(val):
+        reveal_type(val, expected_text="A2 | C2")
+    else:
+        reveal_type(val, expected_text="C2")
+
+
+def func3_2(val: A2 | B2 | C2 | Any):
+    if guard3(val):
+        reveal_type(val, expected_text="A2 | B2 | C2 | Any")
+    else:
+        reveal_type(val, expected_text="C2 | Any")
+
+
+def guard4(o: type) -> TypeGuard[type[A1]]:
+    ...
+
+
+def func4_1(cls: type):
+    if guard4(cls):
+        reveal_type(cls, expected_text="type[A1]")
+    else:
+        reveal_type(cls, expected_text="type")

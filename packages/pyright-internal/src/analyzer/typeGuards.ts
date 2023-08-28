@@ -67,6 +67,7 @@ import {
     ClassMember,
     ClassMemberLookupFlags,
     computeMroLinearization,
+    containsAnyOrUnknown,
     convertToInstance,
     convertToInstantiable,
     doForEachSubtype,
@@ -934,26 +935,100 @@ function narrowTypeForUserDefinedTypeGuard(
         return isPositiveTest ? typeGuardType : type;
     }
 
-    // For strict type guards, narrow the current type.
+    // For strict type guards, narrow the type.
     return mapSubtypes(type, (subtype) => {
-        return mapSubtypes(typeGuardType, (typeGuardSubtype) => {
-            const isSubType = evaluator.assignType(typeGuardType, subtype);
-            const isSuperType = evaluator.assignType(subtype, typeGuardSubtype);
-
-            if (isPositiveTest) {
-                if (isSubType) {
+        if (isPositiveTest) {
+            // In the positive case, we need to compute the intersection of "type"
+            // and "typeGuardType". If we assume "type" is a union of (A1 | A2 | ... | An)
+            // and "typeGuardType" is a union of (B1 | B2 | ... | Bn), then the intersection
+            // of the two is the union of the intersection of all combinations of A's and B's.
+            // For each pair, if A and B are the same type, the intersection is that type.
+            // If A is a proper subtype of B or vice versa, the intersection is the narrower of
+            // the two. If A and B have no commonality, the intersection is Never.
+            // If A and B are not the same type but A and B are mutually "subtypes" of each
+            // other, that means they don't follow the normal subtyping rules. In this case,
+            // we'll try to pick the one that has the most information (i.e. doesn't contain
+            // an Any or Unknown).
+            return mapSubtypes(typeGuardType, (typeGuardSubtype) => {
+                if (isTypeSame(subtype, typeGuardSubtype, { ignorePseudoGeneric: true, treatAnySameAsUnknown: true })) {
                     return subtype;
-                } else if (isSuperType) {
+                }
+
+                const isSubtype = evaluator.assignType(typeGuardSubtype, subtype);
+                const isSupertype = evaluator.assignType(subtype, typeGuardSubtype);
+
+                if (isSubtype) {
+                    if (!isSupertype) {
+                        return subtype;
+                    }
+
+                    // It's both a subtype and a supertype and it's not the same type.
+                    // That means it's some combination of types that don't follow subtyping
+                    // rules. Try to retain as much information as possible. If one of the
+                    // two types contains an Any and the other does not, use the one that doesn't.
+                    return containsAnyOrUnknown(typeGuardSubtype, /* recurse */ true) ? subtype : typeGuardSubtype;
+                }
+
+                if (isSupertype) {
                     return typeGuardSubtype;
                 }
-            } else {
-                if (!isSubType && !isSubType) {
-                    return subtype;
-                }
+
+                // The types have nothing in common.
+                return undefined;
+            });
+        } else {
+            // In the negative case, we need to compute the intersection of "type" and
+            // the negation of "typeGuardType". The type system doesn't have support for
+            // type negations, so the actual result will necessarily be broader than the
+            // theoretically-correct result.
+            // If "type" is a union of (A1 | A2 | ... | An) and "typeGuardType" is a union
+            // of (B1 | B2 | ... | Bn), then the intersection of "type" and !"typeGuardType"
+            // is (A1 & !B1 & !B2 & ... & !Bn) | (A2 & !B1 & !B2 & ... & !Bn) | ... |.
+            // This means we can eliminate an A only if we can show that it doesn't
+            // share any commonality with any of the B's.
+            let canBeEliminated = false;
+
+            if (!isAnyOrUnknown(subtype)) {
+                doForEachSubtype(typeGuardType, (typeGuardSubtype) => {
+                    if (
+                        isTypeSame(subtype, typeGuardSubtype, {
+                            ignorePseudoGeneric: true,
+                            treatAnySameAsUnknown: true,
+                        })
+                    ) {
+                        canBeEliminated = true;
+                    } else {
+                        const isSubtype = evaluator.assignType(typeGuardSubtype, subtype);
+                        const isSupertype = evaluator.assignType(subtype, typeGuardSubtype);
+
+                        if (isSubtype && !isAnyOrUnknown(typeGuardSubtype)) {
+                            if (!isSupertype) {
+                                canBeEliminated = true;
+                            } else {
+                                // In this case, there is not a clear subtype relationship between
+                                // "subtype" and "typeGuardSubtype". We'll use a heuristic to produce
+                                // a result that is not unexpected. If the typeGuardSubtype is a gradual
+                                // type (contains Any) but the subtype does not, we'll eliminate the
+                                // subtype. For example, if the typeGuardSubtype is "list[Any]" and
+                                // the subtype is "list[str]", we'll eliminate "list[str]". If the types
+                                // are reversed, we don't want to eliminate "list[Any]".
+                                const subtypeContainsAny = containsAnyOrUnknown(subtype, /* recurse */ true);
+                                const typeGuardSubtypeContainsAny = containsAnyOrUnknown(
+                                    typeGuardSubtype,
+                                    /* recurse */ true
+                                );
+
+                                if (!subtypeContainsAny && typeGuardSubtypeContainsAny) {
+                                    canBeEliminated = true;
+                                }
+                            }
+                        }
+                    }
+                });
             }
 
-            return undefined;
-        });
+            return canBeEliminated ? undefined : subtype;
+        }
     });
 }
 
