@@ -7,16 +7,16 @@ from typing import Generic, TypeVar
 T = TypeVar("T")
 U = TypeVar("U")
 
-# This test is commented out because it doesn't yet work.
-# class Test1(Generic[T, U]):
-#     def __init__(self, t: T, u: U):
-#         pass
 
-#     def test1(self, ts: list[T], us: list[U]) -> None:
-#         # This should generate an error.
-#         x1: Test1[U, T] = Test1(us, ts)
+class Test1(Generic[T, U]):
+    def __init__(self, t: T, u: U):
+        pass
 
-#         x2: Test1[list[U], list[T]] = Test1(us, ts)
+    def test1(self, ts: list[T], us: list[U]) -> None:
+        # This should generate an error.
+        x1: Test1[U, T] = Test1(us, ts)
+
+        x2: Test1[list[U], list[T]] = Test1(us, ts)
 
 
 class Test2(Generic[T, U]):
@@ -47,13 +47,12 @@ class Test2(Generic[T, U]):
         x3 = Test2[T, U]()
 
 
-# This test is commented out because it doesn't yet work.
-# class Test3(Generic[T, U]):
-#     def __init__(self, ts: list[T], us: list[U]):
-#         pass
+class Test3(Generic[T, U]):
+    def __init__(self, ts: list[T], us: list[U]):
+        pass
 
-#     def test3(self, ts: list[T], us: list[U]) -> None:
-#         # This should generate an error.
-#         x1: Test3[U, T] = Test3(us, ts)
+    def test3(self, ts: list[T], us: list[U]) -> None:
+        x1: Test3[U, T] = Test3(us, ts)
 
-#         x2: Test3[list[U], list[T]] = Test3(us, ts)
+        # This should generate an error.
+        x2: Test3[list[U], list[T]] = Test3(us, ts)

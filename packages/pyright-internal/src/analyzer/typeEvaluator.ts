@@ -22163,16 +22163,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (isTypeVar(destType)) {
             if (isTypeVarSame(destType, srcType)) {
                 if (destType.scopeId && destTypeVarContext?.hasSolveForScope(destType.scopeId)) {
-                    return assignTypeToTypeVar(
-                        evaluatorInterface,
-                        destType,
-                        srcType,
-                        diag,
-                        destTypeVarContext,
-                        flags,
-                        recursionCount
-                    );
+                    // If the dest TypeVar has no current value bound to it, bind itself.
+                    if (!destTypeVarContext.getPrimarySignature().getTypeVar(destType)) {
+                        return assignTypeToTypeVar(
+                            evaluatorInterface,
+                            destType,
+                            srcType,
+                            diag,
+                            destTypeVarContext,
+                            flags,
+                            recursionCount
+                        );
+                    }
                 }
+
                 return true;
             }
 
