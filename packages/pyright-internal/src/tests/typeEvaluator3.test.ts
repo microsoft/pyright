@@ -1522,7 +1522,7 @@ test('Constructor25', () => {
 test('Constructor26', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor26.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('Constructor27', () => {
