@@ -328,7 +328,7 @@ export function createNamedTupleType(
                 addGenericGetAttribute = true;
             }
 
-            if (entriesArg.valueExpression) {
+            if (entriesArg.valueExpression && !addGenericGetAttribute) {
                 // Set the type of the value expression node to Any so we don't attempt to
                 // re-evaluate it later, potentially generating "partially unknown" errors
                 // in strict mode.
