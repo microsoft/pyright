@@ -3,8 +3,8 @@
 
 
 from typing import (
-    ChainMap,
-    Counter,
+    ChainMap as CM1,
+    Counter as CT1,
     DefaultDict,
     Deque,
     Dict,
@@ -58,8 +58,6 @@ v6: Type[int] = int
 v7 = Deque()
 v8 = DefaultDict()
 v9 = OrderedDict()
-v10 = Counter()
-v11 = ChainMap()
 
 # These should be marked deprecated for Python >= 3.10
 v20: Union[int, str]

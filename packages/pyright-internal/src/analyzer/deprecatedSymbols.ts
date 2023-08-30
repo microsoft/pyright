@@ -49,11 +49,21 @@ export const deprecatedAliases = new Map<string, DeprecatedForm>([
     ],
     [
         'Counter',
-        { version: PythonVersion.V3_9, fullName: 'collections.Counter', replacementText: 'collections.Counter' },
+        {
+            version: PythonVersion.V3_9,
+            fullName: 'collections.Counter',
+            replacementText: 'collections.Counter',
+            typingImportOnly: true,
+        },
     ],
     [
         'ChainMap',
-        { version: PythonVersion.V3_9, fullName: 'collections.ChainMap', replacementText: 'collections.ChainMap' },
+        {
+            version: PythonVersion.V3_9,
+            fullName: 'collections.ChainMap',
+            replacementText: 'collections.ChainMap',
+            typingImportOnly: true,
+        },
     ],
     [
         'Awaitable',
