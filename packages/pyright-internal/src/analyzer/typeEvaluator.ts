@@ -1479,6 +1479,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeOfString(node: StringNode | FormatStringNode): TypeResult {
         const isBytes = (node.token.flags & StringTokenFlags.Bytes) !== 0;
         let typeResult: TypeResult | undefined;
+        let isIncomplete = false;
 
         // Don't create a literal type if it's an f-string.
         if (node.nodeType === ParseNodeType.FormatString) {
@@ -1487,7 +1488,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If all of the format expressions are of type LiteralString, then
             // the resulting formatted string is also LiteralString.
             node.fieldExpressions.forEach((expr) => {
-                const exprType = getTypeOfExpression(expr).type;
+                const exprTypeResult = getTypeOfExpression(expr);
+                const exprType = exprTypeResult.type;
+
+                if (exprTypeResult.isIncomplete) {
+                    isIncomplete = true;
+                }
 
                 doForEachSubtype(exprType, (exprSubtype) => {
                     if (!isClassInstance(exprSubtype)) {
@@ -1510,18 +1516,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!isBytes && isLiteralString) {
                 const literalStringType = getTypingType(node, 'LiteralString');
                 if (literalStringType && isInstantiableClass(literalStringType)) {
-                    typeResult = { type: ClassType.cloneAsInstance(literalStringType) };
+                    typeResult = { type: ClassType.cloneAsInstance(literalStringType), isIncomplete };
                 }
             }
 
             if (!typeResult) {
                 typeResult = {
                     type: getBuiltInObject(node, isBytes ? 'bytes' : 'str'),
+                    isIncomplete,
                 };
             }
         } else {
             typeResult = {
                 type: cloneBuiltinObjectWithLiteral(node, isBytes ? 'bytes' : 'str', node.value),
+                isIncomplete,
             };
         }
 
