@@ -87,6 +87,12 @@ export interface FileSystem extends ReadOnlyFileSystem {
     dispose(): void;
 }
 
+export namespace FileSystem {
+    export function is(value: any): value is FileSystem {
+        return value.createFileSystemWatcher && value.createReadStream && value.createWriteStream && value.copyFileSync;
+    }
+}
+
 export class VirtualDirent implements fs.Dirent {
     constructor(public name: string, private _file: boolean) {}
 

@@ -41,6 +41,10 @@ export class ExecutionEnvironment {
     // Undefined if this is a rootless environment (e.g., open file mode).
     root?: string;
 
+    // Name of a virtual environment if there is one, otherwise
+    // just the path to the python executable.
+    name: string;
+
     // Always default to the latest stable version of the language.
     pythonVersion: PythonVersion;
 
@@ -52,11 +56,13 @@ export class ExecutionEnvironment {
 
     // Default to "." which indicates every file in the project.
     constructor(
+        name: string,
         root: string,
         defaultPythonVersion: PythonVersion | undefined,
         defaultPythonPlatform: string | undefined,
         defaultExtraPaths: string[] | undefined
     ) {
+        this.name = name;
         this.root = root || undefined;
         this.pythonVersion = defaultPythonVersion || latestStablePythonVersion;
         this.pythonPlatform = defaultPythonPlatform;
@@ -699,6 +705,9 @@ export class ConfigOptions {
     // Path to python interpreter.
     pythonPath?: string | undefined;
 
+    // Name of the python environment.
+    pythonEnvironmentName?: string | undefined;
+
     // Path to use for typeshed definitions.
     typeshedPath?: string | undefined;
 
@@ -834,6 +843,7 @@ export class ConfigOptions {
 
     getDefaultExecEnvironment(): ExecutionEnvironment {
         return new ExecutionEnvironment(
+            this._getEnvironmentName(),
             this.projectRoot,
             this.defaultPythonVersion,
             this.defaultPythonPlatform,
@@ -1276,6 +1286,10 @@ export class ConfigOptions {
         }
     }
 
+    private _getEnvironmentName(): string {
+        return this.pythonEnvironmentName || this.pythonPath || 'python';
+    }
+
     private _convertBoolean(value: any, fieldName: string, defaultValue: boolean): boolean {
         if (value === undefined) {
             return defaultValue;
@@ -1309,6 +1323,7 @@ export class ConfigOptions {
     ): ExecutionEnvironment | undefined {
         try {
             const newExecEnv = new ExecutionEnvironment(
+                this._getEnvironmentName(),
                 this.projectRoot,
                 this.defaultPythonVersion,
                 this.defaultPythonPlatform,
@@ -1361,6 +1376,15 @@ export class ConfigOptions {
             if (envObj.pythonPlatform) {
                 if (typeof envObj.pythonPlatform === 'string') {
                     newExecEnv.pythonPlatform = envObj.pythonPlatform;
+                } else {
+                    console.error(`Config executionEnvironments index ${index} pythonPlatform must be a string.`);
+                }
+            }
+
+            // Validate the name
+            if (envObj.name) {
+                if (typeof envObj.name === 'string') {
+                    newExecEnv.name = envObj.name;
                 } else {
                     console.error(`Config executionEnvironments index ${index} pythonPlatform must be a string.`);
                 }

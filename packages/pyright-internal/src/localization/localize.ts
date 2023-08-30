@@ -518,9 +518,13 @@ export namespace Localizer {
         export const importDepthExceeded = () =>
             new ParameterizedString<{ depth: number }>(getRawString('Diagnostic.importDepthExceeded'));
         export const importResolveFailure = () =>
-            new ParameterizedString<{ importName: string }>(getRawString('Diagnostic.importResolveFailure'));
+            new ParameterizedString<{ importName: string; venv: string }>(
+                getRawString('Diagnostic.importResolveFailure')
+            );
         export const importSourceResolveFailure = () =>
-            new ParameterizedString<{ importName: string }>(getRawString('Diagnostic.importSourceResolveFailure'));
+            new ParameterizedString<{ importName: string; venv: string }>(
+                getRawString('Diagnostic.importSourceResolveFailure')
+            );
         export const importSymbolUnknown = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.importSymbolUnknown'));
         export const incompatibleMethodOverride = () =>

@@ -96,17 +96,19 @@ export class TestLanguageService implements LanguageServerInterface {
             pythonPath: undefined,
             pythonPathKind: WorkspacePythonPathKind.Mutable,
             kinds: [WellKnownWorkspaceKinds.Test],
-            service: new AnalyzerService('test service', this.fs, {
+            service: new AnalyzerService('test service', new ServiceProvider(), {
                 console: this.console,
                 hostFactory: () => new TestAccessHost(),
                 importResolverFactory: AnalyzerService.createImportResolver,
                 configOptions: new ConfigOptions('.'),
+                fileSystem: this.fs,
             }),
             disableLanguageServices: false,
             disableOrganizeImports: false,
             disableWorkspaceSymbol: false,
             isInitialized: createInitStatus(),
             searchPathsToWatch: [],
+            pythonEnvironmentName: undefined,
         };
     }
 

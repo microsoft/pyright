@@ -93,6 +93,7 @@ export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
         };
     };
 
+    configOptions.pythonEnvironmentName = jsonObject.pythonEnvironmentName;
     configOptions.pythonPath = jsonObject.pythonPath;
     configOptions.typeshedPath = jsonObject.typeshedPath;
     configOptions.stubPath = jsonObject.stubPath;

@@ -14,7 +14,6 @@ import { InitializationData } from './backgroundThreadBase';
 import { getCancellationFolderName } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface } from './common/console';
-import { FileSystem } from './common/fileSystem';
 import { FullAccessHost } from './common/fullAccessHost';
 import { Host } from './common/host';
 import { ServiceProvider } from './common/serviceProvider';
@@ -44,7 +43,11 @@ export class BackgroundAnalysisRunner extends BackgroundAnalysisRunnerBase {
         return new FullAccessHost(this.fs);
     }
 
-    protected override createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver {
-        return new ImportResolver(fs, options, host);
+    protected override createImportResolver(
+        serviceProvider: ServiceProvider,
+        options: ConfigOptions,
+        host: Host
+    ): ImportResolver {
+        return new ImportResolver(serviceProvider, options, host);
     }
 }

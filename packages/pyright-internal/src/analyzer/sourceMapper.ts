@@ -32,7 +32,7 @@ import {
     VariableDeclaration,
 } from './declaration';
 import { ImportResolver } from './importResolver';
-import { SourceFileInfo } from './program';
+import { SourceFileInfo } from './sourceFileInfo';
 import { SourceFile } from './sourceFile';
 import { isUserCode } from './sourceFileInfoUtils';
 import { buildImportTree } from './sourceMapperUtils';

@@ -95,6 +95,8 @@ import {
 import { TestFeatures, TestLanguageService } from './testLanguageService';
 import { createVfsInfoFromFourSlashData, getMarkerByName, getMarkerName, getMarkerNames } from './testStateUtils';
 import { verifyWorkspaceEdit } from './workspaceEditTestUtils';
+import { ServiceProvider } from '../../../common/serviceProvider';
+import { createServiceProvider } from '../../../common/serviceProviderExtensions';
 
 export interface TextChange {
     span: TextRange;
@@ -129,6 +131,7 @@ export class TestState {
     readonly workspace: Workspace;
     readonly console: ConsoleInterface;
     readonly rawConfigJson: any | undefined;
+    readonly serviceProvider: ServiceProvider;
 
     // The current caret position in the active file
     currentCaretPosition = 0;
@@ -178,6 +181,8 @@ export class TestState {
             this._applyTestConfigOptions(configOptions);
         }
 
+        this.serviceProvider = createServiceProvider(this.fs, this.console);
+
         const service = this._createAnalysisService(
             this.console,
             this._hostSpecificFeatures.importResolverFactory,
@@ -198,6 +203,7 @@ export class TestState {
             disableWorkspaceSymbol: false,
             isInitialized: createInitStatus(),
             searchPathsToWatch: [],
+            pythonEnvironmentName: undefined,
         };
 
         const indexer = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.indexer]);
@@ -1829,12 +1835,13 @@ export class TestState {
         configOptions: ConfigOptions
     ) {
         // we do not initiate automatic analysis or file watcher in test.
-        const service = new AnalyzerService('test service', this.fs, {
+        const service = new AnalyzerService('test service', this.serviceProvider, {
             console: nullConsole,
             hostFactory: () => testAccessHost,
             importResolverFactory,
             backgroundAnalysisProgramFactory,
             configOptions,
+            fileSystem: this.fs,
         });
 
         // directly set files to track rather than using fileSpec from config

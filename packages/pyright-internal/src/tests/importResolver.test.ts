@@ -13,6 +13,8 @@ import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/path
 import { PyrightFileSystem } from '../pyrightFileSystem';
 import { TestAccessHost } from './harness/testAccessHost';
 import { TestFileSystem } from './harness/vfs/filesystem';
+import { ServiceProvider } from '../common/serviceProvider';
+import { createServiceProvider } from '../common/serviceProviderExtensions';
 
 const libraryRoot = combinePaths(normalizeSlashes('/'), lib, sitePackages);
 
@@ -99,9 +101,13 @@ test('side by side files', () => {
         },
     ];
 
-    const fs = createFileSystem(files);
+    const sp = createServiceProviderFromFiles(files);
     const configOptions = new ConfigOptions(normalizeSlashes('/'));
-    const importResolver = new ImportResolver(fs, configOptions, new TestAccessHost(fs.getModulePath(), [libraryRoot]));
+    const importResolver = new ImportResolver(
+        sp,
+        configOptions,
+        new TestAccessHost(sp.fs().getModulePath(), [libraryRoot])
+    );
 
     // Stub package wins over original package (per PEP 561 rules).
     const sideBySideResult = importResolver.resolveImport(myFile, configOptions.findExecEnvironment(myFile), {
@@ -115,7 +121,7 @@ test('side by side files', () => {
 
     const sideBySideStubFile = combinePaths(libraryRoot, 'myLib', 'partialStub.pyi');
     assert.strictEqual(1, sideBySideResult.resolvedPaths.filter((f) => f === sideBySideStubFile).length);
-    assert.strictEqual('def test(): ...', fs.readFileSync(sideBySideStubFile, 'utf8'));
+    assert.strictEqual('def test(): ...', sp.fs().readFileSync(sideBySideStubFile, 'utf8'));
 
     // Side by side stub doesn't completely disable partial stub.
     const partialStubResult = importResolver.resolveImport(myFile, configOptions.findExecEnvironment(myFile), {
@@ -357,9 +363,13 @@ test('non py.typed library', () => {
 });
 
 test('no empty import roots', () => {
-    const fs = createFileSystem([]);
+    const sp = createServiceProviderFromFiles([]);
     const configOptions = new ConfigOptions(''); // Empty, like open-file mode.
-    const importResolver = new ImportResolver(fs, configOptions, new TestAccessHost(fs.getModulePath(), [libraryRoot]));
+    const importResolver = new ImportResolver(
+        sp,
+        configOptions,
+        new TestAccessHost(sp.fs().getModulePath(), [libraryRoot])
+    );
     importResolver.getImportRoots(configOptions.getDefaultExecEnvironment()).forEach((path) => assert(path));
 });
 
@@ -375,9 +385,13 @@ test('multiple typeshedFallback', () => {
         },
     ];
 
-    const fs = createFileSystem(files);
+    const sp = createServiceProviderFromFiles(files);
     const configOptions = new ConfigOptions(''); // Empty, like open-file mode.
-    const importResolver = new ImportResolver(fs, configOptions, new TestAccessHost(fs.getModulePath(), [libraryRoot]));
+    const importResolver = new ImportResolver(
+        sp,
+        configOptions,
+        new TestAccessHost(sp.fs().getModulePath(), [libraryRoot])
+    );
     const importRoots = importResolver.getImportRoots(configOptions.getDefaultExecEnvironment());
 
     assert.strictEqual(1, importRoots.filter((f) => f === combinePaths('/', typeshedFallback, 'stubs', 'aLib')).length);
@@ -585,7 +599,7 @@ function getImportResult(
             /* empty */
         });
 
-    const fs = createFileSystem(files);
+    const sp = createServiceProviderFromFiles(files);
     const configOptions = new ConfigOptions(normalizeSlashes('/'));
     setup(configOptions);
 
@@ -597,7 +611,11 @@ function getImportResult(
         });
     }
 
-    const importResolver = new ImportResolver(fs, configOptions, new TestAccessHost(fs.getModulePath(), [libraryRoot]));
+    const importResolver = new ImportResolver(
+        sp,
+        configOptions,
+        new TestAccessHost(sp.fs().getModulePath(), [libraryRoot])
+    );
     const importResult = importResolver.resolveImport(file, configOptions.findExecEnvironment(file), {
         leadingDots: 0,
         nameParts: nameParts,
@@ -619,4 +637,9 @@ function createFileSystem(files: { path: string; content: string }[]): PyrightFi
     }
 
     return new PyrightFileSystem(fs);
+}
+
+function createServiceProviderFromFiles(files: { path: string; content: string }[]): ServiceProvider {
+    const fs = createFileSystem(files);
+    return createServiceProvider(fs);
 }

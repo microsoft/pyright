@@ -1212,3 +1212,36 @@ test('default Enum member', async () => {
         },
     });
 });
+
+test('TypeDict literal values', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import TypedDict, Literal
+//// 
+//// class DataA(TypedDict):
+////     name: Literal["a", "b"] | None
+//// 
+//// data_a: DataA = {
+////     "name": [|"/*marker*/"|]
+//// }
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: '"a"',
+                    kind: CompletionItemKind.Constant,
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"a"' },
+                },
+                {
+                    label: '"b"',
+                    kind: CompletionItemKind.Constant,
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"b"' },
+                },
+            ],
+        },
+    });
+});

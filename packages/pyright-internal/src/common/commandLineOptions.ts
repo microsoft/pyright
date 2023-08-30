@@ -68,6 +68,9 @@ export class CommandLineOptions {
     // Path to python interpreter.
     pythonPath?: string | undefined;
 
+    // Name for the virtual environment.
+    pythonEnvironmentName?: string | undefined;
+
     // Python platform indicator (darwin, linux, win32)
     pythonPlatform?: 'Darwin' | 'Linux' | 'Windows' | undefined;
 

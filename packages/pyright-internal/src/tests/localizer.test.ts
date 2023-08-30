@@ -57,7 +57,7 @@ test('Override a specific string', () => {
     }
     originalRawString = setGetRawString(overrideImportResolve);
 
-    const value = Localizer.Diagnostic.importResolveFailure().format({ importName: 'foo' });
+    const value = Localizer.Diagnostic.importResolveFailure().format({ importName: 'foo', venv: 'python' });
 
     try {
         assert.equal(value, 'Import is foo');

@@ -32,7 +32,6 @@ import { Diagnostic } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { Extensions } from './common/extensibility';
 import { disposeCancellationToken, getCancellationTokenFromId } from './common/fileBasedCancellationUtils';
-import { FileSystem } from './common/fileSystem';
 import { Host, HostKind } from './common/host';
 import { LogTracker } from './common/logTracker';
 import { Range } from './common/textRange';
@@ -273,7 +272,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         this.log(LogLevel.Info, `Background analysis(${threadId}) root directory: ${data.rootDirectory}`);
 
         this._configOptions = new ConfigOptions(data.rootDirectory);
-        this.importResolver = this.createImportResolver(this.fs, this._configOptions, this.createHost());
+        this.importResolver = this.createImportResolver(serviceProvider, this._configOptions, this.createHost());
 
         const console = this.getConsole();
         this.logTracker = new LogTracker(console, `BG(${threadId})`);
@@ -446,7 +445,11 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
     protected abstract createHost(): Host;
 
-    protected abstract createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver;
+    protected abstract createImportResolver(
+        serviceProvider: ServiceProvider,
+        options: ConfigOptions,
+        host: Host
+    ): ImportResolver;
 
     protected handleAnalyze(port: MessagePort, cancellationId: string, token: CancellationToken) {
         // Report files to analyze first.
@@ -511,14 +514,22 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 
     protected handleSetImportResolver(hostKind: HostKind) {
-        this.importResolver = this.createImportResolver(this.fs, this._configOptions, this.createHost());
+        this.importResolver = this.createImportResolver(
+            this.getServiceProvider(),
+            this._configOptions,
+            this.createHost()
+        );
         this.program.setImportResolver(this.importResolver);
     }
 
     protected handleSetConfigOptions(configOptions: ConfigOptions) {
         this._configOptions = configOptions;
 
-        this.importResolver = this.createImportResolver(this.fs, this._configOptions, this.importResolver.host);
+        this.importResolver = this.createImportResolver(
+            this.getServiceProvider(),
+            this._configOptions,
+            this.importResolver.host
+        );
         this.program.setConfigOptions(this._configOptions);
         this.program.setImportResolver(this.importResolver);
     }
@@ -579,7 +590,11 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 
     protected handleRestart() {
-        this.importResolver = this.createImportResolver(this.fs, this._configOptions, this.importResolver.host);
+        this.importResolver = this.createImportResolver(
+            this.getServiceProvider(),
+            this._configOptions,
+            this.importResolver.host
+        );
         this.program.setImportResolver(this.importResolver);
     }
 

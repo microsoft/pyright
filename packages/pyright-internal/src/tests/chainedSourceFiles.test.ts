@@ -23,6 +23,7 @@ import * as host from './harness/testHost';
 import { createFromFileSystem, distlibFolder, libFolder } from './harness/vfs/factory';
 import * as vfs from './harness/vfs/filesystem';
 import { CompletionProvider } from '../languageService/completionProvider';
+import { ServiceProvider } from '../common/serviceProvider';
 
 test('check chained files', () => {
     const code = `
@@ -254,16 +255,14 @@ test('re ordering cells', async () => {
 });
 
 function createServiceWithChainedSourceFiles(basePath: string, code: string) {
-    const service = new AnalyzerService(
-        'test service',
-        createFromFileSystem(host.HOST, /*ignoreCase*/ false, { cwd: basePath }),
-        {
-            console: new NullConsole(),
-            hostFactory: () => new TestAccessHost(vfs.MODULE_PATH, [libFolder, distlibFolder]),
-            importResolverFactory: AnalyzerService.createImportResolver,
-            configOptions: new ConfigOptions(basePath),
-        }
-    );
+    const fs = createFromFileSystem(host.HOST, /*ignoreCase*/ false, { cwd: basePath });
+    const service = new AnalyzerService('test service', new ServiceProvider(), {
+        console: new NullConsole(),
+        hostFactory: () => new TestAccessHost(vfs.MODULE_PATH, [libFolder, distlibFolder]),
+        importResolverFactory: AnalyzerService.createImportResolver,
+        configOptions: new ConfigOptions(basePath),
+        fileSystem: fs,
+    });
 
     const data = parseTestData(basePath, code, '');
 

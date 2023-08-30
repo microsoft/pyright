@@ -367,7 +367,10 @@ export class Binder extends ParseTreeWalker {
             this._addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportMissingImports,
                 DiagnosticRule.reportMissingImports,
-                Localizer.Diagnostic.importResolveFailure().format({ importName: importResult.importName }),
+                Localizer.Diagnostic.importResolveFailure().format({
+                    importName: importResult.importName,
+                    venv: this._fileInfo.executionEnvironment.name,
+                }),
                 node
             );
             return true;
