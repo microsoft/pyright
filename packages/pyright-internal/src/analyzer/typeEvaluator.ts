@@ -11796,16 +11796,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let diag = new DiagnosticAddendum();
 
-        // Handle the case where we're assigning a *args or **kwargs argument
-        // to a *P.args or **P.kwargs parameter.
-        if (isParamSpec(argParam.paramType) && argParam.paramType.paramSpecAccess !== undefined) {
-            return { isCompatible, argType, isTypeIncomplete, condition };
-        }
+        if (isParamSpec(argParam.paramType)) {
+            // Handle the case where we're assigning a *args or **kwargs argument
+            // to a *P.args or **P.kwargs parameter.
+            if (argParam.paramType.paramSpecAccess !== undefined) {
+                return { isCompatible, argType, isTypeIncomplete, condition };
+            }
 
-        // Handle the case where we're assigning a *P.args or **P.kwargs argument
-        // to a *P.args or **P.kwargs parameter.
-        if (isParamSpec(argType) && argType.paramSpecAccess !== undefined) {
-            return { isCompatible, argType, isTypeIncomplete, condition };
+            // Handle the case where we're assigning a *P.args or **P.kwargs argument
+            // to a *P.args or **P.kwargs parameter.
+            if (isParamSpec(argType) && argType.paramSpecAccess !== undefined) {
+                return { isCompatible, argType, isTypeIncomplete, condition };
+            }
         }
 
         // If we are asked to skip overload arguments, determine whether the argument
