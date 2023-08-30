@@ -139,6 +139,10 @@ class WriteableData {
     isFileDeleted = false;
 }
 
+export interface SourceFileEditMode {
+    readonly isEditMode: boolean;
+}
+
 export class SourceFile {
     // Data that changes when the source file changes.
     private _writableData = new WriteableData();
@@ -180,6 +184,8 @@ export class SourceFile {
     // "py.typed" file.
     private readonly _isThirdPartyPyTypedPresent: boolean;
 
+    private readonly _editMode: SourceFileEditMode;
+
     // Settings that control which diagnostics should be output. The rules
     // are initialized to the basic set. They should be updated after the
     // the file is parsed.
@@ -188,7 +194,6 @@ export class SourceFile {
     // Indicate whether this file is for ipython or not.
     private _ipythonMode = IPythonMode.None;
     private _logTracker: LogTracker;
-    private _isEditMode = false;
     private _preEditData: WriteableData | undefined;
     readonly fileSystem: FileSystem;
 
@@ -198,7 +203,7 @@ export class SourceFile {
         moduleName: string,
         isThirdPartyImport: boolean,
         isThirdPartyPyTypedPresent: boolean,
-        editMode: boolean,
+        editMode: SourceFileEditMode,
         console?: ConsoleInterface,
         logTracker?: LogTracker,
         realFilePath?: string,
@@ -206,7 +211,7 @@ export class SourceFile {
     ) {
         this.fileSystem = fs;
         this._console = console || new StandardConsole();
-        this._isEditMode = editMode;
+        this._editMode = editMode;
         this._filePath = filePath;
         this._realFilePath = realFilePath ?? filePath;
         this._moduleName = moduleName;
@@ -310,13 +315,7 @@ export class SourceFile {
         return this._writableData.checkTime;
     }
 
-    enterEditMode() {
-        this._isEditMode = true;
-    }
-
-    exitEditMode(): string | undefined {
-        this._isEditMode = false;
-
+    restore(): string | undefined {
         // If we had an edit, return our text.
         if (this._preEditData) {
             const text = this._writableData.clientDocumentContents!;
@@ -324,6 +323,7 @@ export class SourceFile {
             this._preEditData = undefined;
             return text;
         }
+
         return undefined;
     }
 
@@ -1116,17 +1116,16 @@ export class SourceFile {
     }
 
     private _cachePreEditState() {
-        // If there's no document yet, this change doesn't count as a write yet.
-        if (this._writableData.clientDocumentContents !== undefined) {
-            // If this is our first write, then make a copy of the writable data.
-            if (this._isEditMode && !this._preEditData) {
-                // Copy over the writable data.
-                this._preEditData = this._writableData;
-
-                // Recreate all the writable data from scratch.
-                this._writableData = new WriteableData();
-            }
+        // If this is our first write, then make a copy of the writable data.
+        if (!this._editMode.isEditMode || this._preEditData) {
+            return;
         }
+
+        // Copy over the writable data.
+        this._preEditData = this._writableData;
+
+        // Recreate all the writable data from scratch.
+        this._writableData = new WriteableData();
     }
 
     // Get all task list diagnostics for the current file and add them

@@ -24,6 +24,12 @@ export interface ConsoleInterface {
     log: (message: string) => void;
 }
 
+export namespace ConsoleInterface {
+    export function is(obj: any): obj is ConsoleInterface {
+        return obj.error !== undefined && obj.warn !== undefined && obj.info !== undefined && obj.log !== undefined;
+    }
+}
+
 const levelMap = new Map([
     [LogLevel.Error, 0],
     [LogLevel.Warn, 1],

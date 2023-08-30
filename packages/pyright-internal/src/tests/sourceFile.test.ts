@@ -15,13 +15,15 @@ import { FullAccessHost } from '../common/fullAccessHost';
 import { combinePaths } from '../common/pathUtils';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { parseAndGetTestState } from './harness/fourslash/testState';
+import { createServiceProvider } from '../common/serviceProviderExtensions';
 
 test('Empty', () => {
     const filePath = combinePaths(process.cwd(), 'tests/samples/test_file1.py');
     const fs = createFromRealFileSystem();
-    const sourceFile = new SourceFile(fs, filePath, '', false, false, false);
+    const sourceFile = new SourceFile(fs, filePath, '', false, false, { isEditMode: false });
     const configOptions = new ConfigOptions(process.cwd());
-    const importResolver = new ImportResolver(fs, configOptions, new FullAccessHost(fs));
+    const sp = createServiceProvider(fs);
+    const importResolver = new ImportResolver(sp, configOptions, new FullAccessHost(fs));
 
     sourceFile.parse(configOptions, importResolver);
 });

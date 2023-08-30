@@ -6,8 +6,10 @@
 
 import assert from 'assert';
 
-import { getDirectoryPath } from '../common/pathUtils';
+import { combinePaths, getDirectoryPath } from '../common/pathUtils';
 import { parseAndGetTestState } from './harness/fourslash/testState';
+import { CancellationToken } from 'vscode-jsonrpc';
+import { IPythonMode } from '../analyzer/sourceFile';
 
 test('random library file changed', () => {
     const state = parseAndGetTestState('', '/projectRoot').state;
@@ -295,6 +297,73 @@ test('program containsSourceFileIn', () => {
 
     const state = parseAndGetTestState(code, '/projectRoot').state;
     assert(state.workspace.service.test_program.containsSourceFileIn(state.activeFile.fileName));
+});
+
+test('service runEditMode', () => {
+    const code = `
+// @filename: open.py
+//// /*open*/
+
+// @filename: closed.py
+//// /*closed*/
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const open = state.getMarkerByName('open');
+    const closed = state.getMarkerByName('closed');
+
+    const newFilePath = combinePaths(getDirectoryPath(open.fileName), 'interimFile.py');
+    state.testFS.writeFileSync(newFilePath, '# empty', 'utf8');
+
+    const options = {
+        isTracked: true,
+        ipythonMode: IPythonMode.None,
+        chainedFilePath: newFilePath,
+        realFilePath: closed.fileName,
+    };
+
+    // try run edit mode
+    verifyRunEditMode('# first');
+
+    // try run again to make sure things are cleared up correctly
+    verifyRunEditMode('# second');
+
+    function verifyRunEditMode(value: string) {
+        state.workspace.service.runEditMode((p) => {
+            p.addInterimFile(newFilePath);
+            p.setFileOpened(open.fileName, 0, value, options);
+            p.setFileOpened(closed.fileName, 0, value, options);
+
+            const interim = p.getSourceFileInfo(newFilePath);
+            assert(interim);
+
+            const openFile = p.getSourceFileInfo(open.fileName);
+            assert(openFile);
+            assert(openFile.isOpenByClient);
+            assert.strictEqual(value, openFile.sourceFile.getFileContent());
+
+            const closedFile = p.getSourceFileInfo(closed.fileName);
+            assert(closedFile);
+            assert(closedFile.isOpenByClient);
+            assert.strictEqual(value, closedFile.sourceFile.getFileContent());
+        }, CancellationToken.None);
+
+        const interim = state.workspace.service.test_program.getSourceFileInfo(newFilePath);
+        assert(!interim);
+
+        const openFile = state.workspace.service.test_program.getSourceFileInfo(open.fileName);
+        assert(openFile);
+        assert(openFile.isOpenByClient);
+
+        assert.strictEqual('', openFile.sourceFile.getFileContent()?.trim());
+
+        const closedFile = state.workspace.service.test_program.getSourceFileInfo(closed.fileName);
+        assert(closedFile);
+        assert(!closedFile.isOpenByClient);
+
+        const content = closedFile.sourceFile.getFileContent() ?? '';
+        assert.strictEqual('', content.trim());
+    }
 });
 
 function testSourceFileWatchChange(code: string, expected = true, isFile = true) {

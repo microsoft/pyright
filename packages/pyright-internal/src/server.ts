@@ -27,7 +27,6 @@ import { ConsoleWithLogLevel, LogLevel, convertLogLevel } from './common/console
 import { isDebugMode, isString } from './common/core';
 import { expandPathVariables } from './common/envVarUtils';
 import { FileBasedCancellationProvider } from './common/fileBasedCancellationUtils';
-import { FileSystem } from './common/fileSystem';
 import { FullAccessHost } from './common/fullAccessHost';
 import { Host } from './common/host';
 import { resolvePaths } from './common/pathUtils';
@@ -38,7 +37,7 @@ import { CodeActionProvider } from './languageService/codeActionProvider';
 import { Workspace } from './workspaceFactory';
 import { PyrightFileSystem } from './pyrightFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
-import { ServiceKeys } from './common/serviceProviderExtensions';
+import { createServiceProvider } from './common/serviceProviderExtensions';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
 
@@ -57,11 +56,8 @@ export class PyrightServer extends LanguageServerBase {
         const console = new ConsoleWithLogLevel(connection.console);
         const fileWatcherProvider = new WorkspaceFileWatcherProvider();
         const fileSystem = createFromRealFileSystem(console, fileWatcherProvider);
-
-        const serviceProvider = new ServiceProvider([
-            { key: ServiceKeys.fs, value: new PyrightFileSystem(fileSystem) },
-            { key: ServiceKeys.console, value: console },
-        ]);
+        const pyrightFs = new PyrightFileSystem(fileSystem);
+        const serviceProvider = createServiceProvider(pyrightFs, console);
 
         super(
             {
@@ -229,8 +225,12 @@ export class PyrightServer extends LanguageServerBase {
         return new FullAccessHost(this.fs);
     }
 
-    protected override createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver {
-        const importResolver = new ImportResolver(fs, options, host);
+    protected override createImportResolver(
+        serviceProvider: ServiceProvider,
+        options: ConfigOptions,
+        host: Host
+    ): ImportResolver {
+        const importResolver = new ImportResolver(serviceProvider, options, host);
 
         // In case there was cached information in the file system related to
         // import resolution, invalidate it now.

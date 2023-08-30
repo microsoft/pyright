@@ -14,10 +14,8 @@ export class ServiceKey<T> implements InternalKey {}
 export class ServiceProvider {
     private _container: Map<InternalKey, any> = new Map<InternalKey, any>();
 
-    constructor(initialServices: { key: InternalKey; value: any }[] = []) {
-        initialServices.forEach((entry) => {
-            this.add(entry.key, entry.value);
-        });
+    get items() {
+        return this._container.entries();
     }
 
     add<T>(key: ServiceKey<T>, value: T) {

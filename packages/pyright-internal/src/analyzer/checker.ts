@@ -1635,6 +1635,7 @@ export class Checker extends ParseTreeWalker {
             DiagnosticRule.reportMissingModuleSource,
             Localizer.Diagnostic.importSourceResolveFailure().format({
                 importName: importResult.importName,
+                venv: this._fileInfo.executionEnvironment.name,
             }),
             node
         );

@@ -91,6 +91,7 @@ export interface AnalyzerServiceOptions {
     cacheManager?: CacheManager;
     serviceId?: string;
     skipScanningUserFiles?: boolean;
+    fileSystem?: FileSystem;
 }
 
 // Hold uniqueId for this service. It can be used to distinguish each service later.
@@ -125,7 +126,7 @@ export class AnalyzerService {
     private _pendingLibraryChanges: RefreshOptions = { changesOnly: true };
     private _serviceProvider = new ServiceProvider();
 
-    constructor(instanceName: string, fs: FileSystem, options: AnalyzerServiceOptions) {
+    constructor(instanceName: string, serviceProvider: ServiceProvider, options: AnalyzerServiceOptions) {
         this._instanceName = instanceName;
 
         this._executionRootPath = '';
@@ -133,14 +134,27 @@ export class AnalyzerService {
 
         this._options.serviceId = this._options.serviceId ?? getNextServiceId(instanceName);
         this._options.console = options.console || new StandardConsole();
-        this._serviceProvider.add(ServiceKeys.console, this._options.console);
+
+        // Add the services from the passed in service provider to the local service provider.
+        [...serviceProvider.items].forEach((item) => {
+            this._serviceProvider.add(item[0], item[1]);
+        });
+
+        // Override the console and the file system if they were explicitly provided.
+        if (this._options.console) {
+            this._serviceProvider.add(ServiceKeys.console, this._options.console);
+        }
+        if (this._options.fileSystem) {
+            this._serviceProvider.add(ServiceKeys.fs, this._options.fileSystem);
+        }
+
         this._options.importResolverFactory = options.importResolverFactory ?? AnalyzerService.createImportResolver;
         this._options.cancellationProvider = options.cancellationProvider ?? new DefaultCancellationProvider();
         this._options.hostFactory = options.hostFactory ?? (() => new NoAccessHost());
 
         this._options.configOptions = options.configOptions ?? new ConfigOptions(process.cwd());
         const importResolver = this._options.importResolverFactory(
-            fs,
+            this._serviceProvider,
             this._options.configOptions,
             this._options.hostFactory()
         );
@@ -183,6 +197,10 @@ export class AnalyzerService {
         return this._backgroundAnalysisProgram.importResolver.fileSystem;
     }
 
+    get serviceProvider() {
+        return this._serviceProvider;
+    }
+
     get cancellationProvider() {
         return this._options.cancellationProvider!;
     }
@@ -207,13 +225,14 @@ export class AnalyzerService {
         instanceName: string,
         serviceId: string,
         backgroundAnalysis?: BackgroundAnalysisBase,
-        fs?: FileSystem
+        fileSystem?: FileSystem
     ): AnalyzerService {
-        const service = new AnalyzerService(instanceName, fs ?? this.fs, {
+        const service = new AnalyzerService(instanceName, this._serviceProvider, {
             ...this._options,
             serviceId,
             backgroundAnalysis,
             skipScanningUserFiles: true,
+            fileSystem,
         });
 
         // Cloned service will use whatever user files the service currently has.
@@ -268,8 +287,8 @@ export class AnalyzerService {
         this._clearLibraryReanalysisTimer();
     }
 
-    static createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver {
-        return new ImportResolver(fs, options, host);
+    static createImportResolver(serviceProvider: ServiceProvider, options: ConfigOptions, host: Host): ImportResolver {
+        return new ImportResolver(serviceProvider, options, host);
     }
 
     setCompletionCallback(callback: AnalysisCompleteCallback | undefined): void {
@@ -596,6 +615,12 @@ export class AnalyzerService {
                 `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
             );
             configOptions.pythonPath = commandLineOptions.pythonPath;
+        }
+        if (commandLineOptions.pythonEnvironmentName) {
+            this._console.info(
+                `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
+            );
+            configOptions.pythonEnvironmentName = commandLineOptions.pythonEnvironmentName;
         }
 
         // The pythonPlatform and pythonVersion from the command-line can be overridden
@@ -1604,7 +1629,7 @@ export class AnalyzerService {
         // Allocate a new import resolver because the old one has information
         // cached based on the previous config options.
         const importResolver = this._importResolverFactory(
-            this.fs,
+            this._serviceProvider,
             this._backgroundAnalysisProgram.configOptions,
             host
         );

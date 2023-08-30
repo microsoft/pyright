@@ -199,7 +199,7 @@ export interface ServerOptions {
 }
 
 export interface WorkspaceServices {
-    fs: FileSystem;
+    fs: FileSystem | undefined;
     backgroundAnalysis: BackgroundAnalysisBase | undefined;
 }
 
@@ -339,14 +339,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     };
 
     protected defaultClientConfig: any;
-    protected workspaceFactory: WorkspaceFactory;
-    protected openFileMap = new Map<string, TextDocument>();
-    protected cacheManager: CacheManager;
 
-    protected uriMapper: SupportUriToPathMapping;
-    protected fs: FileSystem;
+    protected readonly workspaceFactory: WorkspaceFactory;
+    protected readonly openFileMap = new Map<string, TextDocument>();
+    protected readonly cacheManager: CacheManager;
 
-    protected uriParser: UriParser;
+    protected readonly uriMapper: SupportUriToPathMapping;
+    protected readonly fs: FileSystem;
+
+    readonly uriParser: UriParser;
 
     constructor(
         protected serverOptions: ServerOptions,
@@ -367,7 +368,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         this.cacheManager = new CacheManager();
 
-        this.uriMapper = this.serverOptions.serviceProvider.fs();
+        this.uriMapper = this.serverOptions.serviceProvider.uriMapper();
         this.fs = this.serverOptions.serviceProvider.fs();
 
         this.uriParser = uriParserFactory(this.fs);
@@ -439,7 +440,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.console.info(`Starting service instance "${name}"`);
 
         const serviceId = getNextServiceId(name);
-        const service = new AnalyzerService(name, services?.fs ?? this.fs, {
+        const service = new AnalyzerService(name, this.serverOptions.serviceProvider, {
             console: this.console,
             hostFactory: this.createHost.bind(this),
             importResolverFactory: this.createImportResolver.bind(this),
@@ -450,6 +451,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             libraryReanalysisTimeProvider,
             cacheManager: this.cacheManager,
             serviceId,
+            fileSystem: services?.fs ?? this.serverOptions.serviceProvider.fs(),
         });
 
         service.setCompletionCallback((results) => this.onAnalysisCompletedHandler(service.fs, results));
@@ -595,7 +597,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected abstract createHost(): Host;
-    protected abstract createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver;
+    protected abstract createImportResolver(
+        serviceProvider: ServiceProvider,
+        options: ConfigOptions,
+        host: Host
+    ): ImportResolver;
 
     protected createBackgroundAnalysisProgram(
         serviceId: string,

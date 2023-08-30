@@ -13,7 +13,6 @@ import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { NullConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum, DiagnosticCategory } from '../common/diagnostic';
-import { FileSystem } from '../common/fileSystem';
 import { FullAccessHost } from '../common/fullAccessHost';
 import {
     combinePaths,
@@ -24,7 +23,6 @@ import {
     tryStat,
 } from '../common/pathUtils';
 import { ServiceProvider } from '../common/serviceProvider';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { getEmptyRange, Range } from '../common/textRange';
 import { DeclarationType, FunctionDeclaration, VariableDeclaration } from './declaration';
 import { createImportedModuleDescriptor, ImportResolver } from './importResolver';
@@ -80,12 +78,12 @@ export class PackageTypeVerifier {
     private _program: Program;
 
     constructor(
-        private _fileSystem: FileSystem,
+        private _serviceProvider: ServiceProvider,
         commandLineOptions: CommandLineOptions,
         private _packageName: string,
         private _ignoreExternal = false
     ) {
-        const host = new FullAccessHost(_fileSystem);
+        const host = new FullAccessHost(_serviceProvider.fs());
         this._configOptions = new ConfigOptions('');
 
         this._configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
@@ -103,13 +101,11 @@ export class PackageTypeVerifier {
 
         this._execEnv = this._configOptions.findExecEnvironment('.');
         this._importResolver = new ImportResolver(
-            this._fileSystem,
+            this._serviceProvider,
             this._configOptions,
-            new FullAccessHost(this._fileSystem)
+            new FullAccessHost(this._serviceProvider.fs())
         );
-        const serviceProvider = new ServiceProvider([{ key: ServiceKeys.console, value: console }]);
-
-        this._program = new Program(this._importResolver, this._configOptions, serviceProvider);
+        this._program = new Program(this._importResolver, this._configOptions, this._serviceProvider);
     }
 
     verify(): PackageTypeReport {
@@ -249,7 +245,7 @@ export class PackageTypeVerifier {
         // Find the deepest py.typed file that corresponds to the requested submodule.
         while (subNameParts.length >= 1) {
             const packageSubdir = combinePaths(rootDirectory, ...subNameParts.slice(1));
-            const pyTypedInfo = getPyTypedInfo(this._fileSystem, packageSubdir);
+            const pyTypedInfo = getPyTypedInfo(this._serviceProvider.fs(), packageSubdir);
             if (pyTypedInfo) {
                 return pyTypedInfo;
             }
@@ -442,13 +438,13 @@ export class PackageTypeVerifier {
         modulePath: string,
         publicModules: string[]
     ) {
-        const dirEntries = this._fileSystem.readdirEntriesSync(dirPath);
+        const dirEntries = this._serviceProvider.fs().readdirEntriesSync(dirPath);
 
         dirEntries.forEach((entry) => {
             let isFile = entry.isFile();
             let isDirectory = entry.isDirectory();
             if (entry.isSymbolicLink()) {
-                const stat = tryStat(this._fileSystem, combinePaths(dirPath, entry.name));
+                const stat = tryStat(this._serviceProvider.fs(), combinePaths(dirPath, entry.name));
                 if (stat) {
                     isFile = stat.isFile();
                     isDirectory = stat.isDirectory();
