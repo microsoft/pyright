@@ -25082,7 +25082,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             paramInfo.type,
                             diag?.createAddendum(),
                             new TypeVarContext(getTypeVarScopeId(overrideMethod)),
-                            /* srcTypeVarContext */ undefined,
+                            new TypeVarContext(getTypeVarScopeId(baseMethod)),
                             AssignTypeFlags.SkipSolveTypeVars
                         )
                     ) {
@@ -25164,7 +25164,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 overrideReturnType,
                 diag?.createAddendum(),
                 new TypeVarContext(getTypeVarScopeId(baseMethod)),
-                /* srcTypeVarContext */ undefined,
+                new TypeVarContext(getTypeVarScopeId(overrideMethod)),
                 AssignTypeFlags.SkipSolveTypeVars
             )
         ) {
