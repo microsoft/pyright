@@ -14420,7 +14420,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (!type) {
-                const exprType = getTypeOfExpression(itemExpr);
+                const exprType = getTypeOfExpression(itemExpr, flags & EvaluatorFlags.AllowForwardReferences);
 
                 // Is this an enum type?
                 if (
