@@ -45,6 +45,7 @@ export const deprecatedAliases = new Map<string, DeprecatedForm>([
             version: PythonVersion.V3_9,
             fullName: 'collections.OrderedDict',
             replacementText: 'collections.OrderedDict',
+            typingImportOnly: true,
         },
     ],
     [
