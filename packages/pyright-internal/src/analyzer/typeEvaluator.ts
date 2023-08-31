@@ -22360,6 +22360,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return true;
                 }
 
+                // If the source is an unpacked TypeVarTuple and the dest is a
+                // *tuple[Any, ...], we'll treat it as compatible.
+                if (
+                    isUnpackedVariadicTypeVar(srcType) &&
+                    isClassInstance(destType) &&
+                    isUnpackedClass(destType) &&
+                    destType.tupleTypeArguments &&
+                    destType.tupleTypeArguments.length === 1 &&
+                    destType.tupleTypeArguments[0].isUnbounded &&
+                    isAnyOrUnknown(destType.tupleTypeArguments[0].type)
+                ) {
+                    return true;
+                }
+
                 if (!isUnion(destType)) {
                     diag?.addMessage(
                         Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(

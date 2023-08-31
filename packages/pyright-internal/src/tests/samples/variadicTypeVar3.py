@@ -3,7 +3,7 @@
 
 # pyright: reportMissingModuleSource=false
 
-from typing import Generic, Sequence, TypeVar, Union
+from typing import Any, Generic, Sequence, TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 
@@ -73,7 +73,7 @@ v4: Array[int, str, int, int] = v1
 v5: Array[int, str] = v1
 
 
-def test1(p1: tuple[str, int], p2: list[str]):
+def func2(p1: tuple[str, int], p2: list[str]):
     v6 = Array(*p1)
     reveal_type(v6, expected_text="Array[str, int]")
 
@@ -83,3 +83,8 @@ def test1(p1: tuple[str, int], p2: list[str]):
     # This should generate an error because open-ended
     # tuple types should not be allowed.
     v8 = Array(*p2)
+
+
+def func3(x: Array[Unpack[_Xs]]) -> Array[Unpack[_Xs]]:
+    y: Array[Unpack[tuple[Any, ...]]] = x
+    return x
