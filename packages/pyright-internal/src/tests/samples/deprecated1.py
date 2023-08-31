@@ -11,7 +11,7 @@ from typing import (
     FrozenSet,
     List,
     Optional,
-    OrderedDict,
+    OrderedDict as OD1,
     Set,
     Tuple,
     Type,
@@ -57,7 +57,6 @@ v5: FrozenSet[int] = frozenset()
 v6: Type[int] = int
 v7 = Deque()
 v8 = DefaultDict()
-v9 = OrderedDict()
 
 # These should be marked deprecated for Python >= 3.10
 v20: Union[int, str]
