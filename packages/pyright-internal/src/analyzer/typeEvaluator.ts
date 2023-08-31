@@ -18132,6 +18132,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // If this is an import into a class scope, mark the symbol as accessed.
+        const classNode = ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true);
+        if (classNode) {
+            const symbolInScope = lookUpSymbolRecursive(node, aliasNode.value, /* honorCodeFlow */ true);
+            if (symbolInScope) {
+                setSymbolAccessed(fileInfo, symbolInScope.symbol, node);
+            }
+        }
+
         let symbolType = getAliasedSymbolTypeForName(node, aliasNode.value);
         if (!symbolType) {
             const parentNode = node.parent as ImportFromNode;
