@@ -1627,7 +1627,6 @@ export function getCodeFlowEngine(
         const returnType = functionType.details.declaredReturnType;
         if (returnType) {
             if (
-                FunctionType.isAsync(functionType) &&
                 isClassInstance(returnType) &&
                 ClassType.isBuiltIn(returnType, 'Coroutine') &&
                 returnType.typeArguments &&

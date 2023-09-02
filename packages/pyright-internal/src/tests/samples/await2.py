@@ -2,7 +2,7 @@
 # awaited.
 
 import asyncio
-from typing import Generator, Any
+from typing import Generator, Any, NoReturn
 
 
 class MyAwaitable:
@@ -16,10 +16,17 @@ class MyAwaitable:
         return await self
 
 
-async def main() -> None:
+async def func1() -> None:
     p = MyAwaitable()
     print(await p.foo())
     print(await p)
 
 
-asyncio.run(main())
+async def func2() -> NoReturn:
+    raise Exception()
+
+
+async def func3(x: int | None):
+    if x is None:
+        await func2()
+    print(x.bit_count())
