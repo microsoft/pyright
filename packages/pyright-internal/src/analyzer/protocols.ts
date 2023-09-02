@@ -17,6 +17,7 @@ import { getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
+    isClass,
     isClassInstance,
     isFunction,
     isInstantiableClass,
@@ -490,7 +491,10 @@ function assignClassToProtocolInternal(
                 srcPrimaryDecl?.type === DeclarationType.Variable
             ) {
                 const isDestConst = !!destPrimaryDecl.isConstant;
-                const isSrcConst = ClassType.isReadOnlyInstanceVariables(srcType) || !!srcPrimaryDecl.isConstant;
+                const isSrcConst =
+                    (isClass(srcMemberInfo.classType) &&
+                        ClassType.isReadOnlyInstanceVariables(srcMemberInfo.classType)) ||
+                    !!srcPrimaryDecl.isConstant;
 
                 if (!isDestConst && isSrcConst) {
                     if (subDiag) {
