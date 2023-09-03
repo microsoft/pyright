@@ -20691,6 +20691,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isIncomplete,
                     includesVariableDecl: typedDecls.some((decl) => decl.type === DeclarationType.Variable),
                     includesIllegalTypeAliasDecl: !typedDecls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
+                    includesSpeculativeResult: false,
                     isRecursiveDefinition: !declaredType,
                 };
 
@@ -20715,12 +20716,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Infer the type.
-        const typesToCombine: Type[] = [];
         const decls = symbol.getDeclarations();
-        let isIncomplete = false;
-        let sawPendingEvaluation = false;
-        let includesVariableDecl = false;
-        let includesSpeculativeResult = false;
 
         let declIndexToConsider: number | undefined;
 
@@ -20731,6 +20727,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isIncomplete: false,
                 includesVariableDecl: false,
                 includesIllegalTypeAliasDecl: !decls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
+                includesSpeculativeResult: false,
                 isRecursiveDefinition: false,
             };
 
@@ -20761,23 +20758,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // Determine which declarations to use for inference.
+        const declsToConsider: Declaration[] = [];
+
         let sawExplicitTypeAlias = false;
         decls.forEach((decl, index) => {
-            let considerDecl = declIndexToConsider === undefined || index === declIndexToConsider;
+            if (declIndexToConsider !== undefined && declIndexToConsider !== index) {
+                return;
+            }
 
             // If we have already seen an explicit type alias, do not consider
             // additional decls. This can happen if multiple TypeAlias declarations
             // are provided -- normally an error, but it can happen in stdlib stubs
             // if the user sets the pythonPlatform to "All".
             if (sawExplicitTypeAlias) {
-                considerDecl = false;
+                return;
             }
 
             // If the symbol is explicitly marked as a ClassVar, consider only the
             // declarations that assign to it from within the class body, not through
             // a member access expression.
             if (symbol.isClassVar() && decl.type === DeclarationType.Variable && decl.isDefinedByMemberAccess) {
-                considerDecl = false;
+                return;
             }
 
             if (usageNode !== undefined) {
@@ -20787,131 +20789,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node);
                     if (usageScope === declScope) {
                         if (!isFlowPathBetweenNodes(decl.node, usageNode)) {
-                            considerDecl = false;
+                            return;
                         }
                     }
                 }
             }
 
-            if (considerDecl) {
-                const resolvedDecl =
-                    resolveAliasDeclaration(decl, /* resolveLocalNames */ true, {
-                        allowExternallyHiddenAccess: AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile,
-                    }) ?? decl;
+            const resolvedDecl =
+                resolveAliasDeclaration(decl, /* resolveLocalNames */ true, {
+                    allowExternallyHiddenAccess: AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile,
+                }) ?? decl;
 
-                const isExplicitTypeAlias = isExplicitTypeAliasDeclaration(resolvedDecl);
-                const isTypeAlias = isExplicitTypeAlias || isPossibleTypeAliasOrTypedDict(resolvedDecl);
+            const isExplicitTypeAlias = isExplicitTypeAliasDeclaration(resolvedDecl);
+            const isTypeAlias = isExplicitTypeAlias || isPossibleTypeAliasOrTypedDict(resolvedDecl);
 
-                if (isExplicitTypeAlias) {
-                    sawExplicitTypeAlias = true;
-                }
-
-                // If this is a type alias, evaluate it outside of the recursive symbol
-                // resolution check so we can evaluate the full assignment statement.
-                if (
-                    isTypeAlias &&
-                    resolvedDecl.type === DeclarationType.Variable &&
-                    resolvedDecl.inferredTypeSource?.parent?.nodeType === ParseNodeType.Assignment
-                ) {
-                    evaluateTypesForAssignmentStatement(resolvedDecl.inferredTypeSource.parent);
-                }
-
-                if (pushSymbolResolution(symbol, decl)) {
-                    try {
-                        let type = getInferredTypeOfDeclaration(symbol, decl);
-
-                        if (!popSymbolResolution(symbol)) {
-                            isIncomplete = true;
-                        }
-
-                        if (type) {
-                            if (resolvedDecl.type === DeclarationType.Variable) {
-                                // Exempt typing.pyi, which uses variables to define some
-                                // special forms like Any.
-                                const fileInfo = AnalyzerNodeInfo.getFileInfo(resolvedDecl.node);
-                                if (!fileInfo.isTypingStubFile) {
-                                    includesVariableDecl = true;
-                                }
-
-                                let isConstant = false;
-                                if (resolvedDecl.type === DeclarationType.Variable) {
-                                    if (resolvedDecl.isConstant || isFinalVariableDeclaration(resolvedDecl)) {
-                                        isConstant = true;
-                                    }
-                                }
-
-                                // Treat enum values declared within an enum class as though they are const even
-                                // though they may not be named as such.
-                                if (
-                                    isClassInstance(type) &&
-                                    ClassType.isEnumClass(type) &&
-                                    isDeclInEnumClass(evaluatorInterface, resolvedDecl)
-                                ) {
-                                    isConstant = true;
-                                }
-
-                                // If the symbol is constant, we can retain the literal
-                                // value. Otherwise, strip literal values to widen the type.
-                                if (TypeBase.isInstance(type) && !isExplicitTypeAlias && !isConstant) {
-                                    type = stripLiteralValue(type);
-                                }
-                            }
-                            typesToCombine.push(type);
-
-                            if (isSpeculativeModeInUse(decl.node)) {
-                                includesSpeculativeResult = true;
-                            }
-                        } else {
-                            isIncomplete = true;
-                        }
-                    } catch (e: any) {
-                        // Clean up the stack before rethrowing.
-                        popSymbolResolution(symbol);
-                        throw e;
-                    }
-                } else {
-                    if (resolvedDecl.type === DeclarationType.Class) {
-                        const classTypeInfo = getTypeOfClass(resolvedDecl.node);
-                        if (classTypeInfo?.decoratedType) {
-                            typesToCombine.push(classTypeInfo.decoratedType);
-                        }
-                    }
-
-                    isIncomplete = true;
-
-                    // Note that at least one decl could not be evaluated because
-                    // it was already in the process of being evaluated.
-                    sawPendingEvaluation = true;
-                }
+            if (isExplicitTypeAlias) {
+                sawExplicitTypeAlias = true;
             }
+
+            // If this is a type alias, evaluate it outside of the recursive symbol
+            // resolution check so we can evaluate the full assignment statement.
+            if (
+                isTypeAlias &&
+                resolvedDecl.type === DeclarationType.Variable &&
+                resolvedDecl.inferredTypeSource?.parent?.nodeType === ParseNodeType.Assignment
+            ) {
+                evaluateTypesForAssignmentStatement(resolvedDecl.inferredTypeSource.parent);
+            }
+
+            declsToConsider.push(resolvedDecl);
         });
 
-        // How many times have we already attempted to evaluate this declaration already?
         const evaluationAttempts = (cacheEntries?.get(effectiveTypeCacheKey)?.evaluationAttempts ?? 0) + 1;
+        const result = getTypeOfSymbolForDecls(symbol, declsToConsider, evaluationAttempts);
 
-        let resultType: Type;
-
-        if (typesToCombine.length > 0) {
-            // Ignore the pending evaluation flag if we've already attempted the
-            // type evaluation many times because this probably means there's a
-            // cyclical dependency that cannot be broken.
-            isIncomplete = sawPendingEvaluation && evaluationAttempts < maxEffectiveTypeEvaluationAttempts;
-
-            resultType = combineTypes(typesToCombine);
-        } else {
-            resultType = UnboundType.create();
-        }
-
-        const result: EffectiveTypeResult = {
-            type: resultType,
-            isIncomplete,
-            includesVariableDecl,
-            includesIllegalTypeAliasDecl: !decls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
-            isRecursiveDefinition: false,
-            evaluationAttempts,
-        };
-
-        if (!includesSpeculativeResult) {
+        // Add the result to the effective type cache if it doesn't include speculative results.
+        if (!result.includesSpeculativeResult) {
             addToEffectiveTypeCache(result);
         }
 
@@ -20926,6 +20839,113 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             cacheEntries.set(effectiveTypeCacheKey, result);
         }
+    }
+
+    // Returns the type of a symbol based on a subset of its declarations.
+    function getTypeOfSymbolForDecls(
+        symbol: Symbol,
+        decls: Declaration[],
+        evaluationAttempts: number
+    ): EffectiveTypeResult {
+        const typesToCombine: Type[] = [];
+        let isIncomplete = false;
+        let sawPendingEvaluation = false;
+        let includesVariableDecl = false;
+        let includesSpeculativeResult = false;
+
+        decls.forEach((decl) => {
+            if (pushSymbolResolution(symbol, decl)) {
+                try {
+                    let type = getInferredTypeOfDeclaration(symbol, decl);
+
+                    if (!popSymbolResolution(symbol)) {
+                        isIncomplete = true;
+                    }
+
+                    if (type) {
+                        if (decl.type === DeclarationType.Variable) {
+                            // Exempt typing.pyi, which uses variables to define some
+                            // special forms like Any.
+                            const fileInfo = AnalyzerNodeInfo.getFileInfo(decl.node);
+                            if (!fileInfo.isTypingStubFile) {
+                                includesVariableDecl = true;
+                            }
+
+                            let isConstant = false;
+                            if (decl.type === DeclarationType.Variable) {
+                                if (decl.isConstant || isFinalVariableDeclaration(decl)) {
+                                    isConstant = true;
+                                }
+                            }
+
+                            // Treat enum values declared within an enum class as though they are const even
+                            // though they may not be named as such.
+                            if (
+                                isClassInstance(type) &&
+                                ClassType.isEnumClass(type) &&
+                                isDeclInEnumClass(evaluatorInterface, decl)
+                            ) {
+                                isConstant = true;
+                            }
+
+                            // If the symbol is constant, we can retain the literal
+                            // value. Otherwise, strip literal values to widen the type.
+                            if (TypeBase.isInstance(type) && !isConstant && !isExplicitTypeAliasDeclaration(decl)) {
+                                type = stripLiteralValue(type);
+                            }
+                        }
+
+                        typesToCombine.push(type);
+
+                        if (isSpeculativeModeInUse(decl.node)) {
+                            includesSpeculativeResult = true;
+                        }
+                    } else {
+                        isIncomplete = true;
+                    }
+                } catch (e: any) {
+                    // Clean up the stack before rethrowing.
+                    popSymbolResolution(symbol);
+                    throw e;
+                }
+            } else {
+                if (decl.type === DeclarationType.Class) {
+                    const classTypeInfo = getTypeOfClass(decl.node);
+                    if (classTypeInfo?.decoratedType) {
+                        typesToCombine.push(classTypeInfo.decoratedType);
+                    }
+                }
+
+                isIncomplete = true;
+
+                // Note that at least one decl could not be evaluated because
+                // it was already in the process of being evaluated.
+                sawPendingEvaluation = true;
+            }
+        });
+
+        let type: Type;
+
+        if (typesToCombine.length > 0) {
+            // Ignore the pending evaluation flag if we've already attempted the
+            // type evaluation many times because this probably means there's a
+            // cyclical dependency that cannot be broken.
+            isIncomplete = sawPendingEvaluation && evaluationAttempts < maxEffectiveTypeEvaluationAttempts;
+
+            type = combineTypes(typesToCombine);
+        } else {
+            type = UnboundType.create();
+        }
+
+        return {
+            type,
+            isIncomplete,
+            includesVariableDecl,
+            includesIllegalTypeAliasDecl: !decls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
+            includesSpeculativeResult,
+            isRecursiveDefinition: false,
+            evaluationAttempts,
+        };
     }
 
     // If a declaration has an explicit type (e.g. a variable with an annotation),

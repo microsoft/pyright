@@ -267,6 +267,7 @@ export interface EffectiveTypeResult {
     isIncomplete: boolean;
     includesVariableDecl: boolean;
     includesIllegalTypeAliasDecl: boolean;
+    includesSpeculativeResult: boolean;
     isRecursiveDefinition: boolean;
     evaluationAttempts?: number;
 }
