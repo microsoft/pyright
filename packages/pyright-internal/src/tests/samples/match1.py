@@ -188,3 +188,40 @@ def func4():
 def func5(match: Any):
     # This should be treated as a list, not a match statement.
     match[2:8, 2:8] = 0
+
+
+class Point:
+    def __init__(self, x: int, y: int) -> None:
+        self.x = x
+        self.y = y
+
+def func6(subj: Any):
+    match subj:
+        # This should generate an error because a is used twice in the same pattern.
+        case [a, *a]:
+            pass
+        
+        case ([c, d] as f) | ([d, c] as f):
+            pass
+        
+        # This should generate an error because h is used twice in the same pattern.
+        case (g, 1 as h) as h:
+            pass
+        
+        # This should generate an error because j is used twice in the same pattern.
+        case Point(x=j, y=j):
+            pass
+
+def func7():
+    match +1:
+        case _:
+            pass
+        
+    match -1:
+        case _:
+            pass
+
+    match ~1:
+        case _:
+            pass
+

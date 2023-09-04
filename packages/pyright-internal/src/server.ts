@@ -27,16 +27,17 @@ import { ConsoleWithLogLevel, LogLevel, convertLogLevel } from './common/console
 import { isDebugMode, isString } from './common/core';
 import { expandPathVariables } from './common/envVarUtils';
 import { FileBasedCancellationProvider } from './common/fileBasedCancellationUtils';
-import { FileSystem } from './common/fileSystem';
 import { FullAccessHost } from './common/fullAccessHost';
 import { Host } from './common/host';
 import { resolvePaths } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
 import { WorkspaceFileWatcherProvider, createFromRealFileSystem } from './common/realFileSystem';
+import { ServiceProvider } from './common/serviceProvider';
+import { createServiceProvider } from './common/serviceProviderExtensions';
 import { LanguageServerBase, ServerSettings } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
-import { Workspace } from './workspaceFactory';
 import { PyrightFileSystem } from './pyrightFileSystem';
+import { Workspace } from './workspaceFactory';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
 
@@ -55,20 +56,21 @@ export class PyrightServer extends LanguageServerBase {
         const console = new ConsoleWithLogLevel(connection.console);
         const fileWatcherProvider = new WorkspaceFileWatcherProvider();
         const fileSystem = createFromRealFileSystem(console, fileWatcherProvider);
+        const pyrightFs = new PyrightFileSystem(fileSystem);
+        const serviceProvider = createServiceProvider(pyrightFs, console);
 
         super(
             {
                 productName: 'Pyright',
                 rootDirectory,
                 version,
-                fileSystem: new PyrightFileSystem(fileSystem),
+                serviceProvider,
                 fileWatcherHandler: fileWatcherProvider,
                 cancellationProvider: new FileBasedCancellationProvider('bg'),
                 maxAnalysisTimeInForeground,
                 supportedCodeActions: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
             },
-            connection,
-            console
+            connection
         );
 
         this._controller = new CommandController(this);
@@ -80,7 +82,7 @@ export class PyrightServer extends LanguageServerBase {
             watchForLibraryChanges: true,
             watchForConfigChanges: true,
             openFilesOnly: true,
-            useLibraryCodeForTypes: false,
+            useLibraryCodeForTypes: true,
             disableLanguageServices: false,
             disableOrganizeImports: false,
             typeCheckingMode: 'basic',
@@ -223,8 +225,12 @@ export class PyrightServer extends LanguageServerBase {
         return new FullAccessHost(this.fs);
     }
 
-    protected override createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver {
-        const importResolver = new ImportResolver(fs, options, host);
+    protected override createImportResolver(
+        serviceProvider: ServiceProvider,
+        options: ConfigOptions,
+        host: Host
+    ): ImportResolver {
+        const importResolver = new ImportResolver(serviceProvider, options, host);
 
         // In case there was cached information in the file system related to
         // import resolution, invalidate it now.

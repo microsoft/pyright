@@ -1,7 +1,9 @@
 # This sample checks the handling of callable types that are narrowed
 # to a particular type using an isinstance type narrowing test.
 
-from typing import Callable, Protocol, Union, runtime_checkable
+from typing import Callable, ParamSpec, Protocol, Union, runtime_checkable
+
+P = ParamSpec("P")
 
 
 class Foo:
@@ -48,3 +50,10 @@ def check_callable4(val: Union[type, Callable[[int], None]]):
         reveal_type(val, expected_text="type")
     else:
         reveal_type(val, expected_text="(int) -> None")
+
+
+def check_callable5(fn: Callable[P, None]) -> None:
+    if isinstance(fn, Foo):
+        reveal_type(fn, expected_text="Foo")
+    else:
+        reveal_type(fn, expected_text="(**P@check_callable5) -> None")

@@ -362,7 +362,9 @@ export class TypeVarContext {
     }
 
     setSolveForScopes(scopeIds: TypeVarScopeId[]) {
-        this._solveForScopes = scopeIds;
+        scopeIds.forEach((scopeId) => {
+            this.addSolveForScope(scopeId);
+        });
     }
 
     addSolveForScope(scopeId?: TypeVarScopeId | TypeVarScopeId[]) {

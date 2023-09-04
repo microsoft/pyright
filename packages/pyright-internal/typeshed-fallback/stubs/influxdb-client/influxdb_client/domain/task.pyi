@@ -7,7 +7,6 @@ class Task:
     def __init__(
         self,
         id: Incomplete | None = None,
-        type: Incomplete | None = None,
         org_id: Incomplete | None = None,
         org: Incomplete | None = None,
         name: Incomplete | None = None,
@@ -31,10 +30,6 @@ class Task:
     def id(self): ...
     @id.setter
     def id(self, id) -> None: ...
-    @property
-    def type(self): ...
-    @type.setter
-    def type(self, type) -> None: ...
     @property
     def org_id(self): ...
     @org_id.setter

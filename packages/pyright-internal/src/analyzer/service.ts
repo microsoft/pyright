@@ -28,15 +28,18 @@ import {
     FileSpec,
     combinePaths,
     comparePaths,
+    containsPath,
     forEachAncestorDirectory,
     getDirectoryPath,
     getFileExtension,
     getFileName,
     getFileSpec,
     getFileSystemEntries,
+    getPathComponents,
     hasPythonExtension,
     isDirectory,
     isFile,
+    isFileSystemCaseSensitive,
     makeDirectories,
     normalizePath,
     normalizeSlashes,
@@ -44,6 +47,8 @@ import {
     tryRealpath,
     tryStat,
 } from '../common/pathUtils';
+import { ServiceProvider } from '../common/serviceProvider';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
 import { AnalysisCompleteCallback } from './analysis';
@@ -86,6 +91,7 @@ export interface AnalyzerServiceOptions {
     cacheManager?: CacheManager;
     serviceId?: string;
     skipScanningUserFiles?: boolean;
+    fileSystem?: FileSystem;
 }
 
 // Hold uniqueId for this service. It can be used to distinguish each service later.
@@ -118,8 +124,9 @@ export class AnalyzerService {
     private _backgroundAnalysisCancellationSource: AbstractCancellationTokenSource | undefined;
     private _disposed = false;
     private _pendingLibraryChanges: RefreshOptions = { changesOnly: true };
+    private _serviceProvider = new ServiceProvider();
 
-    constructor(instanceName: string, fs: FileSystem, options: AnalyzerServiceOptions) {
+    constructor(instanceName: string, serviceProvider: ServiceProvider, options: AnalyzerServiceOptions) {
         this._instanceName = instanceName;
 
         this._executionRootPath = '';
@@ -127,13 +134,27 @@ export class AnalyzerService {
 
         this._options.serviceId = this._options.serviceId ?? getNextServiceId(instanceName);
         this._options.console = options.console || new StandardConsole();
+
+        // Add the services from the passed in service provider to the local service provider.
+        [...serviceProvider.items].forEach((item) => {
+            this._serviceProvider.add(item[0], item[1]);
+        });
+
+        // Override the console and the file system if they were explicitly provided.
+        if (this._options.console) {
+            this._serviceProvider.add(ServiceKeys.console, this._options.console);
+        }
+        if (this._options.fileSystem) {
+            this._serviceProvider.add(ServiceKeys.fs, this._options.fileSystem);
+        }
+
         this._options.importResolverFactory = options.importResolverFactory ?? AnalyzerService.createImportResolver;
         this._options.cancellationProvider = options.cancellationProvider ?? new DefaultCancellationProvider();
         this._options.hostFactory = options.hostFactory ?? (() => new NoAccessHost());
 
         this._options.configOptions = options.configOptions ?? new ConfigOptions(process.cwd());
         const importResolver = this._options.importResolverFactory(
-            fs,
+            this._serviceProvider,
             this._options.configOptions,
             this._options.hostFactory()
         );
@@ -142,7 +163,7 @@ export class AnalyzerService {
             this._options.backgroundAnalysisProgramFactory !== undefined
                 ? this._options.backgroundAnalysisProgramFactory(
                       this._options.serviceId,
-                      this._options.console,
+                      this._serviceProvider,
                       this._options.configOptions,
                       importResolver,
                       this._options.backgroundAnalysis,
@@ -151,7 +172,7 @@ export class AnalyzerService {
                   )
                 : new BackgroundAnalysisProgram(
                       this._options.serviceId,
-                      this._options.console,
+                      this._serviceProvider,
                       this._options.configOptions,
                       importResolver,
                       this._options.backgroundAnalysis,
@@ -174,6 +195,10 @@ export class AnalyzerService {
 
     get fs() {
         return this._backgroundAnalysisProgram.importResolver.fileSystem;
+    }
+
+    get serviceProvider() {
+        return this._serviceProvider;
     }
 
     get cancellationProvider() {
@@ -200,13 +225,14 @@ export class AnalyzerService {
         instanceName: string,
         serviceId: string,
         backgroundAnalysis?: BackgroundAnalysisBase,
-        fs?: FileSystem
+        fileSystem?: FileSystem
     ): AnalyzerService {
-        const service = new AnalyzerService(instanceName, fs ?? this.fs, {
+        const service = new AnalyzerService(instanceName, this._serviceProvider, {
             ...this._options,
             serviceId,
             backgroundAnalysis,
             skipScanningUserFiles: true,
+            fileSystem,
         });
 
         // Cloned service will use whatever user files the service currently has.
@@ -261,8 +287,8 @@ export class AnalyzerService {
         this._clearLibraryReanalysisTimer();
     }
 
-    static createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver {
-        return new ImportResolver(fs, options, host);
+    static createImportResolver(serviceProvider: ServiceProvider, options: ConfigOptions, host: Host): ImportResolver {
+        return new ImportResolver(serviceProvider, options, host);
     }
 
     setCompletionCallback(callback: AnalysisCompleteCallback | undefined): void {
@@ -434,6 +460,10 @@ export class AnalyzerService {
         return this._shouldHandleSourceFileWatchChanges(path, isFile);
     }
 
+    test_shouldHandleLibraryFileWatchChanges(path: string, libSearchPaths: string[]) {
+        return this._shouldHandleLibraryFileWatchChanges(path, libSearchPaths);
+    }
+
     writeTypeStub(token: CancellationToken): void {
         const typingsSubdirPath = this._getTypeStubFolder();
 
@@ -585,6 +615,12 @@ export class AnalyzerService {
                 `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
             );
             configOptions.pythonPath = commandLineOptions.pythonPath;
+        }
+        if (commandLineOptions.pythonEnvironmentName) {
+            this._console.info(
+                `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
+            );
+            configOptions.pythonEnvironmentName = commandLineOptions.pythonEnvironmentName;
         }
 
         // The pythonPlatform and pythonVersion from the command-line can be overridden
@@ -1418,6 +1454,10 @@ export class AnalyzerService {
                         return;
                     }
 
+                    if (!this._shouldHandleLibraryFileWatchChanges(path, watchList)) {
+                        return;
+                    }
+
                     // If file doesn't exist, it is delete.
                     const isChange = event === 'change' && this.fs.existsSync(path);
                     this._scheduleLibraryAnalysis(isChange);
@@ -1426,6 +1466,39 @@ export class AnalyzerService {
                 this._console.error(`Exception caught when installing fs watcher for:\n ${watchList.join('\n')}`);
             }
         }
+    }
+
+    private _shouldHandleLibraryFileWatchChanges(path: string, libSearchPaths: string[]) {
+        if (this._program.getSourceFileInfo(path)) {
+            return true;
+        }
+
+        // find the innermost matching search path
+        let matchingSearchPath;
+        const ignoreCase = !isFileSystemCaseSensitive(this.fs);
+        for (const libSearchPath of libSearchPaths) {
+            if (
+                containsPath(libSearchPath, path, ignoreCase) &&
+                (!matchingSearchPath || matchingSearchPath.length < libSearchPath.length)
+            ) {
+                matchingSearchPath = libSearchPath;
+            }
+        }
+
+        if (!matchingSearchPath) {
+            return true;
+        }
+
+        const parentComponents = getPathComponents(matchingSearchPath);
+        const childComponents = getPathComponents(path);
+
+        for (let i = parentComponents.length; i < childComponents.length; i++) {
+            if (childComponents[i].startsWith('.')) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private _clearLibraryReanalysisTimer() {
@@ -1556,7 +1629,7 @@ export class AnalyzerService {
         // Allocate a new import resolver because the old one has information
         // cached based on the previous config options.
         const importResolver = this._importResolverFactory(
-            this.fs,
+            this._serviceProvider,
             this._backgroundAnalysisProgram.configOptions,
             host
         );

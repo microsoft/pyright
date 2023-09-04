@@ -32,11 +32,12 @@ class _AreaChartBase(ChartBase):
 
 class AreaChart(_AreaChartBase):
     tagname: ClassVar[str]
-    grouping: Incomplete
-    varyColors: Incomplete
-    ser: Incomplete
-    dLbls: Incomplete
-    dropLines: Incomplete
+    # Same as parent
+    # grouping = _AreaChartBase.grouping
+    # varyColors = _AreaChartBase.varyColors
+    # ser = _AreaChartBase.ser
+    # dLbls = _AreaChartBase.dLbls
+    # dropLines = _AreaChartBase.dropLines
     x_axis: Typed[TextAxis, Literal[False]]
     y_axis: Typed[NumericAxis, Literal[False]]
     extLst: Typed[ExtensionList, Literal[True]]
@@ -45,11 +46,12 @@ class AreaChart(_AreaChartBase):
 
 class AreaChart3D(AreaChart):
     tagname: ClassVar[str]
-    grouping: Incomplete
-    varyColors: Incomplete
-    ser: Incomplete
-    dLbls: Incomplete
-    dropLines: Incomplete
+    # Same as parent and grandparent
+    # grouping = _AreaChartBase.grouping
+    # varyColors = _AreaChartBase.varyColors
+    # ser = _AreaChartBase.ser
+    # dLbls = _AreaChartBase.dLbls
+    # dropLines = _AreaChartBase.dropLines
     gapDepth: Incomplete
     x_axis: Typed[TextAxis, Literal[False]]
     y_axis: Typed[NumericAxis, Literal[False]]

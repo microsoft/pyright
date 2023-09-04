@@ -53,16 +53,16 @@ class ClassK[T1=str]:
 class ClassPA[**P1, **P2=P1, **P3=P2]: ...
 
 pa1 = ClassPA()
-reveal_type(pa1, expected_text="ClassPA[(...), (...), (...)]")
+reveal_type(pa1, expected_text="ClassPA[..., ..., ...]")
 
 pa2 = ClassPA[[str]]()
 reveal_type(pa2, expected_text="ClassPA[(str), (str), (str)]")
 
 pa3 = ClassPA[..., [float]]()
-reveal_type(pa3, expected_text="ClassPA[(...), (float), (float)]")
+reveal_type(pa3, expected_text="ClassPA[..., (float), (float)]")
 
 pa4 = ClassPA[..., [int, int], [float]]()
-reveal_type(pa4, expected_text="ClassPA[(...), (int, int), (float)]")
+reveal_type(pa4, expected_text="ClassPA[..., (int, int), (float)]")
 
 
 # This should generate an error because P1 depends on P2.
@@ -77,7 +77,7 @@ pc2 = ClassPC[float]()
 reveal_type(pc2, expected_text="ClassPC[float, (int, float)]")
 
 pc3 = ClassPC[float, ...]()
-reveal_type(pc3, expected_text="ClassPC[float, (...)]")
+reveal_type(pc3, expected_text="ClassPC[float, ...]")
 
 
 # This should generate an error because P4 depends on T1.

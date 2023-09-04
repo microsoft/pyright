@@ -61,11 +61,11 @@ import {
 } from '../analyzer/types';
 import {
     ClassMemberLookupFlags,
+    containsLiteralType,
     doForEachSubtype,
     getMembersForClass,
     getMembersForModule,
     isLiteralType,
-    isLiteralTypeOrUnion,
     isMaybeDescriptorInstance,
     lookUpClassMember,
     lookUpObjectMember,
@@ -612,6 +612,11 @@ export class CompletionProvider {
         return TextEdit.replace(range, text);
     }
 
+    protected shouldProcessDeclaration(declaration: Declaration | undefined) {
+        // By default, we allow all symbol/decl to be included in the completion.
+        return true;
+    }
+
     protected addSymbol(
         name: string,
         symbol: Symbol,
@@ -628,6 +633,10 @@ export class CompletionProvider {
             if (declarations.length > 0) {
                 primaryDecl = declarations[declarations.length - 1];
             }
+        }
+
+        if (!this.shouldProcessDeclaration(primaryDecl)) {
+            return;
         }
 
         primaryDecl = primaryDecl
@@ -668,8 +677,8 @@ export class CompletionProvider {
 
             const typeDetail = getTypeDetail(
                 this.evaluator,
-                primaryDecl,
                 type,
+                primaryDecl,
                 name,
                 detail,
                 this.configOptions.functionSignatureDisplay
@@ -716,7 +725,7 @@ export class CompletionProvider {
                 itemKind = CompletionItemKind.EnumMember;
             }
 
-            this._addNameToCompletions(detail.autoImportAlias ?? name, itemKind, priorWord, completionMap, {
+            this.addNameToCompletions(detail.autoImportAlias ?? name, itemKind, priorWord, completionMap, {
                 autoImportText,
                 extraCommitChars: detail.extraCommitChars,
                 funcParensDisabled: detail.funcParensDisabled,
@@ -727,7 +736,7 @@ export class CompletionProvider {
             const synthesizedType = symbol.getSynthesizedType();
             if (synthesizedType) {
                 const itemKind: CompletionItemKind = this._convertTypeToItemKind(synthesizedType);
-                this._addNameToCompletions(name, itemKind, priorWord, completionMap, {
+                this.addNameToCompletions(name, itemKind, priorWord, completionMap, {
                     extraCommitChars: detail.extraCommitChars,
                     funcParensDisabled: detail.funcParensDisabled,
                     edits: detail.edits,
@@ -759,12 +768,19 @@ export class CompletionProvider {
             if (isClass(subtype)) {
                 const instance = TypeBase.isInstance(subtype);
                 if (ClassType.isEnumClass(subtype) && instance) {
-                    // We don't add members for instances of enum members.
+                    // We don't add members for instances of enum members, but do add members of `enum.Enum` itself.
                     // ex) 'MyEnum.member.' <= here
-                    return;
-                }
+                    const enumType = subtype.details.baseClasses.find(
+                        (t) => isClass(t) && ClassType.isBuiltIn(t, 'Enum')
+                    ) as ClassType | undefined;
+                    if (!enumType) {
+                        return;
+                    }
 
-                getMembersForClass(subtype, symbolTable, instance);
+                    getMembersForClass(enumType, symbolTable, /* instance */ true);
+                } else {
+                    getMembersForClass(subtype, symbolTable, instance);
+                }
             } else if (isModule(subtype)) {
                 getMembersForModule(subtype, symbolTable);
             } else if (isFunction(subtype) || isOverloadedFunction(subtype)) {
@@ -849,7 +865,7 @@ export class CompletionProvider {
                     },
                 });
             } else {
-                this._addNameToCompletions(
+                this.addNameToCompletions(
                     result.alias ?? result.name,
                     result.kind ?? CompletionItemKind.Module,
                     priorWord,
@@ -873,6 +889,165 @@ export class CompletionProvider {
 
     protected addExtraCommitChar(item: CompletionItem) {
         // extra commit char is not supported.
+    }
+
+    protected addNameToCompletions(
+        name: string,
+        itemKind: CompletionItemKind,
+        filter: string,
+        completionMap: CompletionMap,
+        detail?: CompletionDetail
+    ) {
+        // Auto importer already filtered out unnecessary ones. No need to do it again.
+        const similarity = detail?.autoImportText ? true : StringUtils.isPatternInSymbol(filter, name);
+        if (!similarity) {
+            return;
+        }
+
+        if (
+            completionMap.has(name, CompletionMap.matchKindAndImportText, itemKind, detail?.autoImportText?.importText)
+        ) {
+            return;
+        }
+
+        const completionItem = CompletionItem.create(name);
+        completionItem.kind = itemKind;
+
+        if (detail?.extraCommitChars) {
+            this.addExtraCommitChar(completionItem);
+        }
+
+        const completionItemData: CompletionItemData = {
+            workspacePath: this._workspacePath,
+            filePath: this.filePath,
+            position: this.position,
+        };
+
+        if (detail?.funcParensDisabled || !this.options.snippet) {
+            completionItemData.funcParensDisabled = true;
+        }
+
+        if (detail?.modulePath) {
+            completionItemData.modulePath = detail.modulePath;
+        }
+
+        completionItem.data = toLSPAny(completionItemData);
+
+        if (detail?.sortText || detail?.itemDetail) {
+            completionItem.sortText = detail.sortText;
+            completionItem.detail = detail.itemDetail;
+        } else if (detail?.autoImportText) {
+            // Force auto-import entries to the end.
+            completionItem.sortText = this._makeSortText(
+                SortCategory.AutoImport,
+                `${name}.${this._formatInteger(detail.autoImportText.source.length, 2)}.${
+                    detail.autoImportText.source
+                }`,
+                detail.autoImportText.importText
+            );
+            completionItemData.autoImportText = detail.autoImportText.importText;
+            completionItem.detail = autoImportDetail;
+
+            if (detail.autoImportText.source) {
+                completionItem.labelDetails = { description: detail.autoImportText.source };
+            }
+        } else if (itemKind === CompletionItemKind.EnumMember) {
+            // Handle enum members separately so they are sorted above other symbols.
+            completionItem.sortText = this._makeSortText(SortCategory.EnumMember, name);
+        } else if (SymbolNameUtils.isDunderName(name)) {
+            // Force dunder-named symbols to appear after all other symbols.
+            completionItem.sortText = this._makeSortText(SortCategory.DunderSymbol, name);
+        } else if (filter === '' && SymbolNameUtils.isPrivateOrProtectedName(name)) {
+            // Distinguish between normal and private symbols only if there is
+            // currently no filter text. Once we get a single character to filter
+            // upon, we'll no longer differentiate.
+            completionItem.sortText = this._makeSortText(SortCategory.PrivateSymbol, name);
+        } else {
+            completionItem.sortText = this._makeSortText(SortCategory.NormalSymbol, name);
+        }
+
+        completionItemData.symbolLabel = name;
+
+        if (this.options.format === MarkupKind.Markdown) {
+            let markdownString = '';
+
+            if (detail?.autoImportText) {
+                markdownString += detail.autoImportText.importText;
+                if (detail.typeDetail || detail.documentation) {
+                    // Micro perf optimization to not create new string from trimEnd.
+                    markdownString += '\n\n';
+                }
+            }
+
+            if (detail?.typeDetail) {
+                markdownString += '```python\n' + detail.typeDetail + '\n```\n';
+            }
+
+            if (detail?.documentation) {
+                markdownString += '---\n';
+                markdownString += convertDocStringToMarkdown(detail.documentation);
+            }
+
+            markdownString = markdownString.trimEnd();
+
+            if (markdownString) {
+                completionItem.documentation = {
+                    kind: MarkupKind.Markdown,
+                    value: markdownString,
+                };
+            }
+        } else if (this.options.format === MarkupKind.PlainText) {
+            let plainTextString = '';
+
+            if (detail?.autoImportText) {
+                plainTextString += detail.autoImportText.importText;
+                if (detail.typeDetail || detail.documentation) {
+                    // Micro perf optimization to not create new string from trimEnd.
+                    plainTextString += '\n\n';
+                }
+            }
+
+            if (detail?.typeDetail) {
+                plainTextString += detail.typeDetail + '\n';
+            }
+
+            if (detail?.documentation) {
+                plainTextString += '\n' + convertDocStringToPlainText(detail.documentation);
+            }
+
+            plainTextString = plainTextString.trimEnd();
+
+            if (plainTextString) {
+                completionItem.documentation = {
+                    kind: MarkupKind.PlainText,
+                    value: plainTextString,
+                };
+            }
+        } else {
+            fail(`Unsupported markup type: ${this.options.format}`);
+        }
+
+        if (detail?.edits?.format) {
+            completionItem.insertTextFormat = detail.edits.format;
+        }
+
+        if (detail?.edits?.textEdit) {
+            completionItem.textEdit = detail.edits.textEdit;
+        }
+
+        if (detail?.edits?.additionalTextEdits) {
+            completionItem.additionalTextEdits = convertToTextEdits(detail.edits.additionalTextEdits);
+
+            // This is for auto import entries from indices which skip symbols.
+            if (this._itemToResolve) {
+                const data = fromLSPAny<CompletionItemData>(this._itemToResolve.data);
+                if (data.autoImportText === completionItemData.autoImportText) {
+                    this._itemToResolve.additionalTextEdits = completionItem.additionalTextEdits;
+                }
+            }
+        }
+
+        completionMap.set(completionItem);
     }
 
     private get _fileContents() {
@@ -1468,7 +1643,7 @@ export class CompletionProvider {
                 expandTypeAlias: false,
             });
 
-            this._addNameToCompletions(text, CompletionItemKind.Reference, priorWord, completionMap, {
+            this.addNameToCompletions(text, CompletionItemKind.Reference, priorWord, completionMap, {
                 sortText: this._makeSortText(SortCategory.LikelyKeyword, text),
             });
             return;
@@ -1519,7 +1694,7 @@ export class CompletionProvider {
             printFlags
         )}`;
 
-        this._addNameToCompletions(text, CompletionItemKind.Reference, priorWord, completionMap, {
+        this.addNameToCompletions(text, CompletionItemKind.Reference, priorWord, completionMap, {
             sortText: this._makeSortText(SortCategory.LikelyKeyword, text),
         });
     }
@@ -1878,7 +2053,7 @@ export class CompletionProvider {
             if (ClassType.isBuiltIn(v, 'str')) {
                 const value = printLiteralValue(v, quoteValue.quoteCharacter);
                 if (quoteValue.stringValue === undefined) {
-                    this._addNameToCompletions(value, CompletionItemKind.Constant, priorWord, completionMap, {
+                    this.addNameToCompletions(value, CompletionItemKind.Constant, priorWord, completionMap, {
                         sortText: this._makeSortText(SortCategory.LiteralValue, v.literalValue as string),
                     });
                 } else {
@@ -2136,7 +2311,7 @@ export class CompletionProvider {
 
         if (nodeForExpectedType) {
             const expectedTypeResult = this.evaluator.getExpectedType(nodeForExpectedType);
-            if (expectedTypeResult && isLiteralTypeOrUnion(expectedTypeResult.type)) {
+            if (expectedTypeResult && containsLiteralType(expectedTypeResult.type)) {
                 this._addLiteralValuesForTargetType(
                     expectedTypeResult.type,
                     priorWord,
@@ -2228,7 +2403,7 @@ export class CompletionProvider {
                         dictionaryKeyDetail
                     );
                 } else {
-                    this._addNameToCompletions(key, CompletionItemKind.Constant, priorWord, completionMap, {
+                    this.addNameToCompletions(key, CompletionItemKind.Constant, priorWord, completionMap, {
                         sortText: this._makeSortText(SortCategory.LiteralValue, key),
                         itemDetail: dictionaryKeyDetail,
                     });
@@ -2245,7 +2420,7 @@ export class CompletionProvider {
         const supportedOperators = [OperatorType.Assign, OperatorType.Equals, OperatorType.NotEquals];
         if (comparison.nodeType === ParseNodeType.BinaryOperation && supportedOperators.includes(comparison.operator)) {
             const type = this.evaluator.getType(comparison.leftExpression);
-            if (type && isLiteralTypeOrUnion(type)) {
+            if (type && containsLiteralType(type)) {
                 this._addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
                 return true;
             }
@@ -2258,7 +2433,7 @@ export class CompletionProvider {
             assignmentExpression.rightExpression === parentAndChild.child
         ) {
             const type = this.evaluator.getType(assignmentExpression.name);
-            if (type && isLiteralTypeOrUnion(type)) {
+            if (type && containsLiteralType(type)) {
                 this._addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
                 return true;
             }
@@ -2276,7 +2451,7 @@ export class CompletionProvider {
             caseNode.parent?.nodeType === ParseNodeType.Match
         ) {
             const type = this.evaluator.getType(caseNode.parent.subjectExpression);
-            if (type && isLiteralTypeOrUnion(type)) {
+            if (type && containsLiteralType(type)) {
                 this._addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
                 return true;
             }
@@ -2294,7 +2469,7 @@ export class CompletionProvider {
             patternLiteral.parent.parent.parent?.nodeType === ParseNodeType.Match
         ) {
             const type = this.evaluator.getType(patternLiteral.parent.parent.parent.subjectExpression);
-            if (type && isLiteralTypeOrUnion(type)) {
+            if (type && containsLiteralType(type)) {
                 this._addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
                 return true;
             }
@@ -2496,41 +2671,43 @@ export class CompletionProvider {
         completionMap: CompletionMap,
         detail?: string
     ) {
-        if (StringUtils.isPatternInSymbol(quoteInfo.filterText || '', value)) {
-            const valueWithQuotes = `${quoteInfo.quoteCharacter}${value}${quoteInfo.quoteCharacter}`;
-            if (completionMap.has(valueWithQuotes)) {
-                return;
-            }
-
-            const completionItem = CompletionItem.create(valueWithQuotes);
-
-            completionItem.kind = CompletionItemKind.Constant;
-            completionItem.sortText = this._makeSortText(SortCategory.LiteralValue, valueWithQuotes);
-            let rangeStartCol = this.position.character;
-            if (quoteInfo.stringValue !== undefined) {
-                rangeStartCol -= quoteInfo.stringValue.length + 1;
-            } else if (quoteInfo.priorWord) {
-                rangeStartCol -= quoteInfo.priorWord.length;
-            }
-
-            // If the text after the insertion point is the closing quote,
-            // replace it.
-            let rangeEndCol = this.position.character;
-            if (postText !== undefined) {
-                if (postText.startsWith(quoteInfo.quoteCharacter)) {
-                    rangeEndCol++;
-                }
-            }
-
-            const range: Range = {
-                start: { line: this.position.line, character: rangeStartCol },
-                end: { line: this.position.line, character: rangeEndCol },
-            };
-            completionItem.textEdit = TextEdit.replace(range, valueWithQuotes);
-            completionItem.detail = detail;
-
-            completionMap.set(completionItem);
+        if (!StringUtils.isPatternInSymbol(quoteInfo.filterText || '', value)) {
+            return;
         }
+
+        const valueWithQuotes = `${quoteInfo.quoteCharacter}${value}${quoteInfo.quoteCharacter}`;
+        if (completionMap.has(valueWithQuotes)) {
+            return;
+        }
+
+        const completionItem = CompletionItem.create(valueWithQuotes);
+
+        completionItem.kind = CompletionItemKind.Constant;
+        completionItem.sortText = this._makeSortText(SortCategory.LiteralValue, valueWithQuotes);
+        let rangeStartCol = this.position.character;
+        if (quoteInfo.stringValue !== undefined) {
+            rangeStartCol -= quoteInfo.stringValue.length + 1;
+        } else if (quoteInfo.priorWord) {
+            rangeStartCol -= quoteInfo.priorWord.length;
+        }
+
+        // If the text after the insertion point is the closing quote,
+        // replace it.
+        let rangeEndCol = this.position.character;
+        if (postText !== undefined) {
+            if (postText.startsWith(quoteInfo.quoteCharacter)) {
+                rangeEndCol++;
+            }
+        }
+
+        const range: Range = {
+            start: { line: this.position.line, character: rangeStartCol },
+            end: { line: this.position.line, character: rangeEndCol },
+        };
+        completionItem.textEdit = TextEdit.replace(range, valueWithQuotes);
+        completionItem.detail = detail;
+
+        completionMap.set(completionItem);
     }
 
     private _getImportFromCompletions(importFromNode: ImportFromNode, priorWord: string): CompletionMap | undefined {
@@ -2579,7 +2756,7 @@ export class CompletionProvider {
         // Add the implicit imports.
         importInfo.implicitImports.forEach((implImport) => {
             if (!importFromNode.imports.find((imp) => imp.name.value === implImport.name)) {
-                this._addNameToCompletions(implImport.name, CompletionItemKind.Module, priorWord, completionMap, {
+                this.addNameToCompletions(implImport.name, CompletionItemKind.Module, priorWord, completionMap, {
                     modulePath: implImport.path,
                 });
             }
@@ -2781,165 +2958,6 @@ export class CompletionProvider {
         };
     }
 
-    private _addNameToCompletions(
-        name: string,
-        itemKind: CompletionItemKind,
-        filter: string,
-        completionMap: CompletionMap,
-        detail?: CompletionDetail
-    ) {
-        // Auto importer already filtered out unnecessary ones. No need to do it again.
-        const similarity = detail?.autoImportText ? true : StringUtils.isPatternInSymbol(filter, name);
-        if (!similarity) {
-            return;
-        }
-
-        if (
-            completionMap.has(name, CompletionMap.matchKindAndImportText, itemKind, detail?.autoImportText?.importText)
-        ) {
-            return;
-        }
-
-        const completionItem = CompletionItem.create(name);
-        completionItem.kind = itemKind;
-
-        if (detail?.extraCommitChars) {
-            this.addExtraCommitChar(completionItem);
-        }
-
-        const completionItemData: CompletionItemData = {
-            workspacePath: this._workspacePath,
-            filePath: this.filePath,
-            position: this.position,
-        };
-
-        if (detail?.funcParensDisabled || !this.options.snippet) {
-            completionItemData.funcParensDisabled = true;
-        }
-
-        if (detail?.modulePath) {
-            completionItemData.modulePath = detail.modulePath;
-        }
-
-        completionItem.data = toLSPAny(completionItemData);
-
-        if (detail?.sortText || detail?.itemDetail) {
-            completionItem.sortText = detail.sortText;
-            completionItem.detail = detail.itemDetail;
-        } else if (detail?.autoImportText) {
-            // Force auto-import entries to the end.
-            completionItem.sortText = this._makeSortText(
-                SortCategory.AutoImport,
-                `${name}.${this._formatInteger(detail.autoImportText.source.length, 2)}.${
-                    detail.autoImportText.source
-                }`,
-                detail.autoImportText.importText
-            );
-            completionItemData.autoImportText = detail.autoImportText.importText;
-            completionItem.detail = autoImportDetail;
-
-            if (detail.autoImportText.source) {
-                completionItem.labelDetails = { description: detail.autoImportText.source };
-            }
-        } else if (itemKind === CompletionItemKind.EnumMember) {
-            // Handle enum members separately so they are sorted above other symbols.
-            completionItem.sortText = this._makeSortText(SortCategory.EnumMember, name);
-        } else if (SymbolNameUtils.isDunderName(name)) {
-            // Force dunder-named symbols to appear after all other symbols.
-            completionItem.sortText = this._makeSortText(SortCategory.DunderSymbol, name);
-        } else if (filter === '' && SymbolNameUtils.isPrivateOrProtectedName(name)) {
-            // Distinguish between normal and private symbols only if there is
-            // currently no filter text. Once we get a single character to filter
-            // upon, we'll no longer differentiate.
-            completionItem.sortText = this._makeSortText(SortCategory.PrivateSymbol, name);
-        } else {
-            completionItem.sortText = this._makeSortText(SortCategory.NormalSymbol, name);
-        }
-
-        completionItemData.symbolLabel = name;
-
-        if (this.options.format === MarkupKind.Markdown) {
-            let markdownString = '';
-
-            if (detail?.autoImportText) {
-                markdownString += detail.autoImportText.importText;
-                if (detail.typeDetail || detail.documentation) {
-                    // Micro perf optimization to not create new string from trimEnd.
-                    markdownString += '\n\n';
-                }
-            }
-
-            if (detail?.typeDetail) {
-                markdownString += '```python\n' + detail.typeDetail + '\n```\n';
-            }
-
-            if (detail?.documentation) {
-                markdownString += '---\n';
-                markdownString += convertDocStringToMarkdown(detail.documentation);
-            }
-
-            markdownString = markdownString.trimEnd();
-
-            if (markdownString) {
-                completionItem.documentation = {
-                    kind: MarkupKind.Markdown,
-                    value: markdownString,
-                };
-            }
-        } else if (this.options.format === MarkupKind.PlainText) {
-            let plainTextString = '';
-
-            if (detail?.autoImportText) {
-                plainTextString += detail.autoImportText.importText;
-                if (detail.typeDetail || detail.documentation) {
-                    // Micro perf optimization to not create new string from trimEnd.
-                    plainTextString += '\n\n';
-                }
-            }
-
-            if (detail?.typeDetail) {
-                plainTextString += detail.typeDetail + '\n';
-            }
-
-            if (detail?.documentation) {
-                plainTextString += '\n' + convertDocStringToPlainText(detail.documentation);
-            }
-
-            plainTextString = plainTextString.trimEnd();
-
-            if (plainTextString) {
-                completionItem.documentation = {
-                    kind: MarkupKind.PlainText,
-                    value: plainTextString,
-                };
-            }
-        } else {
-            fail(`Unsupported markup type: ${this.options.format}`);
-        }
-
-        if (detail?.edits?.format) {
-            completionItem.insertTextFormat = detail.edits.format;
-        }
-
-        if (detail?.edits?.textEdit) {
-            completionItem.textEdit = detail.edits.textEdit;
-        }
-
-        if (detail?.edits?.additionalTextEdits) {
-            completionItem.additionalTextEdits = convertToTextEdits(detail.edits.additionalTextEdits);
-
-            // This is for auto import entries from indices which skip symbols.
-            if (this._itemToResolve) {
-                const data = fromLSPAny<CompletionItemData>(this._itemToResolve.data);
-                if (data.autoImportText === completionItemData.autoImportText) {
-                    this._itemToResolve.additionalTextEdits = completionItem.additionalTextEdits;
-                }
-            }
-        }
-
-        completionMap.set(completionItem);
-    }
-
     private _getRecentListIndex(name: string, autoImportText: string) {
         return CompletionProvider._mostRecentCompletions.findIndex(
             (item) => item.label === name && item.autoImportText === autoImportText
@@ -3087,7 +3105,7 @@ export class CompletionProvider {
         }
 
         completions.forEach((modulePath, completionName) => {
-            this._addNameToCompletions(completionName, CompletionItemKind.Module, '', completionMap, {
+            this.addNameToCompletions(completionName, CompletionItemKind.Module, '', completionMap, {
                 sortText: this._makeSortText(SortCategory.ImportModuleName, completionName),
                 modulePath,
             });

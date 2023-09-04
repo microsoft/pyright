@@ -74,7 +74,7 @@ export function getFunctionFlagsFromDecorators(evaluator: TypeEvaluator, node: F
         // Some stub files (e.g. builtins.pyi) rely on forward declarations of decorators.
         let evaluatorFlags = fileInfo.isStubFile ? EvaluatorFlags.AllowForwardReferences : EvaluatorFlags.None;
         if (decoratorNode.expression.nodeType !== ParseNodeType.Call) {
-            evaluatorFlags |= EvaluatorFlags.DoNotSpecialize;
+            evaluatorFlags |= EvaluatorFlags.CallBaseDefaults;
         }
 
         const decoratorTypeResult = evaluator.getTypeOfExpression(decoratorNode.expression, evaluatorFlags);
@@ -89,6 +89,8 @@ export function getFunctionFlagsFromDecorators(evaluator: TypeEvaluator, node: F
                 flags |= FunctionTypeFlags.Final;
             } else if (decoratorType.details.builtInName === 'override') {
                 flags |= FunctionTypeFlags.Overridden;
+            } else if (decoratorType.details.builtInName === 'type_check_only') {
+                flags |= FunctionTypeFlags.TypeCheckOnly;
             }
         } else if (isInstantiableClass(decoratorType)) {
             if (ClassType.isBuiltIn(decoratorType, 'staticmethod')) {
@@ -120,7 +122,7 @@ export function applyFunctionDecorator(
     // Some stub files (e.g. builtins.pyi) rely on forward declarations of decorators.
     let evaluatorFlags = fileInfo.isStubFile ? EvaluatorFlags.AllowForwardReferences : EvaluatorFlags.None;
     if (decoratorNode.expression.nodeType !== ParseNodeType.Call) {
-        evaluatorFlags |= EvaluatorFlags.DoNotSpecialize;
+        evaluatorFlags |= EvaluatorFlags.CallBaseDefaults;
     }
 
     const decoratorTypeResult = evaluator.getTypeOfExpression(decoratorNode.expression, evaluatorFlags);
@@ -142,7 +144,7 @@ export function applyFunctionDecorator(
     if (decoratorNode.expression.nodeType === ParseNodeType.Call) {
         const decoratorCallType = evaluator.getTypeOfExpression(
             decoratorNode.expression.leftExpression,
-            evaluatorFlags | EvaluatorFlags.DoNotSpecialize
+            evaluatorFlags | EvaluatorFlags.CallBaseDefaults
         ).type;
 
         if (isFunction(decoratorCallType)) {
@@ -187,11 +189,16 @@ export function applyFunctionDecorator(
             return inputFunctionType;
         }
 
+        if (decoratorType.details.builtInName === 'type_check_only') {
+            undecoratedType.details.flags |= FunctionTypeFlags.TypeCheckOnly;
+            return inputFunctionType;
+        }
+
         // Handle property setters and deleters.
         if (decoratorNode.expression.nodeType === ParseNodeType.MemberAccess) {
             const baseType = evaluator.getTypeOfExpression(
                 decoratorNode.expression.leftExpression,
-                evaluatorFlags | EvaluatorFlags.DoNotSpecialize
+                evaluatorFlags | EvaluatorFlags.MemberAccessBaseDefaults
             ).type;
 
             if (isProperty(baseType)) {
@@ -290,14 +297,14 @@ export function applyClassDecorator(
     const fileInfo = getFileInfo(decoratorNode);
     let flags = fileInfo.isStubFile ? EvaluatorFlags.AllowForwardReferences : EvaluatorFlags.None;
     if (decoratorNode.expression.nodeType !== ParseNodeType.Call) {
-        flags |= EvaluatorFlags.DoNotSpecialize;
+        flags |= EvaluatorFlags.CallBaseDefaults;
     }
     const decoratorType = evaluator.getTypeOfExpression(decoratorNode.expression, flags).type;
 
     if (decoratorNode.expression.nodeType === ParseNodeType.Call) {
         const decoratorCallType = evaluator.getTypeOfExpression(
             decoratorNode.expression.leftExpression,
-            flags | EvaluatorFlags.DoNotSpecialize
+            flags | EvaluatorFlags.CallBaseDefaults
         ).type;
 
         if (isFunction(decoratorCallType)) {
@@ -353,6 +360,11 @@ export function applyClassDecorator(
             return inputClassType;
         }
 
+        if (decoratorType.details.builtInName === 'type_check_only') {
+            originalClassType.details.flags |= ClassTypeFlags.TypeCheckOnly;
+            return inputClassType;
+        }
+
         if (decoratorType.details.builtInName === 'deprecated') {
             originalClassType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
             return inputClassType;
@@ -375,7 +387,7 @@ export function applyClassDecorator(
             callNode = decoratorNode.expression;
             const decoratorCallType = evaluator.getTypeOfExpression(
                 callNode.leftExpression,
-                flags | EvaluatorFlags.DoNotSpecialize
+                flags | EvaluatorFlags.CallBaseDefaults
             ).type;
             dataclassBehaviors = getDataclassDecoratorBehaviors(decoratorCallType);
         } else {
@@ -396,17 +408,10 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
     // Evaluate the type of the decorator expression.
     let flags = getFileInfo(node).isStubFile ? EvaluatorFlags.AllowForwardReferences : EvaluatorFlags.None;
     if (node.expression.nodeType !== ParseNodeType.Call) {
-        flags |= EvaluatorFlags.DoNotSpecialize;
+        flags |= EvaluatorFlags.CallBaseDefaults;
     }
 
     const decoratorTypeResult = evaluator.getTypeOfExpression(node.expression, flags);
-
-    // Special-case typing.type_check_only. It's used in many stdlib
-    // functions, and pyright treats it as a no-op, so don't waste
-    // time evaluating it.
-    if (isFunction(decoratorTypeResult.type) && decoratorTypeResult.type.details.builtInName === 'type_check_only') {
-        return functionOrClassType;
-    }
 
     // Special-case the combination of a classmethod decorator applied
     // to a property. This is allowed in Python 3.9, but it's not reflected

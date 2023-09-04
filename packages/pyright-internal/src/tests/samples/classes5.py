@@ -276,3 +276,13 @@ class ChildClass4(ParentClass4):
     # This should generate 1 error if reportIncompatibleVariableOverride
     # is enabled because it is overriding a non-final with a final.
     y: Final = 0
+
+
+class ParentClass5:
+    def __eq__(self, other: object) -> bool:
+        return True
+
+
+class ParentClass6:
+    def __hash__(self) -> int:
+        return 0

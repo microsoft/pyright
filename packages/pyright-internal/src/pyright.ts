@@ -33,6 +33,8 @@ import { versionFromString } from './common/pythonVersion';
 import { createFromRealFileSystem } from './common/realFileSystem';
 import { Range, isEmptyRange } from './common/textRange';
 import { PyrightFileSystem } from './pyrightFileSystem';
+import { createServiceProvider } from './common/serviceProviderExtensions';
+import { ServiceProvider } from './common/serviceProvider';
 
 const toolName = 'pyright';
 
@@ -344,11 +346,12 @@ async function processArgs(): Promise<ExitStatus> {
     // up the JSON output, which goes to stdout.
     const output = args.outputjson ? new StderrConsole(logLevel) : new StandardConsole(logLevel);
     const fileSystem = new PyrightFileSystem(createFromRealFileSystem(output, new ChokidarFileWatcherProvider(output)));
+    const serviceProvider = createServiceProvider(fileSystem, output);
 
     // The package type verification uses a different path.
     if (args['verifytypes'] !== undefined) {
         return verifyPackageTypes(
-            fileSystem,
+            serviceProvider,
             args['verifytypes'] || '',
             options,
             !!args.outputjson,
@@ -365,7 +368,7 @@ async function processArgs(): Promise<ExitStatus> {
     options.watchForConfigChanges = watch;
 
     // Refresh service after 2 seconds after the last library file change is detected.
-    const service = new AnalyzerService('<default>', fileSystem, {
+    const service = new AnalyzerService('<default>', serviceProvider, {
         console: output,
         hostFactory: () => new FullAccessHost(fileSystem),
         libraryReanalysisTimeProvider: () => 2 * 1000,
@@ -461,7 +464,7 @@ async function processArgs(): Promise<ExitStatus> {
 }
 
 function verifyPackageTypes(
-    fileSystem: PyrightFileSystem,
+    serviceProvider: ServiceProvider,
     packageName: string,
     options: PyrightCommandLineOptions,
     outputJson: boolean,
@@ -469,7 +472,7 @@ function verifyPackageTypes(
     ignoreUnknownTypesFromImports: boolean
 ): ExitStatus {
     try {
-        const verifier = new PackageTypeVerifier(fileSystem, options, packageName, ignoreUnknownTypesFromImports);
+        const verifier = new PackageTypeVerifier(serviceProvider, options, packageName, ignoreUnknownTypesFromImports);
         const report = verifier.verify();
         const jsonReport = buildTypeCompletenessReport(packageName, report, minSeverityLevel);
 

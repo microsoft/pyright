@@ -1,4 +1,5 @@
 version = "7.45.2"
+upstream_repository = "https://github.com/pycurl/pycurl"
 
 [tool.stubtest]
 # Install on Windows requires building PycURL from source

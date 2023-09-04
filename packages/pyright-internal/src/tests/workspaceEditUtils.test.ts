@@ -58,15 +58,15 @@ test('test edit mode for workspace', async () => {
     const state = parseAndGetTestState(code).state;
     const range = state.getRangeByMarkerName('marker')!;
     const addedFilePath = combinePaths(getDirectoryPath(range.fileName), 'test2.py');
-    const edits = await state.workspace.service.runEditMode(async () => {
+    const edits = state.workspace.service.runEditMode((program) => {
         const fileChanged = new Set<string>();
-        applyWorkspaceEditToService(
-            state.workspace.service,
+        applyWorkspaceEdit(
+            program,
             {
                 documentChanges: [
                     TextDocumentEdit.create(
                         {
-                            uri: convertPathToUri(state.workspace.service.fs, range.fileName),
+                            uri: convertPathToUri(program.fileSystem, range.fileName),
                             version: null,
                         },
                         [
@@ -82,34 +82,36 @@ test('test edit mode for workspace', async () => {
         );
 
         assert.strictEqual(fileChanged.size, 1);
-        const newSourceFile = state.workspace.service.test_program.getSourceFile(range.fileName);
-        state.workspace.service.backgroundAnalysisProgram.analyzeFile(
-            newSourceFile!.getFilePath(),
-            CancellationToken.None
-        );
-        assert.strictEqual(newSourceFile?.getFileContent(), 'import sys');
-        assert.strictEqual(newSourceFile.getImports().length, 2);
+        const info = program.getSourceFileInfo(range.fileName)!;
+        const sourceFile = info.sourceFile;
+
+        program.analyzeFile(sourceFile.getFilePath(), CancellationToken.None);
+        assert.strictEqual(sourceFile.getFileContent(), 'import sys');
+        assert.strictEqual(info.imports.length, 2);
 
         // Add a new file.
-        state.workspace.service.backgroundAnalysisProgram.program.setFileOpened(addedFilePath, 0, '', {
+        program.setFileOpened(addedFilePath, 0, '', {
             isTracked: true,
             ipythonMode: IPythonMode.None,
             chainedFilePath: undefined,
             realFilePath: addedFilePath,
         });
 
-        applyWorkspaceEditToService(
-            state.workspace.service,
+        applyWorkspaceEdit(
+            program,
             {
                 documentChanges: [
                     TextDocumentEdit.create(
                         {
-                            uri: convertPathToUri(state.workspace.service.fs, addedFilePath),
+                            uri: convertPathToUri(program.fileSystem, addedFilePath),
                             version: null,
                         },
                         [
                             {
-                                range: state.convertPositionRange(range),
+                                range: {
+                                    start: { line: 0, character: 0 },
+                                    end: { line: 0, character: 0 },
+                                },
                                 newText: 'import sys',
                             },
                         ]
@@ -119,13 +121,13 @@ test('test edit mode for workspace', async () => {
             fileChanged
         );
 
-        applyWorkspaceEditToService(
-            state.workspace.service,
+        applyWorkspaceEdit(
+            program,
             {
                 documentChanges: [
                     TextDocumentEdit.create(
                         {
-                            uri: convertPathToUri(state.workspace.service.fs, addedFilePath),
+                            uri: convertPathToUri(program.fileSystem, addedFilePath),
                             version: null,
                         },
                         [
@@ -143,28 +145,29 @@ test('test edit mode for workspace', async () => {
             fileChanged
         );
 
-        const addedSourceFile = state.workspace.service.test_program.getSourceFile(addedFilePath);
-        state.workspace.service.backgroundAnalysisProgram.analyzeFile(
-            addedSourceFile!.getFilePath(),
-            CancellationToken.None
-        );
-        assert.strictEqual(addedSourceFile?.getFileContent(), 'import os');
-        assert.strictEqual(addedSourceFile.getImports().length, 2);
+        const addedInfo = program.getSourceFileInfo(addedFilePath)!;
+        const addedSourceFile = addedInfo.sourceFile;
+        program.analyzeFile(addedSourceFile.getFilePath(), CancellationToken.None);
+
+        assert.strictEqual(addedSourceFile.getFileContent(), 'import os');
+        assert.strictEqual(addedInfo.imports.length, 2);
     }, CancellationToken.None);
 
     // After leaving edit mode, we should be back to where we were.
     const oldSourceFile = state.workspace.service.test_program.getSourceFile(range.fileName);
     state.workspace.service.backgroundAnalysisProgram.analyzeFile(oldSourceFile!.getFilePath(), CancellationToken.None);
+
     assert.strictEqual(oldSourceFile?.getFileContent(), '');
     assert.strictEqual(oldSourceFile.getImports().length, 1);
     assert.strictEqual(edits.length, 2);
+
     assert.deepStrictEqual(edits[0].replacementText, 'import sys');
     assert.deepStrictEqual(edits[1].replacementText, 'import os');
+
     const addedSourceFile = state.workspace.service.test_program.getSourceFile(addedFilePath);
 
-    // The added file should be there, but be empty.
-    assert.ok(addedSourceFile);
-    assert.strictEqual(addedSourceFile?.getFileContent(), '');
+    // The added file should not be there.
+    assert.ok(!addedSourceFile);
 });
 
 test('test applyWorkspaceEdits documentChanges', async () => {

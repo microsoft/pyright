@@ -7,8 +7,8 @@ from openpyxl.descriptors import Strict
 from openpyxl.descriptors.base import MinMax, String, _ConvertibleToInt
 
 class DummyWorksheet:
-    title: Incomplete
-    def __init__(self, title) -> None: ...
+    title: str
+    def __init__(self, title: str) -> None: ...
 
 class Reference(Strict):
     min_row: MinMax[int, Literal[False]]

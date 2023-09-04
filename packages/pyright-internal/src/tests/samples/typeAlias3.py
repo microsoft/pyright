@@ -32,4 +32,4 @@ reveal_type(a2, expected_text="ClassA[float]")
 
 Func = Callable[P, T]
 AnyFunc = Func[P, int]
-AnyFunc[P]
+AnyFunc[...]

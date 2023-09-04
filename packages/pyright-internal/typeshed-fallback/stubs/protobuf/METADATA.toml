@@ -1,5 +1,6 @@
-version = "4.23.*"
-extra_description = "Generated with aid from mypy-protobuf v3.4.0"
+version = "4.24.*"
+upstream_repository = "https://github.com/protocolbuffers/protobuf"
+extra_description = "Generated with aid from [mypy-protobuf](https://github.com/nipunn1313/mypy-protobuf) v3.4.0"
 partial_stub = true
 
 [tool.stubtest]

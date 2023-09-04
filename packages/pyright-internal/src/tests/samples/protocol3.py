@@ -1,7 +1,7 @@
 # This sample tests the assignment of protocols that
 # include property declarations.
 
-from typing import ContextManager, Protocol, TypeVar
+from typing import ContextManager, NamedTuple, Protocol, TypeVar
 
 
 class Class1(Protocol):
@@ -132,3 +132,29 @@ class Class6:
 
 
 i: MockClass6 = Class6()
+
+
+class Proto7(Protocol):
+    x: str
+
+
+class Class7(NamedTuple):
+    x: str
+
+
+# This should generate an error because the protocol
+# indicates that 'a' must be writable.
+a: Proto7 = Class7("")
+
+
+class Proto8(Protocol):
+    @property
+    def x(self) -> str:
+        ...
+
+
+class Class8(NamedTuple):
+    x: str
+
+
+b: Proto8 = Class8("")

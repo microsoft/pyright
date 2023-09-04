@@ -111,7 +111,7 @@ export function validateBinaryOperation(
     inferenceContext: InferenceContext | undefined,
     diag: DiagnosticAddendum,
     options: BinaryOperationOptions
-): Type | undefined {
+): Type {
     const leftType = leftTypeResult.type;
     const rightType = rightTypeResult.type;
     let type: Type | undefined;
@@ -481,7 +481,7 @@ export function validateBinaryOperation(
         }
     }
 
-    return type && isNever(type) ? undefined : type;
+    return type ?? UnknownType.create();
 }
 
 export function getTypeOfBinaryOperation(
@@ -714,7 +714,7 @@ export function getTypeOfBinaryOperation(
         { isLiteralMathAllowed, isTupleAddAllowed }
     );
 
-    if (!diag.isEmpty() || !type) {
+    if (!diag.isEmpty()) {
         typeErrors = true;
 
         if (!isIncomplete) {

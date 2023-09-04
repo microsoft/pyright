@@ -156,7 +156,7 @@ export class TypeWalker {
             }
         }
 
-        if (!this._isWalkCanceled && !FunctionType.isParamSpecValue(type)) {
+        if (!this._isWalkCanceled && !FunctionType.isParamSpecValue(type) && !FunctionType.isParamSpecValue(type)) {
             const returnType = type.details.declaredReturnType ?? type.inferredReturnType;
             if (returnType) {
                 this.walk(returnType);

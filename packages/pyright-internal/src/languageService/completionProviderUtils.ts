@@ -60,8 +60,8 @@ export interface CompletionDetail extends CommonDetail {
 
 export function getTypeDetail(
     evaluator: TypeEvaluator,
-    primaryDecl: Declaration | undefined,
     type: Type,
+    primaryDecl: Declaration | undefined,
     name: string,
     detail: SymbolDetail | undefined,
     functionSignatureDisplay: SignatureDisplayType

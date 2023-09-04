@@ -56,6 +56,7 @@ import {
     TypeFlags,
     TypeSameOptions,
     TypeVarScopeId,
+    TypeVarScopeType,
     TypeVarType,
     UnionType,
     UnknownType,
@@ -340,37 +341,43 @@ export function makeInferenceContext(
 }
 
 // Calls a callback for each subtype and combines the results
-// into a final type.
+// into a final type. It performs no memory allocations if the
+// transformed type is the same as the original.
 export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefined): Type {
     if (isUnion(type)) {
-        const newSubtypes: Type[] = [];
-        let typeChanged = false;
-
-        type.subtypes.forEach((subtype) => {
+        for (let i = 0; i < type.subtypes.length; i++) {
+            const subtype = type.subtypes[i];
             const transformedType = callback(subtype);
-            if (transformedType) {
-                if (transformedType !== subtype) {
-                    newSubtypes.push(addConditionToType(transformedType, getTypeCondition(type)));
-                    typeChanged = true;
-                } else {
-                    newSubtypes.push(subtype);
+
+            // Avoid doing any memory allocations until a change is detected.
+            if (subtype !== transformedType) {
+                const typesToCombine: Type[] = type.subtypes.slice(0, i);
+
+                // Create a helper lambda that accumulates transformed subtypes.
+                const accumulateSubtype = (newSubtype: Type | undefined) => {
+                    if (newSubtype) {
+                        typesToCombine.push(addConditionToType(newSubtype, getTypeCondition(type)));
+                    }
+                };
+
+                accumulateSubtype(transformedType);
+
+                for (i++; i < type.subtypes.length; i++) {
+                    accumulateSubtype(callback(type.subtypes[i]));
                 }
-            } else {
-                typeChanged = true;
+
+                const newType = combineTypes(typesToCombine);
+
+                // Do our best to retain type aliases.
+                if (newType.category === TypeCategory.Union) {
+                    UnionType.addTypeAliasSource(newType, type);
+                }
+
+                return newType;
             }
-        });
-
-        if (!typeChanged) {
-            return type;
         }
 
-        const newType = combineTypes(newSubtypes);
-
-        // Do our best to retain type aliases.
-        if (newType.category === TypeCategory.Union) {
-            UnionType.addTypeAliasSource(newType, type);
-        }
-        return newType;
+        return type;
     }
 
     const transformedSubtype = callback(type);
@@ -735,6 +742,7 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
                     type.typeAliasInfo.name,
                     type.typeAliasInfo.fullName,
                     type.typeAliasInfo.typeVarScopeId,
+                    type.typeAliasInfo.isPep695Syntax,
                     type.typeAliasInfo.typeParameters,
                     type.typeAliasInfo.typeArguments
                 );
@@ -938,7 +946,7 @@ export function isCallableType(type: Type): boolean {
             return true;
         }
 
-        const callMember = lookUpObjectMember(type, '__call__');
+        const callMember = lookUpObjectMember(type, '__call__', ClassMemberLookupFlags.SkipInstanceVariables);
         return !!callMember;
     }
 
@@ -991,13 +999,36 @@ export function isUnboundedTupleClass(type: ClassType) {
     );
 }
 
+// Indicates whether the specified index is within range and its type is unambiguous
+// in that it doesn't involve any element ranges that are of indeterminate length.
+export function isTupleIndexUnambiguous(type: ClassType, index: number) {
+    if (!type.tupleTypeArguments) {
+        return false;
+    }
+
+    if (index < 0) {
+        if (isUnboundedTupleClass(type) || type.tupleTypeArguments.length + index < 0) {
+            return false;
+        }
+    }
+
+    let unambiguousIndexLimit = type.tupleTypeArguments.findIndex(
+        (t) => t.isUnbounded || isUnpackedVariadicTypeVar(t.type)
+    );
+    if (unambiguousIndexLimit < 0) {
+        unambiguousIndexLimit = type.tupleTypeArguments.length;
+    }
+
+    return index < unambiguousIndexLimit;
+}
+
 // Partially specializes a type within the context of a specified
 // (presumably specialized) class. Optionally specializes the `Self`
 // type variables, replacing them with selfClass.
 export function partiallySpecializeType(
     type: Type,
     contextClassType: ClassType,
-    selfClass?: ClassType,
+    selfClass?: ClassType | TypeVarType,
     typeClassType?: Type
 ): Type {
     // If the context class is not specialized (or doesn't need specialization),
@@ -1019,7 +1050,7 @@ export function partiallySpecializeType(
 export function populateTypeVarContextForSelfType(
     typeVarContext: TypeVarContext,
     contextClassType: ClassType,
-    selfClass: ClassType
+    selfClass: ClassType | TypeVarType
 ) {
     const synthesizedSelfTypeVar = synthesizeTypeVarForSelfCls(contextClassType, /* isClsParam */ false);
     const selfInstance = convertToInstance(selfClass);
@@ -2066,6 +2097,7 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
             type.typeAliasInfo.name,
             type.typeAliasInfo.fullName,
             type.typeAliasInfo.typeVarScopeId,
+            type.typeAliasInfo.isPep695Syntax,
             type.typeAliasInfo.typeParameters,
             type.typeAliasInfo.typeArguments
         );
@@ -2117,6 +2149,7 @@ export function convertToInstantiable(type: Type, includeSubclasses = true): Typ
             type.typeAliasInfo.name,
             type.typeAliasInfo.fullName,
             type.typeAliasInfo.typeVarScopeId,
+            type.typeAliasInfo.isPep695Syntax,
             type.typeAliasInfo.typeParameters,
             type.typeAliasInfo.typeArguments
         );
@@ -2242,6 +2275,13 @@ export function containsAnyOrUnknown(type: Type, recurse: boolean): AnyType | Un
 
         override visitFunction(type: FunctionType) {
             if (this._recurse) {
+                // A function with a "..." type is effectively an "Any".
+                if (FunctionType.shouldSkipArgsKwargsCompatibilityCheck(type)) {
+                    this.anyOrUnknownType = this.anyOrUnknownType
+                        ? preserveUnknown(this.anyOrUnknownType, AnyType.create())
+                        : AnyType.create();
+                }
+
                 super.visitFunction(type);
             }
         }
@@ -3043,7 +3083,7 @@ export function convertParamSpecValueToType(paramSpecValue: FunctionType, omitPa
 // it to be replaced with something else.
 class TypeVarTransformer {
     private _isTransformingTypeArg = false;
-    private _pendingTypeVarTransformations = new Set<string>();
+    private _pendingTypeVarTransformations = new Set<TypeVarScopeId>();
     private _pendingFunctionTransformations: (FunctionType | OverloadedFunctionType)[] = [];
 
     apply(type: Type, recursionCount: number): Type {
@@ -3091,6 +3131,7 @@ class TypeVarTransformer {
                         type.typeAliasInfo.name,
                         type.typeAliasInfo.fullName,
                         type.typeAliasInfo.typeVarScopeId,
+                        type.typeAliasInfo.isPep695Syntax,
                         type.typeAliasInfo.typeParameters,
                         typeArgs
                     );
@@ -3101,11 +3142,10 @@ class TypeVarTransformer {
 
             let replacementType: Type = type;
 
-            // Recursively transform the results, but ensure that we don't replace the
-            // same type variable recursively by setting it in the
+            // Recursively transform the results, but ensure that we don't replace any
+            // type variables in the same scope recursively by setting it the scope in the
             // _pendingTypeVarTransformations set.
-            const typeVarName = TypeVarType.getNameWithScope(type);
-            if (!this._pendingTypeVarTransformations.has(typeVarName)) {
+            if (!this._isTypeVarScopePending(type.scopeId)) {
                 if (type.details.isParamSpec) {
                     if (!type.paramSpecAccess) {
                         const paramSpecValue = this.transformParamSpec(type, recursionCount);
@@ -3117,9 +3157,13 @@ class TypeVarTransformer {
                     replacementType = this.transformTypeVar(type, recursionCount) ?? type;
 
                     if (!this._isTransformingTypeArg) {
-                        this._pendingTypeVarTransformations.add(typeVarName);
+                        if (type.scopeId) {
+                            this._pendingTypeVarTransformations.add(type.scopeId);
+                        }
                         replacementType = this.apply(replacementType, recursionCount);
-                        this._pendingTypeVarTransformations.delete(typeVarName);
+                        if (type.scopeId) {
+                            this._pendingTypeVarTransformations.delete(type.scopeId);
+                        }
                     }
 
                     // If we're transforming a variadic type variable that was in a union,
@@ -3252,6 +3296,7 @@ class TypeVarTransformer {
                   type.typeAliasInfo.name,
                   type.typeAliasInfo.fullName,
                   type.typeAliasInfo.typeVarScopeId,
+                  type.typeAliasInfo.isPep695Syntax,
                   type.typeAliasInfo.typeParameters,
                   newTypeArgs
               )
@@ -3373,8 +3418,7 @@ class TypeVarTransformer {
                             specializationNeeded = true;
                         }
                     } else {
-                        const typeParamName = TypeVarType.getNameWithScope(typeParam);
-                        if (!this._pendingTypeVarTransformations.has(typeParamName)) {
+                        if (!this._isTypeVarScopePending(typeParam.scopeId)) {
                             const transformedType = this.transformTypeVar(typeParam, recursionCount);
                             replacementType = transformedType ?? typeParam;
 
@@ -3603,6 +3647,10 @@ class TypeVarTransformer {
             return newFunctionType;
         });
     }
+
+    private _isTypeVarScopePending(typeVarScopeId: TypeVarScopeId | undefined) {
+        return !!typeVarScopeId && this._pendingTypeVarTransformations.has(typeVarScopeId);
+    }
 }
 
 // For a TypeVar with a default type, validates whether the default type is using
@@ -3675,16 +3723,18 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
                 // Create new type variables with the same scope but with
                 // different (unique) names.
                 sourceType.details.typeParameters.forEach((typeParam) => {
-                    let replacement: Type = TypeVarType.cloneForNewName(
-                        typeParam,
-                        `${typeParam.details.name}(${offsetIndex})`
-                    );
+                    if (typeParam.scopeType === TypeVarScopeType.Function) {
+                        let replacement: Type = TypeVarType.cloneForNewName(
+                            typeParam,
+                            `${typeParam.details.name}(${offsetIndex})`
+                        );
 
-                    if (replacement.details.isParamSpec) {
-                        replacement = convertTypeToParamSpecValue(replacement);
+                        if (replacement.details.isParamSpec) {
+                            replacement = convertTypeToParamSpecValue(replacement);
+                        }
+
+                        typeVarContext.setTypeVarType(typeParam, replacement);
                     }
-
-                    typeVarContext.setTypeVarType(typeParam, replacement);
                 });
 
                 updatedSourceType = applySolvedTypeVars(sourceType, typeVarContext);
@@ -3717,19 +3767,6 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         // don't transform that type variable.
         if (typeVar.scopeId && this._typeVarContext.hasSolveForScope(typeVar.scopeId)) {
             let replacement = signatureContext.getTypeVarType(typeVar, !!this._options.useNarrowBoundOnly);
-
-            // If the type is unknown, see if there's a known wide bound that we can use.
-            if (
-                replacement &&
-                isUnknown(replacement) &&
-                !this._options.useNarrowBoundOnly &&
-                this._options.unknownIfNotFound
-            ) {
-                const entry = signatureContext.getTypeVar(typeVar);
-                if (entry?.wideBound) {
-                    replacement = entry?.wideBound;
-                }
-            }
 
             // If there was no narrow bound but there is a wide bound that
             // contains literals or a TypeVar, we'll use the wide bound even if
@@ -3772,6 +3809,15 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                             return subtype;
                         });
                     }
+                }
+
+                if (
+                    isTypeVar(replacement) &&
+                    typeVar.isVariadicInUnion &&
+                    replacement.details.isVariadic &&
+                    !replacement.isVariadicInUnion
+                ) {
+                    return TypeVarType.cloneForUnpacked(replacement, /* isInUnion */ true);
                 }
 
                 return replacement;

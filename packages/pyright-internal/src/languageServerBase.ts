@@ -119,10 +119,11 @@ import { canNavigateToFile } from './languageService/navigationUtils';
 import { ReferencesProvider } from './languageService/referencesProvider';
 import { SignatureHelpProvider } from './languageService/signatureHelpProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
-import { PyrightFileSystem, SupportUriToPathMapping } from './pyrightFileSystem';
+import { SupportUriToPathMapping } from './pyrightFileSystem';
 import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
 import { RenameProvider } from './languageService/renameProvider';
 import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvider';
+import { ServiceProvider } from './common/serviceProvider';
 
 export interface ServerSettings {
     venvPath?: string | undefined;
@@ -188,7 +189,7 @@ export interface ServerOptions {
     rootDirectory: string;
     version: string;
     cancellationProvider: CancellationProvider;
-    fileSystem: PyrightFileSystem;
+    serviceProvider: ServiceProvider;
     fileWatcherHandler: FileWatcherHandler;
     maxAnalysisTimeInForeground?: MaxAnalysisTime;
     disableChecker?: boolean;
@@ -198,7 +199,7 @@ export interface ServerOptions {
 }
 
 export interface WorkspaceServices {
-    fs: FileSystem;
+    fs: FileSystem | undefined;
     backgroundAnalysis: BackgroundAnalysisBase | undefined;
 }
 
@@ -338,19 +339,19 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     };
 
     protected defaultClientConfig: any;
-    protected workspaceFactory: WorkspaceFactory;
-    protected openFileMap = new Map<string, TextDocument>();
-    protected cacheManager: CacheManager;
 
-    protected uriMapper: SupportUriToPathMapping;
-    protected fs: FileSystem;
+    protected readonly workspaceFactory: WorkspaceFactory;
+    protected readonly openFileMap = new Map<string, TextDocument>();
+    protected readonly cacheManager: CacheManager;
 
-    protected uriParser: UriParser;
+    protected readonly uriMapper: SupportUriToPathMapping;
+    protected readonly fs: FileSystem;
+
+    readonly uriParser: UriParser;
 
     constructor(
         protected serverOptions: ServerOptions,
         protected connection: Connection,
-        readonly console: ConsoleInterface,
         uriParserFactory = (fs: FileSystem) => new UriParser(fs)
     ) {
         // Stash the base directory into a global variable.
@@ -367,8 +368,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         this.cacheManager = new CacheManager();
 
-        this.uriMapper = this.serverOptions.fileSystem;
-        this.fs = this.serverOptions.fileSystem;
+        this.uriMapper = this.serverOptions.serviceProvider.uriMapper();
+        this.fs = this.serverOptions.serviceProvider.fs();
 
         this.uriParser = uriParserFactory(this.fs);
 
@@ -399,6 +400,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         // Setup extensions
         Extensions.createLanguageServiceExtensions(this);
+    }
+
+    get console(): ConsoleInterface {
+        return this.serverOptions.serviceProvider.console();
     }
 
     // Provides access to the client's window.
@@ -435,7 +440,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.console.info(`Starting service instance "${name}"`);
 
         const serviceId = getNextServiceId(name);
-        const service = new AnalyzerService(name, services?.fs ?? this.fs, {
+        const service = new AnalyzerService(name, this.serverOptions.serviceProvider, {
             console: this.console,
             hostFactory: this.createHost.bind(this),
             importResolverFactory: this.createImportResolver.bind(this),
@@ -446,6 +451,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             libraryReanalysisTimeProvider,
             cacheManager: this.cacheManager,
             serviceId,
+            fileSystem: services?.fs ?? this.serverOptions.serviceProvider.fs(),
         });
 
         service.setCompletionCallback((results) => this.onAnalysisCompletedHandler(service.fs, results));
@@ -591,11 +597,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected abstract createHost(): Host;
-    protected abstract createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver;
+    protected abstract createImportResolver(
+        serviceProvider: ServiceProvider,
+        options: ConfigOptions,
+        host: Host
+    ): ImportResolver;
 
     protected createBackgroundAnalysisProgram(
         serviceId: string,
-        console: ConsoleInterface,
+        serviceProvider: ServiceProvider,
         configOptions: ConfigOptions,
         importResolver: ImportResolver,
         backgroundAnalysis?: BackgroundAnalysisBase,
@@ -604,7 +614,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     ): BackgroundAnalysisProgram {
         return new BackgroundAnalysisProgram(
             serviceId,
-            console,
+            serviceProvider,
             configOptions,
             importResolver,
             backgroundAnalysis,

@@ -11,6 +11,7 @@ class Run:
         status: Incomplete | None = None,
         scheduled_for: Incomplete | None = None,
         log: Incomplete | None = None,
+        flux: str | None = None,
         started_at: Incomplete | None = None,
         finished_at: Incomplete | None = None,
         requested_at: Incomplete | None = None,
@@ -36,6 +37,7 @@ class Run:
     def log(self): ...
     @log.setter
     def log(self, log) -> None: ...
+    flux: str | None
     @property
     def started_at(self): ...
     @started_at.setter

@@ -8,6 +8,7 @@ class Bar:
     bbb: int
     ccc: str
     aaa: str = "string"
+    __hash__: None
 
 
 bar1 = Bar(bbb=5, ccc="hello")

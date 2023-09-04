@@ -4,11 +4,11 @@
 from .import5 import *
 
 
-class Foo:
+class A:
     # This should generate an error.
     from .import5 import *
 
 
-def bar():
+def func1():
     # This should generate an error.
     from .import5 import *

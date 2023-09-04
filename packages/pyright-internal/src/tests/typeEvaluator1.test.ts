@@ -803,6 +803,12 @@ test('Call11', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Call12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call12.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('Function1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function1.py']);
 
@@ -819,12 +825,6 @@ test('Function3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function3.py']);
 
     TestUtils.validateResults(analysisResults, 1);
-});
-
-test('Function4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function4.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Function5', () => {
@@ -1239,7 +1239,7 @@ test('Optional2', () => {
 test('Tuple1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple1.py']);
 
-    TestUtils.validateResults(analysisResults, 15);
+    TestUtils.validateResults(analysisResults, 17);
 });
 
 test('Tuple2', () => {
@@ -1335,7 +1335,7 @@ test('Tuple17', () => {
 test('Tuple18', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple18.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('NamedTuple1', () => {
@@ -1466,6 +1466,12 @@ test('Self7', () => {
 
 test('Self8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self8.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Self9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self9.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

@@ -1,11 +1,14 @@
 from _typeshed import Incomplete, Unused
 from datetime import datetime
+from re import Pattern
 from typing import ClassVar, overload
 from typing_extensions import Literal, TypeAlias
 
+from openpyxl.descriptors import Strict
 from openpyxl.descriptors.base import (
     Alias,
     Bool,
+    Convertible,
     DateTime,
     Float,
     Integer,
@@ -20,6 +23,8 @@ from openpyxl.descriptors.base import (
 )
 from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..descriptors.base import _N
 
 _SortConditionSortBy: TypeAlias = Literal["value", "cellColor", "fontColor", "icon"]
 _IconSet: TypeAlias = Literal[
@@ -165,6 +170,18 @@ class DynamicFilter(Serialisable):
         valIso: datetime | str | None = None,
         maxVal: _ConvertibleToFloat | None = None,
         maxValIso: datetime | str | None = None,
+    ) -> None: ...
+
+class CustomFilterValueDescriptor(Convertible[float | str, _N]):
+    pattern: Pattern[str]
+    expected_type: type[float | str]
+    @overload  # type:ignore[override]  # Different restrictions
+    def __set__(
+        self: CustomFilterValueDescriptor[Literal[True]], instance: Serialisable | Strict, value: str | _ConvertibleToFloat | None
+    ) -> None: ...
+    @overload
+    def __set__(
+        self: CustomFilterValueDescriptor[Literal[False]], instance: Serialisable | Strict, value: str | _ConvertibleToFloat
     ) -> None: ...
 
 class CustomFilter(Serialisable):

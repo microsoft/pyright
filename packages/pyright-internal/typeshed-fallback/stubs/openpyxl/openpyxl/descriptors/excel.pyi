@@ -1,12 +1,10 @@
 from _typeshed import Incomplete
-from typing import ClassVar, TypeVar
+from typing import ClassVar
 from typing_extensions import Literal
 
 from . import Integer, MatchPattern, MinMax, Strict, String
+from .base import _M, _N
 from .serialisable import Serialisable
-
-_N = TypeVar("_N", bound=bool)
-_M = TypeVar("_M", int, float)
 
 class HexBinary(MatchPattern[str, Incomplete]):
     pattern: str

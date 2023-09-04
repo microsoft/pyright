@@ -17,12 +17,17 @@ export enum LogLevel {
     Info = 'info',
     Log = 'log',
 }
-
 export interface ConsoleInterface {
     error: (message: string) => void;
     warn: (message: string) => void;
     info: (message: string) => void;
     log: (message: string) => void;
+}
+
+export namespace ConsoleInterface {
+    export function is(obj: any): obj is ConsoleInterface {
+        return obj.error !== undefined && obj.warn !== undefined && obj.info !== undefined && obj.log !== undefined;
+    }
 }
 
 const levelMap = new Map([

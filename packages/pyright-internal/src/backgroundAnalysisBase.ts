@@ -11,7 +11,7 @@ import { MessageChannel, MessagePort, Worker, parentPort, threadId, workerData }
 
 import { AnalysisCompleteCallback, AnalysisResults, analyzeProgram, nullCallback } from './analyzer/analysis';
 import { ImportResolver } from './analyzer/importResolver';
-import { OpenFileOptions, Program, ISourceFileFactory } from './analyzer/program';
+import { OpenFileOptions, Program } from './analyzer/program';
 import {
     BackgroundThreadBase,
     InitializationData,
@@ -32,12 +32,11 @@ import { Diagnostic } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { Extensions } from './common/extensibility';
 import { disposeCancellationToken, getCancellationTokenFromId } from './common/fileBasedCancellationUtils';
-import { FileSystem } from './common/fileSystem';
 import { Host, HostKind } from './common/host';
 import { LogTracker } from './common/logTracker';
 import { Range } from './common/textRange';
 import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
-import { PyrightFileSystem } from './pyrightFileSystem';
+import { ServiceProvider } from './common/serviceProvider';
 
 export class BackgroundAnalysisBase {
     private _worker: Worker | undefined;
@@ -265,26 +264,20 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     protected importResolver: ImportResolver;
     protected logTracker: LogTracker;
 
-    protected constructor(fileSystem?: PyrightFileSystem, sourceFileFactory?: ISourceFileFactory) {
-        super(workerData as InitializationData, fileSystem);
+    protected constructor(serviceProvider: ServiceProvider) {
+        super(workerData as InitializationData, serviceProvider);
 
         // Stash the base directory into a global variable.
         const data = workerData as InitializationData;
         this.log(LogLevel.Info, `Background analysis(${threadId}) root directory: ${data.rootDirectory}`);
 
         this._configOptions = new ConfigOptions(data.rootDirectory);
-        this.importResolver = this.createImportResolver(this.fs, this._configOptions, this.createHost());
+        this.importResolver = this.createImportResolver(serviceProvider, this._configOptions, this.createHost());
 
         const console = this.getConsole();
         this.logTracker = new LogTracker(console, `BG(${threadId})`);
 
-        this._program = new Program(
-            this.importResolver,
-            this._configOptions,
-            console,
-            this.logTracker,
-            sourceFileFactory
-        );
+        this._program = new Program(this.importResolver, this._configOptions, serviceProvider, this.logTracker);
 
         // Create the extensions bound to the program for this background thread
         Extensions.createProgramExtensions(this._program, {
@@ -452,7 +445,11 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
     protected abstract createHost(): Host;
 
-    protected abstract createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver;
+    protected abstract createImportResolver(
+        serviceProvider: ServiceProvider,
+        options: ConfigOptions,
+        host: Host
+    ): ImportResolver;
 
     protected handleAnalyze(port: MessagePort, cancellationId: string, token: CancellationToken) {
         // Report files to analyze first.
@@ -517,14 +514,22 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 
     protected handleSetImportResolver(hostKind: HostKind) {
-        this.importResolver = this.createImportResolver(this.fs, this._configOptions, this.createHost());
+        this.importResolver = this.createImportResolver(
+            this.getServiceProvider(),
+            this._configOptions,
+            this.createHost()
+        );
         this.program.setImportResolver(this.importResolver);
     }
 
     protected handleSetConfigOptions(configOptions: ConfigOptions) {
         this._configOptions = configOptions;
 
-        this.importResolver = this.createImportResolver(this.fs, this._configOptions, this.importResolver.host);
+        this.importResolver = this.createImportResolver(
+            this.getServiceProvider(),
+            this._configOptions,
+            this.importResolver.host
+        );
         this.program.setConfigOptions(this._configOptions);
         this.program.setImportResolver(this.importResolver);
     }
@@ -585,7 +590,11 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 
     protected handleRestart() {
-        this.importResolver = this.createImportResolver(this.fs, this._configOptions, this.importResolver.host);
+        this.importResolver = this.createImportResolver(
+            this.getServiceProvider(),
+            this._configOptions,
+            this.importResolver.host
+        );
         this.program.setImportResolver(this.importResolver);
     }
 

@@ -274,7 +274,7 @@ export function getCodeFlowEngine(
                         'setIncompleteSubtype can be called only on a valid incomplete cache entry: ' +
                             `prev cache entry?: ${!cachedEntry} ` +
                             `index=${index} ` +
-                            `isPending=${isPending}` +
+                            `isPending=${isPending} ` +
                             `evaluationCount=${evaluationCount}`
                     );
                 }
@@ -956,16 +956,16 @@ export function getCodeFlowEngine(
                                             ? UnknownType.create(/* isIncomplete */ true)
                                             : NeverType.createNever()),
                                     flowTypeResult.isIncomplete,
-                                    /* isPending */ false,
+                                    /* isPending */ firstAntecedentTypeIsPending,
                                     entryEvaluationCount + 1
                                 );
                             } catch (e) {
-                                setIncompleteSubtype(
+                                cacheEntry = setIncompleteSubtype(
                                     loopNode,
                                     index,
                                     UnknownType.create(/* isIncomplete */ true),
                                     /* isIncomplete */ true,
-                                    /* isPending */ false,
+                                    /* isPending */ firstAntecedentTypeIsPending,
                                     entryEvaluationCount + 1
                                 );
                                 throw e;
@@ -1286,7 +1286,6 @@ export function getCodeFlowEngine(
                         FlowFlags.WildcardImport |
                         FlowFlags.TrueNeverCondition |
                         FlowFlags.FalseNeverCondition |
-                        FlowFlags.NarrowForPattern |
                         FlowFlags.ExhaustedMatch |
                         FlowFlags.PostFinally |
                         FlowFlags.PreFinallyGate |
@@ -1297,7 +1296,6 @@ export function getCodeFlowEngine(
                         | FlowAssignment
                         | FlowWildcardImport
                         | FlowExhaustedMatch
-                        | FlowNarrowForPattern
                         | FlowPostFinally
                         | FlowPreFinallyGate
                         | FlowCall;
@@ -1305,6 +1303,48 @@ export function getCodeFlowEngine(
                     continue;
                 }
 
+                // Handle a case statement with a class pattern.
+                if (curFlowNode.flags & FlowFlags.NarrowForPattern) {
+                    const narrowForPatternFlowNode = curFlowNode as FlowNarrowForPattern;
+                    if (narrowForPatternFlowNode.statement.nodeType === ParseNodeType.Case) {
+                        const subjectType = evaluator.getTypeOfExpression(
+                            narrowForPatternFlowNode.subjectExpression
+                        ).type;
+
+                        if (isCompatibleWithConstrainedTypeVar(subjectType, typeVar)) {
+                            const patternNode = narrowForPatternFlowNode.statement.pattern;
+
+                            if (
+                                patternNode.nodeType === ParseNodeType.PatternAs &&
+                                patternNode.orPatterns.length === 1 &&
+                                patternNode.orPatterns[0].nodeType === ParseNodeType.PatternClass
+                            ) {
+                                const classPatternNode = patternNode.orPatterns[0];
+
+                                const classType = evaluator.getTypeOfExpression(
+                                    classPatternNode.className,
+                                    EvaluatorFlags.CallBaseDefaults
+                                ).type;
+
+                                if (isInstantiableClass(classType)) {
+                                    const priorRemainingConstraints = narrowConstrainedTypeVarRecursive(
+                                        narrowForPatternFlowNode.antecedent,
+                                        typeVar
+                                    );
+
+                                    return priorRemainingConstraints.filter((subtype) =>
+                                        ClassType.isSameGenericClass(subtype, classType)
+                                    );
+                                }
+                            }
+                        }
+                    }
+
+                    curFlowNode = narrowForPatternFlowNode.antecedent;
+                    continue;
+                }
+
+                // Handle an isinstance type guard.
                 if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
                     const conditionFlowNode = curFlowNode as FlowCondition;
                     const testExpression = conditionFlowNode.expression;
@@ -1452,7 +1492,7 @@ export function getCodeFlowEngine(
             let subtypeCount = 0;
 
             // Evaluate the call base type.
-            const callTypeResult = evaluator.getTypeOfExpression(node.leftExpression, EvaluatorFlags.DoNotSpecialize);
+            const callTypeResult = evaluator.getTypeOfExpression(node.leftExpression, EvaluatorFlags.CallBaseDefaults);
             const callType = callTypeResult.type;
 
             doForEachSubtype(callType, (callSubtype) => {
@@ -1587,7 +1627,6 @@ export function getCodeFlowEngine(
         const returnType = functionType.details.declaredReturnType;
         if (returnType) {
             if (
-                FunctionType.isAsync(functionType) &&
                 isClassInstance(returnType) &&
                 ClassType.isBuiltIn(returnType, 'Coroutine') &&
                 returnType.typeArguments &&

@@ -10,7 +10,6 @@ class ResourceMember(UserResponse):
         self,
         role: str = "member",
         id: Incomplete | None = None,
-        oauth_id: Incomplete | None = None,
         name: Incomplete | None = None,
         status: str = "active",
         links: Incomplete | None = None,

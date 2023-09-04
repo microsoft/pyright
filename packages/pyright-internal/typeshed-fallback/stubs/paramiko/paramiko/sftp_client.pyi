@@ -53,9 +53,21 @@ class SFTPClient(BaseSFTP, ClosingContextManager):
     def put(
         self, localpath: StrOrBytesPath, remotepath: bytes | str, callback: _Callback | None = None, confirm: bool = True
     ) -> SFTPAttributes: ...
-    def getfo(self, remotepath: bytes | str, fl: IO[bytes], callback: _Callback | None = None, prefetch: bool = True) -> int: ...
+    def getfo(
+        self,
+        remotepath: bytes | str,
+        fl: IO[bytes],
+        callback: _Callback | None = None,
+        prefetch: bool = True,
+        max_concurrent_prefetch_requests: int | None = None,
+    ) -> int: ...
     def get(
-        self, remotepath: bytes | str, localpath: StrOrBytesPath, callback: _Callback | None = None, prefetch: bool = True
+        self,
+        remotepath: bytes | str,
+        localpath: StrOrBytesPath,
+        callback: _Callback | None = None,
+        prefetch: bool = True,
+        max_concurrent_prefetch_requests: int | None = None,
     ) -> None: ...
 
 class SFTP(SFTPClient): ...

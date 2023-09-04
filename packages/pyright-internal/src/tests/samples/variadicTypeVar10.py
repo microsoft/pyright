@@ -62,4 +62,6 @@ def func4(y: Array[Any, Unpack[tuple[Any, ...]]]):
     reveal_type(y, expected_text="Array[Any, *tuple[Any, ...]]")
     expect_variadic_array1(y)
     expect_variadic_array2(y)
+
+    # This should generate an error because of a tuple size mismatch.
     expect_precise_array(y)

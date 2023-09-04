@@ -15,6 +15,8 @@ def func2():
         pass
     except Exception:
         pass
+    except ():
+        pass
     # This should generate an error.
     except PermissionError:
         pass

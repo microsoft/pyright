@@ -9,11 +9,16 @@ from .base import Alias, Descriptor
 
 class Sequence(Descriptor[Incomplete]):
     expected_type: type[Incomplete]
-    seq_types: Incomplete
+    seq_types: tuple[type, ...]
     idx_base: int
     unique: bool
+    container: type
     def __set__(self, instance: Serialisable | Strict, seq) -> None: ...
     def to_tree(self, tagname, obj, namespace: str | None = None) -> Generator[Incomplete, None, None]: ...
+
+class UniqueSequence(Sequence):
+    seq_types: tuple[type, ...]
+    container: type
 
 class ValueSequence(Sequence):
     attribute: str

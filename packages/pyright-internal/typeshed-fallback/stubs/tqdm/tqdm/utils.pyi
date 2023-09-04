@@ -1,5 +1,5 @@
 from _typeshed import Incomplete
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from re import Pattern
 from typing import Protocol, TypeVar
 from typing_extensions import ParamSpec
@@ -53,3 +53,6 @@ class CallbackIOWrapper(ObjectWrapper):
 
 def disp_len(data: str) -> int: ...
 def disp_trim(data: str, length: int) -> str: ...
+def envwrap(
+    prefix: str, types: Mapping[str, Callable[[Incomplete], Incomplete]] | None = None, is_method: bool = False
+) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]: ...

@@ -124,6 +124,10 @@ export interface TypeAliasInfo {
     fullName: string;
     typeVarScopeId: TypeVarScopeId;
 
+    // Indicates whether the type alias was declared with the
+    // "type" syntax introduced in PEP 695.
+    isPep695Syntax: boolean;
+
     // Type parameters, if type alias is generic
     typeParameters?: TypeVarType[] | undefined;
 
@@ -260,6 +264,7 @@ export namespace TypeBase {
         name: string,
         fullName: string,
         typeVarScopeId: TypeVarScopeId,
+        isPep695Syntax: boolean,
         typeParams?: TypeVarType[],
         typeArgs?: Type[]
     ): Type {
@@ -271,6 +276,7 @@ export namespace TypeBase {
             typeParameters: typeParams,
             typeArguments: typeArgs,
             typeVarScopeId,
+            isPep695Syntax,
         };
 
         return typeClone;
@@ -542,6 +548,9 @@ export const enum ClassTypeFlags {
 
     // For dataclasses, should __hash__ be generated?
     SynthesizeDataClassUnsafeHash = 1 << 26,
+
+    // Decorated with @type_check_only.
+    TypeCheckOnly = 1 << 27,
 }
 
 export interface DataClassBehaviors {
@@ -839,6 +848,13 @@ export namespace ClassType {
         return newClassType;
     }
 
+    export function cloneWithNewFlags(classType: ClassType, newFlags: ClassTypeFlags): ClassType {
+        const newClassType = TypeBase.cloneType(classType);
+        newClassType.details = { ...newClassType.details };
+        newClassType.details.flags = newFlags;
+        return newClassType;
+    }
+
     export function isLiteralValueSame(type1: ClassType, type2: ClassType): boolean {
         if (type1.literalValue === undefined) {
             return type2.literalValue === undefined;
@@ -986,6 +1002,10 @@ export namespace ClassType {
 
     export function isSynthesizeDataClassUnsafeHash(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.SynthesizeDataClassUnsafeHash);
+    }
+
+    export function isTypeCheckOnly(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.TypeCheckOnly);
     }
 
     export function isTypedDictClass(classType: ClassType) {
@@ -1274,6 +1294,9 @@ export const enum FunctionTypeFlags {
     // Method has no declaration in user code, it's synthesized; used
     // for implied methods such as those used in namedtuple, dataclass, etc.
     SynthesizedMethod = 1 << 6,
+
+    // Decorated with @type_check_only.
+    TypeCheckOnly = 1 << 7,
 
     // Function is decorated with @overload
     Overloaded = 1 << 8,
@@ -1647,6 +1670,7 @@ export namespace FunctionType {
                 });
             }
 
+            newFunction.details.paramSpecTypeVarScopeId = paramSpecValue.details.typeVarScopeId;
             newFunction.details.paramSpec = paramSpecValue.details.paramSpec;
         }
 
@@ -1881,6 +1905,10 @@ export namespace FunctionType {
 
     export function isSynthesizedMethod(type: FunctionType): boolean {
         return (type.details.flags & FunctionTypeFlags.SynthesizedMethod) !== 0;
+    }
+
+    export function isTypeCheckOnly(type: FunctionType): boolean {
+        return (type.details.flags & FunctionTypeFlags.TypeCheckOnly) !== 0;
     }
 
     export function isOverloaded(type: FunctionType): boolean {
@@ -2309,6 +2337,7 @@ export interface TypeVarDetails {
     // Used for recursive type aliases.
     recursiveTypeAliasName?: string | undefined;
     recursiveTypeAliasScopeId?: TypeVarScopeId | undefined;
+    recursiveTypeAliasIsPep695Syntax?: boolean;
 
     // Type parameters for a recursive type alias.
     recursiveTypeParameters?: TypeVarType[] | undefined;

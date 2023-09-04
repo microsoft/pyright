@@ -185,10 +185,19 @@ def func13(
     v13[0]
 
     v14 = e[0]
-    reveal_type(v14, expected_text="int | str | float")
+    reveal_type(v14, expected_text="int")
 
-    v15 = f[0]
-    reveal_type(v15, expected_text="int | Union[*Ts@func13] | float")
+    v15 = e[1]
+    reveal_type(v15, expected_text="int | str | float")
+
+    v16 = f[0]
+    reveal_type(v16, expected_text="int")
+
+    v17 = f[1]
+    reveal_type(v17, expected_text="int | Union[*Ts@func13] | float")
+
+    v18 = f[-1]
+    reveal_type(v18, expected_text="int | Union[*Ts@func13] | float")
 
 
 def func14():
@@ -205,11 +214,16 @@ def func16(var: tuple[int, int]) -> str:
     raise NotImplementedError
 
 
-def func17(var: tuple[int, int, int]) -> str:
+def func17(var: tuple[int, ...]) -> str:
     raise NotImplementedError
 
 
-f: Callable[[tuple[int, ...]], str]
-f = func15
-f = func16
-f = func17
+f1: Callable[[tuple[int, ...]], str]
+
+# This should generate an error.
+f1 = func15
+
+# This should generate an error.
+f1 = func16
+
+f1 = func17

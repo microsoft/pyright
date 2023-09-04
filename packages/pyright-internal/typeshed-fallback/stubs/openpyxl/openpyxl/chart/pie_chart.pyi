@@ -30,9 +30,10 @@ class _PieChartBase(ChartBase):
 
 class PieChart(_PieChartBase):
     tagname: ClassVar[str]
-    varyColors: Incomplete
-    ser: Incomplete
-    dLbls: Incomplete
+    # Same as parent
+    # varyColors = _PieChartBase.varyColors
+    # ser = _PieChartBase.ser
+    # dLbls = _PieChartBase.dLbls
     firstSliceAng: NestedMinMax[float, Literal[False]]
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
@@ -42,17 +43,19 @@ class PieChart(_PieChartBase):
 
 class PieChart3D(_PieChartBase):
     tagname: ClassVar[str]
-    varyColors: Incomplete
-    ser: Incomplete
-    dLbls: Incomplete
+    # Same as parent
+    # varyColors = _PieChartBase.varyColors
+    # ser = _PieChartBase.ser
+    # dLbls = _PieChartBase.dLbls
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
 
 class DoughnutChart(_PieChartBase):
     tagname: ClassVar[str]
-    varyColors: Incomplete
-    ser: Incomplete
-    dLbls: Incomplete
+    # Same as parent
+    # varyColors = _PieChartBase.varyColors
+    # ser = _PieChartBase.ser
+    # dLbls = _PieChartBase.dLbls
     firstSliceAng: NestedMinMax[float, Literal[False]]
     holeSize: NestedMinMax[float, Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]
@@ -73,9 +76,10 @@ class CustomSplit(Serialisable):
 
 class ProjectedPieChart(_PieChartBase):
     tagname: ClassVar[str]
-    varyColors: Incomplete
-    ser: Incomplete
-    dLbls: Incomplete
+    # Same as parent
+    # varyColors = _PieChartBase.varyColors
+    # ser = _PieChartBase.ser
+    # dLbls = _PieChartBase.dLbls
     ofPieType: NestedSet[_ProjectedPieChartOfPieType]
     type: Alias
     gapWidth: Incomplete

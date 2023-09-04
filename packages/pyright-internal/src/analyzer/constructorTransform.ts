@@ -36,6 +36,7 @@ import {
 } from './types';
 import {
     applySolvedTypeVars,
+    ClassMemberLookupFlags,
     convertToInstance,
     getTypeVarScopeId,
     lookUpObjectMember,
@@ -78,7 +79,11 @@ function applyPartialTransform(
         return result;
     }
 
-    const callMemberResult = lookUpObjectMember(result.returnType, '__call__');
+    const callMemberResult = lookUpObjectMember(
+        result.returnType,
+        '__call__',
+        ClassMemberLookupFlags.SkipInstanceVariables
+    );
     if (!callMemberResult || !isTypeSame(convertToInstance(callMemberResult.classType), result.returnType)) {
         return result;
     }

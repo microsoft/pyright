@@ -446,6 +446,32 @@ ${singleTick}FooBar${singleTick} is interesting.
     _testConvertToMarkdown(docstring, markdown);
 });
 
+test('CodeBlockDirective', () => {
+    const docstring = `Take a look at this 
+    .. code-block:: Python
+
+    if foo:
+        print(foo)
+    else:
+        print('not foo!')
+
+This text comes after.
+`;
+
+    const markdown = `Take a look at this
+${tripleTick}
+
+    if foo:
+        print(foo)
+    else:
+        print('not foo!')
+${tripleTick}
+
+This text comes after.`;
+
+    _testConvertToMarkdown(docstring, markdown);
+});
+
 test('UnfinishedBacktickBlock', () => {
     const docstring = '```\nsomething\n';
 

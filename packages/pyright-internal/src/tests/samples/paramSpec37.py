@@ -5,6 +5,7 @@ from typing import Any, Callable, Protocol, TypeVar, ParamSpec
 
 P = ParamSpec("P")
 R = TypeVar("R")
+T = TypeVar("T")
 
 
 class ClassA(Protocol[R]):
@@ -12,8 +13,17 @@ class ClassA(Protocol[R]):
         ...
 
 
+def noop(v: T) -> T:
+    return v
+
+
 def func1(maker: Callable[P, R]) -> ClassA[R]:
     def inner(n: int, /, *args: P.args, **kwargs: P.kwargs) -> list[R]:
+        reveal_type(args, expected_text="P.args")
+        reveal_type(noop(args), expected_text="P.args")
+        reveal_type(kwargs, expected_text="P.kwargs")
+        reveal_type(noop(kwargs), expected_text="P.kwargs")
+
         return [maker(*args, **kwargs) for _ in range(n)]
 
     return inner

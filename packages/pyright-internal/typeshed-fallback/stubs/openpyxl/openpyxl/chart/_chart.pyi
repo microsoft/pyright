@@ -5,6 +5,7 @@ from typing_extensions import Literal, TypeAlias
 from openpyxl.chart.layout import Layout
 from openpyxl.chart.legend import Legend
 from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.chart.title import TitleDescriptor
 from openpyxl.descriptors.base import Alias, Bool, Integer, MinMax, Set, Typed, _ConvertibleToInt
 from openpyxl.descriptors.serialisable import Serialisable
 
@@ -25,7 +26,7 @@ class ChartBase(Serialisable):
     display_blanks: Set[_ChartBaseDisplayBlanks]
     ser: Incomplete
     series: Alias
-    title: Incomplete
+    title: TitleDescriptor
     anchor: str
     width: int
     height: float

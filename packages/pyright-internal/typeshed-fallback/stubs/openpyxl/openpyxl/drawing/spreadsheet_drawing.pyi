@@ -56,13 +56,14 @@ class AbsoluteAnchor(_AnchorBase):
     tagname: ClassVar[str]
     pos: Typed[XDRPoint2D, Literal[False]]
     ext: Typed[XDRPositiveSize2D, Literal[False]]
-    sp: Incomplete
-    grpSp: Incomplete
-    graphicFrame: Incomplete
-    cxnSp: Incomplete
-    pic: Incomplete
-    contentPart: Incomplete
-    clientData: Incomplete
+    # Same as parent
+    # sp = _AnchorBase.sp
+    # grpSp = _AnchorBase.grpSp
+    # graphicFrame = _AnchorBase.graphicFrame
+    # cxnSp = _AnchorBase.cxnSp
+    # pic = _AnchorBase.pic
+    # contentPart = _AnchorBase.contentPart
+    # clientData = _AnchorBase.clientData
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, pos: XDRPoint2D | None = None, ext: XDRPositiveSize2D | None = None, **kw) -> None: ...
 
@@ -70,13 +71,14 @@ class OneCellAnchor(_AnchorBase):
     tagname: ClassVar[str]
     _from: Typed[AnchorMarker, Literal[False]]  # Not private. Avoids name clash
     ext: Typed[XDRPositiveSize2D, Literal[False]]
-    sp: Incomplete
-    grpSp: Incomplete
-    graphicFrame: Incomplete
-    cxnSp: Incomplete
-    pic: Incomplete
-    contentPart: Incomplete
-    clientData: Incomplete
+    # Same as parent
+    # sp = _AnchorBase.sp
+    # grpSp = _AnchorBase.grpSp
+    # graphicFrame = _AnchorBase.graphicFrame
+    # cxnSp = _AnchorBase.cxnSp
+    # pic = _AnchorBase.pic
+    # contentPart = _AnchorBase.contentPart
+    # clientData = _AnchorBase.clientData
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, _from: AnchorMarker | None = None, ext: XDRPositiveSize2D | None = None, **kw) -> None: ...
 
@@ -85,13 +87,14 @@ class TwoCellAnchor(_AnchorBase):
     editAs: NoneSet[_TwoCellAnchorEditAs]
     _from: Typed[AnchorMarker, Literal[False]]  # Not private. Avoids name clash
     to: Typed[AnchorMarker, Literal[False]]
-    sp: Incomplete
-    grpSp: Incomplete
-    graphicFrame: Incomplete
-    cxnSp: Incomplete
-    pic: Incomplete
-    contentPart: Incomplete
-    clientData: Incomplete
+    # Same as parent
+    # sp = _AnchorBase.sp
+    # grpSp = _AnchorBase.grpSp
+    # graphicFrame = _AnchorBase.graphicFrame
+    # cxnSp = _AnchorBase.cxnSp
+    # pic = _AnchorBase.pic
+    # contentPart = _AnchorBase.contentPart
+    # clientData = _AnchorBase.clientData
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,

@@ -27,7 +27,7 @@ test('Module2', () => {
 test('Ellipsis1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['ellipsis1.pyi']);
 
-    TestUtils.validateResults(analysisResults, 11);
+    TestUtils.validateResults(analysisResults, 10);
 });
 
 test('Generator1', () => {
@@ -39,7 +39,7 @@ test('Generator1', () => {
 test('Generator2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator2.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Generator3', () => {
@@ -793,6 +793,12 @@ test('Classes10', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Classes11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes11.py']);
+
+    TestUtils.validateResults(analysisResults, 5);
+});
+
 test('Methods1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methods1.py']);
 
@@ -1063,7 +1069,7 @@ test('VariadicTypeVar10', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar10.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('VariadicTypeVar11', () => {
@@ -1159,7 +1165,7 @@ test('VariadicTypeVar22', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar22.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('VariadicTypeVar23', () => {
@@ -1170,12 +1176,20 @@ test('VariadicTypeVar23', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('VariadicTypeVar24', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar24.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Match1', () => {
     const configOptions = new ConfigOptions('.');
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['match1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 18);
+    TestUtils.validateResults(analysisResults, 21);
 });
 
 test('Match2', () => {
@@ -1508,7 +1522,19 @@ test('Constructor25', () => {
 test('Constructor26', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor26.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 8);
+});
+
+test('Constructor27', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor27.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Constructor28', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor28.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('InconsistentConstructor1', () => {
@@ -1664,34 +1690,4 @@ test('Decorator7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator7.py']);
 
     TestUtils.validateResults(analysisResults, 0);
-});
-
-test('DataclassTransform1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform1.py']);
-
-    TestUtils.validateResults(analysisResults, 6);
-});
-
-test('DataclassTransform2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform2.py']);
-
-    TestUtils.validateResults(analysisResults, 6);
-});
-
-test('DataclassTransform3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform3.py']);
-
-    TestUtils.validateResults(analysisResults, 6);
-});
-
-test('DataclassTransform4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform4.py']);
-
-    TestUtils.validateResults(analysisResults, 1);
-});
-
-test('Async1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['async1.py']);
-
-    TestUtils.validateResults(analysisResults, 6);
 });

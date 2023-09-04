@@ -6,7 +6,7 @@ import types
 from typing import TypeVar
 
 
-_T = TypeVar("_T", str, ellipsis)
+_T = TypeVar("_T", str, type(Ellipsis))
 
 
 def func1(val: int | ellipsis):

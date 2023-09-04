@@ -2,17 +2,17 @@ from _typeshed import Incomplete, Unused
 from typing import ClassVar, overload
 from typing_extensions import Literal, TypeAlias
 
+from openpyxl import _VisibilityType
 from openpyxl.descriptors.base import Bool, Integer, NoneSet, String, Typed, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
 
-_BookViewVilibility: TypeAlias = Literal["visible", "hidden", "veryHidden"]
 _CustomWorkbookViewShowComments: TypeAlias = Literal["commNone", "commIndicator", "commIndAndComment"]
 _CustomWorkbookViewShowObjects: TypeAlias = Literal["all", "placeholders"]
 
 class BookView(Serialisable):
     tagname: ClassVar[str]
-    visibility: NoneSet[_BookViewVilibility]
+    visibility: NoneSet[_VisibilityType]
     minimized: Bool[Literal[True]]
     showHorizontalScroll: Bool[Literal[True]]
     showVerticalScroll: Bool[Literal[True]]
@@ -29,7 +29,7 @@ class BookView(Serialisable):
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
-        visibility: _BookViewVilibility | Literal["none"] | None = "visible",
+        visibility: _VisibilityType | Literal["none"] | None = "visible",
         minimized: _ConvertibleToBool | None = False,
         showHorizontalScroll: _ConvertibleToBool | None = True,
         showVerticalScroll: _ConvertibleToBool | None = True,

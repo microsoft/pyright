@@ -35,12 +35,13 @@ import {
 } from '../../../workspaceFactory';
 import { TestAccessHost } from '../testAccessHost';
 import { HostSpecificFeatures } from './testState';
+import { ServiceProvider } from '../../../common/serviceProvider';
 
 export class TestFeatures implements HostSpecificFeatures {
     importResolverFactory: ImportResolverFactory = AnalyzerService.createImportResolver;
     backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory = (
         serviceId: string,
-        console: ConsoleInterface,
+        serviceProvider: ServiceProvider,
         configOptions: ConfigOptions,
         importResolver: ImportResolver,
         backgroundAnalysis?: BackgroundAnalysisBase,
@@ -49,7 +50,7 @@ export class TestFeatures implements HostSpecificFeatures {
     ) =>
         new BackgroundAnalysisProgram(
             serviceId,
-            console,
+            serviceProvider,
             configOptions,
             importResolver,
             backgroundAnalysis,
@@ -95,17 +96,19 @@ export class TestLanguageService implements LanguageServerInterface {
             pythonPath: undefined,
             pythonPathKind: WorkspacePythonPathKind.Mutable,
             kinds: [WellKnownWorkspaceKinds.Test],
-            service: new AnalyzerService('test service', this.fs, {
+            service: new AnalyzerService('test service', new ServiceProvider(), {
                 console: this.console,
                 hostFactory: () => new TestAccessHost(),
                 importResolverFactory: AnalyzerService.createImportResolver,
                 configOptions: new ConfigOptions('.'),
+                fileSystem: this.fs,
             }),
             disableLanguageServices: false,
             disableOrganizeImports: false,
             disableWorkspaceSymbol: false,
             isInitialized: createInitStatus(),
             searchPathsToWatch: [],
+            pythonEnvironmentName: undefined,
         };
     }
 

@@ -66,7 +66,7 @@ export interface ReadOnlyFileSystem {
 
     getUri(path: string): string;
 
-    isInZipOrEgg(path: string): boolean;
+    isInZip(path: string): boolean;
 }
 
 export interface FileSystem extends ReadOnlyFileSystem {
@@ -85,6 +85,12 @@ export interface FileSystem extends ReadOnlyFileSystem {
     tmpdir(): string;
     tmpfile(options?: TmpfileOptions): string;
     dispose(): void;
+}
+
+export namespace FileSystem {
+    export function is(value: any): value is FileSystem {
+        return value.createFileSystemWatcher && value.createReadStream && value.createWriteStream && value.copyFileSync;
+    }
 }
 
 export class VirtualDirent implements fs.Dirent {

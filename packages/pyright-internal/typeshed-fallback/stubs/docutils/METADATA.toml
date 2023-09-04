@@ -1,4 +1,5 @@
 version = "0.20.*"
+upstream_repository = "https://sourceforge.net/p/docutils/code"
 partial_stub = true
 
 [tool.stubtest]

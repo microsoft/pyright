@@ -6,19 +6,19 @@
 * Language service extensibility.
 */
 
-import { CancellationToken, CompletionList, ExecuteCommandParams } from 'vscode-languageserver';
+import { CancellationToken } from 'vscode-languageserver';
 
 import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { Declaration } from '../analyzer/declaration';
 import { ImportResolver } from '../analyzer/importResolver';
 import * as prog from '../analyzer/program';
+import * as src from '../analyzer/sourceFileInfo';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { LanguageServerBase, LanguageServerInterface } from '../languageServerBase';
-import { CompletionOptions } from '../languageService/completionProvider';
 import { ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { ConfigOptions, SignatureDisplayType } from './configOptions';
+import { ConfigOptions } from './configOptions';
 import { ConsoleInterface } from './console';
 import { ReadOnlyFileSystem } from './fileSystem';
 import { Range } from './textRange';
@@ -27,11 +27,10 @@ import { Diagnostic } from '../common/diagnostic';
 import { IPythonMode } from '../analyzer/sourceFile';
 
 export interface LanguageServiceExtension {
-    readonly commandExtension?: CommandExtension;
+    // empty
 }
 
 export interface ProgramExtension {
-    readonly completionListExtension?: CompletionListExtension;
     readonly declarationProviderExtension?: DeclarationProviderExtension;
 
     fileDirty?: (filePath: string) => void;
@@ -89,6 +88,7 @@ export interface ProgramView {
     getSourceFileInfoList(): readonly SourceFileInfo[];
     getParseResults(filePath: string): ParseResults | undefined;
     getSourceFileInfo(filePath: string): SourceFileInfo | undefined;
+    getChainedFilePath(filePath: string): string | undefined;
     getSourceMapper(
         filePath: string,
         token: CancellationToken,
@@ -101,7 +101,7 @@ export interface ProgramView {
     getDiagnosticsForRange(filePath: string, range: Range): Diagnostic[];
 
     // See whether we can get rid of these methods
-    getBoundSourceFileInfo(file: string, content?: string, force?: boolean): prog.SourceFileInfo | undefined;
+    getBoundSourceFileInfo(file: string, content?: string, force?: boolean): src.SourceFileInfo | undefined;
     handleMemoryHighUsage(): void;
     clone(): prog.Program;
 }
@@ -112,6 +112,7 @@ export interface ProgramView {
 export interface EditableProgram extends ProgramView {
     addInterimFile(file: string): void;
     setFileOpened(filePath: string, version: number | null, contents: string, options?: prog.OpenFileOptions): void;
+    updateChainedFilePath(filePath: string, chainedFilePath: string | undefined): void;
 }
 
 // Mutable wrapper around a program. Allows the FG thread to forward this request to the BG thread
@@ -138,37 +139,6 @@ export interface ProgramMutator {
 export interface ExtensionFactory {
     createProgramExtension?: (view: ProgramView, mutator: ProgramMutator) => ProgramExtension;
     createLanguageServiceExtension?: (languageserver: LanguageServerInterface) => LanguageServiceExtension;
-}
-
-export interface CommandExtension {
-    // Prefix to tell extension commands from others.
-    // For example, 'myextension'. Command name then
-    // should be 'myextension.command'.
-    readonly commandPrefix: string;
-
-    // Extension executes command
-    executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<void>;
-}
-
-export interface ExtensionInfo {
-    readonly correlationId: string;
-    readonly selectedItemTelemetryTimeInMS: number;
-    readonly itemTelemetryTimeInMS: number;
-    readonly totalTimeInMS: number;
-}
-
-export interface CompletionListExtension {
-    // Extension updates completion list provided by the application.
-    updateCompletionResults(
-        evaluator: TypeEvaluator,
-        sourceMapper: SourceMapper,
-        options: CompletionOptions,
-        completionResults: CompletionList | null,
-        parseResults: ParseResults,
-        position: number,
-        functionSignatureDisplay: SignatureDisplayType,
-        token: CancellationToken
-    ): Promise<ExtensionInfo | undefined>;
 }
 
 export enum DeclarationUseCase {

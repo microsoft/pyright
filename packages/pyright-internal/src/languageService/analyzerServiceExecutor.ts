@@ -36,7 +36,8 @@ export class AnalyzerServiceExecutor {
             workspace.rootPath,
             serverSettings,
             trackFiles,
-            typeStubTargetImportName
+            typeStubTargetImportName,
+            workspace.pythonEnvironmentName
         );
 
         // Setting options causes the analyzer service to re-analyze everything.
@@ -93,7 +94,8 @@ function getEffectiveCommandLineOptions(
     workspaceRootPath: string,
     serverSettings: ServerSettings,
     trackFiles: boolean,
-    typeStubTargetImportName?: string
+    typeStubTargetImportName?: string,
+    pythonEnvironmentName?: string
 ) {
     const commandLineOptions = new CommandLineOptions(workspaceRootPath, true);
     commandLineOptions.checkOnlyOpenFiles = serverSettings.openFilesOnly;
@@ -105,6 +107,7 @@ function getEffectiveCommandLineOptions(
     commandLineOptions.logTypeEvaluationTime = serverSettings.logTypeEvaluationTime ?? false;
     commandLineOptions.typeEvaluationTimeThreshold = serverSettings.typeEvaluationTimeThreshold ?? 50;
     commandLineOptions.enableAmbientAnalysis = trackFiles;
+    commandLineOptions.pythonEnvironmentName = pythonEnvironmentName;
 
     if (!trackFiles) {
         commandLineOptions.watchForSourceChanges = false;

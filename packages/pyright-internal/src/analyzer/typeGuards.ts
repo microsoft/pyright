@@ -63,8 +63,11 @@ import {
 import {
     addConditionToType,
     applySolvedTypeVars,
+    AssignTypeFlags,
     ClassMember,
+    ClassMemberLookupFlags,
     computeMroLinearization,
+    containsAnyOrUnknown,
     convertToInstance,
     convertToInstantiable,
     doForEachSubtype,
@@ -202,7 +205,7 @@ export function getTypeNarrowingCallback(
                     if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                         const callType = evaluator.getTypeOfExpression(
                             testExpression.leftExpression.leftExpression,
-                            EvaluatorFlags.DoNotSpecialize
+                            EvaluatorFlags.CallBaseDefaults
                         ).type;
 
                         if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'type')) {
@@ -410,7 +413,7 @@ export function getTypeNarrowingCallback(
                 if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                     const callTypeResult = evaluator.getTypeOfExpression(
                         testExpression.leftExpression.leftExpression,
-                        EvaluatorFlags.DoNotSpecialize
+                        EvaluatorFlags.CallBaseDefaults
                     );
                     const callType = callTypeResult.type;
 
@@ -561,7 +564,7 @@ export function getTypeNarrowingCallback(
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.leftExpression,
-                    EvaluatorFlags.DoNotSpecialize
+                    EvaluatorFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
 
@@ -634,7 +637,7 @@ export function getTypeNarrowingCallback(
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.leftExpression,
-                    EvaluatorFlags.DoNotSpecialize
+                    EvaluatorFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
 
@@ -669,7 +672,7 @@ export function getTypeNarrowingCallback(
             if (ParseTreeUtils.isMatchingExpression(reference, testExpression.arguments[0].valueExpression)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.leftExpression,
-                    EvaluatorFlags.DoNotSpecialize
+                    EvaluatorFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
 
@@ -701,7 +704,7 @@ export function getTypeNarrowingCallback(
 
                 const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.leftExpression,
-                    EvaluatorFlags.DoNotSpecialize
+                    EvaluatorFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
 
@@ -932,26 +935,100 @@ function narrowTypeForUserDefinedTypeGuard(
         return isPositiveTest ? typeGuardType : type;
     }
 
-    // For strict type guards, narrow the current type.
+    // For strict type guards, narrow the type.
     return mapSubtypes(type, (subtype) => {
-        return mapSubtypes(typeGuardType, (typeGuardSubtype) => {
-            const isSubType = evaluator.assignType(typeGuardType, subtype);
-            const isSuperType = evaluator.assignType(subtype, typeGuardSubtype);
-
-            if (isPositiveTest) {
-                if (isSubType) {
+        if (isPositiveTest) {
+            // In the positive case, we need to compute the intersection of "type"
+            // and "typeGuardType". If we assume "type" is a union of (A1 | A2 | ... | An)
+            // and "typeGuardType" is a union of (B1 | B2 | ... | Bn), then the intersection
+            // of the two is the union of the intersection of all combinations of A's and B's.
+            // For each pair, if A and B are the same type, the intersection is that type.
+            // If A is a proper subtype of B or vice versa, the intersection is the narrower of
+            // the two. If A and B have no commonality, the intersection is Never.
+            // If A and B are not the same type but A and B are mutually "subtypes" of each
+            // other, that means they don't follow the normal subtyping rules. In this case,
+            // we'll try to pick the one that has the most information (i.e. doesn't contain
+            // an Any or Unknown).
+            return mapSubtypes(typeGuardType, (typeGuardSubtype) => {
+                if (isTypeSame(subtype, typeGuardSubtype, { ignorePseudoGeneric: true, treatAnySameAsUnknown: true })) {
                     return subtype;
-                } else if (isSuperType) {
+                }
+
+                const isSubtype = evaluator.assignType(typeGuardSubtype, subtype);
+                const isSupertype = evaluator.assignType(subtype, typeGuardSubtype);
+
+                if (isSubtype) {
+                    if (!isSupertype) {
+                        return subtype;
+                    }
+
+                    // It's both a subtype and a supertype and it's not the same type.
+                    // That means it's some combination of types that don't follow subtyping
+                    // rules. Try to retain as much information as possible. If one of the
+                    // two types contains an Any and the other does not, use the one that doesn't.
+                    return containsAnyOrUnknown(typeGuardSubtype, /* recurse */ true) ? subtype : typeGuardSubtype;
+                }
+
+                if (isSupertype) {
                     return typeGuardSubtype;
                 }
-            } else {
-                if (!isSubType && !isSubType) {
-                    return subtype;
-                }
+
+                // The types have nothing in common.
+                return undefined;
+            });
+        } else {
+            // In the negative case, we need to compute the intersection of "type" and
+            // the negation of "typeGuardType". The type system doesn't have support for
+            // type negations, so the actual result will necessarily be broader than the
+            // theoretically-correct result.
+            // If "type" is a union of (A1 | A2 | ... | An) and "typeGuardType" is a union
+            // of (B1 | B2 | ... | Bn), then the intersection of "type" and !"typeGuardType"
+            // is (A1 & !B1 & !B2 & ... & !Bn) | (A2 & !B1 & !B2 & ... & !Bn) | ... |.
+            // This means we can eliminate an A only if we can show that it doesn't
+            // share any commonality with any of the B's.
+            let canBeEliminated = false;
+
+            if (!isAnyOrUnknown(subtype)) {
+                doForEachSubtype(typeGuardType, (typeGuardSubtype) => {
+                    if (
+                        isTypeSame(subtype, typeGuardSubtype, {
+                            ignorePseudoGeneric: true,
+                            treatAnySameAsUnknown: true,
+                        })
+                    ) {
+                        canBeEliminated = true;
+                    } else {
+                        const isSubtype = evaluator.assignType(typeGuardSubtype, subtype);
+                        const isSupertype = evaluator.assignType(subtype, typeGuardSubtype);
+
+                        if (isSubtype && !isAnyOrUnknown(typeGuardSubtype)) {
+                            if (!isSupertype) {
+                                canBeEliminated = true;
+                            } else {
+                                // In this case, there is not a clear subtype relationship between
+                                // "subtype" and "typeGuardSubtype". We'll use a heuristic to produce
+                                // a result that is not unexpected. If the typeGuardSubtype is a gradual
+                                // type (contains Any) but the subtype does not, we'll eliminate the
+                                // subtype. For example, if the typeGuardSubtype is "list[Any]" and
+                                // the subtype is "list[str]", we'll eliminate "list[str]". If the types
+                                // are reversed, we don't want to eliminate "list[Any]".
+                                const subtypeContainsAny = containsAnyOrUnknown(subtype, /* recurse */ true);
+                                const typeGuardSubtypeContainsAny = containsAnyOrUnknown(
+                                    typeGuardSubtype,
+                                    /* recurse */ true
+                                );
+
+                                if (!subtypeContainsAny && typeGuardSubtypeContainsAny) {
+                                    canBeEliminated = true;
+                                }
+                            }
+                        }
+                    }
+                });
             }
 
-            return undefined;
-        });
+            return canBeEliminated ? undefined : subtype;
+        }
     });
 }
 
@@ -1284,7 +1361,16 @@ function narrowTypeForIsInstance(
                         // we haven't learned anything new about the variable type.
                         filteredTypes.push(addConditionToType(varType, constraints));
                     } else if (filterIsSubclass) {
-                        if (evaluator.assignType(varType, filterType)) {
+                        if (
+                            evaluator.assignType(
+                                varType,
+                                filterType,
+                                /* diag */ undefined,
+                                /* destTypeVarContext */ undefined,
+                                /* srcTypeVarContext */ undefined,
+                                AssignTypeFlags.IgnoreTypeVarScope
+                            )
+                        ) {
                             // If the variable type is a superclass of the isinstance
                             // filter, we can narrow the type to the subclass.
                             let specializedFilterType = filterType;
@@ -1337,6 +1423,18 @@ function narrowTypeForIsInstance(
                         // the two types.
                         const className = `<subclass of ${varType.details.name} and ${concreteFilterType.details.name}>`;
                         const fileInfo = getFileInfo(errorNode);
+
+                        // The effective metaclass of the intersection is the narrower of the two metaclasses.
+                        let effectiveMetaclass = varType.details.effectiveMetaclass;
+                        if (concreteFilterType.details.effectiveMetaclass) {
+                            if (
+                                !effectiveMetaclass ||
+                                evaluator.assignType(effectiveMetaclass, concreteFilterType.details.effectiveMetaclass)
+                            ) {
+                                effectiveMetaclass = concreteFilterType.details.effectiveMetaclass;
+                            }
+                        }
+
                         let newClassType = ClassType.createInstantiable(
                             className,
                             ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
@@ -1345,7 +1443,7 @@ function narrowTypeForIsInstance(
                             ClassTypeFlags.None,
                             ParseTreeUtils.getTypeSourceId(errorNode),
                             /* declaredMetaclass */ undefined,
-                            varType.details.effectiveMetaclass,
+                            effectiveMetaclass,
                             varType.details.docString
                         );
                         newClassType.details.baseClasses = [ClassType.cloneAsInstantiable(varType), concreteFilterType];
@@ -1427,7 +1525,11 @@ function narrowTypeForIsInstance(
                         if (TypeBase.isInstantiable(unexpandedType)) {
                             isCallable = true;
                         } else {
-                            isCallable = !!lookUpClassMember(varType, '__call__');
+                            isCallable = !!lookUpClassMember(
+                                varType,
+                                '__call__',
+                                ClassMemberLookupFlags.SkipInstanceVariables
+                            );
                         }
                     }
 
@@ -1470,7 +1572,16 @@ function narrowTypeForIsInstance(
             for (const filterType of classTypeList) {
                 const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
 
-                if (evaluator.assignType(varType, convertToInstance(concreteFilterType))) {
+                if (
+                    evaluator.assignType(
+                        varType,
+                        convertToInstance(concreteFilterType),
+                        /* diag */ undefined,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
+                        AssignTypeFlags.IgnoreTypeVarScope
+                    )
+                ) {
                     // If the filter type is a Callable, use the original type. If the
                     // filter type is a callback protocol, use the filter type.
                     if (isFunction(filterType)) {
@@ -2105,6 +2216,10 @@ function narrowTypeForClassComparison(
             }
 
             if (isClassInstance(concreteSubtype) && TypeBase.isInstance(subtype)) {
+                if (ClassType.isBuiltIn(concreteSubtype, 'type')) {
+                    return classType;
+                }
+
                 return undefined;
             }
 
@@ -2238,7 +2353,12 @@ function narrowTypeForCallable(
                 }
 
                 // See if the object is callable.
-                const callMemberType = lookUpClassMember(subtype, '__call__');
+                const callMemberType = lookUpClassMember(
+                    subtype,
+                    '__call__',
+                    ClassMemberLookupFlags.SkipInstanceVariables
+                );
+
                 if (!callMemberType) {
                     if (!isPositiveTest) {
                         return subtype;

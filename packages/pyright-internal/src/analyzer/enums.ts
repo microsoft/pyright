@@ -38,10 +38,13 @@ import {
     Type,
     UnknownType,
     combineTypes,
+    findSubtype,
+    isAny,
     isClass,
     isClassInstance,
     isFunction,
     isInstantiableClass,
+    isOverloadedFunction,
 } from './types';
 
 export function isKnownEnumType(className: string) {
@@ -352,6 +355,12 @@ export function transformTypeForPossibleEnumClass(
         isMemberOfEnumeration = false;
     }
 
+    // The enum spec doesn't explicitly specify this, but it
+    // appears that callables are excluded.
+    if (!findSubtype(valueType, (subtype) => !isFunction(subtype) && !isOverloadedFunction(subtype))) {
+        isMemberOfEnumeration = false;
+    }
+
     if (isMemberOfEnumeration) {
         const enumLiteral = new EnumLiteral(
             enumClassInfo.classType.details.fullName,
@@ -437,6 +446,15 @@ export function getTypeOfEnumMember(
 
         if (literalValue) {
             assert(literalValue instanceof EnumLiteral);
+
+            // If there is no known value type for this literal value,
+            // return undefined. This will cause the caller to fall back
+            // on the definition of `value` within the class definition
+            // (if present).
+            if (isAny(literalValue.itemType)) {
+                return undefined;
+            }
+
             return { type: literalValue.itemType, isIncomplete };
         }
 

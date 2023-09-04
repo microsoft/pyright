@@ -12,6 +12,7 @@ class DBRP:
         database: Incomplete | None = None,
         retention_policy: Incomplete | None = None,
         default: Incomplete | None = None,
+        virtual: bool | None = None,
         links: Incomplete | None = None,
     ) -> None: ...
     @property
@@ -38,6 +39,7 @@ class DBRP:
     def default(self): ...
     @default.setter
     def default(self, default) -> None: ...
+    virtual: bool | None
     @property
     def links(self): ...
     @links.setter

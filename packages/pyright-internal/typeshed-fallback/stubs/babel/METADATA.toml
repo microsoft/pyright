@@ -1,8 +1,0 @@
-version = "2.11.*"
-upstream_repository = "https://github.com/python-babel/babel"
-requires = ["types-pytz", "types-setuptools"]
-obsolete_since = "2.12.1" # Released on 2023-02-28
-partial_stub = true
-
-[tool.stubtest]
-ignore_missing_stub = true

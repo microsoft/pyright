@@ -10,6 +10,8 @@ import { AnalyzerService } from './analyzer/service';
 import { ConsoleInterface } from './common/console';
 import { createDeferred } from './common/deferred';
 import { UriParser } from './common/uriParser';
+import { comparePaths } from './common/pathUtils';
+import { Comparison } from './common/core';
 
 let WorkspaceFactoryIdCounter = 0;
 
@@ -86,6 +88,7 @@ export interface Workspace {
     searchPathsToWatch: string[];
     pythonPath: string | undefined;
     pythonPathKind: WorkspacePythonPathKind;
+    pythonEnvironmentName: string | undefined;
 }
 
 export class WorkspaceFactory {
@@ -179,7 +182,12 @@ export class WorkspaceFactory {
             }
 
             // If the python path has changed, we may need to move the immutable files to the correct workspace.
-            if (originalPythonPath && originalPythonPath !== newPythonPath && workspaceInMap) {
+            if (
+                originalPythonPath &&
+                (newPythonPath === undefined ||
+                    comparePaths(originalPythonPath, newPythonPath) !== Comparison.EqualTo) &&
+                workspaceInMap
+            ) {
                 // Potentially move immutable files from one workspace to another.
                 this._moveImmutableFilesToCorrectWorkspace(originalPythonPath, workspaceInMap);
             }
@@ -406,6 +414,7 @@ export class WorkspaceFactory {
             disableWorkspaceSymbol: false,
             isInitialized: createInitStatus(),
             searchPathsToWatch: [],
+            pythonEnvironmentName: pythonPath,
         };
 
         // Stick in our map
@@ -435,8 +444,10 @@ export class WorkspaceFactory {
         }
     }
 
-    private _getDefaultWorskpaceKey(pythonPath: string | undefined) {
-        return `${this._defaultWorkspacePath}:${pythonPath ? pythonPath : WorkspacePythonPathKind.Mutable}`;
+    private _getDefaultWorkspaceKey(pythonPath: string | undefined) {
+        return `${this._defaultWorkspacePath}:${
+            pythonPath !== undefined ? pythonPath : WorkspacePythonPathKind.Mutable
+        }`;
     }
 
     private _getWorkspaceKey(value: Workspace) {
@@ -464,7 +475,11 @@ export class WorkspaceFactory {
         await bestInstance.isInitialized.promise;
 
         // If this best instance doesn't match the pythonPath, then we need to create a new one.
-        if (pythonPath !== undefined && bestInstance.pythonPath !== pythonPath) {
+        if (
+            pythonPath !== undefined &&
+            (bestInstance.pythonPath === undefined ||
+                comparePaths(bestInstance.pythonPath, pythonPath) !== Comparison.EqualTo)
+        ) {
             bestInstance = this._createImmutableCopy(bestInstance, pythonPath);
         }
 
@@ -476,7 +491,11 @@ export class WorkspaceFactory {
         let bestInstance = this._getBestWorkspaceForFile(filePath, pythonPath);
 
         // If this best instance doesn't match the pythonPath, then we need to create a new one.
-        if (pythonPath !== undefined && bestInstance.pythonPath !== pythonPath) {
+        if (
+            pythonPath !== undefined &&
+            (bestInstance.pythonPath === undefined ||
+                comparePaths(bestInstance.pythonPath, pythonPath) !== Comparison.EqualTo)
+        ) {
             bestInstance = this._createImmutableCopy(bestInstance, pythonPath);
         }
 
@@ -567,7 +586,7 @@ export class WorkspaceFactory {
 
     private _getOrCreateDefaultWorkspace(pythonPath: string | undefined): Workspace {
         // Default key depends upon the pythonPath
-        let defaultWorkspace = this._map.get(this._getDefaultWorskpaceKey(pythonPath));
+        let defaultWorkspace = this._map.get(this._getDefaultWorkspaceKey(pythonPath));
         if (!defaultWorkspace) {
             // Create a default workspace for files that are outside
             // of all workspaces.

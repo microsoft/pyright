@@ -16,7 +16,10 @@ class Foo(Generic[_T, _T_co, _T_contra]):
     # This should generate an error because covariant
     # TypeVars are not allowed for input parameters.
     def func2(self, a: _T_co):
-        pass
+        def inner(b: _T_co) -> None:
+            pass
+
+        return inner
 
     def func3(self, a: int | _T_co):
         pass

@@ -5,6 +5,7 @@ from typing_extensions import Literal, TypeAlias
 from openpyxl.chart.layout import Layout
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.text import RichText, Text
+from openpyxl.chart.title import Title, TitleDescriptor
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.nested import (
@@ -70,7 +71,7 @@ class _BaseAxis(Serialisable):
     axPos: NestedSet[_BaseAxisAxPos]
     majorGridlines: Typed[ChartLines, Literal[True]]
     minorGridlines: Typed[ChartLines, Literal[True]]
-    title: Incomplete
+    title: TitleDescriptor
     numFmt: Incomplete
     number_format: Alias
     majorTickMark: NestedNoneSet[_BaseAxisTickMark]
@@ -93,7 +94,7 @@ class _BaseAxis(Serialisable):
         axPos: _HasTagAndGet[_BaseAxisAxPos] | _BaseAxisAxPos,
         majorGridlines: ChartLines | None,
         minorGridlines: ChartLines | None,
-        title: Incomplete | None,
+        title: str | Title | None,
         numFmt: Incomplete | None,
         majorTickMark: _NestedNoneSetParam[_BaseAxisTickMark],
         minorTickMark: _NestedNoneSetParam[_BaseAxisTickMark],
@@ -113,7 +114,7 @@ class _BaseAxis(Serialisable):
         axPos: _HasTagAndGet[_BaseAxisAxPos] | _BaseAxisAxPos = "l",
         majorGridlines: ChartLines | None = None,
         minorGridlines: ChartLines | None = None,
-        title: Incomplete | None = None,
+        title: str | Title | None = None,
         numFmt: Incomplete | None = None,
         majorTickMark: Incomplete | None = None,
         minorTickMark: Incomplete | None = None,
@@ -164,22 +165,23 @@ class DisplayUnitsLabelList(Serialisable):
 
 class NumericAxis(_BaseAxis):
     tagname: ClassVar[str]
-    axId: Incomplete
-    scaling: Incomplete
-    delete: Incomplete
-    axPos: Incomplete
-    majorGridlines: Incomplete
-    minorGridlines: Incomplete
-    title: Incomplete
-    numFmt: Incomplete
-    majorTickMark: Incomplete
-    minorTickMark: Incomplete
-    tickLblPos: Incomplete
-    spPr: Incomplete
-    txPr: Incomplete
-    crossAx: Incomplete
-    crosses: Incomplete
-    crossesAt: Incomplete
+    # Same as parent
+    # axId = _BaseAxis.axId
+    # scaling = _BaseAxis.scaling
+    # delete = _BaseAxis.delete
+    # axPos = _BaseAxis.axPos
+    # majorGridlines = _BaseAxis.majorGridlines
+    # minorGridlines = _BaseAxis.minorGridlines
+    # title = _BaseAxis.title
+    # numFmt = _BaseAxis.numFmt
+    # majorTickMark = _BaseAxis.majorTickMark
+    # minorTickMark = _BaseAxis.minorTickMark
+    # tickLblPos = _BaseAxis.tickLblPos
+    # spPr = _BaseAxis.spPr
+    # txPr = _BaseAxis.txPr
+    # crossAx = _BaseAxis.crossAx
+    # crosses = _BaseAxis.crosses
+    # crossesAt = _BaseAxis.crossesAt
     crossBetween: NestedNoneSet[_NumericAxisCrossBetween]
     majorUnit: NestedFloat[Literal[True]]
     minorUnit: NestedFloat[Literal[True]]
@@ -200,22 +202,23 @@ class NumericAxis(_BaseAxis):
 
 class TextAxis(_BaseAxis):
     tagname: ClassVar[str]
-    axId: Incomplete
-    scaling: Incomplete
-    delete: Incomplete
-    axPos: Incomplete
-    majorGridlines: Incomplete
-    minorGridlines: Incomplete
-    title: Incomplete
-    numFmt: Incomplete
-    majorTickMark: Incomplete
-    minorTickMark: Incomplete
-    tickLblPos: Incomplete
-    spPr: Incomplete
-    txPr: Incomplete
-    crossAx: Incomplete
-    crosses: Incomplete
-    crossesAt: Incomplete
+    # Same as parent
+    # axId = _BaseAxis.axId
+    # scaling = _BaseAxis.scaling
+    # delete = _BaseAxis.delete
+    # axPos = _BaseAxis.axPos
+    # majorGridlines = _BaseAxis.majorGridlines
+    # minorGridlines = _BaseAxis.minorGridlines
+    # title = _BaseAxis.title
+    # numFmt = _BaseAxis.numFmt
+    # majorTickMark = _BaseAxis.majorTickMark
+    # minorTickMark = _BaseAxis.minorTickMark
+    # tickLblPos = _BaseAxis.tickLblPos
+    # spPr = _BaseAxis.spPr
+    # txPr = _BaseAxis.txPr
+    # crossAx = _BaseAxis.crossAx
+    # crosses = _BaseAxis.crosses
+    # crossesAt = _BaseAxis.crossesAt
     auto: NestedBool[Literal[True]]
     lblAlgn: NestedNoneSet[_TextAxisLblAlgn]
     lblOffset: NestedMinMax[float, Literal[False]]
@@ -238,22 +241,23 @@ class TextAxis(_BaseAxis):
 
 class DateAxis(TextAxis):
     tagname: ClassVar[str]
-    axId: Incomplete
-    scaling: Incomplete
-    delete: Incomplete
-    axPos: Incomplete
-    majorGridlines: Incomplete
-    minorGridlines: Incomplete
-    title: Incomplete
-    numFmt: Incomplete
-    majorTickMark: Incomplete
-    minorTickMark: Incomplete
-    tickLblPos: Incomplete
-    spPr: Incomplete
-    txPr: Incomplete
-    crossAx: Incomplete
-    crosses: Incomplete
-    crossesAt: Incomplete
+    # Same as parent and grandparent
+    # axId = _BaseAxis.axId
+    # scaling = _BaseAxis.scaling
+    # delete = _BaseAxis.delete
+    # axPos = _BaseAxis.axPos
+    # majorGridlines = _BaseAxis.majorGridlines
+    # minorGridlines = _BaseAxis.minorGridlines
+    # title = _BaseAxis.title
+    # numFmt = _BaseAxis.numFmt
+    # majorTickMark = _BaseAxis.majorTickMark
+    # minorTickMark = _BaseAxis.minorTickMark
+    # tickLblPos = _BaseAxis.tickLblPos
+    # spPr = _BaseAxis.spPr
+    # txPr = _BaseAxis.txPr
+    # crossAx = _BaseAxis.crossAx
+    # crosses = _BaseAxis.crosses
+    # crossesAt = _BaseAxis.crossesAt
     auto: NestedBool[Literal[True]]
     lblOffset: NestedInteger[Literal[True]]  # type: ignore[assignment]
     baseTimeUnit: NestedNoneSet[_DateAxisTimeUnit]
@@ -278,22 +282,23 @@ class DateAxis(TextAxis):
 
 class SeriesAxis(_BaseAxis):
     tagname: ClassVar[str]
-    axId: Incomplete
-    scaling: Incomplete
-    delete: Incomplete
-    axPos: Incomplete
-    majorGridlines: Incomplete
-    minorGridlines: Incomplete
-    title: Incomplete
-    numFmt: Incomplete
-    majorTickMark: Incomplete
-    minorTickMark: Incomplete
-    tickLblPos: Incomplete
-    spPr: Incomplete
-    txPr: Incomplete
-    crossAx: Incomplete
-    crosses: Incomplete
-    crossesAt: Incomplete
+    # Same as parent
+    # axId = _BaseAxis.axId
+    # scaling = _BaseAxis.scaling
+    # delete = _BaseAxis.delete
+    # axPos = _BaseAxis.axPos
+    # majorGridlines = _BaseAxis.majorGridlines
+    # minorGridlines = _BaseAxis.minorGridlines
+    # title = _BaseAxis.title
+    # numFmt = _BaseAxis.numFmt
+    # majorTickMark = _BaseAxis.majorTickMark
+    # minorTickMark = _BaseAxis.minorTickMark
+    # tickLblPos = _BaseAxis.tickLblPos
+    # spPr = _BaseAxis.spPr
+    # txPr = _BaseAxis.txPr
+    # crossAx = _BaseAxis.crossAx
+    # crosses = _BaseAxis.crosses
+    # crossesAt = _BaseAxis.crossesAt
     tickLblSkip: NestedInteger[Literal[True]]
     tickMarkSkip: NestedInteger[Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]

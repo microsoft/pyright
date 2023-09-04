@@ -62,3 +62,8 @@ class DChild3(CChild, D):
 d1 = DChild1("", 1)
 d2 = DChild2("")
 d3 = DChild3()
+
+
+class E:
+    def __new__(cls) -> "E":
+        return super(type, cls).__new__(cls)

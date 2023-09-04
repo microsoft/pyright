@@ -18,6 +18,7 @@ export enum DiagnosticRule {
     strictParameterNoneValue = 'strictParameterNoneValue',
     enableExperimentalFeatures = 'enableExperimentalFeatures',
     enableTypeIgnoreComments = 'enableTypeIgnoreComments',
+    deprecateTypingAliases = 'deprecateTypingAliases',
 
     reportGeneralTypeIssues = 'reportGeneralTypeIssues',
     reportPropertyTypeMismatch = 'reportPropertyTypeMismatch',

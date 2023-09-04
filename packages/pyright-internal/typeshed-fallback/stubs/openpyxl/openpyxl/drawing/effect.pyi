@@ -1,4 +1,3 @@
-from _typeshed import Incomplete
 from typing import ClassVar, overload
 from typing_extensions import Literal, TypeAlias
 
@@ -117,12 +116,13 @@ class AlphaBiLevelEffect(Serialisable):
 
 class GlowEffect(ColorChoice):
     rad: Float[Literal[False]]
-    scrgbClr: Incomplete
-    srgbClr: Incomplete
-    hslClr: Incomplete
-    sysClr: Incomplete
-    schemeClr: Incomplete
-    prstClr: Incomplete
+    # Same as parent
+    # scrgbClr = ColorChoice.scrgbClr
+    # srgbClr = ColorChoice.srgbClr
+    # hslClr = ColorChoice.hslClr
+    # sysClr = ColorChoice.sysClr
+    # schemeClr = ColorChoice.schemeClr
+    # prstClr = ColorChoice.prstClr
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, rad: _ConvertibleToFloat, **kw) -> None: ...
 
@@ -130,12 +130,13 @@ class InnerShadowEffect(ColorChoice):
     blurRad: Float[Literal[False]]
     dist: Float[Literal[False]]
     dir: Integer[Literal[False]]
-    scrgbClr: Incomplete
-    srgbClr: Incomplete
-    hslClr: Incomplete
-    sysClr: Incomplete
-    schemeClr: Incomplete
-    prstClr: Incomplete
+    # Same as parent
+    # scrgbClr = ColorChoice.scrgbClr
+    # srgbClr = ColorChoice.srgbClr
+    # hslClr = ColorChoice.hslClr
+    # sysClr = ColorChoice.sysClr
+    # schemeClr = ColorChoice.schemeClr
+    # prstClr = ColorChoice.prstClr
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, blurRad: _ConvertibleToFloat, dist: _ConvertibleToFloat, dir: _ConvertibleToInt, **kw) -> None: ...
 
@@ -150,12 +151,13 @@ class OuterShadow(ColorChoice):
     ky: Integer[Literal[True]]
     algn: Set[_Algn]
     rotWithShape: Bool[Literal[True]]
-    scrgbClr: Incomplete
-    srgbClr: Incomplete
-    hslClr: Incomplete
-    sysClr: Incomplete
-    schemeClr: Incomplete
-    prstClr: Incomplete
+    # Same as parent
+    # scrgbClr = ColorChoice.scrgbClr
+    # srgbClr = ColorChoice.srgbClr
+    # hslClr = ColorChoice.hslClr
+    # sysClr = ColorChoice.sysClr
+    # schemeClr = ColorChoice.schemeClr
+    # prstClr = ColorChoice.prstClr
     __elements__: ClassVar[tuple[str, ...]]
     @overload
     def __init__(
@@ -191,12 +193,13 @@ class PresetShadowEffect(ColorChoice):
     prst: Set[_PresetShadowEffectPrst]
     dist: Float[Literal[False]]
     dir: Integer[Literal[False]]
-    scrgbClr: Incomplete
-    srgbClr: Incomplete
-    hslClr: Incomplete
-    sysClr: Incomplete
-    schemeClr: Incomplete
-    prstClr: Incomplete
+    # Same as parent
+    # scrgbClr = ColorChoice.scrgbClr
+    # srgbClr = ColorChoice.srgbClr
+    # hslClr = ColorChoice.hslClr
+    # sysClr = ColorChoice.sysClr
+    # schemeClr = ColorChoice.schemeClr
+    # prstClr = ColorChoice.prstClr
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, prst: _PresetShadowEffectPrst, dist: _ConvertibleToFloat, dir: _ConvertibleToInt, **kw) -> None: ...
 

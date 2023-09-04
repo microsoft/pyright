@@ -501,23 +501,51 @@ test('RegionComments1', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
-// For now, this functionality is disabled.
+test('Deprecated1', () => {
+    const configOptions = new ConfigOptions('.');
 
-// test('Deprecated1', () => {
-//     const configOptions = new ConfigOptions('.');
+    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['deprecated1.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0, 0, 0, undefined, undefined, 0);
 
-//     configOptions.defaultPythonVersion = PythonVersion.V3_8;
-//     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['deprecated1.py'], configOptions);
-//     TestUtils.validateResults(analysisResults1, 0, 0, 0, 0, 0);
+    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated1.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 0, 0, 0, undefined, undefined, 0);
 
-//     configOptions.defaultPythonVersion = PythonVersion.V3_9;
-//     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated1.py'], configOptions);
-//     TestUtils.validateResults(analysisResults2, 0, 0, 0, 0, 11);
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults3 = TestUtils.typeAnalyzeSampleFiles(['deprecated1.py'], configOptions);
+    TestUtils.validateResults(analysisResults3, 0, 0, 0, undefined, undefined, 0);
 
-//     configOptions.defaultPythonVersion = PythonVersion.V3_10;
-//     const analysisResults3 = TestUtils.typeAnalyzeSampleFiles(['deprecated1.py'], configOptions);
-//     TestUtils.validateResults(analysisResults3, 0, 0, 0, 0, 13);
-// });
+    // Now enable the deprecateTypingAliases setting.
+    configOptions.diagnosticRuleSet.deprecateTypingAliases = true;
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    const analysisResults4 = TestUtils.typeAnalyzeSampleFiles(['deprecated1.py'], configOptions);
+    TestUtils.validateResults(analysisResults4, 0, 0, 0, undefined, undefined, 0);
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    const analysisResults5 = TestUtils.typeAnalyzeSampleFiles(['deprecated1.py'], configOptions);
+    TestUtils.validateResults(analysisResults5, 0, 0, 0, undefined, undefined, 45);
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults6 = TestUtils.typeAnalyzeSampleFiles(['deprecated1.py'], configOptions);
+    TestUtils.validateResults(analysisResults6, 0, 0, 0, undefined, undefined, 49);
+
+    // Now change reportDeprecated to emit an error.
+    configOptions.diagnosticRuleSet.reportDeprecated = 'error';
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    const analysisResults7 = TestUtils.typeAnalyzeSampleFiles(['deprecated1.py'], configOptions);
+    TestUtils.validateResults(analysisResults7, 0, 0, 0, undefined, undefined, 0);
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    const analysisResults8 = TestUtils.typeAnalyzeSampleFiles(['deprecated1.py'], configOptions);
+    TestUtils.validateResults(analysisResults8, 45, 0, 0, undefined, undefined, 0);
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults9 = TestUtils.typeAnalyzeSampleFiles(['deprecated1.py'], configOptions);
+    TestUtils.validateResults(analysisResults9, 49, 0, 0, undefined, undefined, 0);
+});
 
 test('Deprecated2', () => {
     const configOptions = new ConfigOptions('.');

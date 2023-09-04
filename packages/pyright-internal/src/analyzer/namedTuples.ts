@@ -327,6 +327,13 @@ export function createNamedTupleType(
                 // the named tuple statically.
                 addGenericGetAttribute = true;
             }
+
+            if (entriesArg.valueExpression && !addGenericGetAttribute) {
+                // Set the type of the value expression node to Any so we don't attempt to
+                // re-evaluate it later, potentially generating "partially unknown" errors
+                // in strict mode.
+                evaluator.setTypeForNode(entriesArg.valueExpression, AnyType.create());
+            }
         }
     }
 

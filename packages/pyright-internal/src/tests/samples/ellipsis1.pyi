@@ -8,8 +8,7 @@ _T1 = TypeVar("_T1")
 class MyGenericClass1(Generic[_T1]):
     pass
 
-# This should generate two errors because ... cannot be used
-# in a Generic list and it's not a type variable.
+# This should generate an error because ... is not a type variable.
 class MyGenericClass2(Generic[_T1, ...]):
     pass
 

@@ -100,9 +100,9 @@ export const enum EvaluatorFlags {
     // used in an outer scope.
     DisallowTypeVarsWithScopeId = 1 << 11,
 
-    // TypeVars within this expression must refer to type vars
+    // TypeVars within this expression do not need to refer to type vars
     // used in an outer scope.
-    DisallowTypeVarsWithoutScopeId = 1 << 12,
+    AllowTypeVarsWithoutScopeId = 1 << 12,
 
     // TypeVars within this expression that are otherwise not
     // associated with an outer scope should be associated with
@@ -140,6 +140,18 @@ export const enum EvaluatorFlags {
 
     // Allow Unpack annotation for TypedDict.
     AllowUnpackedTypedDict = 1 << 23,
+
+    // Disallow a type alias defined with a "type" statement.
+    DisallowPep695TypeAlias = 1 << 24,
+
+    // Defaults used for evaluating the LHS of a call expression.
+    CallBaseDefaults = DoNotSpecialize | DisallowPep695TypeAlias,
+
+    // Defaults used for evaluating the LHS of a member access expression.
+    IndexBaseDefaults = DoNotSpecialize,
+
+    // Defaults used for evaluating the LHS of a member access expression.
+    MemberAccessBaseDefaults = DoNotSpecialize | DisallowPep695TypeAlias,
 }
 
 export interface TypeResult<T extends Type = Type> {
@@ -255,6 +267,7 @@ export interface EffectiveTypeResult {
     isIncomplete: boolean;
     includesVariableDecl: boolean;
     includesIllegalTypeAliasDecl: boolean;
+    includesSpeculativeResult: boolean;
     isRecursiveDefinition: boolean;
     evaluationAttempts?: number;
 }

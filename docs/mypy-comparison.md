@@ -162,42 +162,6 @@ The following expression forms are not currently supported by mypy as type guard
 Pyright supports the [aliasing of conditional expressions](type-concepts-advanced.md#aliased-conditional-expression) used for type guards. Mypy does not currently support this, but it is a frequently-requested feature.
 
 
-### Narrowing for Implied Else
-
-Pyright supports a feature called [type narrowing for implied else](type-concepts-advanced.md#narrowing-for-implied-else) in cases where an `if` or `elif` clause has no associated `else` clause. This feature allows pyright to determine that all cases have already been handled by the `if` or `elif` statement and that the "implied else" would never be executed if it were present. This eliminates certain false positive errors. Mypy currently does not support this.
-
-```python
-class Color(Enum):
-    RED = 1
-    BLUE = 2
-
-def is_red(color: Color) -> bool:
-    if color == Color.RED:
-        return True
-    elif color == Color.BLUE:
-        return False
-    # mypy reports error: Missing return statement
-```
-
-### Narrowing for Captured Variables
-
-If a variable’s type is narrowed in an outer scope and the variable is subsequently used within an inner-scoped function or lambda, mypy does not retain the narrowed type within the inner scope. Pyright retains the narrowed type if it can determine that the value of the captured variable is not modified on any code path after the inner-scope function or lambda is defined.
-
-```python
-def func(val: int | None):
-    if val is not None:
-
-        def inner_1() -> None:
-            reveal_type(val)  # pyright: int, mypy: int | None
-            print(val + 1)  # mypy produces a false positive error here
-
-        inner_2 = lambda: reveal_type(val) + 1  # pyright: int, mypy: int | None
-
-        inner_1()
-        inner_2()
-```
-
-
 ### Narrowing Any
 
 Pyright never narrows `Any` when performing type narrowing for assignments. Mypy is inconsistent about when it applies type narrowing to `Any` type arguments.
@@ -376,20 +340,6 @@ def higher_order2(cb: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
 
 v2 = higher_order2(identity, "")  # mypy generates an error
 reveal_type(v2)  # mypy: T, pyright: str
-```
-
-
-#### Constraint Solver: Overloads and ParamSpec
-
-If a function accepts a `Callable` parameterized with a `ParamSpec`, pyright allows you to pass an overloaded function as an argument. The constraint solver solves the type variables for each overload signature independently and then “unions” the results. Mypy uses only the first overload in this case and ignores all subsequent overloads.
-
-```python
-def wrap(func: Callable[P, T]) -> Callable[P, T]:
-    ...
-
-# 'max' is an overloaded built-in function
-max2 = wrap(max)
-reveal_type(max2) # Mypy includes only the first overload, pyright includes all
 ```
 
 

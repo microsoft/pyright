@@ -35,35 +35,35 @@
     helper.verifyDiagnostics({
         marker1: {
             category: 'warning',
-            message: 'Import "myLib.module" could not be resolved from source',
+            message: 'Import "myLib.module" could not be resolved from source in the "python" environment.',
         },
         marker2: {
             category: 'warning',
-            message: 'Import "myLib.module" could not be resolved from source',
+            message: 'Import "myLib.module" could not be resolved from source in the "python" environment.',
         },
         marker3: {
             category: 'warning',
-            message: 'Import "myLib.module" could not be resolved from source',
+            message: 'Import "myLib.module" could not be resolved from source in the "python" environment.',
         },
         marker4: {
             category: 'warning',
-            message: 'Import ".conflict.module2" could not be resolved from source',
+            message: 'Import ".conflict.module2" could not be resolved from source in the "python" environment.',
         },
         marker5: {
             category: 'warning',
-            message: 'Import ".conflict.module2" could not be resolved from source',
+            message: 'Import ".conflict.module2" could not be resolved from source in the "python" environment.',
         },
         marker6: {
             category: 'warning',
-            message: 'Import "myLib.module" could not be resolved from source',
+            message: 'Import "myLib.module" could not be resolved from source in the "python" environment.',
         },
         marker7: {
             category: 'warning',
-            message: 'Import "myLib.module" could not be resolved from source',
+            message: 'Import "myLib.module" could not be resolved from source in the "python" environment.',
         },
         marker8: {
             category: 'warning',
-            message: 'Import ".conflict.module2" could not be resolved from source',
+            message: 'Import ".conflict.module2" could not be resolved from source in the "python" environment.',
         },
     });
 }

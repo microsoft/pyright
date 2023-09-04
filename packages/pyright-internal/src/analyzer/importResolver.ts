@@ -12,7 +12,6 @@ import type { Dirent } from 'fs';
 
 import { appendArray, flatten, getMapValues, getOrAdd } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment, matchFileSpecs } from '../common/configOptions';
-import { FileSystem } from '../common/fileSystem';
 import { Host } from '../common/host';
 import { stubsSuffix } from '../common/pathConsts';
 import {
@@ -42,7 +41,6 @@ import { PythonVersion, versionFromString } from '../common/pythonVersion';
 import * as StringUtils from '../common/stringUtils';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
-import { SupportPartialStubs } from '../pyrightFileSystem';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { getDirectoryLeadingDotsPointsTo } from './importStatementUtils';
 import { ImportPath, ParentDirectoryCache } from './parentDirectoryCache';
@@ -50,6 +48,8 @@ import { PyTypedInfo, getPyTypedInfo } from './pyTypedUtils';
 import * as PythonPathUtils from './pythonPathUtils';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { isDunderName } from './symbolNameUtils';
+import { ServiceProvider } from '../common/serviceProvider';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 
 export interface ImportedModuleDescriptor {
     leadingDots: number;
@@ -122,8 +122,16 @@ export class ImportResolver {
     private _stdlibModules: Set<string> | undefined;
     protected cachedParentImportResults: ParentDirectoryCache;
 
-    constructor(readonly fileSystem: FileSystem, private _configOptions: ConfigOptions, readonly host: Host) {
+    constructor(readonly serviceProvider: ServiceProvider, private _configOptions: ConfigOptions, readonly host: Host) {
         this.cachedParentImportResults = new ParentDirectoryCache(() => this.getPythonSearchPaths([]));
+    }
+
+    get fileSystem() {
+        return this.serviceProvider.fs();
+    }
+
+    get partialStubs() {
+        return this.serviceProvider.tryGet(ServiceKeys.partialStubs);
     }
 
     invalidateCache() {
@@ -134,9 +142,7 @@ export class ImportResolver {
 
         this._invalidateFileSystemCache();
 
-        if (SupportPartialStubs.is(this.fileSystem)) {
-            this.fileSystem.clearPartialStubs();
-        }
+        this.partialStubs?.clearPartialStubs();
     }
 
     // Resolves the import and returns the path if it exists, otherwise
@@ -380,15 +386,15 @@ export class ImportResolver {
     }
 
     ensurePartialStubPackages(execEnv: ExecutionEnvironment) {
-        if (!SupportPartialStubs.is(this.fileSystem)) {
+        if (!this.partialStubs) {
             return false;
         }
 
-        if (this.fileSystem.isPartialStubPackagesScanned(execEnv)) {
+        if (this.partialStubs.isPartialStubPackagesScanned(execEnv)) {
             return false;
         }
 
-        const fs = this.fileSystem;
+        const ps = this.partialStubs;
         const ignored: string[] = [];
         const paths: string[] = [];
         const typeshedPathEx = this.getTypeshedPathEx(execEnv, ignored);
@@ -400,12 +406,12 @@ export class ImportResolver {
         addPaths(typeshedPathEx);
         this.getPythonSearchPaths(ignored).forEach((p) => addPaths(p));
 
-        this.fileSystem.processPartialStubPackages(paths, this.getImportRoots(execEnv), typeshedPathEx);
+        this.partialStubs.processPartialStubPackages(paths, this.getImportRoots(execEnv), typeshedPathEx);
         this._invalidateFileSystemCache();
         return true;
 
         function addPaths(path?: string) {
-            if (!path || fs.isPathScanned(path)) {
+            if (!path || ps.isPathScanned(path)) {
                 return;
             }
 
@@ -1386,6 +1392,12 @@ export class ImportResolver {
                         importFailureInfo.push(`Did not find file '${pyiFilePath}' or '${pyFilePath}'`);
                     }
                 }
+
+                if (!pyTypedInfo && lookForPyTyped) {
+                    if (this.fileExistsCached(combinePaths(fileDirectory, 'py.typed'))) {
+                        pyTypedInfo = getPyTypedInfo(this.fileSystem, fileDirectory);
+                    }
+                }
                 break;
             }
         }
@@ -1700,7 +1712,9 @@ export class ImportResolver {
             if (bestImportSoFar.pyTypedInfo && !newImport.pyTypedInfo) {
                 return bestImportSoFar;
             } else if (!bestImportSoFar.pyTypedInfo && newImport.pyTypedInfo) {
-                return newImport;
+                if (bestImportSoFar.importType === newImport.importType) {
+                    return newImport;
+                }
             }
 
             // Prefer pyi over py.
@@ -2604,4 +2618,8 @@ export class ImportResolver {
     }
 }
 
-export type ImportResolverFactory = (fs: FileSystem, options: ConfigOptions, host: Host) => ImportResolver;
+export type ImportResolverFactory = (
+    serviceProvider: ServiceProvider,
+    options: ConfigOptions,
+    host: Host
+) => ImportResolver;

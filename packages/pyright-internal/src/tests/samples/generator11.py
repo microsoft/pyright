@@ -3,7 +3,7 @@
 from typing import Generator
 
 
-def func1() -> Generator[int, None, str]:
+def func1() -> Generator[int, int, str]:
     yield 1
     return "done"
 

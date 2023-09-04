@@ -367,7 +367,10 @@ export class Binder extends ParseTreeWalker {
             this._addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportMissingImports,
                 DiagnosticRule.reportMissingImports,
-                Localizer.Diagnostic.importResolveFailure().format({ importName: importResult.importName }),
+                Localizer.Diagnostic.importResolveFailure().format({
+                    importName: importResult.importName,
+                    venv: this._fileInfo.executionEnvironment.name,
+                }),
                 node
             );
             return true;
@@ -640,7 +643,19 @@ export class Binder extends ParseTreeWalker {
     override visitCall(node: CallNode): boolean {
         this._disableTrueFalseTargets(() => {
             this.walk(node.leftExpression);
-            node.arguments.forEach((argNode) => {
+
+            // Sort all keyword arguments to the end of the parameter list. This is
+            // necessary because all positional arguments (including *args) are evaluated
+            // prior to any keyword arguments at runtime.
+            const positionalArgs = node.arguments.filter(
+                (arg) => !arg.name && arg.argumentCategory !== ArgumentCategory.UnpackedDictionary
+            );
+            const keywordArgs = node.arguments.filter(
+                (arg) => !!arg.name || arg.argumentCategory === ArgumentCategory.UnpackedDictionary
+            );
+            const sortedArgs = positionalArgs.concat(keywordArgs);
+
+            sortedArgs.forEach((argNode) => {
                 if (this._currentFlowNode) {
                     AnalyzerNodeInfo.setFlowNode(argNode, this._currentFlowNode);
                 }
@@ -2638,7 +2653,7 @@ export class Binder extends ParseTreeWalker {
         }
 
         lookupInfo.symbolTable.forEach((symbol, name) => {
-            if (!symbol.isExternallyHidden() && !isPrivateOrProtectedName(name)) {
+            if (!symbol.isExternallyHidden() && !name.startsWith('_')) {
                 namesToImport!.push(name);
             }
         });

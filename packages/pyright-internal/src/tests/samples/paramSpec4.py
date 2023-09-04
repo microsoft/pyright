@@ -1,7 +1,7 @@
 # This sample tests the type checker's handling of ParamSpec
 # and Concatenate as described in PEP 612.
 
-from typing import Callable, Concatenate, ParamSpec, TypeVar
+from typing import Callable, Concatenate, Iterable, ParamSpec, Protocol, TypeVar
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -108,3 +108,25 @@ v7 = func5(func7, "a", b="b", c="c")
 
 # This should generate an error because 1 isn't assignable to str.
 v8 = func5(func7, "a", b="b", c=1)
+
+
+T = TypeVar("T", covariant=True)
+X = TypeVar("X")
+
+
+class DecoProto(Protocol[P, T]):
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
+        ...
+
+
+def func8(cb: Callable[Concatenate[X, P], T]) -> DecoProto[Concatenate[X, P], T]:
+    return cb
+
+
+@func8
+def func9(x: Iterable[T]) -> T:
+    return next(iter(x))
+
+
+v9 = func9([1, 2])
+reveal_type(v9, expected_text="int")

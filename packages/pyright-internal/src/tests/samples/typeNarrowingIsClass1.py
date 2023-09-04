@@ -56,3 +56,10 @@ def func5(x: type[A] | type[B] | type[T]) -> type[A] | type[B] | type[T]:
         reveal_type(x, expected_text="type[B] | type[T@func5]")
 
     return x
+
+
+def func6(x: type):
+    if x is str:
+        reveal_type(x, expected_text="type[str]")
+    else:
+        reveal_type(x, expected_text="type")
