@@ -7593,21 +7593,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (inferenceContext && isUnion(inferenceContext.expectedType)) {
             let matchingSubtype: Type | undefined;
 
-            doForEachSubtype(inferenceContext.expectedType, (subtype) => {
-                if (isAny(subtype)) {
-                    expectedTypeContainsAny = true;
-                }
-
-                if (!matchingSubtype) {
-                    const subtypeResult = useSpeculativeMode(node, () => {
-                        return getTypeOfTupleWithContext(node, makeInferenceContext(subtype));
-                    });
-
-                    if (subtypeResult && assignType(subtype, subtypeResult.type)) {
-                        matchingSubtype = subtype;
+            doForEachSubtype(
+                inferenceContext.expectedType,
+                (subtype) => {
+                    if (isAny(subtype)) {
+                        expectedTypeContainsAny = true;
                     }
-                }
-            });
+
+                    if (!matchingSubtype) {
+                        const subtypeResult = useSpeculativeMode(node, () => {
+                            return getTypeOfTupleWithContext(node, makeInferenceContext(subtype));
+                        });
+
+                        if (subtypeResult && assignType(subtype, subtypeResult.type)) {
+                            matchingSubtype = subtype;
+                        }
+                    }
+                },
+                /* sortSubtypes */ true
+            );
 
             effectiveExpectedType = matchingSubtype;
         }
@@ -12849,25 +12853,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let matchingSubtype: Type | undefined;
             let matchingSubtypeResult: TypeResult | undefined;
 
-            doForEachSubtype(inferenceContext.expectedType, (subtype) => {
-                // Use shortcut if we've already found a match.
-                if (matchingSubtypeResult && !matchingSubtypeResult.typeErrors) {
-                    return;
-                }
-
-                const subtypeResult = useSpeculativeMode(node, () => {
-                    return getTypeOfDictionaryWithContext(node, makeInferenceContext(subtype));
-                });
-
-                if (subtypeResult && assignType(subtype, subtypeResult.type)) {
-                    // If this is the first result we're seeing or it's the first result
-                    // without errors, select it as the match.
-                    if (!matchingSubtypeResult || (matchingSubtypeResult.typeErrors && !subtypeResult.typeErrors)) {
-                        matchingSubtype = subtype;
-                        matchingSubtypeResult = subtypeResult;
+            doForEachSubtype(
+                inferenceContext.expectedType,
+                (subtype) => {
+                    // Use shortcut if we've already found a match.
+                    if (matchingSubtypeResult && !matchingSubtypeResult.typeErrors) {
+                        return;
                     }
-                }
-            });
+
+                    const subtypeResult = useSpeculativeMode(node, () => {
+                        return getTypeOfDictionaryWithContext(node, makeInferenceContext(subtype));
+                    });
+
+                    if (subtypeResult && assignType(subtype, subtypeResult.type)) {
+                        // If this is the first result we're seeing or it's the first result
+                        // without errors, select it as the match.
+                        if (!matchingSubtypeResult || (matchingSubtypeResult.typeErrors && !subtypeResult.typeErrors)) {
+                            matchingSubtype = subtype;
+                            matchingSubtypeResult = subtypeResult;
+                        }
+                    }
+                },
+                /* sortSubtypes */ true
+            );
 
             effectiveExpectedType = matchingSubtype;
         }
@@ -13354,25 +13362,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let matchingSubtype: Type | undefined;
             let matchingSubtypeResult: TypeResult | undefined;
 
-            doForEachSubtype(inferenceContext.expectedType, (subtype) => {
-                // Use shortcut if we've already found a match.
-                if (matchingSubtypeResult && !matchingSubtypeResult.typeErrors) {
-                    return;
-                }
-
-                const subtypeResult = useSpeculativeMode(node, () => {
-                    return getTypeOfListOrSetWithContext(node, makeInferenceContext(subtype));
-                });
-
-                if (subtypeResult && assignType(subtype, subtypeResult.type)) {
-                    // If this is the first result we're seeing or it's the first result
-                    // without errors, select it as the match.
-                    if (!matchingSubtypeResult || (matchingSubtypeResult.typeErrors && !subtypeResult.typeErrors)) {
-                        matchingSubtype = subtype;
-                        matchingSubtypeResult = subtypeResult;
+            doForEachSubtype(
+                inferenceContext.expectedType,
+                (subtype) => {
+                    // Use shortcut if we've already found a match.
+                    if (matchingSubtypeResult && !matchingSubtypeResult.typeErrors) {
+                        return;
                     }
-                }
-            });
+
+                    const subtypeResult = useSpeculativeMode(node, () => {
+                        return getTypeOfListOrSetWithContext(node, makeInferenceContext(subtype));
+                    });
+
+                    if (subtypeResult && assignType(subtype, subtypeResult.type)) {
+                        // If this is the first result we're seeing or it's the first result
+                        // without errors, select it as the match.
+                        if (!matchingSubtypeResult || (matchingSubtypeResult.typeErrors && !subtypeResult.typeErrors)) {
+                            matchingSubtype = subtype;
+                            matchingSubtypeResult = subtypeResult;
+                        }
+                    }
+                },
+                /* sortSubtypes */ true
+            );
 
             effectiveExpectedType = matchingSubtype;
         }

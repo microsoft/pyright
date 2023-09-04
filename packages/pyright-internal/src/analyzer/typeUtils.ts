@@ -394,7 +394,12 @@ export function sortTypes(types: Type[]): Type[] {
     });
 }
 
-function compareTypes(a: Type, b: Type): number {
+function compareTypes(a: Type, b: Type, recursionCount = 0): number {
+    if (recursionCount > maxTypeRecursionCount) {
+        return 0;
+    }
+    recursionCount++;
+
     if (a.category !== b.category) {
         return b.category - a.category;
     }
@@ -502,7 +507,32 @@ function compareTypes(a: Type, b: Type): number {
             // Sort by class name.
             const aName = a.details.name;
             const bName = (b as ClassType).details.name;
-            return aName < bName ? -1 : aName === bName ? 0 : 1;
+
+            if (aName < bName) {
+                return -1;
+            } else if (aName > bName) {
+                return 1;
+            }
+
+            // Sort by type argument count.
+            const aTypeArgCount = a.typeArguments ? a.typeArguments.length : 0;
+            const bTypeArgCount = bClass.typeArguments ? bClass.typeArguments.length : 0;
+
+            if (aTypeArgCount < bTypeArgCount) {
+                return -1;
+            } else if (aTypeArgCount > bTypeArgCount) {
+                return 1;
+            }
+
+            // Sort by type argument.
+            for (let i = 0; i < aTypeArgCount; i++) {
+                const typeComparison = compareTypes(a.typeArguments![i], bClass.typeArguments![i], recursionCount);
+                if (typeComparison !== 0) {
+                    return typeComparison;
+                }
+            }
+
+            return 0;
         }
 
         case TypeCategory.Module: {
