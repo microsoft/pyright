@@ -9,7 +9,7 @@ __all__ = ["tqdm_asyncio", "tarange", "tqdm", "trange"]
 
 _T = TypeVar("_T")
 
-class tqdm_asyncio(Generic[_T], std_tqdm[_T]):
+class tqdm_asyncio(std_tqdm[_T], Generic[_T]):
     iterable_awaitable: bool
     iterable_next: Callable[[], _T | Awaitable[_T]]
     iterable_iterator: Iterator[_T]

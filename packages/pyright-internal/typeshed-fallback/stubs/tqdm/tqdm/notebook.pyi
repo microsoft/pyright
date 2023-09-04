@@ -8,7 +8,7 @@ __all__ = ["tqdm_notebook", "tnrange", "tqdm", "trange"]
 
 _T = TypeVar("_T")
 
-class tqdm_notebook(Generic[_T], std_tqdm[_T]):
+class tqdm_notebook(std_tqdm[_T], Generic[_T]):
     @staticmethod
     def status_printer(
         _: SupportsWrite[str] | None, total: float | None = None, desc: str | None = None, ncols: int | None = None

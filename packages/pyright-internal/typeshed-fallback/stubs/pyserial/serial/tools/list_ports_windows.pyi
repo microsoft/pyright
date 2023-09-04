@@ -1,5 +1,6 @@
 import ctypes
 import sys
+from _typeshed import Incomplete
 from collections.abc import Generator
 from ctypes.wintypes import DWORD
 
@@ -24,16 +25,16 @@ if sys.platform == "win32":
     REGSAM = ACCESS_MASK
 
     class GUID(ctypes.Structure):
-        Data1: ctypes._CField
-        Data2: ctypes._CField
-        Data3: ctypes._CField
-        Data4: ctypes._CField
+        Data1: ctypes._CField[Incomplete, Incomplete, Incomplete]
+        Data2: ctypes._CField[Incomplete, Incomplete, Incomplete]
+        Data3: ctypes._CField[Incomplete, Incomplete, Incomplete]
+        Data4: ctypes._CField[Incomplete, Incomplete, Incomplete]
 
     class SP_DEVINFO_DATA(ctypes.Structure):
-        cbSize: ctypes._CField
-        ClassGuid: ctypes._CField
-        DevInst: ctypes._CField
-        Reserved: ctypes._CField
+        cbSize: ctypes._CField[Incomplete, Incomplete, Incomplete]
+        ClassGuid: ctypes._CField[Incomplete, Incomplete, Incomplete]
+        DevInst: ctypes._CField[Incomplete, Incomplete, Incomplete]
+        Reserved: ctypes._CField[Incomplete, Incomplete, Incomplete]
     PSP_DEVINFO_DATA: type[ctypes._Pointer[SP_DEVINFO_DATA]]
     PSP_DEVICE_INTERFACE_DETAIL_DATA = ctypes.c_void_p
     setupapi: ctypes.WinDLL

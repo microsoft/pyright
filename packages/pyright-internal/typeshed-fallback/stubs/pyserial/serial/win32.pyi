@@ -1,4 +1,5 @@
 import sys
+from _typeshed import Incomplete
 from ctypes import Structure, Union, _CField, _NamedFuncPointer, _Pointer, c_int64, c_ulong, c_void_p
 from ctypes.wintypes import DWORD
 from typing_extensions import TypeAlias
@@ -9,9 +10,9 @@ if sys.platform == "win32":
     ULONG_PTR: type[c_int64 | c_ulong]
 
     class _SECURITY_ATTRIBUTES(Structure):
-        nLength: _CField
-        lpSecurityDescriptor: _CField
-        bInheritHandle: _CField
+        nLength: _CField[Incomplete, Incomplete, Incomplete]
+        lpSecurityDescriptor: _CField[Incomplete, Incomplete, Incomplete]
+        bInheritHandle: _CField[Incomplete, Incomplete, Incomplete]
     LPSECURITY_ATTRIBUTES: type[_Pointer[_SECURITY_ATTRIBUTES]]
     CreateEvent: _NamedFuncPointer
     CreateFile: _NamedFuncPointer
@@ -21,64 +22,64 @@ if sys.platform == "win32":
     CreateFileW: _NamedFuncPointer
 
     class _OVERLAPPED(Structure):
-        Internal: _CField
-        InternalHigh: _CField
-        Offset: _CField
-        OffsetHigh: _CField
-        Pointer: _CField
-        hEvent: _CField
+        Internal: _CField[Incomplete, Incomplete, Incomplete]
+        InternalHigh: _CField[Incomplete, Incomplete, Incomplete]
+        Offset: _CField[Incomplete, Incomplete, Incomplete]
+        OffsetHigh: _CField[Incomplete, Incomplete, Incomplete]
+        Pointer: _CField[Incomplete, Incomplete, Incomplete]
+        hEvent: _CField[Incomplete, Incomplete, Incomplete]
     OVERLAPPED: TypeAlias = _OVERLAPPED
 
     class _COMSTAT(Structure):
-        fCtsHold: _CField
-        fDsrHold: _CField
-        fRlsdHold: _CField
-        fXoffHold: _CField
-        fXoffSent: _CField
-        fEof: _CField
-        fTxim: _CField
-        fReserved: _CField
-        cbInQue: _CField
-        cbOutQue: _CField
+        fCtsHold: _CField[Incomplete, Incomplete, Incomplete]
+        fDsrHold: _CField[Incomplete, Incomplete, Incomplete]
+        fRlsdHold: _CField[Incomplete, Incomplete, Incomplete]
+        fXoffHold: _CField[Incomplete, Incomplete, Incomplete]
+        fXoffSent: _CField[Incomplete, Incomplete, Incomplete]
+        fEof: _CField[Incomplete, Incomplete, Incomplete]
+        fTxim: _CField[Incomplete, Incomplete, Incomplete]
+        fReserved: _CField[Incomplete, Incomplete, Incomplete]
+        cbInQue: _CField[Incomplete, Incomplete, Incomplete]
+        cbOutQue: _CField[Incomplete, Incomplete, Incomplete]
     COMSTAT: TypeAlias = _COMSTAT
 
     class _DCB(Structure):
-        DCBlength: _CField
-        BaudRate: _CField
-        fBinary: _CField
-        fParity: _CField
-        fOutxCtsFlow: _CField
-        fOutxDsrFlow: _CField
-        fDtrControl: _CField
-        fDsrSensitivity: _CField
-        fTXContinueOnXoff: _CField
-        fOutX: _CField
-        fInX: _CField
-        fErrorChar: _CField
-        fNull: _CField
-        fRtsControl: _CField
-        fAbortOnError: _CField
-        fDummy2: _CField
-        wReserved: _CField
-        XonLim: _CField
-        XoffLim: _CField
-        ByteSize: _CField
-        Parity: _CField
-        StopBits: _CField
-        XonChar: _CField
-        XoffChar: _CField
-        ErrorChar: _CField
-        EofChar: _CField
-        EvtChar: _CField
-        wReserved1: _CField
+        DCBlength: _CField[Incomplete, Incomplete, Incomplete]
+        BaudRate: _CField[Incomplete, Incomplete, Incomplete]
+        fBinary: _CField[Incomplete, Incomplete, Incomplete]
+        fParity: _CField[Incomplete, Incomplete, Incomplete]
+        fOutxCtsFlow: _CField[Incomplete, Incomplete, Incomplete]
+        fOutxDsrFlow: _CField[Incomplete, Incomplete, Incomplete]
+        fDtrControl: _CField[Incomplete, Incomplete, Incomplete]
+        fDsrSensitivity: _CField[Incomplete, Incomplete, Incomplete]
+        fTXContinueOnXoff: _CField[Incomplete, Incomplete, Incomplete]
+        fOutX: _CField[Incomplete, Incomplete, Incomplete]
+        fInX: _CField[Incomplete, Incomplete, Incomplete]
+        fErrorChar: _CField[Incomplete, Incomplete, Incomplete]
+        fNull: _CField[Incomplete, Incomplete, Incomplete]
+        fRtsControl: _CField[Incomplete, Incomplete, Incomplete]
+        fAbortOnError: _CField[Incomplete, Incomplete, Incomplete]
+        fDummy2: _CField[Incomplete, Incomplete, Incomplete]
+        wReserved: _CField[Incomplete, Incomplete, Incomplete]
+        XonLim: _CField[Incomplete, Incomplete, Incomplete]
+        XoffLim: _CField[Incomplete, Incomplete, Incomplete]
+        ByteSize: _CField[Incomplete, Incomplete, Incomplete]
+        Parity: _CField[Incomplete, Incomplete, Incomplete]
+        StopBits: _CField[Incomplete, Incomplete, Incomplete]
+        XonChar: _CField[Incomplete, Incomplete, Incomplete]
+        XoffChar: _CField[Incomplete, Incomplete, Incomplete]
+        ErrorChar: _CField[Incomplete, Incomplete, Incomplete]
+        EofChar: _CField[Incomplete, Incomplete, Incomplete]
+        EvtChar: _CField[Incomplete, Incomplete, Incomplete]
+        wReserved1: _CField[Incomplete, Incomplete, Incomplete]
     DCB: TypeAlias = _DCB
 
     class _COMMTIMEOUTS(Structure):
-        ReadIntervalTimeout: _CField
-        ReadTotalTimeoutMultiplier: _CField
-        ReadTotalTimeoutConstant: _CField
-        WriteTotalTimeoutMultiplier: _CField
-        WriteTotalTimeoutConstant: _CField
+        ReadIntervalTimeout: _CField[Incomplete, Incomplete, Incomplete]
+        ReadTotalTimeoutMultiplier: _CField[Incomplete, Incomplete, Incomplete]
+        ReadTotalTimeoutConstant: _CField[Incomplete, Incomplete, Incomplete]
+        WriteTotalTimeoutMultiplier: _CField[Incomplete, Incomplete, Incomplete]
+        WriteTotalTimeoutConstant: _CField[Incomplete, Incomplete, Incomplete]
     COMMTIMEOUTS: TypeAlias = _COMMTIMEOUTS
 
     GetLastError: _NamedFuncPointer
@@ -151,11 +152,11 @@ if sys.platform == "win32":
     PURGE_RXCLEAR: int
 
     class N11_OVERLAPPED4DOLLAR_48E(Union):
-        Offset: _CField
-        OffsetHigh: _CField
-        Pointer: _CField
+        Offset: _CField[Incomplete, Incomplete, Incomplete]
+        OffsetHigh: _CField[Incomplete, Incomplete, Incomplete]
+        Pointer: _CField[Incomplete, Incomplete, Incomplete]
 
     class N11_OVERLAPPED4DOLLAR_484DOLLAR_49E(Structure):
-        Offset: _CField
-        OffsetHigh: _CField
+        Offset: _CField[Incomplete, Incomplete, Incomplete]
+        OffsetHigh: _CField[Incomplete, Incomplete, Incomplete]
     PVOID: TypeAlias = c_void_p

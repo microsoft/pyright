@@ -21,7 +21,7 @@ class TelegramIO(MonoWorker):
 
 _T = TypeVar("_T")
 
-class tqdm_telegram(Generic[_T], tqdm_auto[_T]):
+class tqdm_telegram(tqdm_auto[_T], Generic[_T]):
     tgio: Incomplete
     @overload
     def __init__(

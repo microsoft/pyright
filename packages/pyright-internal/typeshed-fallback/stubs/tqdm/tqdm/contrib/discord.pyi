@@ -15,7 +15,7 @@ class DiscordIO(MonoWorker):
 
 _T = TypeVar("_T")
 
-class tqdm_discord(Generic[_T], tqdm_auto[_T]):
+class tqdm_discord(tqdm_auto[_T], Generic[_T]):
     dio: Incomplete
     @overload
     def __init__(

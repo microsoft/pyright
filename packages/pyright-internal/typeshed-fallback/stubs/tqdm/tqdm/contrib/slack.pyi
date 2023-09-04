@@ -16,7 +16,7 @@ class SlackIO(MonoWorker):
 
 _T = TypeVar("_T")
 
-class tqdm_slack(Generic[_T], tqdm_auto[_T]):
+class tqdm_slack(tqdm_auto[_T], Generic[_T]):
     sio: Incomplete
     @overload
     def __init__(

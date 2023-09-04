@@ -89,7 +89,7 @@ class NonCallableMock(Base, Any):
     def __new__(
         cls,
         spec: list[str] | object | type[object] | None = None,
-        wraps: Incomplete | None = None,
+        wraps: Any | None = None,
         name: str | None = None,
         spec_set: list[str] | object | type[object] | None = None,
         parent: NonCallableMock | None = None,
@@ -104,7 +104,7 @@ class NonCallableMock(Base, Any):
     def __init__(
         self,
         spec: list[str] | object | type[object] | None = None,
-        wraps: Incomplete | None = None,
+        wraps: Any | None = None,
         name: str | None = None,
         spec_set: list[str] | object | type[object] | None = None,
         parent: NonCallableMock | None = None,

@@ -8,7 +8,7 @@ __all__ = ["tqdm_tk", "ttkrange", "tqdm", "trange"]
 
 _T = TypeVar("_T")
 
-class tqdm_tk(Generic[_T], std_tqdm[_T]):
+class tqdm_tk(std_tqdm[_T], Generic[_T]):
     @overload
     def __init__(
         self,

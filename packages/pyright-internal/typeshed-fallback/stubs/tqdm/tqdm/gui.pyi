@@ -8,7 +8,7 @@ __all__ = ["tqdm_gui", "tgrange", "tqdm", "trange"]
 
 _T = TypeVar("_T")
 
-class tqdm_gui(Generic[_T], std_tqdm[_T]):
+class tqdm_gui(std_tqdm[_T], Generic[_T]):
     mpl: Incomplete
     plt: Incomplete
     toolbar: Incomplete
