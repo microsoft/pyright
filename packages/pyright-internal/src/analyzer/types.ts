@@ -1715,6 +1715,17 @@ export namespace FunctionType {
         return newFunction;
     }
 
+    export function cloneWithDeprecatedMessage(type: FunctionType, deprecatedMessage?: string): FunctionType {
+        const newFunction = TypeBase.cloneType(type);
+
+        // Make a shallow clone of the details.
+        newFunction.details = { ...type.details };
+
+        newFunction.details.deprecatedMessage = deprecatedMessage;
+
+        return newFunction;
+    }
+
     // Creates a new function based on a solved ParamSpec. The input type is assumed to
     // have a signature that ends in "*args: P.args, **kwargs: P.kwargs". These will be
     // replaced by the parameters in the ParamSpec.

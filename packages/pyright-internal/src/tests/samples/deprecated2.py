@@ -99,3 +99,25 @@ async def func3():
 async def func4():
     # This should generate an error if reportDeprecated is enabled.
     await func3()
+
+
+@overload
+def func5(val: int):
+    ...
+
+
+@overload
+def func5(val: str):
+    ...
+
+
+@deprecated("All overloads are deprecated")
+def func5(val: object):
+    ...
+
+
+# This should generate an error if reportDeprecated is enabled.
+func5(1)
+
+# This should generate an error if reportDeprecated is enabled.
+func5("")

@@ -551,6 +551,21 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
                 });
             }
 
+            // PEP 702 indicates that if the implementation of an overloaded
+            // function is marked deprecated, all of the overloads should be
+            // treated as deprecated as well.
+            if (implementation?.details.deprecatedMessage) {
+                overloadedTypes = overloadedTypes.map((overload) => {
+                    if (FunctionType.isOverloaded(overload) && !overload.details.deprecatedMessage) {
+                        return FunctionType.cloneWithDeprecatedMessage(
+                            overload,
+                            implementation.details.deprecatedMessage
+                        );
+                    }
+                    return overload;
+                });
+            }
+
             // Create a new overloaded type that copies the contents of the previous
             // one and adds a new function.
             const newOverload = OverloadedFunctionType.create(overloadedTypes);
