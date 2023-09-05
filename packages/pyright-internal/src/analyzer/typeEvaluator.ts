@@ -8736,7 +8736,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!isDiagnosticSuppressedForNode(errorNode)) {
                 const functionName = typeResult.type.overloads[0].details.name || '<anonymous function>';
                 const diagAddendum = new DiagnosticAddendum();
-                const argTypes = argList.map((t) => printType(getTypeOfArgument(t).type));
+                const argTypes = argList.map((t) => {
+                    const typeString = printType(getTypeOfArgument(t).type);
+                    
+                    if (t.argumentCategory === ArgumentCategory.UnpackedList) {
+                        return `*${typeString}`;
+                    }
+                    
+                    if (t.argumentCategory === ArgumentCategory.UnpackedDictionary) {
+                        return `**${typeString}`;
+                    }
+
+                    return typeString;
+                });
 
                 diagAddendum.addMessage(
                     Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
