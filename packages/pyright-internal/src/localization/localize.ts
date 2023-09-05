@@ -373,6 +373,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.deprecatedConstructor'));
         export const deprecatedFunction = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.deprecatedFunction'));
+        export const deprecatedMethod = () =>
+            new ParameterizedString<{ name: string; className: string }>(getRawString('Diagnostic.deprecatedMethod'));
         export const deprecatedType = () =>
             new ParameterizedString<{ version: string; replacement: string }>(
                 getRawString('Diagnostic.deprecatedType')

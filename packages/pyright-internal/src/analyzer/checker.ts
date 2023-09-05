@@ -3757,6 +3757,29 @@ export class Checker extends ParseTreeWalker {
         let errorMessage: string | undefined;
         let deprecatedMessage: string | undefined;
 
+        function getDeprecatedMessageForFunction(functionType: FunctionType): string {
+            if (
+                functionType.details.declaration &&
+                functionType.details.declaration.node.nodeType === ParseNodeType.Function
+            ) {
+                const containingClass = ParseTreeUtils.getEnclosingClass(
+                    functionType.details.declaration.node,
+                    /* stopAtFunction */ true
+                );
+
+                if (containingClass) {
+                    return Localizer.Diagnostic.deprecatedMethod().format({
+                        name: functionType.details.name || '<anonymous>',
+                        className: containingClass.name.value,
+                    });
+                }
+            }
+
+            return Localizer.Diagnostic.deprecatedFunction().format({
+                name: functionType.details.name,
+            });
+        }
+
         function getDeprecatedMessageForOverloadedCall(evaluator: TypeEvaluator, type: Type) {
             // Determine if the node is part of a call expression. If so,
             // we can determine which overload(s) were used to satisfy
@@ -3776,9 +3799,7 @@ export class Checker extends ParseTreeWalker {
                         if (overload.details.deprecatedMessage !== undefined) {
                             if (node.value === overload.details.name) {
                                 deprecatedMessage = overload.details.deprecatedMessage;
-                                errorMessage = Localizer.Diagnostic.deprecatedFunction().format({
-                                    name: overload.details.name,
-                                });
+                                errorMessage = getDeprecatedMessageForFunction(overload);
                             } else if (isInstantiableClass(type) && overload.details.name === '__init__') {
                                 deprecatedMessage = overload.details.deprecatedMessage;
                                 errorMessage = Localizer.Diagnostic.deprecatedConstructor().format({
@@ -3807,9 +3828,7 @@ export class Checker extends ParseTreeWalker {
             } else if (isFunction(subtype)) {
                 if (subtype.details.deprecatedMessage !== undefined && node.value === subtype.details.name) {
                     deprecatedMessage = subtype.details.deprecatedMessage;
-                    errorMessage = Localizer.Diagnostic.deprecatedFunction().format({
-                        name: subtype.details.name || '<anonymous>',
-                    });
+                    errorMessage = getDeprecatedMessageForFunction(subtype);
                 }
             } else if (isOverloadedFunction(subtype)) {
                 // Determine if the node is part of a call expression. If so,
