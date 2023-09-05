@@ -1927,7 +1927,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberAccessFlags = MemberAccessFlags.None,
         bindToType?: ClassType | TypeVarType
     ): TypeResult | undefined {
-        const memberInfo = getTypeOfClassMemberName(
+        let memberInfo = getTypeOfClassMemberName(
             errorNode,
             ClassType.cloneAsInstantiable(objectType),
             /* isAccessedThroughObject */ true,
@@ -1938,6 +1938,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             bindToType
         );
 
+        if (!memberInfo) {
+            const metaclass = objectType.details.effectiveMetaclass;
+            if (
+                metaclass &&
+                isInstantiableClass(metaclass) &&
+                !ClassType.isBuiltIn(metaclass, 'type') &&
+                !ClassType.isSameGenericClass(metaclass, objectType)
+            ) {
+                memberInfo = getTypeOfClassMemberName(
+                    errorNode,
+                    metaclass,
+                    /* isAccessedThroughObject */ false,
+                    memberName,
+                    usage,
+                    /* diag */ undefined,
+                    memberAccessFlags | MemberAccessFlags.AccessInstanceMembersOnly,
+                    ClassType.cloneAsInstantiable(objectType)
+                );
+            }
+        }
+
         if (memberInfo) {
             return {
                 type: memberInfo.type,
@@ -1946,6 +1967,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isAsymmetricAccessor: memberInfo.isAsymmetricAccessor,
             };
         }
+
         return undefined;
     }
 
@@ -5494,6 +5516,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let classLookupFlags = ClassMemberLookupFlags.Default;
         if (flags & MemberAccessFlags.AccessClassMembersOnly) {
             classLookupFlags |= ClassMemberLookupFlags.SkipInstanceVariables;
+        }
+        if (flags & MemberAccessFlags.AccessInstanceMembersOnly) {
+            classLookupFlags |= ClassMemberLookupFlags.SkipClassVariables;
         }
         if (flags & MemberAccessFlags.SkipBaseClasses) {
             classLookupFlags |= ClassMemberLookupFlags.SkipBaseClasses;

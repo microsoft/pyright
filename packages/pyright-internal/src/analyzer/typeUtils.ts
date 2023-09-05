@@ -111,13 +111,17 @@ export const enum ClassMemberLookupFlags {
     // If this flag is set, the instance variables are skipped.
     SkipInstanceVariables = 1 << 3,
 
+    // By default, both class and instance variables are searched.
+    // If this flag is set, the class variables are skipped.
+    SkipClassVariables = 1 << 4,
+
     // By default, the first symbol is returned even if it has only
     // an inferred type associated with it. If this flag is set,
     // the search looks only for symbols with declared types.
-    DeclaredTypesOnly = 1 << 4,
+    DeclaredTypesOnly = 1 << 5,
 
     // Skip the 'type' base class in particular.
-    SkipTypeBaseClass = 1 << 5,
+    SkipTypeBaseClass = 1 << 6,
 }
 
 export const enum ClassIteratorFlags {
@@ -1436,40 +1440,42 @@ export function* getClassMemberIterator(
             }
 
             // Next look at class members.
-            const symbol = memberFields.get(memberName);
-            if (symbol && symbol.isClassMember()) {
-                const hasDeclaredType = symbol.hasTypedDeclarations();
-                if (!declaredTypesOnly || hasDeclaredType) {
-                    let isInstanceMember = symbol.isInstanceMember();
-                    let isClassMember = true;
+            if ((flags & ClassMemberLookupFlags.SkipClassVariables) === 0) {
+                const symbol = memberFields.get(memberName);
+                if (symbol && symbol.isClassMember()) {
+                    const hasDeclaredType = symbol.hasTypedDeclarations();
+                    if (!declaredTypesOnly || hasDeclaredType) {
+                        let isInstanceMember = symbol.isInstanceMember();
+                        let isClassMember = true;
 
-                    // For data classes and typed dicts, variables that are declared
-                    // within the class are treated as instance variables. This distinction
-                    // is important in cases where a variable is a callable type because
-                    // we don't want to bind it to the instance like we would for a
-                    // class member.
-                    const isDataclass = ClassType.isDataClass(specializedMroClass);
-                    const isTypedDict = ClassType.isTypedDictClass(specializedMroClass);
-                    if (hasDeclaredType && (isDataclass || isTypedDict)) {
-                        const decls = symbol.getDeclarations();
-                        if (decls.length > 0 && decls[0].type === DeclarationType.Variable) {
-                            isInstanceMember = true;
-                            isClassMember = isDataclass;
+                        // For data classes and typed dicts, variables that are declared
+                        // within the class are treated as instance variables. This distinction
+                        // is important in cases where a variable is a callable type because
+                        // we don't want to bind it to the instance like we would for a
+                        // class member.
+                        const isDataclass = ClassType.isDataClass(specializedMroClass);
+                        const isTypedDict = ClassType.isTypedDictClass(specializedMroClass);
+                        if (hasDeclaredType && (isDataclass || isTypedDict)) {
+                            const decls = symbol.getDeclarations();
+                            if (decls.length > 0 && decls[0].type === DeclarationType.Variable) {
+                                isInstanceMember = true;
+                                isClassMember = isDataclass;
+                            }
                         }
-                    }
 
-                    const cm: ClassMember = {
-                        symbol,
-                        isInstanceMember,
-                        isClassMember,
-                        isClassVar: symbol.isClassVar(),
-                        classType: specializedMroClass,
-                        isTypeDeclared: hasDeclaredType,
-                        skippedUndeclaredType,
-                    };
-                    yield cm;
-                } else {
-                    skippedUndeclaredType = true;
+                        const cm: ClassMember = {
+                            symbol,
+                            isInstanceMember,
+                            isClassMember,
+                            isClassVar: symbol.isClassVar(),
+                            classType: specializedMroClass,
+                            isTypeDeclared: hasDeclaredType,
+                            skippedUndeclaredType,
+                        };
+                        yield cm;
+                    } else {
+                        skippedUndeclaredType = true;
+                    }
                 }
             }
         }
