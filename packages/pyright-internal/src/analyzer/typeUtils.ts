@@ -343,15 +343,17 @@ export function makeInferenceContext(
 // Calls a callback for each subtype and combines the results
 // into a final type. It performs no memory allocations if the
 // transformed type is the same as the original.
-export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefined): Type {
+export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefined, sortSubtypes = false): Type {
     if (isUnion(type)) {
-        for (let i = 0; i < type.subtypes.length; i++) {
-            const subtype = type.subtypes[i];
+        const subtypes = sortSubtypes ? sortTypes(type.subtypes) : type.subtypes;
+
+        for (let i = 0; i < subtypes.length; i++) {
+            const subtype = subtypes[i];
             const transformedType = callback(subtype);
 
             // Avoid doing any memory allocations until a change is detected.
             if (subtype !== transformedType) {
-                const typesToCombine: Type[] = type.subtypes.slice(0, i);
+                const typesToCombine: Type[] = subtypes.slice(0, i);
 
                 // Create a helper lambda that accumulates transformed subtypes.
                 const accumulateSubtype = (newSubtype: Type | undefined) => {
@@ -362,8 +364,8 @@ export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefin
 
                 accumulateSubtype(transformedType);
 
-                for (i++; i < type.subtypes.length; i++) {
-                    accumulateSubtype(callback(type.subtypes[i]));
+                for (i++; i < subtypes.length; i++) {
+                    accumulateSubtype(callback(subtypes[i]));
                 }
 
                 const newType = combineTypes(typesToCombine);

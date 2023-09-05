@@ -440,75 +440,90 @@ function validateInitMethod(
     // the __init__ method doesn't return the expected type. It always
     // returns None.
     if (inferenceContext) {
-        returnType = mapSubtypes(inferenceContext.expectedType, (expectedSubType) => {
-            expectedSubType = transformPossibleRecursiveTypeAlias(expectedSubType);
+        let foundWorkingExpectedType = false;
 
-            // If the expected type is the same type as the class and the class
-            // is already explicitly specialized, don't override the explicit
-            // specialization.
-            if (
-                isClassInstance(expectedSubType) &&
-                ClassType.isSameGenericClass(type, expectedSubType) &&
-                type.typeArguments
-            ) {
-                return undefined;
-            }
-
-            const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
-            typeVarContext.addSolveForScope(getTypeVarScopeId(initMethodType));
-
-            if (
-                populateTypeVarContextBasedOnExpectedType(
-                    evaluator,
-                    ClassType.cloneAsInstance(type),
-                    expectedSubType,
-                    typeVarContext,
-                    getTypeVarScopesForNode(errorNode),
-                    errorNode.start
-                )
-            ) {
-                const specializedConstructor = applySolvedTypeVars(initMethodType, typeVarContext);
-
-                let callResult: CallResult | undefined;
-                callResult = evaluator.useSpeculativeMode(errorNode, () => {
-                    return evaluator.validateCallArguments(
-                        errorNode,
-                        argList,
-                        { type: specializedConstructor },
-                        typeVarContext.clone(),
-                        skipUnknownArgCheck
-                    );
-                });
-
-                if (!callResult.argumentErrors) {
-                    // Call validateCallArguments again, this time without speculative
-                    // mode, so any errors are reported.
-                    callResult = evaluator.validateCallArguments(
-                        errorNode,
-                        argList,
-                        { type: specializedConstructor },
-                        typeVarContext,
-                        skipUnknownArgCheck
-                    );
-
-                    if (callResult.isTypeIncomplete) {
-                        isTypeIncomplete = true;
-                    }
-
-                    if (callResult.argumentErrors) {
-                        argumentErrors = true;
-                    }
-
-                    if (callResult.overloadsUsedForCall) {
-                        appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
-                    }
-
-                    return applyExpectedSubtypeForConstructor(evaluator, type, expectedSubType, typeVarContext);
+        returnType = mapSubtypes(
+            inferenceContext.expectedType,
+            (expectedSubType) => {
+                // If we've already successfully evaluated the __init__ method with
+                // one expected type, ignore the remaining ones.
+                if (foundWorkingExpectedType) {
+                    return undefined;
                 }
-            }
 
-            return undefined;
-        });
+                expectedSubType = transformPossibleRecursiveTypeAlias(expectedSubType);
+
+                // If the expected type is the same type as the class and the class
+                // is already explicitly specialized, don't override the explicit
+                // specialization.
+                if (
+                    isClassInstance(expectedSubType) &&
+                    ClassType.isSameGenericClass(type, expectedSubType) &&
+                    type.typeArguments
+                ) {
+                    return undefined;
+                }
+
+                const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
+                typeVarContext.addSolveForScope(getTypeVarScopeId(initMethodType));
+
+                if (
+                    populateTypeVarContextBasedOnExpectedType(
+                        evaluator,
+                        ClassType.cloneAsInstance(type),
+                        expectedSubType,
+                        typeVarContext,
+                        getTypeVarScopesForNode(errorNode),
+                        errorNode.start
+                    )
+                ) {
+                    const specializedConstructor = applySolvedTypeVars(initMethodType, typeVarContext);
+
+                    let callResult: CallResult | undefined;
+                    callResult = evaluator.useSpeculativeMode(errorNode, () => {
+                        return evaluator.validateCallArguments(
+                            errorNode,
+                            argList,
+                            { type: specializedConstructor },
+                            typeVarContext.clone(),
+                            skipUnknownArgCheck
+                        );
+                    });
+
+                    if (!callResult.argumentErrors) {
+                        // Call validateCallArguments again, this time without speculative
+                        // mode, so any errors are reported.
+                        callResult = evaluator.validateCallArguments(
+                            errorNode,
+                            argList,
+                            { type: specializedConstructor },
+                            typeVarContext,
+                            skipUnknownArgCheck
+                        );
+
+                        if (callResult.isTypeIncomplete) {
+                            isTypeIncomplete = true;
+                        }
+
+                        if (callResult.argumentErrors) {
+                            argumentErrors = true;
+                        }
+
+                        if (callResult.overloadsUsedForCall) {
+                            appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
+                        }
+
+                        // Note that we've found an expected type that works.
+                        foundWorkingExpectedType = true;
+
+                        return applyExpectedSubtypeForConstructor(evaluator, type, expectedSubType, typeVarContext);
+                    }
+                }
+
+                return undefined;
+            },
+            /* sortSubtypes */ true
+        );
 
         if (isNever(returnType) || argumentErrors) {
             returnType = undefined;
