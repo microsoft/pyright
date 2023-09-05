@@ -10819,26 +10819,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // that is type compatible with that class, filter the subtypes in
                 // the union to see if we can find one that is potentially compatible.
                 if (isUnion(effectiveExpectedType)) {
-                    const filteredType = mapSubtypes(effectiveExpectedType, (subtype) => {
-                        if (!isClassInstance(subtype) || subtype.details.typeParameters.length === 0) {
+                    const filteredType = mapSubtypes(
+                        effectiveExpectedType,
+                        (subtype) => {
+                            if (!isClassInstance(subtype) || subtype.details.typeParameters.length === 0) {
+                                return undefined;
+                            }
+
+                            if (
+                                ClassType.isProtocolClass(subtype) ||
+                                subtype.details.mro.some((mroClass) => {
+                                    return (
+                                        isClassInstance(mroClass) &&
+                                        mroClass.details.typeParameters.length > 0 &&
+                                        ClassType.isSameGenericClass(effectiveReturnType, mroClass)
+                                    );
+                                })
+                            ) {
+                                return subtype;
+                            }
+
                             return undefined;
-                        }
-
-                        if (
-                            ClassType.isProtocolClass(subtype) ||
-                            subtype.details.mro.some((mroClass) => {
-                                return (
-                                    isClassInstance(mroClass) &&
-                                    mroClass.details.typeParameters.length > 0 &&
-                                    ClassType.isSameGenericClass(effectiveReturnType, mroClass)
-                                );
-                            })
-                        ) {
-                            return subtype;
-                        }
-
-                        return undefined;
-                    });
+                        },
+                        /* sortSubtypes */ true
+                    );
 
                     if (isClassInstance(filteredType)) {
                         effectiveExpectedType = filteredType;
