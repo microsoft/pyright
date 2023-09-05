@@ -160,7 +160,13 @@ export function applyFunctionDecorator(
             }
 
             if (decoratorCallType.details.builtInName === 'deprecated') {
-                undecoratedType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
+                const deprecationMessage = getCustomDeprecationMessage(decoratorNode);
+                undecoratedType.details.deprecatedMessage = deprecationMessage;
+
+                if (isFunction(inputFunctionType)) {
+                    inputFunctionType.details.deprecatedMessage = deprecationMessage;
+                }
+
                 return inputFunctionType;
             }
         }

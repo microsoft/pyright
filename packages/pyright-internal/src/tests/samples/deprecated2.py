@@ -89,3 +89,13 @@ ClassD(3)
 
 # This should generate an error if reportDeprecated is enabled.
 ClassD("")
+
+
+@deprecated("Deprecated async function")
+async def func3():
+    ...
+
+
+async def func4():
+    # This should generate an error if reportDeprecated is enabled.
+    await func3()
