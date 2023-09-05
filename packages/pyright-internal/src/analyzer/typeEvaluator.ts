@@ -8738,11 +8738,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const diagAddendum = new DiagnosticAddendum();
                 const argTypes = argList.map((t) => {
                     const typeString = printType(getTypeOfArgument(t).type);
-                    
+
                     if (t.argumentCategory === ArgumentCategory.UnpackedList) {
                         return `*${typeString}`;
                     }
-                    
+
                     if (t.argumentCategory === ArgumentCategory.UnpackedDictionary) {
                         return `**${typeString}`;
                     }
