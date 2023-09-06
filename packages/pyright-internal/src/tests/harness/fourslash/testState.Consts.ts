@@ -10,6 +10,7 @@
  */
 
 import * as lsp from 'vscode-languageserver';
+import { indexValueDetail } from '../../../languageService/completionProvider';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 export namespace Consts {
@@ -27,4 +28,6 @@ export namespace Consts {
 
     export import CompletionItemKind = lsp.CompletionItemKind;
     export import InlayHintKind = lsp.InlayHintKind;
+
+    export const IndexValueDetail = indexValueDetail;
 }

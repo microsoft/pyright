@@ -39,7 +39,6 @@ import { DiagnosticCategory } from '../../../common/diagnostic';
 import { FileEditAction } from '../../../common/editAction';
 import {
     combinePaths,
-    comparePaths,
     convertPathToUri,
     getDirectoryPath,
     getFileExtension,
@@ -97,6 +96,7 @@ import { createVfsInfoFromFourSlashData, getMarkerByName, getMarkerName, getMark
 import { verifyWorkspaceEdit } from './workspaceEditTestUtils';
 import { ServiceProvider } from '../../../common/serviceProvider';
 import { createServiceProvider } from '../../../common/serviceProviderExtensions';
+import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../../common/stringUtils';
 
 export interface TextChange {
     span: TextRange;
@@ -1507,8 +1507,10 @@ export class TestState {
     }
 
     protected getFileContent(fileName: string): string {
-        const files = this.testData.files.filter(
-            (f) => comparePaths(f.fileName, fileName, this.testFS.ignoreCase) === Comparison.EqualTo
+        const files = this.testData.files.filter((f) =>
+            this.testFS.ignoreCase
+                ? compareStringsCaseInsensitive(f.fileName, fileName) === Comparison.EqualTo
+                : compareStringsCaseSensitive(f.fileName, fileName) === Comparison.EqualTo
         );
         return files[0].content;
     }

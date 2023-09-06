@@ -214,8 +214,8 @@
         "implicitStringConcat": "Implicit string concatenation not allowed",
         "importCycleDetected": "Cycle detected in import chain",
         "importDepthExceeded": "Import chain depth exceeded {depth}",
-        "importResolveFailure": "Import \"{importName}\" could not be found in the \"{venv}\" environment.",
-        "importSourceResolveFailure": "Import \"{importName}\" could not be resolved from source in the \"{venv}\" environment.",
+        "importResolveFailure": "Import \"{importName}\" could not be resolved",
+        "importSourceResolveFailure": "Import \"{importName}\" could not be resolved from source",
         "importSymbolUnknown": "\"{name}\" is unknown import symbol",
         "incompatibleMethodOverride": "Method \"{name}\" overrides class \"{className}\" in an incompatible manner",
         "inconsistentIndent": "Unindent amount does not match previous indent",
@@ -724,5 +724,9 @@
         "findingReferences": "Finding references",
         "organizeImports": "Organize Imports",
         "renameShadowedFile": "Rename \"{oldFile}\" to \"{newFile}\""
+    },
+    "Completion": {
+        "autoImportDetail": "Auto-import",
+        "indexValueDetail": "Index value"
     }
 }

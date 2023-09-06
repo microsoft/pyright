@@ -10,6 +10,10 @@
         "organizeImports": "インポートを整理",
         "renameShadowedFile": "\"{oldFile}\" の名前を \"{newFile}\" に変更します"
     },
+    "Completion": {
+        "autoImportDetail": "Auto-import",
+        "indexValueDetail": "Index value"
+    },
     "Diagnostic": {
         "abstractMethodInvocation": "メソッド \"{method}\" は抽象型であるため、呼び出すことができません",
         "annotatedParamCountMismatch": "パラメーター注釈数の不一致: {expected} が必要ですが、{received} を受信しました",
@@ -417,7 +421,7 @@
         "superCallArgCount": "\"super\" 呼び出しには 2 つ以下の引数が必要です",
         "superCallFirstArg": "\"super\" 呼び出しの最初の引数としてクラス型が必要ですが、\"{type}\" を受け取りました",
         "superCallSecondArg": "\"super\" 呼び出しの 2 番目の引数は、\"{type}\" から派生したオブジェクトまたはクラスである必要があります",
-        "superCallZeroArgForm": "\"super\" 呼び出しの 0 引数形式は、クラス内でのみ有効です",
+        "superCallZeroArgForm": "\"super\" 呼び出しの 0 引数形式は、メソッド内でのみ有効です",
         "symbolIsPossiblyUnbound": "\"{name}\" はバインドされていない可能性があります",
         "symbolIsUnbound": "\"{name}\" はバインドされていません",
         "symbolIsUndefined": "\"{name}\" が定義されていません",
@@ -452,6 +456,7 @@
         "typeAssignmentMismatch": "型 \"{sourceType}\" の式を宣言された型 \"{destType}\" に割り当てることはできません",
         "typeAssignmentMismatchWildcard": "宣言された型 \"{destType}\" に割り当てできないシンボル \"{name}\" のインポートに型 \"{sourceType}\" があります",
         "typeCallNotAllowed": "type() 呼び出しは型注釈で使用しないでください",
+        "typeCheckOnly": "\"{name}\" は@type_check_onlyとしてマークされており、型注釈でのみ使用できます",
         "typeCommentDeprecated": "型コメントの使用は非推奨です。代わりに型注釈を使用してください",
         "typeExpectedClass": "型式が必要ですが、\"{type}\" を受け取りました",
         "typeGuardArgCount": "\"TypeGuard\" の後に 1 つの型引数が必要です",
@@ -685,7 +690,8 @@
         "seeVariableDeclaration": "変数宣言を参照してください",
         "tupleAssignmentMismatch": "型 \"{type}\" はターゲット タプルと互換性がありません",
         "tupleEntryTypeMismatch": "タプル エントリ {entry} の型が正しくありません",
-        "tupleSizeMismatch": "要素のサイズが一致しません。{expected} が必要ですが、{received} を受信しました",
+        "tupleSizeIndeterminate": "タプル サイズが一致しません。{expected} が必要ですが、受け取りは不確定です",
+        "tupleSizeMismatch": "タプルのサイズが一致しません。{expected} が必要ですが、{received} を受信しました",
         "typeAssignmentMismatch": "型 \"{sourceType}\" を型 \"{destType}\" に割り当てることはできません",
         "typeBound": "型 \"{sourceType}\" は、型変数 \"{name}\" のバインドされた型 \"{destType}\" と互換性がありません",
         "typeConstrainedTypeVar": "型 \"{type}\" は制約付き型変数 \"{name}\" と互換性がありません",

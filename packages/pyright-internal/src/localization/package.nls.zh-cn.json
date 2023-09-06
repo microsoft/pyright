@@ -10,6 +10,10 @@
         "organizeImports": "整理 Import",
         "renameShadowedFile": "将“{oldFile}”重命名为“{newFile}”"
     },
+    "Completion": {
+        "autoImportDetail": "Auto-import",
+        "indexValueDetail": "Index value"
+    },
     "Diagnostic": {
         "abstractMethodInvocation": "无法调用方法\"{method}\"，因为它是抽象的",
         "annotatedParamCountMismatch": "参数批注计数不匹配: 应为 {expected}，但收到 {received}",
@@ -417,7 +421,7 @@
         "superCallArgCount": "“super” 调用应不超过两个参数",
         "superCallFirstArg": "应将类类型作为“super”调用的第一个参数，但收到“{type}”",
         "superCallSecondArg": "“super”调用的第二个参数必须是派生自“{type}”的对象或类",
-        "superCallZeroArgForm": "“super”调用的零参数形式仅在类中有效",
+        "superCallZeroArgForm": "“Super”调用的零参数形式仅在方法中有效",
         "symbolIsPossiblyUnbound": "“{name}”可能未绑定",
         "symbolIsUnbound": "“{name}”未绑定",
         "symbolIsUndefined": "未定义“{name}”",
@@ -452,6 +456,7 @@
         "typeAssignmentMismatch": "无法将类型“{sourceType}”的表达式分配给声明的类型“{destType}”",
         "typeAssignmentMismatchWildcard": "导入符号“{name}”的类型为“{sourceType}”，无法将其分配给声明的类型“{destType}”",
         "typeCallNotAllowed": "type() 调用不应用于类型批注",
+        "typeCheckOnly": "“{name}”标记为 @type_check_only，并且只能在类型注释中使用",
         "typeCommentDeprecated": "已弃用类型注释；请改用类型批注",
         "typeExpectedClass": "应为类型表达式，但收到“{type}”",
         "typeGuardArgCount": "“TypeGuard”后应为单个类型参数",
@@ -685,7 +690,8 @@
         "seeVariableDeclaration": "查看变量声明",
         "tupleAssignmentMismatch": "类型\"{type}\"与目标元组不兼容",
         "tupleEntryTypeMismatch": "元组条目 {entry} 的类型不正确",
-        "tupleSizeMismatch": "元素大小不匹配；应为 {expected}，但收到 {received}",
+        "tupleSizeIndeterminate": "元组大小不匹配；应为 {expected}，但收到不确定的",
+        "tupleSizeMismatch": "元组大小不匹配；应为 {expected}，但收到 {received}",
         "typeAssignmentMismatch": "无法将类型“{sourceType}”分配给类型“{destType}”",
         "typeBound": "类型\"{sourceType}\"与类型变量\"{destType}\"的绑定类型\"{name}\"不兼容",
         "typeConstrainedTypeVar": "类型\"{type}\"与受约束的类型变量\"{name}\"不兼容",

@@ -10,6 +10,10 @@
         "organizeImports": "Organizar as importações",
         "renameShadowedFile": "Renomear \"{oldFile}\" para \"{newFile}\""
     },
+    "Completion": {
+        "autoImportDetail": "Auto-import",
+        "indexValueDetail": "Index value"
+    },
     "Diagnostic": {
         "abstractMethodInvocation": "O método \"{method}\" não pode ser chamado porque é abstrato",
         "annotatedParamCountMismatch": "Incompatibilidade de contagem de anotações de parâmetro: esperado {expected}, mas recebido {received}",
@@ -417,7 +421,7 @@
         "superCallArgCount": "Não mais que dois argumentos eram esperados para a chamada \"super\"",
         "superCallFirstArg": "Tipo de classe esperado como o primeiro argumento para a chamada \"super\", mas recebeu \"{type}\"",
         "superCallSecondArg": "O segundo argumento para a chamada \"super\" deve ser objeto ou classe que deriva de \"{type}\"",
-        "superCallZeroArgForm": "A forma de argumento zero de chamada \"super\" é válida somente dentro de uma classe",
+        "superCallZeroArgForm": "A forma de chamada \"super\" com argumento zero é válida apenas dentro de um método",
         "symbolIsPossiblyUnbound": "\"{name}\" possivelmente não está associado",
         "symbolIsUnbound": "\"{name}\" não está associado",
         "symbolIsUndefined": "\"{name}\" não está definido",
@@ -452,6 +456,7 @@
         "typeAssignmentMismatch": "A expressão do tipo \"{sourceType}\" não pode ser atribuída ao tipo declarado \"{destType}\"",
         "typeAssignmentMismatchWildcard": "O símbolo de importação \"{name}\" tem o tipo \"{sourceType}\", que não pode ser atribuído ao tipo declarado \"{destType}\"",
         "typeCallNotAllowed": "A chamada type() não deve ser usada na anotação de tipo",
+        "typeCheckOnly": "\"{name}\" está marcado como @type_check_only e pode ser usado apenas em anotações de tipo",
         "typeCommentDeprecated": "O uso de comentários de tipo foi preterido. Use anotação de tipo em vez disso",
         "typeExpectedClass": "Expressão de tipo esperada, mas recebeu \"{type}\"",
         "typeGuardArgCount": "Argumento de tipo único esperado após \"TypeGuard\"",
@@ -685,7 +690,8 @@
         "seeVariableDeclaration": "Consulte a declaração de variável",
         "tupleAssignmentMismatch": "O tipo \"{type}\" é incompatível com a tupla de destino",
         "tupleEntryTypeMismatch": "A entrada de tupla {entry} é do tipo incorreto",
-        "tupleSizeMismatch": "Incompatibilidade de tamanho do elemento. Esperava-se {expected}, mas recebeu {received}",
+        "tupleSizeIndeterminate": "Incompatibilidade de tamanho de tupla; esperado {expected} mas recebido indeterminado",
+        "tupleSizeMismatch": "Incompatibilidade de tamanho de tupla; esperado {expected} mas recebido {received}",
         "typeAssignmentMismatch": "O tipo \"{sourceType}\" não pode ser atribuído ao tipo \"{destType}\"",
         "typeBound": "O tipo \"{sourceType}\" é incompatível com o tipo associado \"{destType}\" para a variável de tipo \"{name}\"",
         "typeConstrainedTypeVar": "O tipo \"{type}\" é incompatível com a variável de tipo restrita \"{name}\"",

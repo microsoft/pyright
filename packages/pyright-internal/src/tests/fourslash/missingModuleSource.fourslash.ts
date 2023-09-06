@@ -12,6 +12,6 @@
 helper.verifyDiagnostics({
     marker1: {
         category: 'warning',
-        message: 'Import "pkg1234" could not be resolved from source in the "python" environment.',
+        message: 'Import "pkg1234" could not be resolved from source',
     },
 });

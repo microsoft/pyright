@@ -10,6 +10,10 @@
         "organizeImports": "Упорядочение импорта",
         "renameShadowedFile": "Переименовать \"{oldFile}\" в \"{newFile}\""
     },
+    "Completion": {
+        "autoImportDetail": "Auto-import",
+        "indexValueDetail": "Index value"
+    },
     "Diagnostic": {
         "abstractMethodInvocation": "Метод \"{method}\" не может быть вызван, так как является абстрактным",
         "annotatedParamCountMismatch": "Несоответствие числа аннотаций параметра: ожидается {expected}, но получено {received}",
@@ -417,7 +421,7 @@
         "superCallArgCount": "Ожидается не более двух аргументов для вызова \"super\"",
         "superCallFirstArg": "В качестве первого аргумента для вызова \"super\" ожидался тип класса, но получен \"{type}\"",
         "superCallSecondArg": "Второй аргумент для вызова \"super\" должен быть объектом или классом, производным от \"{type}\"",
-        "superCallZeroArgForm": "Форма вызова \"super\" с нулевым аргументом допустима только внутри класса",
+        "superCallZeroArgForm": "Форма вызова \"super\" с нулевым аргументом допустима только внутри метода",
         "symbolIsPossiblyUnbound": "Элемент \"{name}\", возможно, не привязан",
         "symbolIsUnbound": "Элемент \"{name}\" не привязан",
         "symbolIsUndefined": "\"{name}\" не определено",
@@ -452,6 +456,7 @@
         "typeAssignmentMismatch": "Выражение типа \"{sourceType}\" нельзя присвоить объявленному типу \"{destType}\"",
         "typeAssignmentMismatchWildcard": "Символ импорта \"{name}\" имеет тип \"{sourceType}\", который не может быть назначен объявленному типу \"{destType}\"",
         "typeCallNotAllowed": "Вызов type() не разрешен в заметках типа",
+        "typeCheckOnly": "\"{name}\" помечено как @type_check_only и может использоваться только в заметках с типом",
         "typeCommentDeprecated": "Комментарии типа больше не рекомендуются к использованию; вместо них используйте заметки типа",
         "typeExpectedClass": "Ожидалось выражение типа, но получено \"{type}\"",
         "typeGuardArgCount": "После \"TypeGuard\" ожидается один аргумент типа",
@@ -685,7 +690,8 @@
         "seeVariableDeclaration": "Просмотреть объявление переменной",
         "tupleAssignmentMismatch": "Тип \"{type}\" несовместим с целевым кортежем",
         "tupleEntryTypeMismatch": "Запись кортежа {entry} имеет неверный тип",
-        "tupleSizeMismatch": "Несоответствие размеров элемента: ожидается \"{expected}\", но получено \"{received}\"",
+        "tupleSizeIndeterminate": "Несоответствие размеров кортежа: ожидается \"{expected}\", но получено неопределенное значение",
+        "tupleSizeMismatch": "Несоответствие размеров кортежа: ожидается \"{expected}\", но получено \"{received}\"",
         "typeAssignmentMismatch": "Тип \"{sourceType}\" нельзя присвоить типу \"{destType}\"",
         "typeBound": "Тип \"{sourceType}\" несовместим с привязанным типом \"{destType}\" для переменной типа \"{name}\"",
         "typeConstrainedTypeVar": "Тип \"{type}\" несовместим с переменной ограниченного типа \"{name}\"",

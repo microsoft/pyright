@@ -124,6 +124,8 @@ import {
 } from './completionProviderUtils';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { getAutoImportText, getDocumentationPartsForTypeAndDecl } from './tooltipUtils';
+import { ImportResult } from '../analyzer/importResult';
+import { Localizer } from '../localization/localize';
 
 namespace Keywords {
     const base: string[] = [
@@ -258,8 +260,8 @@ interface QuoteInfo {
     quoteCharacter: string;
 }
 
-export const autoImportDetail = 'Auto-import';
-export const dictionaryKeyDetail = 'Dictionary key';
+export const autoImportDetail = Localizer.Completion.autoImportDetail();
+export const indexValueDetail = Localizer.Completion.indexValueDetail();
 
 // We'll use a somewhat-arbitrary cutoff value here to determine
 // whether it's sufficiently similar.
@@ -2400,12 +2402,12 @@ export class CompletionProvider {
                         quoteInfo,
                         postText,
                         completionMap,
-                        dictionaryKeyDetail
+                        indexValueDetail
                     );
                 } else {
                     this.addNameToCompletions(key, CompletionItemKind.Constant, priorWord, completionMap, {
                         sortText: this._makeSortText(SortCategory.LiteralValue, key),
-                        itemDetail: dictionaryKeyDetail,
+                        itemDetail: indexValueDetail,
                     });
                 }
             }
@@ -2729,6 +2731,8 @@ export class CompletionProvider {
 
         const parseResults = this.program.getParseResults(resolvedPath);
         if (!parseResults) {
+            // Add the implicit imports.
+            this._addImplicitImportsToCompletion(importInfo, importFromNode, priorWord, completionMap);
             return completionMap;
         }
 
@@ -2754,6 +2758,16 @@ export class CompletionProvider {
         );
 
         // Add the implicit imports.
+        this._addImplicitImportsToCompletion(importInfo, importFromNode, priorWord, completionMap);
+        return completionMap;
+    }
+
+    private _addImplicitImportsToCompletion(
+        importInfo: ImportResult,
+        importFromNode: ImportFromNode,
+        priorWord: string,
+        completionMap: CompletionMap
+    ) {
         importInfo.implicitImports.forEach((implImport) => {
             if (!importFromNode.imports.find((imp) => imp.name.value === implImport.name)) {
                 this.addNameToCompletions(implImport.name, CompletionItemKind.Module, priorWord, completionMap, {
@@ -2761,8 +2775,6 @@ export class CompletionProvider {
                 });
             }
         });
-
-        return completionMap;
     }
 
     private _findMatchingKeywords(keywordList: string[], partialMatch: string): string[] {

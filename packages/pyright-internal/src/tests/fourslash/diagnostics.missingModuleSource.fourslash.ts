@@ -35,35 +35,35 @@
     helper.verifyDiagnostics({
         marker1: {
             category: 'warning',
-            message: 'Import "myLib.module" could not be resolved from source in the "python" environment.',
+            message: 'Import "myLib.module" could not be resolved from source',
         },
         marker2: {
             category: 'warning',
-            message: 'Import "myLib.module" could not be resolved from source in the "python" environment.',
+            message: 'Import "myLib.module" could not be resolved from source',
         },
         marker3: {
             category: 'warning',
-            message: 'Import "myLib.module" could not be resolved from source in the "python" environment.',
+            message: 'Import "myLib.module" could not be resolved from source',
         },
         marker4: {
             category: 'warning',
-            message: 'Import ".conflict.module2" could not be resolved from source in the "python" environment.',
+            message: 'Import ".conflict.module2" could not be resolved from source',
         },
         marker5: {
             category: 'warning',
-            message: 'Import ".conflict.module2" could not be resolved from source in the "python" environment.',
+            message: 'Import ".conflict.module2" could not be resolved from source',
         },
         marker6: {
             category: 'warning',
-            message: 'Import "myLib.module" could not be resolved from source in the "python" environment.',
+            message: 'Import "myLib.module" could not be resolved from source',
         },
         marker7: {
             category: 'warning',
-            message: 'Import "myLib.module" could not be resolved from source in the "python" environment.',
+            message: 'Import "myLib.module" could not be resolved from source',
         },
         marker8: {
             category: 'warning',
-            message: 'Import ".conflict.module2" could not be resolved from source in the "python" environment.',
+            message: 'Import ".conflict.module2" could not be resolved from source',
         },
     });
 }

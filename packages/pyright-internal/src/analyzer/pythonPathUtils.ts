@@ -43,14 +43,14 @@ export function getTypeShedFallbackPath(fs: FileSystem) {
 
     const typeshedPath = combinePaths(moduleDirectory, pathConsts.typeshedFallback);
     if (fs.existsSync(typeshedPath)) {
-        return typeshedPath;
+        return fs.realCasePath(typeshedPath);
     }
 
     // In the debug version of Pyright, the code is one level
     // deeper, so we need to look one level up for the typeshed fallback.
     const debugTypeshedPath = combinePaths(getDirectoryPath(moduleDirectory), pathConsts.typeshedFallback);
     if (fs.existsSync(debugTypeshedPath)) {
-        return debugTypeshedPath;
+        return fs.realCasePath(debugTypeshedPath);
     }
 
     return undefined;
@@ -86,7 +86,7 @@ export function findPythonSearchPaths(
             );
             if (sitePackagesPath) {
                 addPathIfUnique(foundPaths, sitePackagesPath);
-                sitePackagesPaths.push(sitePackagesPath);
+                sitePackagesPaths.push(fs.realCasePath(sitePackagesPath));
             }
         });
 
@@ -114,16 +114,18 @@ export function findPythonSearchPaths(
     // Fall back on the python interpreter.
     const pathResult = host.getPythonSearchPaths(configOptions.pythonPath, importFailureInfo);
     if (includeWatchPathsOnly && workspaceRoot) {
-        const paths = pathResult.paths.filter(
-            (p) =>
-                !containsPath(workspaceRoot, p, /* ignoreCase */ true) ||
-                containsPath(pathResult.prefix, p, /* ignoreCase */ true)
-        );
+        const paths = pathResult.paths
+            .filter(
+                (p) =>
+                    !containsPath(workspaceRoot, p, /* ignoreCase */ true) ||
+                    containsPath(pathResult.prefix, p, /* ignoreCase */ true)
+            )
+            .map((p) => fs.realCasePath(p));
 
         return paths;
     }
 
-    return pathResult.paths;
+    return pathResult.paths.map((p) => fs.realCasePath(p));
 }
 
 export function isPythonBinary(p: string): boolean {
@@ -198,7 +200,7 @@ export function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[
         .sort((a, b) => compareComparableValues(a.name, b.name));
 
     pthFiles.forEach((pthFile) => {
-        const filePath = combinePaths(parentDir, pthFile.name);
+        const filePath = fs.realCasePath(combinePaths(parentDir, pthFile.name));
         const fileStats = tryStat(fs, filePath);
 
         // Skip all files that are much larger than expected.
@@ -210,7 +212,7 @@ export function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[
                 if (trimmedLine.length > 0 && !trimmedLine.startsWith('#') && !trimmedLine.match(/^import\s/)) {
                     const pthPath = combinePaths(parentDir, trimmedLine);
                     if (fs.existsSync(pthPath) && isDirectory(fs, pthPath)) {
-                        searchPaths.push(pthPath);
+                        searchPaths.push(fs.realCasePath(pthPath));
                     }
                 }
             });

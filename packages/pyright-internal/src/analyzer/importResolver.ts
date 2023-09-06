@@ -30,7 +30,7 @@ import {
     isDiskPathRoot,
     isFile,
     normalizePath,
-    normalizePathCase,
+    realCasePath,
     resolvePaths,
     stripFileExtension,
     stripTrailingDirectorySeparator,
@@ -170,9 +170,7 @@ export class ImportResolver {
         }
 
         const root = this.getParentImportResolutionRoot(sourceFilePath, execEnv.root);
-        const origin = ensureTrailingDirectorySeparator(
-            getDirectoryPath(normalizePathCase(this.fileSystem, normalizePath(sourceFilePath)))
-        );
+        const origin = ensureTrailingDirectorySeparator(getDirectoryPath(sourceFilePath));
 
         let current = origin;
         while (this._shouldWalkUp(current, root, execEnv)) {
@@ -506,7 +504,7 @@ export class ImportResolver {
         // If the import is absolute and no other method works, try resolving the
         // absolute in the importing file's directory, then the parent directory,
         // and so on, until the import root is reached.
-        sourceFilePath = normalizePathCase(this.fileSystem, normalizePath(sourceFilePath));
+        sourceFilePath = realCasePath(normalizePath(sourceFilePath), this.fileSystem);
         const origin = ensureTrailingDirectorySeparator(getDirectoryPath(sourceFilePath));
 
         const result = this.cachedParentImportResults.getImportResult(origin, importName, importResult);
@@ -838,7 +836,7 @@ export class ImportResolver {
 
     protected getParentImportResolutionRoot(sourceFilePath: string, executionRoot: string | undefined) {
         if (executionRoot) {
-            return ensureTrailingDirectorySeparator(normalizePathCase(this.fileSystem, normalizePath(executionRoot)));
+            return ensureTrailingDirectorySeparator(realCasePath(normalizePath(executionRoot), this.fileSystem));
         }
 
         return ensureTrailingDirectorySeparator(getDirectoryPath(sourceFilePath));
@@ -2605,12 +2603,7 @@ export class ImportResolver {
             return [false, ''];
         }
 
-        return [
-            true,
-            ensureTrailingDirectorySeparator(
-                normalizePathCase(this.fileSystem, normalizePath(combinePaths(current, '..')))
-            ),
-        ];
+        return [true, ensureTrailingDirectorySeparator(normalizePath(combinePaths(current, '..')))];
     }
 
     private _shouldWalkUp(current: string, root: string, execEnv: ExecutionEnvironment) {

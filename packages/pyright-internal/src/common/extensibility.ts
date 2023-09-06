@@ -25,6 +25,7 @@ import { Range } from './textRange';
 import { SymbolTable } from '../analyzer/symbol';
 import { Diagnostic } from '../common/diagnostic';
 import { IPythonMode } from '../analyzer/sourceFile';
+import { ServiceKey } from './serviceProvider';
 
 export interface LanguageServiceExtension {
     // empty
@@ -74,6 +75,11 @@ export interface SourceFileInfo {
     readonly shadowedBy: readonly SourceFileInfo[];
 }
 
+export interface ServiceProvider {
+    tryGet<T>(key: ServiceKey<T>): T | undefined;
+    get<T>(key: ServiceKey<T>): T;
+}
+
 // Readonly wrapper around a Program. Makes sure it doesn't mutate the program.
 export interface ProgramView {
     readonly id: string;
@@ -83,6 +89,7 @@ export interface ProgramView {
     readonly configOptions: ConfigOptions;
     readonly importResolver: ImportResolver;
     readonly fileSystem: ReadOnlyFileSystem;
+    readonly serviceProvider: ServiceProvider;
 
     owns(file: string): boolean;
     getSourceFileInfoList(): readonly SourceFileInfo[];

@@ -1245,3 +1245,33 @@ test('TypeDict literal values', async () => {
         },
     });
 });
+
+test('import from completion for namespace package', async () => {
+    const code = `
+// @filename: test.py
+//// from nest1 import [|/*marker*/|]
+
+// @filename: nest1/nest2/__init__.py
+//// # empty
+
+// @filename: nest1/module.py
+//// # empty
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: 'nest2',
+                    kind: CompletionItemKind.Module,
+                },
+                {
+                    label: 'module',
+                    kind: CompletionItemKind.Module,
+                },
+            ],
+        },
+    });
+});

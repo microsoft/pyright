@@ -29,7 +29,7 @@ import { expandPathVariables } from './common/envVarUtils';
 import { FileBasedCancellationProvider } from './common/fileBasedCancellationUtils';
 import { FullAccessHost } from './common/fullAccessHost';
 import { Host } from './common/host';
-import { resolvePaths } from './common/pathUtils';
+import { realCasePath, resolvePaths } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
 import { WorkspaceFileWatcherProvider, createFromRealFileSystem } from './common/realFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
@@ -58,11 +58,12 @@ export class PyrightServer extends LanguageServerBase {
         const fileSystem = createFromRealFileSystem(console, fileWatcherProvider);
         const pyrightFs = new PyrightFileSystem(fileSystem);
         const serviceProvider = createServiceProvider(pyrightFs, console);
+        const realPathRoot = realCasePath(rootDirectory, pyrightFs);
 
         super(
             {
                 productName: 'Pyright',
-                rootDirectory,
+                rootDirectory: realPathRoot,
                 version,
                 serviceProvider,
                 fileWatcherHandler: fileWatcherProvider,

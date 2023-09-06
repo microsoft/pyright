@@ -29,7 +29,6 @@ import {
     getRelativePath,
     makeDirectories,
     normalizePath,
-    normalizePathCase,
     stripFileExtension,
 } from '../common/pathUtils';
 import { convertRangeToTextRange } from '../common/positionUtils';
@@ -169,17 +168,17 @@ export class Program {
     constructor(
         initialImportResolver: ImportResolver,
         initialConfigOptions: ConfigOptions,
-        private _serviceProvider: ServiceProvider,
+        readonly serviceProvider: ServiceProvider,
         logTracker?: LogTracker,
         private _disableChecker?: boolean,
         cacheManager?: CacheManager,
         id?: string
     ) {
-        this._console = _serviceProvider.tryGet(ServiceKeys.console) || new StandardConsole();
+        this._console = serviceProvider.tryGet(ServiceKeys.console) || new StandardConsole();
         this._logTracker = logTracker ?? new LogTracker(this._console, 'FG');
         this._importResolver = initialImportResolver;
         this._configOptions = initialConfigOptions;
-        this._sourceFileFactory = _serviceProvider.sourceFileFactory();
+        this._sourceFileFactory = serviceProvider.sourceFileFactory();
 
         this._cacheManager = cacheManager ?? new CacheManager();
         this._cacheManager.registerCacheOwner(this);
@@ -301,13 +300,13 @@ export class Program {
             // We need to determine which files to remove from the existing file list.
             const newFileMap = new Map<string, string>();
             filePaths.forEach((path) => {
-                newFileMap.set(normalizePathCase(this.fileSystem, path), path);
+                newFileMap.set(path, path);
             });
 
             // Files that are not in the tracked file list are
             // marked as no longer tracked.
             this._sourceFileList.forEach((oldFile) => {
-                const filePath = normalizePathCase(this.fileSystem, oldFile.sourceFile.getFilePath());
+                const filePath = oldFile.sourceFile.getFilePath();
                 if (!newFileMap.has(filePath)) {
                     oldFile.isTracked = false;
                 }
@@ -573,9 +572,8 @@ export class Program {
     }
 
     containsSourceFileIn(folder: string): boolean {
-        const normalizedFolder = normalizePathCase(this.fileSystem, folder);
         for (const normalizedSourceFilePath of this._sourceFileMap.keys()) {
-            if (normalizedSourceFilePath.startsWith(normalizedFolder)) {
+            if (normalizedSourceFilePath.startsWith(folder)) {
                 return true;
             }
         }
@@ -612,7 +610,7 @@ export class Program {
     }
 
     getSourceFileInfo(filePath: string): SourceFileInfo | undefined {
-        return this._sourceFileMap.get(normalizePathCase(this.fileSystem, filePath));
+        return this._sourceFileMap.get(filePath);
     }
 
     getBoundSourceFileInfo(filePath: string, content?: string, force?: boolean): SourceFileInfo | undefined {
@@ -945,7 +943,7 @@ export class Program {
         const program = new Program(
             this._importResolver,
             this._configOptions,
-            this._serviceProvider,
+            this.serviceProvider,
             new LogTracker(this._console, 'Cloned')
         );
 
@@ -1157,7 +1155,7 @@ export class Program {
             return true;
         }
 
-        const filePath = normalizePathCase(this.fileSystem, fileInfo.sourceFile.getFilePath());
+        const filePath = fileInfo.sourceFile.getFilePath();
 
         // Avoid infinite recursion.
         if (recursionSet.has(filePath)) {
@@ -1331,7 +1329,7 @@ export class Program {
                 sourceFileInfo.chainedSourceFile = undefined;
             } else {
                 const filePath = sourceFileInfo.chainedSourceFile.sourceFile.getFilePath();
-                newImportPathMap.set(normalizePathCase(this.fileSystem, filePath), {
+                newImportPathMap.set(filePath, {
                     path: filePath,
                     isTypeshedFile: false,
                     isThirdPartyImport: false,
@@ -1347,7 +1345,7 @@ export class Program {
                         const filePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
                         if (filePath) {
                             const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
-                            newImportPathMap.set(normalizePathCase(this.fileSystem, filePath), {
+                            newImportPathMap.set(filePath, {
                                 path: filePath,
                                 isTypeshedFile:
                                     !!importResult.isStdlibTypeshedFile || !!importResult.isThirdPartyTypeshedFile,
@@ -1362,7 +1360,7 @@ export class Program {
                     if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
                         if (!implicitImport.isNativeLib) {
                             const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
-                            newImportPathMap.set(normalizePathCase(this.fileSystem, implicitImport.path), {
+                            newImportPathMap.set(implicitImport.path, {
                                 path: implicitImport.path,
                                 isTypeshedFile:
                                     !!importResult.isStdlibTypeshedFile || !!importResult.isThirdPartyTypeshedFile,
@@ -1409,15 +1407,13 @@ export class Program {
 
         const updatedImportMap = new Map<string, SourceFileInfo>();
         sourceFileInfo.imports.forEach((importInfo) => {
-            const oldFilePath = normalizePathCase(this.fileSystem, importInfo.sourceFile.getFilePath());
+            const oldFilePath = importInfo.sourceFile.getFilePath();
 
             // A previous import was removed.
             if (!newImportPathMap.has(oldFilePath)) {
                 importInfo.mutate((s) => {
                     s.importedBy = s.importedBy.filter(
-                        (fi) =>
-                            normalizePathCase(this.fileSystem, fi.sourceFile.getFilePath()) !==
-                            normalizePathCase(this.fileSystem, sourceFileInfo.sourceFile.getFilePath())
+                        (fi) => fi.sourceFile.getFilePath() !== sourceFileInfo.sourceFile.getFilePath()
                     );
                 });
             } else {
@@ -1492,12 +1488,12 @@ export class Program {
     }
 
     private _removeSourceFileFromListAndMap(filePath: string, indexToRemove: number) {
-        this._sourceFileMap.delete(normalizePathCase(this.fileSystem, filePath));
+        this._sourceFileMap.delete(filePath);
         this._sourceFileList.splice(indexToRemove, 1);
     }
 
     private _addToSourceFileListAndMap(fileInfo: SourceFileInfo) {
-        const filePath = normalizePathCase(this.fileSystem, fileInfo.sourceFile.getFilePath());
+        const filePath = fileInfo.sourceFile.getFilePath();
 
         // We should never add a file with the same path twice.
         assert(!this._sourceFileMap.has(filePath));
@@ -1791,14 +1787,12 @@ export class Program {
             );
 
             if (importResult.isImportFound && !importResult.isNativeLib && importResult.resolvedPaths.length > 0) {
-                let resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+                const resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
                 if (resolvedPath) {
                     // See if the source file already exists in the program.
                     sourceFileInfo = this.getSourceFileInfo(resolvedPath);
 
                     if (!sourceFileInfo) {
-                        resolvedPath = normalizePathCase(this.fileSystem, resolvedPath);
-
                         // Start tracking the source file.
                         this.addTrackedFile(resolvedPath);
                         sourceFileInfo = this.getSourceFileInfo(resolvedPath);
@@ -2020,7 +2014,7 @@ export class Program {
     ) {
         // If the file is already in the closure map, we found a cyclical
         // dependency. Don't recur further.
-        const filePath = normalizePathCase(this.fileSystem, file.sourceFile.getFilePath());
+        const filePath = file.sourceFile.getFilePath();
         if (closureMap.has(filePath)) {
             return;
         }
@@ -2066,7 +2060,7 @@ export class Program {
             return false;
         }
 
-        const filePath = normalizePathCase(this.fileSystem, sourceFileInfo.sourceFile.getFilePath());
+        const filePath = sourceFileInfo.sourceFile.getFilePath();
 
         filesVisited.set(filePath, sourceFileInfo);
 
@@ -2129,7 +2123,7 @@ export class Program {
     }
 
     private _markFileDirtyRecursive(sourceFileInfo: SourceFileInfo, markSet: Set<string>, forceRebinding = false) {
-        const filePath = normalizePathCase(this.fileSystem, sourceFileInfo.sourceFile.getFilePath());
+        const filePath = sourceFileInfo.sourceFile.getFilePath();
 
         // Don't mark it again if it's already been visited.
         if (markSet.has(filePath)) {
@@ -2147,6 +2141,7 @@ export class Program {
         });
 
         // Change in the current file could impact checker result of chainedSourceFile such as unused symbols.
+        let reevaluationRequired = false;
         let chainedSourceFile = sourceFileInfo.chainedSourceFile;
         while (chainedSourceFile) {
             if (chainedSourceFile.sourceFile.isCheckingRequired()) {
@@ -2155,8 +2150,17 @@ export class Program {
                 return;
             }
 
+            reevaluationRequired = true;
             chainedSourceFile.sourceFile.markReanalysisRequired(/* forceRebinding */ false);
             chainedSourceFile = chainedSourceFile.chainedSourceFile;
+        }
+
+        // If the checker is going to run again, we have to recreate the type evaulator so
+        // that it actually reevaluates all the nodes (instead of using the cache).
+        // This is necessary because the original file change may not recreate the TypeEvaluator.
+        // For example, it might be a file delete.
+        if (reevaluationRequired) {
+            this._createNewEvaluator();
         }
     }
 }

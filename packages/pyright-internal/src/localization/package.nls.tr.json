@@ -10,6 +10,10 @@
         "organizeImports": "İçeri Aktarmaları Düzenle",
         "renameShadowedFile": "\"{oldFile}\" dosyasını \"{newFile}\" olarak yeniden adlandır"
     },
+    "Completion": {
+        "autoImportDetail": "Auto-import",
+        "indexValueDetail": "Index value"
+    },
     "Diagnostic": {
         "abstractMethodInvocation": "\"{method}\" metodu soyut olduğundan çağrılamaz",
         "annotatedParamCountMismatch": "Parametre ek açıklama sayısı uyuşmazlığı: {expected} bekleniyordu ancak {received} alındı",
@@ -417,7 +421,7 @@
         "superCallArgCount": "\"super\" çağrısı için ikiden fazla bağımsız değişken beklenmiyordu",
         "superCallFirstArg": "\"super\" çağrısının ilk bağımsız değişkeni olarak sınıf türü bekleniyordu ancak \"{type}\" alındı",
         "superCallSecondArg": "\"super\" çağrısının ikinci bağımsız değişkeni, \"{type}\" türünden türetilen nesne veya sınıf olmalıdır",
-        "superCallZeroArgForm": "\"super\" çağrısının zero-argument biçimi yalnızca bir sınıf içinde geçerlidir",
+        "superCallZeroArgForm": "\"super\" çağrısının zero-argument biçimi yalnızca bir metot içinde geçerlidir",
         "symbolIsPossiblyUnbound": "\"{name}\" büyük olasılıkla bağlı değil",
         "symbolIsUnbound": "\"{name}\" bağlı değil",
         "symbolIsUndefined": "\"{name}\" tanımlanmadı",
@@ -452,6 +456,7 @@
         "typeAssignmentMismatch": "\"{sourceType}\" türündeki ifade, \"{destType}\" bildirilen türüne atanamaz",
         "typeAssignmentMismatchWildcard": "\"{name}\" içeri aktarma sembolü \"{sourceType}\" türüne sahip ve bu tür, \"{destType}\" bildirilen türüne atanamaz",
         "typeCallNotAllowed": "Tür ek açıklamasında type() çağrısı kullanılmamalıdır",
+        "typeCheckOnly": "\"{name}\", @type_check_only olarak işaretlendi ve yalnızca tür ek açıklamalarında kullanılabilir",
         "typeCommentDeprecated": "Tür açıklamalarının kullanımı kullanım dışı; bunun yerine tür ek açıklaması kullanın",
         "typeExpectedClass": "Tür ifadesi bekleniyordu ancak \"{type}\" alındı",
         "typeGuardArgCount": "\"TypeGuard\" sonrasında tek bir tür bağımsız değişken bekleniyordu",
@@ -685,7 +690,8 @@
         "seeVariableDeclaration": "Değişken bildirimine bakın",
         "tupleAssignmentMismatch": "\"{type}\" türü hedef demet ile uyumsuz",
         "tupleEntryTypeMismatch": "{entry} demet girdisi doğru türde değil",
-        "tupleSizeMismatch": "Öğe boyutu uyuşmuyor; \"{expected}\" bekleniyordu ancak \"{received}\" alındı",
+        "tupleSizeIndeterminate": "Demet boyutu uyuşmuyor; {expected} bekleniyordu ancak indeterminate alındı",
+        "tupleSizeMismatch": "Demet boyutu uyuşmuyor; {expected} bekleniyordu ancak {received} alındı",
         "typeAssignmentMismatch": "\"{sourceType}\" türü \"{destType}\" türüne atanamaz",
         "typeBound": "\"{sourceType}\" türü, \"{name}\" tür değişkeni için \"{destType}\" bağlı türü ile uyumlu değil",
         "typeConstrainedTypeVar": "\"{type}\" türü, \"{name}\" kısıtlanmış tür değişkeni değişkeniyle uyumlu değil",

@@ -16,6 +16,7 @@ import * as pathUtil from '../../../common/pathUtils';
 import { bufferFrom, createIOError } from '../utils';
 import { Metadata, SortedMap, closeIterator, getIterator, nextResult } from './../utils';
 import { ValidationFlags, validate } from './pathValidation';
+import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../../common/stringUtils';
 
 export const MODULE_PATH = pathUtil.normalizeSlashes('/');
 
@@ -75,9 +76,7 @@ export class TestFileSystem implements FileSystem {
         this._id = TestFileSystem._nextId++;
         const { time = -1, files, meta } = options;
         this.ignoreCase = ignoreCase;
-        this.stringComparer = this.ignoreCase
-            ? pathUtil.comparePathsCaseInsensitive
-            : pathUtil.comparePathsCaseSensitive;
+        this.stringComparer = this.ignoreCase ? compareStringsCaseInsensitive : compareStringsCaseSensitive;
         this._time = time;
 
         if (meta) {
@@ -468,7 +467,7 @@ export class TestFileSystem implements FileSystem {
                 for (let i = nextResult(iterator); i; i = nextResult(iterator)) {
                     const [name, node] = i.value;
                     const path = dirname ? pathUtil.combinePaths(dirname, name) : name;
-                    const marker = pathUtil.comparePaths(this._cwd, path, this.ignoreCase) === 0 ? '*' : ' ';
+                    const marker = this.stringComparer(this._cwd, path) === 0 ? '*' : ' ';
                     if (result) {
                         addToResult(path, '\n');
                     }
@@ -788,8 +787,12 @@ export class TestFileSystem implements FileSystem {
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
     realpathSync(path: string) {
-        const { realpath } = this._walk(this._resolve(path));
-        return realpath;
+        try {
+            const { realpath } = this._walk(this._resolve(path));
+            return realpath;
+        } catch (e: any) {
+            return path;
+        }
     }
 
     /**

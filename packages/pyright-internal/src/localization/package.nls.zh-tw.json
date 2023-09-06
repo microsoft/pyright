@@ -10,6 +10,10 @@
         "organizeImports": "整理匯入",
         "renameShadowedFile": "將 \"{oldFile}\" 重新命名為 \"{newFile}\""
     },
+    "Completion": {
+        "autoImportDetail": "Auto-import",
+        "indexValueDetail": "Index value"
+    },
     "Diagnostic": {
         "abstractMethodInvocation": "不能呼叫方法 \"{method}\"，因為它是抽象",
         "annotatedParamCountMismatch": "參數註釋計數不符: 應為 {expected}，但收到 {received}",
@@ -417,7 +421,7 @@
         "superCallArgCount": "\"super\" 呼叫不應有兩個以上的引數",
         "superCallFirstArg": "預期的類別類型為 \"super\" 呼叫的第一個引數，但收到 \"{type}\"",
         "superCallSecondArg": "\"super\" 呼叫的第二個引數必須是衍生自 \"{type}\" 的物件或類別",
-        "superCallZeroArgForm": "\"super\" 呼叫的零引數形式只在類別內有效",
+        "superCallZeroArgForm": "\"super\" 呼叫的零引數形式只在方法內有效",
         "symbolIsPossiblyUnbound": "\"{name}\" 可能未繫結",
         "symbolIsUnbound": "\"{name}\" 未繫結",
         "symbolIsUndefined": "\"{name}\" 未定義",
@@ -452,6 +456,7 @@
         "typeAssignmentMismatch": "類型 \"{sourceType}\" 的運算式不能指派至宣告的類型 \"{destType}\"",
         "typeAssignmentMismatchWildcard": "匯入符號 \"{name}\" 具有類型 \"{sourceType}\"，無法指派給宣告的類型 \"{destType}\"",
         "typeCallNotAllowed": "不應在類型註釋中使用 type() 呼叫",
+        "typeCheckOnly": "\"{name}\" 已標示為 @type_check_only，只能在型別註釋中使用",
         "typeCommentDeprecated": "使用類型註解已取代; 請改為使用類型註釋",
         "typeExpectedClass": "預期為類型運算式，但收到 \"{type}\"",
         "typeGuardArgCount": "預期 \"TypeGuard\" 之後為單一類型引數",
@@ -685,7 +690,8 @@
         "seeVariableDeclaration": "請參閱變數宣告",
         "tupleAssignmentMismatch": "型別 \"{type}\" 與目標元組不相容",
         "tupleEntryTypeMismatch": "Tuple 項目 {entry} 的類型不正確",
-        "tupleSizeMismatch": "元素大小不符; 預期為 {expected} 但收到 {received}",
+        "tupleSizeIndeterminate": "元組大小不符; 預期為 {expected}，但收到不確定的大小",
+        "tupleSizeMismatch": "元組大小不符; 預期為 {expected}，但收到 {received}",
         "typeAssignmentMismatch": "類型 \"{sourceType}\" 不能指派至類型 \"{destType}\"",
         "typeBound": "類型 \"{sourceType}\" 與類型變數 \"{name}\" 的繫結類型 \"{destType}\" 不相容",
         "typeConstrainedTypeVar": "類型 \"{type}\" 與限制類型變數 \"{name}\" 不相容",

@@ -13,17 +13,11 @@ import { URI } from 'vscode-uri';
 
 import { Char } from './charCodes';
 import { some } from './collectionUtils';
-import { compareValues, Comparison, GetCanonicalFileName, identity } from './core';
+import { GetCanonicalFileName, identity } from './core';
 import { randomBytesHex } from './crypto';
 import * as debug from './debug';
 import { FileSystem, ReadOnlyFileSystem, Stats } from './fileSystem';
-import {
-    compareStringsCaseInsensitive,
-    compareStringsCaseSensitive,
-    equateStringsCaseInsensitive,
-    equateStringsCaseSensitive,
-    getStringComparer,
-} from './stringUtils';
+import { equateStringsCaseInsensitive, equateStringsCaseSensitive } from './stringUtils';
 
 let _fsCaseSensitivity: boolean | undefined = undefined;
 let _underTest: boolean = false;
@@ -269,24 +263,6 @@ export function combinePaths(pathString: string, ...paths: (string | undefined)[
 }
 
 /**
- * Compare two paths using the provided case sensitivity.
- */
-export function comparePaths(a: string, b: string, ignoreCase?: boolean): Comparison;
-export function comparePaths(a: string, b: string, currentDirectory: string, ignoreCase?: boolean): Comparison;
-export function comparePaths(a: string, b: string, currentDirectory?: string | boolean, ignoreCase?: boolean) {
-    a = normalizePath(a);
-    b = normalizePath(b);
-
-    if (typeof currentDirectory === 'string') {
-        a = combinePaths(currentDirectory, a);
-        b = combinePaths(currentDirectory, b);
-    } else if (typeof currentDirectory === 'boolean') {
-        ignoreCase = currentDirectory;
-    }
-    return comparePathsWorker(a, b, getStringComparer(ignoreCase));
-}
-
-/**
  * Determines whether a `parent` path contains a `child` path using the provide case sensitivity.
  */
 export function containsPath(parent: string, child: string, ignoreCase?: boolean): boolean;
@@ -507,20 +483,6 @@ export function getRelativePathComponentsFromDirectory(
     return pathComponents;
 }
 
-/**
- * Performs a case-sensitive comparison of two paths. Path roots are always compared case-insensitively.
- */
-export function comparePathsCaseSensitive(a: string, b: string) {
-    return comparePathsWorker(a, b, compareStringsCaseSensitive);
-}
-
-/**
- * Performs a case-insensitive comparison of two paths.
- */
-export function comparePathsCaseInsensitive(a: string, b: string) {
-    return comparePathsWorker(a, b, compareStringsCaseInsensitive);
-}
-
 export function ensureTrailingDirectorySeparator(pathString: string): string {
     if (!hasTrailingDirectorySeparator(pathString)) {
         return pathString + path.sep;
@@ -573,6 +535,10 @@ export function stripFileExtension(fileName: string, multiDotExtension = false) 
     return fileName.substr(0, fileName.length - ext.length);
 }
 
+export function realCasePath(pathString: string, fileSystem: ReadOnlyFileSystem): string {
+    return normalizePath(fileSystem.realCasePath(pathString));
+}
+
 export function normalizePath(pathString: string): string {
     return normalizeSlashes(path.normalize(pathString));
 }
@@ -607,7 +573,7 @@ export function tryStat(fs: ReadOnlyFileSystem, path: string): Stats | undefined
 
 export function tryRealpath(fs: ReadOnlyFileSystem, path: string): string | undefined {
     try {
-        return fs.realpathSync(path);
+        return fs.realCasePath(path);
     } catch (e: any) {
         return undefined;
     }
@@ -807,54 +773,6 @@ export function isDiskPathRoot(path: string) {
     return rootLength > 0 && rootLength === path.length;
 }
 
-//// Path Comparisons
-function comparePathsWorker(a: string, b: string, componentComparer: (a: string, b: string) => Comparison) {
-    if (a === b) {
-        return Comparison.EqualTo;
-    }
-    if (a === undefined) {
-        return Comparison.LessThan;
-    }
-    if (b === undefined) {
-        return Comparison.GreaterThan;
-    }
-
-    // NOTE: Performance optimization - shortcut if the root segments differ as there would be no
-    //       need to perform path reduction.
-    const aRoot = a.substring(0, getRootLength(a));
-    const bRoot = b.substring(0, getRootLength(b));
-    const result = compareStringsCaseInsensitive(aRoot, bRoot);
-    if (result !== Comparison.EqualTo) {
-        return result;
-    }
-
-    // check path for these segments: '', '.'. '..'
-    const escapedSeparator = getRegexEscapedSeparator();
-    const relativePathSegmentRegExp = new RegExp(`(^|${escapedSeparator}).{0,2}($|${escapedSeparator})`);
-
-    // NOTE: Performance optimization - shortcut if there are no relative path segments in
-    //       the non-root portion of the path
-    const aRest = a.substring(aRoot.length);
-    const bRest = b.substring(bRoot.length);
-    if (!relativePathSegmentRegExp.test(aRest) && !relativePathSegmentRegExp.test(bRest)) {
-        return componentComparer(aRest, bRest);
-    }
-
-    // The path contains a relative path segment. Normalize the paths and perform a slower component
-    // by component comparison.
-    const aComponents = getPathComponents(a);
-    const bComponents = getPathComponents(b);
-    const sharedLength = Math.min(aComponents.length, bComponents.length);
-    for (let i = 1; i < sharedLength; i++) {
-        const result = componentComparer(aComponents[i], bComponents[i]);
-        if (result !== Comparison.EqualTo) {
-            return result;
-        }
-    }
-
-    return compareValues(aComponents.length, bComponents.length);
-}
-
 function getAnyExtensionFromPathWorker(
     path: string,
     extensions: string | readonly string[],
@@ -943,7 +861,7 @@ function fileSystemEntryExists(fs: ReadOnlyFileSystem, path: string, entryKind: 
 }
 
 export function convertUriToPath(fs: ReadOnlyFileSystem, uriString: string): string {
-    return fs.getMappedFilePath(extractPathFromUri(uriString));
+    return realCasePath(fs.getMappedFilePath(extractPathFromUri(uriString)), fs);
 }
 
 export function extractPathFromUri(uriString: string) {
@@ -955,7 +873,7 @@ export function extractPathFromUri(uriString: string) {
     // If this is a DOS-style path with a drive letter, remove
     // the leading slash.
     if (convertedPath.match(/^\\[a-zA-Z]:\\/)) {
-        convertedPath = convertedPath.substr(1);
+        convertedPath = convertedPath.slice(1);
     }
 
     return convertedPath;
@@ -963,17 +881,6 @@ export function extractPathFromUri(uriString: string) {
 
 export function convertPathToUri(fs: ReadOnlyFileSystem, path: string): string {
     return fs.getUri(fs.getOriginalFilePath(path));
-}
-
-// For file systems that are case-insensitive, returns a lowercase
-// version of the path. For case-sensitive file systems, leaves the
-// path as is.
-export function normalizePathCase(fs: FileSystem, path: string) {
-    if (isFileSystemCaseSensitive(fs)) {
-        return path;
-    }
-
-    return path.toLowerCase();
 }
 
 export function setTestingMode(underTest: boolean) {

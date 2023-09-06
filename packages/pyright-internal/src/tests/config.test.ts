@@ -14,7 +14,7 @@ import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../common/console';
 import { NoAccessHost } from '../common/host';
-import { combinePaths, getBaseFileName, normalizePath, normalizeSlashes } from '../common/pathUtils';
+import { combinePaths, getBaseFileName, normalizePath, normalizeSlashes, realCasePath } from '../common/pathUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { TestFileSystem } from './harness/vfs/filesystem';
@@ -42,7 +42,7 @@ test('FindFilesWithConfigFile', () => {
     assert.strictEqual(configOptions.include.length, 1, `failed creating options from ${cwd}`);
     assert.strictEqual(
         normalizeSlashes(configOptions.projectRoot),
-        normalizeSlashes(combinePaths(cwd, commandLineOptions.configFilePath))
+        realCasePath(combinePaths(cwd, commandLineOptions.configFilePath), service.fs)
     );
 
     const fileList = service.test_getFileNamesFromFileSpecs();
@@ -133,7 +133,7 @@ test('SomeFileSpecsAreInvalid', () => {
     assert.strictEqual(configOptions.exclude.length, 1);
     assert.strictEqual(
         normalizeSlashes(configOptions.projectRoot),
-        normalizeSlashes(combinePaths(cwd, commandLineOptions.configFilePath))
+        realCasePath(combinePaths(cwd, commandLineOptions.configFilePath), service.fs)
     );
 
     const fileList = service.test_getFileNamesFromFileSpecs();
@@ -222,7 +222,7 @@ test('AutoSearchPathsOn', () => {
 
     const configOptions = service.test_getConfigOptions(commandLineOptions);
 
-    const expectedExtraPaths = [normalizePath(combinePaths(cwd, 'src'))];
+    const expectedExtraPaths = [realCasePath(combinePaths(cwd, 'src'), service.fs)];
     assert.deepStrictEqual(configOptions.defaultExtraPaths, expectedExtraPaths);
 });
 
@@ -282,8 +282,8 @@ test('AutoSearchPathsOnAndExtraPaths', () => {
     const configOptions = service.test_getConfigOptions(commandLineOptions);
 
     const expectedExtraPaths: string[] = [
-        normalizePath(combinePaths(cwd, 'src')),
-        normalizePath(combinePaths(cwd, 'src', '_vendored')),
+        realCasePath(combinePaths(cwd, 'src'), service.fs),
+        realCasePath(combinePaths(cwd, 'src', '_vendored'), service.fs),
     ];
 
     assert.deepStrictEqual(configOptions.defaultExtraPaths, expectedExtraPaths);

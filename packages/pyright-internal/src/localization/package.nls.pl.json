@@ -10,6 +10,10 @@
         "organizeImports": "Organizuj dyrektywy Import",
         "renameShadowedFile": "Zmień nazwę „{oldFile}” na „{newFile}”"
     },
+    "Completion": {
+        "autoImportDetail": "Auto-import",
+        "indexValueDetail": "Index value"
+    },
     "Diagnostic": {
         "abstractMethodInvocation": "Nie można wywołać metody „{method}”, ponieważ jest abstrakcyjna",
         "annotatedParamCountMismatch": "Niezgodność liczby adnotacji parametru; oczekiwano {expected}, a uzyskano {received}",
@@ -417,7 +421,7 @@
         "superCallArgCount": "Oczekiwano nie więcej niż dwóch argumentów wywołania „super”",
         "superCallFirstArg": "Oczekiwano typu klasy jako pierwszego argumentu wywołania „super”, ale otrzymano „{type}”",
         "superCallSecondArg": "Drugi argument wywołania „super” musi być obiektem lub klasą wywodzącą się z typu „{type}”",
-        "superCallZeroArgForm": "Forma bez argumentów wywołania „super” jest prawidłowa tylko w obrębie klasy",
+        "superCallZeroArgForm": "Forma bez argumentów wywołania „super” jest prawidłowa tylko w ramach metody",
         "symbolIsPossiblyUnbound": "Nazwa „{name}” jest prawdopodobnie niepowiązana",
         "symbolIsUnbound": "Nazwa „{name}” jest niepowiązana",
         "symbolIsUndefined": "Nazwa „{name}” nie jest zdefiniowana",
@@ -452,6 +456,7 @@
         "typeAssignmentMismatch": "Wyrażenie typu „{sourceType}” nie może być przypisane do zadeklarowanego typu „{destType}”",
         "typeAssignmentMismatchWildcard": "Symbol importu „{name}” ma typ „{sourceType}”, którego nie można przypisać do zadeklarowanego typu „{destType}”",
         "typeCallNotAllowed": "Wywołanie type() nie powinno być używane w adnotacji typu",
+        "typeCheckOnly": "Nazwa „{name}” jest oznaczona jako @type_check_only i może być używana tylko w adnotacjach typu",
         "typeCommentDeprecated": "Używanie komentarzy typu jest przestarzałe; zamiast tego użyj adnotacji typu",
         "typeExpectedClass": "Oczekiwano wyrażenia typu, ale otrzymano „{type}”",
         "typeGuardArgCount": "Oczekiwano pojedynczego argumentu typu po „TypeGuard”",
@@ -685,7 +690,8 @@
         "seeVariableDeclaration": "Zobacz deklarację zmiennej",
         "tupleAssignmentMismatch": "Typ „{type}” jest niezgodny z docelową krotką",
         "tupleEntryTypeMismatch": "Wpis krotki {entry} jest nieprawidłowego typu",
-        "tupleSizeMismatch": "Niezgodność rozmiaru elementu; oczekiwano {expected}, ale otrzymano {received}",
+        "tupleSizeIndeterminate": "Niezgodność rozmiaru krotki; oczekiwano {expected}, ale otrzymano nieokreślony",
+        "tupleSizeMismatch": "Niezgodność rozmiaru krotki; oczekiwano {expected}, ale otrzymano {received}",
         "typeAssignmentMismatch": "Nie można przypisać typu „{sourceType}” do typu „{destType}”",
         "typeBound": "Typ „{sourceType}” jest niezgodny z typem powiązanym „{destType}” dla zmiennej typu „{name}”",
         "typeConstrainedTypeVar": "Typ „{type}” jest niezgodny ze zmienną typu ograniczonego „{name}”",

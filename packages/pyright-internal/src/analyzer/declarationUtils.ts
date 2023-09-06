@@ -125,6 +125,7 @@ export function getNameFromDeclaration(declaration: Declaration) {
         case DeclarationType.Class:
         case DeclarationType.Function:
         case DeclarationType.TypeParameter:
+        case DeclarationType.TypeAlias:
             return declaration.node.name.value;
 
         case DeclarationType.Parameter:
@@ -156,6 +157,7 @@ export function getNameNodeForDeclaration(declaration: Declaration): NameNode | 
         case DeclarationType.Function:
         case DeclarationType.TypeParameter:
         case DeclarationType.Parameter:
+        case DeclarationType.TypeAlias:
             return declaration.node.name;
 
         case DeclarationType.Variable:
