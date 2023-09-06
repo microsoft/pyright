@@ -1462,4 +1462,9 @@ export namespace Localizer {
                 getRawString('CodeAction.renameShadowedFile')
             );
     }
+
+    export namespace Completion {
+        export const autoImportDetail = () => getRawString('Completion.autoImportDetail');
+        export const indexValueDetail = () => getRawString('Completion.indexValueDetail');
+    }
 }

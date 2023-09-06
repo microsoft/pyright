@@ -9,7 +9,7 @@
 
 import { getOrAdd } from '../common/collectionUtils';
 import { FileSystem } from '../common/fileSystem';
-import { ensureTrailingDirectorySeparator, normalizePath, normalizePathCase } from '../common/pathUtils';
+import { ensureTrailingDirectorySeparator, normalizePath, realCasePath } from '../common/pathUtils';
 import { ImportResult } from './importResult';
 
 export type ImportPath = { importPath: string | undefined };
@@ -56,7 +56,7 @@ export class ParentDirectoryCache {
         this._libPathCache =
             this._libPathCache ??
             this._importRootGetter()
-                .map((r) => ensureTrailingDirectorySeparator(normalizePathCase(fs, normalizePath(r))))
+                .map((r) => ensureTrailingDirectorySeparator(realCasePath(normalizePath(r), fs)))
                 .filter((r) => r !== root)
                 .filter((r) => r.startsWith(root));
 

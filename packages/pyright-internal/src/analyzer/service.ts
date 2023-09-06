@@ -27,7 +27,6 @@ import { defaultStubsDirectory } from '../common/pathConsts';
 import {
     FileSpec,
     combinePaths,
-    comparePaths,
     containsPath,
     forEachAncestorDirectory,
     getDirectoryPath,
@@ -43,6 +42,7 @@ import {
     makeDirectories,
     normalizePath,
     normalizeSlashes,
+    realCasePath,
     stripFileExtension,
     tryRealpath,
     tryStat,
@@ -311,8 +311,9 @@ export class AnalyzerService {
 
         this._backgroundAnalysisProgram.setConfigOptions(configOptions);
 
-        this._executionRootPath = normalizePath(
-            combinePaths(commandLineOptions.executionRoot, configOptions.projectRoot)
+        this._executionRootPath = realCasePath(
+            combinePaths(commandLineOptions.executionRoot, configOptions.projectRoot),
+            this.fs
         );
         this._applyConfigOptions(host);
     }
@@ -545,7 +546,7 @@ export class AnalyzerService {
     // Calculates the effective options based on the command-line options,
     // an optional config file, and default values.
     private _getConfigOptions(host: Host, commandLineOptions: CommandLineOptions): ConfigOptions {
-        let projectRoot = commandLineOptions.executionRoot;
+        let projectRoot = realCasePath(commandLineOptions.executionRoot, this.fs);
         let configFilePath: string | undefined;
         let pyprojectFilePath: string | undefined;
 
@@ -553,16 +554,16 @@ export class AnalyzerService {
             // If the config file path was specified, determine whether it's
             // a directory (in which case the default config file name is assumed)
             // or a file.
-            configFilePath = combinePaths(
-                commandLineOptions.executionRoot,
-                normalizePath(commandLineOptions.configFilePath)
+            configFilePath = realCasePath(
+                combinePaths(commandLineOptions.executionRoot, normalizePath(commandLineOptions.configFilePath)),
+                this.fs
             );
             if (!this.fs.existsSync(configFilePath)) {
                 this._console.info(`Configuration file not found at ${configFilePath}.`);
-                configFilePath = commandLineOptions.executionRoot;
+                configFilePath = realCasePath(commandLineOptions.executionRoot, this.fs);
             } else {
                 if (configFilePath.toLowerCase().endsWith('.json')) {
-                    projectRoot = getDirectoryPath(configFilePath);
+                    projectRoot = realCasePath(getDirectoryPath(configFilePath), this.fs);
                 } else {
                     projectRoot = configFilePath;
                     configFilePath = this._findConfigFile(configFilePath);
@@ -614,7 +615,7 @@ export class AnalyzerService {
             this._console.info(
                 `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
             );
-            configOptions.pythonPath = commandLineOptions.pythonPath;
+            configOptions.pythonPath = realCasePath(commandLineOptions.pythonPath, this.fs);
         }
         if (commandLineOptions.pythonEnvironmentName) {
             this._console.info(
@@ -737,7 +738,7 @@ export class AnalyzerService {
         // duplicates.
         if (commandLineOptions.venvPath) {
             if (!configOptions.venvPath) {
-                configOptions.venvPath = commandLineOptions.venvPath;
+                configOptions.venvPath = realCasePath(commandLineOptions.venvPath, this.fs);
             } else {
                 reportDuplicateSetting('venvPath', configOptions.venvPath);
             }
@@ -745,7 +746,7 @@ export class AnalyzerService {
 
         if (commandLineOptions.typeshedPath) {
             if (!configOptions.typeshedPath) {
-                configOptions.typeshedPath = commandLineOptions.typeshedPath;
+                configOptions.typeshedPath = realCasePath(commandLineOptions.typeshedPath, this.fs);
             } else {
                 reportDuplicateSetting('typeshedPath', configOptions.typeshedPath);
             }
@@ -756,7 +757,7 @@ export class AnalyzerService {
         // stdlib packages that don't match the current Python version.
         if (
             configOptions.typeshedPath &&
-            comparePaths(configOptions.typeshedPath, projectRoot) === 0 &&
+            configOptions.typeshedPath === projectRoot &&
             configOptions.defaultPythonVersion !== undefined
         ) {
             const excludeList = this.getImportResolver().getTypeshedStdlibExcludeList(
@@ -794,7 +795,7 @@ export class AnalyzerService {
 
         if (commandLineOptions.stubPath) {
             if (!configOptions.stubPath) {
-                configOptions.stubPath = commandLineOptions.stubPath;
+                configOptions.stubPath = realCasePath(commandLineOptions.stubPath, this.fs);
             } else {
                 reportDuplicateSetting('stubPath', configOptions.stubPath);
             }
@@ -865,7 +866,7 @@ export class AnalyzerService {
     private _getTypeStubFolder() {
         const stubPath =
             this._configOptions.stubPath ??
-            normalizePath(combinePaths(this._configOptions.projectRoot, defaultStubsDirectory));
+            realCasePath(combinePaths(this._configOptions.projectRoot, defaultStubsDirectory), this.fs);
 
         if (!this._typeStubTargetPath || !this._typeStubTargetImportName) {
             const errMsg = `Import '${this._typeStubTargetImportName}'` + ` could not be resolved`;
@@ -919,7 +920,7 @@ export class AnalyzerService {
         for (const name of configFileNames) {
             const fileName = combinePaths(searchPath, name);
             if (this.fs.existsSync(fileName)) {
-                return fileName;
+                return realCasePath(fileName, this.fs);
             }
         }
         return undefined;
@@ -932,7 +933,7 @@ export class AnalyzerService {
     private _findPyprojectTomlFile(searchPath: string) {
         const fileName = combinePaths(searchPath, pyprojectTomlName);
         if (this.fs.existsSync(fileName)) {
-            return fileName;
+            return realCasePath(fileName, this.fs);
         }
         return undefined;
     }
@@ -1275,6 +1276,9 @@ export class AnalyzerService {
                     if (path.endsWith('.tmp') || path.endsWith('.git') || path.includes(_gitDirectory)) {
                         return;
                     }
+
+                    // Make sure path is the true case.
+                    path = realCasePath(path, this.fs);
 
                     const eventInfo = getEventInfo(this.fs, this._console, this._program, event, path);
                     if (!eventInfo) {

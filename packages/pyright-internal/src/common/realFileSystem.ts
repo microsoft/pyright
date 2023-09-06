@@ -21,7 +21,7 @@ import {
     FileWatcherProvider,
     nullFileWatcherProvider,
 } from './fileWatcher';
-import { getRootLength } from './pathUtils';
+import { combinePaths, getDirectoryPath, getFileName, getRootLength } from './pathUtils';
 
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();
@@ -234,11 +234,21 @@ class RealFileSystem implements FileSystem {
     }
 
     readdirSync(path: string): string[] {
-        return yarnFS.readdirSync(path);
+        return yarnFS.readdirSync(path).map((entry) => {
+            // Make sure the entry name is the real case.
+            const fullPath = combinePaths(path, entry);
+            const realPath = this.realCasePath(fullPath);
+            return realPath.slice(path.length + 1);
+        });
     }
 
     readdirEntriesSync(path: string): fs.Dirent[] {
         return yarnFS.readdirSync(path, { withFileTypes: true }).map((entry): fs.Dirent => {
+            // Make sure the entry name is the real case.
+            const fullPath = combinePaths(path, entry.name);
+            const realPath = this.realCasePath(fullPath);
+            (entry.name as any) = realPath.slice(path.length + 1);
+
             // Treat zip/egg files as directories.
             // See: https://github.com/yarnpkg/berry/blob/master/packages/vscode-zipfs/sources/ZipFSProvider.ts
             if (hasZipExtension(entry.name)) {
@@ -299,7 +309,11 @@ class RealFileSystem implements FileSystem {
     }
 
     realpathSync(path: string) {
-        return yarnFS.realpathSync(path);
+        try {
+            return yarnFS.realpathSync(path);
+        } catch (e: any) {
+            return path;
+        }
     }
 
     getModulePath(): string {
@@ -355,24 +369,17 @@ class RealFileSystem implements FileSystem {
 
     realCasePath(path: string): string {
         try {
-            // If it doesn't exist in the real FS, return path as it is.
+            // If it doesn't exist in the real FS, try going up a level and combining it.
             if (!fs.existsSync(path)) {
-                return path;
+                if (getRootLength(path) <= 0) {
+                    return path;
+                }
+                return combinePaths(this.realCasePath(getDirectoryPath(path)), getFileName(path));
             }
 
             // realpathSync.native will return casing as in OS rather than
             // trying to preserve casing given.
-            const realPath = fs.realpathSync.native(path);
-
-            // path is not rooted, return as it is
-            const rootLength = getRootLength(realPath);
-            if (rootLength <= 0) {
-                return realPath;
-            }
-
-            // path is rooted, make sure we lower case the root part
-            // to follow vscode's behavior.
-            return realPath.substr(0, rootLength).toLowerCase() + realPath.substr(rootLength);
+            return fs.realpathSync.native(path);
         } catch (e: any) {
             // Return as it is, if anything failed.
             this._console.log(`Failed to get real file system casing for ${path}: ${e}`);

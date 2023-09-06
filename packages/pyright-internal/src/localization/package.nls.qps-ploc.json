@@ -10,6 +10,10 @@
         "organizeImports": "[KhOyl][นั้Ørgæñïzë ÏmpørtsẤğ倪İЂҰนั้ढूँ]",
         "renameShadowedFile": "[E02Ab][นั้Rëñæmë \"{ølðFïlë}\" tø \"{ñëwFïlë}\"Ấğ倪İЂҰक्र्तिृนั้ढूँ]"
     },
+    "Completion": {
+        "autoImportDetail": "[WdNQG][นั้Æµtø-ïmpørtẤğ倪İนั้ढूँ]",
+        "indexValueDetail": "[mX94Q][นั้Ïñðëx vælµëẤğ倪İนั้ढूँ]"
+    },
     "Diagnostic": {
         "abstractMethodInvocation": "[fE8MD][นั้Mëthøð \"{mëthøð}\" çæññøt þë çællëð þëçæµsë ït ïs æþstræçtẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्นั้ढूँ]",
         "annotatedParamCountMismatch": "[VZvZc][นั้Pæræmëtër æññøtætïøñ çøµñt mïsmætçh: ëxpëçtëð {ëxpëçtëð} þµt rëçëïvëð {rëçëïvëð}Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]",
@@ -417,7 +421,7 @@
         "superCallArgCount": "[iLYq6][นั้Ëxpëçtëð ñø mørë thæñ twø ærgµmëñts tø \"sµpër\" çællẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰนั้ढूँ]",
         "superCallFirstArg": "[HSEvD][นั้Ëxpëçtëð çlæss tÿpë æs fïrst ærgµmëñt tø \"sµpër\" çæll þµt rëçëïvëð \"{tÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğนั้ढूँ]",
         "superCallSecondArg": "[dKoHi][นั้§ëçøñð ærgµmëñt tø \"sµpër\" çæll mµst þë øþjëçt ør çlæss thæt ðërïvës frøm \"{tÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂนั้ढूँ]",
-        "superCallZeroArgForm": "[0XO27][นั้Zërø-ærgµmëñt førm øf \"sµpër\" çæll ïs vælïð øñlÿ wïthïñ æ çlæssẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
+        "superCallZeroArgForm": "[0XO27][นั้Zërø-ærgµmëñt førm øf \"sµpër\" çæll ïs vælïð øñlÿ wïthïñ æ mëthøðẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
         "symbolIsPossiblyUnbound": "[cUgue][นั้\"{ñæmë}\" ïs pøssïþlÿ µñþøµñðẤğ倪İЂҰक्र्तिृนั้ढूँ]",
         "symbolIsUnbound": "[zhGl5][นั้\"{ñæmë}\" ïs µñþøµñðẤğ倪İЂҰक्นั้ढूँ]",
         "symbolIsUndefined": "[qCm6F][นั้\"{ñæmë}\" ïs ñøt ðëfïñëðẤğ倪İЂҰक्र्นั้ढूँ]",
@@ -452,6 +456,7 @@
         "typeAssignmentMismatch": "[wwjSP][นั้Ëxprëssïøñ øf tÿpë \"{søµrçëTÿpë}\" çæññøt þë æssïgñëð tø ðëçlærëð tÿpë \"{ðëstTÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂนั้ढूँ]",
         "typeAssignmentMismatchWildcard": "[qdgVA][นั้Ïmpørt sÿmþøl \"{ñæmë}\" hæs tÿpë \"{søµrçëTÿpë}\", whïçh çæññøt þë æssïgñëð tø ðëçlærëð tÿpë \"{ðëstTÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
         "typeCallNotAllowed": "[OGMmG][นั้tÿpë() çæll shøµlð ñøt þë µsëð ïñ tÿpë æññøtætïøñẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰนั้ढूँ]",
+        "typeCheckOnly": "[cSmKj][นั้\"{ñæmë}\" ïs mærkëð æs @tÿpë_çhëçk_øñlÿ æñð çæñ þë µsëð øñlÿ ïñ tÿpë æññøtætïøñsẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]",
         "typeCommentDeprecated": "[SRhVz][นั้Üsë øf tÿpë çømmëñts ïs ðëprëçætëð; µsë tÿpë æññøtætïøñ ïñstëæðẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
         "typeExpectedClass": "[r0pdu][นั้Ëxpëçtëð tÿpë ëxprëssïøñ þµt rëçëïvëð \"{tÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]",
         "typeGuardArgCount": "[Zl47K][นั้Ëxpëçtëð æ sïñglë tÿpë ærgµmëñt æftër \"TÿpëGµærð\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰนั้ढूँ]",
@@ -685,7 +690,8 @@
         "seeVariableDeclaration": "[M3EiY][นั้§ëë værïæþlë ðëçlærætïøñẤğ倪İЂҰक्र्นั้ढूँ]",
         "tupleAssignmentMismatch": "[aLGep][นั้Tÿpë \"{tÿpë}\" ïs ïñçømpætïþlë wïth tærgët tµplëẤğ倪İЂҰक्र्तिृまẤğ倪İЂนั้ढूँ]",
         "tupleEntryTypeMismatch": "[ny8Sn][นั้Tµplë ëñtrÿ {ëñtrÿ} ïs ïñçørrëçt tÿpëẤğ倪İЂҰक्र्तिृまẤนั้ढूँ]",
-        "tupleSizeMismatch": "[F2Yc7][นั้Ëlëmëñt sïzë mïsmætçh; ëxpëçtëð {ëxpëçtëð} þµt rëçëïvëð {rëçëïvëð}Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
+        "tupleSizeIndeterminate": "[8QDbp][นั้Tµplë sïzë mïsmætçh; ëxpëçtëð {ëxpëçtëð} þµt rëçëïvëð ïñðëtërmïñætëẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
+        "tupleSizeMismatch": "[F2Yc7][นั้Tµplë sïzë mïsmætçh; ëxpëçtëð {ëxpëçtëð} þµt rëçëïvëð {rëçëïvëð}Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
         "typeAssignmentMismatch": "[VF9B4][นั้Tÿpë \"{søµrçëTÿpë}\" çæññøt þë æssïgñëð tø tÿpë \"{ðëstTÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्นั้ढूँ]",
         "typeBound": "[AIZri][นั้Tÿpë \"{søµrçëTÿpë}\" ïs ïñçømpætïþlë wïth þøµñð tÿpë \"{ðëstTÿpë}\" før tÿpë værïæþlë \"{ñæmë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",
         "typeConstrainedTypeVar": "[qHztb][นั้Tÿpë \"{tÿpë}\" ïs ïñçømpætïþlë wïth çøñstræïñëð tÿpë værïæþlë \"{ñæmë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまนั้ढूँ]",

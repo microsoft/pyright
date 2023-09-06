@@ -10,16 +10,13 @@
 import assert from 'assert';
 import * as os from 'os';
 import * as path from 'path';
+import * as nodefs from 'fs-extra';
 
-import { Comparison } from '../common/core';
 import { expandPathVariables } from '../common/envVarUtils';
 import {
     changeAnyExtension,
     combinePathComponents,
     combinePaths,
-    comparePaths,
-    comparePathsCaseInsensitive,
-    comparePathsCaseSensitive,
     containsPath,
     convertUriToPath,
     deduplicateFolders,
@@ -44,6 +41,7 @@ import {
     stripTrailingDirectorySeparator,
 } from '../common/pathUtils';
 import * as vfs from './harness/vfs/filesystem';
+import { createFromRealFileSystem } from '../common/realFileSystem';
 
 test('getPathComponents1', () => {
     const components = getPathComponents('');
@@ -257,26 +255,6 @@ test('invalid ~ with root', () => {
     assert.equal(resolvePaths(expandPathVariables('/src', path)), path);
 });
 
-test('comparePaths1', () => {
-    assert.equal(comparePaths('/A/B/C', '\\a\\b\\c'), Comparison.LessThan);
-});
-
-test('comparePaths2', () => {
-    assert.equal(comparePaths('/A/B/C', '\\a\\b\\c', true), Comparison.EqualTo);
-});
-
-test('comparePaths3', () => {
-    assert.equal(comparePaths('/A/B/C', '/a/c/../b/./c', true), Comparison.EqualTo);
-});
-
-test('comparePaths4', () => {
-    assert.equal(comparePaths('/a/b/c', '/a/c/../b/./c', 'current\\path\\', false), Comparison.EqualTo);
-});
-
-test('comparePaths5', () => {
-    assert.equal(comparePaths('/a/b/c/', '/a/b/c'), Comparison.EqualTo);
-});
-
 test('containsPath1', () => {
     assert.equal(containsPath('/a/b/c/', '/a/d/../b/c/./d'), true);
 });
@@ -335,14 +313,6 @@ test('getRelativePathFromDirectory1', () => {
 
 test('getRelativePathFromDirectory2', () => {
     assert.equal(getRelativePathFromDirectory('/a', '/b/c/d', true), normalizeSlashes('../b/c/d'));
-});
-
-test('comparePathsCaseSensitive', () => {
-    assert.equal(comparePathsCaseSensitive('/a/b/C', '/a/b/c'), Comparison.LessThan);
-});
-
-test('comparePathsCaseInsensitive', () => {
-    assert.equal(comparePathsCaseInsensitive('/a/b/C', '/a/b/c'), Comparison.EqualTo);
 });
 
 test('isRootedDiskPath1', () => {
@@ -415,4 +385,17 @@ test('convert UNC path', () => {
 
     // When converting UNC path, server part shouldn't be removed.
     assert(path.indexOf('server') > 0);
+});
+
+test('Realcase', () => {
+    const fs = createFromRealFileSystem();
+    const cwd = process.cwd();
+    const dir = path.join(cwd, 'src', 'tests');
+    const entries = nodefs.readdirSync(dir).map((entry) => path.basename(nodefs.realpathSync(path.join(dir, entry))));
+    const fsentries = fs.readdirSync(dir);
+    assert.deepStrictEqual(entries, fsentries);
+
+    const paths = entries.map((entry) => nodefs.realpathSync(path.join(dir, entry)));
+    const fspaths = fsentries.map((entry) => fs.realCasePath(path.join(dir, entry)));
+    assert.deepStrictEqual(paths, fspaths);
 });

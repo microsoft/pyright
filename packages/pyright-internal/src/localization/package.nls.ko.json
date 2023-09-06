@@ -10,6 +10,10 @@
         "organizeImports": "가져오기 구성",
         "renameShadowedFile": "‘{oldFile}’에서 ‘{newFile}’(으)로 이름 바꾸기"
     },
+    "Completion": {
+        "autoImportDetail": "Auto-import",
+        "indexValueDetail": "Index value"
+    },
     "Diagnostic": {
         "abstractMethodInvocation": "\"{method}\" 메서드는 추상이므로 호출할 수 없습니다.",
         "annotatedParamCountMismatch": "매개 변수 주석 개수가 일치하지 않습니다. {expected}이)(가) 필요하지만 {received}을(를) 받았습니다.",
@@ -417,7 +421,7 @@
         "superCallArgCount": "‘super’ 호출에는 인수가 2개 이하여야 합니다.",
         "superCallFirstArg": "\"super\" 호출에 대한 첫 번째 인수로 클래스 형식이 필요하지만 \"{type}\"을(를) 받았습니다.",
         "superCallSecondArg": "\"super\" 호출에 대한 두 번째 인수는 \"{type}\"에서 파생된 개체 또는 클래스여야 합니다.",
-        "superCallZeroArgForm": "\"super\" 호출의 인수가 0인 형식은 클래스 내에서만 유효합니다.",
+        "superCallZeroArgForm": "\"super\" 호출의 인수가 0인 형식은 메서드 내에서만 유효합니다.",
         "symbolIsPossiblyUnbound": "\"{name}\"은(는) 바인딩되지 않은 것일 수 있습니다.",
         "symbolIsUnbound": "\"{name}\"의 바인딩이 해제되었습니다.",
         "symbolIsUndefined": "\"{name}\"이(가) 정의되지 않았습니다.",
@@ -452,6 +456,7 @@
         "typeAssignmentMismatch": "\"{sourceType}\" 형식의 식을 선언된 형식 \"{destType}\"에 할당할 수 없습니다.",
         "typeAssignmentMismatchWildcard": "가져오기 기호 \"{name}\"에 선언된 형식 \"{destType}\"에 할당할 수 없는 \"{sourceType}\" 형식이 있습니다.",
         "typeCallNotAllowed": "type() 호출은 형식 주석에 사용하면 안 됩니다.",
+        "typeCheckOnly": "\"{name}\"이(가) @type_check_only로 표시되어 있으므로 형식 주석에서만 사용할 수 있습니다.",
         "typeCommentDeprecated": "형식 주석의 사용은 더 이상 사용되지 않습니다. 대신 형식 주석 사용",
         "typeExpectedClass": "형식 식이 필요하지만 \"{type}\"을(를) 받았습니다.",
         "typeGuardArgCount": "\"TypeGuard\" 뒤에 단일 형식 인수가 필요합니다.",
@@ -685,7 +690,8 @@
         "seeVariableDeclaration": "변수 선언 보기",
         "tupleAssignmentMismatch": "‘{type}’ 형식이 대상 튜플과 호환되지 않습니다.",
         "tupleEntryTypeMismatch": "튜플 항목 {entry}이(가) 잘못된 형식입니다.",
-        "tupleSizeMismatch": "요소 크기 불일치: {expected}이(가) 필요하지만 {received}을(를) 받았습니다.",
+        "tupleSizeIndeterminate": "튜플 크기 불일치: {expected}이(가) 필요하지만 미정을 받았습니다.",
+        "tupleSizeMismatch": "튜플 크기 불일치: {expected}이(가) 필요하지만 {received}을(를) 받았습니다.",
         "typeAssignmentMismatch": "\"{sourceType}\" 형식은 \"{destType}\" 형식에 할당할 수 없습니다.",
         "typeBound": "형식 변수 \"{name}\"에 대해 형식 \"{sourceType}\"이(가) 바인딩된 형식 \"{destType}\"과(와) 호환되지 않습니다.",
         "typeConstrainedTypeVar": "\"{type}\" 형식이 제한된 형식 변수 \"{name}\"과(와) 호환되지 않습니다.",

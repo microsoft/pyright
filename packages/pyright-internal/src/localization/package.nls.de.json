@@ -10,6 +10,10 @@
         "organizeImports": "Import-Direktiven organisieren",
         "renameShadowedFile": "\"{oldFile}\" in \"{newFile}\" umbenennen"
     },
+    "Completion": {
+        "autoImportDetail": "Auto-import",
+        "indexValueDetail": "Index value"
+    },
     "Diagnostic": {
         "abstractMethodInvocation": "Die Methode \"{method}\" kann nicht aufgerufen werden, da sie abstrakt ist.",
         "annotatedParamCountMismatch": "Nicht übereinstimmende Parameteranmerkungsanzahl: {expected} erwartet, aber {received} empfangen",
@@ -417,7 +421,7 @@
         "superCallArgCount": "Es werden nicht mehr als zwei Argumente für den Superaufruf erwartet.",
         "superCallFirstArg": "Klassentyp als erstes Argument für super-Aufruf erwartet, aber \"{type}\" empfangen",
         "superCallSecondArg": "Das zweite Argument für den \"super\"-Aufruf muss ein Objekt oder eine Klasse sein, das bzw. die von \"{type}\" abgeleitet wird.",
-        "superCallZeroArgForm": "Die Nullargumentform des super-Aufrufs ist nur innerhalb einer Klasse gültig.",
+        "superCallZeroArgForm": "Zero-argument form of \"super\" call is valid only within a method",
         "symbolIsPossiblyUnbound": "\"{name}\" ist möglicherweise ungebunden.",
         "symbolIsUnbound": "\"{name}\" ist ungebunden.",
         "symbolIsUndefined": "\"{name}\" ist nicht definiert.",
@@ -452,6 +456,7 @@
         "typeAssignmentMismatch": "Ein Ausdruck vom Typ \"{sourceType}\" kann nicht dem deklarierten Typ \"{destType}\" zugewiesen werden.",
         "typeAssignmentMismatchWildcard": "Das Importsymbol \"{name}\" weist den Typ \"{sourceType}\" auf, der dem deklarierten Typ \"{destType}\" nicht zugewiesen werden kann.",
         "typeCallNotAllowed": "Der type()-Aufruf darf nicht in der Typanmerkung verwendet werden.",
+        "typeCheckOnly": "\"{name}\" is marked as @type_check_only and can be used only in type annotations",
         "typeCommentDeprecated": "Die Verwendung von Typkommentaren ist veraltet; verwenden Sie stattdessen Typanmerkung",
         "typeExpectedClass": "Typausdruck erwartet, aber \"{type}\" empfangen",
         "typeGuardArgCount": "Nach \"TypeGuard\" wurde ein einzelnes Typargument erwartet.",
@@ -685,7 +690,8 @@
         "seeVariableDeclaration": "Siehe Variablendeklaration",
         "tupleAssignmentMismatch": "Der Typ \"{type}\" ist nicht mit dem Zieltupel kompatibel.",
         "tupleEntryTypeMismatch": "Der Tupeleintrag {entry} ist ein falscher Typ.",
-        "tupleSizeMismatch": "Elementgrößenkonflikt: {expected} erwartet, aber {received} empfangen",
+        "tupleSizeIndeterminate": "Tuple size mismatch; expected {expected} but received indeterminate",
+        "tupleSizeMismatch": "Tuple size mismatch; expected {expected} but received {received}",
         "typeAssignmentMismatch": "Der Typ \"{sourceType}\" kann dem Typ \"{destType}\" nicht zugewiesen werden.",
         "typeBound": "Der Typ \"{sourceType}\" ist nicht mit dem gebundenen Typ \"{destType}\" für die Typvariablen \"{name}\" kompatibel.",
         "typeConstrainedTypeVar": "Der Typ \"{type}\" ist mit der eingeschränkten Typvariablen nicht kompatibel \"{name}\"",

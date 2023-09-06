@@ -25,6 +25,7 @@ import {
     getFileSpec,
     isDirectory,
     normalizePath,
+    realCasePath,
     resolvePaths,
 } from './pathUtils';
 import { latestStablePythonVersion, PythonVersion, versionFromString, versionToString } from './pythonVersion';
@@ -1254,14 +1255,14 @@ export class ConfigOptions {
             // Auto-detect the common scenario where the sources are under the src folder
             const srcPath = resolvePaths(this.projectRoot, pathConsts.src);
             if (fs.existsSync(srcPath) && !fs.existsSync(resolvePaths(srcPath, '__init__.py'))) {
-                paths.push(srcPath);
+                paths.push(realCasePath(srcPath, fs));
             }
         }
 
         if (extraPaths && extraPaths.length > 0) {
             for (const p of extraPaths) {
                 const path = resolvePaths(this.projectRoot, p);
-                paths.push(path);
+                paths.push(realCasePath(path, fs));
                 if (isDirectory(fs, path)) {
                     appendArray(paths, getPathsFromPthFiles(fs, path));
                 }

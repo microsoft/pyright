@@ -10,6 +10,10 @@
         "organizeImports": "Uspořádat direktivy Import",
         "renameShadowedFile": "Přejmenovat „{oldFile}“ na „{newFile}“"
     },
+    "Completion": {
+        "autoImportDetail": "Auto-import",
+        "indexValueDetail": "Index value"
+    },
     "Diagnostic": {
         "abstractMethodInvocation": "Metodu {method} není možné volat, protože je abstraktní",
         "annotatedParamCountMismatch": "Počet poznámek parametrů se neshoduje: očekával(o/y) se {expected}, ale přijal(o/y) se {received}.",
@@ -417,7 +421,7 @@
         "superCallArgCount": "Pro volání „super“ se očekávaly maximálně dva argumenty",
         "superCallFirstArg": "Jako první argument pro volání super se očekával typ třídy, ale přijal se {type}",
         "superCallSecondArg": "Druhý argument volání super musí být objekt nebo třída odvozená z typu {type}",
-        "superCallZeroArgForm": "Forma nulového argumentu volání super je platná pouze v rámci třídy",
+        "superCallZeroArgForm": "Forma nulového argumentu „super“ volání je platná pouze v rámci metody.",
         "symbolIsPossiblyUnbound": "{name} je pravděpodobně nevázané",
         "symbolIsUnbound": "Název {name} je nevázaný",
         "symbolIsUndefined": "{name} není definované",
@@ -452,6 +456,7 @@
         "typeAssignmentMismatch": "Výraz typu {sourceType} není možné přiřadit deklarovanému typu {destType}",
         "typeAssignmentMismatchWildcard": "Symbol importu {name} má typ {sourceType}, který nejde přiřadit deklarovanému typu {destType}.",
         "typeCallNotAllowed": "Volání type() by se nemělo používat v poznámce typu",
+        "typeCheckOnly": "Název {name} je označený jako @type_check_only a dá se použít jenom v poznámkách typu",
         "typeCommentDeprecated": "Použití komentářů typu je zastaralé místo toho použít anotaci typu",
         "typeExpectedClass": "Očekával se výraz typu, ale přijal se {type}",
         "typeGuardArgCount": "Za TypeGuard byl očekáván jeden argument typu",
@@ -685,7 +690,8 @@
         "seeVariableDeclaration": "Zobrazit deklaraci proměnné",
         "tupleAssignmentMismatch": "Typ „{type}“ není kompatibilní s cílovou řazenou kolekcí členů",
         "tupleEntryTypeMismatch": "Položka řazené kolekce členů {entry} je nesprávného typu",
-        "tupleSizeMismatch": "Neshoda velikosti elementu; očekávaný počet: {expected}, počet, který byl přijat: {received}",
+        "tupleSizeIndeterminate": "Neshoda velikosti řazené kolekce členů; Očekávalo se {expected}, ale přijalo se neurčité.",
+        "tupleSizeMismatch": "Neshoda velikosti řazené kolekce členů; Očekávalo se {expected}, ale přijalo se {received}.",
         "typeAssignmentMismatch": "Typ {sourceType} se nedá přiřadit k typu {destType}",
         "typeBound": "Typ {sourceType} je nekompatibilní s vázaným typem {destType} pro proměnnou typu {name}",
         "typeConstrainedTypeVar": "Typ {type} není kompatibilní s proměnnou omezeného typu {name}",

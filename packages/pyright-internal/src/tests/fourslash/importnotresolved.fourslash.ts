@@ -8,6 +8,6 @@
 ////
 
 helper.verifyDiagnostics({
-    marker1: { category: 'error', message: `Import "notexistant" could not be found in the "python" environment.` },
-    marker2: { category: 'error', message: `Import "django" could not be found in the "python" environment.` },
+    marker1: { category: 'error', message: `Import "notexistant" could not be resolved` },
+    marker2: { category: 'error', message: `Import "django" could not be resolved` },
 });

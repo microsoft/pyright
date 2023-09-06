@@ -34,20 +34,20 @@
     await helper.verifyCompletion('included', 'markdown', {
         marker1: {
             completions: [
-                { label: '1', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
-                { label: '2', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
+                { label: '1', kind: Consts.CompletionItemKind.Constant, detail: Consts.IndexValueDetail },
+                { label: '2', kind: Consts.CompletionItemKind.Constant, detail: Consts.IndexValueDetail },
             ],
         },
         marker2: {
             completions: [
-                { label: '(1, 2)', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
-                { label: '(2, 3)', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
+                { label: '(1, 2)', kind: Consts.CompletionItemKind.Constant, detail: Consts.IndexValueDetail },
+                { label: '(2, 3)', kind: Consts.CompletionItemKind.Constant, detail: Consts.IndexValueDetail },
             ],
         },
         marker3: {
             completions: [
-                { label: '1 + 2', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
-                { label: '2 + 3', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
+                { label: '1 + 2', kind: Consts.CompletionItemKind.Constant, detail: Consts.IndexValueDetail },
+                { label: '2 + 3', kind: Consts.CompletionItemKind.Constant, detail: Consts.IndexValueDetail },
             ],
         },
         marker4: {
@@ -56,18 +56,20 @@
                     label: '"key"',
                     kind: Consts.CompletionItemKind.Constant,
                     textEdit: { range: helper.getPositionRange('marker4'), newText: '"key"' },
-                    detail: 'Dictionary key',
+                    detail: Consts.IndexValueDetail,
                 },
                 {
                     label: '"key2"',
                     kind: Consts.CompletionItemKind.Constant,
                     textEdit: { range: helper.getPositionRange('marker4'), newText: '"key2"' },
-                    detail: 'Dictionary key',
+                    detail: Consts.IndexValueDetail,
                 },
             ],
         },
         marker5: {
-            completions: [{ label: 'C.key', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' }],
+            completions: [
+                { label: 'C.key', kind: Consts.CompletionItemKind.Constant, detail: Consts.IndexValueDetail },
+            ],
         },
     });
 }

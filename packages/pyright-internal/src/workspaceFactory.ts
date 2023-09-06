@@ -10,8 +10,6 @@ import { AnalyzerService } from './analyzer/service';
 import { ConsoleInterface } from './common/console';
 import { createDeferred } from './common/deferred';
 import { UriParser } from './common/uriParser';
-import { comparePaths } from './common/pathUtils';
-import { Comparison } from './common/core';
 
 let WorkspaceFactoryIdCounter = 0;
 
@@ -182,12 +180,7 @@ export class WorkspaceFactory {
             }
 
             // If the python path has changed, we may need to move the immutable files to the correct workspace.
-            if (
-                originalPythonPath &&
-                (newPythonPath === undefined ||
-                    comparePaths(originalPythonPath, newPythonPath) !== Comparison.EqualTo) &&
-                workspaceInMap
-            ) {
+            if (originalPythonPath && newPythonPath !== originalPythonPath && workspaceInMap) {
                 // Potentially move immutable files from one workspace to another.
                 this._moveImmutableFilesToCorrectWorkspace(originalPythonPath, workspaceInMap);
             }
@@ -475,11 +468,7 @@ export class WorkspaceFactory {
         await bestInstance.isInitialized.promise;
 
         // If this best instance doesn't match the pythonPath, then we need to create a new one.
-        if (
-            pythonPath !== undefined &&
-            (bestInstance.pythonPath === undefined ||
-                comparePaths(bestInstance.pythonPath, pythonPath) !== Comparison.EqualTo)
-        ) {
+        if (pythonPath !== undefined && bestInstance.pythonPath !== pythonPath) {
             bestInstance = this._createImmutableCopy(bestInstance, pythonPath);
         }
 
@@ -491,11 +480,7 @@ export class WorkspaceFactory {
         let bestInstance = this._getBestWorkspaceForFile(filePath, pythonPath);
 
         // If this best instance doesn't match the pythonPath, then we need to create a new one.
-        if (
-            pythonPath !== undefined &&
-            (bestInstance.pythonPath === undefined ||
-                comparePaths(bestInstance.pythonPath, pythonPath) !== Comparison.EqualTo)
-        ) {
+        if (pythonPath !== undefined && bestInstance.pythonPath !== pythonPath) {
             bestInstance = this._createImmutableCopy(bestInstance, pythonPath);
         }
 
@@ -568,12 +553,14 @@ export class WorkspaceFactory {
             bestInstance = this._getBestRegularWorkspace(regularWorkspaces, pythonPath);
         }
 
-        // If the regular workspaces don't all have the same length, then try the workspaces that already have the file open or scanned.
-        if (bestInstance === undefined) {
-            bestInstance = this._getBestRegularWorkspace(
-                regularWorkspaces.filter((w) => w.service.hasSourceFile(filePath)),
-                pythonPath
-            );
+        // If the regular workspaces don't all have the same length or they don't
+        // actually match on the python path, then try the workspaces that already have the file open or scanned.
+        if (bestInstance === undefined || bestInstance.pythonPath !== pythonPath) {
+            bestInstance =
+                this._getBestRegularWorkspace(
+                    regularWorkspaces.filter((w) => w.service.hasSourceFile(filePath)),
+                    pythonPath
+                ) || bestInstance;
         }
 
         // If that still didn't work, that must mean we don't have a workspace. Create a default one.

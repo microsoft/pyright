@@ -8,7 +8,7 @@
 
 import assert from 'assert';
 
-import { combinePaths, comparePathsCaseSensitive, getFileName, normalizeSlashes } from '../common/pathUtils';
+import { combinePaths, getFileName, normalizeSlashes } from '../common/pathUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { runFourSlashTestContent } from './harness/fourslash/runner';
@@ -261,7 +261,7 @@ test('Markers', () => {
             .getMarkers()
             .map((m) => state.getMarkerName(m))
             .sort(compareStringsCaseSensitive),
-        state.getMarkerNames().sort(comparePathsCaseSensitive)
+        state.getMarkerNames().sort(compareStringsCaseSensitive)
     );
 });
 

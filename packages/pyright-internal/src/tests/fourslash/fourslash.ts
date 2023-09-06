@@ -447,4 +447,6 @@ declare namespace Consts {
     }
 
     export type InlayHintKind = 1 | 2;
+
+    export const IndexValueDetail = 'Index value';
 }

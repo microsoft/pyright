@@ -67,7 +67,7 @@
                 {
                     label: "'name'",
                     kind: Consts.CompletionItemKind.Constant,
-                    detail: 'Dictionary key',
+                    detail: Consts.IndexValueDetail,
                     textEdit: { range: helper.getPositionRange('marker4'), newText: "'name'" },
                 },
             ],
@@ -77,7 +77,7 @@
                 {
                     label: '"name"',
                     kind: Consts.CompletionItemKind.Constant,
-                    detail: 'Dictionary key',
+                    detail: Consts.IndexValueDetail,
                     textEdit: { range: helper.getPositionRange('marker5'), newText: '"name"' },
                 },
             ],
@@ -87,7 +87,7 @@
                 {
                     label: '"name"',
                     kind: Consts.CompletionItemKind.Constant,
-                    detail: 'Dictionary key',
+                    detail: Consts.IndexValueDetail,
                     textEdit: { range: helper.getPositionRange('marker6'), newText: '"name"' },
                 },
             ],
