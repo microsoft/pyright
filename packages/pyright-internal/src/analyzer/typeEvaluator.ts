@@ -1291,7 +1291,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ClassType.isTupleClass(typeResult.type) &&
                 typeResult.type.tupleTypeArguments?.length === 0;
 
-            if (!isEmptyVariadic) {
+            const isEllipsis = isClassInstance(typeResult.type) && ClassType.isBuiltIn(typeResult.type, 'ellipsis');
+
+            if (!isEmptyVariadic && !isEllipsis) {
                 addExpectedClassDiagnostic(typeResult.type, node);
                 typeResult.type = UnknownType.create();
                 typeResult.typeErrors = true;
@@ -12413,12 +12415,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 allowParamSpec: true,
                 allowTypeVarsWithoutScopeId: true,
             });
+
             if (typeResult.typeErrors) {
                 return undefined;
             }
 
             if (isParamSpec(typeResult.type)) {
                 functionType.details.paramSpec = typeResult.type;
+                return functionType;
+            }
+
+            if (isClassInstance(typeResult.type) && ClassType.isBuiltIn(typeResult.type, 'ellipsis')) {
+                FunctionType.addDefaultParameters(functionType);
                 return functionType;
             }
         }

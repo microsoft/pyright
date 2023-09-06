@@ -55,3 +55,7 @@ reveal_type(v3_1, expected_text="tuple[str]")
 
 v3_2 = func3(3)
 reveal_type(v3_2, expected_text="tuple[int, str, float]")
+
+
+P2 = ParamSpec("P2", default=...)
+P3 = ParamSpec("P3", default="...")

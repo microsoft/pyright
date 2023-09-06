@@ -181,7 +181,7 @@ test('TypeVarDefault2', () => {
     configOptions.defaultPythonVersion = PythonVersion.V3_13;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 24);
+    TestUtils.validateResults(analysisResults, 23);
 });
 
 test('TypeVarDefault3', () => {
