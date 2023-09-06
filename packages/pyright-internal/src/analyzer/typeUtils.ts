@@ -198,6 +198,11 @@ export const enum AssignTypeFlags {
     // default type arguments (typically "Unknown"). This flag skips
     // this step.
     AllowUnspecifiedTypeArguments = 1 << 11,
+
+    // PEP 544 says that if the dest type is a type[Proto] class,
+    // the source must be a "concrete" (non-protocol) class. This
+    // flag skips this check.
+    IgnoreProtocolAssignmentCheck = 1 << 12,
 }
 
 export interface ApplyTypeVarOptions {

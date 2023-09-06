@@ -1342,7 +1342,7 @@ function narrowTypeForIsInstance(
                     foundSuperclass = true;
                 }
 
-                // Normally, a type should never be both a subclass or a superclass.
+                // Normally, a type should never be both a subclass and a superclass.
                 // This can happen if either of the class types derives from a
                 // class whose type is unknown (e.g. an import failed). We'll
                 // note this case specially so we don't do any narrowing, which
@@ -1368,7 +1368,7 @@ function narrowTypeForIsInstance(
                                 /* diag */ undefined,
                                 /* destTypeVarContext */ undefined,
                                 /* srcTypeVarContext */ undefined,
-                                AssignTypeFlags.IgnoreTypeVarScope
+                                AssignTypeFlags.IgnoreTypeVarScope | AssignTypeFlags.IgnoreProtocolAssignmentCheck
                             )
                         ) {
                             // If the variable type is a superclass of the isinstance

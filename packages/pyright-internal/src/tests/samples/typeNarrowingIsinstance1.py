@@ -1,7 +1,7 @@
 # This sample exercises the type analyzer's isinstance type narrowing logic.
 
 from types import NoneType
-from typing import Generic, Sized, TypeVar, Union, Any
+from typing import Generic, Protocol, Sized, TypeVar, Union, Any, runtime_checkable
 
 S = TypeVar("S")
 T = TypeVar("T")
@@ -179,3 +179,22 @@ class Sub2(Base2[T, T]):
 def func10(val: Sub2[str] | Base2[str, float]):
     if isinstance(val, Sub2):
         reveal_type(val, expected_text="Sub2[str] | Sub2[Unknown]")
+
+
+@runtime_checkable
+class Proto1(Protocol):
+    def f0(self, /) -> None:
+        ...
+
+
+@runtime_checkable
+class Proto2(Proto1, Protocol):
+    def f1(self, /) -> None:
+        ...
+
+
+def func11(x: Proto1):
+    if isinstance(x, Proto2):
+        reveal_type(x, expected_text="Proto2")
+    else:
+        reveal_type(x, expected_text="Proto1")

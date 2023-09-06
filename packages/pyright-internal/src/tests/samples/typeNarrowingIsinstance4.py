@@ -6,40 +6,40 @@ from typing import Callable, ParamSpec, Protocol, Union, runtime_checkable
 P = ParamSpec("P")
 
 
-class Foo:
+class ClassA:
     def __call__(self, arg: int, bar: str) -> None:
         raise NotImplementedError
 
 
 @runtime_checkable
-class Bar(Protocol):
+class ClassB(Protocol):
     def __call__(self, arg: int) -> None:
         raise NotImplementedError
 
 
 @runtime_checkable
-class Baz(Protocol):
+class ClassC(Protocol):
     def __call__(self, arg: str) -> None:
         raise NotImplementedError
 
 
 def check_callable1(val: Union[Callable[[int, str], None], Callable[[int], None]]):
-    if isinstance(val, Foo):
-        reveal_type(val, expected_text="Foo")
+    if isinstance(val, ClassA):
+        reveal_type(val, expected_text="ClassA")
     else:
         # This doesn't get narrowed because `Foo` is not a runtime checkable protocol.
         reveal_type(val, expected_text="((int, str) -> None) | ((int) -> None)")
 
 
 def check_callable2(val: Union[Callable[[int, str], None], Callable[[int], None]]):
-    if isinstance(val, Bar):
-        reveal_type(val, expected_text="Bar")
+    if isinstance(val, ClassB):
+        reveal_type(val, expected_text="ClassB")
     else:
         reveal_type(val, expected_text="(int, str) -> None")
 
 
 def check_callable3(val: Union[Callable[[int, str], None], Callable[[int], None]]):
-    if isinstance(val, Baz):
+    if isinstance(val, ClassC):
         reveal_type(val, expected_text="Never")
     else:
         reveal_type(val, expected_text="((int, str) -> None) | ((int) -> None)")
@@ -53,7 +53,7 @@ def check_callable4(val: Union[type, Callable[[int], None]]):
 
 
 def check_callable5(fn: Callable[P, None]) -> None:
-    if isinstance(fn, Foo):
-        reveal_type(fn, expected_text="Foo")
+    if isinstance(fn, ClassA):
+        reveal_type(fn, expected_text="ClassA")
     else:
         reveal_type(fn, expected_text="(**P@check_callable5) -> None")

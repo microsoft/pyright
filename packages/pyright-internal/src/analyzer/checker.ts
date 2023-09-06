@@ -3598,7 +3598,7 @@ export class Checker extends ParseTreeWalker {
                 // unknown type into the filtered type list to avoid any
                 // false positives.
                 const isClassRelationshipIndeterminate =
-                    filterIsSubclass && filterIsSubclass && !ClassType.isSameGenericClass(varType, filterType);
+                    filterIsSuperclass && filterIsSubclass && !ClassType.isSameGenericClass(varType, filterType);
 
                 if (isClassRelationshipIndeterminate) {
                     filteredTypes.push(UnknownType.create());
