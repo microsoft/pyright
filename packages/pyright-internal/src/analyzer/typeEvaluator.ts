@@ -22486,17 +22486,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isNever(srcType)) {
-            if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
-                return isNever(destType);
-            }
-
-            const targetTypeVarContext =
-                (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destTypeVarContext : srcTypeVarContext;
-
-            if (targetTypeVarContext) {
-                setTypeArgumentsRecursive(destType, UnknownType.create(), targetTypeVarContext, recursionCount);
-            }
-            return true;
+            return isNever(destType);
         }
 
         if (isUnion(destType)) {
@@ -24528,11 +24518,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     effectiveFlags |= AssignTypeFlags.RetainLiteralsForTypeVar;
                 }
 
-                if (isNever(srcReturnType)) {
-                    // We'll allow any function that returns NoReturn to match any
-                    // function return type, consistent with other type checkers.
-                    isReturnTypeCompatible = true;
-                } else if (
+                if (
                     assignType(
                         destReturnType,
                         srcReturnType,
