@@ -104,13 +104,7 @@ import { FileSystem } from './common/fileSystem';
 import { FileWatcherEventType, FileWatcherHandler } from './common/fileWatcher';
 import { Host } from './common/host';
 import { fromLSPAny } from './common/lspUtils';
-import {
-    convertPathToUri,
-    deduplicateFolders,
-    getDirectoryPath,
-    getFileName,
-    isFile
-} from './common/pathUtils';
+import { convertPathToUri, deduplicateFolders, getDirectoryPath, getFileName, isFile } from './common/pathUtils';
 import { ProgressReportTracker, ProgressReporter } from './common/progressReporter';
 import { ServiceProvider } from './common/serviceProvider';
 import { DocumentRange, Position, Range } from './common/textRange';
@@ -522,10 +516,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         (this.console as ConsoleWithLogLevel).level = serverSettings.logLevel ?? LogLevel.Info;
 
         // Apply the new path to the workspace (before restarting the service).
-        serverSettings.pythonPath = this.workspaceFactory.applyPythonPath(
-            workspace,
-            serverSettings.pythonPath
-        );
+        serverSettings.pythonPath = this.workspaceFactory.applyPythonPath(workspace, serverSettings.pythonPath);
 
         // Then use the updated settings to restart the service.
         this.updateOptionsAndRestartService(workspace, serverSettings);

@@ -615,7 +615,7 @@ export class AnalyzerService {
             this._console.info(
                 `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
             );
-            configOptions.pythonPath = commandLineOptions.pythonPath, this.fs;
+            (configOptions.pythonPath = commandLineOptions.pythonPath), this.fs;
         }
         if (commandLineOptions.pythonEnvironmentName) {
             this._console.info(
