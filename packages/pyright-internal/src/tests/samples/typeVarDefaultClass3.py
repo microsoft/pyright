@@ -1,10 +1,19 @@
 # This sample tests the case where a TypeVar default refers to another
 # TypeVar in a class declaration. This sample uses PEP 695 syntax.
 
-from typing import Unpack
+from typing import Self, Unpack
 
 
-class ClassA[T1=str, T2=T1](dict[T1, T2]): ...
+class ClassA[T1=str, T2=T1](dict[T1, T2]):
+    def method1(self) -> Self:
+        return self
+
+reveal_type(
+    ClassA[int].method1, expected_text="(self: ClassA[int, int]) -> ClassA[int, int]"
+)
+reveal_type(
+    ClassA.method1, expected_text="(self: ClassA[str, str]) -> ClassA[str, str]"
+)
 
 a1 = ClassA[int]()
 reveal_type(a1, expected_text="ClassA[int, int]")

@@ -1770,7 +1770,10 @@ export function specializeClassType(type: ClassType): ClassType {
     const typeParams = ClassType.getTypeParameters(type);
 
     typeParams.forEach((typeParam) => {
-        typeVarContext.setTypeVarType(typeParam, UnknownType.create());
+        typeVarContext.setTypeVarType(
+            typeParam,
+            applySolvedTypeVars(typeParam.details.defaultType ?? UnknownType.create(), typeVarContext)
+        );
     });
 
     return applySolvedTypeVars(type, typeVarContext) as ClassType;

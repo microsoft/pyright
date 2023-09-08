@@ -1,7 +1,7 @@
 # This sample tests the case where a TypeVar default refers to another
 # TypeVar in a class declaration. This sample uses classic TypeVar syntax.
-# If you make a change to this file, reflect the change in typeVarDefault7
-# which uses PEP 695 syntax.
+# If you make a change to this file, reflect the change in
+# typeVarDefaultClass3.py, which uses PEP 695 syntax.
 
 from typing import Generic, ParamSpec, TypeVar, TypeVarTuple, Unpack
 

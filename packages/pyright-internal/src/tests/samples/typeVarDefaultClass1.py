@@ -2,7 +2,7 @@
 # In particular, it tests the handling of default TypeVar types for
 # generic classes.
 
-from typing import Generic
+from typing import Generic, Self
 from typing_extensions import TypeVar, ParamSpec, TypeVarTuple, Unpack
 
 
@@ -12,7 +12,13 @@ T3 = TypeVar("T3", default=str)
 
 
 class ClassA1(Generic[T2, T3]):
-    ...
+    def method1(self) -> Self:
+        return self
+
+
+reveal_type(
+    ClassA1.method1, expected_text="(self: ClassA1[int, str]) -> ClassA1[int, str]"
+)
 
 
 def func_a1(a: ClassA1, b: ClassA1[float], c: ClassA1[float, float]):
@@ -22,7 +28,14 @@ def func_a1(a: ClassA1, b: ClassA1[float], c: ClassA1[float, float]):
 
 
 class ClassA2(Generic[T1, T2, T3]):
-    ...
+    def method1(self) -> Self:
+        return self
+
+
+reveal_type(
+    ClassA2[int].method1,
+    expected_text="(self: ClassA2[int, int, str]) -> ClassA2[int, int, str]",
+)
 
 
 def func_a2(
