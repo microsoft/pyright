@@ -536,7 +536,7 @@ export function stripFileExtension(fileName: string, multiDotExtension = false) 
 }
 
 export function realCasePath(pathString: string, fileSystem: ReadOnlyFileSystem): string {
-    return normalizePath(fileSystem.realCasePath(pathString));
+    return normalizePath(pathString);
 }
 
 export function normalizePath(pathString: string): string {
