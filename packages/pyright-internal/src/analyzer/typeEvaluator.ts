@@ -3604,8 +3604,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If this is a TypeVarTuple *Ts, convert it to an unpacked tuple
             // *tuple[*Ts].
             if (isVariadicTypeVar(subtype)) {
+                // If it's in a union, convert to type or object.
                 if (subtype.isVariadicInUnion) {
-                    return subtype;
+                    if (TypeBase.isInstantiable(subtype)) {
+                        if (typeClassType && isInstantiableClass(typeClassType)) {
+                            return typeClassType;
+                        }
+                    } else if (objectType) {
+                        return objectType;
+                    }
+
+                    return AnyType.create();
                 }
 
                 if (tupleClassType && isInstantiableClass(tupleClassType)) {
