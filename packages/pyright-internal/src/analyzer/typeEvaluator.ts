@@ -22007,7 +22007,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return assignTypeArguments(
                 destType,
                 curSrcType,
-                diag,
+                // Don't emit a diag addendum if we're in an invariant context. It's
+                // sufficient to simply indicate that the types are not the same
+                // in this case. Adding more information is unnecessary and confusing.
+                (flags & AssignTypeFlags.EnforceInvariance) === 0 ? diag : undefined,
                 destTypeVarContext,
                 srcTypeVarContext,
                 flags,
