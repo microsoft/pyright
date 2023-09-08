@@ -615,7 +615,7 @@ export class AnalyzerService {
             this._console.info(
                 `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
             );
-            configOptions.pythonPath = realCasePath(commandLineOptions.pythonPath, this.fs);
+            configOptions.pythonPath = commandLineOptions.pythonPath, this.fs;
         }
         if (commandLineOptions.pythonEnvironmentName) {
             this._console.info(
@@ -738,7 +738,7 @@ export class AnalyzerService {
         // duplicates.
         if (commandLineOptions.venvPath) {
             if (!configOptions.venvPath) {
-                configOptions.venvPath = realCasePath(commandLineOptions.venvPath, this.fs);
+                configOptions.venvPath = commandLineOptions.venvPath;
             } else {
                 reportDuplicateSetting('venvPath', configOptions.venvPath);
             }

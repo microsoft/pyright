@@ -109,10 +109,10 @@ import {
     deduplicateFolders,
     getDirectoryPath,
     getFileName,
-    isFile,
-    realCasePath,
+    isFile
 } from './common/pathUtils';
 import { ProgressReportTracker, ProgressReporter } from './common/progressReporter';
+import { ServiceProvider } from './common/serviceProvider';
 import { DocumentRange, Position, Range } from './common/textRange';
 import { UriParser } from './common/uriParser';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
@@ -124,13 +124,12 @@ import { DocumentSymbolProvider } from './languageService/documentSymbolProvider
 import { HoverProvider } from './languageService/hoverProvider';
 import { canNavigateToFile } from './languageService/navigationUtils';
 import { ReferencesProvider } from './languageService/referencesProvider';
+import { RenameProvider } from './languageService/renameProvider';
 import { SignatureHelpProvider } from './languageService/signatureHelpProvider';
+import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
 import { SupportUriToPathMapping } from './pyrightFileSystem';
 import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
-import { RenameProvider } from './languageService/renameProvider';
-import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvider';
-import { ServiceProvider } from './common/serviceProvider';
 
 export interface ServerSettings {
     venvPath?: string | undefined;
@@ -525,7 +524,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         // Apply the new path to the workspace (before restarting the service).
         serverSettings.pythonPath = this.workspaceFactory.applyPythonPath(
             workspace,
-            serverSettings.pythonPath ? realCasePath(serverSettings.pythonPath, this.fs) : undefined
+            serverSettings.pythonPath
         );
 
         // Then use the updated settings to restart the service.
