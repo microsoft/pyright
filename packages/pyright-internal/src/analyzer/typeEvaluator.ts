@@ -4876,9 +4876,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 scopeUsesTypeParameterSyntax = !!curNode.typeParameters;
                 nestedClassCount++;
             } else if (curNode.nodeType === ParseNodeType.Function) {
-                const functionTypeInfo = getTypeOfFunction(curNode);
-                if (functionTypeInfo) {
-                    const functionDetails = functionTypeInfo.functionType.details;
+                const functionType = getTypeOfFunctionPredecorated(curNode);
+                if (functionType) {
+                    const functionDetails = functionType.details;
                     typeParametersForScope = functionDetails.typeParameters;
 
                     // Was this type parameter "rescoped" to a callable found within the
@@ -16906,21 +16906,97 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeOfFunction(node: FunctionNode): FunctionTypeResult | undefined {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        // Is this predecorated function type cached?
+        let functionType = readTypeCache(node.name, EvaluatorFlags.None);
 
-        // Is this type already cached?
-        const cachedFunctionType = readTypeCache(node.name, EvaluatorFlags.None) as FunctionType;
-
-        if (cachedFunctionType) {
-            if (!isFunction(cachedFunctionType)) {
+        if (functionType) {
+            if (!isFunction(functionType)) {
                 // This can happen in certain rare circumstances where the
                 // function declaration falls within an unreachable code block.
                 return undefined;
             }
-            return {
-                functionType: cachedFunctionType,
-                decoratedType: readTypeCache(node, EvaluatorFlags.None) || UnknownType.create(),
-            };
+        } else {
+            functionType = getTypeOfFunctionPredecorated(node);
+        }
+
+        // Is the decorated function type cached?
+        let decoratedType = readTypeCache(node, EvaluatorFlags.None);
+        if (decoratedType) {
+            return { functionType, decoratedType };
+        }
+
+        // Populate the cache with a temporary value to handle recursion.
+        writeTypeCache(node, { type: functionType }, /* flags */ undefined);
+
+        // If it's an async function, wrap the return type in an Awaitable or Generator.
+        // Set the "partially evaluated" flag around this logic to detect recursion.
+        functionType.details.flags |= FunctionTypeFlags.PartiallyEvaluated;
+        const preDecoratedType = node.isAsync ? createAsyncFunction(node, functionType) : functionType;
+        functionType.details.flags &= ~FunctionTypeFlags.PartiallyEvaluated;
+
+        // Apply all of the decorators in reverse order.
+        decoratedType = preDecoratedType;
+        let foundUnknown = false;
+        for (let i = node.decorators.length - 1; i >= 0; i--) {
+            const decorator = node.decorators[i];
+
+            const newDecoratedType = applyFunctionDecorator(
+                evaluatorInterface,
+                decoratedType,
+                functionType,
+                decorator,
+                node
+            );
+
+            const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
+
+            if (unknownOrAny && isUnknown(unknownOrAny)) {
+                // Report this error only on the first unknown type.
+                if (!foundUnknown) {
+                    const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportUntypedFunctionDecorator,
+                        DiagnosticRule.reportUntypedFunctionDecorator,
+                        Localizer.Diagnostic.functionDecoratorTypeUnknown(),
+                        node.decorators[i].expression
+                    );
+
+                    foundUnknown = true;
+                }
+            } else {
+                // Apply the decorator only if the type is known.
+                decoratedType = newDecoratedType;
+            }
+        }
+
+        // See if there are any overloads provided by previous function declarations.
+        if (isFunction(decoratedType)) {
+            if (FunctionType.isOverloaded(decoratedType)) {
+                // Mark all the parameters as accessed.
+                node.parameters.forEach((param) => {
+                    markParamAccessed(param);
+                });
+            }
+
+            decoratedType = addOverloadsToFunctionType(evaluatorInterface, node, decoratedType);
+        }
+
+        writeTypeCache(node, { type: decoratedType }, EvaluatorFlags.None);
+
+        return { functionType, decoratedType };
+    }
+
+    // Evaluates the type of a "def" statement without applying an async
+    // modifier or any decorators.
+    function getTypeOfFunctionPredecorated(node: FunctionNode): FunctionType {
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+
+        // Is this type already cached?
+        const cachedFunctionType = readTypeCache(node.name, EvaluatorFlags.None);
+
+        if (cachedFunctionType && isFunction(cachedFunctionType)) {
+            return cachedFunctionType;
         }
 
         let functionDecl: FunctionDeclaration | undefined;
@@ -16934,11 +17010,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true);
         let containingClassType: ClassType | undefined;
         if (containingClassNode) {
-            const classInfo = getTypeOfClass(containingClassNode);
-            if (!classInfo) {
-                return undefined;
-            }
-            containingClassType = classInfo.classType;
+            containingClassType = getTypeOfClass(containingClassNode)?.classType;
         }
 
         let functionFlags = getFunctionFlagsFromDecorators(evaluatorInterface, node, !!containingClassNode);
@@ -16981,14 +17053,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         functionType.details.declaration = functionDecl;
 
-        // Allow recursion by registering the partially-constructed
-        // function type.
+        // Allow recursion by caching and registering the partially-constructed function type.
         const scope = ScopeUtils.getScopeForNode(node);
         const functionSymbol = scope?.lookUpSymbolRecursive(node.name.value);
         if (functionDecl && functionSymbol) {
             setSymbolResolutionPartialType(functionSymbol.symbol, functionDecl, functionType);
         }
-        writeTypeCache(node, { type: functionType }, /* flags */ undefined);
+
         writeTypeCache(node.name, { type: functionType }, /* flags */ undefined);
 
         // Is this an "__init__" method within a pseudo-generic class? If so,
@@ -17036,15 +17107,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else {
             functionType.details.typeParameters = typeParametersSeen;
         }
-
-        const markParamAccessed = (param: ParameterNode) => {
-            if (param.name) {
-                const symbolWithScope = lookUpSymbolRecursive(param.name, param.name.value, /* honorCodeFlow */ false);
-                if (symbolWithScope) {
-                    setSymbolAccessed(fileInfo, symbolWithScope.symbol, param.name);
-                }
-            }
-        };
 
         let paramsArePositionOnly = true;
         const isFirstParamClsOrSelf =
@@ -17327,62 +17389,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             validateTypeParameterDefault(bestErrorNode, typeParam, functionType.details.typeParameters.slice(0, index));
         });
 
-        // If it's an async function, wrap the return type in an Awaitable or Generator.
-        const preDecoratedType = node.isAsync ? createAsyncFunction(node, functionType) : functionType;
-
         // Clear the "partially evaluated" flag to indicate that the functionType
         // is fully evaluated.
         functionType.details.flags &= ~FunctionTypeFlags.PartiallyEvaluated;
 
-        // Apply all of the decorators in reverse order.
-        let decoratedType: Type = preDecoratedType;
-        let foundUnknown = false;
-        for (let i = node.decorators.length - 1; i >= 0; i--) {
-            const decorator = node.decorators[i];
-
-            const newDecoratedType = applyFunctionDecorator(
-                evaluatorInterface,
-                decoratedType,
-                functionType,
-                decorator,
-                node
-            );
-            const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
-
-            if (unknownOrAny && isUnknown(unknownOrAny)) {
-                // Report this error only on the first unknown type.
-                if (!foundUnknown) {
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportUntypedFunctionDecorator,
-                        DiagnosticRule.reportUntypedFunctionDecorator,
-                        Localizer.Diagnostic.functionDecoratorTypeUnknown(),
-                        node.decorators[i].expression
-                    );
-
-                    foundUnknown = true;
-                }
-            } else {
-                // Apply the decorator only if the type is known.
-                decoratedType = newDecoratedType;
-            }
-        }
-
-        // See if there are any overloads provided by previous function declarations.
-        if (isFunction(decoratedType)) {
-            if (FunctionType.isOverloaded(decoratedType)) {
-                // Mark all the parameters as accessed.
-                node.parameters.forEach((param) => {
-                    markParamAccessed(param);
-                });
-            }
-
-            decoratedType = addOverloadsToFunctionType(evaluatorInterface, node, decoratedType);
-        }
-
         writeTypeCache(node.name, { type: functionType }, EvaluatorFlags.None);
-        writeTypeCache(node, { type: decoratedType }, EvaluatorFlags.None);
 
-        return { functionType, decoratedType };
+        return functionType;
+    }
+
+    function markParamAccessed(param: ParameterNode) {
+        if (param.name) {
+            const symbolWithScope = lookUpSymbolRecursive(param.name, param.name.value, /* honorCodeFlow */ false);
+            if (symbolWithScope) {
+                setSymbolAccessed(AnalyzerNodeInfo.getFileInfo(param), symbolWithScope.symbol, param.name);
+            }
+        }
     }
 
     // If the declared return type of a function contains type variables that
