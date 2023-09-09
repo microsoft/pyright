@@ -2,7 +2,7 @@
 # introduced in Python 3.8.
 
 import typing
-from typing import Any, Final
+from typing import Any, Final, Protocol
 
 foo1: typing.Final = 3
 
@@ -177,3 +177,7 @@ class ClassB:
     def method1(self):
         # This should generate an error because x is Final.
         self.x += 1
+
+
+class ClassC(Protocol):
+    x: Final[int]
