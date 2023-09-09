@@ -67,3 +67,13 @@ def func3(x: DC1):
     # This should generate an error if reportUnnecessaryComparison is enabled.
     if x == 42:
         ...
+
+
+async def func4() -> bool:
+    return True
+
+
+async def func5() -> None:
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if func4():
+        pass

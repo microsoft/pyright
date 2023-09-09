@@ -78,6 +78,7 @@
         "continueInFinally": "\"continue\" cannot be used within a finally clause",
         "continueOutsideLoop": "\"continue\" can be used only within a loop",
         "constructorNoArgs": "Expected no arguments to \"{type}\" constructor",
+        "coroutineInConditionalExpression": "Conditional expression references coroutine which always evaluates to True",
         "dataClassBaseClassFrozen": "A non-frozen class cannot inherit from a class that is frozen",
         "dataClassBaseClassNotFrozen": "A frozen class cannot inherit from a class that is not frozen",
         "dataClassConverterFunction": "Argument of type \"{argType}\" is not a valid converter for field \"{fieldName}\" of type \"{fieldType}\"",

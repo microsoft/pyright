@@ -322,6 +322,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.constantRedefinition'));
         export const constructorNoArgs = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.constructorNoArgs'));
+        export const coroutineInConditionalExpression = () =>
+            getRawString('Diagnostic.coroutineInConditionalExpression');
         export const constructorParametersMismatch = () =>
             new ParameterizedString<{ classType: string }>(getRawString('Diagnostic.constructorParametersMismatch'));
         export const containmentAlwaysFalse = () =>

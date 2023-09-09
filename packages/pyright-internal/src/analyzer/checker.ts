@@ -1719,12 +1719,17 @@ export class Checker extends ParseTreeWalker {
 
         const exprTypeResult = this._evaluator.getTypeOfExpression(expression);
         let isExprFunction = true;
+        let isCoroutine = false;
 
         doForEachSubtype(exprTypeResult.type, (subtype) => {
             subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
             if (!isFunction(subtype) && !isOverloadedFunction(subtype)) {
                 isExprFunction = false;
+            }
+
+            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'Coroutine')) {
+                isCoroutine = true;
             }
         });
 
@@ -1733,6 +1738,15 @@ export class Checker extends ParseTreeWalker {
                 this._fileInfo.diagnosticRuleSet.reportUnnecessaryComparison,
                 DiagnosticRule.reportUnnecessaryComparison,
                 Localizer.Diagnostic.functionInConditionalExpression(),
+                expression
+            );
+        }
+
+        if (isCoroutine) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportUnnecessaryComparison,
+                DiagnosticRule.reportUnnecessaryComparison,
+                Localizer.Diagnostic.coroutineInConditionalExpression(),
                 expression
             );
         }
