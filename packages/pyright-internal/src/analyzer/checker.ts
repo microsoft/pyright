@@ -2951,21 +2951,28 @@ export class Checker extends ParseTreeWalker {
                 // therefore has an implied assignment.
                 let isImplicitlyAssigned = false;
 
+                // Is this a class variable within a protocol class? If so, it can
+                // be marked final without providing a value.
+                let isProtocolClass = false;
+
                 if (symbol.isClassMember() && !symbol.isClassVar()) {
                     const containingClass = ParseTreeUtils.getEnclosingClass(firstDecl.node, /* stopAtFunction */ true);
+
                     if (containingClass) {
                         const classType = this._evaluator.getTypeOfClass(containingClass);
-                        if (
-                            classType &&
-                            isClass(classType.decoratedType) &&
-                            ClassType.isDataClass(classType.decoratedType)
-                        ) {
-                            isImplicitlyAssigned = true;
+                        if (classType && isClass(classType.decoratedType)) {
+                            if (ClassType.isDataClass(classType.decoratedType)) {
+                                isImplicitlyAssigned = true;
+                            }
+
+                            if (ClassType.isProtocolClass(classType.decoratedType)) {
+                                isProtocolClass = true;
+                            }
                         }
                     }
                 }
 
-                if (!isImplicitlyAssigned) {
+                if (!isImplicitlyAssigned && !isProtocolClass) {
                     this._evaluator.addError(Localizer.Diagnostic.finalUnassigned().format({ name }), firstDecl.node);
                 }
             }
