@@ -49,9 +49,11 @@ import {
     isSameWithoutLiteralValue,
     isTypeSame,
     isTypeVar,
+    isUnpackedVariadicTypeVar,
     maxTypeRecursionCount,
     NoneType,
     OverloadedFunctionType,
+    TupleTypeArgument,
     Type,
     TypeBase,
     TypeCategory,
@@ -83,6 +85,7 @@ import {
     lookUpClassMember,
     lookUpObjectMember,
     mapSubtypes,
+    specializeTupleClass,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
@@ -1763,14 +1766,48 @@ function narrowTypeForTupleLength(
         if (
             !isClassInstance(concreteSubtype) ||
             !isTupleClass(concreteSubtype) ||
-            isUnboundedTupleClass(concreteSubtype) ||
             !concreteSubtype.tupleTypeArguments
         ) {
             return subtype;
         }
 
-        const tupleLengthMatches = concreteSubtype.tupleTypeArguments.length === lengthValue;
-        return tupleLengthMatches === isPositiveTest ? subtype : undefined;
+        // If the tuple contains a variadic TypeVar, we can't narrow it.
+        if (concreteSubtype.tupleTypeArguments.some((typeArg) => isUnpackedVariadicTypeVar(typeArg.type))) {
+            return subtype;
+        }
+
+        // If the tuple contains no unbounded elements, then we know its length exactly.
+        if (!concreteSubtype.tupleTypeArguments.some((typeArg) => typeArg.isUnbounded)) {
+            const tupleLengthMatches = concreteSubtype.tupleTypeArguments.length === lengthValue;
+            return tupleLengthMatches === isPositiveTest ? subtype : undefined;
+        }
+
+        // The tuple contains a "...". We'll expand this into as many elements as
+        // necessary to match the lengthValue.
+        const elementsToAdd = lengthValue - concreteSubtype.tupleTypeArguments.length + 1;
+
+        // If the specified length is smaller than the minimum length of this tuple,
+        // we can rule it out for a positive test.
+        if (elementsToAdd < 0) {
+            return isPositiveTest ? undefined : subtype;
+        }
+
+        if (!isPositiveTest) {
+            return subtype;
+        }
+
+        const tupleTypeArgs: TupleTypeArgument[] = [];
+        concreteSubtype.tupleTypeArguments.forEach((typeArg) => {
+            if (!typeArg.isUnbounded) {
+                tupleTypeArgs.push(typeArg);
+            } else {
+                for (let i = 0; i < elementsToAdd; i++) {
+                    tupleTypeArgs.push({ isUnbounded: false, type: typeArg.type });
+                }
+            }
+        });
+
+        return specializeTupleClass(concreteSubtype, tupleTypeArgs);
     });
 }
 
