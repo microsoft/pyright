@@ -286,6 +286,7 @@ import {
     TypeCategory,
     TypeCondition,
     TypeFlags,
+    TypeVarScopeId,
     TypeVarScopeType,
     TypeVarType,
     TypedDictEntry,
@@ -15160,13 +15161,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return convertToInstance(typeVar) as TypeVarType;
         });
 
+        const typeAliasScopeId = ParseTreeUtils.getScopeIdForNode(name);
+
         // Validate the default types for all type parameters.
         typeParameters.forEach((typeParam, index) => {
             let bestErrorNode = errorNode;
             if (typeParamNodes && index < typeParamNodes.length) {
                 bestErrorNode = typeParamNodes[index].defaultExpression ?? typeParamNodes[index].name;
             }
-            validateTypeParameterDefault(bestErrorNode, typeParam, typeParameters!.slice(0, index));
+            validateTypeParameterDefault(bestErrorNode, typeParam, typeParameters!.slice(0, index), typeAliasScopeId);
         });
 
         // Verify that we have at most one variadic type variable.
@@ -15181,7 +15184,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const fileInfo = AnalyzerNodeInfo.getFileInfo(name);
-        const typeAliasScopeId = ParseTreeUtils.getScopeIdForNode(name);
 
         const boundTypeVars = typeParameters.filter(
             (typeVar) => typeVar.scopeId !== typeAliasScopeId && typeVar.scopeType === TypeVarScopeType.Class
@@ -16182,7 +16184,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 validateTypeParameterDefault(
                     bestErrorNode,
                     typeParam,
-                    classType.details.typeParameters.slice(0, index)
+                    classType.details.typeParameters.slice(0, index),
+                    classType.details.typeVarScopeId!
                 );
             });
 
@@ -16474,14 +16477,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function validateTypeParameterDefault(
         errorNode: ExpressionNode,
         typeParam: TypeVarType,
-        otherLiveTypeParams: TypeVarType[]
+        otherLiveTypeParams: TypeVarType[],
+        scopeId: TypeVarScopeId
     ) {
         if (
             !typeParam.details.defaultType &&
             !typeParam.details.isSynthesized &&
             !typeParam.details.isSynthesizedSelf
         ) {
-            const typeVarWithDefault = otherLiveTypeParams.find((param) => param.details.defaultType);
+            const typeVarWithDefault = otherLiveTypeParams.find(
+                (param) => param.details.defaultType && param.scopeId === scopeId
+            );
+
             if (typeVarWithDefault) {
                 addDiagnostic(
                     AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -17386,7 +17393,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const typeParamNode = node.typeParameters.parameters[index];
                 bestErrorNode = typeParamNode.defaultExpression ?? typeParamNode.name;
             }
-            validateTypeParameterDefault(bestErrorNode, typeParam, functionType.details.typeParameters.slice(0, index));
+
+            validateTypeParameterDefault(
+                bestErrorNode,
+                typeParam,
+                functionType.details.typeParameters.slice(0, index),
+                functionType.details.typeVarScopeId!
+            );
         });
 
         // Clear the "partially evaluated" flag to indicate that the functionType
