@@ -684,8 +684,6 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; newIndex: number; prevIndex: number }>(
                 getRawString('Diagnostic.overloadReturnTypeMismatch')
             );
-        export const overloadWithImplementation = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadWithImplementation'));
         export const overloadWithoutImplementation = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadWithoutImplementation'));
         export const overriddenMethodNotFound = () =>
@@ -1248,7 +1246,6 @@ export namespace Localizer {
         export const overloadSignature = () => getRawString('DiagnosticAddendum.overloadSignature');
         export const overloadNotAssignable = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.overloadNotAssignable'));
-        export const overloadWithImplementation = () => getRawString('DiagnosticAddendum.overloadWithImplementation');
         export const overriddenMethod = () => getRawString('DiagnosticAddendum.overriddenMethod');
         export const overriddenSymbol = () => getRawString('DiagnosticAddendum.overriddenSymbol');
         export const overrideNoOverloadMatches = () => getRawString('DiagnosticAddendum.overrideNoOverloadMatches');
