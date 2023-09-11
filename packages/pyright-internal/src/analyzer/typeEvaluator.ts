@@ -16409,7 +16409,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 let skipSynthesizeHash = false;
                 const hashSymbol = lookUpClassMember(classType, '__hash__', ClassMemberLookupFlags.SkipBaseClasses);
-                if (hashSymbol) {
+
+                // If there is a hash symbol defined in the class (i.e. one that we didn't
+                // synthesize above), then we shouldn't synthesize a new one for the dataclass.
+                if (hashSymbol && !hashSymbol.symbol.getSynthesizedType()) {
                     skipSynthesizeHash = true;
                 }
 

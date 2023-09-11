@@ -623,8 +623,7 @@ export function synthesizeDataClassMethods(
         });
     }
 
-    let synthesizeHashFunction =
-        !ClassType.isSkipSynthesizedDataClassEq(classType) && ClassType.isFrozenDataClass(classType);
+    let synthesizeHashFunction = ClassType.isFrozenDataClass(classType);
     const synthesizeHashNone =
         !ClassType.isSkipSynthesizedDataClassEq(classType) && !ClassType.isFrozenDataClass(classType);
 

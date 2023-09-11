@@ -55,3 +55,14 @@ class DC6:
 
 
 v6: Hashable = DC6(0)
+
+
+@dataclass(frozen=True)
+class DC7:
+    a: int
+
+    def __eq__(self, other) -> bool:
+        return self.a == other.a
+
+
+v7: Hashable = DC7(0)
