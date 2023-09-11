@@ -2832,22 +2832,6 @@ export class Checker extends ParseTreeWalker {
                     );
                 }
 
-                overloadedFunctions.forEach((overload) => {
-                    if (
-                        overload.details.declaration &&
-                        !ParseTreeUtils.isFunctionSuiteEmpty(overload.details.declaration.node)
-                    ) {
-                        const diag = new DiagnosticAddendum();
-                        diag.addMessage(Localizer.DiagnosticAddendum.overloadWithImplementation());
-                        this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.overloadWithImplementation().format({ name }) + diag.getString(),
-                            overload.details.declaration.node.name
-                        );
-                    }
-                });
-
                 // If the file is not a stub and this is the first overload,
                 // verify that there is an implementation.
                 if (!this._fileInfo.isStubFile && overloadedFunctions.length > 0) {
