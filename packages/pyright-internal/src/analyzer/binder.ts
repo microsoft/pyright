@@ -1934,7 +1934,7 @@ export class Binder extends ParseTreeWalker {
                             loadSymbolsFromPath: true,
                             range: getEmptyRange(),
                             usesLocalName: false,
-                            moduleName: this._fileInfo.moduleName,
+                            moduleName: this._formatModuleName(node.module.nameParts),
                             isInExceptSuite: this._isInExceptSuite,
                         };
 
@@ -1961,7 +1961,7 @@ export class Binder extends ParseTreeWalker {
                         symbolName: importedName,
                         submoduleFallback,
                         range: convertTextRangeToRange(nameNode, this._fileInfo.lines),
-                        moduleName: this._fileInfo.moduleName,
+                        moduleName: this._formatModuleName(node.module.nameParts),
                         isInExceptSuite: this._isInExceptSuite,
                         isNativeLib: importInfo?.isNativeLib,
                     };
@@ -2336,6 +2336,11 @@ export class Binder extends ParseTreeWalker {
         return true;
     }
 
+    private _formatModuleName(nameParts: NameNode[]): string {
+        // Ignore the leading dots for purposes of module name formatting.
+        return nameParts.map((name) => name.value).join('.');
+    }
+
     private _removeActiveTypeParameters(node: TypeParameterListNode) {
         node.parameters.forEach((typeParamNode) => {
             const entry = this._activeTypeParams.get(typeParamNode.name.value);
@@ -2539,7 +2544,7 @@ export class Binder extends ParseTreeWalker {
                 loadSymbolsFromPath: false,
                 range: getEmptyRange(),
                 usesLocalName: !!importAlias,
-                moduleName: firstNamePartValue,
+                moduleName: importAlias ? this._formatModuleName(node.module.nameParts) : firstNamePartValue,
                 firstNamePart: firstNamePartValue,
                 isInExceptSuite: this._isInExceptSuite,
             };
@@ -2555,7 +2560,7 @@ export class Binder extends ParseTreeWalker {
                 range: getEmptyRange(),
                 usesLocalName: !!importAlias,
                 moduleName: importInfo?.importName ?? '',
-                firstNamePart: firstNamePartValue,
+                firstNamePart: importAlias ? this._formatModuleName(node.module.nameParts) : firstNamePartValue,
                 isUnresolved: true,
                 isInExceptSuite: this._isInExceptSuite,
             };
