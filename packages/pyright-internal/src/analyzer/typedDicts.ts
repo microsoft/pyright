@@ -127,7 +127,7 @@ export function createTypedDictType(
         ) {
             usingDictSyntax = true;
 
-            getTypedDictFieldsFromDictSyntax(evaluator, entriesArg.valueExpression, classFields);
+            getTypedDictFieldsFromDictSyntax(evaluator, entriesArg.valueExpression, classFields, /* isInline */ false);
         } else if (entriesArg.name) {
             const entrySet = new Set<string>();
             for (let i = 1; i < argList.length; i++) {
@@ -222,7 +222,7 @@ export function createTypedDictTypeInlined(
     classType.details.baseClasses.push(typedDictClass);
     computeMroLinearization(classType);
 
-    getTypedDictFieldsFromDictSyntax(evaluator, dictNode, classType.details.fields);
+    getTypedDictFieldsFromDictSyntax(evaluator, dictNode, classType.details.fields, /* isInline */ true);
     synthesizeTypedDictClassMethods(evaluator, dictNode, classType, /* isClassFinal */ true);
 
     return classType;
@@ -664,7 +664,8 @@ export function getTypedDictMembersForClass(evaluator: TypeEvaluator, classType:
 function getTypedDictFieldsFromDictSyntax(
     evaluator: TypeEvaluator,
     entryDict: DictionaryNode,
-    classFields: SymbolTable
+    classFields: SymbolTable,
+    isInline: boolean
 ) {
     const entrySet = new Set<string>();
     const fileInfo = AnalyzerNodeInfo.getFileInfo(entryDict);
@@ -700,7 +701,7 @@ function getTypedDictFieldsFromDictSyntax(
             node: entry.keyExpression,
             path: fileInfo.filePath,
             typeAnnotationNode: entry.valueExpression,
-            isRuntimeTypeExpression: true,
+            isRuntimeTypeExpression: !isInline,
             range: convertOffsetsToRange(
                 entry.keyExpression.start,
                 TextRange.getEnd(entry.keyExpression),
