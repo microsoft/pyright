@@ -20502,28 +20502,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (resolvedDecl.type === DeclarationType.Alias) {
             // Build a module type that corresponds to the declaration and
             // its associated loader actions.
-            let moduleName = resolvedDecl.moduleName;
-            if (decl.type === DeclarationType.Alias) {
-                if (decl.symbolName) {
-                    moduleName += '.' + decl.symbolName;
-                }
-
-                // If the module name is relative to the current file, use that
-                // file's module name as a reference.
-                if (moduleName.startsWith('.')) {
-                    const fileInfo = AnalyzerNodeInfo.getFileInfo(decl.node);
-                    const nameParts = fileInfo.moduleName.split('.');
-                    moduleName = moduleName.substr(1);
-
-                    while (moduleName.startsWith('.') && nameParts.length > 0) {
-                        moduleName = moduleName.substr(1);
-                        nameParts.pop();
-                    }
-
-                    moduleName = nameParts.join('.') + '.' + moduleName;
-                }
-            }
-            const moduleType = ModuleType.create(moduleName, resolvedDecl.path);
+            const moduleType = ModuleType.create(resolvedDecl.moduleName, resolvedDecl.path);
             if (resolvedDecl.symbolName && resolvedDecl.submoduleFallback) {
                 return applyLoaderActionsToModuleType(moduleType, resolvedDecl.submoduleFallback, importLookup);
             } else {
