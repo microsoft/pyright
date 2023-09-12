@@ -634,6 +634,8 @@
         "overloadNotAssignable": "One or more overloads of \"{name}\" is not assignable",
         "overriddenMethod": "Overridden method",
         "overriddenSymbol": "Overridden symbol",
+        "overrideIsInvariant": "Variable is mutable so its type is invariant",
+        "overrideInvariantMismatch": "Override type \"{overrideType}\" is not the same as base type \"{baseType}\"",
         "overrideNoOverloadMatches": "No overload signature in override is compatible with base method",
         "overrideNotClassMethod": "Base method is declared as a classmethod but override is not",
         "overrideNotInstanceMethod": "Base method is declared as an instance method but override is not",

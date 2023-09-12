@@ -5877,12 +5877,37 @@ export class Checker extends ParseTreeWalker {
             // rule is disabled.
             if (this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride !== 'none') {
                 const decls = overrideSymbol.getDeclarations();
+
                 if (decls.length > 0) {
                     const lastDecl = decls[decls.length - 1];
+                    const primaryDecl = decls[0];
+
                     // Verify that the override type is assignable to (same or narrower than)
                     // the declared type of the base symbol.
-                    const diagAddendum = new DiagnosticAddendum();
-                    if (!this._evaluator.assignType(baseType, overrideType, diagAddendum)) {
+                    const isInvariant = primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal;
+
+                    let diagAddendum = new DiagnosticAddendum();
+                    if (
+                        !this._evaluator.assignType(
+                            baseType,
+                            overrideType,
+                            diagAddendum,
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            isInvariant ? AssignTypeFlags.EnforceInvariance : AssignTypeFlags.Default
+                        )
+                    ) {
+                        if (isInvariant) {
+                            diagAddendum = new DiagnosticAddendum();
+                            diagAddendum.addMessage(Localizer.DiagnosticAddendum.overrideIsInvariant());
+                            diagAddendum.createAddendum().addMessage(
+                                Localizer.DiagnosticAddendum.overrideInvariantMismatch().format({
+                                    overrideType: this._evaluator.printType(overrideType),
+                                    baseType: this._evaluator.printType(baseType),
+                                })
+                            );
+                        }
+
                         const diag = this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
                             DiagnosticRule.reportIncompatibleVariableOverride,
