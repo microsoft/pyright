@@ -1353,6 +1353,8 @@ export namespace Localizer {
             new ParameterizedString<{ type: string; name: string }>(
                 getRawString('DiagnosticAddendum.typeConstrainedTypeVar')
             );
+        export const typedDictBaseClass = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.typedDictBaseClass'));
         export const typedDictFieldMissing = () =>
             new ParameterizedString<{ name: string; type: string }>(
                 getRawString('DiagnosticAddendum.typedDictFieldMissing')

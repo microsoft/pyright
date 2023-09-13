@@ -680,6 +680,7 @@
         "typeAssignmentMismatch": "Type \"{sourceType}\" cannot be assigned to type \"{destType}\"",
         "typeBound": "Type \"{sourceType}\" is incompatible with bound type \"{destType}\" for type variable \"{name}\"",
         "typeConstrainedTypeVar": "Type \"{type}\" is incompatible with constrained type variable \"{name}\"",
+        "typedDictBaseClass": "Class \"{type}\" is not a TypedDict",
         "typedDictFieldMissing": "\"{name}\" is missing from \"{type}\"",
         "typedDictFieldNotReadOnly": "\"{name}\" is not read-only in \"{type}\"",
         "typedDictFieldNotRequired": "\"{name}\" is not required in \"{type}\"",

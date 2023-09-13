@@ -1320,7 +1320,7 @@ test('Protocol44', () => {
 test('TypedDict1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict1.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('TypedDict2', () => {

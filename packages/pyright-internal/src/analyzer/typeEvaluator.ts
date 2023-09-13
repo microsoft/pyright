@@ -15935,13 +15935,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // a TypedDict, it is considered a TypedDict.
                             if (ClassType.isBuiltIn(argType, 'TypedDict') || ClassType.isTypedDictClass(argType)) {
                                 classType.details.flags |= ClassTypeFlags.TypedDictClass;
-                            } else if (ClassType.isTypedDictClass(classType) && !ClassType.isTypedDictClass(argType)) {
-                                // Exempt Generic from this test. As of Python 3.11, generic TypedDict
-                                // classes are supported.
-                                if (!isInstantiableClass(argType) || !ClassType.isBuiltIn(argType, 'Generic')) {
-                                    // TypedDict classes must derive only from other TypedDict classes.
-                                    addError(Localizer.Diagnostic.typedDictBaseClass(), arg);
-                                }
                             }
 
                             // Validate that the class isn't deriving from itself, creating a
@@ -16385,6 +16378,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Synthesize TypedDict methods.
             if (ClassType.isTypedDictClass(classType)) {
+                // TypedDict classes must derive only from other TypedDict classes.
+                let foundInvalidBaseClass = false;
+                const diag = new DiagnosticAddendum();
+
+                classType.details.baseClasses.forEach((baseClass) => {
+                    if (
+                        isClass(baseClass) &&
+                        !ClassType.isTypedDictClass(baseClass) &&
+                        !ClassType.isBuiltIn(baseClass, ['_TypedDict', 'Generic'])
+                    ) {
+                        foundInvalidBaseClass = true;
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.typedDictBaseClass().format({ type: baseClass.details.name })
+                        );
+                    }
+                });
+
+                if (foundInvalidBaseClass) {
+                    addError(Localizer.Diagnostic.typedDictBaseClass() + diag.getString(), node.name);
+                }
+
                 synthesizeTypedDictClassMethods(
                     evaluatorInterface,
                     node,

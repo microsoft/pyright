@@ -62,3 +62,9 @@ class NotATD:
 # base classes shouldn't be allowed for TD classes.
 class TD6(TD3, NotATD):
     pass
+
+
+# This should generate an error because non-TypeDict
+# base classes shouldn't be allowed for TD classes.
+class TD7(NotATD, TypedDict):
+    pass
