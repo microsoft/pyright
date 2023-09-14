@@ -238,7 +238,7 @@ class RealFileSystem implements FileSystem {
             // Make sure the entry name is the real case.
             const fullPath = combinePaths(path, entry);
             const realPath = this.realCasePath(fullPath);
-            return realPath.slice(path.length + 1);
+            return getFileName(realPath);
         });
     }
 
@@ -247,7 +247,7 @@ class RealFileSystem implements FileSystem {
             // Make sure the entry name is the real case.
             const fullPath = combinePaths(path, entry.name);
             const realPath = this.realCasePath(fullPath);
-            (entry.name as any) = realPath.slice(path.length + 1);
+            (entry.name as any) = getFileName(realPath);
 
             // Treat zip/egg files as directories.
             // See: https://github.com/yarnpkg/berry/blob/master/packages/vscode-zipfs/sources/ZipFSProvider.ts
@@ -375,6 +375,12 @@ class RealFileSystem implements FileSystem {
                     return path;
                 }
                 return combinePaths(this.realCasePath(getDirectoryPath(path)), getFileName(path));
+            }
+
+            // If it does exist, skip this for symlinks.
+            const stat = fs.statSync(path);
+            if (stat.isSymbolicLink()) {
+                return path;
             }
 
             // realpathSync.native will return casing as in OS rather than
