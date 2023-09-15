@@ -1248,6 +1248,11 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.overloadNotAssignable'));
         export const overriddenMethod = () => getRawString('DiagnosticAddendum.overriddenMethod');
         export const overriddenSymbol = () => getRawString('DiagnosticAddendum.overriddenSymbol');
+        export const overrideIsInvariant = () => getRawString('DiagnosticAddendum.overrideIsInvariant');
+        export const overrideInvariantMismatch = () =>
+            new ParameterizedString<{ overrideType: string; baseType: string }>(
+                getRawString('DiagnosticAddendum.overrideInvariantMismatch')
+            );
         export const overrideNoOverloadMatches = () => getRawString('DiagnosticAddendum.overrideNoOverloadMatches');
         export const overrideNotClassMethod = () => getRawString('DiagnosticAddendum.overrideNotClassMethod');
         export const overrideNotInstanceMethod = () => getRawString('DiagnosticAddendum.overrideNotInstanceMethod');

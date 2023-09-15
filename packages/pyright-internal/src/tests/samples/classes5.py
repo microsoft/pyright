@@ -49,6 +49,8 @@ class Subclass1(ParentClass1):
 
     var2: str
 
+    # This should generate an error if reportIncompatibleVariableOverride is
+    # enabled because the member is mutable, and is therefore invariant.
     var3: int
 
     # This should generate an error.
@@ -119,7 +121,7 @@ class ParentClass2:
 
 
 class SubclassDeclared2(ParentClass2):
-    cv_decl_1: int
+    cv_decl_1: float
 
     # This should generate an error if reportIncompatibleVariableOverride
     # is enabled.
@@ -134,6 +136,8 @@ class SubclassDeclared2(ParentClass2):
     cv_infer_3: float | None
 
     def __init__(self):
+        # This should generate an error if reportIncompatibleVariableOverride
+        # is enabled because the member is mutable and therefore invariant.
         self.cv_decl_4: int
 
         # This should generate an error if reportIncompatibleVariableOverride
@@ -241,6 +245,7 @@ class PeerClass1:
     test4: int
     test5: Any
     test6: float
+    test7: float
 
 
 class PeerClass2:
@@ -254,9 +259,10 @@ class PeerClass2:
 
     test5: int
     test6: Any
+    test7: int
 
 
-# This should generate 3 errors if reportIncompatibleVariableOverride
+# This should generate 4 errors if reportIncompatibleVariableOverride
 # is enabled.
 class MultipleInheritance1(PeerClass1, PeerClass2):
     pass
