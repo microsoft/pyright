@@ -12,8 +12,11 @@ import {
     ClassType,
     FunctionParameter,
     FunctionType,
+    isAnyOrUnknown,
     isClassInstance,
+    isParamSpec,
     isPositionOnlySeparator,
+    isTypeSame,
     isTypeVar,
     isUnpackedClass,
     isVariadicTypeVar,
@@ -305,4 +308,62 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
     }
 
     return result;
+}
+
+// Returns true if the type of the argument type is "*args: P.args" or
+// "*args: Any". Both of these match a parameter of type "*args: P.args".
+export function isParamSpecArgsArgument(paramSpec: TypeVarType, argType: Type) {
+    if (
+        isParamSpec(argType) &&
+        argType.paramSpecAccess === 'args' &&
+        isTypeSame(argType, paramSpec, { ignoreTypeFlags: true })
+    ) {
+        return true;
+    }
+
+    if (
+        isClassInstance(argType) &&
+        argType.tupleTypeArguments &&
+        argType.tupleTypeArguments.length === 1 &&
+        argType.tupleTypeArguments[0].isUnbounded &&
+        isAnyOrUnknown(argType.tupleTypeArguments[0].type)
+    ) {
+        return true;
+    }
+
+    if (isAnyOrUnknown(argType)) {
+        return true;
+    }
+
+    return false;
+}
+
+// Returns true if the type of the argument type is "**kwargs: P.kwargs" or
+// "*kwargs: Any". Both of these match a parameter of type "*kwargs: P.kwargs".
+export function isParamSpecKwargsArgument(paramSpec: TypeVarType, argType: Type) {
+    if (
+        isParamSpec(argType) &&
+        argType.paramSpecAccess === 'kwargs' &&
+        isTypeSame(argType, paramSpec, { ignoreTypeFlags: true })
+    ) {
+        return true;
+    }
+
+    if (
+        isClassInstance(argType) &&
+        ClassType.isBuiltIn(argType, 'dict') &&
+        argType.typeArguments &&
+        argType.typeArguments.length === 2 &&
+        isClassInstance(argType.typeArguments[0]) &&
+        ClassType.isBuiltIn(argType.typeArguments[0], 'str') &&
+        isAnyOrUnknown(argType.typeArguments[1])
+    ) {
+        return true;
+    }
+
+    if (isAnyOrUnknown(argType)) {
+        return true;
+    }
+
+    return false;
 }

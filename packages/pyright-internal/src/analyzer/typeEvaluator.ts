@@ -139,6 +139,8 @@ import {
     ParameterSource,
     VirtualParameterDetails,
     getParameterListDetails,
+    isParamSpecArgsArgument,
+    isParamSpecKwargsArgument,
 } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { assignTypeToPatternTargets, checkForUnusedPattern, narrowTypeBasedOnPattern } from './patternMatching';
@@ -10005,19 +10007,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // all positional parameters specified in the Concatenate must be
                 // filled explicitly.
                 if (typeResult.type.details.paramSpec && paramIndex < positionParamLimitIndex) {
-                    if (!isDiagnosticSuppressedForNode(errorNode)) {
-                        addDiagnostic(
-                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            positionParamLimitIndex === 1
-                                ? Localizer.Diagnostic.argPositionalExpectedOne()
-                                : Localizer.Diagnostic.argPositionalExpectedCount().format({
-                                      expected: positionParamLimitIndex,
-                                  }),
-                            argList[argIndex].valueExpression ?? errorNode
-                        );
+                    if (isTypeVar(argTypeResult.type) && argTypeResult.type.paramSpecAccess === 'args') {
+                        if (!isDiagnosticSuppressedForNode(errorNode)) {
+                            addDiagnostic(
+                                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                positionParamLimitIndex === 1
+                                    ? Localizer.Diagnostic.argPositionalExpectedOne()
+                                    : Localizer.Diagnostic.argPositionalExpectedCount().format({
+                                          expected: positionParamLimitIndex,
+                                      }),
+                                argList[argIndex].valueExpression ?? errorNode
+                            );
+                        }
+                        reportedArgError = true;
                     }
-                    reportedArgError = true;
                 }
 
                 const argType = argTypeResult.type;
@@ -10366,17 +10370,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                             reportedArgError = true;
                         }
-                    } else if (isParamSpec(argType) && argType.paramSpecAccess === 'kwargs') {
+                    } else if (
+                        typeResult.type.details.paramSpec &&
+                        isParamSpecKwargsArgument(typeResult.type.details.paramSpec, argType)
+                    ) {
                         unpackedDictionaryArgType = AnyType.create();
-                        if (typeResult.type.details.paramSpec) {
-                            validateArgTypeParams.push({
-                                paramCategory: ParameterCategory.KwargsDict,
-                                paramType: typeResult.type.details.paramSpec,
-                                requiresTypeVarMatching: false,
-                                argument: argList[argIndex],
-                                errorNode: argList[argIndex].valueExpression || errorNode,
-                            });
-                        }
+                        validateArgTypeParams.push({
+                            paramCategory: ParameterCategory.KwargsDict,
+                            paramType: typeResult.type.details.paramSpec,
+                            requiresTypeVarMatching: false,
+                            argument: argList[argIndex],
+                            argType: isParamSpec(argType) ? undefined : AnyType.create(),
+                            errorNode: argList[argIndex].valueExpression || errorNode,
+                        });
                     } else {
                         const strObjType = getBuiltInObject(errorNode, 'str');
 
@@ -10537,8 +10543,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             reportedArgError = true;
                         }
                     } else if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
-                        // Handle the case where a *args: P.args is passed as an argument to
-                        // a function that accepts a ParamSpec.
+                        // Handle the case where a *args: P.args (or *args: Any) is passed as an
+                        // argument to a function that accepts a ParamSpec.
                         if (typeResult.type.details.paramSpec) {
                             const argTypeResult = getTypeOfArgument(argList[argIndex]);
                             const argType = argTypeResult.type;
@@ -10547,12 +10553,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 isTypeIncomplete = true;
                             }
 
-                            if (isParamSpec(argType) && argType.paramSpecAccess === 'args') {
+                            if (isParamSpecArgsArgument(typeResult.type.details.paramSpec, argType)) {
                                 validateArgTypeParams.push({
                                     paramCategory: ParameterCategory.ArgsList,
                                     paramType: typeResult.type.details.paramSpec,
                                     requiresTypeVarMatching: false,
                                     argument: argList[argIndex],
+                                    argType: isParamSpec(argType) ? undefined : AnyType.create(),
                                     errorNode: argList[argIndex].valueExpression ?? errorNode,
                                 });
                             }
@@ -11133,13 +11140,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (type.details.paramSpec) {
                 if (argParam.argument.argumentCategory === ArgumentCategory.UnpackedList) {
-                    if (isParamSpec(argResult.argType) && argResult.argType.paramSpecAccess === 'args') {
+                    if (isParamSpecArgsArgument(type.details.paramSpec, argResult.argType)) {
                         sawParamSpecArgs = true;
                     }
                 }
 
                 if (argParam.argument.argumentCategory === ArgumentCategory.UnpackedDictionary) {
-                    if (isParamSpec(argResult.argType) && argResult.argType.paramSpecAccess === 'kwargs') {
+                    if (isParamSpecKwargsArgument(type.details.paramSpec, argResult.argType)) {
                         sawParamSpecKwargs = true;
                     }
                 }
