@@ -37,6 +37,7 @@ import {
     CaseNode,
     ClassNode,
     ConstantNode,
+    DecoratorNode,
     DictionaryNode,
     ExceptNode,
     ExpressionNode,
@@ -704,8 +705,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
-    function setTypeForNode(node: ParseNode, type: Type = UnknownType.create(), flags = EvaluatorFlags.None) {
-        writeTypeCache(node, { type }, flags);
+    function setTypeResultForNode(node: ParseNode, typeResult: TypeResult, flags = EvaluatorFlags.None) {
+        writeTypeCache(node, typeResult, flags);
     }
 
     function setAsymmetricDescriptorAssignment(node: ParseNode) {
@@ -835,8 +836,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
     }
 
+    function getTypeResultForDecorator(node: DecoratorNode): TypeResult | undefined {
+        return evaluateTypeForSubnode(node, () => {
+            evaluateTypesForExpressionInContext(node.expression);
+        });
+    }
+
     // Reads the type of the node from the cache.
-    function getCachedType(node: ExpressionNode): Type | undefined {
+    function getCachedType(node: ExpressionNode | DecoratorNode): Type | undefined {
         return readTypeCache(node, EvaluatorFlags.None);
     }
 
@@ -7497,7 +7504,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             // Set the node's type so it isn't reevaluated later.
-            setTypeForNode(node.items[0].valueExpression, UnknownType.create());
+            setTypeResultForNode(node.items[0].valueExpression, { type: UnknownType.create() });
         } else {
             node.items.forEach((arg, index) => {
                 const typeResult = getTypeArgTypeResult(arg.valueExpression, index);
@@ -7555,7 +7562,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             };
 
             // Set the node's type so it isn't reevaluated later.
-            setTypeForNode(node, UnknownType.create());
+            setTypeResultForNode(node, { type: UnknownType.create() });
         } else if (node.nodeType === ParseNodeType.Dictionary && supportsDictExpression) {
             const inlinedTypeDict =
                 typedDictClassType && isInstantiableClass(typedDictClassType)
@@ -25959,6 +25966,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         runWithCancellationToken,
         getType,
         getTypeResult,
+        getTypeResultForDecorator,
         getCachedType,
         getTypeOfExpression,
         getTypeOfAnnotation,
@@ -26048,7 +26056,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         disposeEvaluator,
         useSpeculativeMode,
         isSpeculativeModeInUse,
-        setTypeForNode,
+        setTypeResultForNode,
         checkForCancellation,
         printControlFlowGraph,
         printTypeVarContext,

@@ -321,7 +321,7 @@ export function createNamedTupleType(
 
                 // Set the type in the type cache for the dict node so it
                 // doesn't get evaluated again.
-                evaluator.setTypeForNode(entryList);
+                evaluator.setTypeResultForNode(entryList, { type: UnknownType.create() });
             } else {
                 // A dynamic expression was used, so we can't evaluate
                 // the named tuple statically.
@@ -332,7 +332,7 @@ export function createNamedTupleType(
                 // Set the type of the value expression node to Any so we don't attempt to
                 // re-evaluate it later, potentially generating "partially unknown" errors
                 // in strict mode.
-                evaluator.setTypeForNode(entriesArg.valueExpression, AnyType.create());
+                evaluator.setTypeResultForNode(entriesArg.valueExpression, { type: AnyType.create() });
             }
         }
     }

@@ -717,7 +717,7 @@ function getTypedDictFieldsFromDictSyntax(
 
     // Set the type in the type cache for the dict node so it doesn't
     // get evaluated again.
-    evaluator.setTypeForNode(entryDict);
+    evaluator.setTypeResultForNode(entryDict, { type: UnknownType.create() });
 }
 
 function getTypedDictMembersForClassRecursive(

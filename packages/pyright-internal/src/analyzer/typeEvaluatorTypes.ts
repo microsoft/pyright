@@ -19,6 +19,7 @@ import {
     CallNode,
     CaseNode,
     ClassNode,
+    DecoratorNode,
     ExpressionNode,
     FunctionNode,
     MatchNode,
@@ -460,6 +461,7 @@ export interface TypeEvaluator {
 
     getType: (node: ExpressionNode) => Type | undefined;
     getTypeResult: (node: ExpressionNode) => TypeResult | undefined;
+    getTypeResultForDecorator: (node: DecoratorNode) => TypeResult | undefined;
     getCachedType: (node: ExpressionNode) => Type | undefined;
     getTypeOfExpression: (node: ExpressionNode, flags?: EvaluatorFlags, context?: InferenceContext) => TypeResult;
     getTypeOfAnnotation: (node: ExpressionNode, options?: AnnotationTypeOptions) => Type;
@@ -676,7 +678,7 @@ export interface TypeEvaluator {
     disposeEvaluator: () => void;
     useSpeculativeMode: <T>(speculativeNode: ParseNode | undefined, callback: () => T) => T;
     isSpeculativeModeInUse: (node: ParseNode | undefined) => boolean;
-    setTypeForNode: (node: ParseNode, type?: Type, flags?: EvaluatorFlags) => void;
+    setTypeResultForNode: (node: ParseNode, typeResult: TypeResult, flags?: EvaluatorFlags) => void;
 
     checkForCancellation: () => void;
     printControlFlowGraph: (

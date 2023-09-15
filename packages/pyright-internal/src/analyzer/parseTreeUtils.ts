@@ -566,6 +566,23 @@ export function getCallForName(node: NameNode): CallNode | undefined {
     return undefined;
 }
 
+export function getDecoratorForName(node: NameNode): DecoratorNode | undefined {
+    if (node.parent?.nodeType === ParseNodeType.Decorator && node.parent.expression === node) {
+        return node.parent;
+    }
+
+    if (
+        node.parent?.nodeType === ParseNodeType.MemberAccess &&
+        node.parent.memberName === node &&
+        node.parent.parent?.nodeType === ParseNodeType.Decorator &&
+        node.parent.parent.expression === node.parent
+    ) {
+        return node.parent.parent;
+    }
+
+    return undefined;
+}
+
 export function getEnclosingSuite(node: ParseNode): SuiteNode | undefined {
     let curNode = node.parent;
 

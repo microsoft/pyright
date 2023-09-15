@@ -437,14 +437,21 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
         },
     ];
 
-    const returnType =
-        evaluator.validateCallArguments(
-            node.expression,
-            argList,
-            decoratorTypeResult,
-            /* typeVarContext */ undefined,
-            /* skipUnknownArgCheck */ true
-        ).returnType || UnknownType.create();
+    const callTypeResult = evaluator.validateCallArguments(
+        node.expression,
+        argList,
+        decoratorTypeResult,
+        /* typeVarContext */ undefined,
+        /* skipUnknownArgCheck */ true
+    );
+
+    evaluator.setTypeResultForNode(node, {
+        type: callTypeResult.returnType ?? UnknownType.create(),
+        overloadsUsedForCall: callTypeResult.overloadsUsedForCall,
+        isIncomplete: callTypeResult.isTypeIncomplete,
+    });
+
+    const returnType = callTypeResult.returnType ?? UnknownType.create();
 
     // If the return type is a function that has no annotations
     // and just *args and **kwargs parameters, assume that it
