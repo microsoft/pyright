@@ -675,10 +675,15 @@ function printTypeInternal(
                 }
 
                 if (type.details.isParamSpec) {
+                    const paramSpecText = _getReadableTypeVarName(
+                        type,
+                        (printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0
+                    );
+
                     if (type.paramSpecAccess) {
-                        return `${type.details.name}.${type.paramSpecAccess}`;
+                        return `${paramSpecText}.${type.paramSpecAccess}`;
                     }
-                    return `${_getReadableTypeVarName(type, (printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0)}`;
+                    return paramSpecText;
                 }
 
                 let typeVarName = _getReadableTypeVarName(type, (printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0);
