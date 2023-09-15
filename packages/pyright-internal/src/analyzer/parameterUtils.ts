@@ -12,15 +12,18 @@ import {
     ClassType,
     FunctionParameter,
     FunctionType,
+    isAnyOrUnknown,
     isClassInstance,
+    isParamSpec,
     isPositionOnlySeparator,
+    isTypeSame,
     isTypeVar,
     isUnpackedClass,
     isVariadicTypeVar,
     Type,
     TypeVarType,
 } from './types';
-import { partiallySpecializeType } from './typeUtils';
+import { doForEachSubtype, partiallySpecializeType } from './typeUtils';
 
 export function isTypedKwargs(param: FunctionParameter): boolean {
     return (
@@ -305,4 +308,74 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
     }
 
     return result;
+}
+
+// Returns true if the type of the argument type is "*args: P.args" or
+// "*args: Any". Both of these match a parameter of type "*args: P.args".
+export function isParamSpecArgsArgument(paramSpec: TypeVarType, argType: Type) {
+    let isCompatible = true;
+
+    doForEachSubtype(argType, (argSubtype) => {
+        if (
+            isParamSpec(argSubtype) &&
+            argSubtype.paramSpecAccess === 'args' &&
+            isTypeSame(argSubtype, paramSpec, { ignoreTypeFlags: true })
+        ) {
+            return;
+        }
+
+        if (
+            isClassInstance(argSubtype) &&
+            argSubtype.tupleTypeArguments &&
+            argSubtype.tupleTypeArguments.length === 1 &&
+            argSubtype.tupleTypeArguments[0].isUnbounded &&
+            isAnyOrUnknown(argSubtype.tupleTypeArguments[0].type)
+        ) {
+            return;
+        }
+
+        if (isAnyOrUnknown(argSubtype)) {
+            return;
+        }
+
+        isCompatible = false;
+    });
+
+    return isCompatible;
+}
+
+// Returns true if the type of the argument type is "**kwargs: P.kwargs" or
+// "*kwargs: Any". Both of these match a parameter of type "*kwargs: P.kwargs".
+export function isParamSpecKwargsArgument(paramSpec: TypeVarType, argType: Type) {
+    let isCompatible = true;
+
+    doForEachSubtype(argType, (argSubtype) => {
+        if (
+            isParamSpec(argSubtype) &&
+            argSubtype.paramSpecAccess === 'kwargs' &&
+            isTypeSame(argSubtype, paramSpec, { ignoreTypeFlags: true })
+        ) {
+            return;
+        }
+
+        if (
+            isClassInstance(argSubtype) &&
+            ClassType.isBuiltIn(argSubtype, 'dict') &&
+            argSubtype.typeArguments &&
+            argSubtype.typeArguments.length === 2 &&
+            isClassInstance(argSubtype.typeArguments[0]) &&
+            ClassType.isBuiltIn(argSubtype.typeArguments[0], 'str') &&
+            isAnyOrUnknown(argSubtype.typeArguments[1])
+        ) {
+            return;
+        }
+
+        if (isAnyOrUnknown(argSubtype)) {
+            return;
+        }
+
+        isCompatible = false;
+    });
+
+    return isCompatible;
 }

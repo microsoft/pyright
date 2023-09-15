@@ -3193,10 +3193,27 @@ class TypeVarTransformer {
             // _pendingTypeVarTransformations set.
             if (!this._isTypeVarScopePending(type.scopeId)) {
                 if (type.details.isParamSpec) {
-                    if (!type.paramSpecAccess) {
-                        const paramSpecValue = this.transformParamSpec(type, recursionCount);
-                        if (paramSpecValue) {
-                            replacementType = convertParamSpecValueToType(paramSpecValue);
+                    let paramSpecWithoutAccess = type;
+
+                    if (type.paramSpecAccess) {
+                        paramSpecWithoutAccess = TypeVarType.cloneForParamSpecAccess(type, /* access */ undefined);
+                    }
+
+                    const paramSpecValue = this.transformParamSpec(paramSpecWithoutAccess, recursionCount);
+                    if (paramSpecValue) {
+                        const paramSpecType = convertParamSpecValueToType(paramSpecValue);
+
+                        if (type.paramSpecAccess) {
+                            if (isParamSpec(paramSpecType)) {
+                                replacementType = TypeVarType.cloneForParamSpecAccess(
+                                    paramSpecType,
+                                    type.paramSpecAccess
+                                );
+                            } else {
+                                replacementType = UnknownType.create();
+                            }
+                        } else {
+                            replacementType = paramSpecType;
                         }
                     }
                 } else {
