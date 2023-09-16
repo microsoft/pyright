@@ -1,0 +1,19 @@
+from telegram.ext import Updater, MessageHandler, Filters
+
+def welcome(update, context):
+    user = update.effective_user
+    context.bot.send_message(chat_id=update.effective_chat.id,
+                             text=f"مرحبًا {user.first_name}!")
+
+def main():
+    updater = Updater(token="6588018171:AAEm8yQy0qEdUjCkf5RAyws6hpPiVueBdII", use_context=True)
+    dispatcher = updater.dispatcher
+
+    welcome_handler = MessageHandler(Filters.text & ~Filters.command, welcome)
+    dispatcher.add_handler(welcome_handler)
+
+    updater.start_polling()
+    updater.idle()
+
+if name == 'main':
+    main()
