@@ -447,7 +447,7 @@ function narrowTypeBasedOnMappingPattern(
         });
     }
 
-    let mappingInfo = getMappingPatternInfo(evaluator, type);
+    let mappingInfo = getMappingPatternInfo(evaluator, type, pattern);
 
     // Further narrow based on pattern entry types.
     mappingInfo = mappingInfo.filter((mappingSubtypeInfo) => {
@@ -1079,7 +1079,7 @@ function narrowTypeBasedOnValuePattern(
 
 // Returns information about all subtypes that match the definition of a "mapping" as
 // specified in PEP 634.
-function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type): MappingPatternInfo[] {
+function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: PatternAtomNode): MappingPatternInfo[] {
     const mappingInfo: MappingPatternInfo[] = [];
 
     doForEachSubtype(type, (subtype) => {
@@ -1093,35 +1093,56 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type): MappingPat
                     value: concreteSubtype,
                 },
             });
-        } else if (isClassInstance(concreteSubtype)) {
+            return;
+        }
+
+        if (isClassInstance(concreteSubtype)) {
+            // Is it a TypedDict?
             if (ClassType.isTypedDictClass(concreteSubtype)) {
                 mappingInfo.push({
                     subtype,
                     typedDict: concreteSubtype,
                 });
-            } else {
-                let mroClassToSpecialize: ClassType | undefined;
-                for (const mroClass of concreteSubtype.details.mro) {
-                    if (isInstantiableClass(mroClass) && ClassType.isBuiltIn(mroClass, 'Mapping')) {
-                        mroClassToSpecialize = mroClass;
-                        break;
-                    }
+                return;
+            }
+
+            // Is it a subclass of Mapping?
+            let mroClassToSpecialize: ClassType | undefined;
+            for (const mroClass of concreteSubtype.details.mro) {
+                if (isInstantiableClass(mroClass) && ClassType.isBuiltIn(mroClass, 'Mapping')) {
+                    mroClassToSpecialize = mroClass;
+                    break;
+                }
+            }
+
+            if (mroClassToSpecialize) {
+                const specializedMapping = partiallySpecializeType(mroClassToSpecialize, concreteSubtype) as ClassType;
+
+                if (specializedMapping.typeArguments && specializedMapping.typeArguments.length >= 2) {
+                    mappingInfo.push({
+                        subtype,
+                        dictTypeArgs: {
+                            key: specializedMapping.typeArguments[0],
+                            value: specializedMapping.typeArguments[1],
+                        },
+                    });
                 }
 
-                if (mroClassToSpecialize) {
-                    const specializedMapping = partiallySpecializeType(
-                        mroClassToSpecialize,
-                        concreteSubtype
-                    ) as ClassType;
-                    if (specializedMapping.typeArguments && specializedMapping.typeArguments.length >= 2) {
-                        mappingInfo.push({
-                            subtype,
-                            dictTypeArgs: {
-                                key: specializedMapping.typeArguments[0],
-                                value: specializedMapping.typeArguments[1],
-                            },
-                        });
-                    }
+                return;
+            }
+
+            // Is it a superclass of Mapping?
+            const mappingType = evaluator.getTypingType(node, 'Mapping');
+            if (mappingType && isInstantiableClass(mappingType)) {
+                const mappingObject = ClassType.cloneAsInstance(mappingType);
+                if (evaluator.assignType(type, mappingObject)) {
+                    mappingInfo.push({
+                        subtype,
+                        dictTypeArgs: {
+                            key: UnknownType.create(),
+                            value: UnknownType.create(),
+                        },
+                    });
                 }
             }
         }
@@ -1427,7 +1448,7 @@ export function assignTypeToPatternTargets(
         }
 
         case ParseNodeType.PatternMapping: {
-            const mappingInfo = getMappingPatternInfo(evaluator, narrowedType);
+            const mappingInfo = getMappingPatternInfo(evaluator, narrowedType, pattern);
 
             pattern.entries.forEach((mappingEntry) => {
                 const keyTypes: Type[] = [];
