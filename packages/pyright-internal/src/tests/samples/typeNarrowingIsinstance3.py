@@ -24,52 +24,52 @@ class D:
 
 def func1(val: A):
     if isinstance(val, B):
-        val.a_val
-        val.b_val
+        v1 = val.a_val
+        v2 = val.b_val
 
         # This should generate an error
-        val.c_val
+        v3 = val.c_val
 
         reveal_type(val, expected_text="<subclass of A and B>")
 
         if isinstance(val, C):
-            val.a_val
-            val.b_val
-            val.c_val
+            v4 = val.a_val
+            v5 = val.b_val
+            v6 = val.c_val
             reveal_type(val, expected_text="<subclass of <subclass of A and B> and C>")
 
     else:
-        val.a_val
+        v7 = val.a_val
 
         # This should generate an error
-        val.b_val
+        v8 = val.b_val
 
         reveal_type(val, expected_text="A")
 
 
 def func2(val: type[A]):
     if issubclass(val, B):
-        val.a_val
-        val.b_val
+        v1 = val.a_val
+        v2 = val.b_val
 
         # This should generate an error
-        val.c_val
+        v3 = val.c_val
 
         reveal_type(val, expected_text="type[<subclass of A and B>]")
 
         if issubclass(val, C):
-            val.a_val
-            val.b_val
-            val.c_val
+            v4 = val.a_val
+            v5 = val.b_val
+            v6 = val.c_val
             reveal_type(
                 val, expected_text="type[<subclass of <subclass of A and B> and C>]"
             )
 
     else:
-        val.a_val
+        v7 = val.a_val
 
         # This should generate an error
-        val.b_val
+        v8 = val.b_val
 
         reveal_type(val, expected_text="type[A]")
 

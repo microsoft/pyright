@@ -51,7 +51,7 @@ class E:
     a: int
 
 
-E.__slots__
+v1 = E.__slots__
 E(1).__slots__
 
 reveal_type(E.__slots__, expected_text="Iterable[str]")
@@ -63,7 +63,7 @@ class F:
 
 
 # This should generate an error.
-F.__slots__
+v2 = F.__slots__
 
 # This should generate an error.
-F(1).__slots__
+v3 = F(1).__slots__

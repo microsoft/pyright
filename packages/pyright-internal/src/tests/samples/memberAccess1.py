@@ -88,6 +88,6 @@ class ClassE(metaclass=MetaclassE):
     x = DescriptorE()
 
 
-ClassE.x
-ClassE().x
-ClassE.y
+v1 = ClassE.x
+v2 = ClassE().x
+v3 = ClassE.y

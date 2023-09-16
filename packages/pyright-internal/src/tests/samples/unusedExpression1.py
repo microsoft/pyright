@@ -1,5 +1,8 @@
 # This sample tests the reportUnusedExpression diagnostic rule.
 
+import datetime
+import collections.abc
+
 t = 1
 
 
@@ -48,3 +51,15 @@ t
 [x for x in range(3)]
 {x: x for x in range(3)}
 {x for x in range(3)}
+
+
+x = []
+
+# This should generate a diagnostic.
+x.append
+
+# This should generate a diagnostic.
+datetime.datetime
+
+# This should generate a diagnostic.
+collections.abc.Awaitable

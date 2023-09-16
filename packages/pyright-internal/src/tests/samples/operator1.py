@@ -72,7 +72,7 @@ class C:
 
 
 a = C()
-a.__add__
+v1 = a.__add__
 
 # This should generate an error because __getattr__ is not used
 # when looking up operator overload methods.

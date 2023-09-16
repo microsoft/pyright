@@ -32,12 +32,12 @@ dummy = TestClass.__dummy__
 
 instance = TestClass()
 
-instance.__doc__
-instance.__module__
+v1 = instance.__doc__
+v2 = instance.__module__
 
 # These should generate an error because they are not visible to instances.
-instance.__name__
-instance.__qualname__
+v3 = instance.__name__
+v4 = instance.__qualname__
 
 
 class Meta(type):

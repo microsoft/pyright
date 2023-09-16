@@ -8,13 +8,13 @@ a: Hashable = None
 b: Iterable = None
 
 c = None
-c.__class__
-c.__doc__
+v1 = c.__class__
+v2 = c.__doc__
 
 
 def func1(a: int | None):
-    a.__class__
-    a.__doc__
+    v1 = a.__class__
+    v2 = a.__doc__
 
 
 def func2(x: type[None]):

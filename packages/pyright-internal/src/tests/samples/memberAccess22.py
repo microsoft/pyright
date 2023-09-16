@@ -8,7 +8,7 @@ from contextlib import contextmanager
 class A:
     @classmethod
     def method1(cls) -> None:
-        cls.method2
+        v1 = cls.method2
 
     @contextmanager
     def method2(self):

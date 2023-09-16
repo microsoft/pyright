@@ -69,7 +69,7 @@ class B:
 d1 = B(x=4)
 
 # This should generate an error because x is not an actual member.
-d1.x
+d2 = d1.x
 
 Alias1 = Annotated[_T, ""]
 Alias2 = str

@@ -437,7 +437,7 @@ test('UnusedExpression1', () => {
 
     // By default, this is a warning.
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unusedExpression1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0, 14);
+    TestUtils.validateResults(analysisResults, 0, 17);
 
     // Disable it.
     configOptions.diagnosticRuleSet.reportUnusedExpression = 'none';
@@ -447,7 +447,7 @@ test('UnusedExpression1', () => {
     // Enable it as an error.
     configOptions.diagnosticRuleSet.reportUnusedExpression = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unusedExpression1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 14);
+    TestUtils.validateResults(analysisResults, 17);
 });
 
 test('UnusedImport1', () => {

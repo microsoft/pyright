@@ -9,9 +9,9 @@ S = TypeVar("S", bound=str)
 
 # In these cases, the TypeVar symbol simply represents the TypeVar
 # object itself, rather than representing a type variable.
-T.__name__
-S.__name__
-S.__bound__
+v1 = T.__name__
+v2 = S.__name__
+v3 = S.__bound__
 
 
 def func1(x: bool, a: T, b: S) -> T | S:
@@ -19,10 +19,10 @@ def func1(x: bool, a: T, b: S) -> T | S:
     reveal_type(S.__name__, expected_text="str")
 
     # This should generate an error
-    a.__name__
+    v1 = a.__name__
 
     # This should generate an error
-    b.__name__
+    v2 = b.__name__
 
     if x:
         return a

@@ -17,7 +17,7 @@ c = Container(1, 2, 3)
 reveal_type(c.not_init_var1, expected_text="int")
 
 # This should generate an error
-c.init_var1
+v1 = c.init_var1
 
 # This should generate an error
-c.init_var2
+v2 = c.init_var2

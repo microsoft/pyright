@@ -10,4 +10,4 @@ def func1() -> None:
         return None
     finally:
         # This should generate an error.
-        file.name
+        v1 = file.name

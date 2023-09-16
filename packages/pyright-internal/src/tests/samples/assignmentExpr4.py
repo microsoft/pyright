@@ -40,9 +40,9 @@ class Example:
     x = ((y := 1), (z := 2))
 
 
-Example.x
-Example.y
-Example.z
+v1 = Example.x
+v2 = Example.y
+v3 = Example.z
 
 # This should generate an error because 'j' is used as a
 # "for target" and the target of an assignment expression.

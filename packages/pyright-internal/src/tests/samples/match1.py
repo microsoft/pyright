@@ -157,7 +157,7 @@ def func1():
     match = Foo()
 
     # This should be treated as an expression statement, not a match statement.
-    match.x
+    v1 = match.x
 
 
 def func2():

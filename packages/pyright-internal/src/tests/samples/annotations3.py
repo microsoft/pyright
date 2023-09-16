@@ -36,7 +36,7 @@ class ClassB(ClassA):
         ...
 
     def func6(self, x: ClassC):
-        x.my_int
+        v1 = x.my_int
 
 
 class ClassC:

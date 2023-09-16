@@ -35,4 +35,4 @@ class F(D):
     pass
 
 
-E.a_attr
+v1 = E.a_attr

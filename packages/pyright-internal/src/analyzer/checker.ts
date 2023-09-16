@@ -1779,6 +1779,24 @@ export class Checker extends ParseTreeWalker {
             if (!node.entries.some((entry) => entry.nodeType === ParseNodeType.ListComprehension)) {
                 reportAsUnused = true;
             }
+        } else if (node.nodeType === ParseNodeType.MemberAccess) {
+            // Include member accesses if the left expression is a simple name
+            // or a member access.
+            reportAsUnused = true;
+
+            let leftExpr = node.leftExpression;
+            while (true) {
+                if (leftExpr.nodeType === ParseNodeType.Name) {
+                    break;
+                }
+
+                if (leftExpr.nodeType !== ParseNodeType.MemberAccess) {
+                    reportAsUnused = false;
+                    break;
+                }
+
+                leftExpr = leftExpr.leftExpression;
+            }
         }
 
         if (

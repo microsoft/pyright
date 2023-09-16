@@ -34,10 +34,10 @@ class ChildA(ParentA):
     attr2 = Column(str)
 
 
-ChildA.attr1
-ChildA().attr1
-ChildA.attr2
-ChildA().attr2
+v1 = ChildA.attr1
+v2 = ChildA().attr1
+v3 = ChildA.attr2
+v4 = ChildA().attr2
 
 foo = ChildA()
 

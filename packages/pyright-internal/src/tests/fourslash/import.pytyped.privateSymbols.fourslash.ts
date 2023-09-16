@@ -32,12 +32,12 @@
 //// from testLib import [|/*marker3*/_five|]
 //// from testLib import _six
 //// import testLib
-//// testLib.one
-//// testLib.[|/*marker4*/two|]
-//// testLib.[|/*marker5*/three|]
-//// testLib.four
-//// testLib.[|/*marker6*/_five|]
-//// testLib._six
+//// v1 = testLib.one
+//// v2 = testLib.[|/*marker4*/two|]
+//// v3 = testLib.[|/*marker5*/three|]
+//// v4 = testLib.four
+//// v5 = testLib.[|/*marker6*/_five|]
+//// v6 = testLib._six
 
 // @ts-ignore
 await helper.verifyDiagnostics({

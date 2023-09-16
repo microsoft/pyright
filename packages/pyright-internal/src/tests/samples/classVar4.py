@@ -35,5 +35,5 @@ def func1() -> None:
 
     z: int = Class.z
 
-    Class.meth1
-    Class.meth2
+    v1 = Class.meth1
+    v2 = Class.meth2

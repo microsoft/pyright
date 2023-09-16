@@ -41,10 +41,10 @@ def func1(x: int) -> str:
 
 reveal_type(func1, expected_text="CallbackProto1[(x: int), str]")
 
-func1.other_attribute
+v1 = func1.other_attribute
 
 # This should generate an error
-func1.other_attribute2
+v2 = func1.other_attribute2
 
 func1(x=3)
 
@@ -63,4 +63,4 @@ def func2() -> None:
     ...
 
 
-v: CallbackProto2 = func2
+v3: CallbackProto2 = func2
