@@ -551,11 +551,11 @@ test('Deprecated2', () => {
     const configOptions = new ConfigOptions('.');
 
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['deprecated2.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 0, 0, 0, undefined, undefined, 10);
+    TestUtils.validateResults(analysisResults1, 0, 0, 0, undefined, undefined, 12);
 
     configOptions.diagnosticRuleSet.reportDeprecated = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated2.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 10);
+    TestUtils.validateResults(analysisResults2, 12);
 });
 
 test('Deprecated3', () => {

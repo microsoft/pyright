@@ -24522,6 +24522,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         effectiveSrcType.details.flags | FunctionTypeFlags.SynthesizedMethod,
                         effectiveSrcType.details.docString
                     );
+                    remainingFunction.details.deprecatedMessage = effectiveSrcType.details.deprecatedMessage;
                     remainingFunction.details.typeVarScopeId = effectiveSrcType.details.typeVarScopeId;
                     remainingFunction.details.constructorTypeVarScopeId =
                         effectiveSrcType.details.constructorTypeVarScopeId;

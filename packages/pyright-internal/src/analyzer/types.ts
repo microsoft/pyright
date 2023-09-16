@@ -1636,6 +1636,10 @@ export namespace FunctionType {
                 newFunction.details.docString = paramSpecValue.details.docString;
             }
 
+            if (!newFunction.details.deprecatedMessage) {
+                newFunction.details.deprecatedMessage = paramSpecValue.details.deprecatedMessage;
+            }
+
             newFunction.details.flags =
                 (paramSpecValue.details.flags &
                     (FunctionTypeFlags.ClassMethod |

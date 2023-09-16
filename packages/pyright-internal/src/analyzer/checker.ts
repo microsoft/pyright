@@ -3837,9 +3837,11 @@ export class Checker extends ParseTreeWalker {
                     getDeprecatedMessageForOverloadedCall(this._evaluator, subtype);
                 }
             } else if (isFunction(subtype)) {
-                if (subtype.details.deprecatedMessage !== undefined && node.value === subtype.details.name) {
-                    deprecatedMessage = subtype.details.deprecatedMessage;
-                    errorMessage = getDeprecatedMessageForFunction(subtype);
+                if (subtype.details.deprecatedMessage !== undefined) {
+                    if (!subtype.details.name || node.value === subtype.details.name) {
+                        deprecatedMessage = subtype.details.deprecatedMessage;
+                        errorMessage = getDeprecatedMessageForFunction(subtype);
+                    }
                 }
             } else if (isOverloadedFunction(subtype)) {
                 // Determine if the node is part of a call expression. If so,

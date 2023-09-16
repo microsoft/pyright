@@ -1,6 +1,7 @@
 # This sample tests the @typing.deprecated decorator introduced in PEP 702.
 
 from typing import Any, Callable, TypeVar
+from contextlib import contextmanager
 from typing_extensions import deprecated, overload
 
 
@@ -145,4 +146,26 @@ def deco1(value: object) -> object:
 # This should generate an error if reportDeprecated is enabled.
 @deco1
 def func6():
+    ...
+
+
+@contextmanager
+@deprecated("Func is deprecated")
+def func7():
+    yield
+
+
+# This should generate an error if reportDeprecated is enabled.
+with func7():
+    ...
+
+
+@deprecated("Func is deprecated")
+@contextmanager
+def func8():
+    yield
+
+
+# This should generate an error if reportDeprecated is enabled.
+with func8():
     ...

@@ -841,6 +841,7 @@ function assignTypeToParamSpec(
                     newFunction.details.constructorTypeVarScopeId = srcType.details.constructorTypeVarScopeId;
                     newFunction.details.paramSpecTypeVarScopeId = srcType.details.paramSpecTypeVarScopeId;
                     newFunction.details.docString = srcType.details.docString;
+                    newFunction.details.deprecatedMessage = srcType.details.deprecatedMessage;
                     newFunction.details.paramSpec = srcType.details.paramSpec;
                     typeVarContext.setTypeVarType(destType, newFunction);
                 }
