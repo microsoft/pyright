@@ -33,7 +33,7 @@ test('Ellipsis1', () => {
 test('Generator1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator1.py']);
 
-    TestUtils.validateResults(analysisResults, 9);
+    TestUtils.validateResults(analysisResults, 12);
 });
 
 test('Generator2', () => {
