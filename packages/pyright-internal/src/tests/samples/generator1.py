@@ -95,17 +95,20 @@ def generator8() -> Iterator[dict[str, int]]:
 
 # This should generate an error.
 def generator9() -> int:
+    # This should generate an error.
     yield None
     return 3
 
 
 # This should generate an error.
 async def generator10() -> int:
+    # This should generate an error.
     yield None
 
 
 # This should generate an error.
 def generator11() -> list[int]:
+    # This should generate an error.
     yield 3
 
 
