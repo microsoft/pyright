@@ -1632,11 +1632,11 @@ export namespace FunctionType {
                 }),
             ];
 
-            if (!newFunction.details.docString) {
+            if (newFunction.details.docString === undefined) {
                 newFunction.details.docString = paramSpecValue.details.docString;
             }
 
-            if (!newFunction.details.deprecatedMessage) {
+            if (newFunction.details.deprecatedMessage === undefined) {
                 newFunction.details.deprecatedMessage = paramSpecValue.details.deprecatedMessage;
             }
 

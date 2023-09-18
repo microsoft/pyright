@@ -561,9 +561,9 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
             // PEP 702 indicates that if the implementation of an overloaded
             // function is marked deprecated, all of the overloads should be
             // treated as deprecated as well.
-            if (implementation?.details.deprecatedMessage) {
+            if (implementation && implementation.details.deprecatedMessage !== undefined) {
                 overloadedTypes = overloadedTypes.map((overload) => {
-                    if (FunctionType.isOverloaded(overload) && !overload.details.deprecatedMessage) {
+                    if (FunctionType.isOverloaded(overload) && overload.details.deprecatedMessage === undefined) {
                         return FunctionType.cloneWithDeprecatedMessage(
                             overload,
                             implementation.details.deprecatedMessage
