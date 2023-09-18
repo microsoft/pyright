@@ -150,6 +150,7 @@ import {
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 import {
+    AnyType,
     ClassType,
     ClassTypeFlags,
     FunctionType,
@@ -622,6 +623,8 @@ export class Checker extends ParseTreeWalker {
             this._validateTypeGuardFunction(node, functionTypeResult.functionType, containingClassNode !== undefined);
 
             this._validateFunctionTypeVarUsage(node, functionTypeResult);
+
+            this._validateGeneratorReturnType(node, functionTypeResult.functionType);
         }
 
         // If we're at the module level within a stub file, report a diagnostic
@@ -2175,6 +2178,63 @@ export class Checker extends ParseTreeWalker {
         }
 
         return true;
+    }
+
+    // If the function is a generator, validates that its annotated return type
+    // is appropriate for a generator.
+    private _validateGeneratorReturnType(node: FunctionNode, functionType: FunctionType) {
+        if (!FunctionType.isGenerator(functionType)) {
+            return;
+        }
+
+        const declaredReturnType = functionType.details.declaredReturnType;
+        if (!declaredReturnType) {
+            return;
+        }
+
+        if (isNever(declaredReturnType)) {
+            return;
+        }
+
+        let generatorType: Type | undefined;
+        if (
+            !node.isAsync &&
+            isClassInstance(declaredReturnType) &&
+            ClassType.isBuiltIn(declaredReturnType, 'AwaitableGenerator')
+        ) {
+            // Handle the old-style (pre-await) generator case
+            // if the return type explicitly uses AwaitableGenerator.
+            generatorType = this._evaluator.getTypingType(node, 'AwaitableGenerator');
+        } else {
+            generatorType = this._evaluator.getTypingType(node, node.isAsync ? 'AsyncGenerator' : 'Generator');
+        }
+
+        if (!generatorType || !isInstantiableClass(generatorType)) {
+            return;
+        }
+
+        const specializedGenerator = ClassType.cloneAsInstance(
+            ClassType.cloneForSpecialization(
+                generatorType,
+                [AnyType.create(), AnyType.create(), AnyType.create()],
+                /* isTypeArgumentExplicit */ true
+            )
+        );
+
+        const diagAddendum = new DiagnosticAddendum();
+        if (!this._evaluator.assignType(declaredReturnType, specializedGenerator, diagAddendum)) {
+            const errorMessage = node.isAsync
+                ? Localizer.Diagnostic.generatorAsyncReturnType()
+                : Localizer.Diagnostic.generatorSyncReturnType();
+
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                errorMessage.format({ yieldType: this._evaluator.printType(AnyType.create()) }) +
+                    diagAddendum.getString(),
+                node.returnTypeAnnotation ?? node.name
+            );
+        }
     }
 
     // Determines whether the specified type is one that should trigger
