@@ -466,7 +466,7 @@ export function getCodeFlowEngine(
                                         flowTypeResult = undefined;
                                     } else if (
                                         reference.nodeType === ParseNodeType.MemberAccess &&
-                                        evaluator.isAsymmetricDescriptorAssignment(targetNode)
+                                        evaluator.isAsymmetricAccessorAssignment(targetNode)
                                     ) {
                                         flowTypeResult = undefined;
                                     }

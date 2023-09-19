@@ -174,10 +174,9 @@ def func13(
 
     v10 = d[0]
 
-    # This should generate one error.
     v11 = d[1]
 
-    # This should generate two errors.
+    # This should generate an error.
     v12 = d[2]
 
     v13: tuple[()] = ()

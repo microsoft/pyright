@@ -1182,7 +1182,12 @@ export class Checker extends ParseTreeWalker {
         const baseType = this._evaluator.getType(node.baseExpression);
         if (baseType) {
             doForEachSubtype(baseType, (subtype) => {
-                if (isClassInstance(subtype) && subtype.tupleTypeArguments && !isUnboundedTupleClass(subtype)) {
+                if (
+                    isClassInstance(subtype) &&
+                    subtype.tupleTypeArguments &&
+                    !isUnboundedTupleClass(subtype) &&
+                    !this._evaluator.isTypeSubsumedByOtherType(subtype, baseType, /* allowAnyToSubsume */ false)
+                ) {
                     const tupleLength = subtype.tupleTypeArguments.length;
 
                     if (
