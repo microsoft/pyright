@@ -27,8 +27,8 @@ from psycopg2._psycopg import (
     Warning as Warning,
     __libpq_version__ as __libpq_version__,
     apilevel as apilevel,
-    connection as connection,
-    cursor as cursor,
+    connection,
+    cursor,
     paramstyle as paramstyle,
     threadsafety as threadsafety,
 )
@@ -36,10 +36,19 @@ from psycopg2._psycopg import (
 _T_conn = TypeVar("_T_conn", bound=connection)
 
 @overload
-def connect(dsn: str, connection_factory: Callable[..., _T_conn], cursor_factory: None = None, **kwargs: Any) -> _T_conn: ...
+def connect(
+    dsn: str | None,
+    connection_factory: Callable[..., _T_conn],
+    cursor_factory: Callable[..., cursor] | None = None,
+    **kwargs: Any,
+) -> _T_conn: ...
 @overload
 def connect(
-    dsn: str | None = None, *, connection_factory: Callable[..., _T_conn], cursor_factory: None = None, **kwargs: Any
+    dsn: str | None = None,
+    *,
+    connection_factory: Callable[..., _T_conn],
+    cursor_factory: Callable[..., cursor] | None = None,
+    **kwargs: Any,
 ) -> _T_conn: ...
 @overload
 def connect(

@@ -1,9 +1,9 @@
 from _typeshed import Incomplete
 from typing import ClassVar
-from typing_extensions import Literal, TypeAlias
+from typing_extensions import Literal, Self, TypeAlias
 
 from openpyxl.descriptors.base import Bool, Float, Integer, NoneSet, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt
-from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.descriptors.serialisable import Serialisable, _ChildSerialisableTreeElement
 
 _PrintPageSetupOrientation: TypeAlias = Literal["default", "portrait", "landscape"]
 _PrintPageSetupPageOrder: TypeAlias = Literal["downThenOver", "overThenDown"]
@@ -66,7 +66,7 @@ class PrintPageSetup(Serialisable):
     @autoPageBreaks.setter
     def autoPageBreaks(self, value) -> None: ...
     @classmethod
-    def from_tree(cls, node): ...
+    def from_tree(cls, node: _ChildSerialisableTreeElement) -> Self: ...
 
 class PrintOptions(Serialisable):
     tagname: ClassVar[str]

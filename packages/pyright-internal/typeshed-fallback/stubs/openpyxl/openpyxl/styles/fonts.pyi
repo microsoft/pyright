@@ -1,6 +1,6 @@
 from _typeshed import Incomplete
 from typing import ClassVar
-from typing_extensions import Final, Literal, TypeAlias
+from typing_extensions import Final, Literal, Self, TypeAlias
 
 from openpyxl.descriptors.base import Alias, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt
 from openpyxl.descriptors.nested import (
@@ -14,7 +14,7 @@ from openpyxl.descriptors.nested import (
 )
 from openpyxl.descriptors.serialisable import Serialisable
 
-from ..xml._functions_overloads import _HasTagAndGet
+from ..xml._functions_overloads import _HasTagAndGet, _SupportsFindAndIterAndAttribAndText
 
 _FontU: TypeAlias = Literal["single", "double", "singleAccounting", "doubleAccounting"]
 _FontVertAlign: TypeAlias = Literal["superscript", "subscript", "baseline"]
@@ -71,6 +71,6 @@ class Font(Serialisable):
         extend: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
     ) -> None: ...
     @classmethod
-    def from_tree(cls, node): ...
+    def from_tree(cls, node: _SupportsFindAndIterAndAttribAndText) -> Self: ...
 
 DEFAULT_FONT: Final[Font]

@@ -1,10 +1,12 @@
 from re import Pattern
 from typing import ClassVar
-from typing_extensions import Final, Literal
+from typing_extensions import Final, Literal, Self
 
 from openpyxl.descriptors import Strict
 from openpyxl.descriptors.base import Alias, Bool, Integer, MatchPattern, String, Typed, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _HasText
 
 FONT_PATTERN: Final = '&"(?P<font>.+)"'
 COLOR_PATTERN: Final = "&K(?P<color>[A-F0-9]{6})"
@@ -38,7 +40,7 @@ class HeaderFooterItem(Strict):
     def __bool__(self) -> bool: ...
     def to_tree(self, tagname): ...
     @classmethod
-    def from_tree(cls, node): ...
+    def from_tree(cls, node: _HasText) -> Self: ...
 
 class HeaderFooter(Serialisable):
     tagname: ClassVar[str]

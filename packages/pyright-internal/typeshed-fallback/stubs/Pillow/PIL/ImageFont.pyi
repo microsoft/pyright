@@ -44,7 +44,7 @@ class FreeTypeFont:
         direction: Literal["ltr", "rtl", "ttb"] | None = None,
         features: Incomplete | None = None,
         language: str | None = None,
-    ) -> int: ...
+    ) -> float: ...
     def getbbox(
         self,
         text: str | bytes,

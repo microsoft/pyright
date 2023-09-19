@@ -1,6 +1,6 @@
 from _typeshed import Incomplete, Unused
 from typing import ClassVar, overload
-from typing_extensions import Literal, TypeAlias
+from typing_extensions import Literal, Self, TypeAlias
 
 from openpyxl.chart.layout import Layout
 from openpyxl.chart.shapes import GraphicalProperties
@@ -19,7 +19,7 @@ from openpyxl.descriptors.nested import (
 )
 from openpyxl.descriptors.serialisable import Serialisable
 
-from ..xml._functions_overloads import _HasTagAndGet
+from ..xml._functions_overloads import _HasTagAndGet, _SupportsFindAndIterAndAttribAndText
 
 _ScalingOrientation: TypeAlias = Literal["maxMin", "minMax"]
 _BaseAxisAxPos: TypeAlias = Literal["b", "l", "r", "t"]
@@ -198,7 +198,7 @@ class NumericAxis(_BaseAxis):
         **kw,
     ) -> None: ...
     @classmethod
-    def from_tree(cls, node): ...
+    def from_tree(cls, node: _SupportsFindAndIterAndAttribAndText) -> Self: ...
 
 class TextAxis(_BaseAxis):
     tagname: ClassVar[str]

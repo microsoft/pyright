@@ -12,9 +12,7 @@ class CellRange(Serialisable):
     min_row: MinMax[int, Literal[False]]
     max_col: MinMax[int, Literal[False]]
     max_row: MinMax[int, Literal[False]]
-    # Could be None if the caller forgot to set title and range_string doesn't contain "!"
-    # but that's not intended and will lead to errors (ie: can't be None in __str__)
-    title: str
+    title: str | None
 
     @overload
     def __init__(
@@ -35,7 +33,7 @@ class CellRange(Serialisable):
         min_row: _ConvertibleToInt,
         max_col: _ConvertibleToInt,
         max_row: _ConvertibleToInt,
-        title: str,
+        title: str | None = None,
     ) -> None: ...
     @property
     def bounds(self): ...

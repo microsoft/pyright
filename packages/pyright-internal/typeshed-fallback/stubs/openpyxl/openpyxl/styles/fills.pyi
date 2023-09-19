@@ -1,10 +1,13 @@
 from _typeshed import Incomplete
+from collections.abc import Iterable, Sequence as ABCSequence
 from typing import ClassVar
 from typing_extensions import Final, Literal, TypeAlias
 
 from openpyxl.descriptors import Sequence
 from openpyxl.descriptors.base import Alias, Float, MinMax, NoneSet, Set, _ConvertibleToFloat
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _SupportsIterAndAttribAndTextAndTag
 
 FILL_NONE: Final = "none"
 FILL_SOLID: Final = "solid"
@@ -53,7 +56,7 @@ fills: tuple[_FillsType, ...]
 class Fill(Serialisable):
     tagname: ClassVar[str]
     @classmethod
-    def from_tree(cls, el): ...
+    def from_tree(cls, el: Iterable[ABCSequence[_SupportsIterAndAttribAndTextAndTag]]) -> PatternFill | GradientFill | None: ...
 
 class PatternFill(Fill):
     tagname: ClassVar[str]

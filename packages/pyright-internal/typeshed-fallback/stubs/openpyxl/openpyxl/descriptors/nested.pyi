@@ -9,7 +9,7 @@ from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.drawing.fill import Blip
 from openpyxl.xml.functions import Element
 
-from ..xml._functions_overloads import _HasTagAndGet, _HasTagAndText
+from ..xml._functions_overloads import _HasGet, _HasTagAndGet, _HasText
 from .base import _M, _N, _T, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt, _ExpectedTypeParam
 
 _NestedNoneSetParam: TypeAlias = _HasTagAndGet[_T | Literal["none"] | None] | _T | Literal["none"] | None
@@ -35,7 +35,7 @@ class Nested(Descriptor[_T]):
     ) -> None: ...
     def __get__(self, instance: Serialisable | Strict, cls: type | None) -> _T: ...
     def __set__(self, instance: Serialisable | Strict, value: _HasTagAndGet[_T] | _T) -> None: ...
-    def from_tree(self, node: _HasTagAndGet[_T]) -> _T: ...
+    def from_tree(self, node: _HasGet[_T]) -> _T: ...
     def to_tree(self, tagname: str | None = None, value: Incomplete | None = None, namespace: str | None = None) -> Element: ...
 
 class NestedValue(Nested[_T], Convertible[_T, _N]):  # type: ignore[misc]
@@ -150,7 +150,7 @@ class NestedText(NestedValue[_T, _N]):
     # Anything else
     @overload
     def __set__(self: NestedText[_T, Literal[True]], instance: Serialisable | Strict, value: _T | int | Any | None) -> None: ...
-    def from_tree(self, node: _HasTagAndText) -> str: ...  # type: ignore[override]
+    def from_tree(self, node: _HasText) -> str: ...  # type: ignore[override]
     def to_tree(self, tagname: str | None = None, value: Incomplete | None = None, namespace: str | None = None) -> Element: ...
 
 class NestedFloat(NestedValue[float, _N], Float[_N]):  # type: ignore[misc]
@@ -179,7 +179,7 @@ class NestedBool(NestedValue[bool, _N], Bool[_N]):  # type: ignore[misc]
     def __set__(  # type:ignore[override]  # Different restrictions
         self, instance: Serialisable | Strict, value: _HasTagAndGet[_ConvertibleToBool] | _ConvertibleToBool
     ) -> None: ...
-    def from_tree(self, node) -> bool: ...  # type: ignore[override]  # Actual overriden return type
+    def from_tree(self, node: _HasGet[bool]) -> bool: ...  # type: ignore[override]  # Actual overriden return type
 
 class NestedNoneSet(Nested[_T | None], NoneSet[_T]):  # type: ignore[misc]
     def __init__(self, name: str | None = None, *, values: Iterable[_T | None]) -> None: ...

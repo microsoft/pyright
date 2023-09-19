@@ -1,6 +1,6 @@
 from _typeshed import Incomplete, Unused
 from typing import ClassVar
-from typing_extensions import Literal
+from typing_extensions import Literal, Self
 
 from openpyxl.chart.layout import Layout
 from openpyxl.chart.shapes import GraphicalProperties
@@ -8,7 +8,7 @@ from openpyxl.chart.text import RichText
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.nested import NestedBool
-from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.descriptors.serialisable import Serialisable, _ChildSerialisableTreeElement
 
 from ..xml._functions_overloads import _HasTagAndGet
 
@@ -73,4 +73,4 @@ class PlotArea(Serialisable):
     ) -> None: ...
     def to_tree(self, tagname: str | None = None, idx: Incomplete | None = None, namespace: str | None = None): ...
     @classmethod
-    def from_tree(cls, node): ...
+    def from_tree(cls, node: _ChildSerialisableTreeElement) -> Self: ...

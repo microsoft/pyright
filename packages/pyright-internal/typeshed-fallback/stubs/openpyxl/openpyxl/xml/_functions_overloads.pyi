@@ -1,11 +1,13 @@
 # This file does not exist at runtime. It is a helper file to overload imported functions in openpyxl.xml.functions
 
 import sys
-from _typeshed import Incomplete, ReadableBuffer
+from _typeshed import Incomplete, ReadableBuffer, SupportsIter
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any, Protocol, TypeVar, overload
 from typing_extensions import TypeAlias
 from xml.etree.ElementTree import Element, ElementTree, QName, XMLParser, _FileRead
+
+from openpyxl.chart.axis import ChartLines
 
 _T = TypeVar("_T")
 _T_co = TypeVar("_T_co", covariant=True)
@@ -17,17 +19,29 @@ _T_co = TypeVar("_T_co", covariant=True)
 class _HasTag(Protocol):
     tag: Any  # AnyOf[str, None, Callable[..., AnyOf[str, None]]]
 
+class _HasGet(Protocol[_T_co]):
+    def get(self, __value: str) -> _T_co | None: ...
+
 class _HasText(Protocol):
     text: str
 
 class _HasAttrib(Protocol):
     attrib: Iterable[Any]  # AnyOf[dict[str, str], Iterable[tuple[str, str]]]
 
-class _HasTagAndGet(_HasTag, Protocol[_T_co]):
-    def get(self, __value: str) -> _T_co | None: ...
-
+class _HasTagAndGet(_HasTag, _HasGet[_T_co], Protocol[_T_co]): ...
 class _HasTagAndText(_HasTag, _HasText, Protocol): ...  # noqa: Y046
 class _HasTagAndTextAndAttrib(_HasTag, _HasText, _HasAttrib, Protocol): ...  # noqa: Y046
+
+class _SupportsFindChartLines(Protocol):
+    def find(self, __path: str) -> ChartLines | None: ...
+
+class _SupportsFindAndIterAndAttribAndText(  # noqa: Y046
+    _SupportsFindChartLines, SupportsIter[Incomplete], _HasAttrib, _HasText, Protocol
+): ...
+class _SupportsIterAndAttribAndTextAndTag(SupportsIter[Incomplete], _HasAttrib, _HasText, _HasTag, Protocol): ...  # noqa: Y046
+class _SupportsIterAndAttribAndTextAndGet(  # noqa: Y046
+    SupportsIter[Incomplete], _HasAttrib, _HasText, _HasGet[Incomplete], Protocol
+): ...
 
 class _ParentElement(Protocol[_T]):
     def makeelement(self, __tag: str, __attrib: dict[str, str]) -> _T: ...

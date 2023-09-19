@@ -350,5 +350,5 @@ test('Async1', () => {
 
 test('TypeCheckOnly1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeCheckOnly1.py']);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 4);
 });

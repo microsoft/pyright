@@ -16,6 +16,9 @@ from psycopg2._psycopg import (
     ReplicationConnection as _replicationConnection,
     ReplicationCursor as _replicationCursor,
     ReplicationMessage as ReplicationMessage,
+    connection as _connection,
+    cursor as _cursor,
+    quote_ident as quote_ident,
 )
 from psycopg2._range import (
     DateRange as DateRange,
@@ -28,8 +31,6 @@ from psycopg2._range import (
     register_range as register_range,
 )
 
-from .extensions import connection as _connection, cursor as _cursor, quote_ident as quote_ident
-
 _T_cur = TypeVar("_T_cur", bound=_cursor)
 
 class DictCursorBase(_cursor):
@@ -37,19 +38,25 @@ class DictCursorBase(_cursor):
 
 class DictConnection(_connection):
     @overload
-    def cursor(self, name: str | bytes | None = ..., *, withhold: bool = ..., scrollable: bool | None = ...) -> DictCursor: ...
+    def cursor(
+        self, name: str | bytes | None = None, cursor_factory: None = None, withhold: bool = False, scrollable: bool | None = None
+    ) -> DictCursor: ...
     @overload
     def cursor(
         self,
-        name: str | bytes | None = ...,
+        name: str | bytes | None = None,
         *,
         cursor_factory: Callable[..., _T_cur],
-        withhold: bool = ...,
-        scrollable: bool | None = ...,
+        withhold: bool = False,
+        scrollable: bool | None = None,
     ) -> _T_cur: ...
     @overload
     def cursor(
-        self, name: str | bytes | None, cursor_factory: Callable[..., _T_cur], withhold: bool = ..., scrollable: bool | None = ...
+        self,
+        name: str | bytes | None,
+        cursor_factory: Callable[..., _T_cur],
+        withhold: bool = False,
+        scrollable: bool | None = None,
     ) -> _T_cur: ...
 
 class DictCursor(DictCursorBase):
@@ -77,20 +84,24 @@ class DictRow(list[Any]):
 class RealDictConnection(_connection):
     @overload
     def cursor(
-        self, name: str | bytes | None = ..., *, withhold: bool = ..., scrollable: bool | None = ...
+        self, name: str | bytes | None = None, cursor_factory: None = None, withhold: bool = False, scrollable: bool | None = None
     ) -> RealDictCursor: ...
     @overload
     def cursor(
         self,
-        name: str | bytes | None = ...,
+        name: str | bytes | None = None,
         *,
         cursor_factory: Callable[..., _T_cur],
-        withhold: bool = ...,
-        scrollable: bool | None = ...,
+        withhold: bool = False,
+        scrollable: bool | None = None,
     ) -> _T_cur: ...
     @overload
     def cursor(
-        self, name: str | bytes | None, cursor_factory: Callable[..., _T_cur], withhold: bool = ..., scrollable: bool | None = ...
+        self,
+        name: str | bytes | None,
+        cursor_factory: Callable[..., _T_cur],
+        withhold: bool = False,
+        scrollable: bool | None = None,
     ) -> _T_cur: ...
 
 class RealDictCursor(DictCursorBase):
@@ -110,20 +121,24 @@ class RealDictRow(OrderedDict[Any, Any]):
 class NamedTupleConnection(_connection):
     @overload
     def cursor(
-        self, name: str | bytes | None = ..., *, withhold: bool = ..., scrollable: bool | None = ...
+        self, name: str | bytes | None = None, cursor_factory: None = None, withhold: bool = False, scrollable: bool | None = None
     ) -> NamedTupleCursor: ...
     @overload
     def cursor(
         self,
-        name: str | bytes | None = ...,
+        name: str | bytes | None = None,
         *,
         cursor_factory: Callable[..., _T_cur],
-        withhold: bool = ...,
-        scrollable: bool | None = ...,
+        withhold: bool = False,
+        scrollable: bool | None = None,
     ) -> _T_cur: ...
     @overload
     def cursor(
-        self, name: str | bytes | None, cursor_factory: Callable[..., _T_cur], withhold: bool = ..., scrollable: bool | None = ...
+        self,
+        name: str | bytes | None,
+        cursor_factory: Callable[..., _T_cur],
+        withhold: bool = False,
+        scrollable: bool | None = None,
     ) -> _T_cur: ...
 
 class NamedTupleCursor(_cursor):

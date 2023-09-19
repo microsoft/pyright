@@ -33,7 +33,7 @@ _S = TypeVar("_S")
 _PWrapped = ParamSpec("_PWrapped")
 _RWrapped = TypeVar("_RWrapped")
 _PWrapper = ParamSpec("_PWrapper")
-_RWapper = TypeVar("_RWapper")
+_RWrapper = TypeVar("_RWrapper")
 
 @overload
 def reduce(function: Callable[[_T, _S], _T], sequence: Iterable[_S], initial: _T) -> _T: ...
@@ -87,23 +87,23 @@ else:
     ]
 WRAPPER_UPDATES: tuple[Literal["__dict__"]]
 
-class _Wrapped(Generic[_PWrapped, _RWrapped, _PWrapper, _RWapper]):
+class _Wrapped(Generic[_PWrapped, _RWrapped, _PWrapper, _RWrapper]):
     __wrapped__: Callable[_PWrapped, _RWrapped]
-    def __call__(self, *args: _PWrapper.args, **kwargs: _PWrapper.kwargs) -> _RWapper: ...
+    def __call__(self, *args: _PWrapper.args, **kwargs: _PWrapper.kwargs) -> _RWrapper: ...
     # as with ``Callable``, we'll assume that these attributes exist
     __name__: str
     __qualname__: str
 
 class _Wrapper(Generic[_PWrapped, _RWrapped]):
-    def __call__(self, f: Callable[_PWrapper, _RWapper]) -> _Wrapped[_PWrapped, _RWrapped, _PWrapper, _RWapper]: ...
+    def __call__(self, f: Callable[_PWrapper, _RWrapper]) -> _Wrapped[_PWrapped, _RWrapped, _PWrapper, _RWrapper]: ...
 
 if sys.version_info >= (3, 12):
     def update_wrapper(
-        wrapper: Callable[_PWrapper, _RWapper],
+        wrapper: Callable[_PWrapper, _RWrapper],
         wrapped: Callable[_PWrapped, _RWrapped],
         assigned: Sequence[str] = ("__module__", "__name__", "__qualname__", "__doc__", "__annotations__", "__type_params__"),
         updated: Sequence[str] = ("__dict__",),
-    ) -> _Wrapped[_PWrapped, _RWrapped, _PWrapper, _RWapper]: ...
+    ) -> _Wrapped[_PWrapped, _RWrapped, _PWrapper, _RWrapper]: ...
     def wraps(
         wrapped: Callable[_PWrapped, _RWrapped],
         assigned: Sequence[str] = ("__module__", "__name__", "__qualname__", "__doc__", "__annotations__", "__type_params__"),
@@ -112,11 +112,11 @@ if sys.version_info >= (3, 12):
 
 else:
     def update_wrapper(
-        wrapper: Callable[_PWrapper, _RWapper],
+        wrapper: Callable[_PWrapper, _RWrapper],
         wrapped: Callable[_PWrapped, _RWrapped],
         assigned: Sequence[str] = ("__module__", "__name__", "__qualname__", "__doc__", "__annotations__"),
         updated: Sequence[str] = ("__dict__",),
-    ) -> _Wrapped[_PWrapped, _RWrapped, _PWrapper, _RWapper]: ...
+    ) -> _Wrapped[_PWrapped, _RWrapped, _PWrapper, _RWrapper]: ...
     def wraps(
         wrapped: Callable[_PWrapped, _RWrapped],
         assigned: Sequence[str] = ("__module__", "__name__", "__qualname__", "__doc__", "__annotations__"),

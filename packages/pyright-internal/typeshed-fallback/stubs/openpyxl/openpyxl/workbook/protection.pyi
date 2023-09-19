@@ -1,9 +1,11 @@
 from _typeshed import Incomplete
 from typing import ClassVar
-from typing_extensions import Literal
+from typing_extensions import Literal, Self
 
 from openpyxl.descriptors.base import Alias, Bool, Integer, String, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.serialisable import Serialisable
+
+from ..xml._functions_overloads import _SupportsIterAndAttribAndTextAndGet
 
 class WorkbookProtection(Serialisable):
     tagname: ClassVar[str]
@@ -55,7 +57,7 @@ class WorkbookProtection(Serialisable):
     @revisionsPassword.setter
     def revisionsPassword(self, value) -> None: ...
     @classmethod
-    def from_tree(cls, node): ...
+    def from_tree(cls, node: _SupportsIterAndAttribAndTextAndGet) -> Self: ...
 
 DocumentSecurity = WorkbookProtection
 

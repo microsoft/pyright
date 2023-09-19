@@ -20,6 +20,7 @@ class DescriptorMetaclass(type):
     def __instancecheck__(self, obj: Any) -> bool: ...
 
 _internal_create_key: object
+_USE_C_DESCRIPTORS: bool
 
 class DescriptorBase(metaclass=DescriptorMetaclass):
     has_options: Any
