@@ -4,7 +4,7 @@
 # pyright: strict
 
 from __future__ import annotations
-from typing import Any, Callable, Generic, TypeVar, overload
+from typing import Any, Callable, Generic, Iterable, TypeVar, overload
 
 T = TypeVar("T")
 S = TypeVar("S", covariant=True)
@@ -76,3 +76,7 @@ class ClassD(Generic[S]):
 
 
 func3(ClassD(""), ClassD(""))
+
+
+def func4(a: Iterable[tuple[str, ...]]):
+    zip(a, zip(*a))
