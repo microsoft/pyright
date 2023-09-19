@@ -495,7 +495,7 @@ export interface TypeEvaluator {
 
     isAfterNodeReachable: (node: ParseNode) => boolean;
     isNodeReachable: (node: ParseNode, sourceNode?: ParseNode | undefined) => boolean;
-    isAsymmetricDescriptorAssignment: (node: ParseNode) => boolean;
+    isAsymmetricAccessorAssignment: (node: ParseNode) => boolean;
     suppressDiagnostics: (node: ParseNode, callback: () => void) => void;
 
     getDeclarationsForStringNode: (node: StringNode) => Declaration[] | undefined;
@@ -530,6 +530,7 @@ export interface TypeEvaluator {
         conditionFilter: TypeCondition[] | undefined,
         callback: (expandedSubtype: Type, unexpandedSubtype: Type) => Type | undefined
     ) => Type;
+    isTypeSubsumedByOtherType: (type: Type, otherType: Type, allowAnyToSubsume: boolean) => boolean;
     lookUpSymbolRecursive: (node: ParseNode, name: string, honorCodeFlow: boolean) => SymbolWithScope | undefined;
     getDeclaredTypeOfSymbol: (symbol: Symbol) => DeclaredSymbolTypeInfo;
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;

@@ -23233,7 +23233,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return remainingDestSubtypes.every((destSubtype) =>
                             isTypeSubsumedByOtherType(
                                 destSubtype,
-                                destType.subtypes,
+                                destType,
                                 /* allowAnyToSubsume */ true,
                                 recursionCount
                             )
@@ -23337,7 +23337,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // in the same union. If so, we can ignore this.
                 const isSubtypeSubsumed = isTypeSubsumedByOtherType(
                     subtype,
-                    srcType.subtypes,
+                    srcType,
                     /* allowAnyToSubsume */ false,
                     recursionCount
                 );
@@ -23371,9 +23371,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Determines whether a type is "subsumed by" (i.e. is a proper subtype of) one
-    // of the other types in a list.
-    function isTypeSubsumedByOtherType(type: Type, otherTypes: Type[], allowAnyToSubsume: boolean, recursionCount = 0) {
+    // of the other type.
+    function isTypeSubsumedByOtherType(type: Type, otherType: Type, allowAnyToSubsume: boolean, recursionCount = 0) {
         const concreteType = makeTopLevelTypeVarsConcrete(type);
+        const otherTypes = isUnion(otherType) ? otherType.subtypes : [otherType];
 
         for (const otherType of otherTypes) {
             if (isTypeSame(otherType, type)) {
@@ -25998,7 +25999,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         validateInitSubclassArgs,
         isAfterNodeReachable,
         isNodeReachable,
-        isAsymmetricDescriptorAssignment: isAsymmetricAccessorAssignment,
+        isAsymmetricAccessorAssignment,
         suppressDiagnostics,
         getDeclarationsForStringNode,
         getDeclarationsForNameNode,
@@ -26012,6 +26013,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         markNamesAccessed,
         makeTopLevelTypeVarsConcrete,
         mapSubtypesExpandTypeVars,
+        isTypeSubsumedByOtherType,
         lookUpSymbolRecursive,
         getDeclaredTypeOfSymbol,
         getEffectiveTypeOfSymbol,
