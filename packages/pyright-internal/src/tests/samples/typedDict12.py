@@ -1,7 +1,7 @@
 # This sample tests the synthesized methods get, setdefault
 # pop, __delitem__, clear, and popitem for a TypedDict.
 
-from typing import TypedDict, Union, final
+from typing import TypedDict, final
 from typing_extensions import NotRequired, Required
 
 
@@ -20,7 +20,7 @@ v1: str | None = td1.get("bar")
 
 v2: str = td1.get("bar", "")
 
-v3: Union[str, int] = td1.get("bar", 3)
+v3: str | int = td1.get("bar", 3)
 
 v4: str = td1.setdefault("bar", "1")
 
@@ -34,8 +34,8 @@ td1.setdefault("bar")
 td1.setdefault("baz", "")
 
 v6: str = td1.pop("bar")
-v7: str = td1.pop("bar", "none")
-v8: Union[str, int] = td1.pop("bar", 3)
+v7: str | int = td1.pop("bar", 1)
+v8: str | int = td1.pop("bar", 3)
 
 # This should generate an error.
 v9: str = td2.pop("foo")
@@ -53,7 +53,7 @@ class TD4(TypedDict):
     bar: str
 
 
-C = Union[TD3, TD4]
+C = TD3 | TD4
 
 
 def func1(a: TD3, b: TD4, c: C, s: str) -> int | None:
