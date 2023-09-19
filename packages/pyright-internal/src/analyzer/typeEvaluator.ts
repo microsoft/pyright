@@ -8746,6 +8746,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): CallResult {
         let filteredMatchResults: MatchArgsToParamsResult[] = [];
         let contextFreeArgTypes: Type[] | undefined;
+        let isTypeIncomplete = !!typeResult.isIncomplete;
 
         // Start by evaluating the types of the arguments without any expected
         // type. Also, filter the list of overloads based on the number of
@@ -8807,7 +8808,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
             }
 
-            return { argumentErrors: true, isTypeIncomplete: false, overloadsUsedForCall: [] };
+            return { argumentErrors: true, isTypeIncomplete, overloadsUsedForCall: [] };
         }
 
         // Create a helper function that evaluates the overload that best
@@ -8844,7 +8845,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         let expandedArgTypes: (Type | undefined)[][] | undefined = [argList.map((arg) => undefined)];
-        let isTypeIncomplete = !!typeResult.isIncomplete;
 
         while (true) {
             const callResult = validateOverloadsWithExpandedTypes(
@@ -8908,7 +8908,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { ...result, argumentErrors: true };
         }
 
-        return { argumentErrors: true, isTypeIncomplete: false, overloadsUsedForCall: [] };
+        return { argumentErrors: true, isTypeIncomplete, overloadsUsedForCall: [] };
     }
 
     // Replaces each item in the expandedArgTypes with n items where n is
