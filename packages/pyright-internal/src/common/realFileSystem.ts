@@ -378,7 +378,7 @@ class RealFileSystem implements FileSystem {
             }
 
             // If it does exist, skip this for symlinks.
-            const stat = fs.statSync(path);
+            const stat = fs.lstatSync(path);
             if (stat.isSymbolicLink()) {
                 return path;
             }
