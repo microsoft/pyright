@@ -11,8 +11,8 @@
         "renameShadowedFile": "Renommez \"{oldFile}\" en \"{newFile}\""
     },
     "Completion": {
-        "autoImportDetail": "Auto-import",
-        "indexValueDetail": "Index value"
+        "autoImportDetail": "Importation automatique",
+        "indexValueDetail": "Valeur de l'indice"
     },
     "Diagnostic": {
         "abstractMethodInvocation": "Impossible d’appeler la méthode « {method} », car elle est abstraite",
@@ -114,7 +114,8 @@
         "delTargetExpr": "L'expression ne peut pas être supprimée",
         "deprecatedClass": "La classe \"{name}\" est obsolète",
         "deprecatedConstructor": "Le constructeur de la classe « {name} » est déconseillé",
-        "deprecatedFunction": "Cette fonction « {name} » est déconseillée",
+        "deprecatedFunction": "La fonction \"{name}\" est obsolète",
+        "deprecatedMethod": "La méthode \"{name}\" dans la classe \"{className}\" est obsolète",
         "deprecatedType": "Ce type est déconseillé à compter de Python {version}; utiliser « {replacement} » à la place",
         "dictExpandIllegalInComprehension": "Expansion du dictionnaire non autorisée dans la compréhension",
         "dictInAnnotation": "Expression de dictionnaire non autorisée dans l’annotation de type",
@@ -228,8 +229,8 @@
         "implicitStringConcat": "Concaténation implicite de chaînes non autorisée",
         "importCycleDetected": "Cycle détecté dans la chaîne d'importation",
         "importDepthExceeded": "La profondeur de la chaîne d'importation a dépassé {depth}",
-        "importResolveFailure": "L'importation \"{importName}\" est introuvable dans l'environnement \"{venv}\".",
-        "importSourceResolveFailure": "L’importation « {importName} » n’a pas pu être résolue à partir de la source dans l’environnement « {venv} ».",
+        "importResolveFailure": "Impossible de résoudre l’importation « {importName} »",
+        "importSourceResolveFailure": "Impossible de résoudre l’importation « {importName} » à partir de la source",
         "importSymbolUnknown": "« {name} » est un symbole d’importation inconnu",
         "incompatibleMethodOverride": "La méthode « {name} » remplace la classe « {className} » de manière incompatible",
         "inconsistentIndent": "Le montant du retrait ne correspond pas au retrait précédent",

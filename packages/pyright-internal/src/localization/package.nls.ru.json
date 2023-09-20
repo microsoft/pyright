@@ -11,8 +11,8 @@
         "renameShadowedFile": "Переименовать \"{oldFile}\" в \"{newFile}\""
     },
     "Completion": {
-        "autoImportDetail": "Auto-import",
-        "indexValueDetail": "Index value"
+        "autoImportDetail": "Автоматический импорт",
+        "indexValueDetail": "Значение индекса"
     },
     "Diagnostic": {
         "abstractMethodInvocation": "Метод \"{method}\" не может быть вызван, так как является абстрактным",
@@ -115,6 +115,7 @@
         "deprecatedClass": "Класс \"{name}\" является нерекомендуемым",
         "deprecatedConstructor": "Конструктор для класса \"{name}\" больше не рекомендуется к использованию",
         "deprecatedFunction": "Функция \"{name}\" больше не рекомендуется к использованию",
+        "deprecatedMethod": "Метод \"{name}\" в классе \"{className}\" не рекомендуется к использованию",
         "deprecatedType": "Этот тип больше не рекомендуется к использованию начиная с версии Python {version}; используйте вместо него \"{replacement}\"",
         "dictExpandIllegalInComprehension": "Расширение словаря в понимании не допускается",
         "dictInAnnotation": "Словарные выражения не разрешены в заметках типа",
@@ -228,8 +229,8 @@
         "implicitStringConcat": "Неявное объединение строк не разрешено",
         "importCycleDetected": "Обнаружен цикл в цепочке импорта",
         "importDepthExceeded": "Глубина цепочки импорта превысила {depth}",
-        "importResolveFailure": "Импорт \"{importName}\" не найден в среде \"{venv}\".",
-        "importSourceResolveFailure": "Не удалось разрешить импорт \"{importName}\" из источника в среде \"{venv}\".",
+        "importResolveFailure": "Не удается разрешить импорт \"{importName}\"",
+        "importSourceResolveFailure": "Не удается разрешить импорт \"{importName}\" из источника",
         "importSymbolUnknown": "\"{name}\" — неизвестный символ импорта",
         "incompatibleMethodOverride": "Метод \"{name}\" переопределяет класс \"{className}\" несовместимым образом",
         "inconsistentIndent": "Сумма отступа не соответствует предыдущему отступу",

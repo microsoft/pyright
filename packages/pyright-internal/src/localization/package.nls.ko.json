@@ -11,8 +11,8 @@
         "renameShadowedFile": "‘{oldFile}’에서 ‘{newFile}’(으)로 이름 바꾸기"
     },
     "Completion": {
-        "autoImportDetail": "Auto-import",
-        "indexValueDetail": "Index value"
+        "autoImportDetail": "자동 가져오기",
+        "indexValueDetail": "인덱스 값"
     },
     "Diagnostic": {
         "abstractMethodInvocation": "\"{method}\" 메서드는 추상이므로 호출할 수 없습니다.",
@@ -114,7 +114,8 @@
         "delTargetExpr": "식을 삭제할 수 없습니다.",
         "deprecatedClass": "‘{name}’ 클래스는 사용되지 않습니다.",
         "deprecatedConstructor": "클래스 \"{name}\"의 생성자는 더 이상 사용되지 않습니다.",
-        "deprecatedFunction": "이 함수 \"{name}\"은(는) 더 이상 사용되지 않습니다.",
+        "deprecatedFunction": "\"{name}\" 함수는 더 이상 사용되지 않습니다.",
+        "deprecatedMethod": "\"{className}\" 클래스의 \"{name}\" 메서드는 더 이상 사용되지 않습니다.",
         "deprecatedType": "이 형식은 Python {version}부터 사용되지 않습니다. 대신 \"{replacement}\"을(를) 사용하세요.",
         "dictExpandIllegalInComprehension": "사전 확장은 이해에 사용할 수 없습니다.",
         "dictInAnnotation": "형식 주석에는 사전 식을 사용할 수 없습니다.",
@@ -228,8 +229,8 @@
         "implicitStringConcat": "암시적 문자열 연결이 허용되지 않습니다.",
         "importCycleDetected": "가져오기 체인에서 순환이 검색되었습니다.",
         "importDepthExceeded": "가져오기 체인 깊이가 {depth}을(를) 초과했습니다.",
-        "importResolveFailure": "\"{venv}\" 환경에서 \"{importName}\" 가져오기를 찾을 수 없습니다.",
-        "importSourceResolveFailure": "\"{importName}\" 가져오기를 \"{venv}\" 환경의 원본에서 확인할 수 없습니다.",
+        "importResolveFailure": "가져오기 \"{importName}\"을(를) 확인할 수 없습니다.",
+        "importSourceResolveFailure": "원본에서 가져오기 \"{importName}\"을(를) 확인할 수 없습니다.",
         "importSymbolUnknown": "\"{name}\"은(는) 알 수 없는 가져오기 기호입니다.",
         "incompatibleMethodOverride": "\"{name}\" 메서드가 호환되지 않는 방식으로 \"{className}\" 클래스를 재정의합니다.",
         "inconsistentIndent": "들여쓰기하지 않은 양이 이전 들여쓰기와 일치하지 않습니다.",

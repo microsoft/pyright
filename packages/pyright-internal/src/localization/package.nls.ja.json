@@ -11,8 +11,8 @@
         "renameShadowedFile": "\"{oldFile}\" の名前を \"{newFile}\" に変更します"
     },
     "Completion": {
-        "autoImportDetail": "Auto-import",
-        "indexValueDetail": "Index value"
+        "autoImportDetail": "自動インポート",
+        "indexValueDetail": "インデックス値"
     },
     "Diagnostic": {
         "abstractMethodInvocation": "メソッド \"{method}\" は抽象型であるため、呼び出すことができません",
@@ -114,7 +114,8 @@
         "delTargetExpr": "式を削除できません",
         "deprecatedClass": "クラス \"{name}\" は非推奨です",
         "deprecatedConstructor": "クラス \"{name}\" のコンストラクターは非推奨です",
-        "deprecatedFunction": "この関数 \"{name}\" は非推奨です",
+        "deprecatedFunction": "関数 \"{name}\" は非推奨です",
+        "deprecatedMethod": "クラス \"{className}\" のメソッド \"{name}\" は非推奨です",
         "deprecatedType": "この型は Python {version} では非推奨です。代わりに\"{replacement}\"を使用してください",
         "dictExpandIllegalInComprehension": "辞書の展開は理解できません",
         "dictInAnnotation": "辞書式は型注釈では使用できません",
@@ -228,8 +229,8 @@
         "implicitStringConcat": "暗黙的な文字列連結は許可されていません",
         "importCycleDetected": "インポート チェーンで循環が検出されました",
         "importDepthExceeded": "インポート チェーンの深さが {depth} を超えました",
-        "importResolveFailure": "インポート \"{importName}\" が \"{venv}\" 環境に見つかりませんでした。",
-        "importSourceResolveFailure": "インポート \"{importName}\" を \"{venv}\" 環境のソースから解決できませんでした。",
+        "importResolveFailure": "インポート \"{importName}\" を解決できませんでした",
+        "importSourceResolveFailure": "インポート \"{importName}\" をソースから解決できませんでした",
         "importSymbolUnknown": "\"{name}\" は不明なインポート シンボルです",
         "incompatibleMethodOverride": "メソッド \"{name}\" は互換性のない方法でクラス \"{className}\" をオーバーライドします",
         "inconsistentIndent": "元のサイズが前のインデントと一致しません",

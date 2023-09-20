@@ -90,9 +90,14 @@ export class SourceMapper {
         return [];
     }
 
-    findClassDeclarationsByType(originatedPath: string, type: ClassType): ClassDeclaration[] {
+    findDeclarationsByType(originatedPath: string, type: ClassType, useTypeAlias = false): Declaration[] {
         const result: ClassOrFunctionOrVariableDeclaration[] = [];
-        this._addClassTypeDeclarations(originatedPath, type, result, new Set<string>());
+        this._addClassTypeDeclarations(originatedPath, type, result, new Set<string>(), useTypeAlias);
+        return result;
+    }
+
+    findClassDeclarationsByType(originatedPath: string, type: ClassType): ClassDeclaration[] {
+        const result = this.findDeclarationsByType(originatedPath, type);
         return result.filter((r) => isClassDeclaration(r)).map((r) => r as ClassDeclaration);
     }
 
@@ -587,14 +592,14 @@ export class SourceMapper {
         originated: string,
         type: ClassType,
         result: ClassOrFunctionOrVariableDeclaration[],
-        recursiveDeclCache: Set<string>
+        recursiveDeclCache: Set<string>,
+        useTypeAlias = false
     ) {
         const filePath = type.details.filePath;
         const sourceFiles = this._getSourceFiles(filePath, /* stubToShadow */ undefined, originated);
 
-        const fullClassName = type.details.fullName.substring(
-            type.details.moduleName.length + 1 /* +1 for trailing dot */
-        );
+        const fullName = useTypeAlias && type.typeAliasInfo ? type.typeAliasInfo.fullName : type.details.fullName;
+        const fullClassName = fullName.substring(type.details.moduleName.length + 1 /* +1 for trailing dot */);
 
         for (const sourceFile of sourceFiles) {
             appendArray(result, this._findClassDeclarationsByName(sourceFile, fullClassName, recursiveDeclCache));

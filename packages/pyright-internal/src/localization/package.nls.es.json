@@ -11,8 +11,8 @@
         "renameShadowedFile": "Cambie el nombre de \"{oldFile}\" a \"{newFile}\""
     },
     "Completion": {
-        "autoImportDetail": "Auto-import",
-        "indexValueDetail": "Index value"
+        "autoImportDetail": "Importación automática",
+        "indexValueDetail": "Valor de índice"
     },
     "Diagnostic": {
         "abstractMethodInvocation": "El método \"{method}\" no puede ser llamado porque es abstracto",
@@ -114,7 +114,8 @@
         "delTargetExpr": "No se puede eliminar la expresión",
         "deprecatedClass": "La clase \"{name}\" está en desuso",
         "deprecatedConstructor": "El constructor de la clase \"{name}\" está obsoleto",
-        "deprecatedFunction": "Esta función \"{name}\" está obsoleta",
+        "deprecatedFunction": "La función \"{name}\" está obsoleta",
+        "deprecatedMethod": "El método \"{name}\" en la clase \"{className}\" está en desuso",
         "deprecatedType": "Este tipo está obsoleto a partir de la {version} de Python; utilice en su lugar \"{replacement}\".",
         "dictExpandIllegalInComprehension": "No se permite la ampliación del diccionario en la comprensión",
         "dictInAnnotation": "Expresión de diccionario no permitida en anotación de tipo",
@@ -228,8 +229,8 @@
         "implicitStringConcat": "No se permite la concatenación implícita de cadenas",
         "importCycleDetected": "Ciclo detectado en la cadena de importación",
         "importDepthExceeded": "La profundidad de la cadena de importación superó {depth}",
-        "importResolveFailure": "No se encontraron \"{importName}\" de importación en el entorno de \"{venv}\".",
-        "importSourceResolveFailure": "La importación \"{importName}\" no se ha podido resolver desde el origen en el entorno \"{venv}\".",
+        "importResolveFailure": "No se ha podido resolver la importación \"{importName}\".",
+        "importSourceResolveFailure": "La importación \"{importName}\" no se ha podido resolver desde el origen",
         "importSymbolUnknown": "\"{name}\" es un símbolo de importación desconocido",
         "incompatibleMethodOverride": "El método \"{name}\" sobrescribe la clase \"{className}\" de forma incompatible",
         "inconsistentIndent": "La cantidad sin sangría no coincide con la sangría anterior",

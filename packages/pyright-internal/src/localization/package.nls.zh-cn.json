@@ -11,8 +11,8 @@
         "renameShadowedFile": "将“{oldFile}”重命名为“{newFile}”"
     },
     "Completion": {
-        "autoImportDetail": "Auto-import",
-        "indexValueDetail": "Index value"
+        "autoImportDetail": "自动导入",
+        "indexValueDetail": "索引值"
     },
     "Diagnostic": {
         "abstractMethodInvocation": "无法调用方法\"{method}\"，因为它是抽象的",
@@ -114,7 +114,8 @@
         "delTargetExpr": "无法删除表达式",
         "deprecatedClass": "类\"{name}\"已弃用",
         "deprecatedConstructor": "类\"{name}\"的构造函数已弃用",
-        "deprecatedFunction": "此函数“{name}”已弃用",
+        "deprecatedFunction": "函数“{name}”已弃用",
+        "deprecatedMethod": "类“{className}”中的“{name}”方法已弃用",
         "deprecatedType": "自 Python {version} 起，此类型已弃用；请改用“{replacement}”",
         "dictExpandIllegalInComprehension": "理解中不允许字典扩展",
         "dictInAnnotation": "类型批注中不允许使用字典表达式",
@@ -228,8 +229,8 @@
         "implicitStringConcat": "不允许隐式字符串串联",
         "importCycleDetected": "在导入链中检测到的周期数",
         "importDepthExceeded": "导入链深度超过 {depth}",
-        "importResolveFailure": "在“{venv}”环境中找不到导入“{importName}”。",
-        "importSourceResolveFailure": "无法从“{venv}”环境源解析导入“{importName}”。",
+        "importResolveFailure": "无法解析导入“{importName}”",
+        "importSourceResolveFailure": "无法从源解析导入“{importName}”",
         "importSymbolUnknown": "“{name}”是未知的导入符号",
         "incompatibleMethodOverride": "方法“{name}”以不兼容的方式替代类“{className}”",
         "inconsistentIndent": "取消缩进量与以前的缩进不匹配",
