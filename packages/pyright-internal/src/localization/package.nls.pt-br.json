@@ -11,8 +11,8 @@
         "renameShadowedFile": "Renomear \"{oldFile}\" para \"{newFile}\""
     },
     "Completion": {
-        "autoImportDetail": "Auto-import",
-        "indexValueDetail": "Index value"
+        "autoImportDetail": "Importação automática",
+        "indexValueDetail": "Valor do índice"
     },
     "Diagnostic": {
         "abstractMethodInvocation": "O método \"{method}\" não pode ser chamado porque é abstrato",
@@ -114,7 +114,8 @@
         "delTargetExpr": "A expressão não pode ser excluída",
         "deprecatedClass": "A classe \"{name}\" foi preterida",
         "deprecatedConstructor": "O construtor da classe \"{name}\" foi preterido",
-        "deprecatedFunction": "A função \"{name}\" foi preterida",
+        "deprecatedFunction": "A função \"{name}\" está obsoleta",
+        "deprecatedMethod": "O método \"{name}\" na classe \"{className}\" está obsoleto",
         "deprecatedType": "Este tipo foi preterido no Python {version}. Use \"{replacement}\" em vez disso",
         "dictExpandIllegalInComprehension": "Expansão de dicionário não permitida na compreensão",
         "dictInAnnotation": "Expressão de dicionário não permitida na anotação de tipo",
@@ -228,8 +229,8 @@
         "implicitStringConcat": "Concatenação de cadeia de caracteres implícita não permitida",
         "importCycleDetected": "Ciclo detectado na cadeia de importação",
         "importDepthExceeded": "A profundidade da cadeia de importação excedeu {depth}",
-        "importResolveFailure": "Não foi possível localizar a importação \"{importName}\" no ambiente \"{venv}\".",
-        "importSourceResolveFailure": "A importação \"{importName}\" não pôde ser resolvida a partir da origem no ambiente \"{venv}\".",
+        "importResolveFailure": "Não foi possível resolver a importação \"{importName}\"",
+        "importSourceResolveFailure": "Não foi possível resolver a importação \"{importName}\" da origem",
         "importSymbolUnknown": "\"{name}\" é um símbolo de importação desconhecido",
         "incompatibleMethodOverride": "O método \"{name}\" substitui a classe \"{className}\" de maneira incompatível",
         "inconsistentIndent": "O valor de recuo não corresponde ao recuo anterior",

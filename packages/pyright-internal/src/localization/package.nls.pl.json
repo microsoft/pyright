@@ -11,8 +11,8 @@
         "renameShadowedFile": "Zmień nazwę „{oldFile}” na „{newFile}”"
     },
     "Completion": {
-        "autoImportDetail": "Auto-import",
-        "indexValueDetail": "Index value"
+        "autoImportDetail": "Automatyczne importowanie",
+        "indexValueDetail": "Wartość indeksu"
     },
     "Diagnostic": {
         "abstractMethodInvocation": "Nie można wywołać metody „{method}”, ponieważ jest abstrakcyjna",
@@ -115,6 +115,7 @@
         "deprecatedClass": "Klasa „{name}” jest przestarzała",
         "deprecatedConstructor": "Konstruktor klasy „{name}” jest przestarzały",
         "deprecatedFunction": "Ta funkcja „{name}” jest przestarzała",
+        "deprecatedMethod": "Metoda „{name}” w klasie „{className}” jest przestarzała",
         "deprecatedType": "Ten typ jest przestarzały dla języka Python w wersji {version}; zamiast tego użyj „{replacement}”.",
         "dictExpandIllegalInComprehension": "Rozszerzanie słownika jest niedozwolone w rozumieniu",
         "dictInAnnotation": "Wyrażenie słownikowe jest niedozwolone w adnotacji typu",
@@ -228,8 +229,8 @@
         "implicitStringConcat": "Niejawne łączenie ciągów jest niedozwolone",
         "importCycleDetected": "Wykryto cykl w łańcuchu importu",
         "importDepthExceeded": "Głębokość łańcucha importu przekroczyła {depth}",
-        "importResolveFailure": "Nie można odnaleźć importu„{importName}” w środowisku „{venv}”.",
-        "importSourceResolveFailure": "Nie można rozpoznać importu „{importName}” ze źródła w środowisku „{venv}”.",
+        "importResolveFailure": "Nie można rozpoznać importu „{importName}”.",
+        "importSourceResolveFailure": "Nie można rozpoznać importu „{importName}” ze źródła",
         "importSymbolUnknown": "Nazwa „{name}” jest nieznanym symbolem importu",
         "incompatibleMethodOverride": "Metoda „{name}” przesłania klasę „{className}” w niezgodny sposób",
         "inconsistentIndent": "Wartość zmniejszenia wcięcia jest niezgodna z poprzednim wcięciem",

@@ -1572,6 +1572,11 @@ export function getEnclosingParameter(node: ParseNode): ParameterNode | undefine
         if (curNode.nodeType === ParseNodeType.Parameter) {
             return curNode;
         }
+
+        if (curNode.nodeType === ParseNodeType.Function) {
+            return undefined;
+        }
+
         curNode = curNode.parent;
     }
 

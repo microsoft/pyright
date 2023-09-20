@@ -11,8 +11,8 @@
         "renameShadowedFile": "將 \"{oldFile}\" 重新命名為 \"{newFile}\""
     },
     "Completion": {
-        "autoImportDetail": "Auto-import",
-        "indexValueDetail": "Index value"
+        "autoImportDetail": "自動匯入",
+        "indexValueDetail": "索引值"
     },
     "Diagnostic": {
         "abstractMethodInvocation": "不能呼叫方法 \"{method}\"，因為它是抽象",
@@ -114,7 +114,8 @@
         "delTargetExpr": "無法刪除運算式",
         "deprecatedClass": "類別 \"{name}\" 已淘汰",
         "deprecatedConstructor": "類別 \"{name}\" 的建構函式已取代",
-        "deprecatedFunction": "此函式 \"{name}\" 已取代",
+        "deprecatedFunction": "函式 \"{name}\" 已取代",
+        "deprecatedMethod": "類別 \"{className}\" 中的方法 \"{name}\" 已取代",
         "deprecatedType": "此類型已隨著 Python {version} 取代; 請改為使用 \"{replacement}\"",
         "dictExpandIllegalInComprehension": "理解中不允許字典擴充",
         "dictInAnnotation": "類型註釋中不允許字典運算式",
@@ -228,8 +229,8 @@
         "implicitStringConcat": "不允許隱含字串串連",
         "importCycleDetected": "在匯入鏈結中偵測到迴圈",
         "importDepthExceeded": "匯入鏈結深度超過 {depth}",
-        "importResolveFailure": "在 \"{venv}\" 環境中找不到匯入 \"{importName}\"。",
-        "importSourceResolveFailure": "無法從 \"{venv}\" 環境中的來源解析匯入 \"{importName}\"。",
+        "importResolveFailure": "無法解析匯入 \"{importName}\"",
+        "importSourceResolveFailure": "無法從來源解析匯入 \"{importName}\"",
         "importSymbolUnknown": "\"{name}\" 是未知的匯入符號",
         "incompatibleMethodOverride": "方法 \"{name}\" 會以不相容的方式覆寫類別 \"{className}\"",
         "inconsistentIndent": "取消縮排量與先前縮排不符",

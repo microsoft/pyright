@@ -11,8 +11,8 @@
         "renameShadowedFile": "\"{oldFile}\" in \"{newFile}\" umbenennen"
     },
     "Completion": {
-        "autoImportDetail": "Auto-import",
-        "indexValueDetail": "Index value"
+        "autoImportDetail": "Autoimport",
+        "indexValueDetail": "Indexwert"
     },
     "Diagnostic": {
         "abstractMethodInvocation": "Die Methode \"{method}\" kann nicht aufgerufen werden, da sie abstrakt ist.",
@@ -115,6 +115,7 @@
         "deprecatedClass": "Die Klasse \"{name}\" ist veraltet.",
         "deprecatedConstructor": "Der Konstruktor für die Klasse \"{name}\" ist veraltet.",
         "deprecatedFunction": "Die Funktion \"{name}\" ist veraltet.",
+        "deprecatedMethod": "Die Methode \"{name}\" in der Klasse \"{className}\" ist veraltet.",
         "deprecatedType": "Dieser Typ ist ab python-{version} veraltet; verwenden Sie stattdessen \"{replacement}\"",
         "dictExpandIllegalInComprehension": "Wörterbucherweiterung ist im Verständnis nicht zulässig.",
         "dictInAnnotation": "Ein Wörterbuchausdruck ist in der Typanmerkung nicht zulässig.",
@@ -228,8 +229,8 @@
         "implicitStringConcat": "Implizite Zeichenfolgenverkettung nicht zulässig",
         "importCycleDetected": "Zyklus in Importkette erkannt",
         "importDepthExceeded": "Importkettentiefe überschritten {depth}",
-        "importResolveFailure": "Der Import \"{importName}\" wurde in der Umgebung \"{venv}\" nicht gefunden.",
-        "importSourceResolveFailure": "Der Import \"{importName}\" konnte nicht aus der Quelle in der Umgebung \"{venv}\" aufgelöst werden.",
+        "importResolveFailure": "Import \"{importName}\" konnte nicht aufgelöst werden.",
+        "importSourceResolveFailure": "Import \"{importName}\" konnte aus der Quelle nicht aufgelöst werden.",
         "importSymbolUnknown": "\"{name}\" ist ein unbekanntes Importsymbol.",
         "incompatibleMethodOverride": "Die Methode \"{name}\" überschreibt die Klasse \"{className}\" auf inkompatible Weise.",
         "inconsistentIndent": "Der Betrag für Nichteinzug stimmt nicht mit dem vorherigen Einzug überein.",
@@ -420,7 +421,7 @@
         "superCallArgCount": "Es werden nicht mehr als zwei Argumente für den Superaufruf erwartet.",
         "superCallFirstArg": "Klassentyp als erstes Argument für super-Aufruf erwartet, aber \"{type}\" empfangen",
         "superCallSecondArg": "Das zweite Argument für den \"super\"-Aufruf muss ein Objekt oder eine Klasse sein, das bzw. die von \"{type}\" abgeleitet wird.",
-        "superCallZeroArgForm": "Zero-argument form of \"super\" call is valid only within a method",
+        "superCallZeroArgForm": "Die Nullargumentform des „Superaufrufs“ ist nur innerhalb einer Methode gültig.",
         "symbolIsPossiblyUnbound": "\"{name}\" ist möglicherweise ungebunden.",
         "symbolIsUnbound": "\"{name}\" ist ungebunden.",
         "symbolIsUndefined": "\"{name}\" ist nicht definiert.",
@@ -455,7 +456,7 @@
         "typeAssignmentMismatch": "Ein Ausdruck vom Typ \"{sourceType}\" kann nicht dem deklarierten Typ \"{destType}\" zugewiesen werden.",
         "typeAssignmentMismatchWildcard": "Das Importsymbol \"{name}\" weist den Typ \"{sourceType}\" auf, der dem deklarierten Typ \"{destType}\" nicht zugewiesen werden kann.",
         "typeCallNotAllowed": "Der type()-Aufruf darf nicht in der Typanmerkung verwendet werden.",
-        "typeCheckOnly": "\"{name}\" is marked as @type_check_only and can be used only in type annotations",
+        "typeCheckOnly": "\"{name}\" ist als @type_check_only markiert und kann nur in Typanmerkungen verwendet werden.",
         "typeCommentDeprecated": "Die Verwendung von Typkommentaren ist veraltet; verwenden Sie stattdessen Typanmerkung",
         "typeExpectedClass": "Typausdruck erwartet, aber \"{type}\" empfangen",
         "typeGuardArgCount": "Nach \"TypeGuard\" wurde ein einzelnes Typargument erwartet.",
@@ -688,8 +689,8 @@
         "seeVariableDeclaration": "Siehe Variablendeklaration",
         "tupleAssignmentMismatch": "Der Typ \"{type}\" ist nicht mit dem Zieltupel kompatibel.",
         "tupleEntryTypeMismatch": "Der Tupeleintrag {entry} ist ein falscher Typ.",
-        "tupleSizeIndeterminate": "Tuple size mismatch; expected {expected} but received indeterminate",
-        "tupleSizeMismatch": "Tuple size mismatch; expected {expected} but received {received}",
+        "tupleSizeIndeterminate": "Nicht übereinstimmende Tupelgröße; {expected} erwartet, aber unbestimmt empfangen",
+        "tupleSizeMismatch": "Nicht übereinstimmende Tupelgröße; {expected} erwartet, aber {received} empfangen",
         "typeAssignmentMismatch": "Der Typ \"{sourceType}\" kann dem Typ \"{destType}\" nicht zugewiesen werden.",
         "typeBound": "Der Typ \"{sourceType}\" ist nicht mit dem gebundenen Typ \"{destType}\" für die Typvariablen \"{name}\" kompatibel.",
         "typeConstrainedTypeVar": "Der Typ \"{type}\" ist mit der eingeschränkten Typvariablen nicht kompatibel \"{name}\"",

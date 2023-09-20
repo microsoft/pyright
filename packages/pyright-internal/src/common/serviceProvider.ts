@@ -18,8 +18,12 @@ export class ServiceProvider {
         return this._container.entries();
     }
 
-    add<T>(key: ServiceKey<T>, value: T) {
-        this._container.set(key, value);
+    add<T>(key: ServiceKey<T>, value: T | undefined) {
+        if (value !== undefined) {
+            this._container.set(key, value);
+        } else {
+            this._container.delete(key);
+        }
     }
 
     tryGet<T>(key: ServiceKey<T>): T | undefined {

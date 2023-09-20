@@ -370,7 +370,7 @@ class RealFileSystem implements FileSystem {
     realCasePath(path: string): string {
         try {
             // If it doesn't exist in the real FS, try going up a level and combining it.
-            if (!fs.existsSync(path)) {
+            if (!this.existsSync(path)) {
                 if (getRootLength(path) <= 0) {
                     return path;
                 }

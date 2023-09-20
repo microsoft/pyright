@@ -11,8 +11,8 @@
         "renameShadowedFile": "\"{oldFile}\" dosyasını \"{newFile}\" olarak yeniden adlandır"
     },
     "Completion": {
-        "autoImportDetail": "Auto-import",
-        "indexValueDetail": "Index value"
+        "autoImportDetail": "Otomatik içeri aktarma",
+        "indexValueDetail": "Dizin değeri"
     },
     "Diagnostic": {
         "abstractMethodInvocation": "\"{method}\" metodu soyut olduğundan çağrılamaz",
@@ -114,7 +114,8 @@
         "delTargetExpr": "İfade silinemiyor",
         "deprecatedClass": "\"{name}\" sınıfı kullanım dışı",
         "deprecatedConstructor": "\"{name}\" sınıfının oluşturucusu kullanım dışı",
-        "deprecatedFunction": "Bu \"{name}\" işlevi kullanım dışı",
+        "deprecatedFunction": "\"{name}\" işlevi kullanım dışı",
+        "deprecatedMethod": "\"{className}\" sınıfındaki \"{name}\" yöntemi kullanım dışı",
         "deprecatedType": "Bu tür Python {version} sürümünden itibaren kullanım dışı; bunun yerine \"{replacement}\" kullanın",
         "dictExpandIllegalInComprehension": "Sözlük genişletmeye anlamada izin verilmiyor",
         "dictInAnnotation": "Tür ek açıklamasında sözlük ifadesi kullanılamaz",
@@ -228,8 +229,8 @@
         "implicitStringConcat": "Örtük dize birleştirmesine izin verilmiyor",
         "importCycleDetected": "İçeri aktarma zincirinde döngü algılandı",
         "importDepthExceeded": "İçeri aktarma zinciri derinliği {depth} sınırını aştı",
-        "importResolveFailure": "\"{importName}\", \"{venv}\" ortamında bulunamadı.",
-        "importSourceResolveFailure": "\"{importName}\" adlı içeri aktarma \"{venv}\" ortamındaki kaynaktan çözümlenemedi.",
+        "importResolveFailure": "\"{importName}\" adlı içeri aktarma çözümlenemedi",
+        "importSourceResolveFailure": "\"{importName}\" adlı içeri aktarma kaynaktan çözümlenemedi",
         "importSymbolUnknown": "\"{name}\" alma simgesi bilinmiyor",
         "incompatibleMethodOverride": "\"{name}\" metodu \"{className}\" sınıfını uyumsuz bir şekilde geçersiz kılıyor",
         "inconsistentIndent": "Girintisiz miktar önceki girintiyle eşleşmiyor",

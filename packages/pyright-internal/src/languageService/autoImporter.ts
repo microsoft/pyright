@@ -54,9 +54,11 @@ export type ModuleSymbolMap = Map<string, ModuleSymbolTable>;
 
 export interface AutoImportResult {
     readonly name: string;
+    readonly declPath: string;
+    readonly originalDeclPath: string;
+    readonly insertionText: string;
     readonly symbol?: Symbol;
     readonly source?: string;
-    readonly insertionText: string;
     readonly edits?: TextEditAction[];
     readonly alias?: string;
     readonly kind?: CompletionItemKind;
@@ -83,6 +85,7 @@ export interface ImportAliasData {
     readonly symbol?: Symbol;
     readonly kind?: SymbolKind;
     readonly itemKind?: CompletionItemKind;
+    readonly filePath: string;
 }
 
 export type AutoImportResultMap = Map<string, AutoImportResult[]>;
@@ -289,6 +292,8 @@ export class AutoImporter {
                     source: importAliasData.importParts.importFrom,
                     insertionText: autoImportTextEdits.insertionText,
                     edits: autoImportTextEdits.edits,
+                    declPath: importAliasData.importParts.filePath,
+                    originalDeclPath: importAliasData.filePath,
                 });
             });
         });
@@ -348,6 +353,7 @@ export class AutoImporter {
                         symbol: autoImportSymbol.symbol,
                         kind: autoImportSymbol.importAlias.kind,
                         itemKind: autoImportSymbol.importAlias.itemKind,
+                        filePath: autoImportSymbol.importAlias.modulePath,
                     },
                     importAliasMap
                 );
@@ -371,6 +377,8 @@ export class AutoImporter {
                 kind: autoImportSymbol.itemKind ?? convertSymbolKindToCompletionItemKind(autoImportSymbol.kind),
                 insertionText: autoImportTextEdits.insertionText,
                 edits: autoImportTextEdits.edits,
+                declPath: moduleFilePath,
+                originalDeclPath: moduleFilePath,
             });
         });
 
@@ -403,7 +411,13 @@ export class AutoImporter {
                 kind: SymbolKind.Module,
                 itemKind: CompletionItemKind.Module,
             },
-            { importParts, importGroup, kind: SymbolKind.Module, itemKind: CompletionItemKind.Module },
+            {
+                importParts,
+                importGroup,
+                kind: SymbolKind.Module,
+                itemKind: CompletionItemKind.Module,
+                filePath: moduleFilePath,
+            },
             importAliasMap
         );
     }

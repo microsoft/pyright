@@ -11,8 +11,8 @@
         "renameShadowedFile": "Rinomina \"{oldFile}\" in \"{newFile}\""
     },
     "Completion": {
-        "autoImportDetail": "Auto-import",
-        "indexValueDetail": "Index value"
+        "autoImportDetail": "Importazione automatica",
+        "indexValueDetail": "Valore dell’indice"
     },
     "Diagnostic": {
         "abstractMethodInvocation": "Impossibile chiamare il metodo \"{method}\" perché è astratto",
@@ -114,7 +114,8 @@
         "delTargetExpr": "Non è possibile eliminare l'espressione",
         "deprecatedClass": "La classe \"{name}\" è deprecata",
         "deprecatedConstructor": "Il costruttore per la classe \"{name}\" è deprecato",
-        "deprecatedFunction": "Questa funzione \"{name}\" è deprecata",
+        "deprecatedFunction": "La funzione \"{name}\" è deprecata",
+        "deprecatedMethod": "Il metodo \"{name}\" nella classe \"{className}\" è deprecato",
         "deprecatedType": "Questo tipo è deprecato a partire da Python {version}; usa \"{replacement}\"",
         "dictExpandIllegalInComprehension": "Espansione del dizionario non consentita nella comprensione",
         "dictInAnnotation": "Espressione dizionario non consentita nell'annotazione di tipo",
@@ -228,8 +229,8 @@
         "implicitStringConcat": "Concatenazione implicita di stringhe non consentita",
         "importCycleDetected": "Ciclo rilevato nella catena di importazione",
         "importDepthExceeded": "La profondità della catena di importazione ha superato {depth}",
-        "importResolveFailure": "Impossibile trovare l’importazione \"{importName}\" nell'ambiente \"{venv}\".",
-        "importSourceResolveFailure": "Impossibile risolvere l'importazione \"{importName}\" dall'origine nell'ambiente \"{venv}\".",
+        "importResolveFailure": "Non è stato possibile risolvere l'importazione \"{importName}\"",
+        "importSourceResolveFailure": "Non è stato possibile risolvere l'importazione \"{importName}\" dall’origine",
         "importSymbolUnknown": "\"{name}\" è un simbolo di importazione sconosciuto",
         "incompatibleMethodOverride": "Il metodo \"{name}\" esegue l'override della classe \"{className}\" in modo incompatibile",
         "inconsistentIndent": "Il valore dell'annullamento del rientro non corrisponde al rientro precedente",

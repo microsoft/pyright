@@ -11,8 +11,8 @@
         "renameShadowedFile": "Přejmenovat „{oldFile}“ na „{newFile}“"
     },
     "Completion": {
-        "autoImportDetail": "Auto-import",
-        "indexValueDetail": "Index value"
+        "autoImportDetail": "Automatický import",
+        "indexValueDetail": "Hodnota indexu"
     },
     "Diagnostic": {
         "abstractMethodInvocation": "Metodu {method} není možné volat, protože je abstraktní",
@@ -114,7 +114,8 @@
         "delTargetExpr": "Výraz se nedá odstranit",
         "deprecatedClass": "Třída {name} je zastaralá",
         "deprecatedConstructor": "Konstruktor pro třídu {name} je zastaralý",
-        "deprecatedFunction": "Tato funkce {name} je zastaralá",
+        "deprecatedFunction": "Funkce {name} je zastaralá.",
+        "deprecatedMethod": "Metoda {name} ve třídě {className} je zastaralá.",
         "deprecatedType": "Tento typ je zastaralý jako Python {version}; místo toho použijte {replacement}",
         "dictExpandIllegalInComprehension": "Rozšíření slovníku není v porozumění povoleno",
         "dictInAnnotation": "Výraz slovníku není v poznámce typu povolený",
@@ -228,8 +229,8 @@
         "implicitStringConcat": "Implicitní zřetězení řetězců není povolené",
         "importCycleDetected": "V řetězci importu byl zjištěn cyklus",
         "importDepthExceeded": "Hloubka řetězu importu překročila {depth}",
-        "importResolveFailure": "Import {importName} se v prostředí {venv} nepovedlo najít.",
-        "importSourceResolveFailure": "Import {importName} se nepovedlo přeložit ze zdroje v prostředí {venv}.",
+        "importResolveFailure": "Import {importName} se nepovedlo vyřešit",
+        "importSourceResolveFailure": "Import {importName} se nepovedlo přeložit ze zdroje",
         "importSymbolUnknown": "{name} je neznámý symbol importu",
         "incompatibleMethodOverride": "Metoda {name} přepisuje třídu {className} nekompatibilním způsobem",
         "inconsistentIndent": "Množství zrušeného odsazení neodpovídá předchozímu odsazení",
