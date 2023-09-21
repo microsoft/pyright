@@ -11,7 +11,7 @@ class DC1:
 
 @dataclass(frozen=True)
 class DC2:
-    val2: int = 4
+    val2: float = 4
 
 
 # This should generate an error because a frozen dataclass
@@ -47,3 +47,8 @@ b.val2 = 3
 
 # This should generate an error because the dataclass is frozen.
 b.val4 = 3
+
+
+@dataclass(frozen=True)
+class DC6(DC2):
+    val2: int = 6

@@ -5962,7 +5962,21 @@ export class Checker extends ParseTreeWalker {
 
                     // Verify that the override type is assignable to (same or narrower than)
                     // the declared type of the base symbol.
-                    const isInvariant = primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal;
+                    let isInvariant = primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal;
+
+                    // If the entry is a member of a frozen dataclass, it is immutable,
+                    // so it does not need to be invariant.
+                    if (
+                        ClassType.isFrozenDataClass(baseClassAndSymbol.classType) &&
+                        baseClassAndSymbol.classType.details.dataClassEntries
+                    ) {
+                        const dataclassEntry = baseClassAndSymbol.classType.details.dataClassEntries.find(
+                            (entry) => entry.name === memberName
+                        );
+                        if (dataclassEntry) {
+                            isInvariant = false;
+                        }
+                    }
 
                     let diagAddendum = new DiagnosticAddendum();
                     if (
