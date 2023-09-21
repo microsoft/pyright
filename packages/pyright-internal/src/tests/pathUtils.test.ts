@@ -403,10 +403,13 @@ test('Realcase', () => {
     // Check that the '..' has been removed.
     assert.ok(!fspaths.some((p) => p.indexOf('..') >= 0));
 
-    for (const p of fspaths) {
-        const upper = p.toUpperCase();
-        const real = fs.realCasePath(upper);
-        assert.strictEqual(p, real);
+    // If windows, check that the case is correct.
+    if (process.platform === 'win32') {
+        for (const p of fspaths) {
+            const upper = p.toUpperCase();
+            const real = fs.realCasePath(upper);
+            assert.strictEqual(p, real);
+        }
     }
 });
 
