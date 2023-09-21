@@ -400,6 +400,9 @@ test('Realcase', () => {
     const fspaths = fsentries.map((entry) => fs.realCasePath(path.join(dir, entry)));
     assert.deepStrictEqual(paths, fspaths);
 
+    // Check that the '..' has been removed.
+    assert.ok(!fspaths.some((p) => p.indexOf('..') >= 0));
+
     for (const p of fspaths) {
         const upper = p.toUpperCase();
         const real = fs.realCasePath(upper);
