@@ -8,9 +8,9 @@
  */
 
 import assert from 'assert';
+import * as nodefs from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
-import * as nodefs from 'fs-extra';
 
 import { expandPathVariables } from '../common/envVarUtils';
 import {
@@ -35,13 +35,14 @@ import {
     isFileSystemCaseSensitiveInternal,
     isRootedDiskPath,
     normalizeSlashes,
+    realCasePath,
     reducePathComponents,
     resolvePaths,
     stripFileExtension,
     stripTrailingDirectorySeparator,
 } from '../common/pathUtils';
-import * as vfs from './harness/vfs/filesystem';
 import { createFromRealFileSystem } from '../common/realFileSystem';
+import * as vfs from './harness/vfs/filesystem';
 
 test('getPathComponents1', () => {
     const components = getPathComponents('');
@@ -390,11 +391,37 @@ test('convert UNC path', () => {
 test('Realcase', () => {
     const fs = createFromRealFileSystem();
     const cwd = process.cwd();
-    const dir = path.join(cwd, 'src', 'tests');
+    const dir = path.join(cwd, 'src', 'tests', '..', 'tests');
     const entries = nodefs.readdirSync(dir).map((entry) => path.basename(nodefs.realpathSync(path.join(dir, entry))));
     const fsentries = fs.readdirSync(dir);
     assert.deepStrictEqual(entries, fsentries);
 
+    const paths = entries.map((entry) => nodefs.realpathSync(path.join(dir, entry)));
+    const fspaths = fsentries.map((entry) => fs.realCasePath(path.join(dir, entry)));
+    assert.deepStrictEqual(paths, fspaths);
+
+    // Check that the '..' has been removed.
+    assert.ok(!fspaths.some((p) => p.indexOf('..') >= 0));
+
+    // If windows, check that the case is correct.
+    if (process.platform === 'win32') {
+        for (const p of fspaths) {
+            const upper = p.toUpperCase();
+            const real = fs.realCasePath(upper);
+            assert.strictEqual(p, real);
+        }
+    }
+});
+
+test('Realcase use cwd implicitly', () => {
+    const fs = createFromRealFileSystem();
+    const empty = realCasePath('', fs);
+    assert.deepStrictEqual(empty, '');
+    const cwd = process.cwd();
+    const dir = path.join(cwd, 'src', 'tests');
+
+    const entries = nodefs.readdirSync(dir).map((entry) => path.basename(nodefs.realpathSync(path.join(dir, entry))));
+    const fsentries = fs.readdirSync(path.join('src', 'tests'));
     const paths = entries.map((entry) => nodefs.realpathSync(path.join(dir, entry)));
     const fspaths = fsentries.map((entry) => fs.realCasePath(path.join(dir, entry)));
     assert.deepStrictEqual(paths, fspaths);
