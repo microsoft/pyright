@@ -2,6 +2,7 @@ name: 'Validation'
 
 env:
   NODE_VERSION: '16' # Shipped with VS Code.
+  PYTHON_VERSION: 3.11
 
 on:
   push:
@@ -105,6 +106,44 @@ jobs:
 
       - name: npm test (pyright-internal)
         run: npm test
+        working-directory: packages/pyright-internal
+
+      # Install python so we can create a VENV for tests
+      - name: Use Python ${{env.PYTHON_VERSION}}
+        uses: actions/setup-python@v4
+        id: install_python
+        with:
+          python-version: ${{env.PYTHON_VERSION}}
+
+      - name: Create Venv
+        run: |
+           ${{ steps.install_python.outputs.python-path }} -m venv .venv
+
+      - name: Activate and install pytest (linux)
+        if: runner.os != 'Windows'
+        run: |
+          source .venv/bin/activate
+          python -m pip install pytest
+          python -c "import sys;print('python_venv_path=\"' + sys.executable + '\"')" >> $GITHUB_ENV
+
+      - name: Activate and install pytest (windows)
+        if: runner.os == 'Windows'
+        run: |
+          .venv\scripts\activate
+          python -m pip install pytest
+          python -c "import sys;print('python_venv_path=\"' + sys.executable + '\"')" >> $GITHUB_ENV
+
+      - name: Run import tests with venv
+        env: 
+           CI_IMPORT_TEST_VENVPATH: "../../"
+           CI_IMPORT_TEST_VENV: ".venv"
+        run: npm run test:imports
+        working-directory: packages/pyright-internal
+           
+      - name: Run import tests with pythonpath
+        env: 
+           CI_IMPORT_TEST_PYTHONPATH: ${{env.python_venv_path}}
+        run: npm run test:imports
         working-directory: packages/pyright-internal
 
   build:
