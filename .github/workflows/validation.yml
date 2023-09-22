@@ -117,7 +117,7 @@ jobs:
 
       - name: Create Venv
         run: |
-           ${{ steps.install_python.outputs.python-path }} -m venv .venv
+          ${{ steps.install_python.outputs.python-path }} -m venv .venv
 
       - name: Activate and install pytest (linux)
         if: runner.os != 'Windows'
@@ -131,18 +131,22 @@ jobs:
         run: |
           .venv\scripts\activate
           python -m pip install pytest
-          python -c "import sys;print('python_venv_path=\"' + sys.executable + '\"')" >> $GITHUB_ENV
+          python -c "import sys;print('python_venv_path=\\"' + sys.executable + '\\"')" >> $GITHUB_ENV
+
+      - name: Echo python_venv_path
+        run: |
+          echo python_venv_path=${{env.python_venv_path}}
 
       - name: Run import tests with venv
-        env: 
-           CI_IMPORT_TEST_VENVPATH: "../../"
-           CI_IMPORT_TEST_VENV: ".venv"
+        env:
+          CI_IMPORT_TEST_VENVPATH: '../../'
+          CI_IMPORT_TEST_VENV: '.venv'
         run: npm run test:imports
         working-directory: packages/pyright-internal
-           
+
       - name: Run import tests with pythonpath
-        env: 
-           CI_IMPORT_TEST_PYTHONPATH: ${{env.python_venv_path}}
+        env:
+          CI_IMPORT_TEST_PYTHONPATH: ${{env.python_venv_path}}
         run: npm run test:imports
         working-directory: packages/pyright-internal
 
