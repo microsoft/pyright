@@ -238,7 +238,7 @@ export class BackgroundAnalysisBase {
             }
 
             default:
-                debug.fail(`${msg.requestType} is not expected`);
+                debug.fail(`${msg.requestType} is not expected. Message structure: ${JSON.stringify(msg)}`);
         }
     }
 
