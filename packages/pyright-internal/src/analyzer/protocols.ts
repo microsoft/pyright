@@ -32,7 +32,6 @@ import {
 import {
     applySolvedTypeVars,
     AssignTypeFlags,
-    buildTypeVarContextFromSpecializedClass,
     ClassMember,
     containsLiteralType,
     getTypeVarScopeId,
@@ -223,7 +222,6 @@ function assignClassToProtocolInternal(
 
     let typesAreConsistent = true;
     const checkedSymbolSet = new Set<string>();
-    const srcClassTypeVarContext = buildTypeVarContextFromSpecializedClass(srcType);
     let assignTypeFlags = flags & AssignTypeFlags.OverloadOverlapCheck;
 
     assignTypeFlags |= containsLiteralType(srcType, /* includeTypeArgs */ true)
@@ -279,7 +277,6 @@ function assignClassToProtocolInternal(
             ) {
                 srcMemberInfo = lookUpClassMember(srcType.details.effectiveMetaclass, name);
                 if (srcMemberInfo) {
-                    srcClassTypeVarContext.addSolveForScope(getTypeVarScopeId(srcType.details.effectiveMetaclass));
                     isMemberFromMetaclass = true;
                 }
             }
@@ -595,8 +592,6 @@ export function assignModuleToProtocol(
                 return;
             }
 
-            destMemberType = partiallySpecializeType(destMemberType, destType);
-
             const srcMemberType = evaluator.getEffectiveTypeOfSymbol(memberSymbol);
 
             if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
@@ -609,12 +604,14 @@ export function assignModuleToProtocol(
                         recursionCount
                     );
                     if (boundDeclaredType) {
-                        destMemberType = boundDeclaredType;
+                        destMemberType = removeParamSpecVariadicsFromSignature(boundDeclaredType);
                     }
                 }
             }
 
             const subDiag = diag?.createAddendum();
+            const primaryDecl = symbol.getDeclarations()[0];
+            const isInvariant = primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal;
 
             if (
                 !evaluator.assignType(
@@ -623,11 +620,14 @@ export function assignModuleToProtocol(
                     subDiag?.createAddendum(),
                     protocolTypeVarContext,
                     /* srcTypeVarContext */ undefined,
-                    AssignTypeFlags.Default,
+                    isInvariant ? AssignTypeFlags.EnforceInvariance : AssignTypeFlags.Default,
                     recursionCount
                 )
             ) {
                 if (subDiag) {
+                    if (isInvariant) {
+                        subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsInvariant().format({ name }));
+                    }
                     subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
                 }
                 typesAreConsistent = false;

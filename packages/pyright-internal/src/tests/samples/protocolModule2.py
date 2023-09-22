@@ -81,3 +81,19 @@ def func3():
         reveal_type(my_module, expected_text="P1")
     else:
         reveal_type(my_module, expected_text="ModuleType")
+
+
+_T1 = TypeVar("_T1")
+
+
+class P5(Protocol[_T1]):
+    def func_1(self, a: int, b: _T1) -> _T1:
+        ...
+
+
+def func4(x: P5[_T1]) -> _T1:
+    ...
+
+
+v5 = func4(protocolModule1)
+reveal_type(v5, expected_text="str")
