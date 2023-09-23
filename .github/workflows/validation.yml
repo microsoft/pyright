@@ -131,7 +131,7 @@ jobs:
         run: |
           .venv\scripts\activate
           python -m pip install pytest
-          python -c "import sys;print('python_venv_path=' + sys.executable)" >> $GITHUB_ENV
+          python -c "import sys;print('python_venv_path=' + sys.executable)"
 
       - name: Echo python_venv_path
         run: |
