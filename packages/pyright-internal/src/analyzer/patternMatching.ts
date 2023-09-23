@@ -653,6 +653,7 @@ function narrowTypeBasedOnClassPattern(
     // If this is a class (but not a type alias that refers to a class),
     // specialize it with Unknown type arguments.
     if (isClass(exprType) && !exprType.typeAliasInfo) {
+        exprType = ClassType.cloneForPromotionType(exprType, /* isTypeArgumentExplicit */ false);
         exprType = specializeClassType(exprType);
     }
 
@@ -676,7 +677,7 @@ function narrowTypeBasedOnClassPattern(
         const isPatternMetaclass = isMetaclassInstance(classInstance);
 
         return evaluator.mapSubtypesExpandTypeVars(
-            type,
+            evaluator.expandPromotionTypes(pattern, type),
             /* conditionFilter */ undefined,
             (subjectSubtypeExpanded, subjectSubtypeUnexpanded) => {
                 // Handle the case where the class pattern references type() or a subtype thereof

@@ -524,6 +524,7 @@ export interface TypeEvaluator {
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
     getTypeOfArgument: (arg: FunctionArgument) => TypeResult;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
+    expandPromotionTypes: (node: ParseNode, type: Type) => Type;
     makeTopLevelTypeVarsConcrete: (type: Type, makeParamSpecsConcrete?: boolean) => Type;
     mapSubtypesExpandTypeVars: (
         type: Type,

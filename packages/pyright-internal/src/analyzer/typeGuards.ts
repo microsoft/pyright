@@ -1273,7 +1273,6 @@ export function isIsinstanceFilterSuperclass(
 export function isIsinstanceFilterSubclass(
     evaluator: TypeEvaluator,
     varType: ClassType,
-    filterType: Type,
     concreteFilterType: ClassType,
     isInstanceCheck: boolean
 ) {
@@ -1304,9 +1303,11 @@ function narrowTypeForIsInstance(
     allowIntersections: boolean,
     errorNode: ExpressionNode
 ): Type {
-    const expandedTypes = mapSubtypes(type, (subtype) => {
+    let expandedTypes = mapSubtypes(type, (subtype) => {
         return transformPossibleRecursiveTypeAlias(subtype);
     });
+
+    expandedTypes = evaluator.expandPromotionTypes(errorNode, type);
 
     // Filters the varType by the parameters of the isinstance
     // and returns the list of types the varType could be after
@@ -1336,7 +1337,6 @@ function narrowTypeForIsInstance(
                 const filterIsSubclass = isIsinstanceFilterSubclass(
                     evaluator,
                     varType,
-                    filterType,
                     concreteFilterType,
                     isInstanceCheck
                 );

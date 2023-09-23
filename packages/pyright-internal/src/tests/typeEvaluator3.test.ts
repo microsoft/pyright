@@ -971,7 +971,7 @@ test('Never2', () => {
 test('TypePromotions1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typePromotions1.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Index1', () => {
