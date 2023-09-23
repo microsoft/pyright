@@ -125,6 +125,7 @@ jobs:
           source .venv/bin/activate
           python -m pip install pytest
           python -c "import sys;print('python_venv_path=' + sys.executable)" >> $GITHUB_ENV
+          python -c "import sys;print('python_venv_path=' + sys.executable)" || echo $
           echo test_env="TEST_ENV" >> $GITHUB_ENV
 
       - name: Activate and install pytest (windows)
