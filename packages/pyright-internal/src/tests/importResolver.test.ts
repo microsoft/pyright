@@ -657,6 +657,10 @@ function getImportResult(
         };
         spFactory = (files: { path: string; content: string }[]) => createServiceProviderWithCombinedFs(files);
     } else if (process.env.CI_IMPORT_TEST_PYTHONPATH) {
+        configModifier = (c: ConfigOptions) => {
+            defaultSetup(c);
+            c.pythonPath = process.env.CI_IMPORT_TEST_PYTHONPATH;
+        };
         hostFactory = (sp: ServiceProvider) => new TruePythonTestAccessHost();
         spFactory = (files: { path: string; content: string }[]) => createServiceProviderWithCombinedFs(files);
     }
