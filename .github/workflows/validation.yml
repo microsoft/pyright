@@ -125,17 +125,19 @@ jobs:
           source .venv/bin/activate
           python -m pip install pytest
           python -c "import sys;print('python_venv_path=' + sys.executable)" >> $GITHUB_ENV
+          echo test_env="TEST_ENV" >> $GITHUB_ENV
 
       - name: Activate and install pytest (windows)
         if: runner.os == 'Windows'
         run: |
           .venv\scripts\activate
           python -m pip install pytest
-          python -c "import sys;print('python_venv_path=' + sys.executable)"
+          python -c "import sys;print('python_venv_path=' + sys.executable)" >> $GITHUB_ENV
 
       - name: Echo python_venv_path
         run: |
           echo python_venv_path=${{env.python_venv_path}}
+          echo test_env=${{env.test_env}}
 
       - name: Run import tests with venv
         env:
