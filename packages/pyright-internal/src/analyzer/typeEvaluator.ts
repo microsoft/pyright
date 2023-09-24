@@ -8802,7 +8802,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     { type: overload, isIncomplete: typeResult.isIncomplete },
                     overloadIndex
                 );
+
                 if (!matchResults.argumentErrors) {
+                    if (inferenceContext?.expectedType) {
+                        const returnType = getFunctionEffectiveReturnType(matchResults.overload);
+
+                        if (
+                            !assignType(
+                                inferenceContext.expectedType,
+                                returnType,
+                                /* diag */ undefined,
+                                /* destTypeVarContext */ undefined,
+                                /* srcTypeVarContext */ undefined,
+                                AssignTypeFlags.SkipSolveTypeVars
+                            )
+                        ) {
+                            matchResults.relevance += -0.5;
+                        }
+                    }
+
                     filteredMatchResults.push(matchResults);
                 }
 
@@ -22830,14 +22848,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Handle LiteralString special form.
                 if (ClassType.isBuiltIn(destType, 'LiteralString')) {
                     if (ClassType.isBuiltIn(concreteSrcType, 'str') && concreteSrcType.literalValue !== undefined) {
-                        return true;
+                        return (flags & AssignTypeFlags.EnforceInvariance) === 0;
                     } else if (ClassType.isBuiltIn(concreteSrcType, 'LiteralString')) {
                         return true;
                     }
                 } else if (
                     ClassType.isBuiltIn(concreteSrcType, 'LiteralString') &&
                     strClassType &&
-                    isInstantiableClass(strClassType)
+                    isInstantiableClass(strClassType) &&
+                    (flags & AssignTypeFlags.EnforceInvariance) === 0
                 ) {
                     concreteSrcType = ClassType.cloneAsInstance(strClassType);
                 }
