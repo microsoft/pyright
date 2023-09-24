@@ -109,7 +109,7 @@ def func10(subj: Color | None = None) -> list[str]:
 def func11(subj: int | float | None):
     match subj:
         case float():
-            reveal_type(subj, expected_text="int | float")
+            reveal_type(subj, expected_text="float")
         case int():
             reveal_type(subj, expected_text="int")
         case NoneType():

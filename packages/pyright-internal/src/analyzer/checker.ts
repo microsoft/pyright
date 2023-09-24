@@ -3663,7 +3663,6 @@ export class Checker extends ParseTreeWalker {
                     this._evaluator,
                     varType,
                     filterType,
-                    filterType,
                     isInstanceCheck
                 );
 
