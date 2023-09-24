@@ -17278,9 +17278,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             let defaultValueType: Type | undefined;
             if (param.defaultValue) {
+                // If this is a stub file, a protocol, an overload, or a class
+                // whose body is a placeholder implementation, treat a "...", as
+                // an "Any" value.
+                let treatEllipsisAsAny = fileInfo.isStubFile || ParseTreeUtils.isSuiteEmpty(node.suite);
+                if (containingClassType && ClassType.isProtocolClass(containingClassType)) {
+                    treatEllipsisAsAny = true;
+                }
+                if (FunctionType.isOverloaded(functionType)) {
+                    treatEllipsisAsAny = true;
+                }
+
                 defaultValueType = getTypeOfExpression(
                     param.defaultValue,
-                    EvaluatorFlags.ConvertEllipsisToAny,
+                    treatEllipsisAsAny ? EvaluatorFlags.ConvertEllipsisToAny : EvaluatorFlags.None,
                     makeInferenceContext(annotatedType)
                 ).type;
             }
