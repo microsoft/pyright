@@ -276,7 +276,7 @@ def overload9(x: object, y: int, z: str, a: None) -> str:
     ...
 
 
-def overload9(x, y, z=..., a=...) -> Any:
+def overload9(x, y, z="", a=None) -> Any:
     pass
 
 

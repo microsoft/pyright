@@ -91,6 +91,8 @@ export function getFunctionFlagsFromDecorators(evaluator: TypeEvaluator, node: F
                 flags |= FunctionTypeFlags.Overridden;
             } else if (decoratorType.details.builtInName === 'type_check_only') {
                 flags |= FunctionTypeFlags.TypeCheckOnly;
+            } else if (decoratorType.details.builtInName === 'overload') {
+                flags |= FunctionTypeFlags.Overloaded;
             }
         } else if (isInstantiableClass(decoratorType)) {
             if (ClassType.isBuiltIn(decoratorType, 'staticmethod')) {
