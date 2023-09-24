@@ -828,6 +828,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        if (type) {
+            type = transformPossibleRecursiveTypeAlias(type);
+        }
+
         return type;
     }
 
