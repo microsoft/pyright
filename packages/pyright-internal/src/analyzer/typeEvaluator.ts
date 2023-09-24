@@ -17285,7 +17285,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (containingClassType && ClassType.isProtocolClass(containingClassType)) {
                     treatEllipsisAsAny = true;
                 }
-                if (FunctionType.isOverloaded(functionType)) {
+                if (FunctionType.isOverloaded(functionType) || FunctionType.isAbstractMethod(functionType)) {
                     treatEllipsisAsAny = true;
                 }
 
