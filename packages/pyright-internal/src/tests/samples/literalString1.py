@@ -80,3 +80,11 @@ def func7(a: Literal["a", "b"], b: Literal["a", 1]):
 
     # This should generate an error because "b" is not a string literal.
     v2: LiteralString = f"{b}"
+
+
+def func8(a: list[LiteralString], b: list[Literal["a"]]):
+    # This should generate an error because of invariance rules.
+    v1: list[str] = a
+
+    # This should generate an error because of invariance rules.
+    v2: list[LiteralString] = b
