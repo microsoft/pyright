@@ -662,6 +662,11 @@ export interface ClassType extends TypeBase {
     // of abstract or protocol classes.
     includeSubclasses?: boolean;
 
+    // This class type represents the class and any auto-promotion
+    // types that PEP 484 indicates should be treated as subclasses
+    // when the type appears within a type annotation.
+    includePromotions?: boolean;
+
     // Some types can be further constrained to have
     // literal types (e.g. true or 'string' or 3).
     literalValue?: LiteralValue | undefined;
@@ -819,6 +824,12 @@ export namespace ClassType {
         newClassType.details = { ...newClassType.details };
         newClassType.details.typeParameters = typeParams;
         newClassType.details.requiresVarianceInference = false;
+        return newClassType;
+    }
+
+    export function cloneForPromotionType(classType: ClassType, includePromotions: boolean): ClassType {
+        const newClassType = TypeBase.cloneType(classType);
+        newClassType.includePromotions = includePromotions;
         return newClassType;
     }
 

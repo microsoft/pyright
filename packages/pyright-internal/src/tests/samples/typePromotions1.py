@@ -23,3 +23,23 @@ IntNewType = NewType("IntNewType", int)
 
 def func4(x: IntNewType) -> float:
     return x
+
+
+def func5(f: float):
+    # This should generate an error because "hex" isn't
+    # a valid method for an int.
+    f.hex()
+
+    if isinstance(f, float):
+        reveal_type(f, expected_text="float")
+        f.hex()
+    else:
+        reveal_type(f, expected_text="int")
+
+
+def func6(f: complex):
+    if isinstance(f, float):
+        reveal_type(f, expected_text="float")
+        f.hex()
+    else:
+        reveal_type(f, expected_text="complex | int")

@@ -15,14 +15,21 @@ class DbModel(Document):
     pass
 
 
-def foo() -> Union[int, DbModel]:
+def func1() -> Union[int, DbModel]:
     return DbModel()
 
 
 # This should not generate an error even though DbModel is
 # derived from an unknown base class.
-isinstance(foo(), int)
+isinstance(func1(), int)
 
 
-def bar(obj: object, typ: type):
+def func2(obj: object, typ: type):
     return isinstance(obj, typ)
+
+
+def func3(obj: float):
+    if isinstance(obj, float):
+        reveal_type(obj, expected_text="float")
+    else:
+        reveal_type(obj, expected_text="int")
