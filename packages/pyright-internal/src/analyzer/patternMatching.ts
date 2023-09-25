@@ -909,7 +909,27 @@ function narrowTypeBasedOnClassPattern(
 // Some built-in classes are treated as special cases for the class pattern
 // if a positional argument is used.
 function isClassSpecialCaseForClassPattern(classType: ClassType) {
-    return classPatternSpecialCases.some((className) => classType.details.fullName === className);
+    if (classPatternSpecialCases.some((className) => classType.details.fullName === className)) {
+        return true;
+    }
+
+    // If the class supplies its own `__match_args__`, it's not a special case.
+    const matchArgsMemberInfo = lookUpClassMember(classType, '__match_args__');
+    if (matchArgsMemberInfo) {
+        return false;
+    }
+
+    // If the class derives from a built-in class, it is considered a special case.
+    for (const mroClass of classType.details.mro) {
+        if (
+            isClass(mroClass) &&
+            classPatternSpecialCases.some((className) => mroClass.details.fullName === className)
+        ) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 // Narrows the pattern provided for a class pattern argument.
@@ -1647,7 +1667,7 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
             );
         }
     } else {
-        const isBuiltIn = classPatternSpecialCases.some((className) => exprType.details.fullName === className);
+        const isBuiltIn = isClassSpecialCaseForClassPattern(exprType);
 
         // If it's a special-case builtin class, only one positional argument is allowed.
         if (isBuiltIn) {
