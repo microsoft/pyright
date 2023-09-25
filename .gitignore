@@ -123,3 +123,6 @@ junit.xml
 # OS files
 .DS_Store
 Thumbs.db
+
+# Potential venv
+.venv
