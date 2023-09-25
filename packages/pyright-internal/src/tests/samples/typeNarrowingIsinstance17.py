@@ -40,14 +40,14 @@ def func5(x: int | str | complex):
     if isinstance(x, (int, str)):
         reveal_type(x, expected_text="int | str")
     else:
-        reveal_type(x, expected_text="complex")
+        reveal_type(x, expected_text="complex | float")
 
 
 def func6(x: type[int] | type[str] | type[complex]):
     if issubclass(x, (int, str)):
         reveal_type(x, expected_text="type[int] | type[str]")
     else:
-        reveal_type(x, expected_text="type[complex]")
+        reveal_type(x, expected_text="type[complex] | type[float]")
 
 
 def func7(x: int | SomeTypedDict | None):

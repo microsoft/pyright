@@ -17,8 +17,8 @@ U = TypeVar("U", int, str)
 
 
 class Foo(Generic[U]):
-    def generic_func1(self, a: U, b: U = ..., **kwargs: U) -> U:
-        return b
+    def generic_func1(self, a: U, b: str = "", **kwargs: U) -> U:
+        return a
 
 
 foo = Foo[str]()

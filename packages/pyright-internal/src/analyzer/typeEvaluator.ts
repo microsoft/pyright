@@ -424,7 +424,6 @@ const nonSubscriptableBuiltinTypes: Map<string, PythonVersion> = new Map([
 const typePromotions: Map<string, string[]> = new Map([
     ['builtins.float', ['builtins.int']],
     ['builtins.complex', ['builtins.float', 'builtins.int']],
-    ['builtins.bytes', ['builtins.bytearray', 'builtins.memoryview']],
 ]);
 
 interface SymbolResolutionStackEntry {
@@ -827,6 +826,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
             }
+        }
+
+        if (type) {
+            type = transformPossibleRecursiveTypeAlias(type);
         }
 
         return type;
@@ -3546,6 +3549,41 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         writeTypeCache(target, { type, isIncomplete: isTypeIncomplete }, EvaluatorFlags.None);
     }
 
+    // If the type includes promotion types, expand these to their constituent types.
+    function expandPromotionTypes(node: ParseNode, type: Type): Type {
+        return mapSubtypes(type, (subtype) => {
+            if (!isClass(subtype) || !subtype.includePromotions) {
+                return subtype;
+            }
+
+            const typesToCombine: Type[] = [ClassType.cloneForPromotionType(subtype, /* includePromotions */ false)];
+
+            const promotionTypeNames = typePromotions.get(subtype.details.fullName);
+            if (promotionTypeNames) {
+                for (const promotionTypeName of promotionTypeNames) {
+                    const nameSplit = promotionTypeName.split('.');
+                    let promotionSubtype = getBuiltInType(node, nameSplit[nameSplit.length - 1]);
+
+                    if (promotionSubtype && isInstantiableClass(promotionSubtype)) {
+                        promotionSubtype = ClassType.cloneForPromotionType(
+                            promotionSubtype,
+                            /* includePromotions */ false
+                        );
+
+                        if (isClassInstance(subtype)) {
+                            promotionSubtype = ClassType.cloneAsInstance(promotionSubtype);
+                        }
+
+                        promotionSubtype = addConditionToType(promotionSubtype, subtype.condition);
+                        typesToCombine.push(promotionSubtype);
+                    }
+                }
+            }
+
+            return combineTypes(typesToCombine);
+        });
+    }
+
     // Replaces all of the top-level TypeVars (as opposed to TypeVars
     // used as type arguments in other types) with their concrete form.
     // If conditionFilter is specified and the TypeVar is a constrained
@@ -5098,7 +5136,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // If the base type was incomplete and unbound, don't proceed
         // because false positive errors will be generated.
-        if (baseTypeResult.isIncomplete && isUnbound(baseTypeResult.type)) {
+        if (baseTypeResult.isIncomplete && isUnbound(baseType)) {
             return { type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
         }
 
@@ -5130,6 +5168,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (isParamSpec(baseType) && baseType.paramSpecAccess) {
             baseType = makeTopLevelTypeVarsConcrete(baseType);
         }
+
+        // Do union expansion for promotion types.
+        baseType = expandPromotionTypes(node, baseType);
 
         switch (baseType.category) {
             case TypeCategory.Any:
@@ -8765,7 +8806,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     { type: overload, isIncomplete: typeResult.isIncomplete },
                     overloadIndex
                 );
+
                 if (!matchResults.argumentErrors) {
+                    if (inferenceContext?.expectedType) {
+                        const returnType = getFunctionEffectiveReturnType(matchResults.overload);
+
+                        if (
+                            !assignType(
+                                inferenceContext.expectedType,
+                                returnType,
+                                /* diag */ undefined,
+                                /* destTypeVarContext */ undefined,
+                                /* srcTypeVarContext */ undefined,
+                                AssignTypeFlags.SkipSolveTypeVars
+                            )
+                        ) {
+                            matchResults.relevance += -0.5;
+                        }
+                    }
+
                     filteredMatchResults.push(matchResults);
                 }
 
@@ -15818,6 +15877,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         classType.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
 
+        // Is this a special type that supports type promotions according to PEP 484?
+        if (typePromotions.has(classType.details.fullName)) {
+            classType.includePromotions = true;
+        }
+
         // Some classes refer to themselves within type arguments used within
         // base classes. We'll register the partially-constructed class type
         // to allow these to be resolved.
@@ -17218,9 +17282,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             let defaultValueType: Type | undefined;
             if (param.defaultValue) {
+                // If this is a stub file, a protocol, an overload, or a class
+                // whose body is a placeholder implementation, treat a "...", as
+                // an "Any" value.
+                let treatEllipsisAsAny = fileInfo.isStubFile || ParseTreeUtils.isSuiteEmpty(node.suite);
+                if (containingClassType && ClassType.isProtocolClass(containingClassType)) {
+                    treatEllipsisAsAny = true;
+                }
+                if (FunctionType.isOverloaded(functionType) || FunctionType.isAbstractMethod(functionType)) {
+                    treatEllipsisAsAny = true;
+                }
+
                 defaultValueType = getTypeOfExpression(
                     param.defaultValue,
-                    EvaluatorFlags.ConvertEllipsisToAny,
+                    treatEllipsisAsAny ? EvaluatorFlags.ConvertEllipsisToAny : EvaluatorFlags.None,
                     makeInferenceContext(annotatedType)
                 ).type;
             }
@@ -21576,15 +21651,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Handle special-case type promotions.
-        const promotionList = typePromotions.get(destType.details.fullName);
-        if (
-            promotionList &&
-            promotionList.some((srcName) =>
-                srcType.details.mro.some((mroClass) => isClass(mroClass) && srcName === mroClass.details.fullName)
-            )
-        ) {
-            if ((flags & AssignTypeFlags.EnforceInvariance) === 0) {
-                return true;
+        if (destType.includePromotions) {
+            const promotionList = typePromotions.get(destType.details.fullName);
+            if (
+                promotionList &&
+                promotionList.some((srcName) =>
+                    srcType.details.mro.some((mroClass) => isClass(mroClass) && srcName === mroClass.details.fullName)
+                )
+            ) {
+                if ((flags & AssignTypeFlags.EnforceInvariance) === 0) {
+                    return true;
+                }
             }
         }
 
@@ -22786,14 +22863,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Handle LiteralString special form.
                 if (ClassType.isBuiltIn(destType, 'LiteralString')) {
                     if (ClassType.isBuiltIn(concreteSrcType, 'str') && concreteSrcType.literalValue !== undefined) {
-                        return true;
+                        return (flags & AssignTypeFlags.EnforceInvariance) === 0;
                     } else if (ClassType.isBuiltIn(concreteSrcType, 'LiteralString')) {
                         return true;
                     }
                 } else if (
                     ClassType.isBuiltIn(concreteSrcType, 'LiteralString') &&
                     strClassType &&
-                    isInstantiableClass(strClassType)
+                    isInstantiableClass(strClassType) &&
+                    (flags & AssignTypeFlags.EnforceInvariance) === 0
                 ) {
                     concreteSrcType = ClassType.cloneAsInstance(strClassType);
                 }
@@ -26011,6 +26089,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getGetterTypeFromProperty,
         getTypeOfArgument,
         markNamesAccessed,
+        expandPromotionTypes,
         makeTopLevelTypeVarsConcrete,
         mapSubtypesExpandTypeVars,
         isTypeSubsumedByOtherType,

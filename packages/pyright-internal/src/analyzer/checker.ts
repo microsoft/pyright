@@ -3510,6 +3510,8 @@ export class Checker extends ParseTreeWalker {
             return transformPossibleRecursiveTypeAlias(subtype);
         });
 
+        arg0Type = this._evaluator.expandPromotionTypes(node, arg0Type);
+
         const arg1Type = this._evaluator.getType(node.arguments[1].valueExpression);
         if (!arg1Type) {
             return;
@@ -3662,7 +3664,6 @@ export class Checker extends ParseTreeWalker {
                 const filterIsSubclass = isIsinstanceFilterSubclass(
                     this._evaluator,
                     varType,
-                    filterType,
                     filterType,
                     isInstanceCheck
                 );

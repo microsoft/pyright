@@ -390,3 +390,33 @@ def func15(x: IntPair | None) -> None:
         case IntPair((y, z)):
             reveal_type(y, expected_text="int")
             reveal_type(z, expected_text="int")
+
+
+def func16(x: str | float | bool | None):
+    match x:
+        case str(v) | bool(v) | float(v):
+            reveal_type(v, expected_text="str | bool | float")
+            reveal_type(x, expected_text="str | bool | float")
+        case v:
+            reveal_type(v, expected_text="int | None")
+            reveal_type(x, expected_text="int | None")
+    reveal_type(x, expected_text="str | bool | float | int | None")
+
+
+def func17(x: str | float | bool | None):
+    match x:
+        case str() | float() | bool():
+            reveal_type(x, expected_text="str | float | bool")
+        case _:
+            reveal_type(x, expected_text="int | None")
+    reveal_type(x, expected_text="str | float | bool | int | None")
+
+
+def func18(x: str | float | bool | None):
+    match x:
+        case str(v) | float(v) | bool(v):
+            reveal_type(v, expected_text="str | float | bool")
+            reveal_type(x, expected_text="str | float | bool")
+        case _:
+            reveal_type(x, expected_text="int | None")
+    reveal_type(x, expected_text="str | float | bool | int | None")
