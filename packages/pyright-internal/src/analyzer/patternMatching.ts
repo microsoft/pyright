@@ -653,7 +653,7 @@ function narrowTypeBasedOnClassPattern(
     // If this is a class (but not a type alias that refers to a class),
     // specialize it with Unknown type arguments.
     if (isClass(exprType) && !exprType.typeAliasInfo) {
-        exprType = ClassType.cloneForPromotionType(exprType, /* isTypeArgumentExplicit */ false);
+        exprType = ClassType.cloneRemoveTypePromotions(exprType);
         exprType = specializeClassType(exprType);
     }
 

@@ -118,6 +118,9 @@ export interface DiagnosticRuleSet {
     // Enable support for type: ignore comments?
     enableTypeIgnoreComments: boolean;
 
+    // No longer treat bytearray and memoryview as subclasses of bytes?
+    disableBytesTypePromotions: boolean;
+
     // Treat old typing aliases as deprecated if pythonVersion >= 3.9?
     deprecateTypingAliases: boolean;
 
@@ -345,6 +348,7 @@ export function getBooleanDiagnosticRules(includeNonOverridable = false) {
         DiagnosticRule.strictParameterNoneValue,
         DiagnosticRule.enableExperimentalFeatures,
         DiagnosticRule.deprecateTypingAliases,
+        DiagnosticRule.disableBytesTypePromotions,
     ];
 
     if (includeNonOverridable) {
@@ -449,6 +453,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         enableExperimentalFeatures: false,
         enableTypeIgnoreComments: true,
         deprecateTypingAliases: false,
+        disableBytesTypePromotions: false,
         reportGeneralTypeIssues: 'none',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'none',
@@ -533,6 +538,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         enableExperimentalFeatures: false,
         enableTypeIgnoreComments: true,
         deprecateTypingAliases: false,
+        disableBytesTypePromotions: false,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'none',
@@ -617,6 +623,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         enableExperimentalFeatures: false,
         enableTypeIgnoreComments: true, // Not overridden by strict mode
         deprecateTypingAliases: false,
+        disableBytesTypePromotions: true,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'error',

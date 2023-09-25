@@ -784,6 +784,7 @@ test('Generic3', () => {
 
 test('Unions1', () => {
     const configOptions = new ConfigOptions('.');
+    configOptions.diagnosticRuleSet.disableBytesTypePromotions = true;
 
     // Analyze with Python 3.9 settings. This will generate errors.
     configOptions.defaultPythonVersion = PythonVersion.V3_9;

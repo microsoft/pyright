@@ -42,6 +42,6 @@ def thing(value: AnyStr):
             if isinstance(file.name, str):
                 if file.name.endswith(".xml"):
                     ...
-            else:
+            elif isinstance(file.name, bytes):
                 if file.name.endswith(b".xml"):
                     ...
