@@ -657,6 +657,13 @@ function narrowTypeBasedOnClassPattern(
         exprType = specializeClassType(exprType);
     }
 
+    // Are there any positional arguments? If so, try to get the mappings for
+    // these arguments by fetching the __match_args__ symbol from the class.
+    let positionalArgNames: string[] = [];
+    if (pattern.arguments.some((arg) => !arg.name) && isInstantiableClass(exprType)) {
+        positionalArgNames = getPositionalMatchArgNames(evaluator, exprType);
+    }
+
     if (!isPositiveTest) {
         // Don't attempt to narrow if the class type is a more complex type (e.g. a TypeVar or union).
         if (!isInstantiableClass(exprType)) {
@@ -727,15 +734,6 @@ function narrowTypeBasedOnClassPattern(
                 if (!evaluator.assignType(subjectSubtypeExpanded, classInstance)) {
                     if (isClass(subjectSubtypeExpanded) && !ClassType.isFinal(subjectSubtypeExpanded)) {
                         return subjectSubtypeExpanded;
-                    }
-                }
-
-                // Are there any positional arguments? If so, try to get the mappings for
-                // these arguments by fetching the __match_args__ symbol from the class.
-                let positionalArgNames: string[] = [];
-                if (pattern.arguments.some((arg) => !arg.name)) {
-                    if (isClass(subjectSubtypeExpanded)) {
-                        positionalArgNames = getPositionalMatchArgNames(evaluator, subjectSubtypeExpanded);
                     }
                 }
 
