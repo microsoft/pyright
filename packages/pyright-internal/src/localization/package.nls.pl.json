@@ -67,7 +67,6 @@
         "classGetItemClsParam": "Przesłonięcie __class_getitem__ powinno przyjmować parametr „cls”.",
         "classMethodClsParam": "Metody klasy powinny przyjmować parametr „cls”",
         "classNotRuntimeSubscriptable": "Indeks dolny dla klasy „{name}” wygeneruje wyjątek czasu uruchamiania; umieść adnotację typu w cudzysłowie",
-        "classPatternBuiltInArgCount": "Wzorzec klasy akceptuje co najwyżej 1 podwzorzec pozycyjny",
         "classPatternBuiltInArgPositional": "Wzorzec klasy akceptuje tylko podwzorzec pozycyjny",
         "classPatternTypeAlias": "„{type}” nie może być używany we wzorcu klasy, ponieważ jest to alias typu specjalnego",
         "classTypeParametersIllegal": "Składnia parametru typu klasy wymaga języka Python w wersji 3.12 lub nowszej",

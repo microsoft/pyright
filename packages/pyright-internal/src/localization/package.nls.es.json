@@ -67,7 +67,6 @@
         "classGetItemClsParam": "__class_getitem__ debe tomar un parámetro \"cls\"",
         "classMethodClsParam": "Los métodos de clase deben tomar un parámetro \"cls\"",
         "classNotRuntimeSubscriptable": "El subíndice para la clase \"{name}\" generará una excepción en tiempo de ejecución; encierre la anotación de tipo entre comillas",
-        "classPatternBuiltInArgCount": "El patrón de clase acepta como máximo 1 subpatrón posicional",
         "classPatternBuiltInArgPositional": "El patrón de clase solo acepta subpatrones posicionales",
         "classPatternTypeAlias": "\"{type}\" no se puede usar en un patrón de clase porque es un alias de tipo especializado",
         "classTypeParametersIllegal": "La sintaxis de los parámetros de tipo de clase requiere Python 3.12 o posterior.",

@@ -67,7 +67,6 @@
         "classGetItemClsParam": "Přepsání __class_getitem__ by mělo mít parametr cls",
         "classMethodClsParam": "Metody třídy by měly mít parametr „cls“",
         "classNotRuntimeSubscriptable": "Dolní index pro třídu {name} vygeneruje výjimku modulu runtime; anotaci typu uzavřete do uvozovek",
-        "classPatternBuiltInArgCount": "Vzor třídy přijímá maximálně 1 poziční dílčí vzor",
         "classPatternBuiltInArgPositional": "Vzor třídy přijímá pouze poziční dílčí vzor",
         "classPatternTypeAlias": "Typ „{type}“ nelze použít ve vzorci třídy, protože se jedná o specializovaný alias typu",
         "classTypeParametersIllegal": "Syntaxe parametru typu třídy vyžaduje Python 312 nebo novější",

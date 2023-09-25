@@ -67,7 +67,6 @@
         "classGetItemClsParam": "__class_getitem__ override は \"cls\" パラメーターを受け取る必要があります",
         "classMethodClsParam": "クラス メソッドは \"cls\" パラメーターを受け取る必要があります",
         "classNotRuntimeSubscriptable": "クラス \"{name}\" の添字はランタイム例外を生成します。型の注釈を引用符で囲む",
-        "classPatternBuiltInArgCount": "クラス パターンは、最大 1 つの位置指定サブパターンを受け入れます",
         "classPatternBuiltInArgPositional": "クラス パターンは位置指定サブパターンのみを受け入れます",
         "classPatternTypeAlias": "\"{type}\" は特殊な型エイリアスであるため、クラス パターンでは使用できません",
         "classTypeParametersIllegal": "クラス型パラメーターの構文には Python 3.12 以降が必要です",

@@ -67,7 +67,6 @@
         "classGetItemClsParam": "__class_getitem__ 覆寫應接受 \"cls\" 參數",
         "classMethodClsParam": "類別方法應採用 \"cls\" 參數",
         "classNotRuntimeSubscriptable": "類別 \"{name}\" 的下標會產生執行階段例外; 以引號括住類型註釋",
-        "classPatternBuiltInArgCount": "類別模式最多接受 1 個位置子模式",
         "classPatternBuiltInArgPositional": "類別模式僅接受位置子模式",
         "classPatternTypeAlias": "無法在類別模式中使用 \"{type}\"，因為它是特殊的型別別名",
         "classTypeParametersIllegal": "類別類型參數語法需要 Python 3.12 或更新版本",

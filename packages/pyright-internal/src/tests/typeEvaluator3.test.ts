@@ -1248,6 +1248,14 @@ test('MatchClass4', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('MatchClass5', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass5.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 5);
+});
+
 test('MatchValue1', () => {
     const configOptions = new ConfigOptions('.');
 

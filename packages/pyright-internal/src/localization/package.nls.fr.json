@@ -67,7 +67,6 @@
         "classGetItemClsParam": "__class_getitem__ remplacement doit prendre un paramètre « cls »",
         "classMethodClsParam": "Les méthodes de classe doivent prendre un paramètre \"cls\"",
         "classNotRuntimeSubscriptable": "L’indice de la classe « {name} » génère une exception d’exécution ; placer l’annotation de type entre guillemets",
-        "classPatternBuiltInArgCount": "Le modèle de classe accepte au maximum 1 sous-modèle positionnel",
         "classPatternBuiltInArgPositional": "Le modèle de classe accepte uniquement le sous-modèle positionnel",
         "classPatternTypeAlias": "\"{type}\" ne peut pas être utilisé dans un modèle de classe car il s'agit d'un alias de type spécialisé",
         "classTypeParametersIllegal": "La syntaxe du paramètre de type de classe nécessite Python 3.12 ou version ultérieure",

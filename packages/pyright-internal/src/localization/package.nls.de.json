@@ -67,7 +67,6 @@
         "classGetItemClsParam": "__class_getitem__ Außerkraftsetzung sollte einen \"cls\"-Parameter annehmen.",
         "classMethodClsParam": "Klassenmethoden sollten einen \"cls\"-Parameter verwenden.",
         "classNotRuntimeSubscriptable": "Durch das Tiefstellungsskript für die Klasse \"{name}\" wird eine Laufzeitausnahme generiert; schließen Sie die Typanmerkung in Anführungszeichen ein",
-        "classPatternBuiltInArgCount": "Das Klassenmuster akzeptiert höchstens 1 positionsbezogenes Untermuster.",
         "classPatternBuiltInArgPositional": "Das Klassenmuster akzeptiert nur positionsbezogenes Untermuster.",
         "classPatternTypeAlias": "\"{type}\" kann nicht in einem Klassenmuster verwendet werden, da es sich um einen spezialisierten Typalias handelt.",
         "classTypeParametersIllegal": "Die Syntax des Klassentypparameters erfordert Python 3.12 oder höher.",

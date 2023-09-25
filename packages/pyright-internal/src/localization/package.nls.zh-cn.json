@@ -67,7 +67,6 @@
         "classGetItemClsParam": "__class_getitem__替代应采用“cls”参数",
         "classMethodClsParam": "类方法应采用“cls”参数",
         "classNotRuntimeSubscriptable": "类“{name}”的下标将生成运行时异常；将类型批注括在引号中",
-        "classPatternBuiltInArgCount": "类模式最多接受 1 个位置子模式",
         "classPatternBuiltInArgPositional": "类模式仅接受位置子模式",
         "classPatternTypeAlias": "无法在类模式中使用“{type}”，因为它是专用类型别名",
         "classTypeParametersIllegal": "类类型参数语法需要 Python 3.12 或更高版本",

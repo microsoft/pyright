@@ -67,7 +67,6 @@
         "classGetItemClsParam": "__class_getitem__ geçersiz kılması bir \"cls\" parametresi almalı",
         "classMethodClsParam": "Sınıf metotları bir \"cls\" parametresi almalıdır",
         "classNotRuntimeSubscriptable": "\"{name}\" sınıfına ait alt simge çalışma zamanı özel durumunu oluşturur; tür ek açıklamalarını tırnak içine alın",
-        "classPatternBuiltInArgCount": "Sınıf deseni en fazla 1 konumsal alt deseni kabul eder",
         "classPatternBuiltInArgPositional": "Sınıf deseni yalnızca konumsal alt desen kabul eder",
         "classPatternTypeAlias": "\"{type}\" özel bir tür diğer adı olduğundan sınıf deseninde kullanılamaz",
         "classTypeParametersIllegal": "Sınıf türü parametresi söz dizimi için Python 3.12 veya daha yeni bir sürümü gerekiyor",

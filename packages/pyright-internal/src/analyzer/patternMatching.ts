@@ -1669,16 +1669,9 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
     } else {
         const isBuiltIn = isClassSpecialCaseForClassPattern(exprType);
 
-        // If it's a special-case builtin class, only one positional argument is allowed.
+        // If it's a special-case builtin class, only positional arguments are allowed.
         if (isBuiltIn) {
-            if (pattern.arguments.length > 1) {
-                evaluator.addDiagnostic(
-                    getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.classPatternBuiltInArgCount(),
-                    pattern.arguments[1]
-                );
-            } else if (pattern.arguments.length === 1 && pattern.arguments[0].name) {
+            if (pattern.arguments.length === 1 && pattern.arguments[0].name) {
                 evaluator.addDiagnostic(
                     getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -1686,6 +1679,36 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
                     pattern.arguments[0].name
                 );
             }
+        }
+
+        // Emits an error if the supplied number of positional patterns is less than
+        // expected for the given subject type.
+        let positionalPatternCount = pattern.arguments.findIndex((arg) => arg.name !== undefined);
+        if (positionalPatternCount < 0) {
+            positionalPatternCount = pattern.arguments.length;
+        }
+
+        let expectedPatternCount = 1;
+        if (!isBuiltIn) {
+            let positionalArgNames: string[] = [];
+            if (pattern.arguments.some((arg) => !arg.name)) {
+                positionalArgNames = getPositionalMatchArgNames(evaluator, exprType);
+            }
+
+            expectedPatternCount = positionalArgNames.length;
+        }
+
+        if (positionalPatternCount > expectedPatternCount) {
+            evaluator.addDiagnostic(
+                getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.classPatternPositionalArgCount().format({
+                    type: exprType.details.name,
+                    expected: expectedPatternCount,
+                    received: positionalPatternCount,
+                }),
+                pattern.arguments[expectedPatternCount]
+            );
         }
     }
 }

@@ -281,9 +281,12 @@ export namespace Localizer {
         export const classMethodClsParam = () => getRawString('Diagnostic.classMethodClsParam');
         export const classNotRuntimeSubscriptable = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.classNotRuntimeSubscriptable'));
-        export const classPatternBuiltInArgCount = () => getRawString('Diagnostic.classPatternBuiltInArgCount');
         export const classPatternBuiltInArgPositional = () =>
             getRawString('Diagnostic.classPatternBuiltInArgPositional');
+        export const classPatternPositionalArgCount = () =>
+            new ParameterizedString<{ type: string; expected: number; received: number }>(
+                getRawString('Diagnostic.classPatternPositionalArgCount')
+            );
         export const classPatternTypeAlias = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.classPatternTypeAlias'));
         export const classTypeParametersIllegal = () => getRawString('Diagnostic.classTypeParametersIllegal');

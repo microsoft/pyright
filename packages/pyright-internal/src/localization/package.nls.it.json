@@ -67,7 +67,6 @@
         "classGetItemClsParam": "__class_getitem__ override deve accettare un parametro \"cls\"",
         "classMethodClsParam": "I metodi di classe devono accettare un parametro \"cls\"",
         "classNotRuntimeSubscriptable": "Il pedice per la classe \"{name}\" genererà un'eccezione di runtime; racchiudere l'annotazione di tipo tra virgolette",
-        "classPatternBuiltInArgCount": "Il modello di classe accetta al massimo 1 sotto pattern posizionale",
         "classPatternBuiltInArgPositional": "Il modello di classe accetta solo un sotto pattern posizionale",
         "classPatternTypeAlias": "\"{type}\" non può essere usato in uno schema di classe, perché è un alias di tipo specializzato",
         "classTypeParametersIllegal": "La sintassi del parametro del tipo di classe richiede Python 3.12 o versione successiva",

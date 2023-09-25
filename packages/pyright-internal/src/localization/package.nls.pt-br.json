@@ -67,7 +67,6 @@
         "classGetItemClsParam": "A substituição__class_getitem__ deve usar um parâmetro \"cls\"",
         "classMethodClsParam": "Os métodos de classe devem usar um parâmetro \"cls\"",
         "classNotRuntimeSubscriptable": "O subscrito para a classe \"{name}\" gerará uma exceção de runtime. Coloque a anotação de tipo entre aspas",
-        "classPatternBuiltInArgCount": "O padrão de classe aceita no máximo 1 sub-padrão posicional",
         "classPatternBuiltInArgPositional": "O padrão de classe aceita apenas sub-padrão posicional",
         "classPatternTypeAlias": "\"{type}\" não pode ser usado em um padrão de classe porque é um alias de tipo especializado",
         "classTypeParametersIllegal": "A sintaxe do parâmetro de tipo de classe requer o Python 3.12 ou mais recente",
