@@ -473,7 +473,10 @@ test('ConstrainedTypeVar14', () => {
 });
 
 test('ConstrainedTypeVar15', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constrainedTypeVar15.py']);
+    const configOptions = new ConfigOptions('.');
+    configOptions.diagnosticRuleSet.disableBytesTypePromotions = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constrainedTypeVar15.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 0);
 });

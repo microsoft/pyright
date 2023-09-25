@@ -424,6 +424,7 @@ const nonSubscriptableBuiltinTypes: Map<string, PythonVersion> = new Map([
 const typePromotions: Map<string, string[]> = new Map([
     ['builtins.float', ['builtins.int']],
     ['builtins.complex', ['builtins.float', 'builtins.int']],
+    ['builtins.bytes', ['builtins.bytearray', 'builtins.memoryview']],
 ]);
 
 interface SymbolResolutionStackEntry {
@@ -1186,6 +1187,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Do we need to validate that the type is instantiable?
         if (expectingInstantiable) {
             validateTypeIsInstantiable(typeResult, flags, node);
+        }
+
+        // Should we disable type promotions for bytes?
+        if (
+            isInstantiableClass(typeResult.type) &&
+            typeResult.type.includePromotions &&
+            !typeResult.type.includeSubclasses &&
+            ClassType.isBuiltIn(typeResult.type, 'bytes')
+        ) {
+            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.disableBytesTypePromotions) {
+                typeResult = {
+                    ...typeResult,
+                    type: ClassType.cloneForPromotionType(typeResult.type, /* includePromotions */ false),
+                };
+            }
         }
 
         writeTypeCache(node, typeResult, flags, inferenceContext, /* allowSpeculativeCaching */ true);
@@ -21745,6 +21761,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 destType: destErrorTypeText,
             })
         );
+
+        // Tell the user about the disableBytesTypePromotions if that is involved.
+        if (ClassType.isBuiltIn(destType, 'bytes')) {
+            const promotions = typePromotions.get(destType.details.fullName);
+            if (promotions && promotions.some((name) => name === srcType.details.fullName)) {
+                diag?.addMessage(Localizer.DiagnosticAddendum.bytesTypePromotions());
+            }
+        }
+
         return false;
     }
 

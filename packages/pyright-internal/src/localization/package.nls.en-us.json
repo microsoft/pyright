@@ -585,6 +585,7 @@
         "baseClassIncompatibleSubclass": "Base class \"{baseClass}\" derives from \"{subclass}\" which is incompatible with type \"{type}\"",
         "baseClassOverriddenType": "Base class \"{baseClass}\" provides type \"{type}\", which is overridden",
         "baseClassOverridesType": "Base class \"{baseClass}\" overrides with type \"{type}\"",
+        "bytesTypePromotions": "Set disableBytesTypePromotions to false to enable type promotion behavior for \"bytearray\" and \"memoryview\"",
         "conditionalRequiresBool": "Method __bool__ for type \"{operandType}\" returns type \"{boolReturnType}\" rather than \"bool\"",
         "dataClassFieldLocation": "Field declaration",
         "dataClassFrozen": "\"{name}\" is frozen",
