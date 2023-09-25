@@ -424,6 +424,7 @@ const nonSubscriptableBuiltinTypes: Map<string, PythonVersion> = new Map([
 const typePromotions: Map<string, string[]> = new Map([
     ['builtins.float', ['builtins.int']],
     ['builtins.complex', ['builtins.float', 'builtins.int']],
+    ['builtins.bytes', ['builtins.bytearray', 'builtins.memoryview']],
 ]);
 
 interface SymbolResolutionStackEntry {
@@ -1188,6 +1189,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             validateTypeIsInstantiable(typeResult, flags, node);
         }
 
+        // Should we disable type promotions for bytes?
+        if (
+            isInstantiableClass(typeResult.type) &&
+            typeResult.type.includePromotions &&
+            !typeResult.type.includeSubclasses &&
+            ClassType.isBuiltIn(typeResult.type, 'bytes')
+        ) {
+            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.disableBytesTypePromotions) {
+                typeResult = {
+                    ...typeResult,
+                    type: ClassType.cloneRemoveTypePromotions(typeResult.type),
+                };
+            }
+        }
+
         writeTypeCache(node, typeResult, flags, inferenceContext, /* allowSpeculativeCaching */ true);
 
         // If there was an expected type, make sure that the result type is compatible.
@@ -1540,6 +1556,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     type: getBuiltInObject(node, isBytes ? 'bytes' : 'str'),
                     isIncomplete,
                 };
+
+                if (isClass(typeResult.type) && typeResult.type.includePromotions) {
+                    typeResult.type = ClassType.cloneRemoveTypePromotions(typeResult.type);
+                }
             }
         } else {
             typeResult = {
@@ -3550,13 +3570,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // If the type includes promotion types, expand these to their constituent types.
-    function expandPromotionTypes(node: ParseNode, type: Type): Type {
+    function expandPromotionTypes(node: ParseNode, type: Type, excludeBytes = false): Type {
         return mapSubtypes(type, (subtype) => {
             if (!isClass(subtype) || !subtype.includePromotions) {
                 return subtype;
             }
 
-            const typesToCombine: Type[] = [ClassType.cloneForPromotionType(subtype, /* includePromotions */ false)];
+            if (excludeBytes && ClassType.isBuiltIn(subtype, 'bytes')) {
+                return subtype;
+            }
+
+            const typesToCombine: Type[] = [ClassType.cloneRemoveTypePromotions(subtype)];
 
             const promotionTypeNames = typePromotions.get(subtype.details.fullName);
             if (promotionTypeNames) {
@@ -3565,10 +3589,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     let promotionSubtype = getBuiltInType(node, nameSplit[nameSplit.length - 1]);
 
                     if (promotionSubtype && isInstantiableClass(promotionSubtype)) {
-                        promotionSubtype = ClassType.cloneForPromotionType(
-                            promotionSubtype,
-                            /* includePromotions */ false
-                        );
+                        promotionSubtype = ClassType.cloneRemoveTypePromotions(promotionSubtype);
 
                         if (isClassInstance(subtype)) {
                             promotionSubtype = ClassType.cloneAsInstance(promotionSubtype);
@@ -5169,8 +5190,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             baseType = makeTopLevelTypeVarsConcrete(baseType);
         }
 
-        // Do union expansion for promotion types.
-        baseType = expandPromotionTypes(node, baseType);
+        // Do union expansion for promotion types. Exclude bytes here because
+        // this creates too much noise. Users who want stricter checks for bytes
+        // can use "disableBytesTypePromotions".
+        baseType = expandPromotionTypes(node, baseType, /* excludeBytes */ true);
 
         switch (baseType.category) {
             case TypeCategory.Any:
@@ -14496,7 +14519,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function cloneBuiltinObjectWithLiteral(node: ParseNode, builtInName: string, value: LiteralValue): Type {
         const type = getBuiltInObject(node, builtInName);
         if (isClassInstance(type)) {
-            return ClassType.cloneWithLiteral(type, value);
+            return ClassType.cloneWithLiteral(ClassType.cloneRemoveTypePromotions(type), value);
         }
 
         return UnknownType.create();
@@ -21745,6 +21768,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 destType: destErrorTypeText,
             })
         );
+
+        // Tell the user about the disableBytesTypePromotions if that is involved.
+        if (ClassType.isBuiltIn(destType, 'bytes')) {
+            const promotions = typePromotions.get(destType.details.fullName);
+            if (promotions && promotions.some((name) => name === srcType.details.fullName)) {
+                diag?.addMessage(Localizer.DiagnosticAddendum.bytesTypePromotions());
+            }
+        }
+
         return false;
     }
 

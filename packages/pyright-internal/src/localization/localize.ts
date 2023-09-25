@@ -1145,6 +1145,7 @@ export namespace Localizer {
             new ParameterizedString<{ baseClass: string; type: string }>(
                 getRawString('DiagnosticAddendum.baseClassOverridesType')
             );
+        export const bytesTypePromotions = () => getRawString('DiagnosticAddendum.bytesTypePromotions');
         export const conditionalRequiresBool = () =>
             new ParameterizedString<{ operandType: string; boolReturnType: string }>(
                 getRawString('DiagnosticAddendum.conditionalRequiresBool')
