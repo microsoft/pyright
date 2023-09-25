@@ -22296,6 +22296,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (includeDiagAddendum) {
                                 childDiag.addAddendum(assignmentDiag);
                             }
+
+                            if (isCompatible && ClassType.isSameGenericClass(destType, srcType)) {
+                                // Add additional notes to help the user if this is a common type mismatch.
+                                if (ClassType.isBuiltIn(destType, 'dict') && srcArgIndex === 1) {
+                                    childDiag.addMessage(Localizer.DiagnosticAddendum.invariantSuggestionDict());
+                                } else if (ClassType.isBuiltIn(destType, 'list')) {
+                                    childDiag.addMessage(Localizer.DiagnosticAddendum.invariantSuggestionList());
+                                }
+                            }
                         } else {
                             diag.addAddendum(assignmentDiag);
                         }

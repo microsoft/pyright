@@ -1175,6 +1175,8 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.initMethodLocation'));
         export const initMethodSignature = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.initMethodSignature'));
+        export const invariantSuggestionDict = () => getRawString('DiagnosticAddendum.invariantSuggestionDict');
+        export const invariantSuggestionList = () => getRawString('DiagnosticAddendum.invariantSuggestionList');
         export const functionTooManyParams = () =>
             new ParameterizedString<{ expected: number; received: number }>(
                 getRawString('DiagnosticAddendum.functionTooManyParams')

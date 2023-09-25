@@ -604,6 +604,8 @@
         "initMethodLocation": "The __init__ method is defined in class \"{type}\"",
         "incompatibleDeleter": "Property deleter method is incompatible",
         "initMethodSignature": "Signature of __init__ is \"{type}\"",
+        "invariantSuggestionDict": "Consider switching from \"dict\" to \"Mapping\" which is covariant in the value type",
+        "invariantSuggestionList": "Consider switching from \"list\" to \"Sequence\" which is covariant",
         "kwargsParamMissing": "Parameter \"**{paramName}\" has no corresponding parameter",
         "listAssignmentMismatch": "Type \"{type}\" is incompatible with target list",
         "literalAssignmentMismatch": "\"{sourceType}\" cannot be assigned to type \"{destType}\"",
