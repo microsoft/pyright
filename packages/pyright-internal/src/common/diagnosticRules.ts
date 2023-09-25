@@ -19,6 +19,7 @@ export enum DiagnosticRule {
     enableExperimentalFeatures = 'enableExperimentalFeatures',
     enableTypeIgnoreComments = 'enableTypeIgnoreComments',
     deprecateTypingAliases = 'deprecateTypingAliases',
+    disableBytesTypePromotions = 'disableBytesTypePromotions',
 
     reportGeneralTypeIssues = 'reportGeneralTypeIssues',
     reportPropertyTypeMismatch = 'reportPropertyTypeMismatch',

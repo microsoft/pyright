@@ -827,9 +827,13 @@ export namespace ClassType {
         return newClassType;
     }
 
-    export function cloneForPromotionType(classType: ClassType, includePromotions: boolean): ClassType {
+    export function cloneRemoveTypePromotions(classType: ClassType): ClassType {
+        if (!classType.includePromotions) {
+            return classType;
+        }
+
         const newClassType = TypeBase.cloneType(classType);
-        newClassType.includePromotions = includePromotions;
+        delete newClassType.includePromotions;
         return newClassType;
     }
 

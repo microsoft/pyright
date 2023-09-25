@@ -112,6 +112,12 @@
       ],
       "pattern": "^(.*)$"
     },
+    "disableBytesTypePromotions": {
+      "$id": "#/properties/disableBytesTypePromotions",
+      "type": "boolean",
+      "title": "Do not treat `bytearray` and `memoryview` as implicit subtypes of `bytes`",
+      "default": false
+    },
     "strictListInference": {
       "$id": "#/properties/strictListInference",
       "type": "boolean",
