@@ -28,6 +28,7 @@ import {
     getPathComponents,
     getRelativePath,
     getRelativePathFromDirectory,
+    getRootLength,
     getWildcardRegexPattern,
     getWildcardRoot,
     hasTrailingDirectorySeparator,
@@ -77,6 +78,15 @@ test('getPathComponents5', () => {
     assert.equal(components.length, 2);
     assert.equal(components[0], '');
     assert.equal(components[1], 'hello.py');
+});
+
+test('getPathComponents6', () => {
+    const components = getPathComponents(fixSeparators('//server/share/dir/file.py'));
+    assert.equal(components.length, 4);
+    assert.equal(components[0], fixSeparators('//server/'));
+    assert.equal(components[1], 'share');
+    assert.equal(components[2], 'dir');
+    assert.equal(components[3], 'file.py');
 });
 
 test('combinePaths1', () => {
@@ -160,6 +170,13 @@ test('getWildcardRegexPattern3', () => {
     const regex = new RegExp(pattern);
     assert.ok(regex.test(fixSeparators('/users/me/.blah/.foo.py')));
     assert.ok(!regex.test(fixSeparators('/users/me/.blah/foo.py')));
+});
+
+test('getWildcardRegexPattern4', () => {
+    const pattern = getWildcardRegexPattern('//server/share/dir', '.');
+    const regex = new RegExp(pattern);
+    assert.ok(regex.test(fixSeparators('//server/share/dir/foo.py')));
+    assert.ok(!regex.test(fixSeparators('//server/share/dix/foo.py')));
 });
 
 test('isDirectoryWildcardPatternPresent1', () => {
@@ -316,6 +333,34 @@ test('getRelativePathFromDirectory2', () => {
     assert.equal(getRelativePathFromDirectory('/a', '/b/c/d', true), normalizeSlashes('../b/c/d'));
 });
 
+test('getRootLength1', () => {
+    assert.equal(getRootLength('a'), 0);
+});
+
+test('getRootLength2', () => {
+    assert.equal(getRootLength(fixSeparators('/')), 1);
+});
+
+test('getRootLength3', () => {
+    assert.equal(getRootLength('c:'), 2);
+});
+
+test('getRootLength4', () => {
+    assert.equal(getRootLength('c:d'), 0);
+});
+
+test('getRootLength5', () => {
+    assert.equal(getRootLength(fixSeparators('c:/')), 3);
+});
+
+test('getRootLength6', () => {
+    assert.equal(getRootLength(fixSeparators('//server')), 8);
+});
+
+test('getRootLength7', () => {
+    assert.equal(getRootLength(fixSeparators('//server/share')), 9);
+});
+
 test('isRootedDiskPath1', () => {
     assert(isRootedDiskPath(normalizeSlashes('C:/a/b')));
 });
@@ -337,7 +382,11 @@ test('isDiskPathRoot2', () => {
 });
 
 test('isDiskPathRoot3', () => {
-    assert(!isRootedDiskPath(normalizeSlashes('c:')));
+    assert(isRootedDiskPath(normalizeSlashes('c:')));
+});
+
+test('isDiskPathRoot4', () => {
+    assert(!isRootedDiskPath(normalizeSlashes('c:d')));
 });
 
 test('getRelativePath', () => {

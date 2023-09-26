@@ -21,7 +21,7 @@ import {
     FileWatcherProvider,
     nullFileWatcherProvider,
 } from './fileWatcher';
-import { combinePaths, getDirectoryPath, getFileName, getRootLength } from './pathUtils';
+import { combinePaths, getDirectoryPath, getFileName, isDiskPathRoot, isRootedDiskPath } from './pathUtils';
 
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();
@@ -371,7 +371,7 @@ class RealFileSystem implements FileSystem {
         try {
             // If it doesn't exist in the real FS, try going up a level and combining it.
             if (!this.existsSync(path)) {
-                if (getRootLength(path) <= 0) {
+                if (!isRootedDiskPath(path) || isDiskPathRoot(path)) {
                     return path;
                 }
                 return combinePaths(this.realCasePath(getDirectoryPath(path)), getFileName(path));
