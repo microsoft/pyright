@@ -79,6 +79,15 @@ test('getPathComponents5', () => {
     assert.equal(components[1], 'hello.py');
 });
 
+test('getPathComponents6', () => {
+    const components = getPathComponents('\\\\server\\share\\dir\\file.py');
+    assert.equal(components.length, 4);
+    assert.equal(components[0], '\\\\server\\');
+    assert.equal(components[1], 'share');
+    assert.equal(components[2], 'dir');
+    assert.equal(components[3], 'file.py');
+});
+
 test('combinePaths1', () => {
     const p = combinePaths('/user', '1', '2', '3');
     assert.equal(p, normalizeSlashes('/user/1/2/3'));
@@ -160,6 +169,13 @@ test('getWildcardRegexPattern3', () => {
     const regex = new RegExp(pattern);
     assert.ok(regex.test(fixSeparators('/users/me/.blah/.foo.py')));
     assert.ok(!regex.test(fixSeparators('/users/me/.blah/foo.py')));
+});
+
+test('getWildcardRegexPattern4', () => {
+    const pattern = getWildcardRegexPattern('//server/share/dir', '.');
+    const regex = new RegExp(pattern);
+    assert.ok(regex.test(fixSeparators('//server/share/dir/foo.py')));
+    assert.ok(!regex.test(fixSeparators('//server/share/dix/foo.py')));
 });
 
 test('isDirectoryWildcardPatternPresent1', () => {
