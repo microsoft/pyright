@@ -110,6 +110,9 @@ export function getRootLength(pathString: string): number {
         if (pathString.charAt(2) === path.sep) {
             return 3; // DOS: "c:/" or "c:\"
         }
+        if (pathString.length === 2) {
+            return 2; // DOS: "c:" (but not "c:d")
+        }
     }
     return 0;
 }
