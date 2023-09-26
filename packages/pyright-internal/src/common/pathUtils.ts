@@ -92,24 +92,23 @@ export function getDirectoryPath(pathString: string): string {
     return pathString.substr(0, Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep)));
 }
 
+/**
+ * Returns length of the root part of a path or URL (i.e. length of "/", "x:/", "//server/").
+ */
 export function getRootLength(pathString: string): number {
     if (pathString.charAt(0) === path.sep) {
         if (pathString.charAt(1) !== path.sep) {
-            return 1;
+            return 1; // POSIX: "/" (or non-normalized "\")
         }
         const p1 = pathString.indexOf(path.sep, 2);
         if (p1 < 0) {
-            return 2;
+            return pathString.length; // UNC: "//server" or "\\server"
         }
-        const p2 = pathString.indexOf(path.sep, p1 + 1);
-        if (p2 < 0) {
-            return p1 + 1;
-        }
-        return p2 + 1;
+        return p1 + 1; // UNC: "//server/" or "\\server\"
     }
     if (pathString.charAt(1) === ':') {
         if (pathString.charAt(2) === path.sep) {
-            return 3;
+            return 3; // DOS: "c:/" or "c:\"
         }
     }
     return 0;
@@ -646,6 +645,10 @@ export function getWildcardRegexPattern(rootPath: string, fileSpec: string): str
     // Strip the directory separator from the root component.
     if (pathComponents.length > 0) {
         pathComponents[0] = stripTrailingDirectorySeparator(pathComponents[0]);
+
+        if (pathComponents[0].startsWith('\\\\')) {
+            pathComponents[0] = '\\\\' + pathComponents[0];
+        }
     }
 
     let regExPattern = '';
