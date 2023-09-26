@@ -80,9 +80,9 @@ test('getPathComponents5', () => {
 });
 
 test('getPathComponents6', () => {
-    const components = getPathComponents('\\\\server\\share\\dir\\file.py');
+    const components = getPathComponents(fixSeparators('//server/share/dir/file.py'));
     assert.equal(components.length, 4);
-    assert.equal(components[0], '\\\\server\\');
+    assert.equal(components[0], fixSeparators('//server/'));
     assert.equal(components[1], 'share');
     assert.equal(components[2], 'dir');
     assert.equal(components[3], 'file.py');
