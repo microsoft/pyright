@@ -17,7 +17,7 @@ import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticCategory, TaskListToken, convertLevelToCategory } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
-import { Extensions } from '../common/extensibility';
+import { ServiceProvider } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { LogTracker, getPathForLogging } from '../common/logTracker';
 import { getFileName, normalizeSlashes, stripFileExtension } from '../common/pathUtils';
@@ -45,6 +45,7 @@ import { SourceMapper } from './sourceMapper';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluatorTypes';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 
 // Limit the number of import cycles tracked per source file.
 const _maxImportCyclesPerFile = 4;
@@ -198,7 +199,7 @@ export class SourceFile {
     readonly fileSystem: FileSystem;
 
     constructor(
-        fs: FileSystem,
+        readonly serivceProvider: ServiceProvider,
         filePath: string,
         moduleName: string,
         isThirdPartyImport: boolean,
@@ -209,7 +210,7 @@ export class SourceFile {
         realFilePath?: string,
         ipythonMode?: IPythonMode
     ) {
-        this.fileSystem = fs;
+        this.fileSystem = serivceProvider.get(ServiceKeys.fs);
         this._console = console || new StandardConsole();
         this._editMode = editMode;
         this._filePath = filePath;
@@ -379,7 +380,8 @@ export class SourceFile {
         this._writableData.moduleSymbolTable = undefined;
 
         const filePath = this.getFilePath();
-        Extensions.getProgramExtensions(filePath).forEach((e) => (e.fileDirty ? e.fileDirty(filePath) : null));
+
+        this.serivceProvider.tryGet(ServiceKeys.stateMutationListeners)?.forEach((l) => l.fileDirty?.(filePath));
     }
 
     markReanalysisRequired(forceRebinding: boolean): void {

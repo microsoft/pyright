@@ -30,7 +30,6 @@ import { ConsoleInterface, LogLevel, log } from './common/console';
 import * as debug from './common/debug';
 import { Diagnostic } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
-import { Extensions } from './common/extensibility';
 import { disposeCancellationToken, getCancellationTokenFromId } from './common/fileBasedCancellationUtils';
 import { Host, HostKind } from './common/host';
 import { LogTracker } from './common/logTracker';
@@ -278,27 +277,6 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         this.logTracker = new LogTracker(console, `BG(${threadId})`);
 
         this._program = new Program(this.importResolver, this._configOptions, serviceProvider, this.logTracker);
-
-        // Create the extensions bound to the program for this background thread
-        Extensions.createProgramExtensions(this._program, {
-            addInterimFile: (filePath: string) => this._program.addInterimFile(filePath),
-            setFileOpened: (filePath, version, contents, ipythonMode, chainedFilePath, realFilePath) => {
-                this._program.setFileOpened(filePath, version, contents, {
-                    isTracked: this._program.owns(filePath),
-                    ipythonMode,
-                    chainedFilePath,
-                    realFilePath,
-                });
-            },
-            updateOpenFileContents: (filePath, version, contents, ipythonMode, realFilePath) => {
-                this._program.setFileOpened(filePath, version, contents, {
-                    isTracked: this._program.owns(filePath),
-                    ipythonMode,
-                    chainedFilePath: undefined,
-                    realFilePath,
-                });
-            },
-        });
     }
 
     get program(): Program {
@@ -600,7 +578,6 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
     protected override handleShutdown() {
         this._program.dispose();
-        Extensions.destroyProgramExtensions(this._program.id);
         super.handleShutdown();
     }
 

@@ -19,7 +19,7 @@ import { ConfigOptions, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, LogLevel, StandardConsole, log } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditAction } from '../common/editAction';
-import { EditableProgram, Extensions, ProgramMutator, ProgramView } from '../common/extensibility';
+import { EditableProgram, ProgramView } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileWatcher';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
@@ -102,10 +102,12 @@ export function getNextServiceId(name: string) {
 }
 
 export class AnalyzerService {
-    private _instanceName: string;
-    private _executionRootPath: string;
-    private _options: AnalyzerServiceOptions;
+    private readonly _instanceName: string;
+    private readonly _options: AnalyzerServiceOptions;
+    private readonly _backgroundAnalysisProgram: BackgroundAnalysisProgram;
+    private readonly _serviceProvider: ServiceProvider;
 
+    private _executionRootPath: string;
     private _typeStubTargetPath: string | undefined;
     private _typeStubTargetIsSingleFile = false;
     private _sourceFileWatcher: FileWatcher | undefined;
@@ -120,11 +122,10 @@ export class AnalyzerService {
     private _analyzeTimer: any;
     private _requireTrackedFileUpdate = true;
     private _lastUserInteractionTime = Date.now();
-    private _backgroundAnalysisProgram: BackgroundAnalysisProgram;
     private _backgroundAnalysisCancellationSource: AbstractCancellationTokenSource | undefined;
+
     private _disposed = false;
     private _pendingLibraryChanges: RefreshOptions = { changesOnly: true };
-    private _serviceProvider = new ServiceProvider();
 
     constructor(instanceName: string, serviceProvider: ServiceProvider, options: AnalyzerServiceOptions) {
         this._instanceName = instanceName;
@@ -135,10 +136,8 @@ export class AnalyzerService {
         this._options.serviceId = this._options.serviceId ?? getNextServiceId(instanceName);
         this._options.console = options.console || new StandardConsole();
 
-        // Add the services from the passed in service provider to the local service provider.
-        [...serviceProvider.items].forEach((item) => {
-            this._serviceProvider.add(item[0], item[1]);
-        });
+        // Create local copy of the given service provider.
+        this._serviceProvider = serviceProvider.clone();
 
         // Override the console and the file system if they were explicitly provided.
         if (this._options.console) {
@@ -180,17 +179,6 @@ export class AnalyzerService {
                       /* disableChecker */ undefined,
                       this._options.cacheManager
                   );
-
-        // Create the extensions tied to this program.
-
-        // Make a wrapper around the program for mutation situations. It
-        // will forward the requests to the background thread too.
-        const mutator: ProgramMutator = {
-            addInterimFile: this.addInterimFile.bind(this),
-            updateOpenFileContents: this.updateOpenFileContents.bind(this),
-            setFileOpened: this.setFileOpened.bind(this),
-        };
-        Extensions.createProgramExtensions(this._program, mutator);
     }
 
     get fs() {
@@ -275,7 +263,6 @@ export class AnalyzerService {
             // Make sure we dispose program, otherwise, entire program
             // will leak.
             this._backgroundAnalysisProgram.dispose();
-            Extensions.destroyProgramExtensions(this._program.id);
         }
 
         this._disposed = true;
@@ -617,9 +604,11 @@ export class AnalyzerService {
             );
             (configOptions.pythonPath = commandLineOptions.pythonPath), this.fs;
         }
+
         if (commandLineOptions.pythonEnvironmentName) {
             this._console.info(
-                `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
+                `Setting environmentName for service "${this._instanceName}": ` +
+                    `"${commandLineOptions.pythonEnvironmentName}"`
             );
             configOptions.pythonEnvironmentName = commandLineOptions.pythonEnvironmentName;
         }

@@ -9,9 +9,14 @@ import { ISourceFileFactory } from '../analyzer/program';
 import { IPythonMode, SourceFile, SourceFileEditMode } from '../analyzer/sourceFile';
 import { SupportPartialStubs, SupportUriToPathMapping } from '../pyrightFileSystem';
 import { ConsoleInterface } from './console';
+import {
+    StatusMutationListener,
+    SymbolDeclarationProvider,
+    ServiceProvider as ReadOnlyServiceProvider,
+} from './extensibility';
 import { FileSystem } from './fileSystem';
 import { LogTracker } from './logTracker';
-import { ServiceKey, ServiceProvider } from './serviceProvider';
+import { GroupServiceKey, ServiceKey, ServiceProvider } from './serviceProvider';
 
 declare module './serviceProvider' {
     interface ServiceProvider {
@@ -29,6 +34,8 @@ export namespace ServiceKeys {
     export const sourceFileFactory = new ServiceKey<ISourceFileFactory>();
     export const partialStubs = new ServiceKey<SupportPartialStubs>();
     export const uriMapper = new ServiceKey<SupportUriToPathMapping>();
+    export const symbolDeclarationProviders = new GroupServiceKey<SymbolDeclarationProvider>();
+    export const stateMutationListeners = new GroupServiceKey<StatusMutationListener>();
 }
 
 export function createServiceProvider(...services: any): ServiceProvider {
@@ -74,7 +81,7 @@ ServiceProvider.prototype.sourceFileFactory = function () {
 
 const DefaultSourceFileFactory: ISourceFileFactory = {
     createSourceFile(
-        fs: FileSystem,
+        serviceProvider: ReadOnlyServiceProvider,
         filePath: string,
         moduleName: string,
         isThirdPartyImport: boolean,
@@ -86,7 +93,7 @@ const DefaultSourceFileFactory: ISourceFileFactory = {
         ipythonMode?: IPythonMode
     ) {
         return new SourceFile(
-            fs,
+            serviceProvider,
             filePath,
             moduleName,
             isThirdPartyImport,

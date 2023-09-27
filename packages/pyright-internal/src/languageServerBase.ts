@@ -99,7 +99,6 @@ import {
 } from './common/diagnostic';
 import { DiagnosticRule } from './common/diagnosticRules';
 import { FileDiagnostics } from './common/diagnosticSink';
-import { Extensions } from './common/extensibility';
 import { FileSystem } from './common/fileSystem';
 import { FileWatcherEventType, FileWatcherHandler } from './common/fileWatcher';
 import { Host } from './common/host';
@@ -397,9 +396,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         // Listen on the connection.
         this.connection.listen();
-
-        // Setup extensions
-        Extensions.createLanguageServiceExtensions(this);
     }
 
     get console(): ConsoleInterface {

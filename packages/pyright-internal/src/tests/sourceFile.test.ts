@@ -20,7 +20,8 @@ import { createServiceProvider } from '../common/serviceProviderExtensions';
 test('Empty', () => {
     const filePath = combinePaths(process.cwd(), 'tests/samples/test_file1.py');
     const fs = createFromRealFileSystem();
-    const sourceFile = new SourceFile(fs, filePath, '', false, false, { isEditMode: false });
+    const serviceProvider = createServiceProvider(fs);
+    const sourceFile = new SourceFile(serviceProvider, filePath, '', false, false, { isEditMode: false });
     const configOptions = new ConfigOptions(process.cwd());
     const sp = createServiceProvider(fs);
     const importResolver = new ImportResolver(sp, configOptions, new FullAccessHost(fs));

@@ -19,8 +19,7 @@ import { assert } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction } from '../common/editAction';
-import { EditableProgram, Extensions, ProgramView } from '../common/extensibility';
-import { FileSystem } from '../common/fileSystem';
+import { EditableProgram, ProgramView } from '../common/extensibility';
 import { LogTracker } from '../common/logTracker';
 import {
     combinePaths,
@@ -84,7 +83,7 @@ export type PreCheckCallback = (parseResults: ParseResults, evaluator: TypeEvalu
 
 export interface ISourceFileFactory {
     createSourceFile(
-        fs: FileSystem,
+        serviceProvider: ServiceProvider,
         filePath: string,
         moduleName: string,
         isThirdPartyImport: boolean,
@@ -363,7 +362,7 @@ export class Program {
         }
 
         const sourceFile = this._sourceFileFactory.createSourceFile(
-            this.fileSystem,
+            this.serviceProvider,
             filePath,
             importName,
             isThirdPartyImport,
@@ -391,7 +390,7 @@ export class Program {
         if (!sourceFileInfo) {
             const importName = this._getImportNameForFile(filePath);
             const sourceFile = this._sourceFileFactory.createSourceFile(
-                this.fileSystem,
+                this.serviceProvider,
                 filePath,
                 importName,
                 /* isThirdPartyImport */ false,
@@ -992,7 +991,8 @@ export class Program {
         this._createNewEvaluator();
         this._discardCachedParseResults();
         this._parsedFileCount = 0;
-        Extensions.getProgramExtensions(this.rootPath).forEach((e) => (e.clearCache ? e.clearCache() : null));
+
+        this.serviceProvider.tryGet(ServiceKeys.stateMutationListeners)?.forEach((l) => l.clearCache?.());
     }
 
     private _handleMemoryHighUsage() {
@@ -1430,7 +1430,7 @@ export class Program {
                 if (!importedFileInfo) {
                     const importName = this._getImportNameForFile(importInfo.path);
                     const sourceFile = new SourceFile(
-                        this.fileSystem,
+                        this.serviceProvider,
                         importInfo.path,
                         importName,
                         importInfo.isThirdPartyImport,
@@ -1568,7 +1568,7 @@ export class Program {
     private _createInterimFileInfo(filePath: string) {
         const importName = this._getImportNameForFile(filePath);
         const sourceFile = this._sourceFileFactory.createSourceFile(
-            this.fileSystem,
+            this.serviceProvider,
             filePath,
             importName,
             /* isThirdPartyImport */ false,
