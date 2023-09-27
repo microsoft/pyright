@@ -39,7 +39,7 @@ import { TypeCategory, isInstantiableClass } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
-import { DeclarationUseCase, Extensions, ProgramView } from '../common/extensibility';
+import { DeclarationUseCase, ProgramView, ServiceProvider } from '../common/extensibility';
 import { TextRange } from '../common/textRange';
 import {
     ClassNode,
@@ -51,6 +51,7 @@ import {
     StringListNode,
     StringNode,
 } from '../parser/parseNodes';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 
 export type CollectionResult = {
     node: NameNode | StringNode;
@@ -155,6 +156,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         }
 
         const declarations = this._getDeclarationsForNode(
+            program.serviceProvider,
             node,
             useCase,
             evaluator,
@@ -239,6 +241,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
 
         if (this._declarations.length > 0) {
             const declarations = DocumentSymbolCollector._getDeclarationsForNode(
+                this._program.serviceProvider,
                 node,
                 this._useCase,
                 this._evaluator,
@@ -450,6 +453,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     }
 
     private static _getDeclarationsForNode(
+        serviceProvider: ServiceProvider,
         node: NameNode,
         useCase: DocumentSymbolCollectorUseCase,
         evaluator: TypeEvaluator,
@@ -471,23 +475,19 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             result = this._getDeclarationsForModuleNameNode(node, evaluator);
         }
 
-        // Let extensions also add declarations.
-        Extensions.getProgramExtensions(node).forEach((e) => {
-            const declUseCase =
-                useCase === DocumentSymbolCollectorUseCase.Rename
-                    ? DeclarationUseCase.Rename
-                    : DeclarationUseCase.References;
-            const extras = e.declarationProviderExtension?.tryGetDeclarations(
-                evaluator,
-                node,
-                node.start,
-                declUseCase,
-                token
-            );
-            if (extras && extras.length > 0) {
-                appendArray(result, extras);
-            }
-        });
+        const providers = serviceProvider.tryGet(ServiceKeys.symbolDeclarationProviders);
+        if (providers) {
+            providers.forEach((p) => {
+                const declUseCase =
+                    useCase === DocumentSymbolCollectorUseCase.Rename
+                        ? DeclarationUseCase.Rename
+                        : DeclarationUseCase.References;
+                const extras = p.tryGetDeclarations(evaluator, node, node.start, declUseCase, token);
+                if (extras && extras.length > 0) {
+                    appendArray(result, extras);
+                }
+            });
+        }
 
         return result;
     }

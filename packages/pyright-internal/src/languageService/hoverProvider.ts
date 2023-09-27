@@ -32,7 +32,7 @@ import {
 } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { assertNever, fail } from '../common/debug';
-import { DeclarationUseCase, Extensions, ProgramView } from '../common/extensibility';
+import { DeclarationUseCase, ProgramView } from '../common/extensibility';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { Position, Range, TextRange } from '../common/textRange';
 import { ExpressionNode, NameNode, ParseNode, ParseNodeType, StringNode, isExpressionNode } from '../parser/parseNodes';
@@ -45,6 +45,7 @@ import {
     getToolTipForType,
     getTypeForToolTip,
 } from './tooltipUtils';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 
 export interface HoverTextPart {
     python?: boolean;
@@ -188,18 +189,20 @@ export class HoverProvider {
 
         if (node.nodeType === ParseNodeType.Name) {
             // First give extensions a crack at getting a declaration.
-            let declarations: Declaration[] | undefined = Extensions.getProgramExtensions(node)
-                .map(
-                    (e) =>
-                        e.declarationProviderExtension?.tryGetDeclarations(
-                            this._evaluator,
-                            node,
-                            offset,
-                            DeclarationUseCase.Definition,
-                            this._token
-                        ) || []
-                )
-                .flat();
+            let declarations: Declaration[] | undefined =
+                this._program.serviceProvider
+                    .tryGet(ServiceKeys.symbolDeclarationProviders)
+                    ?.map(
+                        (p) =>
+                            p.tryGetDeclarations(
+                                this._evaluator,
+                                node,
+                                offset,
+                                DeclarationUseCase.Definition,
+                                this._token
+                            ) ?? []
+                    )
+                    ?.flat() ?? [];
             if (declarations.length === 0) {
                 declarations = this._evaluator.getDeclarationsForNameNode(node);
             }
