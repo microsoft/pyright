@@ -3895,6 +3895,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let typeWasTransformed = false;
 
             const filteredTypeArgs = type.typeArguments.map((typeArg, index) => {
+                if (index > type.details.typeParameters.length) {
+                    return typeArg;
+                }
+
                 const variance = TypeVarType.getVariance(type.details.typeParameters[index]);
                 if (variance !== Variance.Covariant) {
                     return typeArg;
