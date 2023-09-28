@@ -22,13 +22,14 @@ import { FileSystem } from '../common/fileSystem';
 import { LogTracker, getPathForLogging } from '../common/logTracker';
 import { getFileName, normalizeSlashes, stripFileExtension } from '../common/pathUtils';
 import { convertOffsetsToRange, convertTextRangeToRange } from '../common/positionUtils';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
 import { Range, TextRange, getEmptyRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
 import { Localizer } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
-import { IParser, ModuleImport, ParseOptions, Parser, ParseResults } from '../parser/parser';
+import { IParser, ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
 import { IgnoreComment } from '../parser/tokenizer';
 import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
@@ -45,7 +46,6 @@ import { SourceMapper } from './sourceMapper';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluatorTypes';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
 
 // Limit the number of import cycles tracked per source file.
 const _maxImportCyclesPerFile = 4;
@@ -896,7 +896,11 @@ export class SourceFile {
         // Filter the diagnostics based on "pyright: ignore" lines.
         if (this._writableData.pyrightIgnoreLines.size > 0) {
             diagList = diagList.filter((d) => {
-                if (d.category !== DiagnosticCategory.UnreachableCode && d.category !== DiagnosticCategory.Deprecated) {
+                if (
+                    d.category !== DiagnosticCategory.UnusedCode &&
+                    d.category !== DiagnosticCategory.UnreachableCode &&
+                    d.category !== DiagnosticCategory.Deprecated
+                ) {
                     for (let line = d.range.start.line; line <= d.range.end.line; line++) {
                         const pyrightIgnoreComment = this._writableData.pyrightIgnoreLines.get(line);
                         if (pyrightIgnoreComment) {
