@@ -23,6 +23,9 @@ class MyMeta(type):
 
     attr6 = 6
 
+    def __getattr__(self, name: str) -> complex:
+        ...
+
 
 class A(metaclass=MyMeta):
     @property
@@ -48,3 +51,4 @@ reveal_type(A.attr3, expected_text="int")
 reveal_type(A.attr4, expected_text="property")
 reveal_type(A.attr5, expected_text="int")
 reveal_type(A.attr6, expected_text="int")
+reveal_type(A.attr7, expected_text="complex")

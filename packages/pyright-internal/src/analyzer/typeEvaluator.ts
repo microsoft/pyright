@@ -2053,7 +2053,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 memberName,
                 usage,
                 metaclassDiag,
-                memberAccessFlags,
+                memberAccessFlags | MemberAccessFlags.SkipAttributeAccessOverride,
                 classType
             );
 
