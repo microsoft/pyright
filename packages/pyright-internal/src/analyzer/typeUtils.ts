@@ -1238,6 +1238,11 @@ export function validateTypeVarDefault(
     }
 }
 
+export function replaceTypeVarsWithAny(type: Type): Type {
+    const transformer = new TypeVarAnyReplacer();
+    return transformer.apply(type, 0);
+}
+
 // During bidirectional type inference for constructors, an "expected type"
 // is used to prepopulate the type var map. This is problematic when the
 // expected type uses TypeVars that are not part of the context of the
@@ -3713,6 +3718,29 @@ class TypeVarTransformer {
 
     private _isTypeVarScopePending(typeVarScopeId: TypeVarScopeId | undefined) {
         return !!typeVarScopeId && this._pendingTypeVarTransformations.has(typeVarScopeId);
+    }
+}
+
+// Converts all type variables to Any.
+class TypeVarAnyReplacer extends TypeVarTransformer {
+    constructor() {
+        super();
+    }
+
+    override transformTypeVar(typeVar: TypeVarType) {
+        return AnyType.create();
+    }
+
+    override transformParamSpec(paramSpec: TypeVarType) {
+        const paramSpecValue = FunctionType.createInstance(
+            '',
+            '',
+            '',
+            FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+        );
+        FunctionType.addDefaultParameters(paramSpecValue);
+
+        return paramSpecValue;
     }
 }
 
