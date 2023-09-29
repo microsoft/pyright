@@ -48,3 +48,8 @@ def func6(f: complex):
         f.hex()
     else:
         reveal_type(f, expected_text="complex | int")
+
+
+float(11 / 5).is_integer()
+
+(1.2).is_integer()
