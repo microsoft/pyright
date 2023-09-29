@@ -1364,6 +1364,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else {
             typeResult = { type: getBuiltInObject(node, 'float') };
         }
+
+        if (isClass(typeResult.type)) {
+            typeResult.type = ClassType.cloneRemoveTypePromotions(typeResult.type);
+        }
+
         return typeResult;
     }
 

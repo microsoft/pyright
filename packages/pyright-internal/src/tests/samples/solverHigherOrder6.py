@@ -20,7 +20,7 @@ def test1(x: Literal[2]) -> Literal[2]:
 
 
 v1 = min(1, max(2, 0.5))
-reveal_type(v1, expected_text="float")
+reveal_type(v1, expected_text="float | int")
 
 
 class Future(Generic[_T]):
