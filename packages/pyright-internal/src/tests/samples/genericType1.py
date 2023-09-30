@@ -15,7 +15,7 @@ b1: int = b["x"]
 b2: float = b["x"]
 
 c = dict(x=m, y=n)
-reveal_type(c, expected_text="dict[str, int | float]")
+reveal_type(c, expected_text="dict[str, float]")
 
 # This should generate an error.
 c1: int = c["x"]

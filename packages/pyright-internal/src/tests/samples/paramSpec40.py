@@ -24,4 +24,4 @@ result1 = map(call, [func1])
 reveal_type(result1, expected_text="map[int]")
 
 result2 = map(call, [func1, func2])
-reveal_type(result2, expected_text="map[float | int]")
+reveal_type(result2, expected_text="map[float]")

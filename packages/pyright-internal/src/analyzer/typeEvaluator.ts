@@ -1365,11 +1365,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else {
             typeResult = { type: getBuiltInObject(node, 'float') };
         }
-
-        if (isClass(typeResult.type)) {
-            typeResult.type = ClassType.cloneRemoveTypePromotions(typeResult.type);
-        }
-
         return typeResult;
     }
 
@@ -5199,11 +5194,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (isParamSpec(baseType) && baseType.paramSpecAccess) {
             baseType = makeTopLevelTypeVarsConcrete(baseType);
         }
-
-        // Do union expansion for promotion types. Exclude bytes here because
-        // this creates too much noise. Users who want stricter checks for bytes
-        // can use "disableBytesTypePromotions".
-        baseType = expandPromotionTypes(node, baseType, /* excludeBytes */ true);
 
         switch (baseType.category) {
             case TypeCategory.Any:

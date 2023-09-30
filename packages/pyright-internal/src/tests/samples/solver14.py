@@ -59,4 +59,4 @@ def min2(__arg1: SupportsLessThanT, __arg2: SupportsLessThanT) -> SupportsLessTh
 
 def func1():
     x = max2(1, min2(1, 4.5))
-    reveal_type(x, expected_text="float | int")
+    reveal_type(x, expected_text="float")
