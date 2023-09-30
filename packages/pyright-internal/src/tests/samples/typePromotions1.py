@@ -31,13 +31,8 @@ def func4(x: IntNewType) -> float:
 
 
 def func5(f: float):
-    # This should generate an error because "hex" isn't
-    # a valid method for an int.
-    f.hex()
-
     if isinstance(f, float):
         reveal_type(f, expected_text="float")
-        f.hex()
     else:
         reveal_type(f, expected_text="int")
 
@@ -45,11 +40,5 @@ def func5(f: float):
 def func6(f: complex):
     if isinstance(f, float):
         reveal_type(f, expected_text="float")
-        f.hex()
     else:
         reveal_type(f, expected_text="complex | int")
-
-
-float(11 / 5).is_integer()
-
-(1.2).is_integer()

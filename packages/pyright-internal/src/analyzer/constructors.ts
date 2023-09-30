@@ -191,20 +191,6 @@ export function validateConstructorArguments(
         }
     }
 
-    // If the original type was known to be a specific class (as opposed to a type[T])
-    // and it was marked as including promotions, we can assume that the resulting
-    // instance type should not include promotions since we know precisely which
-    // class was instantiated.
-    if (
-        type.includePromotions &&
-        !type.includeSubclasses &&
-        returnResult.returnType &&
-        isClassInstance(returnResult.returnType) &&
-        returnResult.returnType.includePromotions
-    ) {
-        returnResult.returnType = ClassType.cloneRemoveTypePromotions(returnResult.returnType);
-    }
-
     return returnResult;
 }
 
