@@ -16,11 +16,11 @@ reveal_type(v1, expected_text="int")
 
 
 v2 = (lambda a, b: a + b)(3, 4)
-reveal_type(v2, expected_text="Literal[7]")
+reveal_type(v2, expected_text="int")
 
 
 v3 = (lambda a, b: a + b)("foo", "bar")
-reveal_type(v3, expected_text="Literal['foobar']")
+reveal_type(v3, expected_text="LiteralString")
 
 v4 = (lambda a, b: a + b)("foo", (lambda c, d: c + d)("b", "ar"))
-reveal_type(v4, expected_text="Literal['foobar']")
+reveal_type(v4, expected_text="LiteralString")

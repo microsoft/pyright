@@ -22,7 +22,7 @@ import {
 } from '../parser/parseNodes';
 import { OperatorType } from '../parser/tokenizerTypes';
 import { getFileInfo } from './analyzerNodeInfo';
-import { isWithinLoop, operatorSupportsChaining, printOperator } from './parseTreeUtils';
+import { getEnclosingLambda, isWithinLoop, operatorSupportsChaining, printOperator } from './parseTreeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
@@ -695,8 +695,10 @@ export function getTypeOfBinaryOperation(
     const diag = new DiagnosticAddendum();
 
     // Don't use literal math if either of the operation is within a loop
-    // because the literal values may change each time.
-    const isLiteralMathAllowed = !isWithinLoop(node);
+    // because the literal values may change each time. We also don't want to
+    // apply literal math within the body of a lambda because they are often
+    // used as callbacks where the value changes each time they are called.
+    const isLiteralMathAllowed = !isWithinLoop(node) && !getEnclosingLambda(node);
 
     // Don't special-case tuple __add__ if the left type is a union. This
     // can result in an infinite loop if we keep creating new tuple types
