@@ -2867,7 +2867,10 @@ export class Checker extends ParseTreeWalker {
         for (const paramList of this._typeParameterLists) {
             for (const param of paramList.parameters) {
                 const symbol = AnalyzerNodeInfo.getTypeParameterSymbol(param.name);
-                assert(symbol);
+                if (!symbol) {
+                    // This can happen if the code is unreachable.
+                    return;
+                }
 
                 if (!accessedSymbolSet.has(symbol.id)) {
                     const decls = symbol.getDeclarations();

@@ -16736,7 +16736,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         node.parameters.forEach((param) => {
             const paramSymbol = AnalyzerNodeInfo.getTypeParameterSymbol(param.name);
-            assert(paramSymbol);
+            if (!paramSymbol) {
+                // This can happen if the code is unreachable.
+                return;
+            }
 
             const typeOfParam = getDeclaredTypeOfSymbol(paramSymbol, param.name)?.type;
             if (!typeOfParam || !isTypeVar(typeOfParam)) {
