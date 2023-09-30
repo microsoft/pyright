@@ -27,3 +27,22 @@ class ClassA:
 
     z1 = 1
     del z1
+
+
+class ClassB:
+    x: int
+
+
+b = ClassB()
+b.x = 3
+reveal_type(b.x, expected_text="Literal[3]")
+del b.x
+reveal_type(b.x, expected_text="Unbound")
+
+x2: list[str | int] = ["a", 1, "b", 2]
+reveal_type(x2[0], expected_text="str | int")
+x2[0] = 0
+reveal_type(x2[0], expected_text="Literal[0]")
+reveal_type(x2[1], expected_text="str | int")
+del x2[0]
+reveal_type(x2[0], expected_text="str | int")

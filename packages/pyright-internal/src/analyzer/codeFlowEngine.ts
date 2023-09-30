@@ -454,6 +454,14 @@ export function getCodeFlowEngine(
                                 // Is this a special "unbind" assignment? If so,
                                 // we can handle it immediately without any further evaluation.
                                 if (curFlowNode.flags & FlowFlags.Unbind) {
+                                    // Don't treat unbound assignments to indexed expressions (i.e. "del x[0]")
+                                    // as true deletions. The most common use case for "del x[0]" is in a list,
+                                    // and the list class treats this as an element deletion, not an assignment.
+                                    if (reference.nodeType === ParseNodeType.Index) {
+                                        // No need to explore further.
+                                        return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
+                                    }
+
                                     return setCacheEntry(curFlowNode, UnboundType.create(), /* isIncomplete */ false);
                                 }
 
