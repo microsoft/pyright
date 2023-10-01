@@ -13114,35 +13114,43 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const builtInDict = getBuiltInObject(node, 'dict');
-        if (!isClassInstance(builtInDict)) {
-            return undefined;
-        }
+        let expectedKeyType: Type;
+        let expectedValueType: Type;
 
-        const dictTypeVarContext = new TypeVarContext(getTypeVarScopeId(builtInDict));
-        if (
-            !populateTypeVarContextBasedOnExpectedType(
-                evaluatorInterface,
-                builtInDict,
-                inferenceContext.expectedType,
-                dictTypeVarContext,
-                ParseTreeUtils.getTypeVarScopesForNode(node),
-                node.start
-            )
-        ) {
-            return undefined;
-        }
+        if (isAnyOrUnknown(inferenceContext.expectedType)) {
+            expectedKeyType = inferenceContext.expectedType;
+            expectedValueType = inferenceContext.expectedType;
+        } else {
+            const builtInDict = getBuiltInObject(node, 'dict');
+            if (!isClassInstance(builtInDict)) {
+                return undefined;
+            }
 
-        const specializedDict = applySolvedTypeVars(
-            ClassType.cloneAsInstantiable(builtInDict),
-            dictTypeVarContext
-        ) as ClassType;
-        if (!specializedDict.typeArguments || specializedDict.typeArguments.length !== 2) {
-            return undefined;
-        }
+            const dictTypeVarContext = new TypeVarContext(getTypeVarScopeId(builtInDict));
+            if (
+                !populateTypeVarContextBasedOnExpectedType(
+                    evaluatorInterface,
+                    builtInDict,
+                    inferenceContext.expectedType,
+                    dictTypeVarContext,
+                    ParseTreeUtils.getTypeVarScopesForNode(node),
+                    node.start
+                )
+            ) {
+                return undefined;
+            }
 
-        const expectedKeyType = specializedDict.typeArguments[0];
-        const expectedValueType = specializedDict.typeArguments[1];
+            const specializedDict = applySolvedTypeVars(
+                ClassType.cloneAsInstantiable(builtInDict),
+                dictTypeVarContext
+            ) as ClassType;
+            if (!specializedDict.typeArguments || specializedDict.typeArguments.length !== 2) {
+                return undefined;
+            }
+
+            expectedKeyType = specializedDict.typeArguments[0];
+            expectedValueType = specializedDict.typeArguments[1];
+        }
 
         // Dict and MutableMapping types have invariant value types, so they
         // cannot be narrowed further. Other super-types like Mapping, Collection,
@@ -13572,39 +13580,44 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isIncomplete = false;
         let typeErrors = false;
         const verifyHashable = node.nodeType === ParseNodeType.Set;
+        let expectedEntryType: Type;
 
-        if (!isClassInstance(inferenceContext.expectedType)) {
-            return undefined;
+        if (isAnyOrUnknown(inferenceContext.expectedType)) {
+            expectedEntryType = inferenceContext.expectedType;
+        } else {
+            if (!isClassInstance(inferenceContext.expectedType)) {
+                return undefined;
+            }
+
+            const builtInListOrSet = getBuiltInObject(node, builtInClassName);
+            if (!isClassInstance(builtInListOrSet)) {
+                return undefined;
+            }
+
+            const typeVarContext = new TypeVarContext(getTypeVarScopeId(builtInListOrSet));
+            if (
+                !populateTypeVarContextBasedOnExpectedType(
+                    evaluatorInterface,
+                    builtInListOrSet,
+                    inferenceContext.expectedType,
+                    typeVarContext,
+                    ParseTreeUtils.getTypeVarScopesForNode(node),
+                    node.start
+                )
+            ) {
+                return undefined;
+            }
+
+            const specializedListOrSet = applySolvedTypeVars(
+                ClassType.cloneAsInstantiable(builtInListOrSet),
+                typeVarContext
+            ) as ClassType;
+            if (!specializedListOrSet.typeArguments || specializedListOrSet.typeArguments.length !== 1) {
+                return undefined;
+            }
+
+            expectedEntryType = specializedListOrSet.typeArguments[0];
         }
-
-        const builtInListOrSet = getBuiltInObject(node, builtInClassName);
-        if (!isClassInstance(builtInListOrSet)) {
-            return undefined;
-        }
-
-        const typeVarContext = new TypeVarContext(getTypeVarScopeId(builtInListOrSet));
-        if (
-            !populateTypeVarContextBasedOnExpectedType(
-                evaluatorInterface,
-                builtInListOrSet,
-                inferenceContext.expectedType,
-                typeVarContext,
-                ParseTreeUtils.getTypeVarScopesForNode(node),
-                node.start
-            )
-        ) {
-            return undefined;
-        }
-
-        const specializedListOrSet = applySolvedTypeVars(
-            ClassType.cloneAsInstantiable(builtInListOrSet),
-            typeVarContext
-        ) as ClassType;
-        if (!specializedListOrSet.typeArguments || specializedListOrSet.typeArguments.length !== 1) {
-            return undefined;
-        }
-
-        const expectedEntryType = specializedListOrSet.typeArguments[0];
 
         const entryTypes: Type[] = [];
         const expectedTypeDiagAddendum = new DiagnosticAddendum();

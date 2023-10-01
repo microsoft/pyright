@@ -3,36 +3,36 @@
 
 from __future__ import annotations
 
-from typing import Union, TypedDict, List
+from typing import TypedDict
 
 
-class _FooOptional(TypedDict, total=False):
-    options: List[AllBar]
+class ClassA(TypedDict, total=False):
+    options: list[CorD]
     type: int
 
 
-class Foo(_FooOptional):
+class ClassB(ClassA):
     id: int
     name: str
 
 
-class BarA(TypedDict):
+class ClassC(TypedDict):
     type: int
 
 
-class BarB(TypedDict):
-    options: List[AllBar]
+class ClassD(TypedDict):
+    options: list[CorD]
     type: int
 
 
-AllBar = Union[BarA, BarB]
+CorD = ClassC | ClassD
 
 
-def foo(a: AllBar):
-    reveal_type(a, expected_text="BarA | BarB")
+def foo(a: CorD):
+    reveal_type(a, expected_text="ClassC | ClassD")
     options = a.get("options", [])
-    reveal_type(options, expected_text="Any | List[BarA | BarB]")
+    reveal_type(options, expected_text="Any | list[Any] | list[ClassC | ClassD]")
 
     for option in options:
-        reveal_type(option, expected_text="Any | BarA | BarB")
+        reveal_type(option, expected_text="Any | ClassC | ClassD")
         reveal_type(option["type"], expected_text="Any | int")
