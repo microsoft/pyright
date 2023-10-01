@@ -1,6 +1,7 @@
 version = "2.31.*"
 upstream_repository = "https://github.com/psf/requests"
-requires = ["types-urllib3"]
+# requires a version of urllib3 with a py.typed file
+requires = ["urllib3>=2"]
 
 [tool.stubtest]
 extras = ["socks"]

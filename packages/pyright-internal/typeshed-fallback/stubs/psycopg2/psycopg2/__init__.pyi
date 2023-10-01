@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import Any, TypeVar, overload
 
-# connection and cursor not available at runtime
+from psycopg2 import errors as errors, extensions as extensions
 from psycopg2._psycopg import (
     BINARY as BINARY,
     DATETIME as DATETIME,

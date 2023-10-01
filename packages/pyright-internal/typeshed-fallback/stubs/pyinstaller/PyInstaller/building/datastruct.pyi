@@ -3,7 +3,7 @@ from collections.abc import Iterable, Sequence
 from typing import ClassVar
 from typing_extensions import Literal, LiteralString, Self, SupportsIndex, TypeAlias
 
-_TypeCode: TypeAlias = Literal["DATA", "BINARY", "EXTENSION", "OPTION"]
+_TypeCode: TypeAlias = Literal["DEPENDENCY", "SYMLINK", "DATA", "BINARY", "EXECUTABLE", "EXTENSION", "OPTION"]
 _TOCTuple: TypeAlias = tuple[str, str | None, _TypeCode | None]
 
 class TOC(list[_TOCTuple]):
@@ -44,3 +44,4 @@ class Tree(Target, list[_TOCTuple]):
 
 def normalize_toc(toc: Iterable[_TOCTuple]) -> list[_TOCTuple]: ...
 def normalize_pyz_toc(toc: Iterable[_TOCTuple]) -> list[_TOCTuple]: ...
+def toc_process_symbolic_links(toc: Iterable[_TOCTuple]) -> list[_TOCTuple]: ...

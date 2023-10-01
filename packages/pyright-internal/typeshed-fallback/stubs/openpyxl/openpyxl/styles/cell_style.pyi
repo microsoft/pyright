@@ -1,7 +1,8 @@
 from _typeshed import Incomplete, Unused
 from array import array
+from collections.abc import Iterable
 from typing import ClassVar
-from typing_extensions import Literal
+from typing_extensions import Literal, Self
 
 from openpyxl.descriptors import Strict
 from openpyxl.descriptors.base import Bool, Integer, Typed, _ConvertibleToBool, _ConvertibleToInt
@@ -16,21 +17,21 @@ class ArrayDescriptor:
     def __get__(self, instance: Serialisable | Strict, cls: Unused): ...
     def __set__(self, instance: Serialisable | Strict, value) -> None: ...
 
-class StyleArray(array[Incomplete]):
+class StyleArray(array[int]):
     tagname: ClassVar[str]
-    fontId: Incomplete
-    fillId: Incomplete
-    borderId: Incomplete
-    numFmtId: Incomplete
-    protectionId: Incomplete
-    alignmentId: Incomplete
-    pivotButton: Incomplete
-    quotePrefix: Incomplete
-    xfId: Incomplete
-    def __new__(cls, args=[0, 0, 0, 0, 0, 0, 0, 0, 0]): ...
+    fontId: ArrayDescriptor
+    fillId: ArrayDescriptor
+    borderId: ArrayDescriptor
+    numFmtId: ArrayDescriptor
+    protectionId: ArrayDescriptor
+    alignmentId: ArrayDescriptor
+    pivotButton: ArrayDescriptor
+    quotePrefix: ArrayDescriptor
+    xfId: ArrayDescriptor
+    def __new__(cls, args: bytes | bytearray | Iterable[int] = [0, 0, 0, 0, 0, 0, 0, 0, 0]) -> Self: ...
     def __hash__(self) -> int: ...
-    def __copy__(self): ...
-    def __deepcopy__(self, memo): ...
+    def __copy__(self) -> StyleArray: ...
+    def __deepcopy__(self, memo: Unused) -> StyleArray: ...
 
 class CellStyle(Serialisable):
     tagname: ClassVar[str]

@@ -1,2 +1,0 @@
-# Loop variable that leaks into the global namespace
-dj_database_url.key

@@ -3,6 +3,8 @@ from abc import abstractmethod
 from typing import Any, overload
 
 class BaseTzInfo(datetime.tzinfo):
+    _utcoffset: datetime.timedelta | None
+    _tzname: str | None
     zone: str | None  # Actually None but should be set on concrete subclasses
     # The following abstract methods don't exist in the implementation, but
     # are implemented by all sub-classes.

@@ -9,8 +9,8 @@ strict_collect_mode: bool
 is_64bits: Final[bool]
 is_py35: Final = True
 is_py36: Final = True
-is_py37: Final[bool]
-is_py38: Final[bool]
+is_py37: Final = True
+is_py38: Final = True
 is_py39: Final[bool]
 is_py310: Final[bool]
 is_py311: Final[bool]

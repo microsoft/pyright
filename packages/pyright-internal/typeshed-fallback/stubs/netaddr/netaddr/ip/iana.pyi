@@ -3,7 +3,7 @@ from collections.abc import Callable, Mapping, MutableMapping
 from typing import Any
 from typing_extensions import TypeAlias
 from xml.sax import handler
-from xml.sax.xmlreader import XMLReader
+from xml.sax.xmlreader import AttributesImpl, XMLReader
 
 from netaddr.core import Publisher, Subscriber
 from netaddr.ip import IPAddress, IPNetwork, IPRange
@@ -14,7 +14,7 @@ IANA_INFO: dict[str, dict[_IanaInfoKey, dict[str, str]]]
 
 class SaxRecordParser(handler.ContentHandler):
     def __init__(self, callback: Callable[[Mapping[str, object] | None], object] | None = None) -> None: ...
-    def startElement(self, name: str, attrs: Mapping[str, object]) -> None: ...
+    def startElement(self, name: str, attrs: AttributesImpl) -> None: ...
     def endElement(self, name: str) -> None: ...
     def characters(self, content: str) -> None: ...
 
