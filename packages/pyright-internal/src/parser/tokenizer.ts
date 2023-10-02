@@ -141,9 +141,9 @@ const _operatorInfo: { [key: number]: OperatorFlags } = {
 
 const _byteOrderMarker = 0xfeff;
 
-const _maxStringTokenLength = 32 * 1024;
-
 const defaultTabSize = 8;
+
+export const maxStringTokenLength = 32 * 1024;
 
 export interface TokenizerOutput {
     // List of all tokens.
@@ -1691,8 +1691,8 @@ export class Tokenizer<KeywordT extends number> {
         // that is too long. Cut off the extra characters in this case to avoid
         // the crash. It's unlikely that the full string value will be used as
         // a string literal or a docstring, so this should be fine.
-        if (escapedValueParts.length > _maxStringTokenLength) {
-            escapedValueParts = escapedValueParts.slice(0, _maxStringTokenLength);
+        if (escapedValueParts.length > maxStringTokenLength) {
+            escapedValueParts = escapedValueParts.slice(0, maxStringTokenLength);
             flags |= StringTokenFlags.ExceedsMaxSize;
         }
 
