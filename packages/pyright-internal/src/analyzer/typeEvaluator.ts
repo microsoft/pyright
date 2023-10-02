@@ -567,6 +567,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let noneType: Type | undefined;
     let objectType: Type | undefined;
     let typeClassType: Type | undefined;
+    let awaitableProtocolType: Type | undefined;
     let functionObj: Type | undefined;
     let tupleClassType: Type | undefined;
     let boolClassType: Type | undefined;
@@ -917,6 +918,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             dictClassType = getBuiltInType(node, 'dict');
             typedDictClassType = getTypingType(node, 'TypedDict');
             typedDictPrivateClassType = getTypingType(node, '_TypedDict');
+            awaitableProtocolType = getTypingType(node, 'Awaitable');
 
             mappingType = getTypeshedType(node, 'SupportsKeysAndGetItem');
             if (!mappingType) {
@@ -2499,6 +2501,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // (object that provides an __await__ that returns a generator object).
     // If errorNode is undefined, no errors are reported.
     function getTypeOfAwaitable(type: Type, errorNode?: ExpressionNode): Type {
+        if (
+            !awaitableProtocolType ||
+            !isInstantiableClass(awaitableProtocolType) ||
+            awaitableProtocolType.details.typeParameters.length !== 1
+        ) {
+            return UnknownType.create();
+        }
+
+        const awaitableProtocolObj = ClassType.cloneAsInstance(awaitableProtocolType);
+
         return mapSubtypes(type, (subtype) => {
             subtype = makeTopLevelTypeVarsConcrete(subtype);
 
@@ -2506,22 +2518,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return subtype;
             }
 
+            const diag = errorNode ? new DiagnosticAddendum() : undefined;
+
             if (isClassInstance(subtype)) {
-                const awaitReturnType = getSpecializedReturnType(subtype, '__await__', [], errorNode);
-                if (awaitReturnType) {
-                    if (isAnyOrUnknown(awaitReturnType)) {
-                        return awaitReturnType;
-                    }
+                const typeVarContext = new TypeVarContext(getTypeVarScopeId(awaitableProtocolObj));
 
-                    if (isClassInstance(awaitReturnType)) {
-                        const iterReturnType = getSpecializedReturnType(awaitReturnType, '__iter__', [], errorNode);
+                if (assignType(awaitableProtocolObj, subtype, diag, typeVarContext)) {
+                    const specializedType = applySolvedTypeVars(awaitableProtocolObj, typeVarContext);
 
-                        if (iterReturnType) {
-                            const generatorReturnType = getReturnTypeFromGenerator(awaitReturnType);
-                            if (generatorReturnType) {
-                                return generatorReturnType;
-                            }
-                        }
+                    if (
+                        isClass(specializedType) &&
+                        specializedType.typeArguments &&
+                        specializedType.typeArguments.length > 0
+                    ) {
+                        return specializedType.typeArguments[0];
                     }
                 }
             }
@@ -2531,7 +2541,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.typeNotAwaitable().format({ type: printType(subtype) }),
+                    Localizer.Diagnostic.typeNotAwaitable().format({ type: printType(subtype) }) + diag?.getString(),
                     errorNode
                 );
             }
@@ -4254,25 +4264,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!isSpeculativeModeInUse(node)) {
             fileInfo.accessedSymbolSet.add(symbol.id);
         }
-    }
-
-    function getReturnTypeFromGenerator(type: Type): Type | undefined {
-        if (isAnyOrUnknown(type)) {
-            return type;
-        }
-
-        if (isClassInstance(type)) {
-            // Is this a Generator? If so, return the third
-            // type argument, which is the await response type.
-            if (ClassType.isBuiltIn(type, 'Generator')) {
-                const typeArgs = type.typeArguments;
-                if (typeArgs && typeArgs.length >= 3) {
-                    return typeArgs[2];
-                }
-            }
-        }
-
-        return undefined;
     }
 
     function getSpecializedReturnType(
