@@ -36,7 +36,7 @@ with submit_wrapper() as submit:
     submit(foo, a=1, b=2, c=3)
     submit(foo, 1, 2, 3)
 
-    # This should generate an error.
+    # This should generate two errors.
     submit(foo, a=1, b=2, d=3)
 
     # This should generate an error.

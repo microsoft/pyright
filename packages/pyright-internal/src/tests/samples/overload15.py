@@ -117,7 +117,7 @@ callable4(func3, x="")
 # This should generate an error.
 callable4(func3, 1.0)
 
-# This should generate an error.
+# This should generate two errors because x is missing and y is unknown.
 callable4(func3, y=1)
 
 

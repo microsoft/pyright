@@ -26,5 +26,8 @@ reveal_type(v3, expected_text="str")
 # This should generate an error.
 func1(func1, func2, "42")
 
-v4 = func1(func1)
+# This should generate an error.
+func1(func1)
+
+v4 = func1(func1, lambda: None)
 reveal_type(v4, expected_text="str")
