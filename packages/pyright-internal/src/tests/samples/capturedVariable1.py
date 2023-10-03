@@ -119,3 +119,10 @@ def func10(cond: bool, val: str):
         def inner2():
             reveal_type(x, expected_text="str | None")
             reveal_type(y, expected_text="str")
+
+
+def func11(foo: list[int] | None):
+    if isinstance(foo, list):
+
+        def inner() -> list[int]:
+            return [x for x in foo]
