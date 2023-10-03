@@ -75,7 +75,7 @@ test('Assignment1', () => {
 test('Assignment2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignment2.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Assignment3', () => {
@@ -1389,7 +1389,7 @@ test('TypedDict11', () => {
 test('TypedDict12', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict12.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('TypedDict13', () => {

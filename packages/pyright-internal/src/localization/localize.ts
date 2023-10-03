@@ -1249,6 +1249,8 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.noOverloadAssignable'));
         export const orPatternMissingName = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.orPatternMissingName'));
+        export const overloadIndex = () =>
+            new ParameterizedString<{ index: number }>(getRawString('DiagnosticAddendum.overloadIndex'));
         export const overloadSignature = () => getRawString('DiagnosticAddendum.overloadSignature');
         export const overloadNotAssignable = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.overloadNotAssignable'));

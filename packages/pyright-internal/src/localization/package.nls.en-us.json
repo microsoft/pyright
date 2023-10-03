@@ -633,6 +633,7 @@
         "newMethodSignature": "Signature of __new__ is \"{type}\"",
         "noOverloadAssignable": "No overloaded function matches type \"{type}\"",
         "orPatternMissingName": "Missing names: {name}",
+        "overloadIndex": "Overload {index} is the closest match",
         "overloadSignature": "Overload signature is defined here",
         "overloadNotAssignable": "One or more overloads of \"{name}\" is not assignable",
         "overriddenMethod": "Overridden method",
