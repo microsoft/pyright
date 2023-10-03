@@ -43,7 +43,7 @@ Pyright uses the following mechanisms (in priority order) to determine which Pyt
 
 [PEP 660](https://peps.python.org/pep-0660/) enables build backends (e.g. setuptools) to
 use import hooks to direct the [import machinery](https://docs.python.org/3/reference/import.html)
-to the package’s source files rather than using a `.pth` file. Import hooks can provide
+to the package’s source files rather than putting the path to those files in a `.pth` file. Import hooks can provide
 an editable installation that is a more accurate representation of your real installation.
 However, because resolving module locations using an import hook requires executing Python
 code, they are not usable by Pyright and other static analysis tools. Therefore, if your
@@ -51,7 +51,7 @@ editable install is configured to use import hooks, Pyright will be unable to fi
 corresponding source files.
 
 If you want to use static analysis tools with an editable install, you should configure
-the editable install to use `.pth` files instead of import hooks. See your build backend’s
+the editable install to use `.pth` files that contain file paths rather than executable lines (prefixed with `import`) that install import hooks. See your build backend’s
 documentation for details on how to do this. We have provided some basic information for
 common build backends below.
 
