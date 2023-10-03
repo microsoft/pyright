@@ -191,7 +191,6 @@ import {
     addTypeVarsToListIfUnique,
     applySolvedTypeVars,
     applySourceContextTypeVars,
-    applySourceContextTypeVarsToSignature,
     areTypesSame,
     buildTypeVarContextFromSpecializedClass,
     combineSameSizedTuples,
@@ -11237,7 +11236,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 matchResults.paramSpecArgList,
                 matchResults.paramSpecTarget,
                 typeVarContext,
-                typeCondition
+                signatureTracker
             );
 
             if (paramSpecArgResult.argumentErrors) {
@@ -11529,7 +11528,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         argList: FunctionArgument[],
         paramSpec: TypeVarType,
         destTypeVarContext: TypeVarContext,
-        conditionFilter: TypeCondition[] | undefined
+        signatureTracker: UniqueSignatureTracker
     ): ParamSpecArgResult {
         const signatureContexts = destTypeVarContext.getSignatureContexts();
 
@@ -11540,7 +11539,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 argList,
                 paramSpec,
                 signatureContexts[0],
-                conditionFilter
+                signatureTracker
             );
         }
 
@@ -11555,7 +11554,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     argList,
                     paramSpec,
                     context,
-                    conditionFilter
+                    signatureTracker
                 );
 
                 if (!paramSpecArgResult.argumentErrors) {
@@ -11577,7 +11576,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             argList,
             paramSpec,
             filteredSignatureContexts.length > 0 ? filteredSignatureContexts[0] : signatureContexts[0],
-            conditionFilter
+            signatureTracker
         );
 
         return { argumentErrors: paramSpecArgResult.argumentErrors, typeVarContexts };
@@ -11588,7 +11587,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         argList: FunctionArgument[],
         paramSpec: TypeVarType,
         typeVarContext: TypeVarSignatureContext,
-        conditionFilter: TypeCondition[] | undefined
+        signatureTracker: UniqueSignatureTracker
     ): ParamSpecArgResult {
         const paramSpecType = typeVarContext.getParamSpecType(paramSpec);
         if (!paramSpecType) {
@@ -11601,205 +11600,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { argumentErrors: true, typeVarContexts: [undefined] };
         }
 
-        const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
-
+        const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, { type: paramSpecType }, 0);
         const srcTypeVarContext = new TypeVarContext(getTypeVarScopeIds(paramSpecType));
-        let reportedArgError = false;
 
-        let sawUnpackedListArgument = false;
-        let sawUnpackedDictArgument = false;
-        let paramMap = new Map<string, FunctionParameter>();
-
-        // We'll use two passes in case there are type variables that depend
-        // on later arguments.
-        const passCount = 2;
-        for (let i = 0; i < passCount; i++) {
-            // Unless we're on the last pass, use speculative mode to suppress
-            // any diagnostics.
-            useSpeculativeMode(i < passCount - 1 ? errorNode : undefined, () => {
-                // Build a map of all named parameters.
-                paramMap = new Map<string, FunctionParameter>();
-                const paramSpecParams = paramSpecType.details.parameters;
-                paramSpecParams.forEach((param) => {
-                    if (param.name) {
-                        paramMap.set(param.name, param);
-                    }
-                });
-
-                let positionalIndex = 0;
-                let positionalIndexLimit = paramSpecParams.findIndex(
-                    (paramInfo) => paramInfo.category !== ParameterCategory.Simple
-                );
-                if (positionalIndexLimit < 0) {
-                    positionalIndexLimit = paramSpecParams.length;
-                }
-                const argsParam = paramSpecParams.find(
-                    (paramInfo) => paramInfo.category === ParameterCategory.ArgsList
-                );
-                const kwargsParam = paramSpecParams.find(
-                    (paramInfo) => paramInfo.category === ParameterCategory.KwargsDict
-                );
-
-                const signatureTracker = new UniqueSignatureTracker();
-                const nestedArgList: FunctionArgument[] = [];
-
-                argList.forEach((arg) => {
-                    if (arg.argumentCategory === ArgumentCategory.Simple) {
-                        let paramType: Type | undefined;
-
-                        if (arg.name) {
-                            const paramInfo = paramMap.get(arg.name.value);
-                            if (paramInfo) {
-                                paramType = paramInfo.type;
-                                paramMap.delete(arg.name.value);
-                            } else if (kwargsParam) {
-                                paramType = kwargsParam.type;
-                            } else {
-                                addDiagnostic(
-                                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    Localizer.Diagnostic.paramNameMissing().format({ name: arg.name.value }),
-                                    arg.name || errorNode
-                                );
-                                reportedArgError = true;
-                            }
-                        } else {
-                            if (positionalIndex < positionalIndexLimit) {
-                                const paramInfo = paramSpecParams[positionalIndex];
-                                paramType = paramInfo.type;
-                                if (paramInfo.name) {
-                                    paramMap.delete(paramInfo.name);
-                                }
-                            } else if (argsParam) {
-                                paramType = argsParam.type;
-                            } else if (paramSpecType.details.paramSpec) {
-                                nestedArgList.push(arg);
-                            } else {
-                                addDiagnostic(
-                                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    paramSpecParams.length === 1
-                                        ? Localizer.Diagnostic.argPositionalExpectedOne()
-                                        : Localizer.Diagnostic.argPositionalExpectedCount().format({
-                                              expected: paramSpecParams.length,
-                                          }),
-                                    arg.valueExpression ?? errorNode
-                                );
-                                reportedArgError = true;
-                            }
-
-                            positionalIndex++;
-                        }
-
-                        if (paramType) {
-                            const argResult = validateArgType(
-                                {
-                                    paramCategory: ParameterCategory.Simple,
-                                    paramType: transformExpectedType(
-                                        paramType,
-                                        liveTypeVarScopes,
-                                        /* usageOffset */ undefined
-                                    ),
-                                    requiresTypeVarMatching: false,
-                                    argument: arg,
-                                    errorNode: arg.valueExpression || errorNode,
-                                },
-                                srcTypeVarContext,
-                                signatureTracker,
-                                /* functionType */ undefined,
-                                { conditionFilter }
-                            );
-
-                            if (!argResult.isCompatible) {
-                                reportedArgError = true;
-                            }
-                        }
-                    } else if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
-                        sawUnpackedListArgument = true;
-
-                        // See if there is an *args parameter.
-                        const argsParam = paramSpecParams.find(
-                            (param) => param.category === ParameterCategory.ArgsList && param.name
-                        );
-                        if (argsParam && paramMap.has(argsParam.name!)) {
-                            // TODO - validate args type
-                            paramMap.delete(argsParam.name!);
-                        }
-                    } else {
-                        sawUnpackedDictArgument = true;
-                        assert(arg.argumentCategory === ArgumentCategory.UnpackedDictionary);
-
-                        // See if there is an *kwargs parameter.
-                        const kwargsParam = paramSpecParams.find(
-                            (param) => param.category === ParameterCategory.KwargsDict
-                        );
-                        if (kwargsParam && paramMap.has(kwargsParam.name!)) {
-                            // TODO - validate kwargs type
-                            paramMap.delete(kwargsParam.name!);
-                        }
-                    }
-                });
-
-                // Handle recursive ParamSpecs.
-                if (paramSpecType.details.paramSpec) {
-                    const boundTypeForParamSpec = srcTypeVarContext
-                        .getPrimarySignature()
-                        .getParamSpecType(paramSpecType.details.paramSpec);
-
-                    if (boundTypeForParamSpec) {
-                        const paramSpecArgResult = validateFunctionArgumentsForParamSpec(
-                            errorNode,
-                            nestedArgList,
-                            paramSpecType.details.paramSpec,
-                            srcTypeVarContext,
-                            conditionFilter
-                        );
-
-                        if (paramSpecArgResult.argumentErrors) {
-                            reportedArgError = true;
-                        }
-                    }
+        if (matchResults.argumentErrors) {
+            // Evaluate types of all args. This will ensure that referenced symbols are
+            // not reported as unaccessed.
+            argList.forEach((arg) => {
+                if (arg.valueExpression && !isSpeculativeModeInUse(arg.valueExpression)) {
+                    getTypeOfExpression(arg.valueExpression);
                 }
             });
+
+            return { argumentErrors: true, typeVarContexts: [srcTypeVarContext] };
         }
 
-        // Report any missing parameters.
-        if (!reportedArgError) {
-            let unassignedParams = Array.from(paramMap.keys());
-
-            // Parameters that have defaults can be left unspecified.
-            unassignedParams = unassignedParams.filter((name) => {
-                const paramInfo = paramMap.get(name)!;
-                return paramInfo.category === ParameterCategory.Simple && !paramInfo.hasDefault;
-            });
-
-            if (
-                unassignedParams.length > 0 &&
-                !paramSpecType.details.paramSpec &&
-                !sawUnpackedListArgument &&
-                !sawUnpackedDictArgument
-            ) {
-                const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
-                addDiagnostic(
-                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    unassignedParams.length === 1
-                        ? Localizer.Diagnostic.argMissingForParam().format({ name: missingParamNames })
-                        : Localizer.Diagnostic.argMissingForParams().format({ names: missingParamNames }),
-                    errorNode
-                );
-                reportedArgError = true;
-            }
-        }
-
-        if (!reportedArgError) {
-            applySourceContextTypeVarsToSignature(typeVarContext, srcTypeVarContext);
-        }
-
-        return {
-            argumentErrors: reportedArgError,
-            typeVarContexts: [reportedArgError ? srcTypeVarContext : undefined],
-        };
+        const result = validateFunctionArgumentTypes(errorNode, matchResults, srcTypeVarContext, signatureTracker);
+        return { argumentErrors: !!result.argumentErrors, typeVarContexts: [srcTypeVarContext] };
     }
 
     function validateArgType(

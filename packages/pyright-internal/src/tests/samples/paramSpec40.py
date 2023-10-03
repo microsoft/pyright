@@ -2,7 +2,7 @@
 # with a ParamSpec and another generic callable that is parameterized
 # with a TypeVar.
 
-from typing import Callable, ParamSpec, TypeVar
+from typing import Callable, ParamSpec, TypeVar, TypedDict, Unpack
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -25,3 +25,19 @@ reveal_type(result1, expected_text="map[int]")
 
 result2 = map(call, [func1, func2])
 reveal_type(result2, expected_text="map[float]")
+
+
+class TD1(TypedDict, total=False):
+    e: str
+    f: str
+
+
+def func3(
+    a: int, b: int, /, *, c: str = ..., d: str = ..., **kwargs: Unpack[TD1]
+) -> float:
+    ...
+
+
+call(func3, 1, 2, e="", c="")
+call(func3, 1, 2, c="", d="", e="")
+call(func3, 1, 2, e="")

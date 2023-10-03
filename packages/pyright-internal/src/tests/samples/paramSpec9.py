@@ -27,7 +27,7 @@ twice(a_int_b_str, 1, b=2)  # Rejected
 # This should generate an error because a is a incorrect type.
 twice(a_int_b_str, "1", b="2")  # Rejected
 
-# This should generate an error because c is unknown.
+# This should generate two errors because c is unknown and b is missing.
 twice(a_int_b_str, 1, c=2)  # Rejected
 
 # This should generate an error because c is unknown.

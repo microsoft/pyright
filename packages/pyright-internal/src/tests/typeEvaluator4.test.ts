@@ -341,7 +341,7 @@ test('Overload14', () => {
 
 test('Overload15', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload15.py']);
-    TestUtils.validateResults(analysisResults, 9, 1);
+    TestUtils.validateResults(analysisResults, 8, 1);
 });
 
 test('Overload16', () => {
@@ -887,7 +887,7 @@ test('ParamSpec8', () => {
 
 test('ParamSpec9', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec9.py']);
-    TestUtils.validateResults(results, 13);
+    TestUtils.validateResults(results, 14);
 });
 
 test('ParamSpec10', () => {
@@ -1022,7 +1022,7 @@ test('ParamSpec35', () => {
 
 test('ParamSpec36', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec36.py']);
-    TestUtils.validateResults(results, 2);
+    TestUtils.validateResults(results, 3);
 });
 
 test('ParamSpec37', () => {
@@ -1077,7 +1077,7 @@ test('ParamSpec46', () => {
 
 test('ParamSpec47', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec47.py']);
-    TestUtils.validateResults(results, 2);
+    TestUtils.validateResults(results, 3);
 });
 
 test('ParamSpec48', () => {
