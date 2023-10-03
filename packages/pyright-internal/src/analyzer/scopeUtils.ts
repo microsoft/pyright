@@ -39,7 +39,8 @@ export function getScopeHierarchy(node: ParseNode, stopScope?: Scope): Scope[] |
     let curNode: ParseNode | undefined = node;
 
     while (curNode) {
-        const curScope = getScopeForNode(curNode);
+        const scopeNode = getEvaluationScopeNode(curNode);
+        const curScope = getScope(scopeNode);
 
         if (!curScope) {
             return undefined;
@@ -53,7 +54,7 @@ export function getScopeHierarchy(node: ParseNode, stopScope?: Scope): Scope[] |
             return scopeHierarchy;
         }
 
-        curNode = curNode.parent;
+        curNode = scopeNode.parent;
     }
 
     return stopScope ? undefined : scopeHierarchy;
