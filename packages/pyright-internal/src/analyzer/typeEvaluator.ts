@@ -8887,7 +8887,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Create a helper function that evaluates the overload that best
         // matches the arg/param lists.
-        function evaluateUsingBestMatchingOverload(skipUnknownArgCheck: boolean) {
+        function evaluateUsingBestMatchingOverload(skipUnknownArgCheck: boolean, emitNoOverloadFoundError: boolean) {
             // Find the match with the smallest argument match score. If there
             // are more than one with the same score, use the one with the
             // largest index. Later overloads tend to be more general.
@@ -8897,6 +8897,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
                 return current.argumentMatchScore < previous.argumentMatchScore ? current : previous;
             });
+
+            // If there is more than one filtered match, report that no match
+            // was possible and emit a diagnostic that provides the most likely.
+            if (emitNoOverloadFoundError) {
+                const functionName = bestMatch.overload.details.name || '<anonymous function>';
+                const diagnostic = addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.noOverload().format({ name: functionName }),
+                    errorNode
+                );
+
+                const overrideDecl = bestMatch.overload.details.declaration;
+                if (diagnostic && overrideDecl) {
+                    diagnostic.addRelatedInfo(
+                        Localizer.DiagnosticAddendum.overloadIndex().format({ index: bestMatch.overloadIndex + 1 }),
+                        overrideDecl.path,
+                        overrideDecl.range
+                    );
+                }
+            }
 
             const effectiveTypeVarContext = typeVarContext ?? new TypeVarContext();
             effectiveTypeVarContext.addSolveForScope(getTypeVarScopeIds(bestMatch.overload));
@@ -8915,7 +8936,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // use the normal type matching mechanism because it is faster and
         // will provide a clearer error message.
         if (filteredMatchResults.length === 1) {
-            return evaluateUsingBestMatchingOverload(/* skipUnknownArgCheck */ false);
+            return evaluateUsingBestMatchingOverload(
+                /* skipUnknownArgCheck */ false,
+                /* emitNoOverloadFoundError */ false
+            );
         }
 
         let expandedArgTypes: (Type | undefined)[][] | undefined = [argList.map((arg) => undefined)];
@@ -8974,7 +8998,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // in speculative mode because it's very expensive, and we're going to
         // suppress the diagnostic anyway.
         if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
-            const result = evaluateUsingBestMatchingOverload(/* skipUnknownArgCheck */ true);
+            const result = evaluateUsingBestMatchingOverload(
+                /* skipUnknownArgCheck */ true,
+                /* emitNoOverloadFoundError */ true
+            );
 
             // Replace the result with an unknown type since we don't know
             // what overload should have been used.

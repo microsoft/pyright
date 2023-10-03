@@ -311,7 +311,7 @@ test('Overload7', () => {
 
 test('Overload8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload8.py']);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('Overload10', () => {
@@ -326,7 +326,7 @@ test('Overload11', () => {
 
 test('Overload12', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload12.py']);
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Overload13', () => {
@@ -527,7 +527,7 @@ test('MemberAccess18', () => {
 
 test('MemberAccess19', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess19.py']);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 10);
 });
 
 test('MemberAccess20', () => {
