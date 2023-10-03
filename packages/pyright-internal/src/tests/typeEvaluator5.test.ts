@@ -293,8 +293,11 @@ test('TypePrinter3', () => {
 });
 
 test('TypeAliasType1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasType1.py']);
-    TestUtils.validateResults(analysisResults, 15);
+    const configOptions = new ConfigOptions('.');
+    configOptions.defaultPythonVersion = PythonVersion.V3_12;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasType1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 14);
 });
 
 test('TypeAliasType2', () => {
