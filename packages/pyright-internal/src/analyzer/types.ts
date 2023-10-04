@@ -1848,6 +1848,10 @@ export namespace FunctionType {
             newFunction.details.paramSpec = paramSpec;
         }
 
+        if (type.inferredReturnType) {
+            newFunction.inferredReturnType = type.inferredReturnType;
+        }
+
         return newFunction;
     }
 

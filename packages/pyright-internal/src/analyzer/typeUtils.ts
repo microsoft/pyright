@@ -2584,7 +2584,10 @@ export function removeParamSpecVariadicsFromFunction(type: FunctionType): Functi
         return type;
     }
 
-    return FunctionType.cloneRemoveParamSpecVariadics(type, argsParam.type);
+    return FunctionType.cloneRemoveParamSpecVariadics(
+        type,
+        TypeVarType.cloneForParamSpecAccess(argsParam.type, /* access */ undefined)
+    );
 }
 
 function _expandVariadicUnpackedUnion(type: Type) {
