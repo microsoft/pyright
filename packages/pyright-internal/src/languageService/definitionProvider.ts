@@ -22,7 +22,7 @@ import { TypeCategory, isOverloadedFunction } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
-import { DeclarationUseCase, ProgramView, ServiceProvider } from '../common/extensibility';
+import { ProgramView, ServiceProvider } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
 import { ParseNode, ParseNodeType } from '../parser/parseNodes';
@@ -147,16 +147,10 @@ class DefinitionProviderBase {
 
         const definitions: DocumentRange[] = [];
 
-        const providers = this._serviceProvider?.tryGet(ServiceKeys.symbolDeclarationProviders);
-        if (providers) {
-            providers.forEach((p) => {
-                const declarations = p.tryGetDeclarations(
-                    this.evaluator,
-                    node,
-                    offset,
-                    DeclarationUseCase.Definition,
-                    this.token
-                );
+        const factories = this._serviceProvider?.tryGet(ServiceKeys.symbolDefinitionProvider);
+        if (factories) {
+            factories.forEach((f) => {
+                const declarations = f.tryGetDeclarations(node, offset, this.token);
                 this.resolveDeclarations(declarations, definitions);
             });
         }

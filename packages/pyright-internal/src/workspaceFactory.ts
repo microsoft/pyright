@@ -105,7 +105,8 @@ export class WorkspaceFactory {
             kinds: string[]
         ) => AnalyzerService,
         private readonly _isPythonPathImmutable: (path: string) => boolean,
-        private readonly _onWorkspaceCreated: (workspace: Workspace) => void
+        private readonly _onWorkspaceCreated: (workspace: Workspace) => void,
+        private readonly _onWorkspaceRemoved: (workspace: Workspace) => void
     ) {
         this._console.log(`WorkspaceFactory ${this._id} created`);
     }
@@ -431,6 +432,9 @@ export class WorkspaceFactory {
         const workspace = this._map.get(key);
         if (workspace) {
             workspace.isInitialized.resolve();
+
+            this._onWorkspaceRemoved(workspace);
+
             workspace.service.dispose();
             this._console.log(`WorkspaceFactory ${this._id} remove ${key}`);
             this._map.delete(key);

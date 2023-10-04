@@ -19,15 +19,17 @@ import { isVisibleExternally } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { maxTypeRecursionCount } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { isDefined } from '../common/core';
 import { appendArray } from '../common/collectionUtils';
 import { assertNever } from '../common/debug';
-import { ProgramView } from '../common/extensibility';
+import { ProgramView, ReferenceUseCase, SymbolUsageProvider } from '../common/extensibility';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position, TextRange, doesRangeContain } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { DocumentSymbolCollector, DocumentSymbolCollectorUseCase } from './documentSymbolCollector';
+import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { convertDocumentRangesToLocation } from './navigationUtils';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 
 export type ReferenceCallback = (locations: DocumentRange[]) => void;
 
@@ -41,7 +43,8 @@ export class ReferencesResult {
         readonly nodeAtOffset: ParseNode,
         readonly symbolNames: string[],
         readonly declarations: Declaration[],
-        readonly useCase: DocumentSymbolCollectorUseCase,
+        readonly useCase: ReferenceUseCase,
+        readonly providers: readonly SymbolUsageProvider[],
         private readonly _reporter?: ReferenceCallback
     ) {
         // Filter out any import decls. but leave one with alias.
@@ -117,11 +120,13 @@ export class FindReferencesTreeWalker {
             this._program,
             this._referencesResult.symbolNames,
             this._referencesResult.declarations,
-            this._cancellationToken,
             rootNode!,
-            /* treatModuleInImportAndFromImportSame */ true,
-            /* skipUnreachableCode */ false,
-            this._referencesResult.useCase
+            this._cancellationToken,
+            {
+                treatModuleInImportAndFromImportSame: true,
+                skipUnreachableCode: false,
+                useCase: this._referencesResult.useCase,
+            }
         );
 
         for (const result of collector.collect()) {
@@ -176,7 +181,7 @@ export class ReferencesProvider {
             filePath,
             position,
             reporter,
-            DocumentSymbolCollectorUseCase.Reference,
+            ReferenceUseCase.References,
             this._token
         );
         if (!referencesResult) {
@@ -233,7 +238,8 @@ export class ReferencesProvider {
                     referencesResult.nodeAtOffset,
                     referencesResult.symbolNames,
                     referencesResult.declarations,
-                    referencesResult.useCase
+                    referencesResult.useCase,
+                    referencesResult.providers
                 );
 
                 this.addReferencesToResult(declFileInfo.sourceFile.getFilePath(), includeDeclaration, tempResult);
@@ -271,7 +277,7 @@ export class ReferencesProvider {
         filePath: string,
         node: NameNode,
         reporter: ReferenceCallback | undefined,
-        useCase: DocumentSymbolCollectorUseCase,
+        useCase: ReferenceUseCase,
         token: CancellationToken
     ) {
         throwIfCancellationRequested(token);
@@ -280,7 +286,6 @@ export class ReferencesProvider {
             program,
             node,
             /* resolveLocalNames */ false,
-            useCase,
             token
         );
 
@@ -289,8 +294,18 @@ export class ReferencesProvider {
         }
 
         const requiresGlobalSearch = isVisibleOutside(program.evaluator!, filePath, node, declarations);
-        const symbolNames = new Set(declarations.map((d) => getNameFromDeclaration(d)!).filter((n) => !!n));
+        const symbolNames = new Set<string>(declarations.map((d) => getNameFromDeclaration(d)!).filter((n) => !!n));
         symbolNames.add(node.value);
+
+        const providers = (program.serviceProvider.tryGet(ServiceKeys.symbolUsageProviderFactory) ?? [])
+            .map((f) => f.tryCreateProvider(useCase, declarations, token))
+            .filter(isDefined);
+
+        // Check whether we need to add new symbol names and declarations.
+        providers.forEach((p) => {
+            p.appendSymbolNamesTo(symbolNames);
+            p.appendDeclarationsTo(declarations);
+        });
 
         return new ReferencesResult(
             requiresGlobalSearch,
@@ -298,6 +313,7 @@ export class ReferencesProvider {
             Array.from(symbolNames.values()),
             declarations,
             useCase,
+            providers,
             reporter
         );
     }
@@ -307,7 +323,7 @@ export class ReferencesProvider {
         filePath: string,
         position: Position,
         reporter: ReferenceCallback | undefined,
-        useCase: DocumentSymbolCollectorUseCase,
+        useCase: ReferenceUseCase,
         token: CancellationToken
     ): ReferencesResult | undefined {
         throwIfCancellationRequested(token);

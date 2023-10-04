@@ -14,11 +14,17 @@ import { assertNever } from '../common/debug';
 import { FileEditAction, FileEditActions, FileOperations } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
 import { convertUriToPath, getDirectoryPath, isFile } from '../common/pathUtils';
-import { rangesAreEqual } from '../common/textRange';
+import { TextRange, rangesAreEqual } from '../common/textRange';
 import { applyTextEditsToString } from '../common/workspaceEditUtils';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { TestState } from './harness/fourslash/testState';
-import { CreateFile, DeleteFile, RenameFile, TextDocumentEdit } from 'vscode-languageserver';
+import { CancellationToken, CreateFile, DeleteFile, RenameFile, TextDocumentEdit } from 'vscode-languageserver';
+import { Program } from '../analyzer/program';
+import { ConfigOptions } from '../common/configOptions';
+import { findNodeByOffset } from '../analyzer/parseTreeUtils';
+import { DocumentSymbolCollector } from '../languageService/documentSymbolCollector';
+import { NameNode } from '../parser/parseNodes';
+import { isArray } from '../common/core';
 
 export function convertFileEditActionToString(edit: FileEditAction): string {
     return `'${edit.replacementText.replace(/\n/g, '!n!')}'@'${edit.filePath}:(${edit.range.start.line},${
@@ -164,4 +170,47 @@ export function convertWorkspaceEditToFileEditActions(fs: FileSystem, edit: Work
         }
     }
     return { edits, fileOperations: fileOperations };
+}
+
+export function verifyReferencesAtPosition(
+    program: Program,
+    configOption: ConfigOptions,
+    symbolNames: string | string[],
+    fileName: string,
+    position: number,
+    ranges: Range[]
+) {
+    const sourceFile = program.getBoundSourceFile(fileName);
+    assert(sourceFile);
+
+    const node = findNodeByOffset(sourceFile.getParseResults()!.parseTree, position);
+    const decls = DocumentSymbolCollector.getDeclarationsForNode(
+        program,
+        node as NameNode,
+        /* resolveLocalName */ true,
+        CancellationToken.None
+    );
+
+    const rangesByFile = createMapFromItems(ranges, (r) => r.fileName);
+    for (const rangeFileName of rangesByFile.keys()) {
+        const collector = new DocumentSymbolCollector(
+            program,
+            isArray(symbolNames) ? symbolNames : [symbolNames],
+            decls,
+            program.getBoundSourceFile(rangeFileName)!.getParseResults()!.parseTree,
+            CancellationToken.None,
+            {
+                treatModuleInImportAndFromImportSame: true,
+                skipUnreachableCode: false,
+            }
+        );
+
+        const results = collector.collect();
+        const rangesOnFile = rangesByFile.get(rangeFileName)!;
+        assert.strictEqual(results.length, rangesOnFile.length, `${rangeFileName}@${symbolNames}`);
+
+        for (const result of results) {
+            assert(rangesOnFile.some((r) => r.pos === result.range.start && r.end === TextRange.getEnd(result.range)));
+        }
+    }
 }

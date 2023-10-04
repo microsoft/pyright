@@ -21,7 +21,7 @@ import {
     FileWatcherProvider,
     nullFileWatcherProvider,
 } from './fileWatcher';
-import { combinePaths, getDirectoryPath, getFileName, isDiskPathRoot, isRootedDiskPath } from './pathUtils';
+import { getRootLength } from './pathUtils';
 
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();
@@ -234,21 +234,11 @@ class RealFileSystem implements FileSystem {
     }
 
     readdirSync(path: string): string[] {
-        return yarnFS.readdirSync(path).map((entry) => {
-            // Make sure the entry name is the real case.
-            const fullPath = combinePaths(path, entry);
-            const realPath = this.realCasePath(fullPath);
-            return getFileName(realPath);
-        });
+        return yarnFS.readdirSync(path);
     }
 
     readdirEntriesSync(path: string): fs.Dirent[] {
         return yarnFS.readdirSync(path, { withFileTypes: true }).map((entry): fs.Dirent => {
-            // Make sure the entry name is the real case.
-            const fullPath = combinePaths(path, entry.name);
-            const realPath = this.realCasePath(fullPath);
-            (entry.name as any) = getFileName(realPath);
-
             // Treat zip/egg files as directories.
             // See: https://github.com/yarnpkg/berry/blob/master/packages/vscode-zipfs/sources/ZipFSProvider.ts
             if (hasZipExtension(entry.name)) {
@@ -369,12 +359,9 @@ class RealFileSystem implements FileSystem {
 
     realCasePath(path: string): string {
         try {
-            // If it doesn't exist in the real FS, try going up a level and combining it.
+            // If it doesn't exist in the real FS, then just use this path.
             if (!this.existsSync(path)) {
-                if (!isRootedDiskPath(path) || isDiskPathRoot(path)) {
-                    return path;
-                }
-                return combinePaths(this.realCasePath(getDirectoryPath(path)), getFileName(path));
+                return path;
             }
 
             // If it does exist, skip this for symlinks.
@@ -385,7 +372,14 @@ class RealFileSystem implements FileSystem {
 
             // realpathSync.native will return casing as in OS rather than
             // trying to preserve casing given.
-            return fs.realpathSync.native(path);
+            const realCase = fs.realpathSync.native(path);
+
+            // On UNC mapped drives we want to keep the original drive letter.
+            if (getRootLength(realCase) !== getRootLength(path)) {
+                return path;
+            }
+
+            return realCase;
         } catch (e: any) {
             // Return as it is, if anything failed.
             this._console.log(`Failed to get real file system casing for ${path}: ${e}`);

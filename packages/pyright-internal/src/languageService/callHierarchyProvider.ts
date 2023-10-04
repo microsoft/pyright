@@ -21,13 +21,12 @@ import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { isUserCode } from '../analyzer/sourceFileInfoUtils';
-import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { ClassMemberLookupFlags, doForEachSubtype, lookUpClassMember, lookUpObjectMember } from '../analyzer/typeUtils';
 import { ClassType, isClassInstance, isFunction, isInstantiableClass } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
-import { ProgramView } from '../common/extensibility';
+import { ProgramView, ReferenceUseCase, SymbolUsageProvider } from '../common/extensibility';
 import { getSymbolKind } from '../common/lspUtils';
 import { convertPathToUri, getFileName } from '../common/pathUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
@@ -35,12 +34,13 @@ import { Position, rangesAreEqual } from '../common/textRange';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { CallNode, MemberAccessNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { DocumentSymbolCollector, DocumentSymbolCollectorUseCase } from './documentSymbolCollector';
+import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { canNavigateToFile } from './navigationUtils';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
+import { isDefined } from '../common/core';
 
 export class CallHierarchyProvider {
     private readonly _parseResults: ParseResults | undefined;
-    private readonly _sourceMapper: SourceMapper;
 
     constructor(
         private _program: ProgramView,
@@ -49,7 +49,6 @@ export class CallHierarchyProvider {
         private _token: CancellationToken
     ) {
         this._parseResults = this._program.getParseResults(this._filePath);
-        this._sourceMapper = this._program.getSourceMapper(this._filePath, this._token);
     }
 
     onPrepare(): CallHierarchyItem[] | null {
@@ -123,12 +122,7 @@ export class CallHierarchyProvider {
         for (const curSourceFileInfo of sourceFiles) {
             if (isUserCode(curSourceFileInfo) || curSourceFileInfo.isOpenByClient) {
                 const filePath = curSourceFileInfo.sourceFile.getFilePath();
-                const itemsToAdd = this._getIncomingCallsForDeclaration(
-                    this._program.getParseResults(filePath)!,
-                    filePath,
-                    symbolName,
-                    targetDecl
-                );
+                const itemsToAdd = this._getIncomingCallsForDeclaration(filePath, symbolName, targetDecl);
 
                 if (itemsToAdd) {
                     appendArray(items, itemsToAdd);
@@ -272,7 +266,6 @@ export class CallHierarchyProvider {
     }
 
     private _getIncomingCallsForDeclaration(
-        parseResults: ParseResults,
         filePath: string,
         symbolName: string,
         declaration: Declaration
@@ -280,13 +273,11 @@ export class CallHierarchyProvider {
         throwIfCancellationRequested(this._token);
 
         const callFinder = new FindIncomingCallTreeWalker(
+            this._program,
             filePath,
             symbolName,
             declaration,
-            parseResults,
-            this._evaluator,
-            this._token,
-            this._program
+            this._token
         );
 
         const incomingCalls = callFinder.findCalls();
@@ -299,7 +290,7 @@ export class CallHierarchyProvider {
             this._filePath,
             this._position,
             /* reporter */ undefined,
-            DocumentSymbolCollectorUseCase.Reference,
+            ReferenceUseCase.References,
             this._token
         );
     }
@@ -438,18 +429,30 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
 }
 
 class FindIncomingCallTreeWalker extends ParseTreeWalker {
-    private _incomingCalls: CallHierarchyIncomingCall[] = [];
+    private readonly _incomingCalls: CallHierarchyIncomingCall[] = [];
+    private readonly _declarations: Declaration[] = [];
+
+    private readonly _usageProviders: SymbolUsageProvider[];
+    private readonly _parseResults: ParseResults;
 
     constructor(
-        private _filePath: string,
-        private _symbolName: string,
-        private _declaration: Declaration,
-        private _parseResults: ParseResults,
-        private _evaluator: TypeEvaluator,
-        private _cancellationToken: CancellationToken,
-        private _program: ProgramView
+        private readonly _program: ProgramView,
+        private readonly _filePath: string,
+        private readonly _symbolName: string,
+        private readonly _targetDeclaration: Declaration,
+        private readonly _cancellationToken: CancellationToken
     ) {
         super();
+
+        this._parseResults = this._program.getParseResults(this._filePath)!;
+        this._usageProviders = (this._program.serviceProvider.tryGet(ServiceKeys.symbolUsageProviderFactory) ?? [])
+            .map((f) =>
+                f.tryCreateProvider(ReferenceUseCase.References, [this._targetDeclaration], this._cancellationToken)
+            )
+            .filter(isDefined);
+
+        this._declarations.push(this._targetDeclaration);
+        this._usageProviders.forEach((p) => p.appendDeclarationsTo(this._declarations));
     }
 
     findCalls(): CallHierarchyIncomingCall[] {
@@ -461,7 +464,6 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         throwIfCancellationRequested(this._cancellationToken);
 
         let nameNode: NameNode | undefined;
-
         if (node.leftExpression.nodeType === ParseNodeType.Name) {
             nameNode = node.leftExpression;
         } else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
@@ -470,18 +472,11 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
 
         // Don't bother doing any more work if the name doesn't match.
         if (nameNode && nameNode.value === this._symbolName) {
-            const declarations = DocumentSymbolCollector.getDeclarationsForNode(
-                this._program,
-                nameNode,
-                /* resolveLocalName */ true,
-                DocumentSymbolCollectorUseCase.Reference,
-                this._cancellationToken
-            );
-
+            const declarations = this._getDeclarations(nameNode);
             if (declarations) {
-                if (this._declaration.type === DeclarationType.Alias) {
+                if (this._targetDeclaration.type === DeclarationType.Alias) {
                     const resolvedCurDecls = this._evaluator.resolveAliasDeclaration(
-                        this._declaration,
+                        this._targetDeclaration,
                         /* resolveLocalNames */ true
                     );
                     if (
@@ -491,7 +486,9 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                         this._addIncomingCallForDeclaration(nameNode!);
                     }
                 } else if (
-                    declarations.some((decl) => DeclarationUtils.areDeclarationsSame(decl!, this._declaration))
+                    declarations.some((decl) =>
+                        this._declarations.some((t) => DeclarationUtils.areDeclarationsSame(decl, t))
+                    )
                 ) {
                     this._addIncomingCallForDeclaration(nameNode!);
                 }
@@ -532,7 +529,11 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                         return;
                     }
 
-                    if (propertyDecls.some((decl) => DeclarationUtils.areDeclarationsSame(decl!, this._declaration))) {
+                    if (
+                        propertyDecls.some((decl) =>
+                            DeclarationUtils.areDeclarationsSame(decl!, this._targetDeclaration)
+                        )
+                    ) {
                         this._addIncomingCallForDeclaration(node.memberName);
                     }
                 });
@@ -540,6 +541,24 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         }
 
         return true;
+    }
+
+    private get _evaluator(): TypeEvaluator {
+        return this._program.evaluator!;
+    }
+
+    private _getDeclarations(node: NameNode) {
+        const declarations = DocumentSymbolCollector.getDeclarationsForNode(
+            this._program,
+            node,
+            /* resolveLocalName */ true,
+            this._cancellationToken
+        );
+
+        const results = [...declarations];
+        this._usageProviders.forEach((p) => p.appendDeclarationsAt(node, declarations, results));
+
+        return results;
     }
 
     private _addIncomingCallForDeclaration(nameNode: NameNode) {

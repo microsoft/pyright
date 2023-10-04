@@ -134,20 +134,33 @@ export interface ProgramMutator {
     ): void;
 }
 
-export enum DeclarationUseCase {
-    Definition,
+export enum ReferenceUseCase {
     Rename,
     References,
 }
 
-export interface SymbolDeclarationProvider {
-    tryGetDeclarations(
-        evaluator: TypeEvaluator,
-        node: ParseNode,
-        offset: number,
-        useCase: DeclarationUseCase,
+export interface SymbolDefinitionProvider {
+    tryGetDeclarations(node: ParseNode, offset: number, token: CancellationToken): Declaration[];
+}
+
+export interface SymbolUsageProviderFactory {
+    tryCreateProvider(
+        useCase: ReferenceUseCase,
+        declarations: readonly Declaration[],
         token: CancellationToken
-    ): Declaration[];
+    ): SymbolUsageProvider | undefined;
+}
+
+/**
+ * All Apis are supposed to be `idempotent` and `deterministic`
+ *
+ * All Apis should return the same results regardless how often there are called
+ * in whatever orders for the same inputs.
+ */
+export interface SymbolUsageProvider {
+    appendSymbolNamesTo(symbolNames: Set<string>): void;
+    appendDeclarationsTo(to: Declaration[]): void;
+    appendDeclarationsAt(context: ParseNode, from: readonly Declaration[], to: Declaration[]): void;
 }
 
 export interface StatusMutationListener {

@@ -11,10 +11,9 @@ import { CancellationToken, WorkspaceEdit } from 'vscode-languageserver';
 
 import { assertNever } from '../common/debug';
 import { FileEditAction } from '../common/editAction';
-import { ProgramView } from '../common/extensibility';
+import { ProgramView, ReferenceUseCase } from '../common/extensibility';
 import { convertTextRangeToRange } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
-import { DocumentSymbolCollectorUseCase } from '../languageService/documentSymbolCollector';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { isUserCode } from '../analyzer/sourceFileInfoUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -177,7 +176,7 @@ export class RenameProvider {
             this._filePath,
             this._position,
             /* reporter */ undefined,
-            DocumentSymbolCollectorUseCase.Rename,
+            ReferenceUseCase.Rename,
             this._token
         );
         if (!referencesResult) {
@@ -199,7 +198,8 @@ export class RenameProvider {
             referencesResult.nodeAtOffset,
             referencesResult.symbolNames,
             referencesResult.nonImportDeclarations,
-            referencesResult.useCase
+            referencesResult.useCase,
+            referencesResult.providers
         );
     }
 }

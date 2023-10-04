@@ -11,8 +11,9 @@ import { SupportPartialStubs, SupportUriToPathMapping } from '../pyrightFileSyst
 import { ConsoleInterface } from './console';
 import {
     StatusMutationListener,
-    SymbolDeclarationProvider,
     ServiceProvider as ReadOnlyServiceProvider,
+    SymbolDefinitionProvider,
+    SymbolUsageProviderFactory,
 } from './extensibility';
 import { FileSystem } from './fileSystem';
 import { LogTracker } from './logTracker';
@@ -34,7 +35,8 @@ export namespace ServiceKeys {
     export const sourceFileFactory = new ServiceKey<ISourceFileFactory>();
     export const partialStubs = new ServiceKey<SupportPartialStubs>();
     export const uriMapper = new ServiceKey<SupportUriToPathMapping>();
-    export const symbolDeclarationProviders = new GroupServiceKey<SymbolDeclarationProvider>();
+    export const symbolDefinitionProvider = new GroupServiceKey<SymbolDefinitionProvider>();
+    export const symbolUsageProviderFactory = new GroupServiceKey<SymbolUsageProviderFactory>();
     export const stateMutationListeners = new GroupServiceKey<StatusMutationListener>();
 }
 
