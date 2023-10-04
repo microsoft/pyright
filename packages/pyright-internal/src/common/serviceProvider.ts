@@ -29,14 +29,14 @@ export class GroupServiceKey<T> extends InternalKey {
     readonly kind = 'group';
 }
 
-export type ServiceKeys<T> = ServiceKey<T> | GroupServiceKey<T>;
+export type AllServiceKeys<T> = ServiceKey<T> | GroupServiceKey<T>;
 
 export class ServiceProvider {
     private _container = new Map<InternalKey, any>();
 
     add<T>(key: ServiceKey<T>, value: T | undefined): void;
     add<T>(key: GroupServiceKey<T>, value: T): void;
-    add<T>(key: ServiceKeys<T>, value: T | undefined): void {
+    add<T>(key: AllServiceKeys<T>, value: T | undefined): void {
         if (key.kind === 'group') {
             this._addGroupService(key, value);
             return;
@@ -56,7 +56,7 @@ export class ServiceProvider {
 
     remove<T>(key: ServiceKey<T>): void;
     remove<T>(key: GroupServiceKey<T>, value: T): void;
-    remove<T>(key: ServiceKeys<T>, value?: T): void {
+    remove<T>(key: AllServiceKeys<T>, value?: T): void {
         if (key.kind === 'group') {
             this._removeGroupService(key, value);
             return;
@@ -72,13 +72,13 @@ export class ServiceProvider {
 
     tryGet<T>(key: ServiceKey<T>): T | undefined;
     tryGet<T>(key: GroupServiceKey<T>): readonly T[] | undefined;
-    tryGet<T>(key: ServiceKeys<T>): T | readonly T[] | undefined {
+    tryGet<T>(key: AllServiceKeys<T>): T | readonly T[] | undefined {
         return this._container.get(key);
     }
 
     get<T>(key: ServiceKey<T>): T;
     get<T>(key: GroupServiceKey<T>): readonly T[];
-    get<T>(key: ServiceKeys<T>): T | readonly T[] {
+    get<T>(key: AllServiceKeys<T>): T | readonly T[] {
         const value = key.kind === 'group' ? this.tryGet(key) : this.tryGet(key);
         if (value === undefined) {
             throw new Error(`Global service provider not initialized for ${key.toString()}`);

@@ -136,7 +136,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
         const kind = params.arguments[1];
 
         const workspace = await this._ls.getWorkspaceForFile(filePath);
-        const parseResults = workspace.service.getParseResult(filePath);
+        const parseResults = workspace.service.getParseResult(workspace.service.fs.realCasePath(filePath));
         if (!parseResults) {
             return [];
         }

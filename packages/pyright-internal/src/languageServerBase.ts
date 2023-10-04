@@ -103,7 +103,14 @@ import { FileSystem } from './common/fileSystem';
 import { FileWatcherEventType, FileWatcherHandler } from './common/fileWatcher';
 import { Host } from './common/host';
 import { fromLSPAny } from './common/lspUtils';
-import { convertPathToUri, deduplicateFolders, getDirectoryPath, getFileName, isFile } from './common/pathUtils';
+import {
+    convertPathToUri,
+    convertUriToPath,
+    deduplicateFolders,
+    getDirectoryPath,
+    getFileName,
+    isFile,
+} from './common/pathUtils';
 import { ProgressReportTracker, ProgressReporter } from './common/progressReporter';
 import { ServiceProvider } from './common/serviceProvider';
 import { DocumentRange, Position, Range } from './common/textRange';
@@ -346,6 +353,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected readonly uriMapper: SupportUriToPathMapping;
     protected readonly fs: FileSystem;
 
+    // The URIs for which diagnostics are reported
+    protected readonly documentsWithDiagnostics = new Set<string>();
+
     readonly uriParser: UriParser;
 
     constructor(
@@ -378,7 +388,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             /* isWeb */ false,
             this.createAnalyzerServiceForWorkspace.bind(this),
             this.isPythonPathImmutable.bind(this),
-            this.onWorkspaceCreated.bind(this)
+            this.onWorkspaceCreated.bind(this),
+            this.onWorkspaceRemoved.bind(this)
         );
 
         // Set the working directory to a known location within
@@ -1359,6 +1370,27 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         // Otherwise the initialize completion should cause settings to be updated on all workspaces.
     }
+    protected onWorkspaceRemoved(workspace: Workspace) {
+        const documentsWithDiagnosticsList = [...this.documentsWithDiagnostics];
+        const otherWorkspaces = this.workspaceFactory.items().filter((w) => w !== workspace);
+
+        for (const uri of documentsWithDiagnosticsList) {
+            const filePath = convertUriToPath(workspace.service.fs, uri);
+
+            if (workspace.service.isTracked(filePath)) {
+                // Do not clean up diagnostics for files tracked by multiple workspaces
+                if (otherWorkspaces.some((w) => w.service.isTracked(filePath))) {
+                    continue;
+                }
+                this._sendDiagnostics([
+                    {
+                        uri: uri,
+                        diagnostics: [],
+                    },
+                ]);
+            }
+        }
+    }
 
     protected createAnalyzerServiceForWorkspace(
         name: string,
@@ -1476,6 +1508,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     private _sendDiagnostics(params: PublishDiagnosticsParams[]) {
         for (const param of params) {
+            if (param.diagnostics.length === 0) {
+                this.documentsWithDiagnostics.delete(param.uri);
+            } else {
+                this.documentsWithDiagnostics.add(param.uri);
+            }
             this.connection.sendDiagnostics(param);
         }
     }

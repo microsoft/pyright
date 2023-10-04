@@ -12,7 +12,7 @@ import { CancellationToken, DocumentHighlight, DocumentHighlightKind } from 'vsc
 
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { ProgramView } from '../common/extensibility';
+import { ProgramView, ReferenceUseCase } from '../common/extensibility';
 import { convertOffsetsToRange, convertPositionToOffset } from '../common/positionUtils';
 import { Position, TextRange } from '../common/textRange';
 import { ParseNodeType } from '../parser/parseNodes';
@@ -56,7 +56,10 @@ export class DocumentHighlightProvider {
             node,
             this._token,
             this._parseResults.parseTree,
-            /* treatModuleInImportAndFromImportSame */ true
+            {
+                treatModuleInImportAndFromImportSame: true,
+                useCase: ReferenceUseCase.References,
+            }
         );
 
         const lines = this._parseResults.tokenizerOutput.lines;
