@@ -1631,7 +1631,7 @@ export class Tokenizer<KeywordT extends number> {
                     }
                 }
             } else if (this._cs.currentChar === Char.LineFeed || this._cs.currentChar === Char.CarriageReturn) {
-                if (!isTriplicate) {
+                if (!isTriplicate && !isFString) {
                     // Unterminated single-line string
                     flags |= StringTokenFlags.Unterminated;
                     return { escapedValue: String.fromCharCode.apply(undefined, escapedValueParts), flags };
