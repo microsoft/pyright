@@ -994,12 +994,17 @@ export function getCodeFlowEngine(
                     }
 
                     let effectiveType = cacheEntry.type;
+                    let cleanedIncompleteUnknowns = false;
                     if (sawIncomplete) {
                         // If there is an incomplete "Unknown" type within a union type, remove
                         // it. Otherwise we might end up resolving the cycle with a type
                         // that includes an undesirable unknown.
                         if (effectiveType) {
-                            effectiveType = cleanIncompleteUnknown(effectiveType);
+                            const cleanedType = cleanIncompleteUnknown(effectiveType);
+                            if (cleanedType !== effectiveType) {
+                                effectiveType = cleanedType;
+                                cleanedIncompleteUnknowns = true;
+                            }
                         }
                     }
 
@@ -1010,10 +1015,12 @@ export function getCodeFlowEngine(
                         // up the stack will be able to produce a valid type.
                         let reportIncomplete = sawIncomplete;
                         if (
+                            sawIncomplete &&
                             !sawPending &&
                             effectiveType &&
                             !isIncompleteUnknown(effectiveType) &&
-                            !firstAntecedentTypeIsIncomplete
+                            !firstAntecedentTypeIsIncomplete &&
+                            !cleanedIncompleteUnknowns
                         ) {
                             // Bump the generation count because we need to recalculate
                             // other incomplete types based on this now-complete type.
