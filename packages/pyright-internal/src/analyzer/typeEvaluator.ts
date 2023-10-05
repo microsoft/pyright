@@ -1990,7 +1990,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     memberName,
                     usage,
                     /* diag */ undefined,
-                    memberAccessFlags | MemberAccessFlags.AccessInstanceMembersOnly,
+                    memberAccessFlags |
+                        MemberAccessFlags.AccessInstanceMembersOnly |
+                        MemberAccessFlags.SkipAttributeAccessOverride,
                     ClassType.cloneAsInstantiable(objectType)
                 );
             }
