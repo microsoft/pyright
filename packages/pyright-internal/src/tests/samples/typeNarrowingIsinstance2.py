@@ -2,13 +2,49 @@
 # on "self" and other bound TypeVars.
 
 
-class Base:
+from typing import Self, TypeVar
+
+
+class ClassA:
     def get_value(self) -> int:
-        if isinstance(self, Derived):
+        if isinstance(self, ChildB):
             return self.calculate()
         return 7
 
 
-class Derived(Base):
+class ChildB(ClassA):
     def calculate(self) -> int:
         return 2 * 2
+
+
+TC = TypeVar("TC")
+
+
+class ClassC:
+    @classmethod
+    def test(cls: type[TC], id: int | TC):
+        if isinstance(id, cls):
+            reveal_type(id, expected_text="TC@test")
+        else:
+            reveal_type(id, expected_text="int")
+
+
+TD = TypeVar("TD", bound="ClassD")
+
+
+class ClassD:
+    @classmethod
+    def test(cls: type[TD], id: int | TD):
+        if isinstance(id, cls):
+            reveal_type(id, expected_text="ClassD*")
+        else:
+            reveal_type(id, expected_text="int")
+
+
+class ClassE:
+    @classmethod
+    def test(cls: type[Self], id: int | Self):
+        if isinstance(id, cls):
+            reveal_type(id, expected_text="ClassE")
+        else:
+            reveal_type(id, expected_text="int")
