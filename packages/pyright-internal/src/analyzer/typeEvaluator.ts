@@ -8286,7 +8286,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addError(Localizer.Diagnostic.superCallArgCount(), node.arguments[2]);
         }
 
-        const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
+        const enclosingFunction = ParseTreeUtils.getEnclosingFunctionEvaluationScope(node);
         const enclosingClass = enclosingFunction
             ? ParseTreeUtils.getEnclosingClass(enclosingFunction, /* stopAtFunction */ true)
             : undefined;
