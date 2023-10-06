@@ -16,4 +16,4 @@ class ClassA:
             reveal_type(other, expected_text="Self@ClassA")
 
         if isinstance(other, (int, type(self))):
-            reveal_type(other, expected_text="Self@ClassA | int")
+            reveal_type(other, expected_text="ClassA | int | Self@ClassA")
