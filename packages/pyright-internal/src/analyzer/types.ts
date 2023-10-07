@@ -1454,6 +1454,11 @@ export interface FunctionType extends TypeBase {
     // for that call and any other signatures that were passed as
     // arguments to it.
     trackedSignatures?: SignatureWithOffsets[];
+
+    // If this function is created with a "Callable" annotation with
+    // type arguments? This allows us to detect and report an error
+    // when this is used in an isinstance call.
+    isCallableWithTypeArgs?: boolean;
 }
 
 export namespace FunctionType {

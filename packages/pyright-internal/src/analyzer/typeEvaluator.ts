@@ -14255,6 +14255,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         functionType.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(errorNode);
 
         if (typeArgs && typeArgs.length > 0) {
+            functionType.isCallableWithTypeArgs = true;
+
             if (typeArgs[0].typeList) {
                 const typeList = typeArgs[0].typeList;
                 let sawUnpacked = false;
