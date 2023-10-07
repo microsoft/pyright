@@ -4229,8 +4229,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
                 const resultToCache: TypeResult = {
                     type: delAccessResult.type,
-                    memberAccessDeprecationInfo: delAccessResult.memberAccessDeprecationInfo
-                }
+                    memberAccessDeprecationInfo: delAccessResult.memberAccessDeprecationInfo,
+                };
                 writeTypeCache(node.memberName, resultToCache, EvaluatorFlags.None);
                 writeTypeCache(node, resultToCache, EvaluatorFlags.None);
                 break;
