@@ -285,11 +285,11 @@ test('isInstance3', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 1);
+    TestUtils.validateResults(analysisResults1, 2);
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 1);
+    TestUtils.validateResults(analysisResults2, 2);
 });
 
 test('isInstance4', () => {

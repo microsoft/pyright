@@ -4,7 +4,7 @@
 
 
 from abc import abstractmethod
-from typing import Any, Generic, Sequence, Tuple, Type, TypeVar, Union
+from typing import Any, Callable, Generic, Sequence, Tuple, Type, TypeVar, Union
 
 
 _T = TypeVar("_T", int, str)
@@ -55,3 +55,15 @@ class ClassA(Generic[_T]):
 
 def func1(exceptions: Sequence[type[BaseException]], exception: Exception):
     return isinstance(exception, tuple(exceptions))
+
+
+if isinstance(a, Callable):
+    ...
+
+# This should generate an error because a subscripted Callable
+# will result in a runtime exception.
+if isinstance(a, Callable[[], Any]):
+    ...
+
+if isinstance(a, type(len)):
+    ...
