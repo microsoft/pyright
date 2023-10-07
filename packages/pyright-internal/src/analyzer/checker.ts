@@ -113,7 +113,7 @@ import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { maxCodeComplexity } from './typeEvaluator';
-import { FunctionTypeResult, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { FunctionTypeResult, MemberAccessDeprecationInfo, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     getElementTypeForContainerNarrowing,
     isIsinstanceFilterSubclass,
@@ -1418,7 +1418,7 @@ export class Checker extends ParseTreeWalker {
 
         // Report the use of a deprecated symbol.
         const type = this._evaluator.getType(node);
-        this._reportDeprecatedUse(node, type);
+        this._reportDeprecatedUseForType(node, type);
 
         return true;
     }
@@ -1434,14 +1434,19 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitMemberAccess(node: MemberAccessNode) {
-        const type = this._evaluator.getType(node);
+        const typeResult = this._evaluator.getTypeResult(node);
+        const type = typeResult?.type ?? UnknownType.create();
 
         const leftExprType = this._evaluator.getType(node.leftExpression);
-        this._reportDeprecatedUse(
+        this._reportDeprecatedUseForType(
             node.memberName,
             type,
             leftExprType && isModule(leftExprType) && leftExprType.moduleName === 'typing'
         );
+
+        if (typeResult?.memberAccessDeprecationInfo) {
+            this._reportDeprecatedUseForMemberAccess(node.memberName, typeResult.memberAccessDeprecationInfo);
+        }
 
         this._conditionallyReportPrivateUsage(node.memberName);
 
@@ -1538,7 +1543,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         const type = this._evaluator.getType(node.alias ?? node.name);
-        this._reportDeprecatedUse(node.name, type, isImportFromTyping);
+        this._reportDeprecatedUseForType(node.name, type, isImportFromTyping);
 
         return false;
     }
@@ -3829,7 +3834,33 @@ export class Checker extends ParseTreeWalker {
         return false;
     }
 
-    private _reportDeprecatedUse(node: NameNode, type: Type | undefined, isImportFromTyping = false) {
+    private _reportDeprecatedUseForMemberAccess(node: NameNode, info: MemberAccessDeprecationInfo) {
+        let errorMessage: string | undefined;
+
+        if (info.accessType === 'property') {
+            if (info.accessMethod === 'get') {
+                errorMessage = Localizer.Diagnostic.deprecatedPropertyGetter().format({ name: node.value });
+            } else if (info.accessMethod === 'set') {
+                errorMessage = Localizer.Diagnostic.deprecatedPropertySetter().format({ name: node.value });
+            } else {
+                errorMessage = Localizer.Diagnostic.deprecatedPropertyDeleter().format({ name: node.value });
+            }
+        } else if (info.accessType === 'descriptor') {
+            if (info.accessMethod === 'get') {
+                errorMessage = Localizer.Diagnostic.deprecatedDescriptorGetter().format({ name: node.value });
+            } else if (info.accessMethod === 'set') {
+                errorMessage = Localizer.Diagnostic.deprecatedDescriptorSetter().format({ name: node.value });
+            } else {
+                errorMessage = Localizer.Diagnostic.deprecatedDescriptorDeleter().format({ name: node.value });
+            }
+        }
+
+        if (errorMessage) {
+            this._reportDeprecatedDiagnostic(node, errorMessage, info.deprecationMessage);
+        }
+    }
+
+    private _reportDeprecatedUseForType(node: NameNode, type: Type | undefined, isImportFromTyping = false) {
         if (!type) {
             return;
         }
@@ -3928,21 +3959,7 @@ export class Checker extends ParseTreeWalker {
         });
 
         if (errorMessage) {
-            const diag = new DiagnosticAddendum();
-            if (deprecatedMessage) {
-                diag.addMessage(deprecatedMessage);
-            }
-
-            if (this._fileInfo.diagnosticRuleSet.reportDeprecated === 'none') {
-                this._evaluator.addDeprecated(errorMessage + diag.getString(), node);
-            } else {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportDeprecated,
-                    DiagnosticRule.reportDeprecated,
-                    errorMessage + diag.getString(),
-                    node
-                );
-            }
+            this._reportDeprecatedDiagnostic(node, errorMessage, deprecatedMessage);
         }
 
         if (this._fileInfo.diagnosticRuleSet.deprecateTypingAliases) {
@@ -3978,6 +3995,24 @@ export class Checker extends ParseTreeWalker {
                     }
                 }
             }
+        }
+    }
+
+    private _reportDeprecatedDiagnostic(node: ParseNode, diagnosticMessage: string, deprecatedMessage?: string) {
+        const diag = new DiagnosticAddendum();
+        if (deprecatedMessage) {
+            diag.addMessage(deprecatedMessage);
+        }
+
+        if (this._fileInfo.diagnosticRuleSet.reportDeprecated === 'none') {
+            this._evaluator.addDeprecated(diagnosticMessage + diag.getString(), node);
+        } else {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportDeprecated,
+                DiagnosticRule.reportDeprecated,
+                diagnosticMessage + diag.getString(),
+                node
+            );
         }
     }
 

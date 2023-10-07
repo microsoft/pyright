@@ -296,6 +296,7 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
         ? FunctionType.getSpecializedReturnType(fget)
         : propertyObject;
     getFunction1.details.declaration = fget.details.declaration;
+    getFunction1.details.deprecatedMessage = fget.details.deprecatedMessage;
 
     // Override the scope ID since we're using parameter types from the
     // decorated function.
@@ -328,6 +329,7 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     });
     getFunction2.details.declaredReturnType = FunctionType.getSpecializedReturnType(fget);
     getFunction2.details.declaration = fget.details.declaration;
+    getFunction2.details.deprecatedMessage = fget.details.deprecatedMessage;
 
     // Override the scope ID since we're using parameter types from the
     // decorated function.
@@ -370,6 +372,7 @@ function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     // Adopt the TypeVarScopeId of the fset function in case it has any
     // TypeVars that need to be solved.
     setFunction.details.typeVarScopeId = getTypeVarScopeId(fset);
+    setFunction.details.deprecatedMessage = fset.details.deprecatedMessage;
 
     let setParamType: Type = UnknownType.create();
 
@@ -404,6 +407,7 @@ function addDelMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     // Adopt the TypeVarScopeId of the fdel function in case it has any
     // TypeVars that need to be solved.
     delFunction.details.typeVarScopeId = getTypeVarScopeId(fdel);
+    delFunction.details.deprecatedMessage = fdel.details.deprecatedMessage;
 
     let objType = fdel.details.parameters.length > 0 ? fdel.details.parameters[0].type : AnyType.create();
 
