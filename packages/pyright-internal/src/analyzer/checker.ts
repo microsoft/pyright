@@ -3797,7 +3797,20 @@ export class Checker extends ParseTreeWalker {
                     break;
 
                 case TypeCategory.Function:
-                    isSupported = TypeBase.isInstantiable(subtype);
+                    if (!TypeBase.isInstantiable(subtype)) {
+                        isSupported = false;
+                    }
+
+                    // If the function is not a "bare" Callable, it's not supported.
+                    if (
+                        subtype.details.name ||
+                        subtype.details.parameters.length !== 2 ||
+                        !subtype.details.declaredReturnType ||
+                        !isUnknown(subtype.details.declaredReturnType) ||
+                        !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(subtype)
+                    ) {
+                        isSupported = false;
+                    }
                     break;
 
                 case TypeCategory.Union:
