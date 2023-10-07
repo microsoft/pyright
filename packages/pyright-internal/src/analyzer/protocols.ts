@@ -439,12 +439,17 @@ function assignClassToProtocolInternal(
                 // Class and instance variables that are mutable need to enforce invariance.
                 const primaryDecl = symbol.getDeclarations()[0];
                 const isInvariant = primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal;
+
+                // Temporarily add the TypeVar scope ID for this method to handle method-scoped TypeVars.
+                const protocolTypeVarContextClone = protocolTypeVarContext.clone();
+                protocolTypeVarContextClone.addSolveForScope(getTypeVarScopeId(destMemberType));
+
                 if (
                     !evaluator.assignType(
                         destMemberType,
                         srcMemberType,
                         subDiag?.createAddendum(),
-                        protocolTypeVarContext,
+                        protocolTypeVarContextClone,
                         /* srcTypeVarContext */ undefined,
                         isInvariant ? assignTypeFlags | AssignTypeFlags.EnforceInvariance : assignTypeFlags,
                         recursionCount
@@ -457,6 +462,8 @@ function assignClassToProtocolInternal(
                         subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
                     }
                     typesAreConsistent = false;
+                } else {
+                    protocolTypeVarContext.copyFromClone(protocolTypeVarContextClone);
                 }
             }
 
