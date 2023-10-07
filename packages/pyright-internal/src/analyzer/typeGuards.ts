@@ -1552,6 +1552,10 @@ function narrowTypeForIsInstance(
                         } else {
                             foundSuperclass = true;
                         }
+                    } else if (evaluator.assignType(concreteVarType, filterType)) {
+                        if (isPositiveTest) {
+                            filteredTypes.push(filterType);
+                        }
                     }
                 }
             }

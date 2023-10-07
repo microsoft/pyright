@@ -57,3 +57,10 @@ def check_callable5(fn: Callable[P, None]) -> None:
         reveal_type(fn, expected_text="ClassA")
     else:
         reveal_type(fn, expected_text="(**P@check_callable5) -> None")
+
+
+def check_callable6(o: object | Callable[[int], int]):
+    if isinstance(o, Callable):
+        reveal_type(o, expected_text="((...) -> Unknown) | ((int) -> int)")
+    else:
+        reveal_type(o, expected_text="object")
