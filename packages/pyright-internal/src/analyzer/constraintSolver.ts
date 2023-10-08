@@ -456,7 +456,7 @@ export function assignTypeToTypeVar(
         }
     } else if (isContravariant) {
         // Update the wide type bound.
-        if (!curWideTypeBound) {
+        if (!curWideTypeBound || isTypeSame(destType, curWideTypeBound)) {
             newWideTypeBound = adjSrcType;
         } else if (!isTypeSame(curWideTypeBound, adjSrcType, {}, recursionCount)) {
             if (
@@ -523,7 +523,7 @@ export function assignTypeToTypeVar(
             }
         }
     } else {
-        if (!curNarrowTypeBound) {
+        if (!curNarrowTypeBound || isTypeSame(destType, curNarrowTypeBound)) {
             // There was previously no narrow bound. We've now established one.
             newNarrowTypeBound = adjSrcType;
         } else if (!isTypeSame(curNarrowTypeBound, adjSrcType, {}, recursionCount)) {
