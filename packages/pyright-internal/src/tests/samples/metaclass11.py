@@ -37,6 +37,7 @@ class ClassB(metaclass=MetaB):
     var0: int
 
 
+# This should generate an error
 ClassB.var0 = ""
 ClassB.var1 = ""
 

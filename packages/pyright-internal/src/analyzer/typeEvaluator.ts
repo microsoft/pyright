@@ -2000,7 +2000,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (memberInfo) {
+        if (memberInfo && !memberInfo.isSetTypeError) {
             return {
                 type: memberInfo.type,
                 classType: memberInfo.classType,
@@ -2102,7 +2102,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (memberInfo) {
+        if (memberInfo && !memberInfo.isSetTypeError) {
             return {
                 type: memberInfo.type,
                 isIncomplete: !!memberInfo.isTypeIncomplete,
@@ -5776,6 +5776,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return undefined;
             }
             type = descriptorResult.type;
+            let isSetTypeError = false;
 
             if (usage.method === 'set' && usage.setType) {
                 // Verify that the assigned type is compatible.
@@ -5789,7 +5790,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             })
                         );
                     }
-                    return undefined;
+                    isSetTypeError = true;
                 }
 
                 if (
@@ -5802,7 +5803,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             name: printType(ClassType.cloneAsInstance(memberInfo.classType)),
                         })
                     );
-                    return undefined;
+                    isSetTypeError = true;
                 }
             }
 
@@ -5810,6 +5811,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 symbol: memberInfo.symbol,
                 type,
                 isTypeIncomplete,
+                isSetTypeError,
                 isClassMember: !memberInfo.isInstanceMember,
                 isClassVar: memberInfo.isClassVar,
                 classType: memberInfo.classType,
@@ -5831,6 +5833,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     symbol: undefined,
                     type: generalAttrType.type,
                     isTypeIncomplete: false,
+                    isSetTypeError: false,
                     isClassMember: false,
                     isClassVar: false,
                     isAsymmetricAccessor: generalAttrType.isAsymmetricAccessor,
