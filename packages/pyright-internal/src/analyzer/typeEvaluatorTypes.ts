@@ -383,6 +383,9 @@ export interface ClassMemberLookup {
     type: Type;
     isTypeIncomplete: boolean;
 
+    // True if access violates the type (used only for 'set' usage).
+    isSetTypeError: boolean;
+
     // True if class member, false otherwise.
     isClassMember: boolean;
 
