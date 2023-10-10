@@ -130,9 +130,9 @@ export async function activate(context: ExtensionContext) {
                                 item.scopeUri ? Uri.parse(item.scopeUri) : undefined
                             );
 
-                            // If stubPath is not set, send undefined rather than default value.
+                            // If stubPath is not set, remove it rather than sending default value.
                             // This lets the server know that it's unset rather than explicitly
-                            // set to the default value (typings) and behave differently.
+                            // set to the default value (typings) so it can behave differently.
                             if (!isConfigSettingSetByUser(analysisConfig, 'stubPath')) {
                                 delete (result[i] as any).stubPath;
                             }
@@ -141,7 +141,7 @@ export async function activate(context: ExtensionContext) {
 
                     // For backwards compatibility, set python.pythonPath to the configured
                     // value as though it were in the user's settings.json file.
-                    const addPythonPath = (settings: any[]): Promise<any[] | ResponseError<any>> => {
+                    const addPythonPath = (settings: any[]): Promise<any[]> => {
                         const pythonPathPromises: Promise<string | undefined>[] = params.items.map((item) => {
                             if (item.section === 'python') {
                                 const uri = item.scopeUri ? Uri.parse(item.scopeUri) : undefined;
