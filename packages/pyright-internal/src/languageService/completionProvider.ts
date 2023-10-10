@@ -56,7 +56,6 @@ import {
     isNoneInstance,
     isOverloadedFunction,
     isUnknown,
-    OverloadedFunctionType,
     Type,
     TypeBase,
     TypeCategory,
@@ -64,6 +63,7 @@ import {
 import {
     ClassMemberLookupFlags,
     containsLiteralType,
+    doForEachSignature,
     doForEachSubtype,
     getMembersForClass,
     getMembersForModule,
@@ -2124,20 +2124,15 @@ export class CompletionProvider {
         if (getItemType) {
             const typesToCombine: Type[] = [];
 
-            function addKeyType(functionType: FunctionType) {
-                if (functionType.details.parameters.length >= 1) {
-                    typesToCombine.push(FunctionType.getEffectiveParameterType(functionType, 0));
-                }
-            }
-
             // Handle both overloaded and non-overloaded functions.
-            if (isFunction(getItemType)) {
-                addKeyType(getItemType);
-            } else if (isOverloadedFunction(getItemType)) {
-                OverloadedFunctionType.getOverloads(getItemType).forEach((overload) => {
-                    addKeyType(overload);
-                });
-            }
+            doForEachSignature(getItemType, (signature) => {
+                if (
+                    signature.details.parameters.length >= 1 &&
+                    signature.details.parameters[0].category === ParameterCategory.Simple
+                ) {
+                    typesToCombine.push(FunctionType.getEffectiveParameterType(signature, 0));
+                }
+            });
 
             if (typesToCombine.length > 0) {
                 return combineTypes(typesToCombine);
