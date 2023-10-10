@@ -2217,7 +2217,7 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: Cl
         type,
         /* conditionFilter */ undefined,
         (subtype: Type, unexpandedSubtype: Type) => {
-            if (isClassInstance(subtype)) {
+            if (isClassInstance(subtype) && !classType.includeSubclasses) {
                 const matches = ClassType.isDerivedFrom(classType, ClassType.cloneAsInstantiable(subtype));
                 if (isPositiveTest) {
                     if (matches) {
