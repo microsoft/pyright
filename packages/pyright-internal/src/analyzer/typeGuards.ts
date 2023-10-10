@@ -2315,7 +2315,14 @@ function narrowTypeForLiteralComparison(
 ): Type {
     return mapSubtypes(referenceType, (subtype) => {
         subtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
-        if (isClassInstance(subtype) && ClassType.isSameGenericClass(literalType, subtype)) {
+
+        if (isAnyOrUnknown(subtype)) {
+            if (isPositiveTest) {
+                return literalType;
+            }
+
+            return subtype;
+        } else if (isClassInstance(subtype) && ClassType.isSameGenericClass(literalType, subtype)) {
             if (subtype.literalValue !== undefined) {
                 const literalValueMatches = ClassType.isLiteralValueSame(subtype, literalType);
                 if ((literalValueMatches && !isPositiveTest) || (!literalValueMatches && isPositiveTest)) {
