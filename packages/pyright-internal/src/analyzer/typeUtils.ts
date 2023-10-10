@@ -577,6 +577,19 @@ export function doForEachSubtype(
     }
 }
 
+export function doForEachSignature(
+    type: FunctionType | OverloadedFunctionType,
+    callback: (type: FunctionType, index: number) => void
+) {
+    if (isFunction(type)) {
+        callback(type, 0);
+    } else {
+        OverloadedFunctionType.getOverloads(type).forEach((overload, index) => {
+            callback(overload, index);
+        });
+    }
+}
+
 // Determines if all of the types in the array are the same.
 export function areTypesSame(types: Type[], options: TypeSameOptions): boolean {
     if (types.length < 2) {

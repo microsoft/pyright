@@ -2217,7 +2217,7 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: Cl
         type,
         /* conditionFilter */ undefined,
         (subtype: Type, unexpandedSubtype: Type) => {
-            if (isClassInstance(subtype)) {
+            if (isClassInstance(subtype) && !classType.includeSubclasses) {
                 const matches = ClassType.isDerivedFrom(classType, ClassType.cloneAsInstantiable(subtype));
                 if (isPositiveTest) {
                     if (matches) {
@@ -2315,7 +2315,14 @@ function narrowTypeForLiteralComparison(
 ): Type {
     return mapSubtypes(referenceType, (subtype) => {
         subtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
-        if (isClassInstance(subtype) && ClassType.isSameGenericClass(literalType, subtype)) {
+
+        if (isAnyOrUnknown(subtype)) {
+            if (isPositiveTest) {
+                return literalType;
+            }
+
+            return subtype;
+        } else if (isClassInstance(subtype) && ClassType.isSameGenericClass(literalType, subtype)) {
             if (subtype.literalValue !== undefined) {
                 const literalValueMatches = ClassType.isLiteralValueSame(subtype, literalType);
                 if ((literalValueMatches && !isPositiveTest) || (!literalValueMatches && isPositiveTest)) {

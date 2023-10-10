@@ -275,11 +275,15 @@ export class TypeVarSignatureContext {
 }
 
 export class TypeVarContext {
+    static nextTypeVarContextId = 1;
+    private _id;
     private _solveForScopes: TypeVarScopeId[] | undefined;
     private _isLocked = false;
     private _signatureContexts: TypeVarSignatureContext[];
 
     constructor(solveForScopes?: TypeVarScopeId[] | TypeVarScopeId) {
+        this._id = TypeVarContext.nextTypeVarContextId++;
+
         if (Array.isArray(solveForScopes)) {
             this._solveForScopes = solveForScopes;
         } else if (solveForScopes !== undefined) {
@@ -338,6 +342,10 @@ export class TypeVarContext {
         if (contexts.length < maxSignatureContextCount) {
             this._signatureContexts = Array.from(contexts);
         }
+    }
+
+    getId() {
+        return this._id;
     }
 
     // Returns the list of scopes this type var map is "solving".
@@ -440,12 +448,12 @@ export class TypeVarContext {
         return this._signatureContexts;
     }
 
-    doForEachSignatureContext(callback: (signature: TypeVarSignatureContext) => void) {
+    doForEachSignatureContext(callback: (signature: TypeVarSignatureContext, signatureIndex: number) => void) {
         const wasLocked = this.isLocked();
         this.unlock();
 
-        this.getSignatureContexts().forEach((signature) => {
-            callback(signature);
+        this.getSignatureContexts().forEach((signature, signatureIndex) => {
+            callback(signature, signatureIndex);
         });
 
         if (wasLocked) {
