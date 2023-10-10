@@ -67,6 +67,10 @@ import { TypeVarContext } from './typeVarContext';
 // point. This constant determines the cap.
 const maxSubtypeCountForTypeVarNarrowBound = 64;
 
+// This debugging switch enables logging of the TypeVarContext before and
+// after it is updated by the constraint solver.
+const logTypeVarContextUpdates = false;
+
 // Assigns the source type to the dest type var in the type var context. If an existing
 // type is already associated with that type var name, it attempts to either widen or
 // narrow the type (depending on the value of the isContravariant parameter). The goal is
@@ -82,6 +86,17 @@ export function assignTypeToTypeVar(
     flags = AssignTypeFlags.Default,
     recursionCount = 0
 ): boolean {
+    if (logTypeVarContextUpdates) {
+        const indent = ' '.repeat(recursionCount * 2);
+        console.log(`${indent}`);
+        console.log(`${indent}assignTypeToTypeVar called with`);
+        console.log(`${indent}destType: ${evaluator.printType(destType)}`);
+        console.log(`${indent}srcType: ${evaluator.printType(srcType)}`);
+        console.log(`${indent}flags: ${flags}`);
+        console.log(`${indent}typeVarContext #${typeVarContext.getId()}: `);
+        logTypeVarContext(evaluator, typeVarContext, indent);
+    }
+
     let isTypeVarInScope = true;
     const isContravariant = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
 
@@ -548,6 +563,13 @@ export function assignTypeToTypeVar(
             newWideTypeBound,
             (flags & (AssignTypeFlags.PopulatingExpectedType | AssignTypeFlags.RetainLiteralsForTypeVar)) !== 0
         );
+    }
+
+    if (logTypeVarContextUpdates) {
+        const indent = ' '.repeat(recursionCount * 2);
+        console.log(`${indent}`);
+        console.log(`${indent}post-call typeVarContext: `);
+        logTypeVarContext(evaluator, typeVarContext, indent);
     }
 
     return true;
@@ -1164,4 +1186,26 @@ function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type)
     }
 
     return specializeTupleClass(type, tupleTypeArgs, /* isTypeArgumentExplicit */ true, /* isUnpackedTuple */ true);
+}
+
+// This function is used for debugging only. It dumps the current contents of
+// the TypeVarContext to the console.
+function logTypeVarContext(evaluator: TypeEvaluator, typeVarContext: TypeVarContext, indent: string) {
+    if (typeVarContext.getSignatureContexts().length === 0) {
+        console.log(`${indent}  No signatures`);
+    } else {
+        typeVarContext.doForEachSignatureContext((signatureContext, signatureIndex) => {
+            console.log(`${indent}  Signature ${signatureIndex}`);
+
+            signatureContext.getTypeVars().forEach((entry) => {
+                console.log(`${indent}    ${entry.typeVar.details.name}:`);
+                console.log(
+                    `${indent}       Narrow: ${entry.narrowBound ? evaluator.printType(entry.narrowBound) : 'None'}`
+                );
+                console.log(
+                    `${indent}       Wide  : ${entry.wideBound ? evaluator.printType(entry.wideBound) : 'None'}`
+                );
+            });
+        });
+    }
 }
