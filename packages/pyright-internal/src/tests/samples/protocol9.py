@@ -1,4 +1,5 @@
-# This sample tests a protocol class that refers to itself.
+# This sample tests a recursive protocol class (i.e. a protocol
+# that refers to itself).
 
 from typing import Protocol
 
@@ -33,3 +34,19 @@ class SimpleTree:
 
 
 root: TreeLike = SimpleTree(0)
+
+
+class ProtoA(Protocol):
+    def method1(self) -> "ProtoA":
+        ...
+
+
+class ImplA:
+    class CallableClass:
+        def __call__(self) -> "ImplA":
+            return ImplA()
+
+    method1 = CallableClass()
+
+
+v1: ProtoA = ImplA()
