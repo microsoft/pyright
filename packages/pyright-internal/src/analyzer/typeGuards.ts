@@ -2217,17 +2217,21 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: Cl
         type,
         /* conditionFilter */ undefined,
         (subtype: Type, unexpandedSubtype: Type) => {
-            if (isClassInstance(subtype) && !classType.includeSubclasses) {
+            if (isClassInstance(subtype)) {
                 const matches = ClassType.isDerivedFrom(classType, ClassType.cloneAsInstantiable(subtype));
                 if (isPositiveTest) {
                     if (matches) {
                         if (ClassType.isSameGenericClass(subtype, classType)) {
                             return subtype;
                         }
+
                         return addConditionToType(ClassType.cloneAsInstance(classType), subtype.condition);
                     }
-                    return undefined;
-                } else {
+
+                    if (!classType.includeSubclasses) {
+                        return undefined;
+                    }
+                } else if (!classType.includeSubclasses) {
                     // If the class if marked final and it matches, then
                     // we can eliminate it in the negative case.
                     if (matches && ClassType.isFinal(subtype)) {
