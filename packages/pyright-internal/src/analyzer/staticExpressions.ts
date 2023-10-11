@@ -90,7 +90,8 @@ export function evaluateStaticBoolExpression(
             node.leftExpression.items[0].valueExpression.nodeType === ParseNodeType.Number &&
             !node.leftExpression.items[0].valueExpression.isImaginary &&
             node.leftExpression.items[0].valueExpression.value === 0 &&
-            node.rightExpression.nodeType === ParseNodeType.Number
+            node.rightExpression.nodeType === ParseNodeType.Number &&
+            node.rightExpression.isInteger
         ) {
             // Handle the special case of "sys.version_info[0] >= X"
             return _evaluateNumericBinaryOperation(
