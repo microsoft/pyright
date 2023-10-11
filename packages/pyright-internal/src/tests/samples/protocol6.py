@@ -52,7 +52,7 @@ class Cow:
 
 a: Mammal[str] = Sloth()
 
-# This should generage an error because Armadillo
+# This should generate an error because Armadillo
 # uses bytes for its attributes, not str.
 b: Mammal[str] = Armadillo()
 

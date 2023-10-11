@@ -322,66 +322,45 @@ function assignClassToProtocolInternal(
                 srcMemberType = UnknownType.create();
             }
 
+            // If the source is a method, bind it.
             if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
-                if (isMemberFromMetaclass) {
+                if (isMemberFromMetaclass || isInstantiableClass(srcMemberInfo.classType)) {
                     const boundSrcFunction = evaluator.bindFunctionToClassOrObject(
-                        ClassType.cloneAsInstance(srcType),
+                        treatSourceAsInstantiable && !isMemberFromMetaclass
+                            ? srcType
+                            : ClassType.cloneAsInstance(srcType),
                         srcMemberType,
-                        /* memberClass */ undefined,
+                        isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
                         /* errorNode */ undefined,
                         recursionCount,
-                        /* treatConstructorAsClassMember */ false,
-                        srcType
+                        /* treatConstructorAsClassMember */ undefined,
+                        isMemberFromMetaclass ? srcType : undefined
                     );
                     if (boundSrcFunction) {
                         srcMemberType = removeParamSpecVariadicsFromSignature(boundSrcFunction);
-                    }
-
-                    if (isFunction(destMemberType) || isOverloadedFunction(destMemberType)) {
-                        const boundDeclaredType = evaluator.bindFunctionToClassOrObject(
-                            ClassType.cloneAsInstance(srcType),
-                            destMemberType,
-                            /* memberClass */ undefined,
-                            /* errorNode */ undefined,
-                            recursionCount,
-                            /* treatConstructorAsClassMember */ false,
-                            srcType
-                        );
-                        if (boundDeclaredType) {
-                            destMemberType = removeParamSpecVariadicsFromSignature(boundDeclaredType);
-                        }
-                    }
-                } else if (isInstantiableClass(srcMemberInfo.classType)) {
-                    // Replace any "Self" TypeVar within the dest with the source type.
-                    destMemberType = applySolvedTypeVars(destMemberType, selfTypeVarContext);
-
-                    const boundSrcFunction = evaluator.bindFunctionToClassOrObject(
-                        treatSourceAsInstantiable ? srcType : ClassType.cloneAsInstance(srcType),
-                        srcMemberType,
-                        srcMemberInfo.classType,
-                        /* errorNode */ undefined,
-                        recursionCount
-                    );
-                    if (boundSrcFunction) {
-                        srcMemberType = removeParamSpecVariadicsFromSignature(boundSrcFunction);
-                    }
-
-                    if (isFunction(destMemberType) || isOverloadedFunction(destMemberType)) {
-                        const boundDeclaredType = evaluator.bindFunctionToClassOrObject(
-                            ClassType.cloneAsInstance(srcType),
-                            destMemberType,
-                            srcMemberInfo.classType,
-                            /* errorNode */ undefined,
-                            recursionCount
-                        );
-                        if (boundDeclaredType) {
-                            destMemberType = removeParamSpecVariadicsFromSignature(boundDeclaredType);
-                        }
                     }
                 }
-            } else {
-                // Replace any "Self" TypeVar within the dest with the source type.
-                destMemberType = applySolvedTypeVars(destMemberType, selfTypeVarContext);
+            }
+
+            // Replace any "Self" TypeVar within the dest with the source type.
+            destMemberType = applySolvedTypeVars(destMemberType, selfTypeVarContext);
+
+            // If the dest is a method, bind it.
+            if (isFunction(destMemberType) || isOverloadedFunction(destMemberType)) {
+                if (isMemberFromMetaclass || isInstantiableClass(srcMemberInfo.classType)) {
+                    const boundDeclaredType = evaluator.bindFunctionToClassOrObject(
+                        ClassType.cloneAsInstance(srcType),
+                        destMemberType,
+                        isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
+                        /* errorNode */ undefined,
+                        recursionCount,
+                        /* treatConstructorAsClassMember */ undefined,
+                        isMemberFromMetaclass ? srcType : undefined
+                    );
+                    if (boundDeclaredType) {
+                        destMemberType = removeParamSpecVariadicsFromSignature(boundDeclaredType);
+                    }
+                }
             }
 
             const subDiag = diag?.createAddendum();
@@ -601,18 +580,16 @@ export function assignModuleToProtocol(
 
             const srcMemberType = evaluator.getEffectiveTypeOfSymbol(memberSymbol);
 
-            if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
-                if (isFunction(destMemberType) || isOverloadedFunction(destMemberType)) {
-                    const boundDeclaredType = evaluator.bindFunctionToClassOrObject(
-                        ClassType.cloneAsInstance(destType),
-                        destMemberType,
-                        destType,
-                        /* errorNode */ undefined,
-                        recursionCount
-                    );
-                    if (boundDeclaredType) {
-                        destMemberType = removeParamSpecVariadicsFromSignature(boundDeclaredType);
-                    }
+            if (isFunction(destMemberType) || isOverloadedFunction(destMemberType)) {
+                const boundDeclaredType = evaluator.bindFunctionToClassOrObject(
+                    ClassType.cloneAsInstance(destType),
+                    destMemberType,
+                    destType,
+                    /* errorNode */ undefined,
+                    recursionCount
+                );
+                if (boundDeclaredType) {
+                    destMemberType = removeParamSpecVariadicsFromSignature(boundDeclaredType);
                 }
             }
 
