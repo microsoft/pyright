@@ -27,7 +27,8 @@ import { convertOffsetToPosition, convertPositionToOffset } from '../common/posi
 import { DocumentRange, Position, TextRange, doesRangeContain } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { DocumentSymbolCollector } from './documentSymbolCollector';
+import { CollectionResult, DocumentSymbolCollector } from './documentSymbolCollector';
+import { ReadOnlyFileSystem } from '../common/fileSystem';
 import { convertDocumentRangesToLocation } from './navigationUtils';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 
@@ -105,7 +106,12 @@ export class FindReferencesTreeWalker {
         private _filePath: string,
         private _referencesResult: ReferencesResult,
         private _includeDeclaration: boolean,
-        private _cancellationToken: CancellationToken
+        private _cancellationToken: CancellationToken,
+        private readonly _createDocumentRange: (
+            filePath: string,
+            result: CollectionResult,
+            parseResults: ParseResults
+        ) => DocumentRange = FindReferencesTreeWalker.createDocumentRange
     ) {
         this._parseResults = this._program.getParseResults(this._filePath);
     }
@@ -132,25 +138,35 @@ export class FindReferencesTreeWalker {
         for (const result of collector.collect()) {
             // Is it the same symbol?
             if (this._includeDeclaration || result.node !== this._referencesResult.nodeAtOffset) {
-                results.push({
-                    path: this._filePath,
-                    range: {
-                        start: convertOffsetToPosition(result.range.start, this._parseResults.tokenizerOutput.lines),
-                        end: convertOffsetToPosition(
-                            TextRange.getEnd(result.range),
-                            this._parseResults.tokenizerOutput.lines
-                        ),
-                    },
-                });
+                results.push(this._createDocumentRange(this._filePath, result, this._parseResults));
             }
         }
 
         return results;
     }
+
+    static createDocumentRange(filePath: string, result: CollectionResult, parseResults: ParseResults): DocumentRange {
+        return {
+            path: filePath,
+            range: {
+                start: convertOffsetToPosition(result.range.start, parseResults.tokenizerOutput.lines),
+                end: convertOffsetToPosition(TextRange.getEnd(result.range), parseResults.tokenizerOutput.lines),
+            },
+        };
+    }
 }
 
 export class ReferencesProvider {
-    constructor(private _program: ProgramView, private _token: CancellationToken) {
+    constructor(
+        private _program: ProgramView,
+        private _token: CancellationToken,
+        private readonly _createDocumentRange?: (
+            filePath: string,
+            result: CollectionResult,
+            parseResults: ParseResults
+        ) => DocumentRange,
+        private readonly _convertToLocation?: (fs: ReadOnlyFileSystem, ranges: DocumentRange) => Location | undefined
+    ) {
         // empty
     }
 
@@ -172,8 +188,15 @@ export class ReferencesProvider {
 
         const locations: Location[] = [];
         const reporter: ReferenceCallback = resultReporter
-            ? (range) => resultReporter.report(convertDocumentRangesToLocation(this._program.fileSystem, range))
-            : (range) => appendArray(locations, convertDocumentRangesToLocation(this._program.fileSystem, range));
+            ? (range) =>
+                  resultReporter.report(
+                      convertDocumentRangesToLocation(this._program.fileSystem, range, this._convertToLocation)
+                  )
+            : (range) =>
+                  appendArray(
+                      locations,
+                      convertDocumentRangesToLocation(this._program.fileSystem, range, this._convertToLocation)
+                  );
 
         const invokedFromUserFile = isUserCode(sourceFileInfo);
         const referencesResult = ReferencesProvider.getDeclarationForPosition(
@@ -266,7 +289,8 @@ export class ReferencesProvider {
             filePath,
             referencesResult,
             includeDeclaration,
-            this._token
+            this._token,
+            this._createDocumentRange
         );
 
         referencesResult.addLocations(...refTreeWalker.findReferences());

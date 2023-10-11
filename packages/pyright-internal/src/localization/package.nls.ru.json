@@ -648,6 +648,7 @@
         "newMethodSignature": "Сигнатура метода __new__ требует \"{type}\"",
         "noOverloadAssignable": "Нет перегруженной функции, соответствующей типу \"{type}\"",
         "orPatternMissingName": "Отсутствуют имена: {name}",
+        "overloadIndex": "Наилучшее совпадение: {index} перегрузки",
         "overloadNotAssignable": "Одна или несколько перегрузок \"{name}\" не подлежат присвоению",
         "overloadSignature": "Здесь определена сигнатура перегрузки",
         "overriddenMethod": "Переопределенный метод",

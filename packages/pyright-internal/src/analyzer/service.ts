@@ -376,7 +376,7 @@ export class AnalyzerService {
     }
 
     getParseResult(path: string) {
-        return this._program.getBoundSourceFile(path)?.getParseResults();
+        return this._program.getParseResults(path);
     }
 
     getSourceFile(path: string) {
@@ -625,19 +625,19 @@ export class AnalyzerService {
 
         if (commandLineOptions.fileSpecs.length > 0) {
             commandLineOptions.fileSpecs.forEach((fileSpec) => {
-                configOptions.include.push(getFileSpec(this.fs, projectRoot, fileSpec));
+                configOptions.include.push(getFileSpec(this.serviceProvider, projectRoot, fileSpec));
             });
         }
 
         if (commandLineOptions.excludeFileSpecs.length > 0) {
             commandLineOptions.excludeFileSpecs.forEach((fileSpec) => {
-                configOptions.exclude.push(getFileSpec(this.fs, projectRoot, fileSpec));
+                configOptions.exclude.push(getFileSpec(this.serviceProvider, projectRoot, fileSpec));
             });
         }
 
         if (commandLineOptions.ignoreFileSpecs.length > 0) {
             commandLineOptions.ignoreFileSpecs.forEach((fileSpec) => {
-                configOptions.ignore.push(getFileSpec(this.fs, projectRoot, fileSpec));
+                configOptions.ignore.push(getFileSpec(this.serviceProvider, projectRoot, fileSpec));
             });
         }
 
@@ -646,13 +646,15 @@ export class AnalyzerService {
                 // If no config file was found and there are no explicit include
                 // paths specified, assume the caller wants to include all source
                 // files under the execution root path.
-                configOptions.include.push(getFileSpec(this.fs, commandLineOptions.executionRoot, '.'));
+                configOptions.include.push(getFileSpec(this.serviceProvider, commandLineOptions.executionRoot, '.'));
             }
 
             if (commandLineOptions.excludeFileSpecs.length === 0) {
                 // Add a few common excludes to avoid long scan times.
                 defaultExcludes.forEach((exclude) => {
-                    configOptions.exclude.push(getFileSpec(this.fs, commandLineOptions.executionRoot, exclude));
+                    configOptions.exclude.push(
+                        getFileSpec(this.serviceProvider, commandLineOptions.executionRoot, exclude)
+                    );
                 });
             }
         }
@@ -673,8 +675,7 @@ export class AnalyzerService {
             configOptions.initializeFromJson(
                 configJsonObj,
                 this._typeCheckingMode,
-                this._console,
-                this.fs,
+                this.serviceProvider,
                 host,
                 commandLineOptions.diagnosticSeverityOverrides,
                 commandLineOptions.fileSpecs.length > 0
@@ -686,14 +687,14 @@ export class AnalyzerService {
             // the project should be included.
             if (configOptions.include.length === 0) {
                 this._console.info(`No include entries specified; assuming ${configFileDir}`);
-                configOptions.include.push(getFileSpec(this.fs, configFileDir, '.'));
+                configOptions.include.push(getFileSpec(this.serviceProvider, configFileDir, '.'));
             }
 
             // If there was no explicit set of excludes, add a few common ones to avoid long scan times.
             if (configOptions.exclude.length === 0) {
                 defaultExcludes.forEach((exclude) => {
                     this._console.info(`Auto-excluding ${exclude}`);
-                    configOptions.exclude.push(getFileSpec(this.fs, configFileDir, exclude));
+                    configOptions.exclude.push(getFileSpec(this.serviceProvider, configFileDir, exclude));
                 });
 
                 if (configOptions.autoExcludeVenv === undefined) {
@@ -757,7 +758,9 @@ export class AnalyzerService {
             this._console.info(`Excluding typeshed stdlib stubs according to VERSIONS file:`);
             excludeList.forEach((exclude) => {
                 this._console.info(`    ${exclude}`);
-                configOptions.exclude.push(getFileSpec(this.fs, commandLineOptions.executionRoot, exclude));
+                configOptions.exclude.push(
+                    getFileSpec(this.serviceProvider, commandLineOptions.executionRoot, exclude)
+                );
             });
         }
 
@@ -1152,7 +1155,9 @@ export class AnalyzerService {
                 if (envMarkers.some((f) => this.fs.existsSync(combinePaths(absolutePath, ...f)))) {
                     // Save auto exclude paths in the configOptions once we found them.
                     if (!FileSpec.isInPath(absolutePath, exclude)) {
-                        exclude.push(getFileSpec(this.fs, this._configOptions.projectRoot, `${absolutePath}/**`));
+                        exclude.push(
+                            getFileSpec(this.serviceProvider, this._configOptions.projectRoot, `${absolutePath}/**`)
+                        );
                     }
 
                     this._console.info(`Auto-excluding ${absolutePath}`);
@@ -1468,7 +1473,8 @@ export class AnalyzerService {
 
         // find the innermost matching search path
         let matchingSearchPath;
-        const ignoreCase = !isFileSystemCaseSensitive(this.fs);
+        const tempFile = this.serviceProvider.tryGet(ServiceKeys.tempFile);
+        const ignoreCase = !isFileSystemCaseSensitive(this.fs, tempFile);
         for (const libSearchPath of libSearchPaths) {
             if (
                 containsPath(libSearchPath, path, ignoreCase) &&

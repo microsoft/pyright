@@ -193,7 +193,7 @@ test('FindExecEnv1', () => {
 
 test('PythonPlatform', () => {
     const cwd = normalizePath(process.cwd());
-    const nullConsole = new NullConsole();
+
     const configOptions = new ConfigOptions(cwd);
 
     const json = JSON.parse(`{
@@ -206,7 +206,10 @@ test('PythonPlatform', () => {
     }]}`);
 
     const fs = new TestFileSystem(/* ignoreCase */ false);
-    configOptions.initializeFromJson(json, undefined, nullConsole, fs, new NoAccessHost());
+    const nullConsole = new NullConsole();
+
+    const sp = createServiceProvider(fs, nullConsole);
+    configOptions.initializeFromJson(json, undefined, sp, new NoAccessHost());
 
     const env = configOptions.executionEnvironments[0];
     assert.strictEqual(env.pythonPlatform, 'platform');
@@ -323,7 +326,8 @@ test('verify config fileSpecs after cloning', () => {
     };
 
     const config = new ConfigOptions(process.cwd());
-    config.initializeFromJson(configFile, undefined, new NullConsole(), fs, new TestAccessHost());
+    const sp = createServiceProvider(fs, new NullConsole());
+    config.initializeFromJson(configFile, undefined, sp, new TestAccessHost());
     const cloned = createConfigOptionsFrom(config);
 
     assert.deepEqual(config.ignore, cloned.ignore);

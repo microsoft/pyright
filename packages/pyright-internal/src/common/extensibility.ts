@@ -11,7 +11,6 @@ import { CancellationToken } from 'vscode-languageserver';
 import { Declaration } from '../analyzer/declaration';
 import { ImportResolver } from '../analyzer/importResolver';
 import * as prog from '../analyzer/program';
-import * as src from '../analyzer/sourceFileInfo';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { ServerSettings } from '../languageServerBase';
@@ -99,7 +98,6 @@ export interface ProgramView {
     getDiagnosticsForRange(filePath: string, range: Range): Diagnostic[];
 
     // See whether we can get rid of these methods
-    getBoundSourceFileInfo(file: string, content?: string, force?: boolean): src.SourceFileInfo | undefined;
     handleMemoryHighUsage(): void;
     clone(): prog.Program;
 }

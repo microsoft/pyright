@@ -14,8 +14,12 @@ export function canNavigateToFile(fs: ReadOnlyFileSystem, path: string): boolean
     return !fs.isInZip(path);
 }
 
-export function convertDocumentRangesToLocation(fs: ReadOnlyFileSystem, ranges: DocumentRange[]): Location[] {
-    return ranges.map((range) => convertDocumentRangeToLocation(fs, range)).filter((loc) => !!loc) as Location[];
+export function convertDocumentRangesToLocation(
+    fs: ReadOnlyFileSystem,
+    ranges: DocumentRange[],
+    converter: (fs: ReadOnlyFileSystem, range: DocumentRange) => Location | undefined = convertDocumentRangeToLocation
+): Location[] {
+    return ranges.map((range) => converter(fs, range)).filter((loc) => !!loc) as Location[];
 }
 
 export function convertDocumentRangeToLocation(fs: ReadOnlyFileSystem, range: DocumentRange): Location | undefined {

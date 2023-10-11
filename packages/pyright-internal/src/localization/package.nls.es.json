@@ -648,6 +648,7 @@
         "newMethodSignature": "La firma de __new__ es \"{type}\"",
         "noOverloadAssignable": "Ninguna función sobrecargada coincide con el tipo \"{type}\"",
         "orPatternMissingName": "Nombres que faltan: {name}",
+        "overloadIndex": "La sobrecarga {index} es la coincidencia más cercana",
         "overloadNotAssignable": "Una o más sobrecargas de \"{name}\" no es asignable",
         "overloadSignature": "Aquí se define la firma de la sobrecarga",
         "overriddenMethod": "Método reemplazado",

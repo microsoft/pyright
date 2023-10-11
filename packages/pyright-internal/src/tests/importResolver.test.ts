@@ -9,7 +9,7 @@ import assert from 'assert';
 import { Dirent, ReadStream, WriteStream } from 'fs';
 import { ImportResolver } from '../analyzer/importResolver';
 import { ConfigOptions } from '../common/configOptions';
-import { FileSystem, MkDirOptions, Stats, TmpfileOptions } from '../common/fileSystem';
+import { FileSystem, MkDirOptions, Stats } from '../common/fileSystem';
 import { FileWatcher, FileWatcherEventHandler } from '../common/fileWatcher';
 import { FullAccessHost } from '../common/fullAccessHost';
 import { Host } from '../common/host';
@@ -760,18 +760,6 @@ class CombinedFileSystem implements FileSystem {
 
     copyFileSync(src: string, dst: string): void {
         this._testFS.copyFileSync(src, dst);
-    }
-
-    tmpdir(): string {
-        return this._testFS.tmpdir();
-    }
-
-    tmpfile(options?: TmpfileOptions | undefined): string {
-        return this._testFS.tmpfile(options);
-    }
-
-    dispose(): void {
-        this._testFS.dispose();
     }
 
     existsSync(path: string): boolean {
