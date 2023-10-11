@@ -996,8 +996,14 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitYield(node: YieldNode) {
-        const yieldType = node.expression ? this._evaluator.getType(node.expression) : NoneType.createInstance();
-        this._validateYieldType(node, yieldType || UnknownType.create());
+        const yieldTypeResult = node.expression
+            ? this._evaluator.getTypeResult(node.expression)
+            : { type: NoneType.createInstance() };
+        this._validateYieldType(
+            node,
+            yieldTypeResult?.type ?? UnknownType.create(),
+            yieldTypeResult?.expectedTypeDiagAddendum
+        );
         return true;
     }
 
@@ -1028,7 +1034,7 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        this._validateYieldType(node, yieldType, sendType);
+        this._validateYieldType(node, yieldType, /* expectedDiagAddendum */ undefined, sendType);
 
         return true;
     }
@@ -6447,7 +6453,12 @@ export class Checker extends ParseTreeWalker {
 
     // Determines whether a yield or yield from node is compatible with the
     // return type annotation of the containing function.
-    private _validateYieldType(node: YieldNode | YieldFromNode, yieldType: Type, sendType?: Type) {
+    private _validateYieldType(
+        node: YieldNode | YieldFromNode,
+        yieldType: Type,
+        expectedDiagAddendum?: DiagnosticAddendum,
+        sendType?: Type
+    ) {
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
         if (!enclosingFunctionNode || !enclosingFunctionNode.returnTypeAnnotation) {
             return;
@@ -6511,8 +6522,10 @@ export class Checker extends ParseTreeWalker {
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                errorMessage.format({ yieldType: this._evaluator.printType(yieldType) }) + diagAddendum.getString(),
-                node.expression ?? node
+                errorMessage.format({ yieldType: this._evaluator.printType(yieldType) }) +
+                    (expectedDiagAddendum?.getString() ?? diagAddendum.getString()),
+                node.expression ?? node,
+                expectedDiagAddendum?.getEffectiveTextRange() ?? node.expression ?? node
             );
         }
     }
