@@ -648,6 +648,7 @@
         "newMethodSignature": "__new__の署名は \"{type}\" です",
         "noOverloadAssignable": "型 \"{type}\" に一致するオーバーロードされた関数はありません",
         "orPatternMissingName": "名前がありません: {name}",
+        "overloadIndex": "オーバーロード {index} が最も近い一致です",
         "overloadNotAssignable": "\"{name}\" の 1 つ以上のオーバーロードが割り当て可能ではありません",
         "overloadSignature": "オーバーロードシグネチャはここで定義されています",
         "overriddenMethod": "オーバーライドされたメソッド",

@@ -13,7 +13,7 @@ import { getPathsFromPthFiles } from '../analyzer/pythonPathUtils';
 import * as pathConsts from '../common/pathConsts';
 import { appendArray } from './collectionUtils';
 import { DiagnosticSeverityOverridesMap } from './commandLineOptions';
-import { ConsoleInterface } from './console';
+import { ConsoleInterface, NullConsole } from './console';
 import { TaskListToken } from './diagnostic';
 import { DiagnosticRule } from './diagnosticRules';
 import { FileSystem } from './fileSystem';
@@ -29,6 +29,8 @@ import {
     resolvePaths,
 } from './pathUtils';
 import { latestStablePythonVersion, PythonVersion, versionFromString, versionToString } from './pythonVersion';
+import { ServiceProvider } from './serviceProvider';
+import { ServiceKeys } from './serviceProviderExtensions';
 
 export enum PythonPlatform {
     Darwin = 'Darwin',
@@ -886,13 +888,13 @@ export class ConfigOptions {
     initializeFromJson(
         configObj: any,
         typeCheckingMode: string | undefined,
-        console: ConsoleInterface,
-        fs: FileSystem,
+        serviceProvider: ServiceProvider,
         host: Host,
         diagnosticOverrides?: DiagnosticSeverityOverridesMap,
         skipIncludeSection = false
     ) {
         this.initializedFromJson = true;
+        const console = serviceProvider.tryGet(ServiceKeys.console) ?? new NullConsole();
 
         // Read the "include" entry.
         if (!skipIncludeSection) {
@@ -908,7 +910,7 @@ export class ConfigOptions {
                         } else if (isAbsolute(fileSpec)) {
                             console.error(`Ignoring path "${fileSpec}" in "include" array because it is not relative.`);
                         } else {
-                            this.include.push(getFileSpec(fs, this.projectRoot, fileSpec));
+                            this.include.push(getFileSpec(serviceProvider, this.projectRoot, fileSpec));
                         }
                     });
                 }
@@ -928,7 +930,7 @@ export class ConfigOptions {
                     } else if (isAbsolute(fileSpec)) {
                         console.error(`Ignoring path "${fileSpec}" in "exclude" array because it is not relative.`);
                     } else {
-                        this.exclude.push(getFileSpec(fs, this.projectRoot, fileSpec));
+                        this.exclude.push(getFileSpec(serviceProvider, this.projectRoot, fileSpec));
                     }
                 });
             }
@@ -947,7 +949,7 @@ export class ConfigOptions {
                     } else if (isAbsolute(fileSpec)) {
                         console.error(`Ignoring path "${fileSpec}" in "ignore" array because it is not relative.`);
                     } else {
-                        this.ignore.push(getFileSpec(fs, this.projectRoot, fileSpec));
+                        this.ignore.push(getFileSpec(serviceProvider, this.projectRoot, fileSpec));
                     }
                 });
             }
@@ -966,7 +968,7 @@ export class ConfigOptions {
                     } else if (isAbsolute(fileSpec)) {
                         console.error(`Ignoring path "${fileSpec}" in "strict" array because it is not relative.`);
                     } else {
-                        this.strict.push(getFileSpec(fs, this.projectRoot, fileSpec));
+                        this.strict.push(getFileSpec(serviceProvider, this.projectRoot, fileSpec));
                     }
                 });
             }

@@ -26,6 +26,7 @@ export class SourceFileInfo {
         args: OptionalArguments = {}
     ) {
         this.isCreatedInEditMode = this._editModeTracker.isEditMode;
+
         this._writableData = this._createWriteableData(args);
 
         this._cachePreEditState();
@@ -102,7 +103,7 @@ export class SourceFileInfo {
         this._writableData.chainedSourceFile = value;
     }
 
-    set effectiveFutureImports(value: Set<string> | undefined) {
+    set effectiveFutureImports(value: ReadonlySet<string> | undefined) {
         this._cachePreEditState();
         this._writableData.effectiveFutureImports = value;
     }
@@ -126,6 +127,9 @@ export class SourceFileInfo {
         if (this._preEditData) {
             this._writableData = this._preEditData;
             this._preEditData = undefined;
+
+            // Some states have changed. Force some of info to be re-calcuated.
+            this.sourceFile.dropParseAndBindInfo();
         }
 
         return this.sourceFile.restore();
@@ -187,7 +191,7 @@ interface OptionalArguments {
     builtinsImport?: SourceFileInfo | undefined;
     ipythonDisplayImport?: SourceFileInfo | undefined;
     chainedSourceFile?: SourceFileInfo | undefined;
-    effectiveFutureImports?: Set<string>;
+    effectiveFutureImports?: ReadonlySet<string>;
 }
 
 interface WriteableData {
@@ -205,7 +209,7 @@ interface WriteableData {
     // current file's scope.
     chainedSourceFile?: SourceFileInfo | undefined;
 
-    effectiveFutureImports?: Set<string>;
+    effectiveFutureImports?: ReadonlySet<string>;
 
     // Information about why the file is included in the program
     // and its relation to other source files in the program.

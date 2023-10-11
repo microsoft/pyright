@@ -648,6 +648,7 @@
         "newMethodSignature": "Signatur von __new__ ist \"{type}\"",
         "noOverloadAssignable": "Keine überladene Funktion stimmt mit dem Typ \"{type}\" überein.",
         "orPatternMissingName": "Fehlende Namen: {name}",
+        "overloadIndex": "Überladung \"{index}\" ist die nächste Übereinstimmung.",
         "overloadNotAssignable": "Mindestens eine Überladung von \"{name}\" kann nicht zugewiesen werden.",
         "overloadSignature": "Die Überladungssignatur ist hier definiert.",
         "overriddenMethod": "Überschriebene Methode",

@@ -99,7 +99,7 @@ import {
 } from './common/diagnostic';
 import { DiagnosticRule } from './common/diagnosticRules';
 import { FileDiagnostics } from './common/diagnosticSink';
-import { FileSystem } from './common/fileSystem';
+import { FileSystem, ReadOnlyFileSystem } from './common/fileSystem';
 import { FileWatcherEventType, FileWatcherHandler } from './common/fileWatcher';
 import { Host } from './common/host';
 import { fromLSPAny } from './common/lspUtils';
@@ -130,6 +130,8 @@ import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvid
 import { Localizer, setLocaleOverride } from './localization/localize';
 import { SupportUriToPathMapping } from './pyrightFileSystem';
 import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
+import { CollectionResult } from './languageService/documentSymbolCollector';
+import { ParseResults } from './parser/parser';
 
 export interface ServerSettings {
     venvPath?: string | undefined;
@@ -891,14 +893,16 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         params: ReferenceParams,
         token: CancellationToken,
         workDoneReporter: WorkDoneProgressReporter,
-        resultReporter: ResultProgressReporter<Location[]> | undefined
+        resultReporter: ResultProgressReporter<Location[]> | undefined,
+        createDocumentRange?: (filePath: string, result: CollectionResult, parseResults: ParseResults) => DocumentRange,
+        convertToLocation?: (fs: ReadOnlyFileSystem, ranges: DocumentRange) => Location | undefined
     ): Promise<Location[] | null | undefined> {
         if (this._pendingFindAllRefsCancellationSource) {
             this._pendingFindAllRefsCancellationSource.cancel();
             this._pendingFindAllRefsCancellationSource = undefined;
         }
 
-        // VS Code doesn't support cancellation of "final all references".
+        // VS Code doesn't support cancellation of "find all references".
         // We provide a progress bar a cancellation button so the user can cancel
         // any long-running actions.
         const progress = await this.getProgressReporter(
@@ -922,12 +926,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             }
 
             return workspace.service.run((program) => {
-                return new ReferencesProvider(program, source.token).reportReferences(
-                    filePath,
-                    position,
-                    params.context.includeDeclaration,
-                    resultReporter
-                );
+                return new ReferencesProvider(
+                    program,
+                    source.token,
+                    createDocumentRange,
+                    convertToLocation
+                ).reportReferences(filePath, position, params.context.includeDeclaration, resultReporter);
             }, token);
         } finally {
             progress.reporter.done();

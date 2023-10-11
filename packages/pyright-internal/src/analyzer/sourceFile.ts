@@ -199,7 +199,7 @@ export class SourceFile {
     readonly fileSystem: FileSystem;
 
     constructor(
-        readonly serivceProvider: ServiceProvider,
+        readonly serviceProvider: ServiceProvider,
         filePath: string,
         moduleName: string,
         isThirdPartyImport: boolean,
@@ -210,7 +210,7 @@ export class SourceFile {
         realFilePath?: string,
         ipythonMode?: IPythonMode
     ) {
-        this.fileSystem = serivceProvider.get(ServiceKeys.fs);
+        this.fileSystem = serviceProvider.get(ServiceKeys.fs);
         this._console = console || new StandardConsole();
         this._editMode = editMode;
         this._filePath = filePath;
@@ -322,6 +322,7 @@ export class SourceFile {
             const text = this._writableData.clientDocumentContents!;
             this._writableData = this._preEditData;
             this._preEditData = undefined;
+
             return text;
         }
 
@@ -367,6 +368,8 @@ export class SourceFile {
     // in cases where memory is low. When info is needed, the file
     // will be re-parsed and rebound.
     dropParseAndBindInfo(): void {
+        this._fireFileDirtyEvent();
+
         this._writableData.parseResults = undefined;
         this._writableData.moduleSymbolTable = undefined;
         this._writableData.isBindingNeeded = true;
@@ -379,9 +382,7 @@ export class SourceFile {
         this._writableData.isBindingNeeded = true;
         this._writableData.moduleSymbolTable = undefined;
 
-        const filePath = this.getFilePath();
-
-        this.serivceProvider.tryGet(ServiceKeys.stateMutationListeners)?.forEach((l) => l.fileDirty?.(filePath));
+        this._fireFileDirtyEvent();
     }
 
     markReanalysisRequired(forceRebinding: boolean): void {
@@ -472,7 +473,7 @@ export class SourceFile {
     }
 
     prepareForClose() {
-        // Nothing to do currently.
+        this._fireFileDirtyEvent();
     }
 
     isFileDeleted() {
@@ -1343,5 +1344,18 @@ export class SourceFile {
         // Parse the token stream, building the abstract syntax tree.
         const parser = this.createParser();
         return parser.parseSourceFile(fileContents, parseOptions, diagSink);
+    }
+
+    private _fireFileDirtyEvent() {
+        this.serviceProvider.tryGet(ServiceKeys.stateMutationListeners)?.forEach((l) => {
+            try {
+                l.fileDirty?.(this._filePath);
+            } catch (ex: any) {
+                const console = this.serviceProvider.tryGet(ServiceKeys.console);
+                if (console) {
+                    console.error(`State mutation listener exceptoin: ${ex.message}`);
+                }
+            }
+        });
     }
 }

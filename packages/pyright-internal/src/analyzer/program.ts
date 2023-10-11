@@ -273,6 +273,11 @@ export class Program {
             }
         }
 
+        if (mutatedFiles.length > 0) {
+            // All cache is invalid now.
+            this._createNewEvaluator();
+        }
+
         return edits;
     }
 
@@ -715,7 +720,11 @@ export class Program {
     }
 
     getParseResults(filePath: string): ParseResults | undefined {
-        return this.getBoundSourceFile(filePath)?.getParseResults();
+        return this.getBoundSourceFileInfo(
+            filePath,
+            /* content */ undefined,
+            /* force */ true
+        )?.sourceFile.getParseResults();
     }
 
     handleMemoryHighUsage() {

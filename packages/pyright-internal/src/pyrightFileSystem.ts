@@ -237,10 +237,6 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
         }
     }
 
-    override dispose(): void {
-        this.realFS.dispose();
-    }
-
     clearPartialStubs(): void {
         super.clear();
 

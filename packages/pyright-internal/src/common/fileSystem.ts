@@ -32,11 +32,6 @@ export interface MkDirOptions {
     // mode: string | number;
 }
 
-export interface TmpfileOptions {
-    postfix?: string;
-    prefix?: string;
-}
-
 export interface ReadOnlyFileSystem {
     existsSync(path: string): boolean;
     chdir(path: string): void;
@@ -80,7 +75,14 @@ export interface FileSystem extends ReadOnlyFileSystem {
     createReadStream(path: string): fs.ReadStream;
     createWriteStream(path: string): fs.WriteStream;
     copyFileSync(src: string, dst: string): void;
+}
 
+export interface TmpfileOptions {
+    postfix?: string;
+    prefix?: string;
+}
+
+export interface TempFile {
     // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
     tmpdir(): string;
     tmpfile(options?: TmpfileOptions): string;
@@ -90,6 +92,12 @@ export interface FileSystem extends ReadOnlyFileSystem {
 export namespace FileSystem {
     export function is(value: any): value is FileSystem {
         return value.createFileSystemWatcher && value.createReadStream && value.createWriteStream && value.copyFileSync;
+    }
+}
+
+export namespace TempFile {
+    export function is(value: any): value is TempFile {
+        return value.tmpdir && value.tmpfile && value.dispose;
     }
 }
 

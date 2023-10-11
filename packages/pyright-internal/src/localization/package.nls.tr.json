@@ -648,6 +648,7 @@
         "newMethodSignature": "__new__ imzası \"{type}\"",
         "noOverloadAssignable": "Aşırı yüklenmiş işlevlerden hiçbiri \"{type}\" türüyle uyuşmuyor",
         "orPatternMissingName": "Eksik adlar: {name}",
+        "overloadIndex": "Aşırı yükleme {index} en yakın eşleşmedir",
         "overloadNotAssignable": "Bir veya daha fazla \"{name}\" aşırı yüklemesi atanabilir değil",
         "overloadSignature": "Aşırı yükleme imzası burada tanımlı",
         "overriddenMethod": "Geçersiz kılınan metot",

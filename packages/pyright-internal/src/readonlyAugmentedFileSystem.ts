@@ -10,7 +10,7 @@
 import type * as fs from 'fs';
 
 import { appendArray, getOrAdd } from './common/collectionUtils';
-import { FileSystem, MkDirOptions, Stats, TmpfileOptions, VirtualDirent } from './common/fileSystem';
+import { FileSystem, MkDirOptions, Stats, VirtualDirent } from './common/fileSystem';
 import { FileWatcher, FileWatcherEventHandler } from './common/fileWatcher';
 import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath, getFileName } from './common/pathUtils';
 
@@ -133,15 +133,6 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
         return this.realFS.readFileText(this.getOriginalPath(path), encoding);
     }
 
-    // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
-    tmpdir(): string {
-        return this.realFS.tmpdir();
-    }
-
-    tmpfile(options?: TmpfileOptions): string {
-        return this.realFS.tmpfile(options);
-    }
-
     realCasePath(path: string): string {
         return this.realFS.realCasePath(path);
     }
@@ -168,10 +159,6 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
 
     isInZip(path: string): boolean {
         return this.realFS.isInZip(path);
-    }
-
-    dispose(): void {
-        this.realFS.dispose();
     }
 
     protected recordMovedEntry(mappedPath: string, originalPath: string, reversible = true, isFile = true) {

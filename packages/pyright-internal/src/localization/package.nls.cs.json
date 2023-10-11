@@ -648,6 +648,7 @@
         "newMethodSignature": "Podpis __new__ je {type}",
         "noOverloadAssignable": "Typ {type} neodpovídá žádné přetížené funkci",
         "orPatternMissingName": "Chybějící názvy: {name}",
+        "overloadIndex": "Přetížení {index} je nejbližší shoda.",
         "overloadNotAssignable": "Nejméně jedno přetížení {name} není možné přiřadit",
         "overloadSignature": "Tady je definován podpis přetížení",
         "overriddenMethod": "Přepsaná metoda",

@@ -648,6 +648,7 @@
         "newMethodSignature": "__new__ 的簽章為 \"{type}\"",
         "noOverloadAssignable": "沒有任何多載函式符合類型 \"{type}\"",
         "orPatternMissingName": "遺失名稱: {name}",
+        "overloadIndex": "多載 {index} 是最接近的相符項目",
         "overloadNotAssignable": "\"{name}\" 的一或多個多載無法指派",
         "overloadSignature": "多載簽章在這裡定義",
         "overriddenMethod": "覆寫方法",

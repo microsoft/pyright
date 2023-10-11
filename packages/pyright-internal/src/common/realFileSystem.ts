@@ -12,7 +12,7 @@ import { URI } from 'vscode-uri';
 import { isMainThread } from 'worker_threads';
 
 import { ConsoleInterface, NullConsole } from './console';
-import { FileSystem, MkDirOptions, TmpfileOptions } from './fileSystem';
+import { FileSystem, MkDirOptions, TempFile, TmpfileOptions } from './fileSystem';
 import {
     FileWatcher,
     FileWatcherEventHandler,
@@ -208,8 +208,6 @@ class YarnFS extends PosixFS {
 const yarnFS = new YarnFS();
 
 class RealFileSystem implements FileSystem {
-    private _tmpdir?: tmp.DirResult;
-
     constructor(private _fileWatcherProvider: FileWatcherProvider, private _console: ConsoleInterface) {}
 
     existsSync(path: string) {
@@ -344,19 +342,6 @@ class RealFileSystem implements FileSystem {
         return buffer.toString(encoding);
     }
 
-    tmpdir() {
-        if (!this._tmpdir) {
-            this._tmpdir = tmp.dirSync({ prefix: 'pyright' });
-        }
-
-        return this._tmpdir.name;
-    }
-
-    tmpfile(options?: TmpfileOptions): string {
-        const f = tmp.fileSync({ dir: this.tmpdir(), discardDescriptor: true, ...options });
-        return f.name;
-    }
-
     realCasePath(path: string): string {
         try {
             // If it doesn't exist in the real FS, then just use this path.
@@ -407,15 +392,6 @@ class RealFileSystem implements FileSystem {
     isInZip(path: string): boolean {
         return /[^\\/]\.(?:egg|zip|jar)[\\/]/.test(path) && yarnFS.isZip(path);
     }
-
-    dispose(): void {
-        try {
-            this._tmpdir?.removeCallback();
-            this._tmpdir = undefined;
-        } catch {
-            // ignore
-        }
-    }
 }
 
 interface WorkspaceFileWatcher extends FileWatcher {
@@ -457,5 +433,31 @@ export class WorkspaceFileWatcherProvider implements FileWatcherProvider, FileWa
                 watcher.eventHandler(eventType, filePath);
             }
         });
+    }
+}
+
+export class RealTempFile implements TempFile {
+    private _tmpdir?: tmp.DirResult;
+
+    tmpdir() {
+        if (!this._tmpdir) {
+            this._tmpdir = tmp.dirSync({ prefix: 'pyright' });
+        }
+
+        return this._tmpdir.name;
+    }
+
+    tmpfile(options?: TmpfileOptions): string {
+        const f = tmp.fileSync({ dir: this.tmpdir(), discardDescriptor: true, ...options });
+        return f.name;
+    }
+
+    dispose(): void {
+        try {
+            this._tmpdir?.removeCallback();
+            this._tmpdir = undefined;
+        } catch {
+            // ignore
+        }
     }
 }

@@ -400,10 +400,10 @@ test('CaseSensitivity', () => {
     const cwd = normalizeSlashes('/');
 
     const fsCaseInsensitive = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
-    assert.equal(isFileSystemCaseSensitiveInternal(fsCaseInsensitive), false);
+    assert.equal(isFileSystemCaseSensitiveInternal(fsCaseInsensitive, fsCaseInsensitive), false);
 
     const fsCaseSensitive = new vfs.TestFileSystem(/*ignoreCase*/ false, { cwd });
-    assert.equal(isFileSystemCaseSensitiveInternal(fsCaseSensitive), true);
+    assert.equal(isFileSystemCaseSensitiveInternal(fsCaseSensitive, fsCaseSensitive), true);
 });
 
 test('deduplicateFolders', () => {
