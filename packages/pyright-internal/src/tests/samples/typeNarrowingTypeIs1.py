@@ -113,8 +113,17 @@ def func8(a: _TC, b: _TC) -> _TC:
 
 
 class F:
-    def method1(self, other: object):
-        if type(self) == type(other):
+    def method1(self, v: object):
+        if type(self) == type(v):
             reveal_type(self, expected_text="Self@F")
         else:
             reveal_type(self, expected_text="Self@F")
+
+
+class G(str):
+    @classmethod
+    def method1(cls, v: str):
+        if type(v) is cls:
+            reveal_type(v, expected_text="G")
+        else:
+            reveal_type(v, expected_text="str")
