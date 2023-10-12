@@ -44,7 +44,6 @@ import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes'
 import { getTypeNarrowingCallback } from './typeGuards';
 import {
     ClassType,
-    cleanIncompleteUnknown,
     combineTypes,
     FunctionType,
     isClass,
@@ -65,6 +64,7 @@ import {
 } from './types';
 import {
     ClassMemberLookupFlags,
+    cleanIncompleteUnknown,
     derivesFromStdlibClass,
     doForEachSubtype,
     isIncompleteUnknown,
