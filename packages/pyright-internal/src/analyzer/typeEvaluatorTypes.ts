@@ -180,7 +180,7 @@ export interface TypeResult<T extends Type = Type> {
 
     // Used for getTypeOfObjectMember to indicate that class
     // that declares the member.
-    classType?: ClassType | UnknownType;
+    classType?: ClassType | UnknownType | AnyType;
 
     // Variadic type arguments allow the shorthand "()" to
     // represent an empty tuple (i.e. Tuple[()]).
@@ -390,7 +390,7 @@ export interface ClassMemberLookup {
     isClassMember: boolean;
 
     // The class that declares the accessed member.
-    classType?: ClassType | UnknownType;
+    classType?: ClassType | UnknownType | AnyType;
 
     // True if the member is explicitly declared as ClassVar
     // within a Protocol.
