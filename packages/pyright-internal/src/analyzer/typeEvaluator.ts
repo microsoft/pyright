@@ -249,6 +249,7 @@ import {
     replaceTypeVarsWithAny,
     requiresSpecialization,
     requiresTypeArguments,
+    selfSpecializeClass,
     setTypeArgumentsRecursive,
     sortTypes,
     specializeClassType,
@@ -13315,12 +13316,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else if (mappingType && isInstantiableClass(mappingType)) {
                     const mappingTypeVarContext = new TypeVarContext(getTypeVarScopeId(mappingType));
 
-                    // Self-specialize the class.
-                    mappingType = ClassType.cloneForSpecialization(
-                        mappingType,
-                        mappingType.details.typeParameters,
-                        /* isTypeArgumentExplicit */ true
-                    );
+                    mappingType = selfSpecializeClass(mappingType);
 
                     if (
                         assignType(

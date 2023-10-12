@@ -926,6 +926,17 @@ export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
     );
 }
 
+// If the class is generic and not already specialized, this function
+// "self specializes" the class, filling in its own type parameters
+// as type arguments.
+export function selfSpecializeClass(type: ClassType): ClassType {
+    if (type.details.typeParameters.length === 0 || type.typeArguments) {
+        return type;
+    }
+
+    return ClassType.cloneForSpecialization(type, type.details.typeParameters, /* isTypeArgumentExplicit */ true);
+}
+
 // Determines whether the type derives from tuple. If so, it returns
 // the specialized tuple type.
 export function getSpecializedTupleType(type: Type): ClassType | undefined {

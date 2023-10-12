@@ -41,6 +41,7 @@ import {
     isTupleClass,
     lookUpClassMember,
     mapSubtypes,
+    selfSpecializeClass,
     specializeTupleClass,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
@@ -809,7 +810,7 @@ export function createFunctionFromConstructor(
                 constructorFunction.details.typeVarScopeId = initSubtype.details.typeVarScopeId;
 
                 if (constructorFunction.specializedTypes) {
-                    constructorFunction.specializedTypes.returnType = objectType;
+                    constructorFunction.specializedTypes.returnType = selfSpecializeClass(objectType);
                 }
 
                 if (!constructorFunction.details.docString && classType.details.docString) {
