@@ -97,3 +97,12 @@ def func4(x: P5[_T1]) -> _T1:
 
 v5 = func4(protocolModule1)
 reveal_type(v5, expected_text="str")
+
+
+class P6(Protocol):
+    @property
+    def var_1(self) -> int:
+        ...
+
+
+v6: P6 = protocolModule1

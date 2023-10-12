@@ -23,10 +23,12 @@ import {
     FunctionType,
     FunctionTypeFlags,
     isAnyOrUnknown,
+    isClass,
     isFunction,
     isInstantiableClass,
     isTypeSame,
     isTypeVar,
+    ModuleType,
     NoneType,
     OverloadedFunctionType,
     Type,
@@ -477,13 +479,13 @@ export function assignProperty(
     destPropertyType: ClassType,
     srcPropertyType: ClassType,
     destClass: ClassType,
-    srcClass: ClassType,
+    srcClass: ClassType | ModuleType,
     diag: DiagnosticAddendum | undefined,
     typeVarContext?: TypeVarContext,
     selfTypeVarContext?: TypeVarContext,
     recursionCount = 0
 ): boolean {
-    const srcObjectToBind = ClassType.cloneAsInstance(srcClass);
+    const srcObjectToBind = isClass(srcClass) ? ClassType.cloneAsInstance(srcClass) : undefined;
     const destObjectToBind = ClassType.cloneAsInstance(destClass);
     let isAssignable = true;
     const accessors: { name: string; missingDiagMsg: () => string; incompatibleDiagMsg: () => string }[] = [
@@ -519,7 +521,9 @@ export function assignProperty(
             }
 
             evaluator.inferReturnTypeIfNecessary(srcAccessType);
-            srcAccessType = partiallySpecializeType(srcAccessType, srcClass) as FunctionType;
+            if (isClass(srcClass)) {
+                srcAccessType = partiallySpecializeType(srcAccessType, srcClass) as FunctionType;
+            }
 
             evaluator.inferReturnTypeIfNecessary(destAccessType);
             destAccessType = partiallySpecializeType(destAccessType, destClass) as FunctionType;
