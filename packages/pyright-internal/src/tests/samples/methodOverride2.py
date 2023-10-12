@@ -2,7 +2,7 @@
 # diagnostic check.
 
 
-from typing import Any, Generic, ParamSpec, TypeVar
+from typing import Any, Generic, ParamSpec, Self, TypeVar
 
 
 class Base1:
@@ -94,4 +94,24 @@ class Derived2(Base2[P, R]):
         ...
 
     def method2(self, *args: Any, **kwargs: Any) -> R:
+        ...
+
+
+T = TypeVar("T")
+
+
+class Base3:
+    def method1(self, x: Self) -> Self:
+        ...
+
+    def method2(self, x: Self) -> Self:
+        ...
+
+
+class Derived3(Generic[T], Base3):
+    def method1(self, x: "Derived3[T]") -> "Derived3[T]":
+        ...
+
+    # This should generate an error.
+    def method2(self, x: "Derived3[int]") -> "Derived3[int]":
         ...

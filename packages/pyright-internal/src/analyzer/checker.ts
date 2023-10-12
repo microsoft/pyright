@@ -5780,9 +5780,19 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        const baseClass = baseClassAndSymbol.classType;
+
+        // Self specialize the class.
+        const childClassSelf = ClassType.cloneForSpecialization(
+            childClassType,
+            childClassType.details.typeParameters,
+            /* isTypeArgumentExplicit */ true
+        );
+
         const baseType = partiallySpecializeType(
             this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol),
-            baseClassAndSymbol.classType
+            baseClass,
+            ClassType.cloneAsInstance(childClassSelf)
         );
 
         if (isFunction(baseType) || isOverloadedFunction(baseType)) {
@@ -5820,7 +5830,7 @@ export class Checker extends ParseTreeWalker {
                                 DiagnosticRule.reportIncompatibleMethodOverride,
                                 Localizer.Diagnostic.incompatibleMethodOverride().format({
                                     name: memberName,
-                                    className: baseClassAndSymbol.classType.details.name,
+                                    className: baseClass.details.name,
                                 }) + diagAddendum.getString(),
                                 decl.type === DeclarationType.Function ? decl.node.name : decl.node
                             );
@@ -5845,7 +5855,7 @@ export class Checker extends ParseTreeWalker {
                             const diag = this._evaluator.addError(
                                 Localizer.Diagnostic.finalMethodOverride().format({
                                     name: memberName,
-                                    className: baseClassAndSymbol.classType.details.name,
+                                    className: baseClass.details.name,
                                 }),
                                 decl.node.name
                             );
@@ -5865,7 +5875,7 @@ export class Checker extends ParseTreeWalker {
                 // Special-case overrides of methods in '_TypedDict', since
                 // TypedDict attributes aren't manifest as attributes but rather
                 // as named keys.
-                if (!ClassType.isBuiltIn(baseClassAndSymbol.classType, '_TypedDict')) {
+                if (!ClassType.isBuiltIn(baseClass, '_TypedDict')) {
                     const decls = overrideSymbol.getDeclarations();
                     if (decls.length > 0) {
                         const lastDecl = decls[decls.length - 1];
@@ -5874,7 +5884,7 @@ export class Checker extends ParseTreeWalker {
                             DiagnosticRule.reportIncompatibleMethodOverride,
                             Localizer.Diagnostic.methodOverridden().format({
                                 name: memberName,
-                                className: baseClassAndSymbol.classType.details.name,
+                                className: baseClass.details.name,
                                 type: this._evaluator.printType(overrideType),
                             }),
                             lastDecl.node
@@ -5901,7 +5911,7 @@ export class Checker extends ParseTreeWalker {
                         DiagnosticRule.reportIncompatibleMethodOverride,
                         Localizer.Diagnostic.propertyOverridden().format({
                             name: memberName,
-                            className: baseClassAndSymbol.classType.details.name,
+                            className: baseClass.details.name,
                         }),
                         decls[decls.length - 1].node
                     );
@@ -5909,7 +5919,7 @@ export class Checker extends ParseTreeWalker {
             } else {
                 const basePropFields = (baseType as ClassType).details.fields;
                 const subclassPropFields = (overrideType as ClassType).details.fields;
-                const baseClassType = baseClassAndSymbol.classType;
+                const baseClassType = baseClass;
 
                 ['fget', 'fset', 'fdel'].forEach((methodName) => {
                     const diagAddendum = new DiagnosticAddendum();
@@ -6014,11 +6024,8 @@ export class Checker extends ParseTreeWalker {
 
                     // If the entry is a member of a frozen dataclass, it is immutable,
                     // so it does not need to be invariant.
-                    if (
-                        ClassType.isFrozenDataClass(baseClassAndSymbol.classType) &&
-                        baseClassAndSymbol.classType.details.dataClassEntries
-                    ) {
-                        const dataclassEntry = baseClassAndSymbol.classType.details.dataClassEntries.find(
+                    if (ClassType.isFrozenDataClass(baseClass) && baseClass.details.dataClassEntries) {
+                        const dataclassEntry = baseClass.details.dataClassEntries.find(
                             (entry) => entry.name === memberName
                         );
                         if (dataclassEntry) {
@@ -6053,7 +6060,7 @@ export class Checker extends ParseTreeWalker {
                             DiagnosticRule.reportIncompatibleVariableOverride,
                             Localizer.Diagnostic.symbolOverridden().format({
                                 name: memberName,
-                                className: baseClassAndSymbol.classType.details.name,
+                                className: baseClass.details.name,
                             }) + diagAddendum.getString(),
                             getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
                         );
@@ -6078,7 +6085,7 @@ export class Checker extends ParseTreeWalker {
                             DiagnosticRule.reportIncompatibleVariableOverride,
                             Localizer.Diagnostic.variableFinalOverride().format({
                                 name: memberName,
-                                className: baseClassAndSymbol.classType.details.name,
+                                className: baseClass.details.name,
                             }),
                             lastDecl.node
                         );
@@ -6124,7 +6131,7 @@ export class Checker extends ParseTreeWalker {
                             DiagnosticRule.reportIncompatibleVariableOverride,
                             unformattedMessage.format({
                                 name: memberName,
-                                className: baseClassAndSymbol.classType.details.name,
+                                className: baseClass.details.name,
                             }),
                             getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
                         );
