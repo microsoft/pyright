@@ -398,6 +398,68 @@ export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefin
     return transformedSubtype;
 }
 
+// The code flow engine uses a special form of the UnknownType (with the
+// isIncomplete flag set) to distinguish between an unknown that was generated
+// in a loop because it was temporarily incomplete versus an unknown that is
+// permanently incomplete. Once an unknown appears within a loop, it is often
+// propagated to other types during code flow analysis. We want to remove these
+// incomplete unknowns if we find that they are union'ed with other types.
+export function cleanIncompleteUnknown(type: Type, recursionCount = 0): Type {
+    if (recursionCount >= maxTypeRecursionCount) {
+        return type;
+    }
+    recursionCount++;
+
+    const result = mapSubtypes(type, (subtype) => {
+        // If it's an incomplete unknown, eliminate it.
+        if (isUnknown(subtype) && subtype.isIncomplete) {
+            return undefined;
+        }
+
+        if (isClass(subtype) && subtype.typeArguments) {
+            let typeChanged = false;
+
+            if (subtype.tupleTypeArguments) {
+                const updatedTupleTypeArgs = subtype.tupleTypeArguments.map((tupleTypeArg) => {
+                    const newTypeArg = cleanIncompleteUnknown(tupleTypeArg.type, recursionCount);
+                    if (newTypeArg !== tupleTypeArg.type) {
+                        typeChanged = true;
+                    }
+                    return { type: newTypeArg, isUnbounded: tupleTypeArg.isUnbounded };
+                });
+
+                if (typeChanged) {
+                    return specializeTupleClass(
+                        subtype,
+                        updatedTupleTypeArgs,
+                        !!subtype.isTypeArgumentExplicit,
+                        !!subtype.isUnpacked
+                    );
+                }
+            } else {
+                const updatedTypeArgs = subtype.typeArguments.map((typeArg) => {
+                    const newTypeArg = cleanIncompleteUnknown(typeArg, recursionCount);
+                    if (newTypeArg !== typeArg) {
+                        typeChanged = true;
+                    }
+                    return newTypeArg;
+                });
+
+                if (typeChanged) {
+                    return ClassType.cloneForSpecialization(subtype, updatedTypeArgs, !!subtype.isTypeArgumentExplicit);
+                }
+            }
+        }
+
+        // TODO - this doesn't currently handle function types.
+
+        return subtype;
+    });
+
+    // If we eliminated everything, don't return a Never.
+    return isNever(result) ? type : result;
+}
+
 // Sorts types into a deterministic order.
 export function sortTypes(types: Type[]): Type[] {
     return types.slice(0).sort((a, b) => {

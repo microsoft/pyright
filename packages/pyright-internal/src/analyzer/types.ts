@@ -3091,19 +3091,6 @@ export function removeUnknownFromUnion(type: Type): Type {
     return removeFromUnion(type, (t: Type) => isUnknown(t));
 }
 
-export function removeIncompleteUnknownFromUnion(type: Type): Type {
-    return removeFromUnion(type, (t: Type) => isUnknown(t) && t.isIncomplete);
-}
-
-export function cleanIncompleteUnknown(type: Type): Type {
-    const typeWithoutUnknown = removeIncompleteUnknownFromUnion(type);
-    if (!isNever(typeWithoutUnknown)) {
-        return typeWithoutUnknown;
-    }
-
-    return type;
-}
-
 // If the type is a union, remove an "unbound" type from the union,
 // returning only the known types.
 export function removeUnbound(type: Type): Type {
