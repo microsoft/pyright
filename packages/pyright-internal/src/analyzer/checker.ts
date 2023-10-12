@@ -146,6 +146,7 @@ import {
     lookUpClassMember,
     mapSubtypes,
     partiallySpecializeType,
+    selfSpecializeClass,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
@@ -5781,13 +5782,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         const baseClass = baseClassAndSymbol.classType;
-
-        // Self specialize the class.
-        const childClassSelf = ClassType.cloneForSpecialization(
-            childClassType,
-            childClassType.details.typeParameters,
-            /* isTypeArgumentExplicit */ true
-        );
+        const childClassSelf = selfSpecializeClass(childClassType);
 
         const baseType = partiallySpecializeType(
             this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol),
