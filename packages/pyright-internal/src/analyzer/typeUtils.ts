@@ -71,7 +71,7 @@ export interface ClassMember {
     symbol: Symbol;
 
     // Partially-specialized class that contains the class member
-    classType: ClassType | UnknownType;
+    classType: ClassType | UnknownType | AnyType;
 
     // True if it is an instance or class member; it can be both a class and
     // an instance member in cases where a class variable is overridden
@@ -1483,11 +1483,11 @@ export function* getClassMemberIterator(
                     // The class derives from an unknown type, so all bets are off
                     // when trying to find a member. Return an unknown symbol.
                     const cm: ClassMember = {
-                        symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
+                        symbol: Symbol.createWithType(SymbolFlags.None, mroClass),
                         isInstanceMember: false,
                         isClassMember: true,
                         isClassVar: false,
-                        classType: UnknownType.create(),
+                        classType: isAnyOrUnknown(mroClass) ? mroClass : UnknownType.create(),
                         isTypeDeclared: false,
                         skippedUndeclaredType: false,
                     };
@@ -1566,13 +1566,13 @@ export function* getClassMemberIterator(
         }
     } else if (isAnyOrUnknown(classType)) {
         // The class derives from an unknown type, so all bets are off
-        // when trying to find a member. Return an unknown symbol.
+        // when trying to find a member. Return an Any or Unknown symbol.
         const cm: ClassMember = {
-            symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
+            symbol: Symbol.createWithType(SymbolFlags.None, classType),
             isInstanceMember: false,
             isClassMember: true,
             isClassVar: false,
-            classType: UnknownType.create(),
+            classType,
             isTypeDeclared: false,
             skippedUndeclaredType: false,
         };

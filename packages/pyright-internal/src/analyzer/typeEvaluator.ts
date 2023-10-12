@@ -21519,6 +21519,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isIncomplete: !!typeResult.isIncomplete,
                 };
             }
+        } else if (isAnyOrUnknown(member.classType)) {
+            return {
+                type: member.classType,
+                isIncomplete: false,
+            };
         }
 
         return undefined;
