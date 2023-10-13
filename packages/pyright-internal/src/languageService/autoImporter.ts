@@ -12,15 +12,15 @@ import { DeclarationType } from '../analyzer/declaration';
 import { ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import { ImportType } from '../analyzer/importResult';
 import {
+    ImportGroup,
+    ImportNameInfo,
+    ImportStatements,
+    ModuleNameInfo,
     getImportGroup,
     getImportGroupFromModuleNameAndType,
     getTextEditsForAutoImportInsertion,
     getTextEditsForAutoImportSymbolAddition,
     getTopLevelImports,
-    ImportGroup,
-    ImportNameInfo,
-    ImportStatements,
-    ModuleNameInfo,
 } from '../analyzer/importStatementUtils';
 import { isUserCode } from '../analyzer/sourceFileInfoUtils';
 import { Symbol } from '../analyzer/symbol';
@@ -30,13 +30,13 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { ExecutionEnvironment } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
+import { SourceFileInfo } from '../common/extensibility';
 import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
 import { Position } from '../common/textRange';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { CompletionMap } from './completionProvider';
-import { SourceFileInfo } from '../common/extensibility';
 import { IndexAliasData } from './symbolIndexer';
 
 export interface AutoImportSymbol {
@@ -518,6 +518,8 @@ export class AutoImporter {
                     importType: ImportType.Local,
                     isLocalTypingsFile: false,
                     moduleName: localImport.moduleName,
+                    isThirdPartyImport: false,
+                    isThirdPartyPyTypedPresent: false,
                 },
             ];
         } else {

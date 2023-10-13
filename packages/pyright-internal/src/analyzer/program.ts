@@ -46,6 +46,7 @@ import { ImportResult, ImportType } from './importResult';
 import { getDocString } from './parseTreeUtils';
 import { Scope } from './scope';
 import { IPythonMode, SourceFile, SourceFileEditMode } from './sourceFile';
+import { SourceFileInfo } from './sourceFileInfo';
 import { createChainedByList, isUserCode, verifyNoCyclesInChainedFiles } from './sourceFileInfoUtils';
 import { SourceMapper } from './sourceMapper';
 import { Symbol } from './symbol';
@@ -55,7 +56,6 @@ import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { PrintTypeFlags } from './typePrinter';
 import { TypeStubWriter } from './typeStubWriter';
 import { Type } from './types';
-import { SourceFileInfo } from './sourceFileInfo';
 
 const _maxImportDepth = 256;
 
@@ -1575,13 +1575,17 @@ export class Program {
     }
 
     private _createInterimFileInfo(filePath: string) {
-        const importName = this._getImportNameForFile(filePath);
+        const moduleNameAndType = this._importResolver.getModuleNameForImport(
+            filePath,
+            this._configOptions.getDefaultExecEnvironment(),
+            /* allowIllegalModuleName */ true
+        );
         const sourceFile = this._sourceFileFactory.createSourceFile(
             this.serviceProvider,
             filePath,
-            importName,
-            /* isThirdPartyImport */ false,
-            /* isInPyTypedPackage */ false,
+            moduleNameAndType.moduleName,
+            moduleNameAndType.isThirdPartyImport,
+            moduleNameAndType.isThirdPartyPyTypedPresent,
             this._editModeTracker,
             this._console,
             this._logTracker
@@ -1589,8 +1593,8 @@ export class Program {
         const sourceFileInfo = new SourceFileInfo(
             sourceFile,
             /* isTypeshedFile */ false,
-            /* isThirdPartyImport */ false,
-            /* isThirdPartyPyTypedPresent */ false,
+            moduleNameAndType.isThirdPartyImport,
+            moduleNameAndType.isThirdPartyPyTypedPresent,
             this._editModeTracker
         );
 

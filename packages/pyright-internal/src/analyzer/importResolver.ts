@@ -38,6 +38,8 @@ import {
     tryStat,
 } from '../common/pathUtils';
 import { PythonVersion, versionFromString } from '../common/pythonVersion';
+import { ServiceProvider } from '../common/serviceProvider';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
@@ -48,8 +50,6 @@ import { PyTypedInfo, getPyTypedInfo } from './pyTypedUtils';
 import * as PythonPathUtils from './pythonPathUtils';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { isDunderName } from './symbolNameUtils';
-import { ServiceProvider } from '../common/serviceProvider';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
 
 export interface ImportedModuleDescriptor {
     leadingDots: number;
@@ -62,6 +62,8 @@ export interface ModuleNameAndType {
     moduleName: string;
     importType: ImportType;
     isLocalTypingsFile: boolean;
+    isThirdPartyImport: boolean;
+    isThirdPartyPyTypedPresent: boolean;
 }
 
 export interface ModuleNameInfoFromPath {
@@ -1083,7 +1085,13 @@ export class ImportResolver {
                         []
                     )
                 ) {
-                    return { moduleName, importType, isLocalTypingsFile };
+                    return {
+                        moduleName,
+                        importType,
+                        isLocalTypingsFile,
+                        isThirdPartyImport: false,
+                        isThirdPartyPyTypedPresent: false,
+                    };
                 }
             }
         }
@@ -1197,16 +1205,41 @@ export class ImportResolver {
             }
         }
 
+        let isThirdPartyImport = false;
+        let isThirdPartyPyTypedPresent = false;
+        if (importType === ImportType.ThirdParty) {
+            isThirdPartyImport = true;
+
+            // TODO: Need to go up directories?
+            const dirPath = getDirectoryPath(filePath);
+            if (this.fileExistsCached(combinePaths(dirPath, 'py.typed'))) {
+                const packagePyTyped = getPyTypedInfo(this.fileSystem, dirPath);
+                isThirdPartyPyTypedPresent = !!packagePyTyped;
+            }
+        }
+
         if (moduleName) {
-            return { moduleName, importType, isLocalTypingsFile };
+            return { moduleName, importType, isLocalTypingsFile, isThirdPartyImport, isThirdPartyPyTypedPresent };
         }
 
         if (allowInvalidModuleName && moduleNameWithInvalidCharacters) {
-            return { moduleName: moduleNameWithInvalidCharacters, importType, isLocalTypingsFile };
+            return {
+                moduleName: moduleNameWithInvalidCharacters,
+                importType,
+                isLocalTypingsFile,
+                isThirdPartyImport,
+                isThirdPartyPyTypedPresent,
+            };
         }
 
         // We didn't find any module name.
-        return { moduleName: '', importType: ImportType.Local, isLocalTypingsFile };
+        return {
+            moduleName: '',
+            importType: ImportType.Local,
+            isLocalTypingsFile,
+            isThirdPartyImport,
+            isThirdPartyPyTypedPresent,
+        };
     }
 
     private _invalidateFileSystemCache() {
