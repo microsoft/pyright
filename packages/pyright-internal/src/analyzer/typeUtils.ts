@@ -2222,6 +2222,10 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
                 }
                 break;
             }
+
+            case TypeCategory.Any: {
+                return AnyType.convertToInstance(subtype);
+            }
         }
 
         return subtype;

@@ -15355,7 +15355,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const assignedName = nameNode.value;
 
         if (assignedName === 'Any') {
-            return AnyType.create();
+            return AnyType.createSpecialForm();
         }
 
         const specialTypes: Map<string, AliasMapEntry> = new Map([
@@ -15878,6 +15878,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // and strip off the "unbound" union.
                     if (isUnion(argType)) {
                         argType = removeUnbound(argType);
+                    }
+
+                    // Any is allowed as a base class. Remove its "special form" flag to avoid
+                    // false positive errors.
+                    if (isAny(argType) && TypeBase.isSpecialForm(argType)) {
+                        argType = AnyType.create();
                     }
 
                     if (!isAnyOrUnknown(argType) && !isUnbound(argType)) {
@@ -22561,7 +22567,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        if (isAnyOrUnknown(srcType)) {
+        if (isAnyOrUnknown(srcType) && !TypeBase.isSpecialForm(srcType)) {
             const targetTypeVarContext =
                 (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destTypeVarContext : srcTypeVarContext;
             if (targetTypeVarContext) {
@@ -22943,7 +22949,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
                     }
                 }
-            } else if (isAnyOrUnknown(concreteSrcType)) {
+            } else if (isAnyOrUnknown(concreteSrcType) && !TypeBase.isSpecialForm(concreteSrcType)) {
                 return (flags & AssignTypeFlags.OverloadOverlapCheck) === 0;
             } else if (isUnion(concreteSrcType)) {
                 return assignType(

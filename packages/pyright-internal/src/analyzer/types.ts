@@ -2120,6 +2120,12 @@ export interface AnyType extends TypeBase {
 }
 
 export namespace AnyType {
+    const _anyInstanceSpecialForm: AnyType = {
+        category: TypeCategory.Any,
+        isEllipsis: false,
+        flags: TypeFlags.Instance | TypeFlags.Instantiable | TypeFlags.SpecialForm,
+    };
+
     const _anyInstance: AnyType = {
         category: TypeCategory.Any,
         isEllipsis: false,
@@ -2134,6 +2140,22 @@ export namespace AnyType {
 
     export function create(isEllipsis = false) {
         return isEllipsis ? _ellipsisInstance : _anyInstance;
+    }
+
+    export function createSpecialForm() {
+        return _anyInstanceSpecialForm;
+    }
+}
+
+export namespace AnyType {
+    export function convertToInstance(type: AnyType): AnyType {
+        // Remove the "special form" flag if it's set. Otherwise
+        // simply return the existing type.
+        if (TypeBase.isSpecialForm(type)) {
+            return AnyType.create();
+        }
+
+        return type;
     }
 }
 
