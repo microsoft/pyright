@@ -1292,3 +1292,9 @@ test('Del2', () => {
 
     TestUtils.validateResults(analysisResults, 2);
 });
+
+test('Any1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['any1.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
