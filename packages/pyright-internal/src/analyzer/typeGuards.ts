@@ -76,9 +76,11 @@ import {
     getSpecializedTupleType,
     getTypeCondition,
     getTypeVarScopeId,
+    isInstantiableMetaclass,
     isLiteralType,
     isLiteralTypeOrUnion,
     isMaybeDescriptorInstance,
+    isMetaclassInstance,
     isProperty,
     isTupleClass,
     isUnboundedTupleClass,
@@ -1639,7 +1641,7 @@ function narrowTypeForIsInstance(
             // on a constrained TypeVar that they want to filter based on its constrained
             // parts.
             const negativeFallback = getTypeCondition(subtype) ? subtype : unexpandedSubtype;
-            const isSubtypeTypeObject = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'type');
+            const isSubtypeMetaclass = isMetaclassInstance(subtype);
 
             if (isPositiveTest && isAnyOrUnknown(subtype)) {
                 // If this is a positive test and the effective type is Any or
@@ -1697,7 +1699,7 @@ function narrowTypeForIsInstance(
                     }
                 }
 
-                if (isClassInstance(subtype) && !isSubtypeTypeObject) {
+                if (isClassInstance(subtype) && !isSubtypeMetaclass) {
                     return combineTypes(
                         filterClassType(
                             convertToInstance(unexpandedSubtype),
@@ -1712,15 +1714,13 @@ function narrowTypeForIsInstance(
                     return combineTypes(filterFunctionType(subtype, convertToInstance(unexpandedSubtype)));
                 }
 
-                if (isInstantiableClass(subtype) || isSubtypeTypeObject) {
-                    // Handle the special case of isinstance(x, type).
-                    const includesTypeType = classTypeList.some(
-                        (classType) => isInstantiableClass(classType) && ClassType.isBuiltIn(classType, 'type')
-                    );
+                if (isInstantiableClass(subtype) || isSubtypeMetaclass) {
+                    // Handle the special case of isinstance(x, metaclass).
+                    const includesMetaclassType = classTypeList.some((classType) => isInstantiableMetaclass(classType));
                     if (isPositiveTest) {
-                        return includesTypeType ? negativeFallback : undefined;
+                        return includesMetaclassType ? negativeFallback : undefined;
                     } else {
-                        return includesTypeType ? undefined : negativeFallback;
+                        return includesMetaclassType ? undefined : negativeFallback;
                     }
                 }
             } else {
@@ -1730,7 +1730,7 @@ function narrowTypeForIsInstance(
                     );
                 }
 
-                if (isSubtypeTypeObject) {
+                if (isSubtypeMetaclass) {
                     const objectType = evaluator.getBuiltInObject(errorNode, 'object');
                     if (objectType && isClassInstance(objectType)) {
                         return combineTypes(
