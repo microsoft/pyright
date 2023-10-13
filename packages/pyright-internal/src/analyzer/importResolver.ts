@@ -1210,11 +1210,24 @@ export class ImportResolver {
         if (importType === ImportType.ThirdParty) {
             isThirdPartyImport = true;
 
-            // TODO: Need to go up directories?
-            const dirPath = getDirectoryPath(filePath);
-            if (this.fileExistsCached(combinePaths(dirPath, 'py.typed'))) {
-                const packagePyTyped = getPyTypedInfo(this.fileSystem, dirPath);
-                isThirdPartyPyTypedPresent = !!packagePyTyped;
+            const root = this.getParentImportResolutionRoot(filePath, execEnv.root);
+
+            // Go up directories one by one looking for a py.typed file.
+            let current = ensureTrailingDirectorySeparator(getDirectoryPath(filePath));
+            while (this._shouldWalkUp(current, root, execEnv)) {
+                if (this.fileExistsCached(combinePaths(current, 'py.typed'))) {
+                    const packagePyTyped = getPyTypedInfo(this.fileSystem, current);
+                    if (packagePyTyped) {
+                        isThirdPartyPyTypedPresent = true;
+                        break;
+                    }
+                }
+
+                let success;
+                [success, current] = this._tryWalkUp(current);
+                if (!success) {
+                    break;
+                }
             }
         }
 
