@@ -15,6 +15,7 @@ import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { FunctionNode, isExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 
 enum TokenType {
     namespace,
@@ -71,6 +72,7 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
     constructor(
         private _builder: SemanticTokensBuilder,
         private _parseResults: ParseResults,
+        private _program: ProgramView,
         private _evaluator: TypeEvaluator,
         private _cancellationToken: CancellationToken
     ) {
@@ -84,36 +86,48 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
     override visitName(node: NameNode): boolean {
         throwIfCancellationRequested(this._cancellationToken);
 
-        const primaryDeclaration = SemanticTokensTreeWalker._getPrimaryDeclaration(
-            node,
-            this._evaluator,
-            this._cancellationToken
-        );
+        // First give extensions a crack at getting a declaration.
+        let declarations: Declaration[] =
+            this._program.serviceProvider
+                .tryGet(ServiceKeys.symbolDefinitionProvider)
+                ?.map((f) => f.tryGetDeclarations(node, node.start, this._cancellationToken))
+                ?.flat() ?? [];
+        if (declarations.length === 0) {
+            declarations = this._evaluator.getDeclarationsForNameNode(node) ?? [];
+        }
 
-        if (primaryDeclaration) {
-            return SemanticTokensTreeWalker._addResultsForDeclaration(
-                primaryDeclaration,
-                node,
-                this._builder,
-                this._parseResults,
-                this._evaluator
-            );
+        if (declarations.length > 0) {
+            // In most cases, it's best to treat the first declaration as the
+            // "primary". This works well for properties that have setters
+            // which often have doc strings on the getter but not the setter.
+            // The one case where using the first declaration doesn't work as
+            // well is the case where an import statement within an __init__.py
+            // file uses the form "from .A import A". In this case, if we use
+            // the first declaration, it will show up as a module rather than
+            // the imported symbol type.
+            const primaryDeclaration = declarations[0];
+            if (primaryDeclaration.type === DeclarationType.Alias && declarations.length > 1) {
+                return this._addResultsForDeclaration(declarations[1], node);
+            } else if (
+                primaryDeclaration.type === DeclarationType.Variable &&
+                declarations.length > 1 &&
+                primaryDeclaration.isDefinedBySlots
+            ) {
+                // Slots cannot have docstrings, so pick the secondary.
+                return this._addResultsForDeclaration(declarations[1], node);
+            }
+
+            return this._addResultsForDeclaration(primaryDeclaration, node);
         }
 
         return false;
     }
 
-    private static _addResultsForDeclaration(
-        declaration: Declaration,
-        node: NameNode,
-        builder: SemanticTokensBuilder,
-        parseResults: ParseResults,
-        evaluator: TypeEvaluator
-    ): boolean {
-        const start = convertOffsetToPosition(node.start, parseResults.tokenizerOutput.lines);
-        const end = convertOffsetToPosition(TextRange.getEnd(node), parseResults.tokenizerOutput.lines);
+    private _addResultsForDeclaration(declaration: Declaration, node: NameNode): boolean {
+        const start = convertOffsetToPosition(node.start, this._parseResults.tokenizerOutput.lines);
+        const end = convertOffsetToPosition(TextRange.getEnd(node), this._parseResults.tokenizerOutput.lines);
 
-        const resolvedDecl = evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
+        const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
         if (!resolvedDecl) {
             // import
             return true;
@@ -141,7 +155,7 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
             }
 
             case DeclarationType.Variable: {
-                if (resolvedDecl.isConstant || evaluator.isFinalVariableDeclaration(resolvedDecl)) {
+                if (resolvedDecl.isConstant || this._evaluator.isFinalVariableDeclaration(resolvedDecl)) {
                     declarationModifiers.add(TokenModifier.readonly);
                 }
 
@@ -167,14 +181,14 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
                     }
                 }
 
-                if (declaration.type === DeclarationType.Variable && isDeclInEnumClass(evaluator, declaration)) {
+                if (declaration.type === DeclarationType.Variable && isDeclInEnumClass(this._evaluator, declaration)) {
                     declarationType = TokenType.enumMember;
                     break;
                 }
 
                 // Determine if this identifier is a type alias. If so, expand
                 // the type alias when printing the type information.
-                let type = evaluator.getType(typeNode);
+                let type = this._evaluator.getType(typeNode);
 
                 // We may have more type information in the alternativeTypeNode. Use that if it's better.
                 if (
@@ -182,7 +196,7 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
                     resolvedDecl.alternativeTypeNode &&
                     isExpressionNode(resolvedDecl.alternativeTypeNode)
                 ) {
-                    const inferredType = evaluator.getType(resolvedDecl.alternativeTypeNode);
+                    const inferredType = this._evaluator.getType(resolvedDecl.alternativeTypeNode);
                     if (inferredType && inferredType.category !== TypeCategory.Unknown) {
                         type = inferredType;
                         typeNode = resolvedDecl.alternativeTypeNode;
@@ -224,14 +238,14 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
 
             case DeclarationType.Class:
             case DeclarationType.SpecialBuiltInClass: {
-                if (this._isDecorator(node)) {
+                if (SemanticTokensTreeWalker._isDecorator(node)) {
                     declarationType = TokenType.decorator;
                     break;
                 }
 
                 const classNode = node.parent;
                 if (classNode && classNode.nodeType === ParseNodeType.Class) {
-                    const classTypeResult = evaluator.getTypeOfClass(classNode);
+                    const classTypeResult = this._evaluator.getTypeOfClass(classNode);
                     const classType = classTypeResult?.classType;
                     if (classType && ClassType.isEnumClass(classType)) {
                         declarationType = TokenType.enum;
@@ -244,15 +258,15 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
             }
 
             case DeclarationType.Function: {
-                if (this._isDecorator(node)) {
+                if (SemanticTokensTreeWalker._isDecorator(node)) {
                     declarationType = TokenType.decorator;
                     break;
                 }
 
-                this._functionMods(evaluator, resolvedDecl.node, declarationModifiers);
+                SemanticTokensTreeWalker._functionMods(this._evaluator, resolvedDecl.node, declarationModifiers);
                 if (resolvedDecl.isMethod) {
                     // Handle properties separately
-                    const declaredType = evaluator.getTypeForDeclaration(resolvedDecl)?.type;
+                    const declaredType = this._evaluator.getTypeForDeclaration(resolvedDecl)?.type;
                     declarationType =
                         declaredType && isMaybeDescriptorInstance(declaredType, /*requireSetter*/ false)
                             ? TokenType.property
@@ -278,54 +292,21 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
         }
 
         if (declarationType !== null) {
-            this._push(builder, start, end, declarationType, declarationModifiers);
+            SemanticTokensTreeWalker._push(this._builder, start, end, declarationType, declarationModifiers);
         }
 
         return true;
     }
 
-    private static _getPrimaryDeclaration(
-        node: NameNode,
-        evaluator: TypeEvaluator,
-        token: CancellationToken
-    ): Declaration | undefined {
-        const declarations: Declaration[] | undefined = evaluator.getDeclarationsForNameNode(node);
-        if (declarations && declarations.length > 0) {
-            // In most cases, it's best to treat the first declaration as the
-            // "primary". This works well for properties that have setters
-            // which often have doc strings on the getter but not the setter.
-            // The one case where using the first declaration doesn't work as
-            // well is the case where an import statement within an __init__.py
-            // file uses the form "from .A import A". In this case, if we use
-            // the first declaration, it will show up as a module rather than
-            // the imported symbol type.
-            let primaryDeclaration = declarations[0];
-            if (primaryDeclaration.type === DeclarationType.Alias && declarations.length > 1) {
-                primaryDeclaration = declarations[1];
-            } else if (
-                primaryDeclaration.type === DeclarationType.Variable &&
-                declarations.length > 1 &&
-                primaryDeclaration.isDefinedBySlots
-            ) {
-                // Slots cannot have docstrings, so pick the secondary.
-                primaryDeclaration = declarations[1];
-            }
-            return primaryDeclaration;
-        }
-        return undefined;
-    }
-
     private static _isDecorator(startNode: ParseNode): boolean {
-        let isDecorator = false;
         let node: ParseNode | undefined = startNode;
         while (node) {
             if (node.nodeType === ParseNodeType.Decorator) {
-                isDecorator = true;
-                break;
+                return true;
             }
             node = node.parent;
         }
-        return isDecorator;
+        return false;
     }
 
     private static _functionMods(evaluator: TypeEvaluator, functionNode: FunctionNode, mods: TokenModifiers) {
@@ -382,7 +363,7 @@ export class SemanticTokensProvider {
         }
 
         const builder = new SemanticTokensBuilder();
-        new SemanticTokensTreeWalker(builder, parseResults, evaluator, token).findSemanticTokens();
+        new SemanticTokensTreeWalker(builder, parseResults, program, evaluator, token).findSemanticTokens();
         return builder.build();
     }
 
