@@ -3,19 +3,19 @@ import { CancellationToken, SemanticTokens } from 'vscode-languageserver-protoco
 
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { isDeclInEnumClass } from '../analyzer/enums';
-import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { getEnclosingClass } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { ClassType, FunctionType, getTypeAliasInfo, isTypeVar, TypeCategory } from '../analyzer/types';
 import { isMaybeDescriptorInstance } from '../analyzer/typeUtils';
+import { ClassType, FunctionType, getTypeAliasInfo, isTypeVar, isUnknown } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { assertNever } from '../common/debug';
 import { ProgramView } from '../common/extensibility';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { TextRange } from '../common/textRange';
-import { FunctionNode, isExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
+import { TextRange } from '../common/textRange';
+import { FunctionNode, NameNode, ParseNode, ParseNodeType, isExpressionNode } from '../parser/parseNodes';
+import { ParseResults } from '../parser/parser';
 
 enum TokenType {
     namespace,
@@ -87,16 +87,16 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
         throwIfCancellationRequested(this._cancellationToken);
 
         // First give extensions a crack at getting a declaration.
-        let declarations: Declaration[] =
+        let declarations: Declaration[] | undefined =
             this._program.serviceProvider
                 .tryGet(ServiceKeys.symbolDefinitionProvider)
                 ?.map((f) => f.tryGetDeclarations(node, node.start, this._cancellationToken))
                 ?.flat() ?? [];
         if (declarations.length === 0) {
-            declarations = this._evaluator.getDeclarationsForNameNode(node) ?? [];
+            declarations = this._evaluator.getDeclarationsForNameNode(node);
         }
 
-        if (declarations.length > 0) {
+        if (declarations && declarations.length > 0) {
             // In most cases, it's best to treat the first declaration as the
             // "primary". This works well for properties that have setters
             // which often have doc strings on the getter but not the setter.
@@ -192,12 +192,12 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
 
                 // We may have more type information in the alternativeTypeNode. Use that if it's better.
                 if (
-                    (!type || type.category === TypeCategory.Unknown) &&
+                    (!type || isUnknown(type)) &&
                     resolvedDecl.alternativeTypeNode &&
                     isExpressionNode(resolvedDecl.alternativeTypeNode)
                 ) {
                     const inferredType = this._evaluator.getType(resolvedDecl.alternativeTypeNode);
-                    if (inferredType && inferredType.category !== TypeCategory.Unknown) {
+                    if (inferredType && !isUnknown(inferredType)) {
                         type = inferredType;
                         typeNode = resolvedDecl.alternativeTypeNode;
                     }
@@ -217,7 +217,7 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
 
                 // Determine if this is a variable that has been declared in a class,
                 // i.e. a class or member variable, and mark it as a property
-                if (ParseTreeUtils.getEnclosingClass(declaration.node, /*stopAtFunction*/ true)) {
+                if (getEnclosingClass(declaration.node, /*stopAtFunction*/ true)) {
                     declarationType = TokenType.property;
                     break;
                 }
@@ -265,10 +265,9 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
 
                 SemanticTokensTreeWalker._functionMods(this._evaluator, resolvedDecl.node, declarationModifiers);
                 if (resolvedDecl.isMethod) {
-                    // Handle properties separately
                     const declaredType = this._evaluator.getTypeForDeclaration(resolvedDecl)?.type;
                     declarationType =
-                        declaredType && isMaybeDescriptorInstance(declaredType, /*requireSetter*/ false)
+                        !!declaredType && isMaybeDescriptorInstance(declaredType, /* requireSetter */ false)
                             ? TokenType.property
                             : TokenType.method;
                 } else {
