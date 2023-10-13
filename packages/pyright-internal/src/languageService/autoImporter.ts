@@ -518,7 +518,6 @@ export class AutoImporter {
                     importType: ImportType.Local,
                     isLocalTypingsFile: false,
                     moduleName: localImport.moduleName,
-                    isThirdPartyImport: false,
                     isThirdPartyPyTypedPresent: false,
                 },
             ];

@@ -62,7 +62,6 @@ export interface ModuleNameAndType {
     moduleName: string;
     importType: ImportType;
     isLocalTypingsFile: boolean;
-    isThirdPartyImport: boolean;
     isThirdPartyPyTypedPresent: boolean;
 }
 
@@ -1052,6 +1051,7 @@ export class ImportResolver {
         let moduleName: string | undefined;
         let importType = ImportType.BuiltIn;
         let isLocalTypingsFile = false;
+        let isThirdPartyPyTypedPresent = false;
 
         const importFailureInfo: string[] = [];
 
@@ -1089,8 +1089,7 @@ export class ImportResolver {
                         moduleName,
                         importType,
                         isLocalTypingsFile,
-                        isThirdPartyImport: false,
-                        isThirdPartyPyTypedPresent: false,
+                        isThirdPartyPyTypedPresent,
                     };
                 }
             }
@@ -1205,11 +1204,7 @@ export class ImportResolver {
             }
         }
 
-        let isThirdPartyImport = false;
-        let isThirdPartyPyTypedPresent = false;
         if (importType === ImportType.ThirdParty) {
-            isThirdPartyImport = true;
-
             const root = this.getParentImportResolutionRoot(filePath, execEnv.root);
 
             // Go up directories one by one looking for a py.typed file.
@@ -1229,7 +1224,7 @@ export class ImportResolver {
         }
 
         if (moduleName) {
-            return { moduleName, importType, isLocalTypingsFile, isThirdPartyImport, isThirdPartyPyTypedPresent };
+            return { moduleName, importType, isLocalTypingsFile, isThirdPartyPyTypedPresent };
         }
 
         if (allowInvalidModuleName && moduleNameWithInvalidCharacters) {
@@ -1237,7 +1232,6 @@ export class ImportResolver {
                 moduleName: moduleNameWithInvalidCharacters,
                 importType,
                 isLocalTypingsFile,
-                isThirdPartyImport,
                 isThirdPartyPyTypedPresent,
             };
         }
@@ -1247,7 +1241,6 @@ export class ImportResolver {
             moduleName: '',
             importType: ImportType.Local,
             isLocalTypingsFile,
-            isThirdPartyImport,
             isThirdPartyPyTypedPresent,
         };
     }

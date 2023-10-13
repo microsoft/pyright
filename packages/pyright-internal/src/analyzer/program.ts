@@ -1584,7 +1584,7 @@ export class Program {
             this.serviceProvider,
             filePath,
             moduleNameAndType.moduleName,
-            moduleNameAndType.isThirdPartyImport,
+            moduleNameAndType.importType === ImportType.ThirdParty,
             moduleNameAndType.isThirdPartyPyTypedPresent,
             this._editModeTracker,
             this._console,
@@ -1593,7 +1593,7 @@ export class Program {
         const sourceFileInfo = new SourceFileInfo(
             sourceFile,
             /* isTypeshedFile */ false,
-            moduleNameAndType.isThirdPartyImport,
+            moduleNameAndType.importType === ImportType.ThirdParty,
             moduleNameAndType.isThirdPartyPyTypedPresent,
             this._editModeTracker
         );
