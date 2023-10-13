@@ -1584,6 +1584,61 @@ function narrowTypeForIsInstance(
         return filteredTypes.map((t) => convertToInstance(t));
     };
 
+    // Filters the metaclassType (which is assumed to be a metaclass instance)
+    // by the classTypeList and returns the list of types the varType could be
+    // after applying the filter.
+    const filterMetaclassType = (metaclassType: ClassType, negativeFallbackType: Type): Type[] => {
+        const filteredTypes: Type[] = [];
+
+        let foundPositiveMatch = false;
+        let isMatchIndeterminate = false;
+
+        for (const filterType of classTypeList) {
+            const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
+
+            if (isInstantiableClass(concreteFilterType)) {
+                const filterMetaclass = concreteFilterType.details.effectiveMetaclass;
+
+                if (filterMetaclass && isInstantiableClass(filterMetaclass)) {
+                    const isMetaclassOverlap = evaluator.assignType(
+                        metaclassType,
+                        ClassType.cloneAsInstance(filterMetaclass)
+                    );
+
+                    if (isMetaclassOverlap) {
+                        if (isPositiveTest) {
+                            filteredTypes.push(filterType);
+                            foundPositiveMatch = true;
+                        } else if (!isTypeSame(metaclassType, filterMetaclass) || filterMetaclass.includeSubclasses) {
+                            filteredTypes.push(metaclassType);
+                            isMatchIndeterminate = true;
+                        }
+                    }
+                } else {
+                    filteredTypes.push(metaclassType);
+                    isMatchIndeterminate = true;
+                }
+            } else {
+                filteredTypes.push(metaclassType);
+                isMatchIndeterminate = true;
+            }
+        }
+
+        // In the negative case, if one or more of the filters
+        // always match the type in the positive case, then there's nothing
+        // left after the filter is applied.
+        if (!isPositiveTest) {
+            if (!foundPositiveMatch || isMatchIndeterminate) {
+                filteredTypes.push(negativeFallbackType);
+            }
+        }
+
+        // We perform a double conversion from instance to instantiable
+        // here to make sure that the includeSubclasses flag is cleared
+        // if it's a class.
+        return filteredTypes.map((t) => (isInstantiableClass(t) ? convertToInstantiable(convertToInstance(t)) : t));
+    };
+
     const filterFunctionType = (varType: FunctionType | OverloadedFunctionType, unexpandedType: Type): Type[] => {
         const filteredTypes: Type[] = [];
 
@@ -1724,10 +1779,14 @@ function narrowTypeForIsInstance(
                     }
                 }
             } else {
-                if (isInstantiableClass(subtype)) {
-                    return combineTypes(
-                        filterClassType(unexpandedSubtype, subtype, getTypeCondition(subtype), negativeFallback)
-                    );
+                if (isClass(subtype)) {
+                    if (isInstantiableClass(subtype)) {
+                        return combineTypes(
+                            filterClassType(unexpandedSubtype, subtype, getTypeCondition(subtype), negativeFallback)
+                        );
+                    } else if (isMetaclassInstance(subtype)) {
+                        return combineTypes(filterMetaclassType(subtype, negativeFallback));
+                    }
                 }
 
                 if (isSubtypeMetaclass) {
