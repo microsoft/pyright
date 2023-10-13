@@ -16,10 +16,13 @@ class Base(ABC):
 
 def func1(cls: Any):
     assert issubclass(cls, Base)
+    reveal_type(cls, expected_text="type[Base]")
     _ = cls()
 
 
 def func2(cls: Any):
     assert isinstance(cls, type)
+    reveal_type(cls, expected_text="type")
     assert issubclass(cls, Base)
+    reveal_type(cls, expected_text="type[Base]")
     _ = cls()
