@@ -332,14 +332,13 @@ export class Checker extends ParseTreeWalker {
                 this._validateProtocolTypeParamVariance(node, classTypeResult.classType);
             }
 
-            // Skip the overrides check for stub files. Many of the built-in
-            // typeshed stub files trigger this diagnostic. Also skip the slots
-            // check because class variables declared in a stub file are
-            // interpreted as instance variables.
+            // Skip the slots check because class variables declared in a stub
+            // file are interpreted as instance variables.
             if (!this._fileInfo.isStubFile) {
-                this._validateBaseClassOverrides(classTypeResult.classType);
                 this._validateSlotsClassVarConflict(classTypeResult.classType);
             }
+
+            this._validateBaseClassOverrides(classTypeResult.classType);
 
             this._validateMultipleInheritanceBaseClasses(classTypeResult.classType, node.name);
 
