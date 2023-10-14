@@ -2,6 +2,8 @@ from collections.abc import Container, Mapping
 
 from pyasn1.type.base import Asn1Type
 
+__all__ = ["TagMap"]
+
 class TagMap:
     def __init__(
         self,

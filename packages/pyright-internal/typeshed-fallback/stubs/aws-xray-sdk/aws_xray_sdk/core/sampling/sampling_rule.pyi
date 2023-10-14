@@ -1,8 +1,5 @@
 from _typeshed import Incomplete
 
-from ..utils.search_pattern import wildcard_match as wildcard_match
-from .reservoir import Reservoir as Reservoir
-
 class SamplingRule:
     def __init__(
         self,

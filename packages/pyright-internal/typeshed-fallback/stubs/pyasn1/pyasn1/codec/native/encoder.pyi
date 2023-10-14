@@ -1,5 +1,10 @@
+from _typeshed import Unused
 from abc import abstractmethod
 from collections import OrderedDict
+
+from pyasn1.type.tag import TagSet
+
+__all__ = ["encode"]
 
 class AbstractItemEncoder:
     @abstractmethod
@@ -44,8 +49,23 @@ class ChoiceEncoder(SequenceEncoder): ...
 class AnyEncoder(AbstractItemEncoder):
     def encode(self, value, encodeFun, **options): ...
 
-class Encoder:
-    def __init__(self, tagMap, typeMap={}) -> None: ...
+TAG_MAP: dict[TagSet, AbstractItemEncoder]
+TYPE_MAP: dict[int, AbstractItemEncoder]
+# deprecated aliases
+tagMap = TAG_MAP
+typeMap = TYPE_MAP
+
+class SingleItemEncoder:
+    TAG_MAP: dict[TagSet, AbstractItemEncoder]
+    TYPE_MAP: dict[int, AbstractItemEncoder]
+
+    def __init__(self, tagMap=..., typeMap=..., **ignored: Unused) -> None: ...
     def __call__(self, value, **options): ...
 
-encode: Encoder
+class Encoder:
+    SINGLE_ITEM_ENCODER: type[SingleItemEncoder]
+
+    def __init__(self, tagMap=..., typeMap=..., **options: Unused): ...
+    def __call__(self, pyObject, asn1Spec=None, **options): ...
+
+encode: SingleItemEncoder

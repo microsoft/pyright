@@ -1,21 +1,15 @@
-from datetime import date, datetime, time, timedelta
-from decimal import Decimal
+from _typeshed import ReadableBuffer
+from datetime import datetime
 from re import Pattern
 from typing import overload
-from typing_extensions import Final, TypeAlias
+from typing_extensions import Final
 
-from openpyxl.cell.rich_text import CellRichText
+from openpyxl.cell import _CellValue, _TimeTypes
 from openpyxl.comments.comments import Comment
 from openpyxl.styles.cell_style import StyleArray
 from openpyxl.styles.styleable import StyleableObject
-from openpyxl.worksheet.formula import ArrayFormula, DataTableFormula
 from openpyxl.worksheet.hyperlink import Hyperlink
 from openpyxl.worksheet.worksheet import Worksheet
-
-_TimeTypes: TypeAlias = datetime | date | time | timedelta
-_CellValue: TypeAlias = (  # if numpy is installed also numpy bool and number types
-    bool | float | Decimal | str | CellRichText | _TimeTypes | DataTableFormula | ArrayFormula
-)
 
 __docformat__: Final = "restructuredtext en"
 TIME_TYPES: Final[tuple[type, ...]]
@@ -65,14 +59,14 @@ class Cell(StyleableObject):
     @overload
     def check_string(self, value: None) -> None: ...
     @overload
-    def check_string(self, value: str | bytes) -> str: ...
+    def check_string(self, value: str | ReadableBuffer) -> str: ...
     def check_error(self, value: object) -> str: ...
     @property
-    def value(self) -> _CellValue: ...
+    def value(self) -> _CellValue | None: ...
     @value.setter
     def value(self, value: _CellValue | bytes | None) -> None: ...
     @property
-    def internal_value(self) -> _CellValue: ...
+    def internal_value(self) -> _CellValue | None: ...
     @property
     def hyperlink(self) -> Hyperlink | None: ...
     @hyperlink.setter
@@ -92,6 +86,7 @@ class MergedCell(StyleableObject):
     row: int
     column: int
     def __init__(self, worksheet: Worksheet, row: int | None = None, column: int | None = None) -> None: ...
+    # Same as Cell.coordinate
     @property
     def coordinate(self) -> str: ...
     value: str | float | int | datetime | None

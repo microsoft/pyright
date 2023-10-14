@@ -1,8 +1,7 @@
 from _typeshed import Incomplete
 from typing import Any
 
-from ..exceptions.exceptions import FacadeSegmentMutationException as FacadeSegmentMutationException
-from .segment import Segment as Segment
+from .segment import Segment
 
 MUTATION_UNSUPPORTED_MESSAGE: str
 

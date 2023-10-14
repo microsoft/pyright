@@ -6,7 +6,9 @@ from pyasn1.type import base, char, univ, useful
 from pyasn1.type.base import Asn1Type
 from pyasn1.type.tag import TagSet
 
-class AbstractDecoder:
+__all__ = ["StreamingDecoder", "Decoder", "decode"]
+
+class AbstractPayloadDecoder:
     protoComponent: Asn1Type | None
     @abstractmethod
     def valueDecoder(
@@ -33,11 +35,11 @@ class AbstractDecoder:
         **options,
     ) -> None: ...
 
-class AbstractSimpleDecoder(AbstractDecoder, metaclass=ABCMeta):
+class AbstractSimplePayloadDecoder(AbstractPayloadDecoder, metaclass=ABCMeta):
     @staticmethod
-    def substrateCollector(asn1Object, substrate, length): ...
+    def substrateCollector(asn1Object, substrate, length, options): ...
 
-class ExplicitTagDecoder(AbstractSimpleDecoder):
+class RawPayloadDecoder(AbstractSimplePayloadDecoder):
     protoComponent: univ.Any
     def valueDecoder(
         self,
@@ -62,7 +64,7 @@ class ExplicitTagDecoder(AbstractSimpleDecoder):
         **options,
     ): ...
 
-class IntegerDecoder(AbstractSimpleDecoder):
+class IntegerPayloadDecoder(AbstractSimplePayloadDecoder):
     protoComponent: univ.Integer
     def valueDecoder(
         self,
@@ -76,10 +78,10 @@ class IntegerDecoder(AbstractSimpleDecoder):
         **options,
     ): ...
 
-class BooleanDecoder(IntegerDecoder):
+class BooleanPayloadDecoder(IntegerPayloadDecoder):
     protoComponent: univ.Boolean
 
-class BitStringDecoder(AbstractSimpleDecoder):
+class BitStringPayloadDecoder(AbstractSimplePayloadDecoder):
     protoComponent: univ.BitString
     supportConstructedForm: bool
     def valueDecoder(
@@ -105,7 +107,7 @@ class BitStringDecoder(AbstractSimpleDecoder):
         **options,
     ): ...
 
-class OctetStringDecoder(AbstractSimpleDecoder):
+class OctetStringPayloadDecoder(AbstractSimplePayloadDecoder):
     protoComponent: univ.OctetString
     supportConstructedForm: bool
     def valueDecoder(
@@ -131,7 +133,7 @@ class OctetStringDecoder(AbstractSimpleDecoder):
         **options,
     ): ...
 
-class NullDecoder(AbstractSimpleDecoder):
+class NullPayloadDecoder(AbstractSimplePayloadDecoder):
     protoComponent: univ.Null
     def valueDecoder(
         self,
@@ -145,7 +147,7 @@ class NullDecoder(AbstractSimpleDecoder):
         **options,
     ): ...
 
-class ObjectIdentifierDecoder(AbstractSimpleDecoder):
+class ObjectIdentifierPayloadDecoder(AbstractSimplePayloadDecoder):
     protoComponent: univ.ObjectIdentifier
     def valueDecoder(
         self,
@@ -159,7 +161,7 @@ class ObjectIdentifierDecoder(AbstractSimpleDecoder):
         **options,
     ): ...
 
-class RealDecoder(AbstractSimpleDecoder):
+class RealPayloadDecoder(AbstractSimplePayloadDecoder):
     protoComponent: univ.Real
     def valueDecoder(
         self,
@@ -173,10 +175,10 @@ class RealDecoder(AbstractSimpleDecoder):
         **options,
     ): ...
 
-class AbstractConstructedDecoder(AbstractDecoder, metaclass=ABCMeta):
+class AbstractConstructedPayloadDecoder(AbstractPayloadDecoder, metaclass=ABCMeta):
     protoComponent: base.ConstructedAsn1Type | None
 
-class UniversalConstructedTypeDecoder(AbstractConstructedDecoder):
+class ConstructedPayloadDecoderBase(AbstractConstructedPayloadDecoder):
     protoRecordComponent: univ.SequenceAndSetBase | None
     protoSequenceComponent: univ.SequenceOfAndSetOfBase | None
     def valueDecoder(
@@ -202,27 +204,27 @@ class UniversalConstructedTypeDecoder(AbstractConstructedDecoder):
         **options,
     ): ...
 
-class SequenceOrSequenceOfDecoder(UniversalConstructedTypeDecoder):
+class SequenceOrSequenceOfPayloadDecoder(ConstructedPayloadDecoderBase):
     protoRecordComponent: univ.Sequence
     protoSequenceComponent: univ.SequenceOf
 
-class SequenceDecoder(SequenceOrSequenceOfDecoder):
+class SequencePayloadDecoder(SequenceOrSequenceOfPayloadDecoder):
     protoComponent: univ.Sequence
 
-class SequenceOfDecoder(SequenceOrSequenceOfDecoder):
+class SequenceOfPayloadDecoder(SequenceOrSequenceOfPayloadDecoder):
     protoComponent: univ.SequenceOf
 
-class SetOrSetOfDecoder(UniversalConstructedTypeDecoder):
+class SetOrSetOfPayloadDecoder(ConstructedPayloadDecoderBase):
     protoRecordComponent: univ.Set
     protoSequenceComponent: univ.SetOf
 
-class SetDecoder(SetOrSetOfDecoder):
+class SetPayloadDecoder(SetOrSetOfPayloadDecoder):
     protoComponent: univ.Set
 
-class SetOfDecoder(SetOrSetOfDecoder):
+class SetOfPayloadDecoder(SetOrSetOfPayloadDecoder):
     protoComponent: univ.SetOf
 
-class ChoiceDecoder(AbstractConstructedDecoder):
+class ChoicePayloadDecoder(AbstractConstructedPayloadDecoder):
     protoComponent: univ.Choice
     def valueDecoder(
         self,
@@ -247,7 +249,7 @@ class ChoiceDecoder(AbstractConstructedDecoder):
         **options,
     ): ...
 
-class AnyDecoder(AbstractSimpleDecoder):
+class AnyPayloadDecoder(AbstractSimplePayloadDecoder):
     protoComponent: univ.Any
     def valueDecoder(
         self,
@@ -272,53 +274,61 @@ class AnyDecoder(AbstractSimpleDecoder):
         **options,
     ): ...
 
-class UTF8StringDecoder(OctetStringDecoder):
+class UTF8StringPayloadDecoder(OctetStringPayloadDecoder):
     protoComponent: char.UTF8String
 
-class NumericStringDecoder(OctetStringDecoder):
+class NumericStringPayloadDecoder(OctetStringPayloadDecoder):
     protoComponent: char.NumericString
 
-class PrintableStringDecoder(OctetStringDecoder):
+class PrintableStringPayloadDecoder(OctetStringPayloadDecoder):
     protoComponent: char.PrintableString
 
-class TeletexStringDecoder(OctetStringDecoder):
+class TeletexStringPayloadDecoder(OctetStringPayloadDecoder):
     protoComponent: char.TeletexString
 
-class VideotexStringDecoder(OctetStringDecoder):
+class VideotexStringPayloadDecoder(OctetStringPayloadDecoder):
     protoComponent: char.VideotexString
 
-class IA5StringDecoder(OctetStringDecoder):
+class IA5StringPayloadDecoder(OctetStringPayloadDecoder):
     protoComponent: char.IA5String
 
-class GraphicStringDecoder(OctetStringDecoder):
+class GraphicStringPayloadDecoder(OctetStringPayloadDecoder):
     protoComponent: char.GraphicString
 
-class VisibleStringDecoder(OctetStringDecoder):
+class VisibleStringPayloadDecoder(OctetStringPayloadDecoder):
     protoComponent: char.VisibleString
 
-class GeneralStringDecoder(OctetStringDecoder):
+class GeneralStringPayloadDecoder(OctetStringPayloadDecoder):
     protoComponent: char.GeneralString
 
-class UniversalStringDecoder(OctetStringDecoder):
+class UniversalStringPayloadDecoder(OctetStringPayloadDecoder):
     protoComponent: char.UniversalString
 
-class BMPStringDecoder(OctetStringDecoder):
+class BMPStringPayloadDecoder(OctetStringPayloadDecoder):
     protoComponent: char.BMPString
 
-class ObjectDescriptorDecoder(OctetStringDecoder):
+class ObjectDescriptorPayloadDecoder(OctetStringPayloadDecoder):
     protoComponent: useful.ObjectDescriptor
 
-class GeneralizedTimeDecoder(OctetStringDecoder):
+class GeneralizedTimePayloadDecoder(OctetStringPayloadDecoder):
     protoComponent: useful.GeneralizedTime
 
-class UTCTimeDecoder(OctetStringDecoder):
+class UTCTimePayloadDecoder(OctetStringPayloadDecoder):
     protoComponent: useful.UTCTime
 
-class Decoder:
+TAG_MAP: dict[TagSet, AbstractPayloadDecoder]
+TYPE_MAP: dict[int, AbstractPayloadDecoder]
+# deprecated aliases
+tagMap = TAG_MAP
+typeMap = TYPE_MAP
+
+class SingleItemDecoder:
     defaultErrorState: int
-    defaultRawDecoder: AnyDecoder
+    defaultRawDecoder: AnyPayloadDecoder
     supportIndefLength: bool
-    def __init__(self, tagMap, typeMap={}) -> None: ...
+    TAG_MAP: dict[TagSet, AbstractPayloadDecoder]
+    TYPE_MAP: dict[int, AbstractPayloadDecoder]
+    def __init__(self, tagMap=..., typeMap=..., **ignored: Unused) -> None: ...
     def __call__(
         self,
         substrate,
@@ -332,3 +342,15 @@ class Decoder:
     ): ...
 
 decode: Decoder
+
+class StreamingDecoder:
+    SINGLE_ITEM_DECODER: type[SingleItemDecoder]
+
+    def __init__(self, substrate, asn1Spec=None, tagMap=..., typeMap=..., **ignored: Unused) -> None: ...
+    def __iter__(self): ...
+
+class Decoder:
+    STREAMING_DECODER: type[StreamingDecoder]
+
+    @classmethod
+    def __call__(cls, substrate, asn1Spec=None, tagMap=..., typeMap=..., **ignored: Unused): ...
