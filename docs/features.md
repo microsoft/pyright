@@ -35,6 +35,7 @@ Pyright supports [configuration files](configuration.md) that provide granular c
 * [PEP 698](https://www.python.org/dev/peps/pep-0698/) override decorator for static typing
 * [PEP 702](https://www.python.org/dev/peps/pep-0702/) (draft) marking deprecations
 * [PEP 712](https://www.python.org/dev/peps/pep-0712/) (draft) converter parameter on dataclasses.field
+* [PEP 724](https://www.python.org/dev/peps/pep-0724/) (draft) stricter type guards
 * Type inference for function return values, instance variables, class variables, and globals
 * Type guards that understand conditional code flow constructs like if/else statements
 
