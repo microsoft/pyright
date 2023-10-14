@@ -842,6 +842,7 @@ function assignTypeToParamSpec(
                     isNameSynthesized: p.isNameSynthesized,
                     hasDefault: !!p.hasDefault,
                     defaultValueExpression: p.defaultValueExpression,
+                    hasDeclaredType: p.hasDeclaredType,
                     type: FunctionType.getEffectiveParameterType(functionSrcType, index),
                 };
                 return param;
@@ -907,6 +908,13 @@ function assignTypeToParamSpec(
 
         isAssignable = false;
     });
+
+    if (logTypeVarContextUpdates) {
+        const indent = ' '.repeat(recursionCount * 2);
+        console.log(`${indent}`);
+        console.log(`${indent}post-call typeVarContext: `);
+        logTypeVarContext(evaluator, typeVarContext, indent);
+    }
 
     return isAssignable;
 }
@@ -1200,11 +1208,9 @@ function logTypeVarContext(evaluator: TypeEvaluator, typeVarContext: TypeVarCont
             signatureContext.getTypeVars().forEach((entry) => {
                 console.log(`${indent}    ${entry.typeVar.details.name}:`);
                 console.log(
-                    `${indent}       Narrow: ${entry.narrowBound ? evaluator.printType(entry.narrowBound) : 'None'}`
+                    `${indent}       Narrow: ${entry.narrowBound ? evaluator.printType(entry.narrowBound) : '?'}`
                 );
-                console.log(
-                    `${indent}       Wide  : ${entry.wideBound ? evaluator.printType(entry.wideBound) : 'None'}`
-                );
+                console.log(`${indent}       Wide  : ${entry.wideBound ? evaluator.printType(entry.wideBound) : '?'}`);
             });
         });
     }
