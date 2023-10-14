@@ -23,6 +23,8 @@ class A(Generic[T]):
 
 def func2(a: A[bool], b: A[str]):
     v1: list[LiteralString] = a.func1(a)
+
+    # This should generate an error.
     v2: list[str] = a.func1(a)
 
     # This should generate an error.

@@ -246,7 +246,6 @@ import {
     preserveUnknown,
     removeParamSpecVariadicsFromFunction,
     removeParamSpecVariadicsFromSignature,
-    replaceTypeVarsWithAny,
     requiresSpecialization,
     requiresTypeArguments,
     selfSpecializeClass,
@@ -8874,25 +8873,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
 
                 if (!matchResults.argumentErrors) {
-                    // If there is an expected return type, see if it's potentially compatible
-                    // with this overload's return type. If not, we'll de-emphasize this overload.
-                    if (inferenceContext?.expectedType) {
-                        const returnType = getFunctionEffectiveReturnType(matchResults.overload);
-
-                        if (
-                            !assignType(
-                                replaceTypeVarsWithAny(inferenceContext.expectedType),
-                                replaceTypeVarsWithAny(returnType),
-                                /* diag */ undefined,
-                                /* destTypeVarContext */ undefined,
-                                /* srcTypeVarContext */ undefined,
-                                AssignTypeFlags.SkipSolveTypeVars
-                            )
-                        ) {
-                            matchResults.relevance += -0.5;
-                        }
-                    }
-
                     filteredMatchResults.push(matchResults);
                 }
 
