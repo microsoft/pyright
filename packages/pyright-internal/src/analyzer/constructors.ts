@@ -806,7 +806,8 @@ export function createFunctionFromConstructor(
             if (constructorFunction) {
                 constructorFunction = FunctionType.clone(constructorFunction);
                 constructorFunction.details.declaredReturnType = objectType;
-                constructorFunction.details.typeVarScopeId = initSubtype.details.typeVarScopeId;
+                constructorFunction.details.name = '';
+                constructorFunction.details.fullName = '';
 
                 if (constructorFunction.specializedTypes) {
                     constructorFunction.specializedTypes.returnType = objectType;
