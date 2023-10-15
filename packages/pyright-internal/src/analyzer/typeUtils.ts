@@ -3316,22 +3316,22 @@ class TypeVarTransformer {
                     }
                 } else {
                     replacementType = this.transformTypeVar(type, recursionCount) ?? type;
+                }
 
-                    if (!this._isTransformingTypeArg) {
-                        if (type.scopeId) {
-                            this._pendingTypeVarTransformations.add(type.scopeId);
-                        }
-                        replacementType = this.apply(replacementType, recursionCount);
-                        if (type.scopeId) {
-                            this._pendingTypeVarTransformations.delete(type.scopeId);
-                        }
+                if (!this._isTransformingTypeArg) {
+                    if (type.scopeId) {
+                        this._pendingTypeVarTransformations.add(type.scopeId);
                     }
+                    replacementType = this.apply(replacementType, recursionCount);
+                    if (type.scopeId) {
+                        this._pendingTypeVarTransformations.delete(type.scopeId);
+                    }
+                }
 
-                    // If we're transforming a variadic type variable that was in a union,
-                    // expand the union types.
-                    if (isVariadicTypeVar(type) && type.isVariadicInUnion) {
-                        replacementType = _expandVariadicUnpackedUnion(replacementType);
-                    }
+                // If we're transforming a variadic type variable that was in a union,
+                // expand the union types.
+                if (isVariadicTypeVar(type) && type.isVariadicInUnion) {
+                    replacementType = _expandVariadicUnpackedUnion(replacementType);
                 }
             }
 
@@ -3621,9 +3621,9 @@ class TypeVarTransformer {
 
             // Handle functions with a parameter specification in a special manner.
             if (functionType.details.paramSpec) {
-                const paramSpec = this.transformParamSpec(functionType.details.paramSpec, recursionCount);
-                if (paramSpec) {
-                    functionType = FunctionType.cloneForParamSpec(functionType, paramSpec);
+                const paramSpecType = this.apply(functionType.details.paramSpec, recursionCount);
+                if (isFunction(paramSpecType)) {
+                    functionType = FunctionType.cloneForParamSpec(functionType, paramSpecType);
                 }
             }
 
