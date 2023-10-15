@@ -4048,23 +4048,6 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return UnknownType.create();
         }
 
-        // If we're solving a default type, handle type variables with no scope ID.
-        if (this._isSolvingDefaultType && !typeVar.scopeId) {
-            const replacementEntry = signatureContext
-                .getTypeVars()
-                .find((entry) => entry.typeVar.details.name === typeVar.details.name);
-
-            if (replacementEntry) {
-                return signatureContext.getTypeVarType(replacementEntry.typeVar);
-            }
-
-            if (typeVar.details.defaultType) {
-                return this.apply(typeVar.details.defaultType, recursionCount);
-            }
-
-            return UnknownType.create();
-        }
-
         return undefined;
     }
 
