@@ -55,6 +55,8 @@ TA10.bit_count(1)
 # This should generate an error.
 TA10(0)
 
+list[TA10]()
+
 # This should generate an error.
 class DerivedInt(TA10): pass
 

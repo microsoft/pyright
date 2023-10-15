@@ -6486,7 +6486,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const indexTypeResult = getTypeOfIndexWithBaseType(node, baseTypeResult, { method: 'get' }, flags);
+        const indexTypeResult = getTypeOfIndexWithBaseType(
+            node,
+            baseTypeResult,
+            { method: 'get' },
+            flags & ~EvaluatorFlags.DisallowPep695TypeAlias
+        );
 
         if (isCodeFlowSupportedForReference(node)) {
             // We limit type narrowing for index expressions to built-in types that are
