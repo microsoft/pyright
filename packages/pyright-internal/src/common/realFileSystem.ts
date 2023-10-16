@@ -352,7 +352,14 @@ class RealFileSystem implements FileSystem {
             // If it does exist, skip this for symlinks.
             const stat = fs.lstatSync(path);
             if (stat.isSymbolicLink()) {
-                return path;
+                const driveLength = getRootLength(path);
+                if (driveLength === 0) {
+                    return path;
+                }
+
+                // `vscode` sometimes uses different casing for drive letter.
+                // make sure we normalize at least drive letter for symlink as well.
+                return fs.realpathSync.native(path.substring(0, driveLength)) + path.substring(driveLength);
             }
 
             // realpathSync.native will return casing as in OS rather than
