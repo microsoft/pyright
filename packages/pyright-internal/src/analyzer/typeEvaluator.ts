@@ -11680,6 +11680,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { argumentErrors: true, typeVarContexts: [srcTypeVarContext] };
         }
 
+        // If the remaining signature is parameterized by the same ParamSpec, avoid
+        // infinite recursion by returning an error. It's not clear how this can happen,
+        // but it appears to be possible based on logged crashes. Add some additional
+        // logging here to help us track down the cause.
+        if (matchResults.overload.details.paramSpec) {
+            if (isTypeSame(matchResults.overload.details.paramSpec, paramSpec)) {
+                fail(
+                    `Recursive ParamSpec in ${ParseTreeUtils.printExpression(errorNode)}, signature = ${printType(
+                        matchResults.overload
+                    )}`
+                );
+            }
+        }
+
         const result = validateFunctionArgumentTypes(errorNode, matchResults, srcTypeVarContext, signatureTracker);
         return { argumentErrors: !!result.argumentErrors, typeVarContexts: [srcTypeVarContext] };
     }
