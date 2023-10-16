@@ -920,10 +920,31 @@ export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
 
     return ClassType.cloneForSpecialization(
         type,
-        type.details.typeParameters.map((param) => param.details.defaultType ?? UnknownType.create()),
+        type.details.typeParameters.map((param) => param.details.defaultType ?? getUnknownTypeForTypeVar(param)),
         /* isTypeArgumentExplicit */ false,
         /* includeSubclasses */ true
     );
+}
+
+// Returns "Unknown" for simple TypeVars or the equivalent for a ParamSpec.
+export function getUnknownTypeForTypeVar(typeVar: TypeVarType): Type {
+    if (typeVar.details.isParamSpec) {
+        return getUnknownTypeForParamSpec();
+    }
+
+    return UnknownType.create();
+}
+
+// Returns the "Unknown" equivalent for a ParamSpec.
+export function getUnknownTypeForParamSpec(): FunctionType {
+    const newFunction = FunctionType.createInstance(
+        '',
+        '',
+        '',
+        FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+    );
+    FunctionType.addDefaultParameters(newFunction);
+    return newFunction;
 }
 
 // If the class is generic and not already specialized, this function
@@ -1937,14 +1958,10 @@ export function setTypeArgumentsRecursive(
             if (destType.details.paramSpec) {
                 // Fill in an empty signature for a ParamSpec.
                 if (!typeVarContext.getPrimarySignature().getTypeVar(destType.details.paramSpec)) {
-                    const newFunction = FunctionType.createInstance(
-                        '',
-                        '',
-                        '',
-                        FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck | FunctionTypeFlags.ParamSpecValue
+                    typeVarContext.setTypeVarType(
+                        destType.details.paramSpec,
+                        getUnknownTypeForTypeVar(destType.details.paramSpec)
                     );
-                    FunctionType.addDefaultParameters(newFunction);
-                    typeVarContext.setTypeVarType(destType.details.paramSpec, newFunction);
                 }
             }
             break;
@@ -3168,14 +3185,7 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
         return newFunction;
     }
 
-    const newFunction = FunctionType.createInstance(
-        '',
-        '',
-        '',
-        FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
-    );
-    FunctionType.addDefaultParameters(newFunction);
-    return newFunction;
+    return getUnknownTypeForParamSpec();
 }
 
 export function convertParamSpecValueToType(paramSpecValue: FunctionType, omitParamSpec = false): Type {
@@ -3825,15 +3835,7 @@ class TypeVarAnyReplacer extends TypeVarTransformer {
     }
 
     override transformParamSpec(paramSpec: TypeVarType) {
-        const paramSpecValue = FunctionType.createInstance(
-            '',
-            '',
-            '',
-            FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
-        );
-        FunctionType.addDefaultParameters(paramSpecValue);
-
-        return paramSpecValue;
+        return getUnknownTypeForParamSpec();
     }
 }
 
@@ -4125,7 +4127,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 return convertTypeToParamSpecValue(this.apply(paramSpec.details.defaultType, recursionCount));
             }
 
-            return this._getUnknownParamSpec();
+            return getUnknownTypeForParamSpec();
         }
 
         if (!paramSpec.scopeId || !this._typeVarContext.hasSolveForScope(paramSpec.scopeId)) {
@@ -4156,7 +4158,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             }
 
             // Convert to the ParamSpec equivalent of "Unknown".
-            return this._getUnknownParamSpec();
+            return getUnknownTypeForParamSpec();
         }
 
         return undefined;
@@ -4198,18 +4200,6 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         const result = this.apply(defaultType, recursionCount);
         this._isSolvingDefaultType = wasSolvingDefaultType;
         return result;
-    }
-
-    private _getUnknownParamSpec() {
-        const paramSpecValue = FunctionType.createInstance(
-            '',
-            '',
-            '',
-            FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
-        );
-        FunctionType.addDefaultParameters(paramSpecValue);
-
-        return paramSpecValue;
     }
 }
 
