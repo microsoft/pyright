@@ -16664,12 +16664,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             !derivesFromClassRecursive(effectiveMetaclass, baseClassMeta, /* ignoreUnknown */ false)
                         ) {
                             if (!reportedMetaclassConflict) {
+                                const diag = new DiagnosticAddendum();
+
+                                diag.addMessage(
+                                    Localizer.DiagnosticAddendum.metaclassConflict().format({
+                                        metaclass1: printType(convertToInstance(effectiveMetaclass)),
+                                        metaclass2: printType(convertToInstance(baseClassMeta)),
+                                    })
+                                );
                                 addDiagnostic(
                                     AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                     DiagnosticRule.reportGeneralTypeIssues,
-                                    Localizer.Diagnostic.metaclassConflict(),
+                                    Localizer.Diagnostic.metaclassConflict() + diag.getString(),
                                     errorNode
                                 );
+
                                 // Don't report more than once.
                                 reportedMetaclassConflict = true;
                             }

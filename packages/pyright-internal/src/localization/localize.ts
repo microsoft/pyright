@@ -1238,6 +1238,10 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberTypeMismatch'));
         export const memberUnknown = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberUnknown'));
+        export const metaclassConflict = () =>
+            new ParameterizedString<{ metaclass1: string; metaclass2: string }>(
+                getRawString('DiagnosticAddendum.metaclassConflict')
+            );
         export const missingProtocolMember = () =>
             new ParameterizedString<{ name: string; classType: string }>(
                 getRawString('DiagnosticAddendum.missingProtocolMember')
