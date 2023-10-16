@@ -61,7 +61,7 @@ import {
     transformExpectedType,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
+import { TypeVarContext, TypeVarSignatureContext } from './typeVarContext';
 
 // As we widen the narrow bound of a type variable, we may end up with
 // many subtypes. For performance reasons, we need to cap this at some
@@ -94,11 +94,13 @@ export function assignTypeToTypeVar(
         console.log(`${indent}destType: ${evaluator.printType(destType)}`);
         console.log(`${indent}srcType: ${evaluator.printType(srcType)}`);
         console.log(`${indent}flags: ${flags}`);
-        console.log(`${indent}typeVarContext #${typeVarContext.getId()}: `);
+        console.log(`${indent}scopes: ${(typeVarContext.getSolveForScopes() || []).join(', ')}: `);
+        console.log(`${indent}pre-call context #${typeVarContext.getId()}: `);
         logTypeVarContext(evaluator, typeVarContext, indent);
     }
 
     let isTypeVarInScope = true;
+    const isInvariant = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
     const isContravariant = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
 
     // If the TypeVar doesn't have a scope ID, then it's being used
@@ -127,7 +129,7 @@ export function assignTypeToTypeVar(
 
         // Never or NoReturn is always assignable to all type variables unless
         // we're enforcing invariance.
-        if (isNever(srcType) && (flags & AssignTypeFlags.EnforceInvariance) === 0) {
+        if (isNever(srcType) && !isInvariant) {
             return true;
         }
 
@@ -286,7 +288,7 @@ export function assignTypeToTypeVar(
         // narrow type bound, wide type bound or both. Don't overwrite
         // an existing entry.
         if (!curEntry) {
-            if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+            if (isInvariant) {
                 newNarrowTypeBound = adjSrcType;
                 newWideTypeBound = adjSrcType;
             } else if (isContravariant) {
@@ -569,7 +571,7 @@ export function assignTypeToTypeVar(
     if (logTypeVarContextUpdates) {
         const indent = ' '.repeat(recursionCount * 2);
         console.log(`${indent}`);
-        console.log(`${indent}post-call typeVarContext: `);
+        console.log(`${indent}post-call context #${typeVarContext.getId()}: `);
         logTypeVarContext(evaluator, typeVarContext, indent);
     }
 
@@ -1234,19 +1236,42 @@ function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type)
 // This function is used for debugging only. It dumps the current contents of
 // the TypeVarContext to the console.
 function logTypeVarContext(evaluator: TypeEvaluator, typeVarContext: TypeVarContext, indent: string) {
-    if (typeVarContext.getSignatureContexts().length === 0) {
-        console.log(`${indent}  No signatures`);
+    const signatureContextCount = typeVarContext.getSignatureContexts().length;
+    if (signatureContextCount === 0) {
+        console.log(`${indent}  no signatures`);
+    } else if (signatureContextCount === 1) {
+        logTypeVarSignatureContext(evaluator, typeVarContext.getSignatureContexts()[0], `${indent}  `);
     } else {
-        typeVarContext.doForEachSignatureContext((signatureContext, signatureIndex) => {
-            console.log(`${indent}  Signature ${signatureIndex}`);
-
-            signatureContext.getTypeVars().forEach((entry) => {
-                console.log(`${indent}    ${entry.typeVar.details.name}:`);
-                console.log(
-                    `${indent}       Narrow: ${entry.narrowBound ? evaluator.printType(entry.narrowBound) : '?'}`
-                );
-                console.log(`${indent}       Wide  : ${entry.wideBound ? evaluator.printType(entry.wideBound) : '?'}`);
-            });
+        typeVarContext.doForEachSignatureContext((context, signatureIndex) => {
+            console.log(`${indent}  signature ${signatureIndex}`);
+            logTypeVarSignatureContext(evaluator, context, `${indent}    `);
         });
+    }
+}
+
+function logTypeVarSignatureContext(evaluator: TypeEvaluator, context: TypeVarSignatureContext, indent: string) {
+    let loggedConstraint = false;
+
+    context.getTypeVars().forEach((entry) => {
+        const typeVarName = `${indent}${entry.typeVar.details.name}`;
+
+        // Log the narrow and wide bounds.
+        if (entry.narrowBound && entry.wideBound && isTypeSame(entry.narrowBound, entry.wideBound)) {
+            console.log(`${typeVarName} = ${evaluator.printType(entry.narrowBound)}`);
+            loggedConstraint = true;
+        } else {
+            if (entry.narrowBound) {
+                console.log(`${typeVarName} ≤ ${evaluator.printType(entry.narrowBound)}`);
+                loggedConstraint = true;
+            }
+            if (entry.wideBound) {
+                console.log(`${typeVarName} ≥ ${evaluator.printType(entry.wideBound)}`);
+                loggedConstraint = true;
+            }
+        }
+    });
+
+    if (!loggedConstraint) {
+        console.log(`${indent}no constraints`);
     }
 }
