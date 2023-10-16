@@ -115,6 +115,7 @@ export type InheritanceChain = (ClassType | UnknownType)[];
 export interface TypeSameOptions {
     ignorePseudoGeneric?: boolean;
     ignoreTypeFlags?: boolean;
+    typeFlagsToHonor?: TypeFlags;
     ignoreTypedDictNarrowEntries?: boolean;
     treatAnySameAsUnknown?: boolean;
 }
@@ -2792,9 +2793,18 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
     }
 
     if (!options.ignoreTypeFlags) {
-        // The Annotated flag should never be considered for type compatibility.
-        const type1Flags = type1.flags & ~TypeFlags.Annotated;
-        const type2Flags = type2.flags & ~TypeFlags.Annotated;
+        let type1Flags = type1.flags;
+        let type2Flags = type2.flags;
+
+        // Mask out the flags that we don't care about.
+        if (options.typeFlagsToHonor !== undefined) {
+            type1Flags &= options.typeFlagsToHonor;
+            type2Flags &= options.typeFlagsToHonor;
+        } else {
+            // By default, we don't care about the Annotated flag.
+            type1Flags &= ~TypeFlags.Annotated;
+            type2Flags &= ~TypeFlags.Annotated;
+        }
 
         if (type1Flags !== type2Flags) {
             return false;
