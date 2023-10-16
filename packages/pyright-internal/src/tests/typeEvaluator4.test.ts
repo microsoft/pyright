@@ -93,7 +93,7 @@ test('Metaclass10', () => {
 
 test('Metaclass11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass11.py']);
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('AssignmentExpr1', () => {
@@ -346,7 +346,7 @@ test('Overload15', () => {
 
 test('Overload16', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload16.py']);
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Final1', () => {
@@ -547,6 +547,11 @@ test('MemberAccess22', () => {
 
 test('MemberAccess23', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess23.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('MemberAccess24', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess24.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 
@@ -1286,4 +1291,10 @@ test('Del2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['del2.py']);
 
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('Any1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['any1.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
 });

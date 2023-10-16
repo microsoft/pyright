@@ -180,12 +180,14 @@ export interface TypeResult<T extends Type = Type> {
 
     // Used for getTypeOfObjectMember to indicate that class
     // that declares the member.
-    classType?: ClassType | UnknownType;
+    classType?: ClassType | UnknownType | AnyType;
 
     // Variadic type arguments allow the shorthand "()" to
     // represent an empty tuple (i.e. Tuple[()]).
     isEmptyTupleShorthand?: boolean | undefined;
 
+    // Additional diagnostic information that explains why the expression
+    // type is incompatible with the expected type.
     expectedTypeDiagAddendum?: DiagnosticAddendum | undefined;
 
     // Is member a descriptor object that is asymmetric with respect
@@ -201,10 +203,23 @@ export interface TypeResult<T extends Type = Type> {
 
     // If a call expression, which overloads were used to satisfy it?
     overloadsUsedForCall?: FunctionType[];
+
+    // For member access expressions, deprecation messages related to
+    // magic methods invoked via the member access
+    memberAccessDeprecationInfo?: MemberAccessDeprecationInfo;
 }
 
 export interface TypeResultWithNode extends TypeResult {
     node: ParseNode;
+}
+
+// Describes deprecation details about a symbol accessed via a member
+// access expression, perhaps through a property or descriptor accessor
+// method.
+export interface MemberAccessDeprecationInfo {
+    accessType: 'property' | 'descriptor';
+    accessMethod: 'get' | 'set' | 'del';
+    deprecationMessage: string;
 }
 
 export interface EvaluatorUsage {
@@ -368,11 +383,14 @@ export interface ClassMemberLookup {
     type: Type;
     isTypeIncomplete: boolean;
 
+    // True if access violates the type (used only for 'set' usage).
+    isSetTypeError: boolean;
+
     // True if class member, false otherwise.
     isClassMember: boolean;
 
     // The class that declares the accessed member.
-    classType?: ClassType | UnknownType;
+    classType?: ClassType | UnknownType | AnyType;
 
     // True if the member is explicitly declared as ClassVar
     // within a Protocol.
@@ -381,6 +399,9 @@ export interface ClassMemberLookup {
     // Is member a descriptor object that is asymmetric with respect
     // to __get__ and __set__ types?
     isAsymmetricAccessor: boolean;
+
+    // Deprecation messages related to magic methods invoked via the member access.
+    memberAccessDeprecationInfo?: MemberAccessDeprecationInfo;
 }
 
 export interface PrintTypeOptions {

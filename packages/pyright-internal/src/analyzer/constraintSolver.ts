@@ -18,6 +18,7 @@ import {
     combineTypes,
     FunctionParameter,
     FunctionType,
+    FunctionTypeFlags,
     isAny,
     isAnyOrUnknown,
     isClass,
@@ -67,6 +68,10 @@ import { TypeVarContext } from './typeVarContext';
 // point. This constant determines the cap.
 const maxSubtypeCountForTypeVarNarrowBound = 64;
 
+// This debugging switch enables logging of the TypeVarContext before and
+// after it is updated by the constraint solver.
+const logTypeVarContextUpdates = false;
+
 // Assigns the source type to the dest type var in the type var context. If an existing
 // type is already associated with that type var name, it attempts to either widen or
 // narrow the type (depending on the value of the isContravariant parameter). The goal is
@@ -82,6 +87,17 @@ export function assignTypeToTypeVar(
     flags = AssignTypeFlags.Default,
     recursionCount = 0
 ): boolean {
+    if (logTypeVarContextUpdates) {
+        const indent = ' '.repeat(recursionCount * 2);
+        console.log(`${indent}`);
+        console.log(`${indent}assignTypeToTypeVar called with`);
+        console.log(`${indent}destType: ${evaluator.printType(destType)}`);
+        console.log(`${indent}srcType: ${evaluator.printType(srcType)}`);
+        console.log(`${indent}flags: ${flags}`);
+        console.log(`${indent}typeVarContext #${typeVarContext.getId()}: `);
+        logTypeVarContext(evaluator, typeVarContext, indent);
+    }
+
     let isTypeVarInScope = true;
     const isContravariant = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
 
@@ -189,206 +205,31 @@ export function assignTypeToTypeVar(
         srcType = AnyType.create();
     }
 
-    const curEntry = typeVarContext.getPrimarySignature().getTypeVar(destType);
-    const curNarrowTypeBound = curEntry?.narrowBound;
-
-    let curWideTypeBound = curEntry?.wideBound;
-    if (!curWideTypeBound && !destType.details.isSynthesizedSelf) {
-        curWideTypeBound = destType.details.boundType;
-    }
-
     // Handle the constrained case. This case needs to be handled specially
     // because type narrowing isn't used in this case. For example, if the
     // source type is "Literal[1]" and the constraint list includes the type
     // "float", the resulting type is float.
     if (destType.details.constraints.length > 0) {
-        let constrainedType: Type | undefined;
-        const concreteSrcType = evaluator.makeTopLevelTypeVarsConcrete(srcType);
-
-        if (isTypeVar(srcType)) {
-            if (
-                evaluator.assignType(
-                    destType,
-                    concreteSrcType,
-                    /* diag */ undefined,
-                    new TypeVarContext(destType.scopeId),
-                    /* srcTypeVarContext */ undefined,
-                    AssignTypeFlags.Default,
-                    recursionCount
-                )
-            ) {
-                constrainedType = srcType;
-
-                // If the source and dest are both instantiables (type[T]), then
-                // we need to convert to an instance (T).
-                if (TypeBase.isInstantiable(srcType)) {
-                    constrainedType = convertToInstance(srcType, /* includeSubclasses */ false);
-                }
-            }
-        } else {
-            let isCompatible = true;
-
-            // Subtypes that are not conditionally dependent on the dest type var
-            // must all map to the same constraint. For example, Union[str, bytes]
-            // cannot be assigned to AnyStr.
-            let unconditionalConstraintIndex: number | undefined;
-
-            // Find the narrowest constrained type that is compatible.
-            constrainedType = mapSubtypes(concreteSrcType, (srcSubtype) => {
-                let constrainedSubtype: Type | undefined;
-
-                if (isAnyOrUnknown(srcSubtype)) {
-                    return srcSubtype;
-                }
-
-                let constraintIndexUsed: number | undefined;
-                destType.details.constraints.forEach((constraint, i) => {
-                    const adjustedConstraint = TypeBase.isInstantiable(destType)
-                        ? convertToInstantiable(constraint)
-                        : constraint;
-                    if (
-                        evaluator.assignType(
-                            adjustedConstraint,
-                            srcSubtype,
-                            /* diag */ undefined,
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
-                            AssignTypeFlags.Default,
-                            recursionCount
-                        )
-                    ) {
-                        if (
-                            !constrainedSubtype ||
-                            evaluator.assignType(
-                                TypeBase.isInstantiable(destType)
-                                    ? convertToInstantiable(constrainedSubtype)
-                                    : constrainedSubtype,
-                                adjustedConstraint,
-                                /* diag */ undefined,
-                                /* destTypeVarContext */ undefined,
-                                /* srcTypeVarContext */ undefined,
-                                AssignTypeFlags.Default,
-                                recursionCount
-                            )
-                        ) {
-                            constrainedSubtype = addConditionToType(constraint, getTypeCondition(srcSubtype));
-                            constraintIndexUsed = i;
-                        }
-                    }
-                });
-
-                if (!constrainedSubtype) {
-                    // We found a source subtype that is not compatible with the dest.
-                    // This is OK if we're handling the contravariant case because only
-                    // one subtype needs to be assignable in that case.
-                    if (!isContravariant) {
-                        isCompatible = false;
-                    }
-                }
-
-                // If this subtype isn't conditional, make sure it maps to the same
-                // constraint index as previous unconditional subtypes.
-                if (constraintIndexUsed !== undefined && !getTypeCondition(srcSubtype)) {
-                    if (
-                        unconditionalConstraintIndex !== undefined &&
-                        unconditionalConstraintIndex !== constraintIndexUsed
-                    ) {
-                        isCompatible = false;
-                    }
-
-                    unconditionalConstraintIndex = constraintIndexUsed;
-                }
-
-                return constrainedSubtype;
-            });
-
-            if (isNever(constrainedType) || !isCompatible) {
-                constrainedType = undefined;
-            }
-
-            // If the type is a union, see if the entire union is assignable to one
-            // of the constraints.
-            if (!constrainedType && isUnion(concreteSrcType)) {
-                constrainedType = destType.details.constraints.find((constraint) => {
-                    const adjustedConstraint = TypeBase.isInstantiable(destType)
-                        ? convertToInstantiable(constraint)
-                        : constraint;
-                    return evaluator.assignType(
-                        adjustedConstraint,
-                        concreteSrcType,
-                        /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.Default,
-                        recursionCount
-                    );
-                });
-            }
-        }
-
-        // If there was no constrained type that was assignable
-        // or there were multiple types that were assignable and they
-        // are not conditional, it's an error.
-        if (!constrainedType) {
-            diag?.addMessage(
-                Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
-                    type: evaluator.printType(srcType),
-                    name: destType.details.name,
-                })
-            );
-            return false;
-        }
-
-        if (curNarrowTypeBound && !isAnyOrUnknown(curNarrowTypeBound)) {
-            if (
-                !evaluator.assignType(
-                    curNarrowTypeBound,
-                    constrainedType,
-                    /* diag */ undefined,
-                    /* destTypeVarContext */ undefined,
-                    /* srcTypeVarContext */ undefined,
-                    AssignTypeFlags.Default,
-                    recursionCount
-                )
-            ) {
-                // Handle the case where one of the constrained types is a wider
-                // version of another constrained type that was previously assigned
-                // to the type variable.
-                if (
-                    evaluator.assignType(
-                        constrainedType,
-                        curNarrowTypeBound,
-                        /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.Default,
-                        recursionCount
-                    )
-                ) {
-                    if (!typeVarContext.isLocked() && isTypeVarInScope) {
-                        updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curWideTypeBound);
-                    }
-                } else {
-                    diag?.addMessage(
-                        Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
-                            type: evaluator.printType(constrainedType),
-                            name: evaluator.printType(curNarrowTypeBound),
-                        })
-                    );
-                    return false;
-                }
-            }
-        } else {
-            // Assign the type to the type var.
-            if (!typeVarContext.isLocked() && isTypeVarInScope) {
-                updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curWideTypeBound);
-            }
-        }
-
-        return true;
+        return assignTypeToConstrainedTypeVar(
+            evaluator,
+            destType,
+            srcType,
+            diag,
+            typeVarContext,
+            flags,
+            isTypeVarInScope,
+            recursionCount
+        );
     }
 
     // Handle the unconstrained (but possibly bound) case.
+    const curEntry = typeVarContext.getPrimarySignature().getTypeVar(destType);
+
+    let curWideTypeBound = curEntry?.wideBound;
+    if (!curWideTypeBound && !destType.details.isSynthesizedSelf) {
+        curWideTypeBound = destType.details.boundType;
+    }
+    const curNarrowTypeBound = curEntry?.narrowBound;
     let newNarrowTypeBound = curNarrowTypeBound;
     let newWideTypeBound = curWideTypeBound;
     const diagAddendum = diag ? new DiagnosticAddendum() : undefined;
@@ -456,7 +297,7 @@ export function assignTypeToTypeVar(
         }
     } else if (isContravariant) {
         // Update the wide type bound.
-        if (!curWideTypeBound) {
+        if (!curWideTypeBound || isTypeSame(destType, curWideTypeBound)) {
             newWideTypeBound = adjSrcType;
         } else if (!isTypeSame(curWideTypeBound, adjSrcType, {}, recursionCount)) {
             if (
@@ -523,7 +364,7 @@ export function assignTypeToTypeVar(
             }
         }
     } else {
-        if (!curNarrowTypeBound) {
+        if (!curNarrowTypeBound || isTypeSame(destType, curNarrowTypeBound)) {
             // There was previously no narrow bound. We've now established one.
             newNarrowTypeBound = adjSrcType;
         } else if (!isTypeSame(curNarrowTypeBound, adjSrcType, {}, recursionCount)) {
@@ -725,6 +566,13 @@ export function assignTypeToTypeVar(
         );
     }
 
+    if (logTypeVarContextUpdates) {
+        const indent = ' '.repeat(recursionCount * 2);
+        console.log(`${indent}`);
+        console.log(`${indent}post-call typeVarContext: `);
+        logTypeVarContext(evaluator, typeVarContext, indent);
+    }
+
     return true;
 }
 
@@ -760,6 +608,206 @@ export function updateTypeVarType(
     typeVarContext.setTypeVarType(destType, narrowTypeBound, narrowTypeBoundNoLiterals, wideTypeBound);
 }
 
+function assignTypeToConstrainedTypeVar(
+    evaluator: TypeEvaluator,
+    destType: TypeVarType,
+    srcType: Type,
+    diag: DiagnosticAddendum | undefined,
+    typeVarContext: TypeVarContext,
+    flags: AssignTypeFlags,
+    isTypeVarInScope: boolean,
+    recursionCount: number
+) {
+    let constrainedType: Type | undefined;
+    const concreteSrcType = evaluator.makeTopLevelTypeVarsConcrete(srcType);
+    const curEntry = typeVarContext.getPrimarySignature().getTypeVar(destType);
+
+    const curWideTypeBound = curEntry?.wideBound;
+    const curNarrowTypeBound = curEntry?.narrowBound;
+
+    if (isTypeVar(srcType)) {
+        if (
+            evaluator.assignType(
+                destType,
+                concreteSrcType,
+                /* diag */ undefined,
+                new TypeVarContext(destType.scopeId),
+                /* srcTypeVarContext */ undefined,
+                AssignTypeFlags.Default,
+                recursionCount
+            )
+        ) {
+            constrainedType = srcType;
+
+            // If the source and dest are both instantiables (type[T]), then
+            // we need to convert to an instance (T).
+            if (TypeBase.isInstantiable(srcType)) {
+                constrainedType = convertToInstance(srcType, /* includeSubclasses */ false);
+            }
+        }
+    } else {
+        let isCompatible = true;
+
+        // Subtypes that are not conditionally dependent on the dest type var
+        // must all map to the same constraint. For example, Union[str, bytes]
+        // cannot be assigned to AnyStr.
+        let unconditionalConstraintIndex: number | undefined;
+
+        // Find the narrowest constrained type that is compatible.
+        constrainedType = mapSubtypes(concreteSrcType, (srcSubtype) => {
+            let constrainedSubtype: Type | undefined;
+
+            if (isAnyOrUnknown(srcSubtype)) {
+                return srcSubtype;
+            }
+
+            let constraintIndexUsed: number | undefined;
+            destType.details.constraints.forEach((constraint, i) => {
+                const adjustedConstraint = TypeBase.isInstantiable(destType)
+                    ? convertToInstantiable(constraint)
+                    : constraint;
+                if (
+                    evaluator.assignType(
+                        adjustedConstraint,
+                        srcSubtype,
+                        /* diag */ undefined,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
+                        AssignTypeFlags.Default,
+                        recursionCount
+                    )
+                ) {
+                    if (
+                        !constrainedSubtype ||
+                        evaluator.assignType(
+                            TypeBase.isInstantiable(destType)
+                                ? convertToInstantiable(constrainedSubtype)
+                                : constrainedSubtype,
+                            adjustedConstraint,
+                            /* diag */ undefined,
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            AssignTypeFlags.Default,
+                            recursionCount
+                        )
+                    ) {
+                        constrainedSubtype = addConditionToType(constraint, getTypeCondition(srcSubtype));
+                        constraintIndexUsed = i;
+                    }
+                }
+            });
+
+            if (!constrainedSubtype) {
+                // We found a source subtype that is not compatible with the dest.
+                // This is OK if we're handling the contravariant case because only
+                // one subtype needs to be assignable in that case.
+                if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
+                    isCompatible = false;
+                }
+            }
+
+            // If this subtype isn't conditional, make sure it maps to the same
+            // constraint index as previous unconditional subtypes.
+            if (constraintIndexUsed !== undefined && !getTypeCondition(srcSubtype)) {
+                if (
+                    unconditionalConstraintIndex !== undefined &&
+                    unconditionalConstraintIndex !== constraintIndexUsed
+                ) {
+                    isCompatible = false;
+                }
+
+                unconditionalConstraintIndex = constraintIndexUsed;
+            }
+
+            return constrainedSubtype;
+        });
+
+        if (isNever(constrainedType) || !isCompatible) {
+            constrainedType = undefined;
+        }
+
+        // If the type is a union, see if the entire union is assignable to one
+        // of the constraints.
+        if (!constrainedType && isUnion(concreteSrcType)) {
+            constrainedType = destType.details.constraints.find((constraint) => {
+                const adjustedConstraint = TypeBase.isInstantiable(destType)
+                    ? convertToInstantiable(constraint)
+                    : constraint;
+                return evaluator.assignType(
+                    adjustedConstraint,
+                    concreteSrcType,
+                    /* diag */ undefined,
+                    /* destTypeVarContext */ undefined,
+                    /* srcTypeVarContext */ undefined,
+                    AssignTypeFlags.Default,
+                    recursionCount
+                );
+            });
+        }
+    }
+
+    // If there was no constrained type that was assignable
+    // or there were multiple types that were assignable and they
+    // are not conditional, it's an error.
+    if (!constrainedType) {
+        diag?.addMessage(
+            Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
+                type: evaluator.printType(srcType),
+                name: destType.details.name,
+            })
+        );
+        return false;
+    }
+
+    if (curNarrowTypeBound && !isAnyOrUnknown(curNarrowTypeBound)) {
+        if (
+            !evaluator.assignType(
+                curNarrowTypeBound,
+                constrainedType,
+                /* diag */ undefined,
+                /* destTypeVarContext */ undefined,
+                /* srcTypeVarContext */ undefined,
+                AssignTypeFlags.Default,
+                recursionCount
+            )
+        ) {
+            // Handle the case where one of the constrained types is a wider
+            // version of another constrained type that was previously assigned
+            // to the type variable.
+            if (
+                evaluator.assignType(
+                    constrainedType,
+                    curNarrowTypeBound,
+                    /* diag */ undefined,
+                    /* destTypeVarContext */ undefined,
+                    /* srcTypeVarContext */ undefined,
+                    AssignTypeFlags.Default,
+                    recursionCount
+                )
+            ) {
+                if (!typeVarContext.isLocked() && isTypeVarInScope) {
+                    updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curWideTypeBound);
+                }
+            } else {
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
+                        type: evaluator.printType(constrainedType),
+                        name: evaluator.printType(curNarrowTypeBound),
+                    })
+                );
+                return false;
+            }
+        }
+    } else {
+        // Assign the type to the type var.
+        if (!typeVarContext.isLocked() && isTypeVarInScope) {
+            updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curWideTypeBound);
+        }
+    }
+
+    return true;
+}
+
 function assignTypeToParamSpec(
     evaluator: TypeEvaluator,
     destType: TypeVarType,
@@ -782,7 +830,7 @@ function assignTypeToParamSpec(
                 }
             } else {
                 if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.scopeId)) {
-                    typeVarContext.setTypeVarType(destType, convertTypeToParamSpecValue(srcType));
+                    signatureContext.setTypeVarType(destType, convertTypeToParamSpecValue(srcType));
                 }
                 return;
             }
@@ -795,10 +843,29 @@ function assignTypeToParamSpec(
                     isNameSynthesized: p.isNameSynthesized,
                     hasDefault: !!p.hasDefault,
                     defaultValueExpression: p.defaultValueExpression,
+                    hasDeclaredType: p.hasDeclaredType,
                     type: FunctionType.getEffectiveParameterType(functionSrcType, index),
                 };
                 return param;
             });
+
+            const newFunction = FunctionType.createInstance(
+                '',
+                '',
+                '',
+                srcType.details.flags | FunctionTypeFlags.ParamSpecValue
+            );
+            parameters.forEach((param) => {
+                FunctionType.addParameter(newFunction, param);
+            });
+            newFunction.details.typeVarScopeId = srcType.details.typeVarScopeId;
+            newFunction.details.constructorTypeVarScopeId = srcType.details.constructorTypeVarScopeId;
+            newFunction.details.paramSpecTypeVarScopeId = srcType.details.paramSpecTypeVarScopeId;
+            newFunction.details.docString = srcType.details.docString;
+            newFunction.details.deprecatedMessage = srcType.details.deprecatedMessage;
+            newFunction.details.paramSpec = srcType.details.paramSpec;
+
+            let updateContextWithNewFunction = false;
 
             const existingType = signatureContext.getParamSpecType(destType);
             if (existingType) {
@@ -811,16 +878,12 @@ function assignTypeToParamSpec(
                     // Convert the remaining portion of the signature to a function
                     // for comparison purposes.
                     const existingFunction = convertParamSpecValueToType(existingType, /* omitParamSpec */ true);
-                    const assignedFunction = FunctionType.createInstance('', '', '', srcType.details.flags);
-                    parameters.forEach((param) => {
-                        FunctionType.addParameter(assignedFunction, param);
-                    });
-                    assignedFunction.details.typeVarScopeId = srcType.details.typeVarScopeId;
 
+                    // Should we narrow the type?
                     if (
                         evaluator.assignType(
                             existingFunction,
-                            assignedFunction,
+                            newFunction,
                             /* diag */ undefined,
                             /* destTypeVarContext */ undefined,
                             /* srcTypeVarContext */ undefined,
@@ -828,22 +891,30 @@ function assignTypeToParamSpec(
                             recursionCount
                         )
                     ) {
+                        updateContextWithNewFunction = true;
+                    } else if (
+                        evaluator.assignType(
+                            newFunction,
+                            existingFunction,
+                            /* diag */ undefined,
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            AssignTypeFlags.SkipFunctionReturnTypeCheck,
+                            recursionCount
+                        )
+                    ) {
+                        // The existing function is already narrower than the new function, so
+                        // no need to narrow it further.
                         return;
                     }
                 }
             } else {
+                updateContextWithNewFunction = true;
+            }
+
+            if (updateContextWithNewFunction) {
                 if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.scopeId)) {
-                    const newFunction = FunctionType.createInstance('', '', '', srcType.details.flags);
-                    parameters.forEach((param) => {
-                        FunctionType.addParameter(newFunction, param);
-                    });
-                    newFunction.details.typeVarScopeId = srcType.details.typeVarScopeId;
-                    newFunction.details.constructorTypeVarScopeId = srcType.details.constructorTypeVarScopeId;
-                    newFunction.details.paramSpecTypeVarScopeId = srcType.details.paramSpecTypeVarScopeId;
-                    newFunction.details.docString = srcType.details.docString;
-                    newFunction.details.deprecatedMessage = srcType.details.deprecatedMessage;
-                    newFunction.details.paramSpec = srcType.details.paramSpec;
-                    typeVarContext.setTypeVarType(destType, newFunction);
+                    signatureContext.setTypeVarType(destType, newFunction);
                 }
                 return;
             }
@@ -860,6 +931,13 @@ function assignTypeToParamSpec(
 
         isAssignable = false;
     });
+
+    if (logTypeVarContextUpdates) {
+        const indent = ' '.repeat(recursionCount * 2);
+        console.log(`${indent}`);
+        console.log(`${indent}post-call typeVarContext: `);
+        logTypeVarContext(evaluator, typeVarContext, indent);
+    }
 
     return isAssignable;
 }
@@ -957,6 +1035,9 @@ export function populateTypeVarContextBasedOnExpectedType(
     const synthExpectedTypeArgs = ClassType.getTypeParameters(expectedType).map((typeParam, index) => {
         const typeVar = TypeVarType.createInstance(`__dest${index}`);
         typeVar.details.isSynthesized = true;
+        if (typeParam.details.isParamSpec) {
+            typeVar.details.isParamSpec = true;
+        }
 
         // Use invariance here so we set the narrow and wide values on the TypeVar.
         typeVar.details.declaredVariance = Variance.Invariant;
@@ -970,11 +1051,14 @@ export function populateTypeVarContextBasedOnExpectedType(
     );
 
     // For each type param in the target type, create a placeholder type variable.
-    const typeArgs = ClassType.getTypeParameters(type).map((_, index) => {
+    const typeArgs = ClassType.getTypeParameters(type).map((typeParam, index) => {
         const typeVar = TypeVarType.createInstance(`__source${index}`);
         typeVar.details.isSynthesized = true;
         typeVar.details.synthesizedIndex = index;
         typeVar.details.isExemptFromBoundCheck = true;
+        if (typeParam.details.isParamSpec) {
+            typeVar.details.isParamSpec = true;
+        }
         return TypeVarType.cloneAsInScopePlaceholder(typeVar);
     });
 
@@ -998,24 +1082,30 @@ export function populateTypeVarContextBasedOnExpectedType(
 
             // If the resulting type is a union, try to find a matching type var and move
             // the remaining subtypes to the "otherSubtypes" array.
-            if (synthTypeVar && isUnion(synthTypeVar)) {
-                let foundSynthTypeVar: TypeVarType | undefined;
+            if (synthTypeVar) {
+                if (typeVar.details.isParamSpec && isFunction(synthTypeVar)) {
+                    synthTypeVar = convertParamSpecValueToType(synthTypeVar);
+                }
 
-                synthTypeVar.subtypes.forEach((subtype) => {
-                    if (
-                        isTypeVar(subtype) &&
-                        subtype.details.isSynthesized &&
-                        subtype.details.synthesizedIndex !== undefined &&
-                        !foundSynthTypeVar
-                    ) {
-                        foundSynthTypeVar = subtype;
-                    } else {
-                        otherSubtypes.push(subtype);
+                if (isUnion(synthTypeVar)) {
+                    let foundSynthTypeVar: TypeVarType | undefined;
+
+                    synthTypeVar.subtypes.forEach((subtype) => {
+                        if (
+                            isTypeVar(subtype) &&
+                            subtype.details.isSynthesized &&
+                            subtype.details.synthesizedIndex !== undefined &&
+                            !foundSynthTypeVar
+                        ) {
+                            foundSynthTypeVar = subtype;
+                        } else {
+                            otherSubtypes.push(subtype);
+                        }
+                    });
+
+                    if (foundSynthTypeVar) {
+                        synthTypeVar = foundSynthTypeVar;
                     }
-                });
-
-                if (foundSynthTypeVar) {
-                    synthTypeVar = foundSynthTypeVar;
                 }
             }
 
@@ -1139,4 +1229,24 @@ function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type)
     }
 
     return specializeTupleClass(type, tupleTypeArgs, /* isTypeArgumentExplicit */ true, /* isUnpackedTuple */ true);
+}
+
+// This function is used for debugging only. It dumps the current contents of
+// the TypeVarContext to the console.
+function logTypeVarContext(evaluator: TypeEvaluator, typeVarContext: TypeVarContext, indent: string) {
+    if (typeVarContext.getSignatureContexts().length === 0) {
+        console.log(`${indent}  No signatures`);
+    } else {
+        typeVarContext.doForEachSignatureContext((signatureContext, signatureIndex) => {
+            console.log(`${indent}  Signature ${signatureIndex}`);
+
+            signatureContext.getTypeVars().forEach((entry) => {
+                console.log(`${indent}    ${entry.typeVar.details.name}:`);
+                console.log(
+                    `${indent}       Narrow: ${entry.narrowBound ? evaluator.printType(entry.narrowBound) : '?'}`
+                );
+                console.log(`${indent}       Wide  : ${entry.wideBound ? evaluator.printType(entry.wideBound) : '?'}`);
+            });
+        });
+    }
 }

@@ -115,6 +115,7 @@ export type InheritanceChain = (ClassType | UnknownType)[];
 export interface TypeSameOptions {
     ignorePseudoGeneric?: boolean;
     ignoreTypeFlags?: boolean;
+    typeFlagsToHonor?: TypeFlags;
     ignoreTypedDictNarrowEntries?: boolean;
     treatAnySameAsUnknown?: boolean;
 }
@@ -1454,6 +1455,11 @@ export interface FunctionType extends TypeBase {
     // for that call and any other signatures that were passed as
     // arguments to it.
     trackedSignatures?: SignatureWithOffsets[];
+
+    // If this function is created with a "Callable" annotation with
+    // type arguments? This allows us to detect and report an error
+    // when this is used in an isinstance call.
+    isCallableWithTypeArgs?: boolean;
 }
 
 export namespace FunctionType {
@@ -2115,6 +2121,12 @@ export interface AnyType extends TypeBase {
 }
 
 export namespace AnyType {
+    const _anyInstanceSpecialForm: AnyType = {
+        category: TypeCategory.Any,
+        isEllipsis: false,
+        flags: TypeFlags.Instance | TypeFlags.Instantiable | TypeFlags.SpecialForm,
+    };
+
     const _anyInstance: AnyType = {
         category: TypeCategory.Any,
         isEllipsis: false,
@@ -2129,6 +2141,22 @@ export namespace AnyType {
 
     export function create(isEllipsis = false) {
         return isEllipsis ? _ellipsisInstance : _anyInstance;
+    }
+
+    export function createSpecialForm() {
+        return _anyInstanceSpecialForm;
+    }
+}
+
+export namespace AnyType {
+    export function convertToInstance(type: AnyType): AnyType {
+        // Remove the "special form" flag if it's set. Otherwise
+        // simply return the existing type.
+        if (TypeBase.isSpecialForm(type)) {
+            return AnyType.create();
+        }
+
+        return type;
     }
 }
 
@@ -2765,9 +2793,18 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
     }
 
     if (!options.ignoreTypeFlags) {
-        // The Annotated flag should never be considered for type compatibility.
-        const type1Flags = type1.flags & ~TypeFlags.Annotated;
-        const type2Flags = type2.flags & ~TypeFlags.Annotated;
+        let type1Flags = type1.flags;
+        let type2Flags = type2.flags;
+
+        // Mask out the flags that we don't care about.
+        if (options.typeFlagsToHonor !== undefined) {
+            type1Flags &= options.typeFlagsToHonor;
+            type2Flags &= options.typeFlagsToHonor;
+        } else {
+            // By default, we don't care about the Annotated flag.
+            type1Flags &= ~TypeFlags.Annotated;
+            type2Flags &= ~TypeFlags.Annotated;
+        }
 
         if (type1Flags !== type2Flags) {
             return false;
@@ -3084,19 +3121,6 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
 // returning only the known types.
 export function removeUnknownFromUnion(type: Type): Type {
     return removeFromUnion(type, (t: Type) => isUnknown(t));
-}
-
-export function removeIncompleteUnknownFromUnion(type: Type): Type {
-    return removeFromUnion(type, (t: Type) => isUnknown(t) && t.isIncomplete);
-}
-
-export function cleanIncompleteUnknown(type: Type): Type {
-    const typeWithoutUnknown = removeIncompleteUnknownFromUnion(type);
-    if (!isNever(typeWithoutUnknown)) {
-        return typeWithoutUnknown;
-    }
-
-    return type;
 }
 
 // If the type is a union, remove an "unbound" type from the union,

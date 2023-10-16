@@ -22,13 +22,14 @@ import {
     TextEditorEdit,
     Uri,
     window,
+    workspace,
+    WorkspaceConfiguration,
 } from 'vscode';
 import {
     CancellationToken,
     ConfigurationParams,
     ConfigurationRequest,
     DidChangeConfigurationNotification,
-    HandlerResult,
     LanguageClient,
     LanguageClientOptions,
     ResponseError,
@@ -109,26 +110,38 @@ export async function activate(context: ExtensionContext) {
             // us to inject the proper "python.pythonPath" setting from the Python extension's
             // private settings store.
             workspace: {
-                configuration: (
+                configuration: async (
                     params: ConfigurationParams,
                     token: CancellationToken,
                     next: ConfigurationRequest.HandlerSignature
-                ): HandlerResult<any[], void> => {
-                    // Hand-collapse "Thenable<A> | Thenable<B> | Thenable<A|B>" into just "Thenable<A|B>" to make TS happy.
-                    const result: any[] | ResponseError<void> | Thenable<any[] | ResponseError<void>> = next(
-                        params,
-                        token
-                    );
+                ) => {
+                    let result = next(params, token);
+                    if (isThenable(result)) {
+                        result = await result;
+                    }
+                    if (result instanceof ResponseError) {
+                        return result;
+                    }
+
+                    for (const [i, item] of params.items.entries()) {
+                        if (item.section === 'python.analysis') {
+                            const analysisConfig = workspace.getConfiguration(
+                                item.section,
+                                item.scopeUri ? Uri.parse(item.scopeUri) : undefined
+                            );
+
+                            // If stubPath is not set, remove it rather than sending default value.
+                            // This lets the server know that it's unset rather than explicitly
+                            // set to the default value (typings) so it can behave differently.
+                            if (!isConfigSettingSetByUser(analysisConfig, 'stubPath')) {
+                                delete (result[i] as any).stubPath;
+                            }
+                        }
+                    }
 
                     // For backwards compatibility, set python.pythonPath to the configured
                     // value as though it were in the user's settings.json file.
-                    const addPythonPath = (
-                        settings: any[] | ResponseError<void>
-                    ): Promise<any[] | ResponseError<any>> => {
-                        if (settings instanceof ResponseError) {
-                            return Promise.resolve(settings);
-                        }
-
+                    const addPythonPath = (settings: any[]): Promise<any[]> => {
                         const pythonPathPromises: Promise<string | undefined>[] = params.items.map((item) => {
                             if (item.section === 'python') {
                                 const uri = item.scopeUri ? Uri.parse(item.scopeUri) : undefined;
@@ -155,10 +168,6 @@ export async function activate(context: ExtensionContext) {
                             return settings;
                         });
                     };
-
-                    if (isThenable(result)) {
-                        return result.then(addPythonPath);
-                    }
 
                     return addPythonPath(result);
                 },
@@ -372,4 +381,20 @@ function installPythonPathChangedListener(
     });
 
     pythonPathChangedListenerMap.set(uriString, uriString);
+}
+
+function isConfigSettingSetByUser(configuration: WorkspaceConfiguration, setting: string): boolean {
+    const inspect = configuration.inspect(setting);
+    if (inspect === undefined) {
+        return false;
+    }
+
+    return (
+        inspect.globalValue !== undefined ||
+        inspect.workspaceValue !== undefined ||
+        inspect.workspaceFolderValue !== undefined ||
+        inspect.globalLanguageValue !== undefined ||
+        inspect.workspaceLanguageValue !== undefined ||
+        inspect.workspaceFolderLanguageValue !== undefined
+    );
 }

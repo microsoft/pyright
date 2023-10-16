@@ -15,7 +15,7 @@ import {
     SymbolDefinitionProvider,
     SymbolUsageProviderFactory,
 } from './extensibility';
-import { FileSystem } from './fileSystem';
+import { FileSystem, TempFile } from './fileSystem';
 import { LogTracker } from './logTracker';
 import { GroupServiceKey, ServiceKey, ServiceProvider } from './serviceProvider';
 
@@ -38,6 +38,7 @@ export namespace ServiceKeys {
     export const symbolDefinitionProvider = new GroupServiceKey<SymbolDefinitionProvider>();
     export const symbolUsageProviderFactory = new GroupServiceKey<SymbolUsageProviderFactory>();
     export const stateMutationListeners = new GroupServiceKey<StatusMutationListener>();
+    export const tempFile = new ServiceKey<TempFile>();
 }
 
 export function createServiceProvider(...services: any): ServiceProvider {
@@ -59,6 +60,9 @@ export function createServiceProvider(...services: any): ServiceProvider {
         }
         if (SupportUriToPathMapping.is(service)) {
             sp.add(ServiceKeys.uriMapper, service);
+        }
+        if (TempFile.is(service)) {
+            sp.add(ServiceKeys.tempFile, service);
         }
     });
     return sp;

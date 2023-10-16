@@ -2,18 +2,20 @@
 # type if its constructor conforms to that type.
 
 from dataclasses import dataclass
-from typing import Any, Callable, Generic, Literal, TypeVar, Union, overload
+from typing import Any, Callable, Generic, Literal, ParamSpec, TypeVar, Union, overload
 
-_T1 = TypeVar("_T1")
-_S = TypeVar("_S")
+T1 = TypeVar("T1")
+T2 = TypeVar("T2")
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
-def func1(callback: Callable[[_T1], _S], val: _T1) -> _S:
+def func1(callback: Callable[[T1], T2], val: T1) -> T2:
     ...
 
 
-class A(Generic[_T1]):
-    def __new__(cls, x: _T1) -> "A[_T1]":
+class A(Generic[T1]):
+    def __new__(cls, x: T1) -> "A[T1]":
         ...
 
 
@@ -27,16 +29,16 @@ a3 = func1(A[int], 3)
 reveal_type(a3, expected_text="A[int]")
 
 
-class B(Generic[_T1]):
+class B(Generic[T1]):
     @overload
     def __new__(cls, x: int, y: Literal[True]) -> "B[None]":
         ...
 
     @overload
-    def __new__(cls, x: _T1, y: bool = ...) -> "B[_T1]":
+    def __new__(cls, x: T1, y: bool = ...) -> "B[T1]":
         ...
 
-    def __new__(cls, x: Union[_T1, int], y: bool = False) -> "B[Any]":
+    def __new__(cls, x: Union[T1, int], y: bool = False) -> "B[Any]":
         ...
 
 
@@ -56,8 +58,8 @@ b5 = func1(B[Union[int, str]], "3")
 reveal_type(b5, expected_text="B[int | str]")
 
 
-class C(Generic[_T1]):
-    def __init__(self: "C[_T1]", x: _T1) -> None:
+class C(Generic[T1]):
+    def __init__(self: "C[T1]", x: T1) -> None:
         ...
 
 
@@ -71,13 +73,13 @@ c3 = func1(C[int], 3)
 reveal_type(c3, expected_text="C[int]")
 
 
-class D(Generic[_T1]):
+class D(Generic[T1]):
     @overload
     def __init__(self: "D[None]", x: int, y: Literal[True]) -> None:
         ...
 
     @overload
-    def __init__(self: "D[_T1]", x: _T1, y: bool = ...) -> None:
+    def __init__(self: "D[T1]", x: T1, y: bool = ...) -> None:
         ...
 
     def __init__(self, x: Any, y: bool = False) -> None:
@@ -101,14 +103,14 @@ reveal_type(d5, expected_text="D[int | str]")
 
 
 @dataclass(frozen=True, slots=True)
-class E(Generic[_T1]):
-    x: _T1
+class E(Generic[T1]):
+    x: T1
 
 
 e1: Callable[[int], E[int]] = E
 
 
-def func2(x: _T1) -> E[_T1]:
+def func2(x: T1) -> E[T1]:
     ...
 
 

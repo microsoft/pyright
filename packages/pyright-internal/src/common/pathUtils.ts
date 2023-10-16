@@ -16,8 +16,10 @@ import { some } from './collectionUtils';
 import { GetCanonicalFileName, identity } from './core';
 import { randomBytesHex } from './crypto';
 import * as debug from './debug';
-import { FileSystem, ReadOnlyFileSystem, Stats } from './fileSystem';
+import { FileSystem, ReadOnlyFileSystem, Stats, TempFile } from './fileSystem';
 import { equateStringsCaseInsensitive, equateStringsCaseSensitive } from './stringUtils';
+import { ServiceProvider } from './extensibility';
+import { ServiceKeys } from './serviceProviderExtensions';
 
 let _fsCaseSensitivity: boolean | undefined = undefined;
 let _underTest: boolean = false;
@@ -742,12 +744,15 @@ export function hasPythonExtension(path: string) {
     return path.endsWith('.py') || path.endsWith('.pyi');
 }
 
-export function getFileSpec(fs: FileSystem, rootPath: string, fileSpec: string): FileSpec {
+export function getFileSpec(sp: ServiceProvider, rootPath: string, fileSpec: string): FileSpec {
     let regExPattern = getWildcardRegexPattern(rootPath, fileSpec);
     const escapedSeparator = getRegexEscapedSeparator();
     regExPattern = `^(${regExPattern})($|${escapedSeparator})`;
 
-    const regExp = new RegExp(regExPattern, isFileSystemCaseSensitive(fs) ? undefined : 'i');
+    const fs = sp.get(ServiceKeys.fs);
+    const tmp = sp.tryGet(ServiceKeys.tempFile);
+
+    const regExp = new RegExp(regExPattern, isFileSystemCaseSensitive(fs, tmp) ? undefined : 'i');
     const wildcardRoot = getWildcardRoot(rootPath, fileSpec);
     const hasDirectoryWildcard = isDirectoryWildcardPatternPresent(fileSpec);
 
@@ -895,19 +900,23 @@ export function setTestingMode(underTest: boolean) {
 
 const isFileSystemCaseSensitiveMap = new WeakMap<FileSystem, boolean>();
 
-export function isFileSystemCaseSensitive(fs: FileSystem) {
+export function isFileSystemCaseSensitive(fs: FileSystem, tmp?: TempFile) {
+    if (!tmp) {
+        return false;
+    }
+
     if (!_underTest && _fsCaseSensitivity !== undefined) {
         return _fsCaseSensitivity;
     }
 
     if (!isFileSystemCaseSensitiveMap.has(fs)) {
-        _fsCaseSensitivity = isFileSystemCaseSensitiveInternal(fs);
+        _fsCaseSensitivity = isFileSystemCaseSensitiveInternal(fs, tmp);
         isFileSystemCaseSensitiveMap.set(fs, _fsCaseSensitivity);
     }
     return !!isFileSystemCaseSensitiveMap.get(fs);
 }
 
-export function isFileSystemCaseSensitiveInternal(fs: FileSystem) {
+export function isFileSystemCaseSensitiveInternal(fs: FileSystem, tmp: TempFile) {
     let filePath: string | undefined = undefined;
     try {
         // Make unique file name.
@@ -915,8 +924,8 @@ export function isFileSystemCaseSensitiveInternal(fs: FileSystem) {
         let mangledFilePath: string;
         do {
             name = `${randomBytesHex(21)}-a`;
-            filePath = path.join(fs.tmpdir(), name);
-            mangledFilePath = path.join(fs.tmpdir(), name.toUpperCase());
+            filePath = path.join(tmp.tmpdir(), name);
+            mangledFilePath = path.join(tmp.tmpdir(), name.toUpperCase());
         } while (fs.existsSync(filePath) || fs.existsSync(mangledFilePath));
 
         fs.writeFileSync(filePath, '', 'utf8');

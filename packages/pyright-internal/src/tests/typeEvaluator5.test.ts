@@ -226,6 +226,14 @@ test('TypeVarDefaultClass3', () => {
     TestUtils.validateResults(analysisResults, 9);
 });
 
+test('TypeVarDefaultClass4', () => {
+    const configOptions = new ConfigOptions('.');
+    configOptions.defaultPythonVersion = PythonVersion.V3_13;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultClass4.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeVarDefaultTypeAlias1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultTypeAlias1.py']);
     TestUtils.validateResults(analysisResults, 0);

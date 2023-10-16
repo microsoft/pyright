@@ -648,6 +648,7 @@
         "newMethodSignature": "Sygnatura __new__ to typ „{type}”",
         "noOverloadAssignable": "Żadna przeciążona funkcja nie pasuje do typu „{type}”",
         "orPatternMissingName": "Brak nazw: {name}",
+        "overloadIndex": "Przeciążenie {index} jest najbardziej zbliżonym dopasowaniem",
         "overloadNotAssignable": "Nie można przypisać jednego lub więcej przeciążeń „{name}”.",
         "overloadSignature": "Sygnatura przeciążenia jest zdefiniowana tutaj",
         "overriddenMethod": "Przesłonięta metoda",

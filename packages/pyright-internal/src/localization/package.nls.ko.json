@@ -648,6 +648,7 @@
         "newMethodSignature": "__new__ 의 서명은 \"{type}\"입니다.",
         "noOverloadAssignable": "\"{type}\" 형식과 일치하는 오버로드된 함수가 없습니다.",
         "orPatternMissingName": "누락된 이름: {name}",
+        "overloadIndex": "오버로드 {index}이(가) 가장 가까운 일치 항목입니다.",
         "overloadNotAssignable": "\"{name}\"의 오버로드를 하나 이상 할당할 수 없습니다.",
         "overloadSignature": "오버로드 서명은 여기에 정의되어 있습니다.",
         "overriddenMethod": "재정의된 메서드",

@@ -1,7 +1,5 @@
 from typing import Any
 
-from ..utils.compat import string_types as string_types
-
 log: Any
 
 class Throwable:

@@ -31,7 +31,7 @@ import { FullAccessHost } from './common/fullAccessHost';
 import { Host } from './common/host';
 import { realCasePath, resolvePaths } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
-import { WorkspaceFileWatcherProvider, createFromRealFileSystem } from './common/realFileSystem';
+import { RealTempFile, WorkspaceFileWatcherProvider, createFromRealFileSystem } from './common/realFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
 import { createServiceProvider } from './common/serviceProviderExtensions';
 import { LanguageServerBase, ServerSettings } from './languageServerBase';
@@ -57,7 +57,9 @@ export class PyrightServer extends LanguageServerBase {
         const fileWatcherProvider = new WorkspaceFileWatcherProvider();
         const fileSystem = createFromRealFileSystem(console, fileWatcherProvider);
         const pyrightFs = new PyrightFileSystem(fileSystem);
-        const serviceProvider = createServiceProvider(pyrightFs, console);
+        const tempFile = new RealTempFile();
+
+        const serviceProvider = createServiceProvider(pyrightFs, tempFile, console);
         const realPathRoot = realCasePath(rootDirectory, pyrightFs);
 
         super(

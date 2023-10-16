@@ -1,5 +1,3 @@
-from .exceptions.exceptions import InvalidDaemonAddressException as InvalidDaemonAddressException
-
 DAEMON_ADDRESS_KEY: str
 DEFAULT_ADDRESS: str
 

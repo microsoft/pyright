@@ -648,6 +648,7 @@
         "newMethodSignature": "__new__的签名为“{type}”",
         "noOverloadAssignable": "没有重载函数与类型“{type}”匹配",
         "orPatternMissingName": "缺少名称: {name}",
+        "overloadIndex": "重载 {index} 是最接近的匹配项",
         "overloadNotAssignable": "无法分配“{name}”的一个或多个重载",
         "overloadSignature": "此处定义了重载签名",
         "overriddenMethod": "替代的方法",

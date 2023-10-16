@@ -648,6 +648,7 @@
         "newMethodSignature": "La firma del __new__ è \"{type}\"",
         "noOverloadAssignable": "Nessuna funzione di overload corrisponde al tipo \"{type}\"",
         "orPatternMissingName": "Nomi mancanti: {name}",
+        "overloadIndex": "L'overload {index} è la corrispondenza più vicina",
         "overloadNotAssignable": "Uno o più overload di \"{name}\" non sono assegnabili",
         "overloadSignature": "La firma di overload è definita qui",
         "overriddenMethod": "Metodo sottoposto a override",

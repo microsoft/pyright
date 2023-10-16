@@ -18,6 +18,7 @@ import {
     DocumentHighlight,
     DocumentHighlightKind,
     ExecuteCommandParams,
+    Location,
     MarkupContent,
     MarkupKind,
     TextEdit,
@@ -97,6 +98,8 @@ import { verifyWorkspaceEdit } from './workspaceEditTestUtils';
 import { ServiceProvider } from '../../../common/serviceProvider';
 import { createServiceProvider } from '../../../common/serviceProviderExtensions';
 import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../../common/stringUtils';
+import { CollectionResult } from '../../../languageService/documentSymbolCollector';
+import { ReadOnlyFileSystem } from '../../../common/fileSystem';
 
 export interface TextChange {
     span: TextRange;
@@ -166,22 +169,22 @@ export class TestState {
                 mountPaths
             );
 
+        this.fs = new PyrightFileSystem(this.testFS);
         this.console = new NullConsole();
+        this.serviceProvider = createServiceProvider(this.testFS, this.fs, this.console);
+
         this._cancellationToken = new TestCancellationToken();
         this._hostSpecificFeatures = hostSpecificFeatures ?? new TestFeatures();
 
-        this.fs = new PyrightFileSystem(this.testFS);
         this.files = vfsInfo.sourceFileNames;
 
         this.rawConfigJson = vfsInfo.rawConfigJson;
         const configOptions = this._convertGlobalOptionsToConfigOptions(vfsInfo.projectRoot, mountPaths);
 
         if (this.rawConfigJson) {
-            configOptions.initializeFromJson(this.rawConfigJson, 'basic', this.console, this.fs, testAccessHost);
+            configOptions.initializeFromJson(this.rawConfigJson, 'basic', this.serviceProvider, testAccessHost);
             this._applyTestConfigOptions(configOptions);
         }
-
-        this.serviceProvider = createServiceProvider(this.fs, this.console);
 
         const service = this._createAnalysisService(
             this.console,
@@ -1136,16 +1139,20 @@ export class TestState {
         }
     }
 
-    verifyFindAllReferences(map: {
-        [marker: string]: {
-            references: DocumentRange[];
-        };
-    }) {
+    verifyFindAllReferences(
+        map: {
+            [marker: string]: {
+                references: DocumentRange[];
+            };
+        },
+        createDocumentRange?: (filePath: string, result: CollectionResult, parseResults: ParseResults) => DocumentRange,
+        convertToLocation?: (fs: ReadOnlyFileSystem, ranges: DocumentRange) => Location | undefined
+    ) {
         this.analyze();
 
-        for (const marker of this.getMarkers()) {
+        for (const name of this.getMarkerNames()) {
+            const marker = this.getMarkerByName(name);
             const fileName = marker.fileName;
-            const name = this.getMarkerName(marker);
 
             if (!(name in map)) {
                 continue;
@@ -1155,14 +1162,15 @@ export class TestState {
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
 
-            const actual = new ReferencesProvider(this.program, CancellationToken.None).reportReferences(
-                fileName,
-                position,
-                /* includeDeclaration */ true
-            );
+            const actual = new ReferencesProvider(
+                this.program,
+                CancellationToken.None,
+                createDocumentRange,
+                convertToLocation
+            ).reportReferences(fileName, position, /* includeDeclaration */ true);
             assert.strictEqual(actual?.length ?? 0, expected.length, `${name} has failed`);
 
-            for (const r of convertDocumentRangesToLocation(this.program.fileSystem, expected)) {
+            for (const r of convertDocumentRangesToLocation(this.program.fileSystem, expected, convertToLocation)) {
                 assert.equal(actual?.filter((d) => this._deepEqual(d, r)).length, 1);
             }
         }
@@ -1612,14 +1620,14 @@ export class TestState {
             configOptions.stubPath = normalizePath(combinePaths(vfs.MODULE_PATH, 'typings'));
         }
 
-        configOptions.include.push(getFileSpec(this.fs, configOptions.projectRoot, '.'));
-        configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, typeshedFolder));
-        configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, distlibFolder));
-        configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, libFolder));
+        configOptions.include.push(getFileSpec(this.serviceProvider, configOptions.projectRoot, '.'));
+        configOptions.exclude.push(getFileSpec(this.serviceProvider, configOptions.projectRoot, typeshedFolder));
+        configOptions.exclude.push(getFileSpec(this.serviceProvider, configOptions.projectRoot, distlibFolder));
+        configOptions.exclude.push(getFileSpec(this.serviceProvider, configOptions.projectRoot, libFolder));
 
         if (mountPaths) {
             for (const mountPath of mountPaths.keys()) {
-                configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, mountPath));
+                configOptions.exclude.push(getFileSpec(this.serviceProvider, configOptions.projectRoot, mountPath));
             }
         }
 

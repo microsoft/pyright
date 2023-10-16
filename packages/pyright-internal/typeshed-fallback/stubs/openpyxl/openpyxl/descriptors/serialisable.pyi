@@ -1,5 +1,5 @@
 from _typeshed import Incomplete, SupportsIter
-from typing import Any, ClassVar, NoReturn, Protocol
+from typing import Any, ClassVar, Protocol
 from typing_extensions import Final, Self
 
 from openpyxl.descriptors import MetaSerialisable
@@ -21,8 +21,10 @@ class Serialisable(metaclass=MetaSerialisable):
     __namespaced__: ClassVar[tuple[tuple[str, str], ...]]
     idx_base: int
     # Needs overrides in many sub-classes. But a lot of subclasses are instanciated without overriding it, so can't be abstract
+    # Subclasses "overrides" this property with a ClassVar, and Serialisable is too widely used,
+    # so it can't be typed as NoReturn either without introducing many false-positives.
     @property
-    def tagname(self) -> str | NoReturn: ...
+    def tagname(self) -> str: ...
     namespace: ClassVar[str | None]
     # Note: To respect the Liskov substitution principle, the protocol for node includes all child class requirements.
     # Same with the return type to avoid override issues.

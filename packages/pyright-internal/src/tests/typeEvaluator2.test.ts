@@ -164,7 +164,7 @@ test('AugmentedAssignment3', () => {
 test('Super1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super1.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Super2', () => {
@@ -285,11 +285,11 @@ test('isInstance3', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 1);
+    TestUtils.validateResults(analysisResults1, 2);
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 1);
+    TestUtils.validateResults(analysisResults2, 2);
 });
 
 test('isInstance4', () => {
@@ -676,6 +676,12 @@ test('Solver28', () => {
 
 test('Solver29', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver29.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Solver30', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver30.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
@@ -1316,6 +1322,12 @@ test('Protocol43', () => {
 
 test('Protocol44', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol44.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Protocol45', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol45.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

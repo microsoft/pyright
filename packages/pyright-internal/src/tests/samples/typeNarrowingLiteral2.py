@@ -2,7 +2,7 @@
 # types that have enumerated literals (bool and enums).
 
 from enum import Enum
-from typing import Literal, Union
+from typing import Any, Literal, Union
 
 
 class SomeEnum(Enum):
@@ -61,3 +61,17 @@ def func5(x: Union[MyEnum, str]):
         reveal_type(x, expected_text="Literal[MyEnum.ONE]")
     else:
         reveal_type(x, expected_text="str")
+
+
+def func6(x: Any):
+    if x is MyEnum.ZERO:
+        reveal_type(x, expected_text="Literal[MyEnum.ZERO]")
+    else:
+        reveal_type(x, expected_text="Any")
+
+
+def func7(x: Any):
+    if x == MyEnum.ZERO:
+        reveal_type(x, expected_text="Literal[MyEnum.ZERO]")
+    else:
+        reveal_type(x, expected_text="Any")

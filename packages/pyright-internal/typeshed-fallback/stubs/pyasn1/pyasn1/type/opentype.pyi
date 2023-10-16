@@ -3,6 +3,8 @@ from collections.abc import Mapping
 
 from pyasn1.type.base import Asn1Type
 
+__all__ = ["OpenType"]
+
 class OpenType:
     def __init__(self, name, typeMap: Mapping[Incomplete, Asn1Type] | None = None) -> None: ...
     @property

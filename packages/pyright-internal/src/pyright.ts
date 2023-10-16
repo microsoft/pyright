@@ -30,7 +30,7 @@ import { FileDiagnostics } from './common/diagnosticSink';
 import { FullAccessHost } from './common/fullAccessHost';
 import { combinePaths, normalizePath } from './common/pathUtils';
 import { versionFromString } from './common/pythonVersion';
-import { createFromRealFileSystem } from './common/realFileSystem';
+import { RealTempFile, createFromRealFileSystem } from './common/realFileSystem';
 import { Range, isEmptyRange } from './common/textRange';
 import { PyrightFileSystem } from './pyrightFileSystem';
 import { createServiceProvider } from './common/serviceProviderExtensions';
@@ -346,7 +346,8 @@ async function processArgs(): Promise<ExitStatus> {
     // up the JSON output, which goes to stdout.
     const output = args.outputjson ? new StderrConsole(logLevel) : new StandardConsole(logLevel);
     const fileSystem = new PyrightFileSystem(createFromRealFileSystem(output, new ChokidarFileWatcherProvider(output)));
-    const serviceProvider = createServiceProvider(fileSystem, output);
+    const tempFile = new RealTempFile();
+    const serviceProvider = createServiceProvider(fileSystem, output, tempFile);
 
     // The package type verification uses a different path.
     if (args['verifytypes'] !== undefined) {

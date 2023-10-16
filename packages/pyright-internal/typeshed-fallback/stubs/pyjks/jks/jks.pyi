@@ -1,6 +1,6 @@
-from _typeshed import Incomplete, SupportsKeysAndGetItem
+from _typeshed import SupportsKeysAndGetItem, Unused
 from collections.abc import Iterable
-from typing import Any, NoReturn
+from typing import NoReturn, overload
 from typing_extensions import Final, Literal, Self, TypeAlias
 
 from .util import AbstractKeystore, AbstractKeystoreEntry
@@ -19,15 +19,16 @@ class TrustedCertEntry(AbstractKeystoreEntry):
     store_type: _JksType | None
     type: _CertType | None
     cert: bytes
+    # NB! For most use cases, use TrustedCertEntry.new() classmethod.
     def __init__(
         self,
         *,
-        type: _CertType = ...,
-        cert: bytes = ...,
-        store_type: _JksType = ...,
-        alias: str = ...,
-        timestamp: int = ...,
-        **kwargs: Any,
+        type: _CertType | None = None,
+        cert: bytes,
+        store_type: _JksType | None = None,
+        alias: str,
+        timestamp: int,
+        **kwargs: Unused,
     ) -> None: ...
     @classmethod
     def new(cls, alias: str, cert: bytes) -> Self: ...  # type: ignore[override]
@@ -43,18 +44,31 @@ class PrivateKeyEntry(AbstractKeystoreEntry):
     def pkey_pkcs8(self) -> bytes: ...
     @property
     def algorithm_oid(self) -> tuple[int, ...]: ...
+    # NB! For most use cases, use PrivateKeyEntry.new() classmethod.
+    # Overloaded: must provide `encrypted` OR `pkey`, `pkey_pkcs8`, `algorithm_oid`
+    @overload
     def __init__(
         self,
         *,
-        cert_chain: list[tuple[_CertType, bytes]] = ...,
-        encrypted: bool = ...,
-        pkey: bytes = ...,
-        pkey_pkcs8: bytes = ...,
-        algorithm_oid: tuple[int, ...] = ...,
-        store_type: _JksType = ...,
-        alias: str = ...,
-        timestamp: int = ...,
-        **kwargs: Any,
+        cert_chain: list[tuple[_CertType, bytes]],
+        encrypted: bytes,
+        store_type: _JksType | None = None,
+        alias: str,
+        timestamp: int,
+        **kwargs: Unused,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        *,
+        cert_chain: list[tuple[_CertType, bytes]],
+        pkey: bytes,
+        pkey_pkcs8: bytes,
+        algorithm_oid: tuple[int, ...],
+        store_type: _JksType | None = None,
+        alias: str,
+        timestamp: int,
+        **kwargs: Unused,
     ) -> None: ...
     @classmethod
     def new(  # type: ignore[override]
@@ -70,17 +84,22 @@ class SecretKeyEntry(AbstractKeystoreEntry):
     def key(self) -> bytes: ...
     @property
     def key_size(self) -> int: ...
+    # Overloaded: must provide `sealed_obj` OR `algorithm`, `key`, `key_size`
+    @overload
+    def __init__(
+        self, *, sealed_obj: bytes, store_type: _JksType | None = None, alias: str, timestamp: int, **kwargs: Unused
+    ) -> None: ...
+    @overload
     def __init__(
         self,
         *,
-        sealed_obj: Incomplete = ...,
-        algorithm: str = ...,
-        key: bytes = ...,
-        key_size: int = ...,
-        store_type: _JksType = ...,
-        alias: str = ...,
-        timestamp: int = ...,
-        **kwargs: Any,
+        algorithm: str,
+        key: bytes,
+        key_size: int,
+        store_type: _JksType | None = None,
+        alias: str,
+        timestamp: int,
+        **kwargs: Unused,
     ) -> None: ...
     # Not implemented by pyjks
     @classmethod
@@ -98,6 +117,7 @@ class KeyStore(AbstractKeystore):
     @classmethod
     def loads(cls, data: bytes, store_password: str | None, try_decrypt_keys: bool = True) -> Self: ...
     def saves(self, store_password: str) -> bytes: ...
+    # NB! For most use cases, use KeyStore.new() classmethod.
     def __init__(
         self, store_type: _JksType, entries: SupportsKeysAndGetItem[str, TrustedCertEntry | PrivateKeyEntry | SecretKeyEntry]
     ) -> None: ...

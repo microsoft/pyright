@@ -10,7 +10,7 @@
 import { Dirent, ReadStream, WriteStream } from 'fs';
 import { URI } from 'vscode-uri';
 
-import { FileSystem, MkDirOptions, TmpfileOptions } from '../../../common/fileSystem';
+import { FileSystem, MkDirOptions, TempFile, TmpfileOptions } from '../../../common/fileSystem';
 import { FileWatcher, FileWatcherEventHandler, FileWatcherEventType } from '../../../common/fileWatcher';
 import * as pathUtil from '../../../common/pathUtils';
 import { bufferFrom, createIOError } from '../utils';
@@ -49,7 +49,7 @@ export class TestFileSystemWatcher implements FileWatcher {
 /**
  * Represents a virtual POSIX-like file system.
  */
-export class TestFileSystem implements FileSystem {
+export class TestFileSystem implements FileSystem, TempFile {
     /** Indicates whether the file system is case-sensitive (`false`) or case-insensitive (`true`). */
     readonly ignoreCase: boolean;
 

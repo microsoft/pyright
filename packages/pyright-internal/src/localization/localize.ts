@@ -376,10 +376,22 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.deprecatedClass'));
         export const deprecatedConstructor = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.deprecatedConstructor'));
+        export const deprecatedDescriptorDeleter = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.deprecatedDescriptorDeleter'));
+        export const deprecatedDescriptorGetter = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.deprecatedDescriptorGetter'));
+        export const deprecatedDescriptorSetter = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.deprecatedDescriptorSetter'));
         export const deprecatedFunction = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.deprecatedFunction'));
         export const deprecatedMethod = () =>
             new ParameterizedString<{ name: string; className: string }>(getRawString('Diagnostic.deprecatedMethod'));
+        export const deprecatedPropertyDeleter = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.deprecatedPropertyDeleter'));
+        export const deprecatedPropertyGetter = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.deprecatedPropertyGetter'));
+        export const deprecatedPropertySetter = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.deprecatedPropertySetter'));
         export const deprecatedType = () =>
             new ParameterizedString<{ version: string; replacement: string }>(
                 getRawString('Diagnostic.deprecatedType')
@@ -1226,6 +1238,10 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberTypeMismatch'));
         export const memberUnknown = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberUnknown'));
+        export const metaclassConflict = () =>
+            new ParameterizedString<{ metaclass1: string; metaclass2: string }>(
+                getRawString('DiagnosticAddendum.metaclassConflict')
+            );
         export const missingProtocolMember = () =>
             new ParameterizedString<{ name: string; classType: string }>(
                 getRawString('DiagnosticAddendum.missingProtocolMember')

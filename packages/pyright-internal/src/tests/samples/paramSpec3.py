@@ -56,3 +56,18 @@ class ClassA(Generic[P, R]):
 
 def func4(f: Callable[P, R]) -> ClassA[P, R]:
     return ClassA(f)
+
+
+T1 = TypeVar("T1")
+T2 = TypeVar("T2")
+
+
+def decorator2(f: Callable[P, R]) -> Callable[P, R]:
+    return f
+
+
+def func5(f: Callable[[], list[T1]]) -> Callable[[list[T2]], list[T1 | T2]]:
+    def inner(res: list[T2]) -> list[T1 | T2]:
+        ...
+
+    return decorator2(inner)

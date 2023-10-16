@@ -4,8 +4,7 @@ from types import TracebackType
 from typing import Any
 
 from ...core import AWSXRayRecorder
-from ..exceptions.exceptions import SegmentNotFoundException as SegmentNotFoundException
-from .entity import Entity as Entity
+from .entity import Entity
 from .segment import Segment
 
 SUBSEGMENT_RECORDING_ATTRIBUTE: str

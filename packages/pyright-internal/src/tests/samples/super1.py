@@ -1,25 +1,28 @@
 # This sample tests the type analyzer's handling of the super() call.
 
 
-class FooBase:
+class ClassA:
     @staticmethod
-    def ccc():
+    def method1():
         pass
 
+    def method5(self) -> type:
+        return ClassA
 
-class Foo1(FooBase):
+
+class ClassB(ClassA):
     def __init__(self):
         pass
 
-    def hello1(self):
+    def method2(self):
         pass
 
 
-class Foo2(FooBase):
+class ClassC(ClassA):
     def __init__(self):
         pass
 
-    def hello2(self):
+    def method3(self):
         return self.__class__()
 
     @staticmethod
@@ -27,31 +30,40 @@ class Foo2(FooBase):
         pass
 
 
-class Bar(Foo1, Foo2):
+class Bar(ClassB, ClassC):
     def __init__(self):
-        super().hello1()
-        super().hello2()
+        super().method2()
+        super().method3()
 
         # This should generate an error
-        super().goodbye()
+        super().non_method1()
 
 
 super(Bar)
 
 # This should generate an error
-super(Bar).bbb()
+super(Bar).non_method2()
 
 
-super(Foo1, Bar).ccc()
+super(ClassB, Bar).method1()
 
 # This should generate an error because Foo2
 # is not a subclass of Foo1.
-super(Foo1, Foo2).ccc()
+super(ClassB, ClassC).method1()
 
-bar = Bar()
-super(Foo1, bar).ccc()
+v1 = Bar()
+super(ClassB, v1).method1()
 
-foo2 = Foo2()
+v2 = ClassC()
 # This should generate an error because Foo2
 # is not a subclass of Foo1.
-super(Foo1, foo2).ccc()
+super(ClassB, v2).method1()
+
+
+class ClassD(ClassA):
+    def method5(self):
+        class ClassDInner(super().method5()):
+            # This should generate an error.
+            x = super().method5()
+
+        return ClassDInner

@@ -2,9 +2,6 @@ import time
 from logging import Logger
 from typing import Any
 
-from .. import global_sdk_config as global_sdk_config
-from .exceptions.exceptions import SegmentNotFoundException as SegmentNotFoundException
-from .models.dummy_entities import DummySegment as DummySegment
 from .models.entity import Entity
 from .models.segment import Segment
 from .models.subsegment import Subsegment

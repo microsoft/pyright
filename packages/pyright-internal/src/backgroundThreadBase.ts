@@ -13,7 +13,7 @@ import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface, LogLevel } from './common/console';
 import * as debug from './common/debug';
 import { FileSpec } from './common/pathUtils';
-import { createFromRealFileSystem } from './common/realFileSystem';
+import { createFromRealFileSystem, RealTempFile } from './common/realFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
 import './common/serviceProviderExtensions';
 import { ServiceKeys } from './common/serviceProviderExtensions';
@@ -59,6 +59,9 @@ export class BackgroundThreadBase {
         if (!this._serviceProvider.tryGet(ServiceKeys.fs)) {
             this._serviceProvider.add(ServiceKeys.fs, createFromRealFileSystem(this.getConsole()));
         }
+        if (!this._serviceProvider.tryGet(ServiceKeys.tempFile)) {
+            this._serviceProvider.add(ServiceKeys.tempFile, new RealTempFile());
+        }
     }
 
     protected get fs() {
@@ -78,7 +81,7 @@ export class BackgroundThreadBase {
     }
 
     protected handleShutdown() {
-        this.fs.dispose();
+        this._serviceProvider.tryGet(ServiceKeys.tempFile)?.dispose();
         parentPort?.close();
     }
 }

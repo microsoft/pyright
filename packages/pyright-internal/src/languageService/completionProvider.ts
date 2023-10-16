@@ -24,7 +24,6 @@ import {
     Declaration,
     DeclarationType,
     FunctionDeclaration,
-    isFunctionDeclaration,
     isIntrinsicDeclaration,
     isVariableDeclaration,
     VariableDeclaration,
@@ -32,6 +31,7 @@ import {
 import { isDefinedInFile } from '../analyzer/declarationUtils';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { ImportedModuleDescriptor } from '../analyzer/importResolver';
+import { ImportResult } from '../analyzer/importResult';
 import { isTypedKwargs } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
@@ -46,6 +46,7 @@ import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluatorTypes
 import { printLiteralValue } from '../analyzer/typePrinter';
 import {
     ClassType,
+    combineTypes,
     FunctionType,
     isClass,
     isClassInstance,
@@ -62,13 +63,13 @@ import {
 import {
     ClassMemberLookupFlags,
     containsLiteralType,
+    doForEachSignature,
     doForEachSubtype,
     getMembersForClass,
     getMembersForModule,
     isLiteralType,
     isMaybeDescriptorInstance,
     lookUpClassMember,
-    lookUpObjectMember,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
@@ -83,6 +84,7 @@ import * as StringUtils from '../common/stringUtils';
 import { comparePositions, Position, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { convertToTextEdits } from '../common/workspaceEditUtils';
+import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
     DecoratorNode,
@@ -124,8 +126,6 @@ import {
 } from './completionProviderUtils';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { getAutoImportText, getDocumentationPartsForTypeAndDecl } from './tooltipUtils';
-import { ImportResult } from '../analyzer/importResult';
-import { Localizer } from '../localization/localize';
 
 namespace Keywords {
     const base: string[] = [
@@ -2118,41 +2118,42 @@ export class CompletionProvider {
         return values;
     }
 
-    private _getIndexerKeyType(baseType: ClassType) {
-        // Handle dict type
-        if (ClassType.isBuiltIn(baseType, 'dict') || ClassType.isBuiltIn(baseType, 'Mapping')) {
-            if (baseType.typeArguments?.length === 2) {
-                return baseType.typeArguments[0];
-            }
-        }
+    private _getIndexKeyType(baseType: ClassType) {
+        // Handle __getitem__.
+        const getItemType = this.evaluator.getBoundMethod(baseType, '__getitem__');
+        if (getItemType) {
+            const typesToCombine: Type[] = [];
 
-        // Handle simple __getitem__
-        const member = lookUpObjectMember(baseType, '__getitem__');
-        if (member?.symbol.hasDeclarations()) {
-            const declaration = member.symbol.getDeclarations()[0];
-            if (isFunctionDeclaration(declaration) && declaration.isMethod) {
-                const getItemType = this.evaluator.getTypeForDeclaration(declaration)?.type;
-                if (getItemType && isFunction(getItemType) && getItemType.details.parameters.length === 2) {
-                    return getItemType.details.parameters[1].type;
+            // Handle both overloaded and non-overloaded functions.
+            doForEachSignature(getItemType, (signature) => {
+                if (
+                    signature.details.parameters.length >= 1 &&
+                    signature.details.parameters[0].category === ParameterCategory.Simple
+                ) {
+                    typesToCombine.push(FunctionType.getEffectiveParameterType(signature, 0));
                 }
+            });
+
+            if (typesToCombine.length > 0) {
+                return combineTypes(typesToCombine);
             }
         }
 
         return undefined;
     }
 
-    private _getIndexerKeys(indexNode: IndexNode, invocationNode: ParseNode) {
+    private _getIndexKeys(indexNode: IndexNode, invocationNode: ParseNode) {
         const baseType = this.evaluator.getType(indexNode.baseExpression);
         if (!baseType || !isClassInstance(baseType)) {
             return [];
         }
 
-        // See whether indexer key is typed using Literal types. If it is, return those literal keys.
-        const keyType = this._getIndexerKeyType(baseType);
-        if (keyType) {
+        // See whether subscript is typed using Literal types. If it is, return those literal keys.
+        const subscriptType = this._getIndexKeyType(baseType);
+        if (subscriptType) {
             const keys: string[] = [];
 
-            this._getSubTypesWithLiteralValues(keyType).forEach((v) => {
+            this._getSubTypesWithLiteralValues(subscriptType).forEach((v) => {
                 if (
                     !ClassType.isBuiltIn(v, 'str') &&
                     !ClassType.isBuiltIn(v, 'int') &&
@@ -2376,7 +2377,7 @@ export class CompletionProvider {
             }
 
             const quoteInfo = this._getQuoteInfo(priorWord, priorTextInString);
-            const keys = this._getIndexerKeys(argument.parent, parseNode);
+            const keys = this._getIndexKeys(argument.parent, parseNode);
 
             let keyFound = false;
             for (const key of keys) {

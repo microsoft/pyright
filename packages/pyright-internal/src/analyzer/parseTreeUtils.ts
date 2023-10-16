@@ -679,6 +679,29 @@ export function getEnclosingFunction(node: ParseNode): FunctionNode | undefined 
     return undefined;
 }
 
+// This is similar to getEnclosingFunction except that it uses evaluation
+// scopes rather than the parse tree to determine whether the specified node
+// is within the scope. That means if the node is within a class decorator
+// (for example), it will be considered part of its parent node rather than
+// the class node.
+export function getEnclosingFunctionEvaluationScope(node: ParseNode): FunctionNode | undefined {
+    let curNode = getEvaluationScopeNode(node);
+
+    while (curNode) {
+        if (curNode.nodeType === ParseNodeType.Function) {
+            return curNode;
+        }
+
+        if (curNode.nodeType === ParseNodeType.Class || !curNode.parent) {
+            return undefined;
+        }
+
+        curNode = getEvaluationScopeNode(curNode.parent);
+    }
+
+    return undefined;
+}
+
 export function getEnclosingLambda(node: ParseNode): LambdaNode | undefined {
     let curNode = node.parent;
     while (curNode) {
