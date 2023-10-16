@@ -1035,6 +1035,9 @@ export function populateTypeVarContextBasedOnExpectedType(
     const synthExpectedTypeArgs = ClassType.getTypeParameters(expectedType).map((typeParam, index) => {
         const typeVar = TypeVarType.createInstance(`__dest${index}`);
         typeVar.details.isSynthesized = true;
+        if (typeParam.details.isParamSpec) {
+            typeVar.details.isParamSpec = true;
+        }
 
         // Use invariance here so we set the narrow and wide values on the TypeVar.
         typeVar.details.declaredVariance = Variance.Invariant;
@@ -1048,11 +1051,14 @@ export function populateTypeVarContextBasedOnExpectedType(
     );
 
     // For each type param in the target type, create a placeholder type variable.
-    const typeArgs = ClassType.getTypeParameters(type).map((_, index) => {
+    const typeArgs = ClassType.getTypeParameters(type).map((typeParam, index) => {
         const typeVar = TypeVarType.createInstance(`__source${index}`);
         typeVar.details.isSynthesized = true;
         typeVar.details.synthesizedIndex = index;
         typeVar.details.isExemptFromBoundCheck = true;
+        if (typeParam.details.isParamSpec) {
+            typeVar.details.isParamSpec = true;
+        }
         return TypeVarType.cloneAsInScopePlaceholder(typeVar);
     });
 
@@ -1076,24 +1082,30 @@ export function populateTypeVarContextBasedOnExpectedType(
 
             // If the resulting type is a union, try to find a matching type var and move
             // the remaining subtypes to the "otherSubtypes" array.
-            if (synthTypeVar && isUnion(synthTypeVar)) {
-                let foundSynthTypeVar: TypeVarType | undefined;
+            if (synthTypeVar) {
+                if (typeVar.details.isParamSpec && isFunction(synthTypeVar)) {
+                    synthTypeVar = convertParamSpecValueToType(synthTypeVar);
+                }
 
-                synthTypeVar.subtypes.forEach((subtype) => {
-                    if (
-                        isTypeVar(subtype) &&
-                        subtype.details.isSynthesized &&
-                        subtype.details.synthesizedIndex !== undefined &&
-                        !foundSynthTypeVar
-                    ) {
-                        foundSynthTypeVar = subtype;
-                    } else {
-                        otherSubtypes.push(subtype);
+                if (isUnion(synthTypeVar)) {
+                    let foundSynthTypeVar: TypeVarType | undefined;
+
+                    synthTypeVar.subtypes.forEach((subtype) => {
+                        if (
+                            isTypeVar(subtype) &&
+                            subtype.details.isSynthesized &&
+                            subtype.details.synthesizedIndex !== undefined &&
+                            !foundSynthTypeVar
+                        ) {
+                            foundSynthTypeVar = subtype;
+                        } else {
+                            otherSubtypes.push(subtype);
+                        }
+                    });
+
+                    if (foundSynthTypeVar) {
+                        synthTypeVar = foundSynthTypeVar;
                     }
-                });
-
-                if (foundSynthTypeVar) {
-                    synthTypeVar = foundSynthTypeVar;
                 }
             }
 
