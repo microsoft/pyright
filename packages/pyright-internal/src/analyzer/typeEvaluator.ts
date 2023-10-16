@@ -12098,7 +12098,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const argType =
                             argList[i].typeResult?.type ??
                             getTypeOfExpressionExpectingType(argList[i].valueExpression!).type;
-                        if (requiresSpecialization(argType, /* ignorePseudoGeneric */ true)) {
+                        if (
+                            requiresSpecialization(argType, { ignorePseudoGeneric: true, ignoreImplicitTypeArgs: true })
+                        ) {
                             addError(
                                 Localizer.Diagnostic.typeVarBoundGeneric(),
                                 argList[i].valueExpression || errorNode
@@ -12175,7 +12177,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         argList[i].typeResult?.type ??
                         getTypeOfExpressionExpectingType(argList[i].valueExpression!).type;
 
-                    if (requiresSpecialization(argType, /* ignorePseudoGeneric */ true)) {
+                    if (requiresSpecialization(argType, { ignorePseudoGeneric: true })) {
                         addError(
                             Localizer.Diagnostic.typeVarConstraintGeneric(),
                             argList[i].valueExpression || errorNode
@@ -14536,7 +14538,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // A ClassVar should not allow TypeVars or generic types parameterized
         // by TypeVars.
-        if (requiresSpecialization(type, /* ignorePseudoGeneric */ true, /* ignoreSelf */ true)) {
+        if (requiresSpecialization(type, { ignorePseudoGeneric: true, ignoreSelf: true })) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
 
             addDiagnostic(
@@ -16277,7 +16279,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (metaclassNode) {
                 const metaclassType = getTypeOfExpression(metaclassNode, exprFlags).type;
                 if (isInstantiableClass(metaclassType) || isUnknown(metaclassType)) {
-                    if (requiresSpecialization(metaclassType, /* ignorePseudoGeneric */ true)) {
+                    if (requiresSpecialization(metaclassType, { ignorePseudoGeneric: true })) {
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -20372,7 +20374,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const constraints = node.boundExpression.expressions.map((constraint) => {
                     const constraintType = getTypeOfExpressionExpectingType(constraint).type;
 
-                    if (requiresSpecialization(constraintType, /* ignorePseudoGeneric */ true)) {
+                    if (
+                        requiresSpecialization(constraintType, {
+                            ignorePseudoGeneric: true,
+                            ignoreImplicitTypeArgs: true,
+                        })
+                    ) {
                         addError(Localizer.Diagnostic.typeVarBoundGeneric(), constraint);
                     }
 
@@ -20392,7 +20399,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else {
                 const boundType = getTypeOfExpressionExpectingType(node.boundExpression).type;
 
-                if (requiresSpecialization(boundType, /* ignorePseudoGeneric */ true)) {
+                if (requiresSpecialization(boundType, { ignorePseudoGeneric: true })) {
                     addError(Localizer.Diagnostic.typeVarConstraintGeneric(), node.boundExpression);
                 }
 
