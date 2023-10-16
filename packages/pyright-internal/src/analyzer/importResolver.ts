@@ -1211,7 +1211,10 @@ export class ImportResolver {
             let current = ensureTrailingDirectorySeparator(getDirectoryPath(filePath));
             while (this._shouldWalkUp(current, root, execEnv)) {
                 if (this.fileExistsCached(combinePaths(current, 'py.typed'))) {
-                    isThirdPartyPyTypedPresent = true;
+                    const pyTypedInfo = getPyTypedInfo(this.fileSystem, current);
+                    if (pyTypedInfo && !pyTypedInfo.isPartiallyTyped) {
+                        isThirdPartyPyTypedPresent = true;
+                    }
                     break;
                 }
 
