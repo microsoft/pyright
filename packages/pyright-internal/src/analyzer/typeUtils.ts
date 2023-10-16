@@ -922,7 +922,22 @@ export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
         type,
         type.details.typeParameters.map((param) => param.details.defaultType ?? getUnknownTypeForTypeVar(param)),
         /* isTypeArgumentExplicit */ false,
-        /* includeSubclasses */ true
+        /* includeSubclasses */ type.includeSubclasses
+    );
+}
+
+// Specializes the class with "Unknown" type args (or the equivalent for ParamSpecs
+// or TypeVarTuples).
+export function specializeWithUnknown(type: ClassType): ClassType {
+    if (type.details.typeParameters.length === 0) {
+        return type;
+    }
+
+    return ClassType.cloneForSpecialization(
+        type,
+        type.details.typeParameters.map((param) => getUnknownTypeForTypeVar(param)),
+        /* isTypeArgumentExplicit */ false,
+        /* includeSubclasses */ type.includeSubclasses
     );
 }
 

@@ -88,6 +88,7 @@ import {
     lookUpObjectMember,
     mapSubtypes,
     specializeTupleClass,
+    specializeWithUnknown,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
@@ -1330,9 +1331,22 @@ function narrowTypeForIsInstance(
         let isClassRelationshipIndeterminate = false;
 
         for (const filterType of classTypeList) {
-            const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
+            let concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
 
             if (isInstantiableClass(concreteFilterType)) {
+                // If the class was implicitly specialized (e.g. because its type
+                // parameters have default values), replace the default type arguments
+                // with Unknown.
+                if (concreteFilterType.typeArguments && !concreteFilterType.isTypeArgumentExplicit) {
+                    concreteFilterType = specializeWithUnknown(
+                        ClassType.cloneForSpecialization(
+                            concreteFilterType,
+                            /* typeArguments */ undefined,
+                            /* isTypeArgumentExplicit */ false
+                        )
+                    );
+                }
+
                 const filterIsSuperclass = isIsinstanceFilterSuperclass(
                     evaluator,
                     varType,
@@ -1374,7 +1388,7 @@ function narrowTypeForIsInstance(
                         if (
                             evaluator.assignType(
                                 concreteVarType,
-                                filterType,
+                                concreteFilterType,
                                 /* diag */ undefined,
                                 /* destTypeVarContext */ undefined,
                                 /* srcTypeVarContext */ undefined,
