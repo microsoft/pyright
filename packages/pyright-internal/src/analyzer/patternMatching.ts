@@ -288,6 +288,11 @@ function narrowTypeBasedOnSequencePattern(
             }
         });
 
+        // If the pattern is an empty sequence, use the entry types.
+        if (pattern.entries.length === 0 && entry.entryTypes.length > 0) {
+            narrowedEntryTypes.push(combineTypes(entry.entryTypes));
+        }
+
         if (!isPositiveTest) {
             // If the positive case is a definite match, the negative case can
             // eliminate this subtype entirely.
