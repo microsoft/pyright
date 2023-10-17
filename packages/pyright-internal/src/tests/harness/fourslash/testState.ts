@@ -38,6 +38,7 @@ import { Comparison, isNumber, isString, toBoolean } from '../../../common/core'
 import * as debug from '../../../common/debug';
 import { DiagnosticCategory } from '../../../common/diagnostic';
 import { FileEditAction } from '../../../common/editAction';
+import { ReadOnlyFileSystem } from '../../../common/fileSystem';
 import {
     combinePaths,
     convertPathToUri,
@@ -49,6 +50,9 @@ import {
     setTestingMode,
 } from '../../../common/pathUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../../../common/positionUtils';
+import { ServiceProvider } from '../../../common/serviceProvider';
+import { createServiceProvider } from '../../../common/serviceProviderExtensions';
+import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../../common/stringUtils';
 import { DocumentRange, Position, Range as PositionRange, TextRange, rangesAreEqual } from '../../../common/textRange';
 import { TextRangeCollection } from '../../../common/textRangeCollection';
 import { convertToWorkspaceEdit } from '../../../common/workspaceEditUtils';
@@ -61,6 +65,7 @@ import {
     TypeDefinitionProvider,
 } from '../../../languageService/definitionProvider';
 import { DocumentHighlightProvider } from '../../../languageService/documentHighlightProvider';
+import { CollectionResult } from '../../../languageService/documentSymbolCollector';
 import { HoverProvider } from '../../../languageService/hoverProvider';
 import { convertDocumentRangesToLocation } from '../../../languageService/navigationUtils';
 import { ReferencesProvider } from '../../../languageService/referencesProvider';
@@ -95,11 +100,6 @@ import {
 import { TestFeatures, TestLanguageService } from './testLanguageService';
 import { createVfsInfoFromFourSlashData, getMarkerByName, getMarkerName, getMarkerNames } from './testStateUtils';
 import { verifyWorkspaceEdit } from './workspaceEditTestUtils';
-import { ServiceProvider } from '../../../common/serviceProvider';
-import { createServiceProvider } from '../../../common/serviceProviderExtensions';
-import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../../common/stringUtils';
-import { CollectionResult } from '../../../languageService/documentSymbolCollector';
-import { ReadOnlyFileSystem } from '../../../common/fileSystem';
 
 export interface TextChange {
     span: TextRange;
@@ -1644,7 +1644,7 @@ export class TestState {
     }
 
     private _getTextRangeCollection(fileName: string): TextRangeCollection<TextRange> {
-        if (fileName in this.files) {
+        if (this.files.includes(fileName)) {
             return this._getParseResult(fileName).tokenizerOutput.lines;
         }
 
@@ -1666,7 +1666,15 @@ export class TestState {
     }
 
     private _editScriptAndUpdateMarkers(fileName: string, editStart: number, editEnd: number, newText: string) {
-        // this.languageServiceAdapterHost.editScript(fileName, editStart, editEnd, newText);
+        let fileContent = this.getFileContent(fileName);
+        fileContent = fileContent.slice(0, editStart) + newText + fileContent.slice(editEnd);
+
+        const newVersion = (this.program.getSourceFile(fileName)?.getClientVersion() ?? -1) + 1;
+        this.program.setFileOpened(fileName, newVersion, fileContent);
+
+        // this.testFS.writeFileSync(fileName, fileContent, 'utf8');
+        // this.program.markFilesDirty([fileName], /* evenIfContentsAreSame */ true);
+
         for (const marker of this.testData.markers) {
             if (marker.fileName === fileName) {
                 marker.position = this._updatePosition(marker.position, editStart, editEnd, newText);

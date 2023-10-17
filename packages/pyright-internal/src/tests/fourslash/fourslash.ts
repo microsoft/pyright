@@ -347,11 +347,11 @@ declare namespace _ {
             isUntitled?: boolean
         ): void;
 
+        replace(start: number, length: number, text: string): void;
+
         /* not tested yet
         paste(text: string): void;
-
         type(text: string): void;
-        replace(start: number, length: number, text: string): void;
         deleteChar(count: number): void;
         deleteLineRange(startIndex: number, endIndexInclusive: number): void;
         deleteCharBehindMarker(count: number): void;
