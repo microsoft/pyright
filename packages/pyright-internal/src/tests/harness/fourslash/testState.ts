@@ -1640,12 +1640,15 @@ export class TestState {
 
     private _getParseResult(fileName: string) {
         const file = this.program.getBoundSourceFile(fileName)!;
-        return file.getParseResults()!;
+        return file?.getParseResults();
     }
 
     private _getTextRangeCollection(fileName: string): TextRangeCollection<TextRange> {
         if (this.files.includes(fileName)) {
-            return this._getParseResult(fileName).tokenizerOutput.lines;
+            const parseResults = this._getParseResult(fileName);
+            if (parseResults) {
+                return parseResults.tokenizerOutput.lines;
+            }
         }
 
         // slow path
