@@ -1669,11 +1669,9 @@ export class TestState {
         let fileContent = this.getFileContent(fileName);
         fileContent = fileContent.slice(0, editStart) + newText + fileContent.slice(editEnd);
 
+        this.testFS.writeFileSync(fileName, fileContent, 'utf8');
         const newVersion = (this.program.getSourceFile(fileName)?.getClientVersion() ?? -1) + 1;
         this.program.setFileOpened(fileName, newVersion, fileContent);
-
-        // this.testFS.writeFileSync(fileName, fileContent, 'utf8');
-        // this.program.markFilesDirty([fileName], /* evenIfContentsAreSame */ true);
 
         for (const marker of this.testData.markers) {
             if (marker.fileName === fileName) {
