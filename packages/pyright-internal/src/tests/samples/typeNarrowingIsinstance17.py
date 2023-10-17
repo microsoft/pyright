@@ -1,6 +1,7 @@
 # This sample tests basic type narrowing behavior for
 # the isinstance call.
 
+from types import NoneType
 from typing import Any, TypedDict
 
 
@@ -55,3 +56,24 @@ def func7(x: int | SomeTypedDict | None):
         reveal_type(x, expected_text="SomeTypedDict | None")
     else:
         reveal_type(x, expected_text="int")
+
+
+def func8(x: type[int] | type[SomeTypedDict] | type[None]):
+    if issubclass(x, (dict, type(None))):
+        reveal_type(x, expected_text="type[SomeTypedDict] | type[None]")
+    else:
+        reveal_type(x, expected_text="type[int]")
+
+
+def func9(x: int | None):
+    if isinstance(x, NoneType):
+        reveal_type(x, expected_text="None")
+    else:
+        reveal_type(x, expected_text="int")
+
+
+def func10(x: type[int] | type[None]):
+    if issubclass(x, NoneType):
+        reveal_type(x, expected_text="type[None]")
+    else:
+        reveal_type(x, expected_text="type[int]")

@@ -1697,6 +1697,14 @@ function narrowTypeForIsInstance(
         return filteredTypes;
     };
 
+    const classListContainsNoneType = () =>
+        classTypeList.some((t) => {
+            if (isNoneTypeClass(t)) {
+                return true;
+            }
+            return isInstantiableClass(t) && ClassType.isBuiltIn(t, 'NoneType');
+        });
+
     const anyOrUnknownSubstitutions: Type[] = [];
     const anyOrUnknown: Type[] = [];
 
@@ -1737,18 +1745,7 @@ function narrowTypeForIsInstance(
 
             if (isInstanceCheck) {
                 if (isNoneInstance(subtype)) {
-                    const containsNoneType = classTypeList.some((t) => {
-                        if (isNoneTypeClass(t)) {
-                            return true;
-                        }
-                        return isInstantiableClass(t) && ClassType.isBuiltIn(t, 'NoneType');
-                    });
-
-                    if (isPositiveTest) {
-                        return containsNoneType ? subtype : undefined;
-                    } else {
-                        return containsNoneType ? undefined : subtype;
-                    }
+                    return classListContainsNoneType() === isPositiveTest ? subtype : undefined;
                 }
 
                 if (isModule(subtype) || (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'ModuleType'))) {
@@ -1793,6 +1790,10 @@ function narrowTypeForIsInstance(
                     }
                 }
             } else {
+                if (isNoneTypeClass(subtype)) {
+                    return classListContainsNoneType() === isPositiveTest ? subtype : undefined;
+                }
+
                 if (isClass(subtype)) {
                     if (isInstantiableClass(subtype)) {
                         return combineTypes(
