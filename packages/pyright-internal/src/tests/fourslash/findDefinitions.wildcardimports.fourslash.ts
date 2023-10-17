@@ -1,5 +1,10 @@
 /// <reference path="fourslash.ts" />
 
+// @filename: pyrightconfig.json
+//// {
+////   "useLibraryCodeForTypes": true
+//// }
+
 // @filename: lib1/definition.py
 // @library: true
 //// def [|func|]():
