@@ -3725,15 +3725,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         ? convertToInstantiable(subtype.details.boundType)
                         : subtype.details.boundType;
 
-                    return subtype.details.isSynthesized
-                        ? boundType
-                        : addConditionToType(boundType, [
-                              {
-                                  typeVarName: TypeVarType.getNameWithScope(subtype),
-                                  constraintIndex: 0,
-                                  isConstrainedTypeVar: false,
-                              },
-                          ]);
+                    // Handle Self and type[Self] specially.
+                    if (subtype.details.isSynthesizedSelf && isClass(boundType)) {
+                        return ClassType.cloneIncludeSubclasses(boundType);
+                    }
+
+                    return addConditionToType(boundType, [
+                        {
+                            typeVarName: TypeVarType.getNameWithScope(subtype),
+                            constraintIndex: 0,
+                            isConstrainedTypeVar: false,
+                        },
+                    ]);
                 }
 
                 // If this is a recursive type alias placeholder
@@ -6176,6 +6179,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (FunctionType.isInstanceMethod(targetMethod) && !TypeBase.isInstance(bindToType)) {
                             effectiveBindToType = convertToInstance(bindToType) as ClassType | TypeVarType;
                         }
+                    }
+
+                    // If the bind-to type is a specific class, add the "includeSubclasses" flag
+                    // to the type to indicate that it could be a subclass.
+                    if (effectiveBindToType && isClass(effectiveBindToType)) {
+                        effectiveBindToType = ClassType.cloneIncludeSubclasses(effectiveBindToType);
                     }
 
                     return bindFunctionToClassOrObject(
