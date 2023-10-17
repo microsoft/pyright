@@ -3,9 +3,14 @@
 # tuple of classes.
 
 
+import sys
 from abc import abstractmethod
 from typing import Any, Callable, Generic, Sequence, Tuple, Type, TypeVar, Union
 
+if sys.version_info >= (3, 10):
+    from types import NoneType
+else:
+    NoneType = type(None)
 
 _T = TypeVar("_T", int, str)
 
@@ -27,6 +32,12 @@ if isinstance(a, A[str]):
 # This should generate an error in Python 3.9 and older because
 # unions are not allowed, but this error isn't currently caught.
 if issubclass(A, Union[A, int]):
+    pass
+
+if issubclass(A, type(None)):
+    pass
+
+if issubclass(A, NoneType):
     pass
 
 

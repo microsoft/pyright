@@ -3795,11 +3795,7 @@ export class Checker extends ParseTreeWalker {
                     break;
 
                 case TypeCategory.None:
-                    if (!isInstanceCheck) {
-                        isSupported = false;
-                    } else {
-                        isSupported = TypeBase.isInstantiable(subtype);
-                    }
+                    isSupported = TypeBase.isInstantiable(subtype);
                     break;
 
                 case TypeCategory.Function:
