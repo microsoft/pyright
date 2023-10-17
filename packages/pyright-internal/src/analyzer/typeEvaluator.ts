@@ -23822,53 +23822,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let specializedSrcType = srcType;
         let specializedDestType = destType;
-        let reverseMatchingFailed = false;
+        let doSpecializationStep = false;
 
         if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
             specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, { useNarrowBoundOnly: true });
-
-            if (requiresSpecialization(specializedDestType)) {
-                reverseMatchingFailed = !assignType(
-                    specializedSrcType,
-                    specializedDestType,
-                    /* diag */ undefined,
-                    srcTypeVarContext,
-                    destTypeVarContext,
-                    (flags ^ AssignTypeFlags.ReverseTypeVarMatching) | AssignTypeFlags.RetainLiteralsForTypeVar,
-                    recursionCount
-                );
-
-                specializedDestType = applySolvedTypeVars(destType, destTypeVarContext);
-            }
+            doSpecializationStep = requiresSpecialization(specializedDestType);
         } else {
             specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext, { useNarrowBoundOnly: true });
+            doSpecializationStep = requiresSpecialization(specializedSrcType);
+        }
 
-            if (requiresSpecialization(specializedSrcType)) {
-                reverseMatchingFailed = !assignType(
-                    specializedSrcType,
-                    specializedDestType,
-                    /* diag */ undefined,
-                    srcTypeVarContext,
-                    destTypeVarContext,
-                    (flags ^ AssignTypeFlags.ReverseTypeVarMatching) | AssignTypeFlags.RetainLiteralsForTypeVar,
-                    recursionCount
-                );
+        // Is an additional specialization step required?
+        if (doSpecializationStep) {
+            assignType(
+                specializedSrcType,
+                specializedDestType,
+                /* diag */ undefined,
+                srcTypeVarContext,
+                destTypeVarContext,
+                (flags ^ AssignTypeFlags.ReverseTypeVarMatching) | AssignTypeFlags.RetainLiteralsForTypeVar,
+                recursionCount
+            );
 
+            if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
+                specializedDestType = applySolvedTypeVars(destType, destTypeVarContext);
+            } else {
                 specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext);
-            }
-
-            if (reverseMatchingFailed) {
-                if (diag && paramIndex !== undefined) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.paramAssignment().format({
-                            index: paramIndex + 1,
-                            sourceType: printType(destType),
-                            destType: printType(srcType),
-                        })
-                    );
-                }
-
-                return false;
             }
         }
 
