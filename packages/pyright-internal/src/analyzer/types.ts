@@ -793,6 +793,16 @@ export namespace ClassType {
         return newClassType;
     }
 
+    export function cloneIncludeSubclasses(classType: ClassType) {
+        if (classType.includeSubclasses) {
+            return classType;
+        }
+
+        const newClassType = TypeBase.cloneType(classType);
+        newClassType.includeSubclasses = true;
+        return newClassType;
+    }
+
     export function cloneWithLiteral(classType: ClassType, value: LiteralValue | undefined): ClassType {
         const newClassType = TypeBase.cloneType(classType);
         newClassType.literalValue = value;
