@@ -132,6 +132,7 @@ export class FindReferencesTreeWalker {
                 treatModuleInImportAndFromImportSame: true,
                 skipUnreachableCode: false,
                 useCase: this._referencesResult.useCase,
+                providers: this._referencesResult.providers,
             }
         );
 

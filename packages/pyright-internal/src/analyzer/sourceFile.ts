@@ -348,13 +348,18 @@ export class SourceFile {
         // that of the previous contents.
         try {
             // Read the file's contents.
-            const fileContents = this.fileSystem.readFileSync(this._filePath, 'utf8');
+            if (this.fileSystem.existsSync(this._filePath)) {
+                const fileContents = this.fileSystem.readFileSync(this._filePath, 'utf8');
 
-            if (fileContents.length !== this._writableData.lastFileContentLength) {
-                return true;
-            }
+                if (fileContents.length !== this._writableData.lastFileContentLength) {
+                    return true;
+                }
 
-            if (StringUtils.hashString(fileContents) !== this._writableData.lastFileContentHash) {
+                if (StringUtils.hashString(fileContents) !== this._writableData.lastFileContentHash) {
+                    return true;
+                }
+            } else {
+                // No longer exists, so yes it has changed.
                 return true;
             }
         } catch (error) {

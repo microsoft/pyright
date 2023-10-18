@@ -383,6 +383,11 @@ export class TestFileSystem implements FileSystem, TempFile {
     }
 
     getUri(path: string): string {
+        // If this is not a file path, just return the original path.
+        if (pathUtil.isUri(path)) {
+            return path;
+        }
+
         return URI.file(path).toString();
     }
 

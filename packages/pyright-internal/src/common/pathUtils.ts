@@ -9,7 +9,7 @@
 
 import type { Dirent } from 'fs';
 import * as path from 'path';
-import { URI } from 'vscode-uri';
+import { URI, Utils } from 'vscode-uri';
 
 import { Char } from './charCodes';
 import { some } from './collectionUtils';
@@ -91,7 +91,14 @@ export function forEachAncestorDirectory(
 }
 
 export function getDirectoryPath(pathString: string): string {
+    if (isUri(pathString)) {
+        return Utils.dirname(URI.parse(pathString).with({ fragment: '' })).toString();
+    }
     return pathString.substr(0, Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep)));
+}
+
+export function isUri(pathString: string) {
+    return pathString.indexOf(':') > 1;
 }
 
 /**
@@ -116,14 +123,23 @@ export function getRootLength(pathString: string): number {
             return 2; // DOS: "c:" (but not "c:d")
         }
     }
+
+    if (isUri(pathString)) {
+        return URI.parse(pathString).scheme.length + 3;
+    }
     return 0;
+}
+
+export function getPathSeparator(pathString: string) {
+    return isUri(pathString) ? '/' : path.sep;
 }
 
 export function getPathComponents(pathString: string) {
     const normalizedPath = normalizeSlashes(pathString);
     const rootLength = getRootLength(normalizedPath);
     const root = normalizedPath.substring(0, rootLength);
-    const rest = normalizedPath.substring(rootLength).split(path.sep);
+    const sep = getPathSeparator(pathString);
+    const rest = normalizedPath.substring(rootLength).split(sep);
     if (rest.length > 0 && !rest[rest.length - 1]) {
         rest.pop();
     }
@@ -167,7 +183,8 @@ export function combinePathComponents(components: string[]): string {
     }
 
     const root = components[0] && ensureTrailingDirectorySeparator(components[0]);
-    return normalizeSlashes(root + components.slice(1).join(path.sep));
+    const sep = getPathSeparator(root);
+    return normalizeSlashes(root + components.slice(1).join(sep));
 }
 
 export function getRelativePath(dirPath: string, relativeTo: string) {
@@ -177,10 +194,11 @@ export function getRelativePath(dirPath: string, relativeTo: string) {
 
     const pathComponents = getPathComponents(dirPath);
     const relativeToComponents = getPathComponents(relativeTo);
+    const sep = getPathSeparator(dirPath);
 
     let relativePath = '.';
     for (let i = relativeToComponents.length; i < pathComponents.length; i++) {
-        relativePath += path.sep + pathComponents[i];
+        relativePath += sep + pathComponents[i];
     }
 
     return relativePath;
@@ -222,9 +240,11 @@ export function directoryExists(fs: ReadOnlyFileSystem, path: string): boolean {
 
 const getInvalidSeparator = (sep: string) => (sep === '/' ? '\\' : '/');
 export function normalizeSlashes(pathString: string, sep = path.sep): string {
-    if (pathString.includes(getInvalidSeparator(sep))) {
-        const separatorRegExp = /[\\/]/g;
-        return pathString.replace(separatorRegExp, sep);
+    if (!isUri(pathString)) {
+        if (pathString.includes(getInvalidSeparator(sep))) {
+            const separatorRegExp = /[\\/]/g;
+            return pathString.replace(separatorRegExp, sep);
+        }
     }
 
     return pathString;
@@ -244,7 +264,7 @@ export function resolvePaths(path: string, ...paths: (string | undefined)[]): st
     return normalizePath(some(paths) ? combinePaths(path, ...paths) : normalizeSlashes(path));
 }
 
-export function combinePaths(pathString: string, ...paths: (string | undefined)[]): string {
+function combineFilePaths(pathString: string, ...paths: (string | undefined)[]): string {
     if (pathString) {
         pathString = normalizeSlashes(pathString);
     }
@@ -264,6 +284,29 @@ export function combinePaths(pathString: string, ...paths: (string | undefined)[
     }
 
     return pathString;
+}
+
+export function combinePaths(pathString: string, ...paths: (string | undefined)[]): string {
+    if (!isUri(pathString)) {
+        // Not a URI, or a URI with a single letter scheme.
+        return combineFilePaths(pathString, ...paths);
+    }
+
+    // Go through the paths to see if any are rooted. If so, treat as
+    // a file path. On linux this might be wrong if a path starts with '/'.
+    if (some(paths, (p) => !!p && getRootLength(p) !== 0)) {
+        return combineFilePaths(pathString, ...paths);
+    }
+
+    // Otherwise this is a URI
+    const nonEmptyPaths = paths.filter((p) => !!p) as string[];
+    const uri = URI.parse(pathString);
+
+    // Make sure we have a path to append to.
+    if (uri.path === '' || uri.path === undefined) {
+        nonEmptyPaths.unshift('/');
+    }
+    return Utils.joinPath(uri.with({ fragment: '' }), ...nonEmptyPaths).toString();
 }
 
 /**
@@ -435,7 +478,9 @@ export function getBaseFileName(pathString: string, extensions?: string | readon
     // return the trailing portion of the path starting after the last (non-terminal) directory
     // separator but not including any trailing directory separator.
     pathString = stripTrailingDirectorySeparator(pathString);
-    const name = pathString.slice(Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep) + 1));
+    const name = isUri(pathString)
+        ? Utils.basename(URI.parse(pathString))
+        : pathString.slice(Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep) + 1));
     const extension =
         extensions !== undefined && ignoreCase !== undefined
             ? getAnyExtensionFromPath(name, extensions, ignoreCase)
@@ -488,8 +533,9 @@ export function getRelativePathComponentsFromDirectory(
 }
 
 export function ensureTrailingDirectorySeparator(pathString: string): string {
+    const sep = getPathSeparator(pathString);
     if (!hasTrailingDirectorySeparator(pathString)) {
-        return pathString + path.sep;
+        return pathString + sep;
     }
 
     return pathString;
@@ -540,11 +586,16 @@ export function stripFileExtension(fileName: string, multiDotExtension = false) 
 }
 
 export function realCasePath(pathString: string, fileSystem: ReadOnlyFileSystem): string {
-    return fileSystem.realCasePath(pathString);
+    return isUri(pathString) ? pathString : fileSystem.realCasePath(pathString);
 }
 
 export function normalizePath(pathString: string): string {
-    return normalizeSlashes(path.normalize(pathString));
+    if (!isUri(pathString)) {
+        return normalizeSlashes(path.normalize(pathString));
+    }
+
+    // Must be a URI, already normalized.
+    return pathString;
 }
 
 export function isDirectory(fs: ReadOnlyFileSystem, path: string): boolean {
@@ -643,7 +694,7 @@ export function getWildcardRegexPattern(rootPath: string, fileSpec: string): str
 
     const pathComponents = getPathComponents(absolutePath);
 
-    const escapedSeparator = getRegexEscapedSeparator();
+    const escapedSeparator = getRegexEscapedSeparator(getPathSeparator(rootPath));
     const doubleAsteriskRegexFragment = `(${escapedSeparator}[^${escapedSeparator}][^${escapedSeparator}]*)*?`;
     const reservedCharacterPattern = new RegExp(`[^\\w\\s${escapedSeparator}]`, 'g');
 
@@ -707,6 +758,7 @@ export function getWildcardRoot(rootPath: string, fileSpec: string): string {
     }
 
     const pathComponents = getPathComponents(absolutePath);
+    const sep = getPathSeparator(absolutePath);
 
     // Strip the directory separator from the root component.
     if (pathComponents.length > 0) {
@@ -714,7 +766,7 @@ export function getWildcardRoot(rootPath: string, fileSpec: string): string {
     }
 
     if (pathComponents.length === 1 && !pathComponents[0]) {
-        return path.sep;
+        return sep;
     }
 
     let wildcardRoot = '';
@@ -729,7 +781,7 @@ export function getWildcardRoot(rootPath: string, fileSpec: string): string {
             }
 
             if (!firstComponent) {
-                component = path.sep + component;
+                component = sep + component;
             }
 
             wildcardRoot += component;
@@ -746,7 +798,7 @@ export function hasPythonExtension(path: string) {
 
 export function getFileSpec(sp: ServiceProvider, rootPath: string, fileSpec: string): FileSpec {
     let regExPattern = getWildcardRegexPattern(rootPath, fileSpec);
-    const escapedSeparator = getRegexEscapedSeparator();
+    const escapedSeparator = getRegexEscapedSeparator(getPathSeparator(rootPath));
     regExPattern = `^(${regExPattern})($|${escapedSeparator})`;
 
     const fs = sp.get(ServiceKeys.fs);
@@ -763,9 +815,9 @@ export function getFileSpec(sp: ServiceProvider, rootPath: string, fileSpec: str
     };
 }
 
-export function getRegexEscapedSeparator() {
+export function getRegexEscapedSeparator(pathSep: string = path.sep) {
     // we don't need to escape "/" in typescript regular expression
-    return path.sep === '/' ? '/' : '\\\\';
+    return pathSep === '/' ? '/' : '\\\\';
 }
 
 /**
@@ -878,16 +930,22 @@ export function convertUriToPath(fs: ReadOnlyFileSystem, uriString: string): str
 export function extractPathFromUri(uriString: string) {
     const uri = URI.parse(uriString);
 
-    // When schema is "file", we use fsPath so that we can handle things like UNC paths.
-    let convertedPath = normalizePath(uri.scheme === 'file' ? uri.fsPath : uri.path);
+    // Only for file scheme do we actually modify anything. All other uri strings
+    // maintain the same value they started with.
+    if (uri.scheme === 'file' && !uri.fragment) {
+        // When schema is "file", we use fsPath so that we can handle things like UNC paths.
+        let convertedPath = normalizePath(uri.fsPath);
 
-    // If this is a DOS-style path with a drive letter, remove
-    // the leading slash.
-    if (convertedPath.match(/^\\[a-zA-Z]:\\/)) {
-        convertedPath = convertedPath.slice(1);
+        // If this is a DOS-style path with a drive letter, remove
+        // the leading slash.
+        if (convertedPath.match(/^\\[a-zA-Z]:\\/)) {
+            convertedPath = convertedPath.slice(1);
+        }
+
+        return convertedPath;
     }
 
-    return convertedPath;
+    return uriString;
 }
 
 export function convertPathToUri(fs: ReadOnlyFileSystem, path: string): string {
