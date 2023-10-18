@@ -15322,15 +15322,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ['ReadOnly', { alias: '', module: 'builtins' }],
         ]);
 
-        let aliasMapEntry = specialTypes.get(assignedName);
-
-        // Support ReadOnly only as an experimental feature.
-        if (
-            assignedName === 'ReadOnly' &&
-            !AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures
-        ) {
-            aliasMapEntry = undefined;
-        }
+        const aliasMapEntry = specialTypes.get(assignedName);
 
         if (aliasMapEntry) {
             const cachedType = readTypeCache(node, EvaluatorFlags.None);
