@@ -120,3 +120,23 @@ n1: TD8 = td10
 # and required in TD10 but writable and not required in
 # TD9, which means it can be deleted.
 n2: TD9 = td10
+
+
+class TD11(TypedDict, readonly=True):
+    a: int
+
+
+class TD12(TypedDict, readonly=True):
+    a: float
+
+
+class TD13(TypedDict):
+    a: float
+
+
+v1 = TD11(a=2)
+v2: TD12 = v1
+
+# This should generate an error becuase "a" is writable
+# and is therefore invariant.
+v3: TD13 = v1

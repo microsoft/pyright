@@ -879,6 +879,13 @@ export function assignTypedDictToTypedDict(
             }
 
             const subDiag = diag?.createAddendum();
+            let adjustedFlags = flags;
+
+            // If either of the fields is not read-only, we need to enforce invariance.
+            if (!destEntry.isReadOnly || !srcEntry.isReadOnly) {
+                adjustedFlags |= AssignTypeFlags.EnforceInvariance;
+            }
+
             if (
                 !evaluator.assignType(
                     destEntry.valueType,
@@ -886,7 +893,7 @@ export function assignTypedDictToTypedDict(
                     subDiag?.createAddendum(),
                     typeVarContext,
                     /* srcTypeVarContext */ undefined,
-                    flags,
+                    adjustedFlags,
                     recursionCount
                 )
             ) {
