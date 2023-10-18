@@ -345,7 +345,6 @@
         "paramSpecDefaultNotTuple": "Se esperaban puntos suspensivos, una expresión de tupla o ParamSpec para el valor predeterminado de ParamSpec",
         "paramSpecFirstArg": "Se esperaba el nombre de ParamSpec como primer argumento",
         "paramSpecKwargsUsage": "El miembro \"kwargs\" de ParamSpec solo es válido cuando se utiliza con el parámetro **kwargs",
-        "paramSpecNotBound": "La especificación de parámetro \"{type}\" no tiene valor vinculado",
         "paramSpecNotUsedByOuterScope": "ParamSpec \"{name}\" no tiene significado en este contexto",
         "paramSpecScopedToReturnType": "El ámbito de ParamSpec \"{name}\" es un ámbito al que se puede llamar dentro del tipo de valor devuelto y no se puede hacer referencia a él en el cuerpo de la función.",
         "paramSpecUnknownArg": "ParamSpec no admite más de un argumento",

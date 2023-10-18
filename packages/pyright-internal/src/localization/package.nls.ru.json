@@ -345,7 +345,6 @@
         "paramSpecDefaultNotTuple": "Для значения ParamSpec по умолчанию ожидается многоточие, выражение кортежа или ParamSpec",
         "paramSpecFirstArg": "Ожидается имя ParamSpec в качестве первого аргумента",
         "paramSpecKwargsUsage": "Элемент \"kwargs\" ParamSpec допустим только при использовании с параметром **kwargs.",
-        "paramSpecNotBound": "Спецификация параметра \"{type}\" не имеет привязанного значения",
         "paramSpecNotUsedByOuterScope": "ParamSpec \"{name}\" не имеет смысла в этом контексте",
         "paramSpecScopedToReturnType": "ParamSpec \"{name}\" относится к области вызываемого объекта в возвращаемом типе, и на него нельзя ссылаться в тексте функции.",
         "paramSpecUnknownArg": "ParamSpec не поддерживает более одного аргумента",

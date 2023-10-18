@@ -345,7 +345,6 @@
         "paramSpecDefaultNotTuple": "ParamSpec 的默认值应为省略号、元组表达式或 ParamSpec",
         "paramSpecFirstArg": "ParamSpec 作为第一个参数的预期名称",
         "paramSpecKwargsUsage": "ParamSpec 的“kwargs”成员仅在与 **kwargs 参数一起使用时有效",
-        "paramSpecNotBound": "参数规范“{type}”没有绑定值",
         "paramSpecNotUsedByOuterScope": "ParamSpec“{name}”在此上下文中没有意义",
         "paramSpecScopedToReturnType": "ParamSpec \"{name}\"在返回类型内的作用域为可调用，不能在函数体中引用",
         "paramSpecUnknownArg": "ParamSpec 不支持多个参数",

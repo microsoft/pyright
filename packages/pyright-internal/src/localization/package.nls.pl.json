@@ -345,7 +345,6 @@
         "paramSpecDefaultNotTuple": "Oczekiwano wielokropka, wyrażenia krotki lub parametru ParamSpec dla domyślnej wartości ParamSpec",
         "paramSpecFirstArg": "Oczekiwano nazwy parametru ParamSpec jako pierwszego argumentu",
         "paramSpecKwargsUsage": "Składowa „kwargs” parametru ParamSpec jest ważna tylko wtedy, gdy jest używana z parametrem **kwargs",
-        "paramSpecNotBound": "Specyfikacja parametru „{type}” nie ma wartości powiązanej",
         "paramSpecNotUsedByOuterScope": "Element ParamSpec „{name}” nie ma znaczenia w tym kontekście",
         "paramSpecScopedToReturnType": "Parametr ParamSpec „{name}” jest objęty zakresem możliwości wywołania w ramach zwracanego typu i nie można odwoływać się do niego w treści funkcji",
         "paramSpecUnknownArg": "Parametr ParamSpec nie obsługuje więcej niż jednego argumentu",

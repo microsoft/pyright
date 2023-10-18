@@ -345,7 +345,6 @@
         "paramSpecDefaultNotTuple": "Points de suspension attendus, expression de tuple ou ParamSpec pour la valeur par défaut de ParamSpec",
         "paramSpecFirstArg": "Nom attendu de ParamSpec comme premier argument",
         "paramSpecKwargsUsage": "Le membre « configurrgs » de ParamSpec n’est valide qu’en cas d’utilisation avec le paramètre **rgs",
-        "paramSpecNotBound": "La spec de paramètre « {type} » n’a pas de valeur liée",
         "paramSpecNotUsedByOuterScope": "ParamSpec « {name} » n’a aucune signification dans ce contexte",
         "paramSpecScopedToReturnType": "ParamSpec \"{name}\" est limité à un appelable dans le type de retour et ne peut pas être référencé dans le corps de la fonction",
         "paramSpecUnknownArg": "ParamSpec ne prend pas en charge plus d'un argument",

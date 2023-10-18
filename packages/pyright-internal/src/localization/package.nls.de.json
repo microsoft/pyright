@@ -345,7 +345,6 @@
         "paramSpecDefaultNotTuple": "Es wurde ein Auslassungszeichen, ein Tupelausdruck oder ParamSpec für den Standardwert von ParamSpec erwartet.",
         "paramSpecFirstArg": "Der Name von ParamSpec wurde als erstes Argument erwartet.",
         "paramSpecKwargsUsage": "Das \"kwargs\"-Element von ParamSpec ist nur gültig, wenn es mit dem Parameter **kwargs verwendet wird.",
-        "paramSpecNotBound": "Die Parameterspezifikation \"{type}\" hat keinen gebundenen Wert.",
         "paramSpecNotUsedByOuterScope": "ParamSpec \"{name}\" hat in diesem Kontext keine Bedeutung.",
         "paramSpecScopedToReturnType": "ParamSpec \"{name}\" ist auf einen Aufruf innerhalb des Rückgabetyps beschränkt und kann im Funktionstext nicht referenziert werden.",
         "paramSpecUnknownArg": "ParamSpec unterstützt nur ein Argument.",

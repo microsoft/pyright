@@ -345,7 +345,6 @@
         "paramSpecDefaultNotTuple": "Reticências esperadas, uma expressão de tupla ou ParamSpec para o valor padrão de ParamSpec",
         "paramSpecFirstArg": "Nome esperado de ParamSpec como primeiro argumento",
         "paramSpecKwargsUsage": "O membro \"kwargs\" de ParamSpec é válido somente quando usado com o parâmetro **kwargs",
-        "paramSpecNotBound": "A especificação de parâmetro \"{type}\" não tem nenhum valor associado",
         "paramSpecNotUsedByOuterScope": "O ParamSpec \"{name}\" não tem significado neste contexto",
         "paramSpecScopedToReturnType": "ParamSpec \"{name}\" tem como escopo um chamador dentro do tipo de retorno e não pode ser referenciado no corpo da função",
         "paramSpecUnknownArg": "ParamSpec não é compatível com mais de um argumento",

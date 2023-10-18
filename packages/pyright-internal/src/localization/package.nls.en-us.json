@@ -335,7 +335,6 @@
         "paramSpecDefaultNotTuple": "Expected ellipsis, a tuple expression, or ParamSpec for default value of ParamSpec",
         "paramSpecFirstArg": "Expected name of ParamSpec as first argument",
         "paramSpecKwargsUsage": "\"kwargs\" member of ParamSpec is valid only when used with **kwargs parameter",
-        "paramSpecNotBound": "Param spec \"{type}\" has no bound value",
         "paramSpecNotUsedByOuterScope": "ParamSpec \"{name}\" has no meaning in this context",
         "paramSpecScopedToReturnType": "ParamSpec \"{name}\" is scoped to a callable within the return type and cannot be referenced in the function body",
         "paramSpecUnknownArg": "ParamSpec does not support more than one argument",

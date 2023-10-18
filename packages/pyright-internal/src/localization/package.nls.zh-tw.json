@@ -345,7 +345,6 @@
         "paramSpecDefaultNotTuple": "ParamSpec 的預設值必須是省略符號、元組運算式或 ParamSpec",
         "paramSpecFirstArg": "應以 ParamSpec 的名稱作為第一個引數",
         "paramSpecKwargsUsage": "ParamSpec 的 \"kwargs\" 成員只有在與 **kwargs 參數搭配使用時有效",
-        "paramSpecNotBound": "參數規格 \"{type}\" 沒有繫結值",
         "paramSpecNotUsedByOuterScope": "ParamSpec \"{name}\" 在此內容中沒有意義",
         "paramSpecScopedToReturnType": "ParamSpec \"{name}\" 的範圍為傳回型別內的可呼叫項目，無法在函式主體中參考",
         "paramSpecUnknownArg": "ParamSpec 不支援一個以上的引數",
