@@ -345,7 +345,6 @@
         "paramSpecDefaultNotTuple": "ParamSpec の既定値には、省略記号、タプル式、または ParamSpec が必要です",
         "paramSpecFirstArg": "最初の引数として ParamSpec の名前が必要です",
         "paramSpecKwargsUsage": "ParamSpec の \"kwargs\" メンバーは、**kwargs パラメーターと共に使用する場合にのみ有効です",
-        "paramSpecNotBound": "パラメーター 仕様 \"{type}\" にバインドされた値がありません",
         "paramSpecNotUsedByOuterScope": "ParamSpec \"{name}\" はこのコンテキストでは意味がありません",
         "paramSpecScopedToReturnType": "ParamSpec \"{name}\" は、戻り値の型内の呼び出し可能なスコープであり、関数本体では参照できません",
         "paramSpecUnknownArg": "ParamSpec は複数の引数をサポートしていません",

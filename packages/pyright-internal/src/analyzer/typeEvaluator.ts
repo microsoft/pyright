@@ -10091,7 +10091,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const remainingParamCount = positionParamLimitIndex - paramIndex - 1;
 
             if (paramIndex >= positionParamLimitIndex) {
-                if (!typeResult.type.details.paramSpec) {
+                if (paramSpecArgList) {
+                    // Push the remaining positional args onto the param spec arg list.
+                    while (argIndex < positionalArgCount) {
+                        paramSpecArgList.push(argList[argIndex]);
+                        argIndex++;
+                    }
+                } else {
                     let tooManyPositionals = false;
 
                     if (foundUnpackedListArg && argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
@@ -10523,14 +10529,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isParamSpecKwargsArgument(typeResult.type.details.paramSpec, argType)
                     ) {
                         unpackedDictionaryArgType = AnyType.create();
-                        validateArgTypeParams.push({
-                            paramCategory: ParameterCategory.KwargsDict,
-                            paramType: typeResult.type.details.paramSpec,
-                            requiresTypeVarMatching: false,
-                            argument: argList[argIndex],
-                            argType: isParamSpec(argType) ? undefined : AnyType.create(),
-                            errorNode: argList[argIndex].valueExpression || errorNode,
-                        });
+
+                        if (!paramSpecArgList) {
+                            validateArgTypeParams.push({
+                                paramCategory: ParameterCategory.KwargsDict,
+                                paramType: typeResult.type.details.paramSpec,
+                                requiresTypeVarMatching: false,
+                                argument: argList[argIndex],
+                                argType: isParamSpec(argType) ? undefined : AnyType.create(),
+                                errorNode: argList[argIndex].valueExpression || errorNode,
+                            });
+                        }
                     } else {
                         const strObjType = getBuiltInObject(errorNode, 'str');
 
@@ -11663,18 +11672,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeVarContext: TypeVarSignatureContext,
         signatureTracker: UniqueSignatureTracker
     ): ParamSpecArgResult {
-        const paramSpecType = typeVarContext.getParamSpecType(paramSpec);
+        let paramSpecType = typeVarContext.getParamSpecType(paramSpec);
         if (!paramSpecType) {
-            addDiagnostic(
-                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.paramSpecNotBound().format({ type: printType(paramSpec) }),
-                argList[0]?.valueExpression || errorNode
-            );
-            return { argumentErrors: true, typeVarContexts: [undefined] };
+            paramSpecType = convertTypeToParamSpecValue(paramSpec);
         }
 
         const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, { type: paramSpecType }, 0);
+        const functionType = matchResults.overload;
         const srcTypeVarContext = new TypeVarContext(getTypeVarScopeIds(paramSpecType));
 
         if (matchResults.argumentErrors) {
@@ -11689,18 +11693,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { argumentErrors: true, typeVarContexts: [srcTypeVarContext] };
         }
 
-        // If the remaining signature is parameterized by the same ParamSpec, avoid
-        // infinite recursion by returning an error. It's not clear how this can happen,
-        // but it appears to be possible based on logged crashes. Add some additional
-        // logging here to help us track down the cause.
-        if (matchResults.overload.details.paramSpec) {
-            if (isTypeSame(matchResults.overload.details.paramSpec, paramSpec)) {
-                fail(
-                    `Recursive ParamSpec in ${ParseTreeUtils.printExpression(errorNode)}, signature = ${printType(
-                        matchResults.overload
-                    )}`
-                );
-            }
+        // Handle the recursive case where we're passing (*args: P.args, **kwargs: P.args)
+        // a remaining function of type (*P).
+        if (
+            functionType.details.paramSpec &&
+            functionType.details.parameters.length === 0 &&
+            isTypeSame(functionType.details.paramSpec, paramSpec)
+        ) {
+            // TODO - need to perform additional validation here.
+            return { argumentErrors: false, typeVarContexts: [srcTypeVarContext] };
         }
 
         const result = validateFunctionArgumentTypes(errorNode, matchResults, srcTypeVarContext, signatureTracker);

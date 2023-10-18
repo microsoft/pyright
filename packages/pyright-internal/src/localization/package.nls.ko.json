@@ -345,7 +345,6 @@
         "paramSpecDefaultNotTuple": "ParamSpec의 기본값에는 줄임표, 튜플 식 또는 ParamSpec이 필요합니다.",
         "paramSpecFirstArg": "첫 번째 인수로 ParamSpec의 이름이 필요합니다.",
         "paramSpecKwargsUsage": "ParamSpec의 \"kwargs\" 멤버는 **kwargs 매개 변수와 함께 사용할 때만 유효합니다.",
-        "paramSpecNotBound": "매개 변수 사양 \"{type}\"에 바인딩된 값이 없습니다.",
         "paramSpecNotUsedByOuterScope": "ParamSpec \"{name}\"은(는) 이 컨텍스트에서 의미가 없습니다.",
         "paramSpecScopedToReturnType": "ParamSpec ‘{name}’은 반환 형식 내에서 호출 가능으로 범위가 지정되며 함수 본문에서 참조할 수 없습니다.",
         "paramSpecUnknownArg": "ParamSpec은 한 개 이상의 인수를 지원하지 않습니다.",

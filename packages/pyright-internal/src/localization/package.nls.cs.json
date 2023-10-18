@@ -345,7 +345,6 @@
         "paramSpecDefaultNotTuple": "Očekávaly se tři tečky, výraz řazené kolekce členů nebo Parametr ParamSpec pro výchozí hodnotu ParamSpec",
         "paramSpecFirstArg": "Očekával se název parametru ParamSpec jako první argument",
         "paramSpecKwargsUsage": "Člen kwargs parametru ParamSpec je platný jenom v případě, že se používá s parametrem **kwargs",
-        "paramSpecNotBound": "Specifikace parametru {type} nemá žádnou vázanou hodnotu",
         "paramSpecNotUsedByOuterScope": "Parametr ParamSpec {name} nemá v tomto kontextu žádný význam",
         "paramSpecScopedToReturnType": "Parametr ParamSpec {name} je vymezený na volatelnou proměnnou v rámci návratového typu a nedá se na něj odkazovat v těle funkce jazyka",
         "paramSpecUnknownArg": "Parametr ParamSpec nepodporuje více než jeden argument",
