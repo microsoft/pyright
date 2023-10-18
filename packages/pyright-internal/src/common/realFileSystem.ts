@@ -21,7 +21,7 @@ import {
     FileWatcherProvider,
     nullFileWatcherProvider,
 } from './fileWatcher';
-import { getRootLength } from './pathUtils';
+import { getRootLength, isUri } from './pathUtils';
 
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();
@@ -393,6 +393,10 @@ class RealFileSystem implements FileSystem {
     }
 
     getUri(path: string): string {
+        // If this is not a file path, just return the original path.
+        if (isUri(path)) {
+            return path;
+        }
         return URI.file(path).toString();
     }
 
