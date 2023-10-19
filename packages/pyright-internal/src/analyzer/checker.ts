@@ -5143,8 +5143,6 @@ export class Checker extends ParseTreeWalker {
             classType,
             newMemberType,
             /* memberClass */ undefined,
-            /* errorNode */ undefined,
-            /* recursionCount */ undefined,
             /* treatConstructorAsClassMember */ true
         );
         if (!newMemberType) {
