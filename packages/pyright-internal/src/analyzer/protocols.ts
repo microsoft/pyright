@@ -409,7 +409,7 @@ function assignClassToProtocolInternal(
                             isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
                             /* treatConstructorAsClassMember */ undefined,
                             isMemberFromMetaclass ? srcType : undefined,
-                            /* diag */ undefined,
+                            diag,
                             recursionCount
                         );
                     }
@@ -420,13 +420,16 @@ function assignClassToProtocolInternal(
                         destType,
                         /* treatConstructorAsClassMember */ undefined,
                         /* firstParamType */ undefined,
-                        /* diag */ undefined,
+                        diag,
                         recursionCount
                     );
                 }
 
                 if (boundDeclaredType) {
                     destMemberType = removeParamSpecVariadicsFromSignature(boundDeclaredType);
+                } else {
+                    typesAreConsistent = false;
+                    return;
                 }
             }
 
