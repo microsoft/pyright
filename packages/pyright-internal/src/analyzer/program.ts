@@ -1575,7 +1575,7 @@ export class Program {
     }
 
     private _createInterimFileInfo(filePath: string) {
-        const moduleNameAndType = this._importResolver.getModuleNameForImport(
+        const moduleImportInfo = this._importResolver.getModuleNameForImport(
             filePath,
             this._configOptions.getDefaultExecEnvironment(),
             /* allowIllegalModuleName */ true
@@ -1583,9 +1583,9 @@ export class Program {
         const sourceFile = this._sourceFileFactory.createSourceFile(
             this.serviceProvider,
             filePath,
-            moduleNameAndType.moduleName,
-            moduleNameAndType.importType === ImportType.ThirdParty,
-            moduleNameAndType.isThirdPartyPyTypedPresent,
+            moduleImportInfo.moduleName,
+            moduleImportInfo.importType === ImportType.ThirdParty,
+            moduleImportInfo.isThirdPartyPyTypedPresent,
             this._editModeTracker,
             this._console,
             this._logTracker
@@ -1593,8 +1593,8 @@ export class Program {
         const sourceFileInfo = new SourceFileInfo(
             sourceFile,
             /* isTypeshedFile */ false,
-            moduleNameAndType.importType === ImportType.ThirdParty,
-            moduleNameAndType.isThirdPartyPyTypedPresent,
+            moduleImportInfo.importType === ImportType.ThirdParty,
+            moduleImportInfo.isThirdPartyPyTypedPresent,
             this._editModeTracker
         );
 

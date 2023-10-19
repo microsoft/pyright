@@ -181,7 +181,6 @@ test('getTextEditsForAutoImportInsertions - mix of import and from import statem
         moduleName: 'sys',
         importType: ImportType.BuiltIn,
         isLocalTypingsFile: false,
-        isThirdPartyPyTypedPresent: false,
     };
     testInsertions(code, 'marker1', [
         { module, alias: 's' },
@@ -198,19 +197,17 @@ test('getTextEditsForAutoImportInsertions - multiple modules with different grou
         moduleName: 'sys',
         importType: ImportType.BuiltIn,
         isLocalTypingsFile: false,
-        isThirdPartyPyTypedPresent: false,
     };
     const module2 = {
         moduleName: 'numpy',
         importType: ImportType.ThirdParty,
         isLocalTypingsFile: false,
-        isThirdPartyPyTypedPresent: false,
+        isThirdPartyPresent: false,
     };
     const module3 = {
         moduleName: 'test',
         importType: ImportType.Local,
         isLocalTypingsFile: false,
-        isThirdPartyPyTypedPresent: false,
     };
 
     testInsertions(code, 'marker1', [
@@ -229,19 +226,16 @@ test('getTextEditsForAutoImportInsertions - multiple modules with existing impor
         moduleName: 'sys',
         importType: ImportType.BuiltIn,
         isLocalTypingsFile: false,
-        isThirdPartyPyTypedPresent: false,
     };
     const module2 = {
         moduleName: 'numpy',
         importType: ImportType.ThirdParty,
         isLocalTypingsFile: false,
-        isThirdPartyPyTypedPresent: false,
     };
     const module3 = {
         moduleName: 'test',
         importType: ImportType.Local,
         isLocalTypingsFile: false,
-        isThirdPartyPyTypedPresent: false,
     };
 
     testInsertions(code, 'marker1', [
@@ -260,19 +254,16 @@ test('getTextEditsForAutoImportInsertions - multiple modules with same group', (
         moduleName: 'module1',
         importType: ImportType.Local,
         isLocalTypingsFile: false,
-        isThirdPartyPyTypedPresent: false,
     };
     const module2 = {
         moduleName: 'module2',
         importType: ImportType.Local,
         isLocalTypingsFile: false,
-        isThirdPartyPyTypedPresent: false,
     };
     const module3 = {
         moduleName: 'module3',
         importType: ImportType.Local,
         isLocalTypingsFile: false,
-        isThirdPartyPyTypedPresent: false,
     };
 
     testInsertions(code, 'marker1', [
@@ -594,7 +585,6 @@ function testInsertion(
                     moduleName,
                     importType,
                     isLocalTypingsFile: false,
-                    isThirdPartyPyTypedPresent: false,
                 },
                 name: i.name,
                 alias: i.alias,

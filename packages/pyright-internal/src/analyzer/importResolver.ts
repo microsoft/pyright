@@ -62,6 +62,12 @@ export interface ModuleNameAndType {
     moduleName: string;
     importType: ImportType;
     isLocalTypingsFile: boolean;
+}
+
+export interface ModuleImportInfo {
+    moduleName: string;
+    importType: ImportType;
+    isLocalTypingsFile: boolean;
     isThirdPartyPyTypedPresent: boolean;
 }
 
@@ -112,7 +118,7 @@ const allowPartialResolutionForThirdPartyPackages = false;
 export class ImportResolver {
     private _cachedPythonSearchPaths: { paths: string[]; failureInfo: string[] } | undefined;
     private _cachedImportResults = new Map<string | undefined, CachedImportResults>();
-    private _cachedModuleNameResults = new Map<string, Map<string, ModuleNameAndType>>();
+    private _cachedModuleNameResults = new Map<string, Map<string, ModuleImportInfo>>();
     private _cachedTypeshedRoot: string | undefined;
     private _cachedTypeshedStdLibPath: string | undefined;
     private _cachedTypeshedStdLibModuleVersions: Map<string, SupportedVersionRange> | undefined;
@@ -137,7 +143,7 @@ export class ImportResolver {
 
     invalidateCache() {
         this._cachedImportResults = new Map<string | undefined, CachedImportResults>();
-        this._cachedModuleNameResults = new Map<string, Map<string, ModuleNameAndType>>();
+        this._cachedModuleNameResults = new Map<string, Map<string, ModuleImportInfo>>();
         this.cachedParentImportResults.reset();
         this._stdlibModules = undefined;
 
@@ -312,7 +318,7 @@ export class ImportResolver {
     // In a sense, it's performing the inverse of resolveImport.
     getModuleNameForImport(filePath: string, execEnv: ExecutionEnvironment, allowInvalidModuleName = false) {
         // Cache results of the reverse of resolveImport as we cache resolveImport.
-        const cache = getOrAdd(this._cachedModuleNameResults, execEnv.root, () => new Map<string, ModuleNameAndType>());
+        const cache = getOrAdd(this._cachedModuleNameResults, execEnv.root, () => new Map<string, ModuleImportInfo>());
         return getOrAdd(cache, filePath, () => this._getModuleNameForImport(filePath, execEnv, allowInvalidModuleName));
     }
 
@@ -1047,7 +1053,7 @@ export class ImportResolver {
         filePath: string,
         execEnv: ExecutionEnvironment,
         allowInvalidModuleName: boolean
-    ): ModuleNameAndType {
+    ): ModuleImportInfo {
         let moduleName: string | undefined;
         let importType = ImportType.BuiltIn;
         let isLocalTypingsFile = false;
