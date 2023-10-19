@@ -5790,9 +5790,13 @@ export class Checker extends ParseTreeWalker {
                 const enforceParamNameMatch = !SymbolNameUtils.isDunderName(memberName);
 
                 // Don't check certain magic functions or private symbols.
+                // Also, skip this check if the class is a TypedDict. The methods for a TypedDict
+                // are synthesized, and they can result in many overloads. We assume they
+                // are correct and will not produce any errors.
                 if (
                     !exemptMethods.some((exempt) => exempt === memberName) &&
-                    !SymbolNameUtils.isPrivateName(memberName)
+                    !SymbolNameUtils.isPrivateName(memberName) &&
+                    !ClassType.isTypedDictClass(childClassType)
                 ) {
                     if (
                         !this._evaluator.validateOverrideMethod(
