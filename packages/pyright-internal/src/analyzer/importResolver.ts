@@ -64,10 +64,7 @@ export interface ModuleNameAndType {
     isLocalTypingsFile: boolean;
 }
 
-export interface ModuleImportInfo {
-    moduleName: string;
-    importType: ImportType;
-    isLocalTypingsFile: boolean;
+export interface ModuleImportInfo extends ModuleNameAndType {
     isThirdPartyPyTypedPresent: boolean;
 }
 
