@@ -2135,9 +2135,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ClassType.cloneAsInstance(classType),
                     unboundMethodType,
                     /* memberClass */ undefined,
-                    /* errorNode */ undefined,
-                    recursionCount,
-                    treatConstructorAsClassMember
+                    treatConstructorAsClassMember,
+                    /* firstParamType */ undefined,
+                    /* diag */ undefined,
+                    recursionCount
                 );
 
                 if (boundMethod) {
@@ -2423,12 +2424,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (setItemMember) {
                         const setItemType = getTypeOfMember(setItemMember);
                         if (isFunction(setItemType)) {
-                            const boundFunction = bindFunctionToClassOrObject(
+                            const boundFunction = bindFunctionToClassOrObjectWithErrors(
                                 baseType,
                                 setItemType,
                                 isInstantiableClass(setItemMember.classType) ? setItemMember.classType : undefined,
                                 expression,
-                                /* recursionCount */ undefined,
                                 /* treatConstructorAsClassMember */ false
                             );
                             if (boundFunction && isFunction(boundFunction)) {
@@ -2484,10 +2484,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (isFunction(declaredType) || isOverloadedFunction(declaredType)) {
                         if (bindFunction) {
-                            declaredType = bindFunctionToClassOrObject(
+                            declaredType = bindFunctionToClassOrObjectWithErrors(
                                 classOrObjectBase,
                                 declaredType,
-                                /* memberClass */ undefined,
+                                /* memberAccessClass */ undefined,
                                 expression
                             );
                         }
@@ -4306,12 +4306,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isFunction(memberType) || isOverloadedFunction(memberType)) {
-            const methodType = bindFunctionToClassOrObject(
+            const methodType = bindFunctionToClassOrObjectWithErrors(
                 bindToClass || objType,
                 memberType,
                 classMember && isInstantiableClass(classMember.classType) ? classMember.classType : undefined,
                 errorNode,
-                /* recursionCount */ undefined,
                 /* treatConstructorAsClassMember */ false,
                 /* firstParamType */ bindToClass
             );
@@ -6028,12 +6027,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     }
                                 }
 
-                                let boundMethodType = bindFunctionToClassOrObject(
+                                let boundMethodType = bindFunctionToClassOrObjectWithErrors(
                                     lookupClass,
                                     methodType,
                                     bindToClass,
                                     errorNode,
-                                    /* recursionCount */ undefined,
                                     /* treatConstructorAsClassMember */ undefined,
                                     isAccessedThroughMetaclass ? concreteSubtype : undefined
                                 );
@@ -6187,12 +6185,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         effectiveBindToType = ClassType.cloneIncludeSubclasses(effectiveBindToType);
                     }
 
-                    return bindFunctionToClassOrObject(
+                    return bindFunctionToClassOrObjectWithErrors(
                         isAccessedThroughObject ? ClassType.cloneAsInstance(baseTypeClass) : baseTypeClass,
                         concreteSubtype,
                         memberInfo && isInstantiableClass(memberInfo.classType) ? memberInfo.classType : undefined,
                         errorNode,
-                        /* recursionCount */ undefined,
                         treatConstructorAsClassMember,
                         effectiveBindToType
                     );
@@ -6418,7 +6415,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (isFunction(accessMemberType) || isOverloadedFunction(accessMemberType)) {
-                const boundMethodType = bindFunctionToClassOrObject(classType, accessMemberType, classType, errorNode);
+                const boundMethodType = bindFunctionToClassOrObjectWithErrors(
+                    classType,
+                    accessMemberType,
+                    classType,
+                    errorNode
+                );
 
                 if (boundMethodType && (isFunction(boundMethodType) || isOverloadedFunction(boundMethodType))) {
                     const typeVarContext = new TypeVarContext(getTypeVarScopeId(boundMethodType));
@@ -25578,6 +25580,36 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return methodList;
     }
 
+    function bindFunctionToClassOrObjectWithErrors(
+        baseType: ClassType | undefined,
+        memberType: FunctionType | OverloadedFunctionType,
+        memberClass?: ClassType,
+        errorNode?: ParseNode,
+        treatConstructorAsClassMember = false,
+        firstParamType?: ClassType | TypeVarType
+    ): FunctionType | OverloadedFunctionType | undefined {
+        const diag = errorNode ? new DiagnosticAddendum() : undefined;
+        const result = bindFunctionToClassOrObject(
+            baseType,
+            memberType,
+            memberClass,
+            treatConstructorAsClassMember,
+            firstParamType,
+            diag
+        );
+
+        if (!result && errorNode && diag) {
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                diag.getString(),
+                errorNode
+            );
+        }
+
+        return result;
+    }
+
     // If the memberType is an instance or class method, creates a new
     // version of the function that has the "self" or "cls" parameter bound
     // to it. If treatAsClassMethod is true, the function is treated like a
@@ -25588,10 +25620,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         baseType: ClassType | undefined,
         memberType: FunctionType | OverloadedFunctionType,
         memberClass?: ClassType,
-        errorNode?: ParseNode,
-        recursionCount = 0,
         treatConstructorAsClassMember = false,
-        firstParamType?: ClassType | TypeVarType
+        firstParamType?: ClassType | TypeVarType,
+        diag?: DiagnosticAddendum,
+        recursionCount = 0
     ): FunctionType | OverloadedFunctionType | undefined {
         if (isFunction(memberType)) {
             // If the caller specified no base type, always strip the
@@ -25613,7 +25645,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     baseType,
                     memberType,
                     memberClass || ClassType.cloneAsInstantiable(baseObj),
-                    errorNode,
+                    diag,
                     recursionCount,
                     firstParamType || baseObj,
                     /* stripFirstParam */ isClassInstance(baseType)
@@ -25638,7 +25670,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     TypeBase.isInstance(baseType) ? ClassType.cloneAsInstantiable(baseType) : baseType,
                     memberType,
                     memberClass || baseClass,
-                    errorNode,
+                    diag,
                     recursionCount,
                     effectiveFirstParamType,
                     /* stripFirstParam */ true
@@ -25652,7 +25684,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     TypeBase.isInstance(baseType) ? ClassType.cloneAsInstantiable(baseType) : baseType,
                     memberType,
                     memberClass || baseClass,
-                    errorNode,
+                    diag,
                     recursionCount,
                     /* effectiveFirstParamType */ undefined,
                     /* stripFirstParam */ false
@@ -25667,10 +25699,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     baseType,
                     overload,
                     memberClass,
-                    /* errorNode */ undefined,
-                    recursionCount,
                     treatConstructorAsClassMember,
-                    firstParamType
+                    firstParamType,
+                    /* diag */ undefined,
+                    recursionCount
                 );
 
                 if (boundMethod) {
@@ -25678,25 +25710,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             });
 
-            if (OverloadedFunctionType.getOverloads(newOverloadType).length === 0) {
-                // No overloads matched, so rebind with the errorNode
+            const newOverloads = OverloadedFunctionType.getOverloads(newOverloadType);
+            if (newOverloads.length === 0) {
+                // No overloads matched, so rebind with the diag
                 // to report the error(s) to the user.
-                if (errorNode) {
+                if (diag) {
                     memberType.overloads.forEach((overload) => {
                         bindFunctionToClassOrObject(
                             baseType,
                             overload,
                             memberClass,
-                            errorNode,
-                            recursionCount,
                             treatConstructorAsClassMember,
-                            firstParamType
+                            firstParamType,
+                            diag,
+                            recursionCount
                         );
                     });
                 }
+
                 return undefined;
-            } else if (newOverloadType.overloads.length === 1) {
-                return newOverloadType.overloads[0];
+            }
+
+            if (newOverloads.length === 1) {
+                return newOverloads[0];
             }
 
             return newOverloadType;
@@ -25715,7 +25751,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         baseType: ClassType,
         memberType: FunctionType,
         memberClass: ClassType,
-        errorNode: ParseNode | undefined,
+        diag: DiagnosticAddendum | undefined,
         recursionCount: number,
         firstParamType: ClassType | TypeVarType | undefined,
         stripFirstParam = true
@@ -25728,7 +25764,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Fill out the typeVarContext for the "self" or "cls" parameter.
             typeVarContext.addSolveForScope(getTypeVarScopeId(memberType));
-            const diag = errorNode ? new DiagnosticAddendum() : undefined;
 
             if (
                 isTypeVar(memberTypeFirstParamType) &&
@@ -25752,7 +25787,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 !assignType(
                     memberTypeFirstParamType,
                     firstParamType,
-                    diag,
+                    diag?.createAddendum(),
                     typeVarContext,
                     /* srcTypeVarContext */ undefined,
                     AssignTypeFlags.AllowUnspecifiedTypeArguments,
@@ -25764,24 +25799,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !memberTypeFirstParam.isNameSynthesized &&
                     memberTypeFirstParam.hasDeclaredType
                 ) {
-                    if (errorNode) {
-                        const methodName = memberType.details.name || '(unnamed)';
-                        addDiagnostic(
-                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
+                    if (diag) {
+                        diag.addMessage(
                             Localizer.Diagnostic.bindTypeMismatch().format({
                                 type: printType(baseType),
-                                methodName: methodName,
+                                methodName: memberType.details.name || '<anonymous>',
                                 paramName: memberTypeFirstParam.name,
-                            }) + diag?.getString(),
-                            errorNode
+                            })
                         );
-                    } else {
-                        // If there was no errorNode, we couldn't report the error,
-                        // so we will instead return undefined and let the caller
-                        // deal with the error.
-                        return undefined;
                     }
+                    return undefined;
                 }
             }
         }

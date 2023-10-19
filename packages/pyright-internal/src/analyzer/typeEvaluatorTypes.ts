@@ -608,10 +608,10 @@ export interface TypeEvaluator {
         baseType: ClassType | undefined,
         memberType: FunctionType | OverloadedFunctionType,
         memberClass?: ClassType,
-        errorNode?: ParseNode,
-        recursionCount?: number,
         treatConstructorAsClassMember?: boolean,
-        firstParamType?: ClassType | TypeVarType
+        firstParamType?: ClassType | TypeVarType,
+        diag?: DiagnosticAddendum,
+        recursionCount?: number
     ) => FunctionType | OverloadedFunctionType | undefined;
     getCallSignatureInfo: (node: CallNode, activeIndex: number, activeOrFake: boolean) => CallSignatureInfo | undefined;
     getAbstractMethods: (classType: ClassType) => AbstractMethod[];

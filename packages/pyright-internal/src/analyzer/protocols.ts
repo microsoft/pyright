@@ -366,13 +366,17 @@ function assignClassToProtocolInternal(
                                 : ClassType.cloneAsInstance(srcType),
                             srcMemberType,
                             isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
-                            /* errorNode */ undefined,
-                            recursionCount,
                             /* treatConstructorAsClassMember */ undefined,
-                            isMemberFromMetaclass ? srcType : undefined
+                            isMemberFromMetaclass ? srcType : undefined,
+                            diag?.createAddendum(),
+                            recursionCount
                         );
+
                         if (boundSrcFunction) {
                             srcMemberType = removeParamSpecVariadicsFromSignature(boundSrcFunction);
+                        } else {
+                            typesAreConsistent = false;
+                            return;
                         }
                     }
                 }
@@ -403,10 +407,10 @@ function assignClassToProtocolInternal(
                             ClassType.cloneAsInstance(srcType),
                             destMemberType,
                             isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
-                            /* errorNode */ undefined,
-                            recursionCount,
                             /* treatConstructorAsClassMember */ undefined,
-                            isMemberFromMetaclass ? srcType : undefined
+                            isMemberFromMetaclass ? srcType : undefined,
+                            /* diag */ undefined,
+                            recursionCount
                         );
                     }
                 } else {
@@ -414,7 +418,9 @@ function assignClassToProtocolInternal(
                         ClassType.cloneAsInstance(destType),
                         destMemberType,
                         destType,
-                        /* errorNode */ undefined,
+                        /* treatConstructorAsClassMember */ undefined,
+                        /* firstParamType */ undefined,
+                        /* diag */ undefined,
                         recursionCount
                     );
                 }
