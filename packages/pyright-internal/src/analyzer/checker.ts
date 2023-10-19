@@ -5324,11 +5324,6 @@ export class Checker extends ParseTreeWalker {
                         const matchingMroObject = ClassType.cloneAsInstance(matchingMroClass);
                         const baseClassMroObject = ClassType.cloneAsInstance(specializedBaseClassMroClass);
 
-                        // If the types match exactly, we can shortcut the remainder of the MRO chain.
-                        // if (isTypeSame(matchingMroObject, baseClassMroObject)) {
-                        //     break;
-                        // }
-
                         if (!this._evaluator.assignType(matchingMroObject, baseClassMroObject)) {
                             const diag = new DiagnosticAddendum();
                             const baseClassObject = convertToInstance(baseClass);
