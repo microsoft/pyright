@@ -297,7 +297,6 @@ export function synthesizeTypedDictClassMethods(
     const entries = getTypedDictMembersForClass(evaluator, classType);
     let allEntriesAreNotRequired = true;
     let allEntriesAreReadOnly = true;
-    let allEntriesAreWritable = true;
     entries.forEach((entry, name) => {
         FunctionType.addParameter(initOverride1, {
             category: ParameterCategory.Simple,
@@ -319,9 +318,7 @@ export function synthesizeTypedDictClassMethods(
             allEntriesAreNotRequired = false;
         }
 
-        if (entry.isReadOnly) {
-            allEntriesAreWritable = false;
-        } else {
+        if (!entry.isReadOnly) {
             allEntriesAreReadOnly = false;
         }
     });
@@ -484,30 +481,98 @@ export function synthesizeTypedDictClassMethods(
         }
 
         function createUpdateMethod() {
-            const updateMethod = FunctionType.createSynthesizedInstance('update');
-            FunctionType.addParameter(updateMethod, selfParam);
+            // Overload 1: update(__m: Partial[<writable fields>], /)
+            const updateMethod1 = FunctionType.createSynthesizedInstance('update', FunctionTypeFlags.Overloaded);
+            FunctionType.addParameter(updateMethod1, selfParam);
 
-            // If at least one entry is read-only, don't allow updates. We need to override
-            // the update method provided by the _TypedDict base class, so we'll use
-            // a Never parameter to generate an error if someone attempts to call it
-            // in this case.
-            FunctionType.addParameter(updateMethod, {
+            // Overload 2: update(__m: Iterable[tuple[<name>, <type>]], /)
+            const updateMethod2 = FunctionType.createSynthesizedInstance('update', FunctionTypeFlags.Overloaded);
+            FunctionType.addParameter(updateMethod2, selfParam);
+
+            // Overload 3: update(*, <name>: <type>, ...)
+            const updateMethod3 = FunctionType.createSynthesizedInstance('update', FunctionTypeFlags.Overloaded);
+            FunctionType.addParameter(updateMethod3, selfParam);
+
+            // If all entries are read-only, don't allow updates.
+            FunctionType.addParameter(updateMethod1, {
                 category: ParameterCategory.Simple,
                 name: '__m',
                 hasDeclaredType: true,
-                type: !allEntriesAreWritable
+                type: allEntriesAreReadOnly
                     ? NeverType.createNever()
                     : ClassType.cloneAsInstance(ClassType.cloneForPartialTypedDict(classType)),
             });
 
-            FunctionType.addParameter(updateMethod, {
+            FunctionType.addParameter(updateMethod1, {
                 category: ParameterCategory.Simple,
                 name: '',
                 type: AnyType.create(),
             });
 
-            updateMethod.details.declaredReturnType = NoneType.createInstance();
-            return updateMethod;
+            FunctionType.addParameter(updateMethod3, {
+                category: ParameterCategory.ArgsList,
+                name: '',
+                hasDeclaredType: false,
+                type: UnknownType.create(),
+            });
+
+            updateMethod1.details.declaredReturnType = NoneType.createInstance();
+            updateMethod2.details.declaredReturnType = NoneType.createInstance();
+            updateMethod3.details.declaredReturnType = NoneType.createInstance();
+
+            const tuplesToCombine: Type[] = [];
+            const tupleClass = evaluator.getBuiltInType(node, 'tuple');
+
+            entries.forEach((entry, name) => {
+                if (!entry.isReadOnly) {
+                    // For writable entries, add a tuple entry.
+                    if (tupleClass && isInstantiableClass(tupleClass) && strClass && isInstantiableClass(strClass)) {
+                        const tupleType = specializeTupleClass(ClassType.cloneAsInstance(tupleClass), [
+                            {
+                                type: ClassType.cloneWithLiteral(ClassType.cloneAsInstance(strClass), name),
+                                isUnbounded: false,
+                            },
+                            { type: entry.valueType, isUnbounded: false },
+                        ]);
+
+                        tuplesToCombine.push(tupleType);
+                    }
+
+                    // For writable entries, add a keyword argument.
+                    FunctionType.addParameter(updateMethod3, {
+                        category: ParameterCategory.Simple,
+                        name,
+                        hasDeclaredType: true,
+                        hasDefault: true,
+                        defaultType: AnyType.create(/* isEllipsis */ true),
+                        type: entry.valueType,
+                    });
+                }
+            });
+
+            const iterableClass = evaluator.getTypingType(node, 'Iterable');
+            if (iterableClass && isInstantiableClass(iterableClass)) {
+                const iterableType = ClassType.cloneAsInstance(iterableClass);
+
+                FunctionType.addParameter(updateMethod2, {
+                    category: ParameterCategory.Simple,
+                    name: '__m',
+                    hasDeclaredType: true,
+                    type: ClassType.cloneForSpecialization(
+                        iterableType,
+                        [combineTypes(tuplesToCombine)],
+                        /* isTypeArgumentExplicit */ true
+                    ),
+                });
+            }
+
+            FunctionType.addParameter(updateMethod2, {
+                category: ParameterCategory.Simple,
+                name: '',
+                type: AnyType.create(),
+            });
+
+            return OverloadedFunctionType.create([updateMethod1, updateMethod2, updateMethod3]);
         }
 
         const getOverloads: FunctionType[] = [];
@@ -641,6 +706,18 @@ export function getTypedDictMembersForClass(evaluator: TypeEvaluator, classType:
     classType.details.typedDictEntries!.forEach((value, key) => {
         const tdEntry = { ...value };
         tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, typeVarContext);
+
+        // If the class is "Partial", make all entries optional and remove the
+        // entries that are readonly.
+        if (classType.isTypedDictPartial) {
+            if (tdEntry.isReadOnly) {
+                return;
+            }
+
+            tdEntry.isRequired = false;
+            tdEntry.isReadOnly = true;
+        }
+
         entries.set(key, tdEntry);
     });
 
@@ -650,13 +727,6 @@ export function getTypedDictMembersForClass(evaluator: TypeEvaluator, classType:
             const tdEntry = { ...value };
             tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, typeVarContext);
             entries.set(key, tdEntry);
-        });
-    }
-
-    // If the class is "Partial", make all entries optional.
-    if (classType.isTypedDictPartial) {
-        entries.forEach((entry) => {
-            entry.isRequired = false;
         });
     }
 
@@ -838,14 +908,13 @@ export function assignTypedDictToTypedDict(
     recursionCount = 0
 ) {
     let typesAreConsistent = true;
-    const isDestPartial = !!destType.isTypedDictPartial;
     const destEntries = getTypedDictMembersForClass(evaluator, destType);
     const srcEntries = getTypedDictMembersForClass(evaluator, srcType, /* allowNarrowed */ true);
 
     destEntries.forEach((destEntry, name) => {
         const srcEntry = srcEntries.get(name);
         if (!srcEntry) {
-            if (!isDestPartial) {
+            if (destEntry.isRequired || !destEntry.isReadOnly) {
                 diag?.createAddendum().addMessage(
                     Localizer.DiagnosticAddendum.typedDictFieldMissing().format({
                         name,
@@ -855,7 +924,7 @@ export function assignTypedDictToTypedDict(
                 typesAreConsistent = false;
             }
         } else {
-            if (destEntry.isRequired !== srcEntry.isRequired && !destEntry.isReadOnly && !isDestPartial) {
+            if (destEntry.isRequired !== srcEntry.isRequired && !destEntry.isReadOnly) {
                 const message = destEntry.isRequired
                     ? Localizer.DiagnosticAddendum.typedDictFieldRequired()
                     : Localizer.DiagnosticAddendum.typedDictFieldNotRequired();
@@ -868,7 +937,7 @@ export function assignTypedDictToTypedDict(
                 typesAreConsistent = false;
             }
 
-            if (!destEntry.isReadOnly && srcEntry.isReadOnly && !isDestPartial) {
+            if (!destEntry.isReadOnly && srcEntry.isReadOnly) {
                 diag?.createAddendum().addMessage(
                     Localizer.DiagnosticAddendum.typedDictFieldNotReadOnly().format({
                         name,
