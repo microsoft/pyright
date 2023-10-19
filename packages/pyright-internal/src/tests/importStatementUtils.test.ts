@@ -177,11 +177,7 @@ test('getTextEditsForAutoImportInsertions - mix of import and from import statem
 //// [|/*marker1*/{|"r":"import sys as s!n!from sys import path as p!n!!n!!n!"|}|]import os
     `;
 
-    const module = {
-        moduleName: 'sys',
-        importType: ImportType.BuiltIn,
-        isLocalTypingsFile: false,
-    };
+    const module = { moduleName: 'sys', importType: ImportType.BuiltIn, isLocalTypingsFile: false };
     testInsertions(code, 'marker1', [
         { module, alias: 's' },
         { module, name: 'path', alias: 'p' },
@@ -193,22 +189,9 @@ test('getTextEditsForAutoImportInsertions - multiple modules with different grou
 //// [|/*marker1*/|][|{|"r":"from sys import path as p!n!!n!!n!"|}|][|{|"r":"import numpy!n!!n!!n!"|}|][|{|"r":"from test import join!n!!n!!n!"|}|]import os
     `;
 
-    const module1 = {
-        moduleName: 'sys',
-        importType: ImportType.BuiltIn,
-        isLocalTypingsFile: false,
-    };
-    const module2 = {
-        moduleName: 'numpy',
-        importType: ImportType.ThirdParty,
-        isLocalTypingsFile: false,
-        isThirdPartyPresent: false,
-    };
-    const module3 = {
-        moduleName: 'test',
-        importType: ImportType.Local,
-        isLocalTypingsFile: false,
-    };
+    const module1 = { moduleName: 'sys', importType: ImportType.BuiltIn, isLocalTypingsFile: false };
+    const module2 = { moduleName: 'numpy', importType: ImportType.ThirdParty, isLocalTypingsFile: false };
+    const module3 = { moduleName: 'test', importType: ImportType.Local, isLocalTypingsFile: false };
 
     testInsertions(code, 'marker1', [
         { module: module1, name: 'path', alias: 'p' },
@@ -222,21 +205,9 @@ test('getTextEditsForAutoImportInsertions - multiple modules with existing impor
 //// import os[|/*marker1*/|][|{|"r":"!n!from sys import path as p"|}|][|{|"r":"!n!!n!import numpy"|}|][|{|"r":"!n!!n!from test import join"|}|]
     `;
 
-    const module1 = {
-        moduleName: 'sys',
-        importType: ImportType.BuiltIn,
-        isLocalTypingsFile: false,
-    };
-    const module2 = {
-        moduleName: 'numpy',
-        importType: ImportType.ThirdParty,
-        isLocalTypingsFile: false,
-    };
-    const module3 = {
-        moduleName: 'test',
-        importType: ImportType.Local,
-        isLocalTypingsFile: false,
-    };
+    const module1 = { moduleName: 'sys', importType: ImportType.BuiltIn, isLocalTypingsFile: false };
+    const module2 = { moduleName: 'numpy', importType: ImportType.ThirdParty, isLocalTypingsFile: false };
+    const module3 = { moduleName: 'test', importType: ImportType.Local, isLocalTypingsFile: false };
 
     testInsertions(code, 'marker1', [
         { module: module1, name: 'path', alias: 'p' },
@@ -250,21 +221,9 @@ test('getTextEditsForAutoImportInsertions - multiple modules with same group', (
 //// import os[|/*marker1*/|][|{|"r":"!n!!n!import module2!n!from module1 import path as p!n!from module3 import join"|}|]
     `;
 
-    const module1 = {
-        moduleName: 'module1',
-        importType: ImportType.Local,
-        isLocalTypingsFile: false,
-    };
-    const module2 = {
-        moduleName: 'module2',
-        importType: ImportType.Local,
-        isLocalTypingsFile: false,
-    };
-    const module3 = {
-        moduleName: 'module3',
-        importType: ImportType.Local,
-        isLocalTypingsFile: false,
-    };
+    const module1 = { moduleName: 'module1', importType: ImportType.Local, isLocalTypingsFile: false };
+    const module2 = { moduleName: 'module2', importType: ImportType.Local, isLocalTypingsFile: false };
+    const module3 = { moduleName: 'module3', importType: ImportType.Local, isLocalTypingsFile: false };
 
     testInsertions(code, 'marker1', [
         { module: module1, name: 'path', alias: 'p' },
