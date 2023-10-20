@@ -26,7 +26,6 @@ import {
     isInstantiableClass,
     isOverloadedFunction,
     isTypeSame,
-    maxTypeRecursionCount,
     ModuleType,
     OverloadedFunctionType,
     ProtocolCompatibility,
@@ -71,11 +70,6 @@ export function assignClassToProtocol(
     recursionCount: number
 ): boolean {
     const enforceInvariance = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
-
-    if (recursionCount > maxTypeRecursionCount) {
-        return true;
-    }
-    recursionCount++;
 
     // Use a stack of pending protocol class evaluations to detect recursion.
     // This can happen when a protocol class refers to itself.
