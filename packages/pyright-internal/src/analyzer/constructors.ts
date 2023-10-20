@@ -798,7 +798,9 @@ export function createFunctionFromConstructor(
             let constructorFunction = evaluator.bindFunctionToClassOrObject(
                 objectType,
                 initSubtype,
-                /* memberClass */ undefined
+                /* memberClass */ undefined,
+                /* errorNode */ undefined,
+                recursionCount
             ) as FunctionType | undefined;
 
             if (constructorFunction) {
@@ -858,6 +860,8 @@ export function createFunctionFromConstructor(
                 classType,
                 newSubtype,
                 /* memberClass */ undefined,
+                /* errorNode */ undefined,
+                recursionCount,
                 /* treatConstructorAsClassMember */ true
             ) as FunctionType | undefined;
 

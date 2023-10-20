@@ -552,18 +552,14 @@ export function assignProperty(
                 destObjectToBind,
                 destAccessType,
                 /* memberClass */ undefined,
-                /* treatConstructorAsClassMember */ undefined,
-                /* firstParamType */ undefined,
-                /* diag */ undefined,
+                /* errorNode */ undefined,
                 recursionCount
             );
             const boundSrcAccessType = evaluator.bindFunctionToClassOrObject(
                 srcObjectToBind,
                 srcAccessType,
                 /* memberClass */ undefined,
-                /* treatConstructorAsClassMember */ undefined,
-                /* firstParamType */ undefined,
-                /* diag */ undefined,
+                /* errorNode */ undefined,
                 recursionCount
             );
 

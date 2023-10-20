@@ -26,6 +26,7 @@ import {
     isInstantiableClass,
     isOverloadedFunction,
     isTypeSame,
+    maxTypeRecursionCount,
     ModuleType,
     OverloadedFunctionType,
     ProtocolCompatibility,
@@ -70,6 +71,11 @@ export function assignClassToProtocol(
     recursionCount: number
 ): boolean {
     const enforceInvariance = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
+
+    if (recursionCount > maxTypeRecursionCount) {
+        return true;
+    }
+    recursionCount++;
 
     // Use a stack of pending protocol class evaluations to detect recursion.
     // This can happen when a protocol class refers to itself.
@@ -360,17 +366,13 @@ function assignClassToProtocolInternal(
                                 : ClassType.cloneAsInstance(srcType),
                             srcMemberType,
                             isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
+                            /* errorNode */ undefined,
+                            recursionCount,
                             /* treatConstructorAsClassMember */ undefined,
-                            isMemberFromMetaclass ? srcType : undefined,
-                            diag?.createAddendum(),
-                            recursionCount
+                            isMemberFromMetaclass ? srcType : undefined
                         );
-
                         if (boundSrcFunction) {
                             srcMemberType = removeParamSpecVariadicsFromSignature(boundSrcFunction);
-                        } else {
-                            typesAreConsistent = false;
-                            return;
                         }
                     }
                 }
@@ -401,10 +403,10 @@ function assignClassToProtocolInternal(
                             ClassType.cloneAsInstance(srcType),
                             destMemberType,
                             isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
+                            /* errorNode */ undefined,
+                            recursionCount,
                             /* treatConstructorAsClassMember */ undefined,
-                            isMemberFromMetaclass ? srcType : undefined,
-                            diag,
-                            recursionCount
+                            isMemberFromMetaclass ? srcType : undefined
                         );
                     }
                 } else {
@@ -412,18 +414,13 @@ function assignClassToProtocolInternal(
                         ClassType.cloneAsInstance(destType),
                         destMemberType,
                         destType,
-                        /* treatConstructorAsClassMember */ undefined,
-                        /* firstParamType */ undefined,
-                        diag,
+                        /* errorNode */ undefined,
                         recursionCount
                     );
                 }
 
                 if (boundDeclaredType) {
                     destMemberType = removeParamSpecVariadicsFromSignature(boundDeclaredType);
-                } else {
-                    typesAreConsistent = false;
-                    return;
                 }
             }
 

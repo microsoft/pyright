@@ -44,36 +44,22 @@ x1: TD1[float] = td2
 
 class TD3(TypedDict, total=True):
     a: str
-    b: NotRequired[str]
-    c: NotRequired[str]
 
 
 class TD4(TypedDict, total=True):
     a: ReadOnly[str]
-    b: NotRequired[str]
-    c: NotRequired[str]
 
 
 td3: TD3 = {"a": ""}
 td4: TD4 = {"a": ""}
 
-# This should generate an error because "a" is ReadOnly.
+reveal_type(td4.update, expected_text="(__m: Never, /) -> None")
+
+# This should generate an error.
 td4.update({"a", ""})
 
-# This should generate an error because "a" is ReadOnly.
-td4.update(a="")
-
-# This should generate an error because "a" is ReadOnly.
-td4.update([("a", "")])
-
-td4.update({"b": ""})
-td4.update({"b": "", "c": ""})
-td4.update(b="")
-td4.update(c="")
-td4.update(c="", b="")
-td4.update([("b", "")])
-td4.update([("c", "")])
-td4.update([("b", ""), ("c", "")])
+# This should generate an error.
+td4.update({})
 
 td5 = td3 | td4
 
