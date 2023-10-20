@@ -683,9 +683,7 @@ export interface ClassType extends TypeBase {
     typedDictNarrowedEntries?: Map<string, TypedDictEntry> | undefined;
 
     // Indicates that the typed dict class should be considered "partial",
-    // i.e. all of its entries are effectively NotRequired and only
-    // writable entries are considered present, and they are marked read-only.
-    // This is used for the TypedDict "update" method.
+    // i.e. all of its entries are effectively NotRequired.
     isTypedDictPartial?: boolean;
 
     // Indicates whether the class is an asymmetric descriptor

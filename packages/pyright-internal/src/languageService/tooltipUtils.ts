@@ -455,6 +455,8 @@ export function bindFunctionToClassOrObjectToolTip(
         baseType,
         memberType,
         /* memberClass */ undefined,
+        /* errorNode */ undefined,
+        /* recursiveCount */ undefined,
         treatConstructorAsClassMember
     );
 
