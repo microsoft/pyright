@@ -236,6 +236,16 @@ export class TestState {
         return this.workspace.service.test_program;
     }
 
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    get BOF(): number {
+        return 0;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    get EOF(): number {
+        return this.getFileContent(this.activeFile.fileName).length;
+    }
+
     initializeFiles() {
         if (this.files.length > 0) {
             // Open the first file by default
@@ -316,13 +326,13 @@ export class TestState {
         return this.convertPositionRange(range);
     }
 
-    getPosition(markerString: string): Position {
+    getPosition(markerString: string): number {
         const marker = this.getMarkerByName(markerString);
         const ranges = this.getRanges().filter((r) => r.marker === marker);
         if (ranges.length !== 1) {
             this.raiseError(`no matching range for ${markerString}`);
         }
-        return this.convertOffsetToPosition(marker.fileName, marker.position);
+        return marker.position;
     }
 
     expandPositionRange(range: PositionRange, start: number, end: number) {
@@ -429,12 +439,11 @@ export class TestState {
     }
 
     goToBOF() {
-        this.goToPosition(0);
+        this.goToPosition(this.BOF);
     }
 
     goToEOF() {
-        const len = this.getFileContent(this.activeFile.fileName).length;
-        this.goToPosition(len);
+        this.goToPosition(this.EOF);
     }
 
     moveCaretRight(count = 1) {

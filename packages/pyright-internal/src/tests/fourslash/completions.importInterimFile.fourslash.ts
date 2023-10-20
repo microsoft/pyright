@@ -34,7 +34,7 @@
         },
     });
 
-    helper.replace(0, 9, 'import altair as alt\n\nalt.');
+    helper.replace(helper.BOF, helper.getPosition('marker1'), 'import altair as alt\n\nalt.');
 
     // @ts-ignore
     await helper.verifyCompletion('included', 'markdown', {
