@@ -724,8 +724,6 @@ export namespace Localizer {
         export const paramSpecDefaultNotTuple = () => getRawString('Diagnostic.paramSpecDefaultNotTuple');
         export const paramSpecFirstArg = () => getRawString('Diagnostic.paramSpecFirstArg');
         export const paramSpecKwargsUsage = () => getRawString('Diagnostic.paramSpecKwargsUsage');
-        export const paramSpecNotBound = () =>
-            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.paramSpecNotBound'));
         export const paramSpecNotUsedByOuterScope = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramSpecNotUsedByOuterScope'));
         export const paramSpecScopedToReturnType = () =>

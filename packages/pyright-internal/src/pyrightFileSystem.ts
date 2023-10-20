@@ -36,20 +36,7 @@ export namespace SupportPartialStubs {
     }
 }
 
-export interface SupportUriToPathMapping {
-    hasUriMapEntry(uriString: string, mappedPath: string): boolean;
-    addUriMap(uriString: string, mappedPath: string): boolean;
-    removeUriMap(uriString: string, mappedPath: string): boolean;
-    pendingRequest(mappedPath: string, hasPendingRequest: boolean): void;
-}
-
-export namespace SupportUriToPathMapping {
-    export function is(value: any): value is SupportUriToPathMapping {
-        return value.hasUriMapEntry && value.addUriMap && value.removeUriMap && value.pendingRequest;
-    }
-}
-
-export interface IPyrightFileSystem extends FileSystem, SupportPartialStubs, SupportUriToPathMapping {}
+export interface IPyrightFileSystem extends FileSystem, SupportPartialStubs {}
 
 export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IPyrightFileSystem {
     // Root paths processed
@@ -57,8 +44,6 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
 
     // Partial stub package paths processed
     private readonly _partialStubPackagePaths = new Set<string>();
-
-    private readonly _customUriMap = new Map<string, { uri: string; closed: boolean; hasPendingRequest: boolean }>();
 
     constructor(realFS: FileSystem) {
         super(realFS);
@@ -93,67 +78,7 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
     }
 
     override getUri(originalPath: string): string {
-        const entry = this._customUriMap.get(this.getMappedFilePath(originalPath));
-        if (entry) {
-            return entry.uri;
-        }
-
         return this.realFS.getUri(originalPath);
-    }
-
-    hasUriMapEntry(uriString: string, mappedPath: string): boolean {
-        const entry = this._customUriMap.get(mappedPath);
-        if (!entry || entry.uri !== uriString) {
-            // We don't support having 2 uri pointing to same file.
-            return false;
-        }
-
-        return true;
-    }
-
-    addUriMap(uriString: string, mappedPath: string): boolean {
-        const entry = this._customUriMap.get(mappedPath);
-        if (!entry) {
-            this._customUriMap.set(mappedPath, { uri: uriString, closed: false, hasPendingRequest: false });
-            return true;
-        }
-
-        if (entry.uri !== uriString) {
-            // We don't support having 2 uri pointing to same file.
-            return false;
-        }
-
-        entry.closed = false;
-        return true;
-    }
-
-    removeUriMap(uriString: string, mappedPath: string): boolean {
-        const entry = this._customUriMap.get(mappedPath);
-        if (!entry || entry.uri !== uriString) {
-            return false;
-        }
-
-        if (entry.hasPendingRequest) {
-            entry.closed = true;
-            return true;
-        }
-
-        this._customUriMap.delete(mappedPath);
-        return true;
-    }
-
-    pendingRequest(mappedPath: string, hasPendingRequest: boolean): void {
-        const entry = this._customUriMap.get(mappedPath);
-        if (!entry) {
-            return;
-        }
-
-        if (!hasPendingRequest && entry.closed) {
-            this._customUriMap.delete(mappedPath);
-            return;
-        }
-
-        entry.hasPendingRequest = hasPendingRequest;
     }
 
     isPartialStubPackagesScanned(execEnv: ExecutionEnvironment): boolean {

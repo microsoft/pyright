@@ -1332,6 +1332,12 @@ test('Protocol45', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Protocol46', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol46.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypedDict1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict1.py']);
 
@@ -1359,7 +1365,7 @@ test('TypedDict4', () => {
 test('TypedDict5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict5.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('TypedDict6', () => {

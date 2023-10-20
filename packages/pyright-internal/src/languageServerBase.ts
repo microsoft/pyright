@@ -128,7 +128,6 @@ import { RenameProvider } from './languageService/renameProvider';
 import { SignatureHelpProvider } from './languageService/signatureHelpProvider';
 import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
-import { SupportUriToPathMapping } from './pyrightFileSystem';
 import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
 import { CollectionResult } from './languageService/documentSymbolCollector';
 import { ParseResults } from './parser/parser';
@@ -351,8 +350,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected readonly workspaceFactory: WorkspaceFactory;
     protected readonly openFileMap = new Map<string, TextDocument>();
     protected readonly cacheManager: CacheManager;
-
-    protected readonly uriMapper: SupportUriToPathMapping;
     protected readonly fs: FileSystem;
 
     // The URIs for which diagnostics are reported
@@ -379,7 +376,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         this.cacheManager = new CacheManager();
 
-        this.uriMapper = this.serverOptions.serviceProvider.uriMapper();
         this.fs = this.serverOptions.serviceProvider.fs();
 
         this.uriParser = uriParserFactory(this.fs);
@@ -1186,11 +1182,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected async onDidOpenTextDocument(params: DidOpenTextDocumentParams, ipythonMode = IPythonMode.None) {
         const filePath = this.uriParser.decodeTextDocumentUri(params.textDocument.uri);
 
-        if (!this.uriMapper.addUriMap(params.textDocument.uri, filePath)) {
-            // We do not support opening 1 file with 2 different uri.
-            return;
-        }
-
         let doc = this.openFileMap.get(filePath);
         if (doc) {
             // We shouldn't get an open text document request for an already-opened doc.
@@ -1212,11 +1203,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.recordUserInteractionTime();
 
         const filePath = this.uriParser.decodeTextDocumentUri(params.textDocument.uri);
-        if (!this.uriMapper.hasUriMapEntry(params.textDocument.uri, filePath)) {
-            // We do not support opening 1 file with 2 different uri.
-            return;
-        }
-
         const doc = this.openFileMap.get(filePath);
         if (!doc) {
             // We shouldn't get a change text request for a closed doc.
@@ -1236,10 +1222,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     protected async onDidCloseTextDocument(params: DidCloseTextDocumentParams) {
         const filePath = this.uriParser.decodeTextDocumentUri(params.textDocument.uri);
-        if (!this.uriMapper.removeUriMap(params.textDocument.uri, filePath)) {
-            // We do not support opening 1 file with 2 different uri.
-            return;
-        }
 
         // Send this close to all the workspaces that might contain this file.
         const workspaces = await this.getContainingWorkspacesForFile(filePath);
@@ -1338,7 +1320,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             }
 
             this._sendDiagnostics(this.convertDiagnostics(fs, fileDiag));
-            this.uriMapper.pendingRequest(fileDiag.filePath, fileDiag.diagnostics.length > 0);
         });
 
         if (!this._progressReporter.isEnabled(results)) {
