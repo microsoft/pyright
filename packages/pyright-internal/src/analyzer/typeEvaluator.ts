@@ -24705,15 +24705,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
         recursionCount++;
 
-        // If this is a tuple with defined tuple type arguments, don't overwrite them.
-        if (assignedType.tupleTypeArguments) {
-            return undefined;
-        }
-
         if (
             assignedType.details.typeParameters.length > 0 &&
             assignedType.typeArguments &&
-            assignedType.typeArguments.length <= assignedType.details.typeParameters.length
+            assignedType.typeArguments.length <= assignedType.details.typeParameters.length &&
+            !assignedType.tupleTypeArguments
         ) {
             const typeVarContext = new TypeVarContext(getTypeVarScopeId(assignedType));
             populateTypeVarContextBasedOnExpectedType(
