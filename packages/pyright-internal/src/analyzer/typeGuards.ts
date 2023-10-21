@@ -410,9 +410,7 @@ export function getTypeNarrowingCallback(
             if (
                 equalsOrNotEqualsOperator &&
                 testExpression.leftExpression.nodeType === ParseNodeType.Call &&
-                testExpression.leftExpression.arguments.length === 1 &&
-                testExpression.rightExpression.nodeType === ParseNodeType.Number &&
-                testExpression.rightExpression.isInteger
+                testExpression.leftExpression.arguments.length === 1
             ) {
                 const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
 
@@ -424,13 +422,20 @@ export function getTypeNarrowingCallback(
                     const callType = callTypeResult.type;
 
                     if (isFunction(callType) && callType.details.fullName === 'builtins.len') {
-                        const tupleLength = testExpression.rightExpression.value;
+                        const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                        const rightType = rightTypeResult.type;
 
-                        if (typeof tupleLength === 'number') {
+                        if (
+                            isClassInstance(rightType) &&
+                            typeof rightType.literalValue === 'number' &&
+                            rightType.literalValue >= 0
+                        ) {
+                            const tupleLength = rightType.literalValue;
+
                             return (type: Type) => {
                                 return {
                                     type: narrowTypeForTupleLength(evaluator, type, tupleLength, adjIsPositiveTest),
-                                    isIncomplete: !!callTypeResult.isIncomplete,
+                                    isIncomplete: !!callTypeResult.isIncomplete || !!rightTypeResult.isIncomplete,
                                 };
                             };
                         }

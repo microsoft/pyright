@@ -1,6 +1,6 @@
 # This sample tests type narrowing of tuples based on len(x) test.
 
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 
 def func1(val: tuple[int] | tuple[int, int] | tuple[str, str]):
@@ -28,7 +28,8 @@ def func2(val: tuple[int] | tuple[int, ...]):
 
 
 def func3(val: tuple[int] | tuple[()]):
-    if len(val) == 0:
+    N = 0
+    if len(val) == N:
         reveal_type(val, expected_text="tuple[()]")
     else:
         reveal_type(val, expected_text="tuple[int]")
@@ -52,9 +53,10 @@ def func5(
     | tuple[str]
     | tuple[str, str, str]
     | tuple[int, *tuple[str, ...], str]
-    | tuple[int, *tuple[float, ...]]
+    | tuple[int, *tuple[float, ...]],
+    length: Literal[2],
 ):
-    if len(val) == 2:
+    if len(val) == length:
         reveal_type(
             val, expected_text="tuple[int, int] | tuple[int, str] | tuple[int, float]"
         )
