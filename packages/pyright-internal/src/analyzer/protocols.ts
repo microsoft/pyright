@@ -608,43 +608,31 @@ function createProtocolTypeVarContext(
 ): TypeVarContext {
     const protocolTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
 
-    let specializedDestType = destType;
-    if (destTypeVarContext) {
-        specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, {
-            useNarrowBoundOnly: true,
-        }) as ClassType;
-    }
-
     destType.details.typeParameters.forEach((typeParam, index) => {
-        if (specializedDestType.typeArguments && index < specializedDestType.typeArguments.length) {
-            const typeArg = specializedDestType.typeArguments[index];
+        const entry = destTypeVarContext?.getPrimarySignature().getTypeVar(typeParam);
 
-            if (!requiresSpecialization(typeArg)) {
-                // If the caller hasn't provided a destTypeVarContext, assume that
-                // the destType represents an "expected type" and populate the
-                // typeVarContext accordingly. For example, if the destType is
-                // MyProto[Literal[0]], we want to constrain the type argument to be
-                // no wider than Literal[0] if the type param is not contravariant.
-                assignTypeToTypeVar(
-                    evaluator,
-                    typeParam,
-                    typeArg,
-                    /* diag */ undefined,
-                    protocolTypeVarContext,
-                    destTypeVarContext ? AssignTypeFlags.Default : AssignTypeFlags.PopulatingExpectedType
-                );
+        if (entry) {
+            protocolTypeVarContext.setTypeVarType(
+                typeParam,
+                entry.narrowBound,
+                entry.narrowBoundNoLiterals,
+                entry.wideBound
+            );
+        } else if (destType.typeArguments && index < destType.typeArguments.length) {
+            let typeArg = destType.typeArguments[index];
+            let flags = AssignTypeFlags.PopulatingExpectedType;
+            let hasUnsolvedTypeVars = requiresSpecialization(typeArg);
+
+            // If the type argument has unsolved TypeVars, see if they have
+            // solved values in the destTypeVarContext.
+            if (hasUnsolvedTypeVars && destTypeVarContext) {
+                typeArg = applySolvedTypeVars(typeArg, destTypeVarContext, { useNarrowBoundOnly: true });
+                flags = AssignTypeFlags.Default;
+                hasUnsolvedTypeVars = requiresSpecialization(typeArg);
             }
-        }
 
-        if (destTypeVarContext) {
-            const entry = destTypeVarContext.getPrimarySignature().getTypeVar(typeParam);
-            if (entry) {
-                protocolTypeVarContext.setTypeVarType(
-                    typeParam,
-                    entry.narrowBound,
-                    entry.narrowBoundNoLiterals,
-                    entry.wideBound
-                );
+            if (!hasUnsolvedTypeVars) {
+                assignTypeToTypeVar(evaluator, typeParam, typeArg, /* diag */ undefined, protocolTypeVarContext, flags);
             }
         }
     });
