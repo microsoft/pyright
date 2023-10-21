@@ -8939,10 +8939,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         function evaluateUsingBestMatchingOverload(skipUnknownArgCheck: boolean, emitNoOverloadFoundError: boolean) {
             // Find the match with the smallest argument match score. If there
             // are more than one with the same score, use the one with the
-            // largest index. Later overloads tend to be more general.
+            // smallest index.
             const bestMatch = filteredMatchResults.reduce((previous, current) => {
                 if (current.argumentMatchScore === previous.argumentMatchScore) {
-                    return current.overloadIndex > previous.overloadIndex ? current : previous;
+                    return current.overloadIndex < previous.overloadIndex ? current : previous;
                 }
                 return current.argumentMatchScore < previous.argumentMatchScore ? current : previous;
             });
