@@ -1129,6 +1129,10 @@ export namespace ClassType {
         }
         recursionCount++;
 
+        if (!classType.isTypedDictPartial !== !type2.isTypedDictPartial) {
+            return false;
+        }
+
         // If the class details match, it's definitely the same class.
         if (classType.details === type2.details) {
             return true;
@@ -2884,6 +2888,10 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             }
 
             if (!ClassType.isLiteralValueSame(type1, classType2)) {
+                return false;
+            }
+
+            if (!type1.isTypedDictPartial !== !classType2.isTypedDictPartial) {
                 return false;
             }
 

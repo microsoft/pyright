@@ -14753,9 +14753,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isNotRequired = classType.details.name === 'NotRequired';
         }
 
-        isRequired = classType.details.name === 'Required';
-        isNotRequired = classType.details.name === 'NotRequired';
-
         if (!isUsageLegal) {
             addError(
                 classType.details.name === 'ReadOnly'

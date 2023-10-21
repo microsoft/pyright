@@ -707,15 +707,16 @@ export function getTypedDictMembersForClass(evaluator: TypeEvaluator, classType:
         const tdEntry = { ...value };
         tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, typeVarContext);
 
-        // If the class is "Partial", make all entries optional and remove the
-        // entries that are readonly.
+        // If the class is "Partial", make all entries optional and convert all
+        // read-only entries to Never.
         if (classType.isTypedDictPartial) {
-            if (tdEntry.isReadOnly) {
-                return;
-            }
-
             tdEntry.isRequired = false;
-            tdEntry.isReadOnly = true;
+
+            if (tdEntry.isReadOnly) {
+                tdEntry.valueType = NeverType.createNever();
+            } else {
+                tdEntry.isReadOnly = true;
+            }
         }
 
         entries.set(key, tdEntry);
@@ -922,6 +923,28 @@ export function assignTypedDictToTypedDict(
                     })
                 );
                 typesAreConsistent = false;
+            } else {
+                // Missing entries are implicitly typed as ReadOnly[NotRequired[object]],
+                // so we need to make sure the dest entry is compatible with that.
+                const objType = evaluator.getObjectType();
+
+                if (objType && isClassInstance(objType)) {
+                    const subDiag = diag?.createAddendum();
+                    if (
+                        !evaluator.assignType(
+                            destEntry.valueType,
+                            objType,
+                            subDiag?.createAddendum(),
+                            typeVarContext,
+                            /* srcTypeVarContext */ undefined,
+                            flags,
+                            recursionCount
+                        )
+                    ) {
+                        subDiag?.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                        typesAreConsistent = false;
+                    }
+                }
             }
         } else {
             if (destEntry.isRequired !== srcEntry.isRequired && !destEntry.isReadOnly) {
@@ -950,8 +973,8 @@ export function assignTypedDictToTypedDict(
             const subDiag = diag?.createAddendum();
             let adjustedFlags = flags;
 
-            // If either of the fields is not read-only, we need to enforce invariance.
-            if (!destEntry.isReadOnly || !srcEntry.isReadOnly) {
+            // If the dest field is not read-only, we need to enforce invariance.
+            if (!destEntry.isReadOnly) {
                 adjustedFlags |= AssignTypeFlags.EnforceInvariance;
             }
 
