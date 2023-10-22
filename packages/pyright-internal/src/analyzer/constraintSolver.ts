@@ -1254,18 +1254,20 @@ function logTypeVarSignatureContext(evaluator: TypeEvaluator, context: TypeVarSi
 
     context.getTypeVars().forEach((entry) => {
         const typeVarName = `${indent}${entry.typeVar.details.name}`;
+        const narrowBound = entry.narrowBoundNoLiterals ?? entry.narrowBound;
+        const wideBound = entry.wideBound;
 
         // Log the narrow and wide bounds.
-        if (entry.narrowBound && entry.wideBound && isTypeSame(entry.narrowBound, entry.wideBound)) {
-            console.log(`${typeVarName} = ${evaluator.printType(entry.narrowBound)}`);
+        if (narrowBound && wideBound && isTypeSame(narrowBound, wideBound)) {
+            console.log(`${typeVarName} = ${evaluator.printType(narrowBound)}`);
             loggedConstraint = true;
         } else {
-            if (entry.narrowBound) {
-                console.log(`${typeVarName} ≤ ${evaluator.printType(entry.narrowBound)}`);
+            if (narrowBound) {
+                console.log(`${typeVarName} ≤ ${evaluator.printType(narrowBound)}`);
                 loggedConstraint = true;
             }
-            if (entry.wideBound) {
-                console.log(`${typeVarName} ≥ ${evaluator.printType(entry.wideBound)}`);
+            if (wideBound) {
+                console.log(`${typeVarName} ≥ ${evaluator.printType(wideBound)}`);
                 loggedConstraint = true;
             }
         }
