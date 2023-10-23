@@ -16079,10 +16079,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     } else {
                         metaclassNode = arg.valueExpression;
                     }
-                } else if (
-                    ClassType.isTypedDictClass(classType) &&
-                    (arg.name.value === 'total' || arg.name.value === 'readonly')
-                ) {
+                } else if (ClassType.isTypedDictClass(classType) && arg.name.value === 'total') {
                     // The "total" and "readonly" parameters apply only for TypedDict classes.
                     // PEP 589 specifies that the parameter must be either True or False.
                     const constArgValue = evaluateStaticBoolExpression(
@@ -16097,8 +16094,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
                     } else if (arg.name.value === 'total' && !constArgValue) {
                         classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
-                    } else if (arg.name.value === 'readonly' && constArgValue) {
-                        classType.details.flags |= ClassTypeFlags.DictValuesReadOnly;
                     }
                 } else {
                     // Collect arguments that will be passed to the `__init_subclass__`

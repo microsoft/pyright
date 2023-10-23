@@ -478,10 +478,6 @@ export const enum ClassTypeFlags {
     // the dictionary values can be omitted.
     CanOmitDictValues = 1 << 8,
 
-    // Used in conjunction with TypedDictClass, indicates that
-    // the dictionary values are all readonly.
-    DictValuesReadOnly = 1 << 9,
-
     // The class derives from a class that has the ABCMeta
     // metaclass. Such classes are allowed to contain
     // @abstractmethod decorators.
@@ -1042,10 +1038,6 @@ export namespace ClassType {
 
     export function isCanOmitDictValues(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.CanOmitDictValues);
-    }
-
-    export function isDictValuesReadOnly(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.DictValuesReadOnly);
     }
 
     export function isEnumClass(classType: ClassType) {

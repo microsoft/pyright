@@ -171,7 +171,7 @@ export function createTypedDictType(
 
     if (usingDictSyntax) {
         for (const arg of argList.slice(2)) {
-            if (arg.name?.value === 'total' || arg.name?.value === 'readonly') {
+            if (arg.name?.value === 'total') {
                 if (
                     !arg.valueExpression ||
                     arg.valueExpression.nodeType !== ParseNodeType.Constant ||
@@ -186,8 +186,6 @@ export function createTypedDictType(
                     );
                 } else if (arg.name.value === 'total' && arg.valueExpression.constType === KeywordType.False) {
                     classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
-                } else if (arg.name.value === 'readonly' && arg.valueExpression.constType === KeywordType.True) {
-                    classType.details.flags |= ClassTypeFlags.DictValuesReadOnly;
                 }
             } else {
                 evaluator.addError(Localizer.Diagnostic.typedDictExtraArgs(), arg.valueExpression || errorNode);
@@ -825,7 +823,7 @@ function getTypedDictMembersForClassRecursive(
                 valueType = applySolvedTypeVars(valueType, typeVarContext);
 
                 let isRequired = !ClassType.isCanOmitDictValues(classType);
-                let isReadOnly = ClassType.isDictValuesReadOnly(classType);
+                let isReadOnly = false;
 
                 if (isRequiredTypedDictVariable(evaluator, symbol)) {
                     isRequired = true;
