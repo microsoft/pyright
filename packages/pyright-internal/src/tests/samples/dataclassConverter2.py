@@ -1,5 +1,5 @@
 # This sample tests assignment of dataclass fields that use
-# the coverter parameter described in PEP 712.
+# the converter parameter described in PEP 712.
 
 from dataclasses import dataclass, field
 

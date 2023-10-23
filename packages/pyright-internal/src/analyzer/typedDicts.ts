@@ -171,7 +171,7 @@ export function createTypedDictType(
 
     if (usingDictSyntax) {
         for (const arg of argList.slice(2)) {
-            if (arg.name?.value === 'total' || arg.name?.value === 'readonly') {
+            if (arg.name?.value === 'total') {
                 if (
                     !arg.valueExpression ||
                     arg.valueExpression.nodeType !== ParseNodeType.Constant ||
@@ -186,8 +186,6 @@ export function createTypedDictType(
                     );
                 } else if (arg.name.value === 'total' && arg.valueExpression.constType === KeywordType.False) {
                     classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
-                } else if (arg.name.value === 'readonly' && arg.valueExpression.constType === KeywordType.True) {
-                    classType.details.flags |= ClassTypeFlags.DictValuesReadOnly;
                 }
             } else {
                 evaluator.addError(Localizer.Diagnostic.typedDictExtraArgs(), arg.valueExpression || errorNode);
@@ -707,15 +705,16 @@ export function getTypedDictMembersForClass(evaluator: TypeEvaluator, classType:
         const tdEntry = { ...value };
         tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, typeVarContext);
 
-        // If the class is "Partial", make all entries optional and remove the
-        // entries that are readonly.
+        // If the class is "Partial", make all entries optional and convert all
+        // read-only entries to Never.
         if (classType.isTypedDictPartial) {
-            if (tdEntry.isReadOnly) {
-                return;
-            }
-
             tdEntry.isRequired = false;
-            tdEntry.isReadOnly = true;
+
+            if (tdEntry.isReadOnly) {
+                tdEntry.valueType = NeverType.createNever();
+            } else {
+                tdEntry.isReadOnly = true;
+            }
         }
 
         entries.set(key, tdEntry);
@@ -824,7 +823,7 @@ function getTypedDictMembersForClassRecursive(
                 valueType = applySolvedTypeVars(valueType, typeVarContext);
 
                 let isRequired = !ClassType.isCanOmitDictValues(classType);
-                let isReadOnly = ClassType.isDictValuesReadOnly(classType);
+                let isReadOnly = false;
 
                 if (isRequiredTypedDictVariable(evaluator, symbol)) {
                     isRequired = true;
@@ -922,6 +921,28 @@ export function assignTypedDictToTypedDict(
                     })
                 );
                 typesAreConsistent = false;
+            } else {
+                // Missing entries are implicitly typed as ReadOnly[NotRequired[object]],
+                // so we need to make sure the dest entry is compatible with that.
+                const objType = evaluator.getObjectType();
+
+                if (objType && isClassInstance(objType)) {
+                    const subDiag = diag?.createAddendum();
+                    if (
+                        !evaluator.assignType(
+                            destEntry.valueType,
+                            objType,
+                            subDiag?.createAddendum(),
+                            typeVarContext,
+                            /* srcTypeVarContext */ undefined,
+                            flags,
+                            recursionCount
+                        )
+                    ) {
+                        subDiag?.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                        typesAreConsistent = false;
+                    }
+                }
             }
         } else {
             if (destEntry.isRequired !== srcEntry.isRequired && !destEntry.isReadOnly) {
@@ -950,8 +971,8 @@ export function assignTypedDictToTypedDict(
             const subDiag = diag?.createAddendum();
             let adjustedFlags = flags;
 
-            // If either of the fields is not read-only, we need to enforce invariance.
-            if (!destEntry.isReadOnly || !srcEntry.isReadOnly) {
+            // If the dest field is not read-only, we need to enforce invariance.
+            if (!destEntry.isReadOnly) {
                 adjustedFlags |= AssignTypeFlags.EnforceInvariance;
             }
 

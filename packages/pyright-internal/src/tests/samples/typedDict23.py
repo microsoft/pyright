@@ -29,6 +29,8 @@ reveal_type(
     expected_text="Overload[(__m: Partial[TD2], /) -> None, (__m: Iterable[tuple[Literal['a'], int] | tuple[Literal['b'], str] | tuple[Literal['c'], int]], /) -> None, (*, a: int = ..., b: str = ..., c: int = ...) -> None]",
 )
 
+# This should generate an error because "c" within TD1 may be incompatible with "int".
+# A second error is generated to indicate that no overloads are compatible.
 td2.update(td1)
 
 

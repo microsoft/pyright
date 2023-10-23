@@ -478,10 +478,6 @@ export const enum ClassTypeFlags {
     // the dictionary values can be omitted.
     CanOmitDictValues = 1 << 8,
 
-    // Used in conjunction with TypedDictClass, indicates that
-    // the dictionary values are all readonly.
-    DictValuesReadOnly = 1 << 9,
-
     // The class derives from a class that has the ABCMeta
     // metaclass. Such classes are allowed to contain
     // @abstractmethod decorators.
@@ -1044,10 +1040,6 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.CanOmitDictValues);
     }
 
-    export function isDictValuesReadOnly(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.DictValuesReadOnly);
-    }
-
     export function isEnumClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.EnumClass);
     }
@@ -1128,6 +1120,10 @@ export namespace ClassType {
             return true;
         }
         recursionCount++;
+
+        if (!classType.isTypedDictPartial !== !type2.isTypedDictPartial) {
+            return false;
+        }
 
         // If the class details match, it's definitely the same class.
         if (classType.details === type2.details) {
@@ -2884,6 +2880,10 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             }
 
             if (!ClassType.isLiteralValueSame(type1, classType2)) {
+                return false;
+            }
+
+            if (!type1.isTypedDictPartial !== !classType2.isTypedDictPartial) {
                 return false;
             }
 

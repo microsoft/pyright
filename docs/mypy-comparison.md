@@ -152,7 +152,6 @@ Pyright supports several built-in type guards that mypy does not currently suppo
 
 The following expression forms are not currently supported by mypy as type guards:
 * `x == L` and `x != L` (where L is an expression with a literal type)
-* `len(x) == L` and `len(x) != L` (where x is tuple and L is a literal integer)
 * `x in y` or `x not in y` (where y is instance of list, set, frozenset, deque, tuple, dict, defaultdict, or OrderedDict)
 * `bool(x)` (where x is any expression that is statically verifiable to be truthy or falsey in all cases)
 
