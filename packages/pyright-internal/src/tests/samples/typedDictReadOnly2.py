@@ -143,8 +143,8 @@ class TD11(TypedDict):
     a: int
 
 
-class TD12(TypedDict, readonly=True):
-    a: float
+class TD12(TypedDict):
+    a: ReadOnly[float]
 
 
 class TD13(TypedDict):
