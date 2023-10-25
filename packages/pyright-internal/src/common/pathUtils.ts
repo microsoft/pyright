@@ -16,10 +16,10 @@ import { some } from './collectionUtils';
 import { GetCanonicalFileName, identity } from './core';
 import { randomBytesHex } from './crypto';
 import * as debug from './debug';
-import { FileSystem, ReadOnlyFileSystem, Stats, TempFile } from './fileSystem';
-import { equateStringsCaseInsensitive, equateStringsCaseSensitive } from './stringUtils';
 import { ServiceProvider } from './extensibility';
+import { FileSystem, ReadOnlyFileSystem, Stats, TempFile } from './fileSystem';
 import { ServiceKeys } from './serviceProviderExtensions';
+import { equateStringsCaseInsensitive, equateStringsCaseSensitive } from './stringUtils';
 
 let _fsCaseSensitivity: boolean | undefined = undefined;
 let _underTest: boolean = false;
@@ -125,8 +125,14 @@ export function getRootLength(pathString: string): number {
     }
 
     if (isUri(pathString)) {
-        return URI.parse(pathString).scheme.length + 3;
+        const uri = URI.parse(pathString);
+        if (uri.authority) {
+            return uri.scheme.length + 3; // URI: "file://"
+        } else {
+            return uri.scheme.length + 2; // URI: "untitled:/"
+        }
     }
+
     return 0;
 }
 
