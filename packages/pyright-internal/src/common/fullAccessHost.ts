@@ -10,7 +10,7 @@ import * as child_process from 'child_process';
 import { CancellationToken } from 'vscode-languageserver';
 
 import { PythonPathResult } from '../analyzer/pythonPathUtils';
-import { OperationCanceledException } from './cancellationUtils';
+import { OperationCanceledException, throwIfCancellationRequested } from './cancellationUtils';
 import { PythonPlatform } from './configOptions';
 import { assertNever } from './debug';
 import { FileSystem } from './fileSystem';
@@ -134,6 +134,9 @@ export class FullAccessHost extends LimitedAccessHost {
         cwd: string,
         token: CancellationToken
     ): Promise<ScriptOutput> {
+        // If it is already cancelled, don't bother to run script.
+        throwIfCancellationRequested(token);
+
         // What to do about conda here?
         return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
             let stdout = '';
@@ -145,7 +148,18 @@ export class FullAccessHost extends LimitedAccessHost {
             );
             const tokenWatch = token.onCancellationRequested(() => {
                 if (child) {
-                    child.kill();
+                    try {
+                        if (child.pid && child.exitCode === null) {
+                            if (process.platform === 'win32') {
+                                // Windows doesn't support SIGTERM, so execute taskkill to kill the process
+                                child_process.execSync(`taskkill /pid ${child.pid} /T /F`);
+                            } else {
+                                process.kill(child.pid);
+                            }
+                        }
+                    } catch {
+                        // Ignore.
+                    }
                 }
                 reject(new OperationCanceledException());
             });

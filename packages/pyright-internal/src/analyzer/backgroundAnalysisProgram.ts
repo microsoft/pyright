@@ -15,7 +15,6 @@ import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { Range } from '../common/textRange';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
-import { CacheManager } from './cacheManager';
 import { ImportResolver } from './importResolver';
 import { MaxAnalysisTime, OpenFileOptions, Program } from './program';
 import { ServiceProvider } from '../common/serviceProvider';
@@ -41,8 +40,7 @@ export class BackgroundAnalysisProgram {
         private _importResolver: ImportResolver,
         private _backgroundAnalysis?: BackgroundAnalysisBase,
         private readonly _maxAnalysisTime?: MaxAnalysisTime,
-        private readonly _disableChecker?: boolean,
-        cacheManager?: CacheManager
+        private readonly _disableChecker?: boolean
     ) {
         this._program = new Program(
             this.importResolver,
@@ -50,7 +48,6 @@ export class BackgroundAnalysisProgram {
             this._serviceProvider,
             undefined,
             this._disableChecker,
-            cacheManager,
             serviceId
         );
     }
@@ -166,7 +163,11 @@ export class BackgroundAnalysisProgram {
         );
     }
 
-    analyzeFile(filePath: string, token: CancellationToken): boolean {
+    async analyzeFile(filePath: string, token: CancellationToken): Promise<boolean> {
+        if (this._backgroundAnalysis) {
+            return this._backgroundAnalysis.analyzeFile(filePath, token);
+        }
+
         return this._program.analyzeFile(filePath, token);
     }
 
@@ -276,6 +277,5 @@ export type BackgroundAnalysisProgramFactory = (
     configOptions: ConfigOptions,
     importResolver: ImportResolver,
     backgroundAnalysis?: BackgroundAnalysisBase,
-    maxAnalysisTime?: MaxAnalysisTime,
-    cacheManager?: CacheManager
+    maxAnalysisTime?: MaxAnalysisTime
 ) => BackgroundAnalysisProgram;

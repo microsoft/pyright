@@ -57,7 +57,6 @@ const _maxSourceFileSize = 50 * 1024 * 1024;
 interface ResolveImportResult {
     imports: ImportResult[];
     builtinsImportResult?: ImportResult | undefined;
-    ipythonDisplayImportResult?: ImportResult | undefined;
 }
 
 // Indicates whether IPython syntax is supported and if so, what
@@ -134,8 +133,6 @@ class WriteableData {
     // Information about implicit and explicit imports from this file.
     imports: ImportResult[] | undefined;
     builtinsImport: ImportResult | undefined;
-    ipythonDisplayImport: ImportResult | undefined;
-
     // True if the file appears to have been deleted.
     isFileDeleted = false;
 }
@@ -302,10 +299,6 @@ export class SourceFile {
 
     getBuiltinsImport(): ImportResult | undefined {
         return this._writableData.builtinsImport;
-    }
-
-    getIPythonDisplayImport(): ImportResult | undefined {
-        return this._writableData.ipythonDisplayImport;
     }
 
     getModuleSymbolTable(): SymbolTable | undefined {
@@ -612,7 +605,6 @@ export class SourceFile {
 
                     this._writableData.imports = importResult.imports;
                     this._writableData.builtinsImport = importResult.builtinsImportResult;
-                    this._writableData.ipythonDisplayImport = importResult.ipythonDisplayImportResult;
 
                     this._writableData.parseDiagnostics = diagSink.fetchAndClear();
                 });
@@ -676,7 +668,6 @@ export class SourceFile {
                 };
                 this._writableData.imports = undefined;
                 this._writableData.builtinsImport = undefined;
-                this._writableData.ipythonDisplayImport = undefined;
 
                 const diagSink = this.createDiagnosticSink();
                 diagSink.addError(
@@ -1284,10 +1275,6 @@ export class SourceFile {
             builtinsImportResult = resolveAndAddIfNotSelf(['builtins']);
         }
 
-        const ipythonDisplayImportResult = this._ipythonMode
-            ? resolveAndAddIfNotSelf(['IPython', 'display'])
-            : undefined;
-
         for (const moduleImport of moduleImports) {
             const importResult = importResolver.resolveImport(this._filePath, execEnv, {
                 leadingDots: moduleImport.leadingDots,
@@ -1319,7 +1306,6 @@ export class SourceFile {
         return {
             imports,
             builtinsImportResult,
-            ipythonDisplayImportResult,
         };
     }
 

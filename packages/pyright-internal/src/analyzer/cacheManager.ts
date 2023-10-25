@@ -100,3 +100,16 @@ export class CacheManager {
         return `${Math.round(bytes / (1024 * 1024))}MB`;
     }
 }
+
+export namespace CacheManager {
+    export function is(obj: any): obj is CacheManager {
+        return (
+            obj.registerCacheOwner !== undefined &&
+            obj.unregisterCacheOwner !== undefined &&
+            obj.pauseTracking !== undefined &&
+            obj.getCacheUsage !== undefined &&
+            obj.emptyCache !== undefined &&
+            obj.getUsedHeapRatio !== undefined
+        );
+    }
+}

@@ -38,6 +38,7 @@ import { LanguageServerBase, ServerSettings } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 import { PyrightFileSystem } from './pyrightFileSystem';
 import { Workspace } from './workspaceFactory';
+import { CacheManager } from './analyzer/cacheManager';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
 
@@ -58,8 +59,9 @@ export class PyrightServer extends LanguageServerBase {
         const fileSystem = createFromRealFileSystem(console, fileWatcherProvider);
         const pyrightFs = new PyrightFileSystem(fileSystem);
         const tempFile = new RealTempFile();
+        const cacheManager = new CacheManager();
 
-        const serviceProvider = createServiceProvider(pyrightFs, tempFile, console);
+        const serviceProvider = createServiceProvider(pyrightFs, tempFile, console, cacheManager);
         const realPathRoot = realCasePath(rootDirectory, pyrightFs);
 
         super(

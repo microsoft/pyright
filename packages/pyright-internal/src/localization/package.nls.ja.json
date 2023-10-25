@@ -642,6 +642,7 @@
         "memberSetClassVar": "メンバー \"{name}\" は ClassVar であるため、クラス インスタンスを介して割り当てることはできません",
         "memberTypeMismatch": "\"{name}\" は互換性のない型です",
         "memberUnknown": "メンバー \"{name}\" が不明です",
+        "metaclassConflict": "Metaclass \"{metaclass1}\" conflicts with \"{metaclass2}\"",
         "missingDeleter": "プロパティ削除メソッドがありません",
         "missingGetter": "プロパティ getter メソッドがありません",
         "missingProtocolMember": "メンバー \"{name}\" はプロトコル クラス \"{classType}\" で宣言されています",

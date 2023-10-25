@@ -692,7 +692,7 @@ export class TestState {
         verifyMode: _.FourSlashVerificationMode,
         map: {
             [marker: string]: {
-                codeActions: { title: string; kind: string; command?: Command; edit?: WorkspaceEdit[] }[];
+                codeActions: { title: string; kind: string; command?: Command; edit?: WorkspaceEdit }[];
             };
         }
     ): Promise<any> {

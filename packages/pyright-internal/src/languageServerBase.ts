@@ -75,7 +75,6 @@ import { ResultProgressReporter, attachWorkDone } from 'vscode-languageserver/li
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AnalysisResults } from './analyzer/analysis';
 import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
-import { CacheManager } from './analyzer/cacheManager';
 import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
 import { AnalyzerService, configFileNames, getNextServiceId } from './analyzer/service';
@@ -349,7 +348,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     protected readonly workspaceFactory: WorkspaceFactory;
     protected readonly openFileMap = new Map<string, TextDocument>();
-    protected readonly cacheManager: CacheManager;
     protected readonly fs: FileSystem;
 
     // The URIs for which diagnostics are reported
@@ -373,8 +371,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         );
 
         this.console.info(`Server root directory: ${serverOptions.rootDirectory}`);
-
-        this.cacheManager = new CacheManager();
 
         this.fs = this.serverOptions.serviceProvider.fs();
 
@@ -454,7 +450,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             backgroundAnalysisProgramFactory: this.createBackgroundAnalysisProgram.bind(this),
             cancellationProvider: this.serverOptions.cancellationProvider,
             libraryReanalysisTimeProvider,
-            cacheManager: this.cacheManager,
             serviceId,
             fileSystem: services?.fs ?? this.serverOptions.serviceProvider.fs(),
         });
@@ -614,8 +609,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         configOptions: ConfigOptions,
         importResolver: ImportResolver,
         backgroundAnalysis?: BackgroundAnalysisBase,
-        maxAnalysisTime?: MaxAnalysisTime,
-        cacheManager?: CacheManager
+        maxAnalysisTime?: MaxAnalysisTime
     ): BackgroundAnalysisProgram {
         return new BackgroundAnalysisProgram(
             serviceId,
@@ -624,8 +618,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             importResolver,
             backgroundAnalysis,
             maxAnalysisTime,
-            /* disableChecker */ undefined,
-            cacheManager
+            /* disableChecker */ undefined
         );
     }
 
