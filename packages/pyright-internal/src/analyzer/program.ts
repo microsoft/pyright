@@ -170,7 +170,6 @@ export class Program {
         readonly serviceProvider: ServiceProvider,
         logTracker?: LogTracker,
         private _disableChecker?: boolean,
-        cacheManager?: CacheManager,
         id?: string
     ) {
         this._console = serviceProvider.tryGet(ServiceKeys.console) || new StandardConsole();
@@ -179,7 +178,7 @@ export class Program {
         this._configOptions = initialConfigOptions;
         this._sourceFileFactory = serviceProvider.sourceFileFactory();
 
-        this._cacheManager = cacheManager ?? new CacheManager();
+        this._cacheManager = serviceProvider.tryGet(ServiceKeys.cacheManager) ?? new CacheManager();
         this._cacheManager.registerCacheOwner(this);
         this._createNewEvaluator();
 
@@ -1483,16 +1482,6 @@ export class Program {
             sourceFileInfo.builtinsImport = this.getSourceFileInfo(resolvedBuiltinsPath);
         }
 
-        // Resolve the ipython display import for the file. This needs to be
-        // analyzed before the file can be analyzed.
-        sourceFileInfo.ipythonDisplayImport = undefined;
-        const ipythonDisplayImport = sourceFileInfo.sourceFile.getIPythonDisplayImport();
-        if (ipythonDisplayImport && ipythonDisplayImport.isImportFound) {
-            const resolvedIPythonDisplayPath =
-                ipythonDisplayImport.resolvedPaths[ipythonDisplayImport.resolvedPaths.length - 1];
-            sourceFileInfo.ipythonDisplayImport = this.getSourceFileInfo(resolvedIPythonDisplayPath);
-        }
-
         return filesAdded;
     }
 
@@ -1659,7 +1648,7 @@ export class Program {
     }
 
     private _getImplicitImports(file: SourceFileInfo) {
-        // If file is not parsed, then chainedSourceFile, ipythonDisplayImport,
+        // If file is not parsed, then chainedSourceFile,
         // builtinsImport might not exist or incorrect.
         // They will be added when _parseFile is called and _updateSourceFileImports ran.
         if (file.builtinsImport === file) {
@@ -1674,7 +1663,7 @@ export class Program {
             return input;
         };
 
-        return tryReturn(file.chainedSourceFile) ?? tryReturn(file.ipythonDisplayImport) ?? file.builtinsImport;
+        return tryReturn(file.chainedSourceFile) ?? file.builtinsImport;
     }
 
     private _bindImplicitImports(fileToAnalyze: SourceFileInfo, skipFileNeededCheck?: boolean) {
@@ -1753,10 +1742,9 @@ export class Program {
             }
 
             // If it is not builtin module itself, we need to parse and bind
-            // the ipython display import if required. Otherwise, get builtin module.
+            // the builtin module.
             builtinsScope =
                 getScopeIfAvailable(fileToAnalyze.chainedSourceFile) ??
-                getScopeIfAvailable(fileToAnalyze.ipythonDisplayImport) ??
                 getScopeIfAvailable(fileToAnalyze.builtinsImport);
         }
 

@@ -475,3 +475,23 @@ test('Realcase use cwd implicitly', () => {
     const fspaths = fsentries.map((entry) => fs.realCasePath(path.join(dir, entry)));
     assert.deepStrictEqual(paths, fspaths);
 });
+
+test('Realcase drive letter', () => {
+    const fs = createFromRealFileSystem();
+
+    const cwd = process.cwd();
+
+    assert.strictEqual(
+        getDriveLetter(fs.realCasePath(cwd)),
+        getDriveLetter(fs.realCasePath(combinePaths(cwd.toLowerCase(), 'notExist.txt')))
+    );
+
+    function getDriveLetter(path: string) {
+        const driveLetter = getRootLength(path);
+        if (driveLetter === 0) {
+            return '';
+        }
+
+        return path.substring(0, driveLetter);
+    }
+});

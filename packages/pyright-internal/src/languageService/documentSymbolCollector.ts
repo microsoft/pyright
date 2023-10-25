@@ -58,6 +58,37 @@ export interface DocumentSymbolCollectorOptions {
     readonly providers?: readonly SymbolUsageProvider[];
 }
 
+// 99% of time, `find all references` is looking for a symbol imported from the other file to this file.
+// By caching the result of `resolveAlias` we only need to resolve it once per a file.
+const withLocalNamesCacheIndex = 0;
+const withoutLocalNamesCacheIndex = 1;
+
+type CacheEntry = { original: Declaration; resolved: Declaration | undefined } | undefined;
+
+export class AliasResolver {
+    private readonly _caches: CacheEntry[] = [undefined, undefined];
+
+    constructor(private readonly _evaluator: TypeEvaluator) {
+        // Empty
+    }
+
+    resolve(declaration: Declaration, resolveLocalNames: boolean): Declaration | undefined {
+        const index = resolveLocalNames ? withLocalNamesCacheIndex : withoutLocalNamesCacheIndex;
+
+        if (this._caches[index] && this._caches[index]!.original === declaration) {
+            return this._caches[index]!.resolved;
+        }
+
+        const resolved = this._evaluator.resolveAliasDeclaration(declaration, resolveLocalNames, {
+            allowExternallyHiddenAccess: true,
+            skipFileNeededCheck: true,
+        });
+
+        this._caches[index] = { original: declaration, resolved };
+        return resolved;
+    }
+}
+
 // This walker looks for symbols that are semantically equivalent
 // to the requested symbol.
 export class DocumentSymbolCollector extends ParseTreeWalker {
@@ -71,6 +102,8 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     private readonly _skipUnreachableCode: boolean;
     private readonly _useCase: ReferenceUseCase;
 
+    private _aliasResolver: AliasResolver;
+
     constructor(
         private readonly _program: ProgramView,
         symbolNames: string[],
@@ -80,6 +113,8 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         options?: DocumentSymbolCollectorOptions
     ) {
         super();
+
+        this._aliasResolver = new AliasResolver(this._program.evaluator!);
 
         // Start with the symbols passed in
         symbolNames.forEach((s) => this._symbolNames.add(s));
@@ -288,7 +323,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
 
         return results.some((declaration) => {
             // Resolve the declaration.
-            const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ false);
+            const resolvedDecl = this._aliasResolver.resolve(declaration, /* resolveLocalNames */ false);
             if (!resolvedDecl) {
                 return false;
             }
@@ -318,7 +353,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             return getDeclarationsWithUsesLocalNameRemoved([declaration])[0];
         }
 
-        const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
+        const resolvedDecl = this._aliasResolver.resolve(declaration, /* resolveLocalNames */ true);
         return isAliasDeclFromImportAsWithAlias(resolvedDecl)
             ? getDeclarationsWithUsesLocalNameRemoved([resolvedDecl])[0]
             : resolvedDecl;

@@ -441,40 +441,6 @@ test('try implicitly load ipython display module but fail', async () => {
     });
 });
 
-test('implicitly load ipython display module', async () => {
-    const code = `
-// @filename: pyrightconfig.json
-//// {
-////   "useLibraryCodeForTypes": true
-//// }
-
-// @filename: test.py
-// @ipythonMode: true
-//// [|display/*marker*/|]
-
-// @filename: IPython/__init__.py
-// @library: true
-//// 
-
-// @filename: IPython/display.py
-// @library: true
-//// def display(): pass
-    `;
-
-    const state = parseAndGetTestState(code).state;
-
-    await state.verifyCompletion('included', MarkupKind.Markdown, {
-        marker: {
-            completions: [
-                {
-                    label: 'display',
-                    kind: CompletionItemKind.Function,
-                },
-            ],
-        },
-    });
-});
-
 test('magics at the end', async () => {
     const code = `
 // @filename: test.py

@@ -106,6 +106,27 @@ export class BackgroundAnalysisBase {
         this._startOrResumeAnalysis('analyze', program, token);
     }
 
+    async analyzeFile(filePath: string, token: CancellationToken): Promise<boolean> {
+        throwIfCancellationRequested(token);
+
+        const { port1, port2 } = new MessageChannel();
+        const waiter = getBackgroundWaiter<boolean>(port1);
+
+        const cancellationId = getCancellationTokenId(token);
+        this.enqueueRequest({
+            requestType: 'analyzeFile',
+            data: { filePath, cancellationId },
+            port: port2,
+        });
+
+        const result = await waiter;
+
+        port2.close();
+        port1.close();
+
+        return result;
+    }
+
     async getDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
         throwIfCancellationRequested(token);
 
@@ -316,6 +337,16 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
                 break;
             }
 
+            case 'analyzeFile': {
+                run(() => {
+                    const { filePath, cancellationId } = msg.data;
+                    const token = getCancellationTokenFromId(cancellationId);
+
+                    return this.handleAnalyzeFile(filePath, token);
+                }, msg.port!);
+                break;
+            }
+
             case 'getDiagnosticsForRange': {
                 run(() => {
                     const { filePath, range, cancellationId } = msg.data;
@@ -466,6 +497,11 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         } else {
             this.analysisDone(port, cancellationId);
         }
+    }
+
+    protected handleAnalyzeFile(filePath: string, token: CancellationToken) {
+        throwIfCancellationRequested(token);
+        return this.program.analyzeFile(filePath, token);
     }
 
     protected handleGetDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken) {
@@ -682,7 +718,8 @@ export type AnalysisRequestKind =
     | 'writeTypeStub'
     | 'setImportResolver'
     | 'shutdown'
-    | 'addInterimFile';
+    | 'addInterimFile'
+    | 'analyzeFile';
 
 export interface AnalysisRequest {
     requestType: AnalysisRequestKind;

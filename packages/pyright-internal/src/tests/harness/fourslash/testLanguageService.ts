@@ -13,7 +13,6 @@ import {
     BackgroundAnalysisProgram,
     BackgroundAnalysisProgramFactory,
 } from '../../../analyzer/backgroundAnalysisProgram';
-import { CacheManager } from '../../../analyzer/cacheManager';
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { MaxAnalysisTime } from '../../../analyzer/program';
 import { AnalyzerService } from '../../../analyzer/service';
@@ -45,8 +44,7 @@ export class TestFeatures implements HostSpecificFeatures {
         configOptions: ConfigOptions,
         importResolver: ImportResolver,
         backgroundAnalysis?: BackgroundAnalysisBase,
-        maxAnalysisTime?: MaxAnalysisTime,
-        cacheManager?: CacheManager
+        maxAnalysisTime?: MaxAnalysisTime
     ) =>
         new BackgroundAnalysisProgram(
             serviceId,
@@ -55,8 +53,7 @@ export class TestFeatures implements HostSpecificFeatures {
             importResolver,
             backgroundAnalysis,
             maxAnalysisTime,
-            /* disableChecker */ undefined,
-            cacheManager
+            /* disableChecker */ undefined
         );
 
     runIndexer(workspace: Workspace, noStdLib: boolean, options?: string): void {

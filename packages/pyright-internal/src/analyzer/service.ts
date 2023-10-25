@@ -57,7 +57,6 @@ import {
     BackgroundAnalysisProgramFactory,
     InvalidatedReason,
 } from './backgroundAnalysisProgram';
-import { CacheManager } from './cacheManager';
 import {
     ImportResolver,
     ImportResolverFactory,
@@ -88,7 +87,6 @@ export interface AnalyzerServiceOptions {
     backgroundAnalysisProgramFactory?: BackgroundAnalysisProgramFactory;
     cancellationProvider?: CancellationProvider;
     libraryReanalysisTimeProvider?: () => number;
-    cacheManager?: CacheManager;
     serviceId?: string;
     skipScanningUserFiles?: boolean;
     fileSystem?: FileSystem;
@@ -166,8 +164,7 @@ export class AnalyzerService {
                       this._options.configOptions,
                       importResolver,
                       this._options.backgroundAnalysis,
-                      this._options.maxAnalysisTime,
-                      this._options.cacheManager
+                      this._options.maxAnalysisTime
                   )
                 : new BackgroundAnalysisProgram(
                       this._options.serviceId,
@@ -176,8 +173,7 @@ export class AnalyzerService {
                       importResolver,
                       this._options.backgroundAnalysis,
                       this._options.maxAnalysisTime,
-                      /* disableChecker */ undefined,
-                      this._options.cacheManager
+                      /* disableChecker */ undefined
                   );
     }
 
@@ -412,6 +408,10 @@ export class AnalyzerService {
 
     printDependencies(verbose: boolean) {
         this._program.printDependencies(this._executionRootPath, verbose);
+    }
+
+    analyzeFile(filePath: string, token: CancellationToken): Promise<boolean> {
+        return this._backgroundAnalysisProgram.analyzeFile(filePath, token);
     }
 
     getDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
