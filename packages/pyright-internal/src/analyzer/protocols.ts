@@ -36,6 +36,7 @@ import {
     applySolvedTypeVars,
     AssignTypeFlags,
     ClassMember,
+    ClassMemberLookupFlags,
     containsLiteralType,
     getTypeVarScopeId,
     lookUpClassMember,
@@ -296,6 +297,7 @@ function assignClassToProtocolInternal(
             }
 
             let srcMemberType: Type;
+            let isSrcReadOnly = false;
 
             if (isClass(srcType)) {
                 // Look in the metaclass first if we're treating the source as an instantiable class.
@@ -373,6 +375,11 @@ function assignClassToProtocolInternal(
                             return;
                         }
                     }
+                }
+
+                // Frozen dataclasses and named tuples should be treated as read-only.
+                if (ClassType.isFrozenDataClass(srcType) || ClassType.isReadOnlyInstanceVariables(srcType)) {
+                    isSrcReadOnly = true;
                 }
             } else {
                 srcSymbol = srcType.fields.get(name);
@@ -460,6 +467,7 @@ function assignClassToProtocolInternal(
                         destMemberType,
                         /* inferTypeIfNeeded */ true
                     );
+
                     if (
                         !getterType ||
                         !evaluator.assignType(
@@ -476,6 +484,21 @@ function assignClassToProtocolInternal(
                             subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
                         }
                         typesAreConsistent = false;
+                    }
+
+                    if (isSrcReadOnly) {
+                        // The source attribute is read-only. Make sure the setter
+                        // is not defined in the dest property.
+                        if (
+                            lookUpClassMember(destMemberType, '__set__', ClassMemberLookupFlags.SkipInstanceVariables)
+                        ) {
+                            if (subDiag) {
+                                subDiag.addMessage(
+                                    Localizer.DiagnosticAddendum.memberIsWritableInProtocol().format({ name })
+                                );
+                            }
+                            typesAreConsistent = false;
+                        }
                     }
                 }
             } else {
@@ -537,14 +560,18 @@ function assignClassToProtocolInternal(
                 destPrimaryDecl?.type === DeclarationType.Variable &&
                 srcPrimaryDecl?.type === DeclarationType.Variable
             ) {
-                const isDestConst = !!destPrimaryDecl.isConstant;
-                const isSrcConst =
-                    (srcMemberInfo &&
-                        isClass(srcMemberInfo.classType) &&
-                        ClassType.isReadOnlyInstanceVariables(srcMemberInfo.classType)) ||
-                    !!srcPrimaryDecl.isConstant;
+                const isDestReadOnly = !!destPrimaryDecl.isConstant;
+                let isSrcReadOnly = !!srcPrimaryDecl.isConstant;
+                if (srcMemberInfo && isClass(srcMemberInfo.classType)) {
+                    if (
+                        ClassType.isReadOnlyInstanceVariables(srcMemberInfo.classType) ||
+                        ClassType.isFrozenDataClass(srcMemberInfo.classType)
+                    ) {
+                        isSrcReadOnly = true;
+                    }
+                }
 
-                if (!isDestConst && isSrcConst) {
+                if (!isDestReadOnly && isSrcReadOnly) {
                     if (subDiag) {
                         subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsWritableInProtocol().format({ name }));
                     }
