@@ -126,8 +126,13 @@ export function getRootLength(pathString: string): number {
 
     if (isUri(pathString)) {
         const uri = URI.parse(pathString);
-        return Math.min(pathString.length, uri.scheme.length + 3);
+        if (uri.authority) {
+            return uri.scheme.length + 3; // URI: "file://"
+        } else {
+            return uri.scheme.length + 2; // URI: "untitled:/"
+        }
     }
+
     return 0;
 }
 
