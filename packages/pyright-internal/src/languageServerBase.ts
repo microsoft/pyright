@@ -120,6 +120,7 @@ import { CallHierarchyProvider } from './languageService/callHierarchyProvider';
 import { CompletionItemData, CompletionProvider } from './languageService/completionProvider';
 import { DefinitionFilter, DefinitionProvider, TypeDefinitionProvider } from './languageService/definitionProvider';
 import { DocumentHighlightProvider } from './languageService/documentHighlightProvider';
+import { CollectionResult } from './languageService/documentSymbolCollector';
 import { DocumentSymbolProvider } from './languageService/documentSymbolProvider';
 import { HoverProvider } from './languageService/hoverProvider';
 import { canNavigateToFile } from './languageService/navigationUtils';
@@ -128,9 +129,8 @@ import { RenameProvider } from './languageService/renameProvider';
 import { SignatureHelpProvider } from './languageService/signatureHelpProvider';
 import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
-import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
-import { CollectionResult } from './languageService/documentSymbolCollector';
 import { ParseResults } from './parser/parser';
+import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
 
 export interface ServerSettings {
     venvPath?: string | undefined;

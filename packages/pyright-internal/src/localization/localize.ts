@@ -115,6 +115,8 @@ declare let navigator: { language: string } | undefined;
 let localeOverride: string | undefined;
 
 export function setLocaleOverride(locale: string) {
+    // Force a reload of the localized strings.
+    localizedStrings = undefined;
     localeOverride = locale.toLowerCase();
 }
 
