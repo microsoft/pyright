@@ -2952,10 +2952,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             flowNode,
             /* reference */ undefined,
             /* targetSymbolId */ undefined,
-            /* typeAtStart */ UnboundType.create(),
-            {
-                skipNoReturnCallAnalysis: true,
-            }
+            /* typeAtStart */ UnboundType.create()
         );
 
         return codeFlowResult.type !== undefined && !isNever(codeFlowResult.type);
