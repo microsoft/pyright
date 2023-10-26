@@ -19953,6 +19953,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 .getDeclarations()
                                 .find((decl) => decl.type === DeclarationType.Parameter);
                         }
+
+                        const parameterDetails = getParameterListDetails(type);
+                        if (parameterDetails.unpackedKwargsTypedDictType) {
+                            const lookupResults = lookUpClassMember(
+                                parameterDetails.unpackedKwargsTypedDictType,
+                                paramName
+                            );
+                            if (lookupResults) {
+                                return lookupResults.symbol
+                                    .getDeclarations()
+                                    .find((decl) => decl.type === DeclarationType.Variable);
+                            }
+                        }
                     }
                 }
             }
