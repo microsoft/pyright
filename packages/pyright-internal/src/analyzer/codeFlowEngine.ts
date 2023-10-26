@@ -83,7 +83,6 @@ export interface FlowNodeTypeResult {
 
 export interface FlowNodeTypeOptions {
     isTypeAtStartIncomplete?: boolean;
-    skipNoReturnCallAnalysis?: boolean;
     skipConditionalNarrowing?: boolean;
 }
 
@@ -431,7 +430,7 @@ export function getCodeFlowEngine(
                         // If this function returns a "NoReturn" type, that means
                         // it always raises an exception or otherwise doesn't return,
                         // so we can assume that the code before this is unreachable.
-                        if (!options?.skipNoReturnCallAnalysis && isCallNoReturn(evaluator, callFlowNode)) {
+                        if (isCallNoReturn(evaluator, callFlowNode)) {
                             return setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ false);
                         }
 
