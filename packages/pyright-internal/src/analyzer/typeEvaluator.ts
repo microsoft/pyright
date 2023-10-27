@@ -20856,14 +20856,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const effectiveTypeCacheKey = `${usageNodeId === undefined ? '.' : usageNodeId.toString()}${
             useLastDecl ? '*' : ''
         }`;
+        const cacheEntry = cacheEntries?.get(effectiveTypeCacheKey);
 
-        if (cacheEntries) {
-            const result = cacheEntries.get(effectiveTypeCacheKey);
-            if (result) {
-                if (!result.isIncomplete) {
-                    return result;
-                }
-            }
+        if (cacheEntry && !cacheEntry.isIncomplete) {
+            return cacheEntry;
         }
 
         // Infer the type.
@@ -20971,8 +20967,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             declsToConsider.push(resolvedDecl);
         });
 
-        const evaluationAttempts = (cacheEntries?.get(effectiveTypeCacheKey)?.evaluationAttempts ?? 0) + 1;
-        const result = getTypeOfSymbolForDecls(symbol, declsToConsider, evaluationAttempts);
+        const result = getTypeOfSymbolForDecls(symbol, declsToConsider, effectiveTypeCacheKey);
 
         // Add the result to the effective type cache if it doesn't include speculative results.
         if (!result.includesSpeculativeResult) {
@@ -20993,11 +20988,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Returns the type of a symbol based on a subset of its declarations.
-    function getTypeOfSymbolForDecls(
-        symbol: Symbol,
-        decls: Declaration[],
-        evaluationAttempts: number
-    ): EffectiveTypeResult {
+    function getTypeOfSymbolForDecls(symbol: Symbol, decls: Declaration[], typeCacheKey: string): EffectiveTypeResult {
         const typesToCombine: Type[] = [];
         let isIncomplete = false;
         let sawPendingEvaluation = false;
@@ -21074,6 +21065,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 sawPendingEvaluation = true;
             }
         });
+
+        // How many times have we already attempted to evaluate this declaration already?
+        const cacheEntries = effectiveTypeCache.get(symbol.id);
+        const evaluationAttempts = (cacheEntries?.get(typeCacheKey)?.evaluationAttempts ?? 0) + 1;
 
         let type: Type;
 
