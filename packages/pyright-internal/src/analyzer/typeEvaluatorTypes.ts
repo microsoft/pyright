@@ -145,6 +145,10 @@ export const enum EvaluatorFlags {
     // Disallow a type alias defined with a "type" statement.
     DisallowPep695TypeAlias = 1 << 24,
 
+    // If evaluation is a TypeVarType that is a ParamSpec, do
+    // not convert it to its corresponding ParamSpec runtime object.
+    SkipConvertParamSpecToRuntimeObject = 1 << 25,
+
     // Defaults used for evaluating the LHS of a call expression.
     CallBaseDefaults = DoNotSpecialize | DisallowPep695TypeAlias,
 
