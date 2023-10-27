@@ -337,7 +337,7 @@ class DebugTestProcess(google.protobuf.message.Message):
         ValueType = typing.NewType("ValueType", builtins.int)
         V: typing_extensions.TypeAlias = ValueType
 
-    class _TestEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[DebugTestProcess._Test.ValueType], builtins.type):  # noqa: F821
+    class _TestEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[DebugTestProcess._Test.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         hang: DebugTestProcess._Test.ValueType  # 1
         crash: DebugTestProcess._Test.ValueType  # 2
@@ -387,7 +387,7 @@ class DebugEndGame(google.protobuf.message.Message):
         ValueType = typing.NewType("ValueType", builtins.int)
         V: typing_extensions.TypeAlias = ValueType
 
-    class _EndResultEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[DebugEndGame._EndResult.ValueType], builtins.type):  # noqa: F821
+    class _EndResultEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[DebugEndGame._EndResult.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         Surrender: DebugEndGame._EndResult.ValueType  # 1
         """Default if nothing is set. The current player admits defeat."""
@@ -418,7 +418,7 @@ class DebugSetUnitValue(google.protobuf.message.Message):
         ValueType = typing.NewType("ValueType", builtins.int)
         V: typing_extensions.TypeAlias = ValueType
 
-    class _UnitValueEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[DebugSetUnitValue._UnitValue.ValueType], builtins.type):  # noqa: F821
+    class _UnitValueEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[DebugSetUnitValue._UnitValue.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         Energy: DebugSetUnitValue._UnitValue.ValueType  # 1
         Life: DebugSetUnitValue._UnitValue.ValueType  # 2

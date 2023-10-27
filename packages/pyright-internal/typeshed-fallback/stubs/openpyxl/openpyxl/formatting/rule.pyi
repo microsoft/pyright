@@ -1,11 +1,12 @@
 from _typeshed import Incomplete, Unused
-from typing import ClassVar
+from typing import ClassVar, overload
 from typing_extensions import Literal, TypeAlias
 
 from openpyxl.descriptors import Float, Strict
 from openpyxl.descriptors.base import Bool, Integer, NoneSet, Set, String, Typed, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.styles.colors import Color, ColorDescriptor
 from openpyxl.styles.differential import DifferentialStyle
 
 _IconSetIconSet: TypeAlias = Literal[
@@ -106,16 +107,27 @@ class DataBar(RuleType):
     minLength: Integer[Literal[True]]
     maxLength: Integer[Literal[True]]
     showValue: Bool[Literal[True]]
-    color: Incomplete
+    color: ColorDescriptor[Literal[False]]
     __elements__: ClassVar[tuple[str, ...]]
     cfvo: Incomplete
+    @overload
     def __init__(
         self,
         minLength: _ConvertibleToInt | None = None,
         maxLength: _ConvertibleToInt | None = None,
         showValue: _ConvertibleToBool | None = None,
         cfvo: Incomplete | None = None,
-        color: Incomplete | None = None,
+        *,
+        color: str | Color,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        minLength: _ConvertibleToInt | None,
+        maxLength: _ConvertibleToInt | None,
+        showValue: _ConvertibleToBool | None,
+        cfvo: Incomplete | None,
+        color: str | Color,
     ) -> None: ...
 
 class ColorScale(RuleType):

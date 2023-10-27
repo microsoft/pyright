@@ -35,6 +35,7 @@ class TimeoutExpired(Exception): ...
 
 def QueryDosDevice(*args, **kwargs): ...  # incomplete
 def boot_time(*args, **kwargs): ...  # incomplete
+def check_pid_range(__pid: int) -> None: ...
 def cpu_count_cores(*args, **kwargs): ...  # incomplete
 def cpu_count_logical(*args, **kwargs): ...  # incomplete
 def cpu_freq(*args, **kwargs): ...  # incomplete

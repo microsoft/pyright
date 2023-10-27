@@ -7,6 +7,7 @@ from typing_extensions import Literal, TypeAlias, TypedDict
 
 from webob.byterange import ContentRange
 from webob.cachecontrol import _ResponseCacheControl
+from webob.cookies import _SameSitePolicy
 from webob.descriptors import _AsymmetricProperty, _AsymmetricPropertyWithDelete, _authorization, _DateProperty, _ListProperty
 from webob.headers import ResponseHeaders
 from webob.request import Request
@@ -134,7 +135,7 @@ class Response:
         httponly: bool = False,
         comment: str | None = None,
         overwrite: bool = False,
-        samesite: Literal["strict", "lax", "none"] | None = None,
+        samesite: _SameSitePolicy | None = None,
     ) -> None: ...
     def delete_cookie(self, name: str, path: str = "/", domain: str | None = None) -> None: ...
     def unset_cookie(self, name: str, strict: bool = True) -> None: ...

@@ -18,6 +18,7 @@ from openpyxl.descriptors.base import (
 from openpyxl.descriptors.excel import Coordinate, ExtensionList
 from openpyxl.descriptors.nested import EmptyTag, NestedBool, NestedInteger, NestedText, NestedValue
 from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.drawing.colors import ColorChoice, ColorChoiceDescriptor
 from openpyxl.drawing.effect import Color, EffectContainer, EffectList
 from openpyxl.drawing.fill import Blip, BlipFillProperties, GradientFillProperties, PatternFillProperties
 from openpyxl.drawing.geometry import Scene3D
@@ -223,7 +224,7 @@ class CharacterProperties(Serialisable):
     rtl: NestedBool[Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]
     noFill: EmptyTag[Literal[False]]
-    solidFill: Incomplete
+    solidFill: ColorChoiceDescriptor
     gradFill: Typed[GradientFillProperties, Literal[True]]
     blipFill: Typed[BlipFillProperties, Literal[True]]
     pattFill: Typed[PatternFillProperties, Literal[True]]
@@ -265,9 +266,9 @@ class CharacterProperties(Serialisable):
         hlinkClick: Hyperlink | None = None,
         hlinkMouseOver: Hyperlink | None = None,
         rtl: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
-        extLst: ExtensionList | None = None,
+        extLst: Unused = None,
         noFill: _HasTagAndGet[_ConvertibleToBool] | _ConvertibleToBool = None,
-        solidFill: Incomplete | None = None,
+        solidFill: str | ColorChoice | None = None,
         gradFill: GradientFillProperties | None = None,
         blipFill: BlipFillProperties | None = None,
         pattFill: PatternFillProperties | None = None,

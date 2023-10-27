@@ -1,6 +1,6 @@
 from _typeshed import Incomplete
 from collections import defaultdict
-from collections.abc import Generator
+from collections.abc import Generator, Iterator
 from re import Pattern
 from typing import ClassVar
 from typing_extensions import Final, Literal
@@ -59,7 +59,7 @@ class DefinedName(Serialisable):
     def is_reserved(self) -> str | None: ...
     @property
     def is_external(self) -> bool: ...
-    def __iter__(self): ...
+    def __iter__(self) -> Iterator[tuple[str, str]]: ...
 
 class DefinedNameDict(dict[str, DefinedName]):
     def add(self, value: DefinedName) -> None: ...

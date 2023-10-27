@@ -1,10 +1,11 @@
-from _typeshed import Incomplete
 from typing import ClassVar
+from typing_extensions import Literal
 
+from openpyxl.descriptors.base import Bool, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable
 
 class Protection(Serialisable):
     tagname: ClassVar[str]
-    locked: Incomplete
-    hidden: Incomplete
-    def __init__(self, locked: bool = True, hidden: bool = False) -> None: ...
+    locked: Bool[Literal[False]]
+    hidden: Bool[Literal[False]]
+    def __init__(self, locked: _ConvertibleToBool = True, hidden: _ConvertibleToBool = False) -> None: ...

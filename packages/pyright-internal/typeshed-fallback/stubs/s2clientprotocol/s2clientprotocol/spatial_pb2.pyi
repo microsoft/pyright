@@ -376,7 +376,7 @@ class ActionSpatialUnitSelectionPoint(google.protobuf.message.Message):
         ValueType = typing.NewType("ValueType", builtins.int)
         V: typing_extensions.TypeAlias = ValueType
 
-    class _TypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[ActionSpatialUnitSelectionPoint._Type.ValueType], builtins.type):  # noqa: F821
+    class _TypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[ActionSpatialUnitSelectionPoint._Type.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         Select: ActionSpatialUnitSelectionPoint._Type.ValueType  # 1
         """Equivalent to normal click. Changes selection to unit."""

@@ -24,7 +24,7 @@ class Score(google.protobuf.message.Message):
         ValueType = typing.NewType("ValueType", builtins.int)
         V: typing_extensions.TypeAlias = ValueType
 
-    class _ScoreTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Score._ScoreType.ValueType], builtins.type):  # noqa: F821
+    class _ScoreTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Score._ScoreType.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         Curriculum: Score._ScoreType.ValueType  # 1
         """map generated score (from curriculum maps with special scoring)"""

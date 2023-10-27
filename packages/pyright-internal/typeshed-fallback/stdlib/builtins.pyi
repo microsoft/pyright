@@ -288,7 +288,7 @@ class int:
     def __pow__(self, __value: _PositiveInteger, __mod: None = None) -> int: ...
     @overload
     def __pow__(self, __value: _NegativeInteger, __mod: None = None) -> float: ...
-    # positive x -> int; negative x -> float
+    # positive __value -> int; negative __value -> float
     # return type must be Any as `int | float` causes too many false-positive errors
     @overload
     def __pow__(self, __value: int, __mod: None = None) -> Any: ...
@@ -347,7 +347,7 @@ class float:
     def __divmod__(self, __value: float) -> tuple[float, float]: ...
     @overload
     def __pow__(self, __value: int, __mod: None = None) -> float: ...
-    # positive x -> float; negative x -> complex
+    # positive __value -> float; negative __value -> complex
     # return type must be Any as `float | complex` causes too many false-positive errors
     @overload
     def __pow__(self, __value: float, __mod: None = None) -> Any: ...
@@ -953,7 +953,7 @@ class slice:
     __hash__: ClassVar[None]  # type: ignore[assignment]
     def indices(self, __len: SupportsIndex) -> tuple[int, int, int]: ...
 
-class tuple(Sequence[_T_co], Generic[_T_co]):
+class tuple(Sequence[_T_co]):
     def __new__(cls, __iterable: Iterable[_T_co] = ...) -> Self: ...
     def __len__(self) -> int: ...
     def __contains__(self, __key: object) -> bool: ...
@@ -1005,7 +1005,7 @@ class function:
     # mypy uses `builtins.function.__get__` to represent methods, properties, and getset_descriptors so we type the return as Any.
     def __get__(self, __instance: object, __owner: type | None = None) -> Any: ...
 
-class list(MutableSequence[_T], Generic[_T]):
+class list(MutableSequence[_T]):
     @overload
     def __init__(self) -> None: ...
     @overload
@@ -1060,7 +1060,7 @@ class list(MutableSequence[_T], Generic[_T]):
     if sys.version_info >= (3, 9):
         def __class_getitem__(cls, __item: Any) -> GenericAlias: ...
 
-class dict(MutableMapping[_KT, _VT], Generic[_KT, _VT]):
+class dict(MutableMapping[_KT, _VT]):
     # __init__ should be kept roughly in line with `collections.UserDict.__init__`, which has similar semantics
     # Also multiprocessing.managers.SyncManager.dict()
     @overload
@@ -1133,7 +1133,7 @@ class dict(MutableMapping[_KT, _VT], Generic[_KT, _VT]):
         @overload
         def __ior__(self, __value: Iterable[tuple[_KT, _VT]]) -> Self: ...
 
-class set(MutableSet[_T], Generic[_T]):
+class set(MutableSet[_T]):
     @overload
     def __init__(self) -> None: ...
     @overload
@@ -1173,7 +1173,7 @@ class set(MutableSet[_T], Generic[_T]):
     if sys.version_info >= (3, 9):
         def __class_getitem__(cls, __item: Any) -> GenericAlias: ...
 
-class frozenset(AbstractSet[_T_co], Generic[_T_co]):
+class frozenset(AbstractSet[_T_co]):
     @overload
     def __new__(cls) -> Self: ...
     @overload
@@ -1202,7 +1202,7 @@ class frozenset(AbstractSet[_T_co], Generic[_T_co]):
     if sys.version_info >= (3, 9):
         def __class_getitem__(cls, __item: Any) -> GenericAlias: ...
 
-class enumerate(Iterator[tuple[int, _T]], Generic[_T]):
+class enumerate(Iterator[tuple[int, _T]]):
     def __new__(cls, iterable: Iterable[_T], start: int = ...) -> Self: ...
     def __iter__(self) -> Self: ...
     def __next__(self) -> tuple[int, _T]: ...
@@ -1411,7 +1411,7 @@ else:
 
 def exit(code: sys._ExitCode = None) -> NoReturn: ...
 
-class filter(Iterator[_T], Generic[_T]):
+class filter(Iterator[_T]):
     @overload
     def __new__(cls, __function: None, __iterable: Iterable[_T | None]) -> Self: ...
     @overload
@@ -1470,7 +1470,7 @@ def len(__obj: Sized) -> int: ...
 def license() -> None: ...
 def locals() -> dict[str, Any]: ...
 
-class map(Iterator[_S], Generic[_S]):
+class map(Iterator[_S]):
     @overload
     def __new__(cls, __func: Callable[[_T1], _S], __iter1: Iterable[_T1]) -> Self: ...
     @overload
@@ -1742,7 +1742,7 @@ else:
 
 def quit(code: sys._ExitCode = None) -> NoReturn: ...
 
-class reversed(Iterator[_T], Generic[_T]):
+class reversed(Iterator[_T]):
     @overload
     def __init__(self, __sequence: Reversible[_T]) -> None: ...
     @overload
@@ -1816,7 +1816,7 @@ def vars(__object: type) -> types.MappingProxyType[str, Any]: ...  # type: ignor
 @overload
 def vars(__object: Any = ...) -> dict[str, Any]: ...
 
-class zip(Iterator[_T_co], Generic[_T_co]):
+class zip(Iterator[_T_co]):
     if sys.version_info >= (3, 10):
         @overload
         def __new__(cls, *, strict: bool = ...) -> zip[Any]: ...

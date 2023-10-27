@@ -1,5 +1,5 @@
 from _typeshed import Incomplete
-from typing_extensions import TypeAlias
+from typing_extensions import Final, TypeAlias
 
 import _win32typing
 from win32com.client import dynamic as dynamic, gencache as gencache
@@ -36,7 +36,7 @@ class Constants:
     __dicts__: Incomplete
     def __getattr__(self, a: str): ...
 
-constants: Incomplete
+constants: Final[Constants]
 
 class EventsProxy:
     def __init__(self, ob) -> None: ...

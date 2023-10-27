@@ -2,7 +2,7 @@ import datetime
 from _typeshed import Incomplete, SupportsItems
 from abc import ABC, abstractmethod
 from re import Pattern
-from typing import ClassVar, Generic, TypeVar
+from typing import ClassVar, TypeVar
 from typing_extensions import Literal, Self
 
 from .encryption import StandardSecurityHandler
@@ -62,7 +62,7 @@ class PDFDate:
     def __init__(self, date: datetime.datetime, with_tz: bool = False, encrypt: bool = False) -> None: ...
     def serialize(self) -> str: ...
 
-class PDFArray(list[_T], Generic[_T]):
+class PDFArray(list[_T]):
     def serialize(self) -> str: ...
 
 class Destination(ABC):

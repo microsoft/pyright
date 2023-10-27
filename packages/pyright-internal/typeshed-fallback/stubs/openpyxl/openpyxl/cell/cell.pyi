@@ -2,10 +2,11 @@ from _typeshed import ReadableBuffer
 from datetime import datetime
 from re import Pattern
 from typing import overload
-from typing_extensions import Final
+from typing_extensions import Final, Literal
 
 from openpyxl.cell import _CellValue, _TimeTypes
 from openpyxl.comments.comments import Comment
+from openpyxl.compat.numbers import NUMERIC_TYPES as NUMERIC_TYPES  # cell numeric types
 from openpyxl.styles.cell_style import StyleArray
 from openpyxl.styles.styleable import StyleableObject
 from openpyxl.worksheet.hyperlink import Hyperlink
@@ -31,8 +32,8 @@ TYPE_FORMULA_CACHE_STRING: Final = "str"
 
 VALID_TYPES: Final[tuple[str, ...]]
 
-def get_type(t: type, value: object) -> str | None: ...
-def get_time_format(t: datetime) -> str: ...
+def get_type(t: type, value: object) -> Literal["n", "s", "d", "f", None]: ...
+def get_time_format(t: _TimeTypes) -> str: ...
 
 class Cell(StyleableObject):
     row: int

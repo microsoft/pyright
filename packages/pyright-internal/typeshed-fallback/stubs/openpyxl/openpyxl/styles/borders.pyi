@@ -1,9 +1,11 @@
 from _typeshed import Incomplete
+from collections.abc import Iterator
 from typing import ClassVar
 from typing_extensions import Final, Literal, TypeAlias
 
 from openpyxl.descriptors.base import Alias, Bool, NoneSet, Typed, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.styles.colors import Color, ColorDescriptor
 
 _SideStyle: TypeAlias = Literal[
     "dashDot",
@@ -38,13 +40,13 @@ BORDER_THIN: Final = "thin"
 
 class Side(Serialisable):
     __fields__: ClassVar[tuple[str, ...]]
-    color: Incomplete
+    color: ColorDescriptor[Literal[True]]
     style: NoneSet[_SideStyle]
     border_style: Alias
     def __init__(
         self,
         style: _SideStyle | Literal["none"] | None = None,
-        color: Incomplete | None = None,
+        color: str | Color | None = None,
         border_style: Incomplete | None = None,
     ) -> None: ...
 
@@ -81,6 +83,6 @@ class Border(Serialisable):
         start: Side | None = None,
         end: Side | None = None,
     ) -> None: ...
-    def __iter__(self): ...
+    def __iter__(self) -> Iterator[tuple[str, str]]: ...
 
 DEFAULT_BORDER: Final[Border]

@@ -16,7 +16,7 @@ class ClusterManagementCommands(ManagementCommands):
     def replicaof(self, *args, **kwargs) -> None: ...
     def swapdb(self, *args, **kwargs) -> None: ...
 
-class ClusterDataAccessCommands(DataAccessCommands[_StrType], Generic[_StrType]):
+class ClusterDataAccessCommands(DataAccessCommands[_StrType]):
     def stralgo(
         self,
         algo,

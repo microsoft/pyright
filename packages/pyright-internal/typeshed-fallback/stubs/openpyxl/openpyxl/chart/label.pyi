@@ -7,7 +7,7 @@ from openpyxl.chart.text import RichText
 from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToInt
 from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.nested import NestedBool, NestedInteger, NestedNoneSet, NestedString, _NestedNoneSetParam
-from openpyxl.descriptors.serialisable import Serialisable as Serialisable
+from openpyxl.descriptors.serialisable import Serialisable
 
 from ..xml._functions_overloads import _HasTagAndGet
 

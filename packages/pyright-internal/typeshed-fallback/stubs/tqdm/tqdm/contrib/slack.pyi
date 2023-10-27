@@ -1,6 +1,6 @@
 from _typeshed import Incomplete, SupportsWrite
 from collections.abc import Iterable, Mapping
-from typing import Generic, NoReturn, TypeVar, overload
+from typing import NoReturn, TypeVar, overload
 
 from ..auto import tqdm as tqdm_auto
 from .utils_worker import MonoWorker
@@ -16,7 +16,7 @@ class SlackIO(MonoWorker):
 
 _T = TypeVar("_T")
 
-class tqdm_slack(tqdm_auto[_T], Generic[_T]):
+class tqdm_slack(tqdm_auto[_T]):
     sio: Incomplete
     @overload
     def __init__(

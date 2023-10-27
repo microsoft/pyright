@@ -16,7 +16,6 @@ class JpegImageFile(ImageFile):
     format: ClassVar[Literal["JPEG", "MPO"]]
     format_description: ClassVar[str]
     def load_read(self, read_bytes): ...
-    mode: Incomplete
     tile: Incomplete
     decoderconfig: Incomplete
     def draft(self, mode, size): ...

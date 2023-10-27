@@ -15,6 +15,7 @@ from openpyxl.descriptors.base import (
 from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.nested import EmptyTag, NestedInteger, NestedNoneSet, _NestedNoneSetParam
 from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.drawing.colors import ColorChoice, ColorChoiceDescriptor
 from openpyxl.drawing.fill import GradientFillProperties, PatternFillProperties
 
 from ..xml._functions_overloads import _HasTagAndGet
@@ -63,7 +64,7 @@ class LineProperties(Serialisable):
     cmpd: NoneSet[_LinePropertiesCmpd]
     algn: NoneSet[_LinePropertiesAlgn]
     noFill: EmptyTag[Literal[False]]
-    solidFill: Incomplete
+    solidFill: ColorChoiceDescriptor
     gradFill: Typed[GradientFillProperties, Literal[True]]
     pattFill: Typed[PatternFillProperties, Literal[True]]
     prstDash: NestedNoneSet[_LinePropertiesPrstDash]
@@ -83,7 +84,7 @@ class LineProperties(Serialisable):
         cmpd: _LinePropertiesCmpd | Literal["none"] | None = None,
         algn: _LinePropertiesAlgn | Literal["none"] | None = None,
         noFill: _HasTagAndGet[_ConvertibleToBool] | _ConvertibleToBool = None,
-        solidFill: Incomplete | None = None,
+        solidFill: str | ColorChoice | None = None,
         gradFill: GradientFillProperties | None = None,
         pattFill: PatternFillProperties | None = None,
         prstDash: _NestedNoneSetParam[_LinePropertiesPrstDash] = None,

@@ -188,7 +188,7 @@ class ClusterPubSub(PubSub):
     def execute_command(self, *args, **kwargs) -> None: ...
     def get_redis_connection(self) -> Redis[Any] | None: ...
 
-class ClusterPipeline(RedisCluster[_StrType], Generic[_StrType]):
+class ClusterPipeline(RedisCluster[_StrType]):
     command_stack: list[Incomplete]
     nodes_manager: Incomplete
     refresh_table_asap: bool
