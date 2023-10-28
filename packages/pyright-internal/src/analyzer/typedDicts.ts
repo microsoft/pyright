@@ -570,7 +570,10 @@ export function synthesizeTypedDictClassMethods(
                 type: AnyType.create(),
             });
 
-            return OverloadedFunctionType.create([updateMethod1, updateMethod2, updateMethod3]);
+            // Note that the order of method1 and method2 is swapped. This is done so
+            // the method1 signature is used in the error message when neither method2
+            // or method1 match.
+            return OverloadedFunctionType.create([updateMethod2, updateMethod1, updateMethod3]);
         }
 
         const getOverloads: FunctionType[] = [];

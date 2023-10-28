@@ -16,7 +16,7 @@ td1: TD1 = {"a": 3}
 
 reveal_type(
     td1.update,
-    expected_text="Overload[(__m: Partial[TD1], /) -> None, (__m: Iterable[tuple[Literal['a'], int] | tuple[Literal['b'], str]], /) -> None, (*, a: int = ..., b: str = ...) -> None]",
+    expected_text="Overload[(__m: Iterable[tuple[Literal['a'], int] | tuple[Literal['b'], str]], /) -> None, (__m: Partial[TD1], /) -> None, (*, a: int = ..., b: str = ...) -> None]",
 )
 
 td1.update({})
@@ -26,7 +26,7 @@ td2: TD2 = {"a": 0, "c": 3}
 
 reveal_type(
     td2.update,
-    expected_text="Overload[(__m: Partial[TD2], /) -> None, (__m: Iterable[tuple[Literal['a'], int] | tuple[Literal['b'], str] | tuple[Literal['c'], int]], /) -> None, (*, a: int = ..., b: str = ..., c: int = ...) -> None]",
+    expected_text="Overload[(__m: Iterable[tuple[Literal['a'], int] | tuple[Literal['b'], str] | tuple[Literal['c'], int]], /) -> None, (__m: Partial[TD2], /) -> None, (*, a: int = ..., b: str = ..., c: int = ...) -> None]",
 )
 
 # This should generate an error because "c" within TD1 may be incompatible with "int".
@@ -41,5 +41,5 @@ class TD3(TypedDict):
 td3: TD3 = {}
 reveal_type(
     td3.update,
-    expected_text="Overload[(__m: Partial[TD3], /) -> None, (__m: Iterable[tuple[Literal['a'], str]], /) -> None, (*, a: str = ...) -> None]",
+    expected_text="Overload[(__m: Iterable[tuple[Literal['a'], str]], /) -> None, (__m: Partial[TD3], /) -> None, (*, a: str = ...) -> None]",
 )
