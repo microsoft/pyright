@@ -2236,7 +2236,9 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
                         }
                     } else {
                         if (subtype.typeArguments && subtype.typeArguments.length > 0) {
-                            return convertToInstantiable(subtype.typeArguments[0]);
+                            if (!isAnyOrUnknown(subtype.typeArguments[0])) {
+                                return convertToInstantiable(subtype.typeArguments[0]);
+                            }
                         }
                     }
                 }
