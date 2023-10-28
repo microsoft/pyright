@@ -13801,14 +13801,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeOfLambda(node: LambdaNode, inferenceContext: InferenceContext | undefined): TypeResult {
-        let isIncomplete = !!inferenceContext?.isTypeIncomplete;
-        const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.PartiallyEvaluated);
-        functionType.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
-
-        // Pre-cache the incomplete function type in case the evaluation of the
-        // lambda depends on itself.
-        writeTypeCache(node, { type: functionType, isIncomplete: true }, EvaluatorFlags.None);
-
         let expectedFunctionTypes: FunctionType[] = [];
         if (inferenceContext) {
             mapSubtypes(inferenceContext.expectedType, (subtype) => {
@@ -13825,40 +13817,62 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 return undefined;
             });
-
-            // Determine the minimum number of parameters that are required to
-            // satisfy the lambda.
-            const minLambdaParamCount = node.parameters.filter(
-                (param) =>
-                    param.category === ParameterCategory.Simple && !!param.name && param.defaultValue === undefined
-            ).length;
-            const maxLambdaParamCount = node.parameters.filter(
-                (param) => param.category === ParameterCategory.Simple && !!param.name
-            ).length;
-
-            // Remove any expected subtypes that don't satisfy the minimum
-            // parameter count requirement.
-            expectedFunctionTypes = expectedFunctionTypes.filter((functionType) => {
-                const functionParamCount = functionType.details.parameters.filter(
-                    (param) => !!param.name && !param.hasDefault
-                ).length;
-                const hasVarArgs = functionType.details.parameters.some(
-                    (param) => !!param.name && param.category !== ParameterCategory.Simple
-                );
-                const hasParamSpec = !!functionType.details.paramSpec;
-
-                return (
-                    hasVarArgs ||
-                    hasParamSpec ||
-                    (functionParamCount >= minLambdaParamCount && functionParamCount <= maxLambdaParamCount)
-                );
-            });
         }
 
-        // For now, use only the first expected type.
-        const expectedFunctionType = expectedFunctionTypes.length > 0 ? expectedFunctionTypes[0] : undefined;
+        if (expectedFunctionTypes.length <= 1) {
+            return getTypeOfLambdaWithExpectedType(
+                node,
+                expectedFunctionTypes.length > 0 ? expectedFunctionTypes[0] : undefined,
+                inferenceContext,
+                /* forceSpeculative */ false
+            );
+        }
+
+        // Sort the expected types for deterministic results.
+        expectedFunctionTypes = sortTypes(expectedFunctionTypes) as FunctionType[];
+
+        // If there's more than one type, try each in turn until we find one that works.
+        for (const expectedFunctionType of expectedFunctionTypes) {
+            const result = getTypeOfLambdaWithExpectedType(
+                node,
+                expectedFunctionType,
+                inferenceContext,
+                /* forceSpeculative */ true
+            );
+            if (!result.typeErrors) {
+                return getTypeOfLambdaWithExpectedType(
+                    node,
+                    expectedFunctionType,
+                    inferenceContext,
+                    /* forceSpeculative */ false
+                );
+            }
+        }
+
+        return getTypeOfLambdaWithExpectedType(
+            node,
+            expectedFunctionTypes[0],
+            inferenceContext,
+            /* forceSpeculative */ true
+        );
+    }
+
+    function getTypeOfLambdaWithExpectedType(
+        node: LambdaNode,
+        expectedType: FunctionType | undefined,
+        inferenceContext: InferenceContext | undefined,
+        forceSpeculative: boolean
+    ): TypeResult {
+        let isIncomplete = !!inferenceContext?.isTypeIncomplete;
         let paramsArePositionOnly = true;
-        const expectedParamDetails = expectedFunctionType ? getParameterListDetails(expectedFunctionType) : undefined;
+        const expectedParamDetails = expectedType ? getParameterListDetails(expectedType) : undefined;
+
+        const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.PartiallyEvaluated);
+        functionType.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
+
+        // Pre-cache the incomplete function type in case the evaluation of the
+        // lambda depends on itself.
+        writeTypeCache(node, { type: functionType, isIncomplete: true }, EvaluatorFlags.None);
 
         node.parameters.forEach((param, index) => {
             let paramType: Type | undefined;
@@ -13938,9 +13952,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        const expectedReturnType = expectedFunctionType
-            ? getFunctionEffectiveReturnType(expectedFunctionType)
-            : undefined;
+        const expectedReturnType = expectedType ? getFunctionEffectiveReturnType(expectedType) : undefined;
+        let typeErrors = false;
 
         // If we're speculatively evaluating the lambda, create another speculative
         // evaluation scope for the return expression and do not allow retention
@@ -13950,7 +13963,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // the parameter types that we set above, and the speculative type cache
         // doesn't know about that context.
         useSpeculativeMode(
-            isSpeculativeModeInUse(node) || inferenceContext?.isTypeIncomplete ? node.expression : undefined,
+            forceSpeculative || isSpeculativeModeInUse(node) || inferenceContext?.isTypeIncomplete
+                ? node.expression
+                : undefined,
             () => {
                 const returnTypeResult = getTypeOfExpression(
                     node.expression,
@@ -13962,16 +13977,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (returnTypeResult.isIncomplete) {
                     isIncomplete = true;
                 }
+
+                if (returnTypeResult.typeErrors) {
+                    typeErrors = true;
+                }
             },
             {
-                dependentType: inferenceContext?.expectedType,
+                dependentType: expectedType,
             }
         );
 
         // Mark the function type as no longer being evaluated.
         functionType.details.flags &= ~FunctionTypeFlags.PartiallyEvaluated;
 
-        return { type: functionType, isIncomplete };
+        // Is the resulting function compatible with the expected type?
+        if (expectedType && !assignType(expectedType, functionType)) {
+            typeErrors = true;
+        }
+
+        return { type: functionType, isIncomplete, typeErrors };
     }
 
     function getTypeOfListComprehension(node: ListComprehensionNode, inferenceContext?: InferenceContext): TypeResult {
