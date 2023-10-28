@@ -965,6 +965,19 @@ export function getTypeAnnotationNode(node: ParseNode): TypeAnnotationNode | und
     return undefined;
 }
 
+// In general, arguments passed to a call are evaluated by the runtime in
+// left-to-right order. There is one exception, however, when an unpacked
+// iterable is used after a keyword argument.
+export function getArgumentsByRuntimeOrder(node: CallNode) {
+    const positionalArgs = node.arguments.filter(
+        (arg) => !arg.name && arg.argumentCategory !== ArgumentCategory.UnpackedDictionary
+    );
+    const keywordArgs = node.arguments.filter(
+        (arg) => !!arg.name || arg.argumentCategory === ArgumentCategory.UnpackedDictionary
+    );
+    return positionalArgs.concat(keywordArgs);
+}
+
 // PEP 591 spells out certain limited cases where an assignment target
 // can be annotated with a "Final" annotation. This function determines
 // whether Final is allowed for the specified node.
