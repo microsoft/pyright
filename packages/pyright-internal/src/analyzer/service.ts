@@ -677,8 +677,7 @@ export class AnalyzerService {
                 this._typeCheckingMode,
                 this.serviceProvider,
                 host,
-                commandLineOptions.diagnosticSeverityOverrides,
-                commandLineOptions.fileSpecs.length > 0
+                commandLineOptions.diagnosticSeverityOverrides
             );
 
             const configFileDir = getDirectoryPath(this._configFilePath!);

@@ -18,7 +18,13 @@ The Pyright language server honors the following settings.
 
 **python.analysis.diagnosticSeverityOverrides** [map]: Allows a user to override the severity levels for individual diagnostic rules. "reportXXX" rules in the type check diagnostics settings in [configuration](configuration.md#type-check-diagnostics-settings) are supported. Use the rule name as a key and one of "error," "warning," "information," "true," "false," or "none" as value.
 
+**python.analysis.exclude** [array of paths]: Paths of directories or files that should not be included. This can be overridden in the configuration file.
+
 **python.analysis.extraPaths** [array of paths]: Paths to add to the default execution environment extra paths if there are no execution environments defined in the config file.
+
+**python.analysis.ignore** [array of paths]: Paths of directories or files whose diagnostic output (errors and warnings) should be suppressed. This can be overridden in the configuration file.
+
+**python.analysis.include** [array of paths]: Paths of directories or files that should be included. This can be overridden in the configuration file.
 
 **python.analysis.logLevel** ["Error", "Warning", "Information", or "Trace"]: Level of logging for Output panel. The default value for this option is "Information".
 
