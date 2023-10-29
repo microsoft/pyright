@@ -53,7 +53,6 @@ import {
     isFunction,
     isInstantiableClass,
     isModule,
-    isNoneInstance,
     isOverloadedFunction,
     isUnknown,
     Type,
@@ -69,6 +68,7 @@ import {
     getMembersForModule,
     isLiteralType,
     isMaybeDescriptorInstance,
+    isNoneInstance,
     lookUpClassMember,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';

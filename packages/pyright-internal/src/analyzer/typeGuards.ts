@@ -43,8 +43,6 @@ import {
     isInstantiableClass,
     isModule,
     isNever,
-    isNoneInstance,
-    isNoneTypeClass,
     isOverloadedFunction,
     isSameWithoutLiteralValue,
     isTypeSame,
@@ -81,6 +79,8 @@ import {
     isLiteralTypeOrUnion,
     isMaybeDescriptorInstance,
     isMetaclassInstance,
+    isNoneInstance,
+    isNoneTypeClass,
     isProperty,
     isTupleClass,
     isUnboundedTupleClass,
@@ -1076,7 +1076,7 @@ function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositi
         const typeOfEntry = evaluator.makeTopLevelTypeVarsConcrete(tupleType.tupleTypeArguments[indexValue].type);
 
         if (isPositiveTest) {
-            if (!evaluator.assignType(typeOfEntry, NoneType.createInstance())) {
+            if (!evaluator.assignType(typeOfEntry, evaluator.getNoneType())) {
                 return undefined;
             }
         } else {
@@ -1119,7 +1119,7 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
             if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
                 resultIncludesNoneSubtype = true;
                 return isPositiveTest
-                    ? addConditionToType(NoneType.createInstance(), subtype.condition)
+                    ? addConditionToType(evaluator.getNoneType(), subtype.condition)
                     : adjustedSubtype;
             }
 
@@ -1172,7 +1172,7 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiv
             // See if it's a match for object.
             if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
                 return isPositiveTest
-                    ? addConditionToType(NoneType.createInstance(), subtype.condition)
+                    ? addConditionToType(evaluator.getNoneType(), subtype.condition)
                     : adjustedSubtype;
             }
 

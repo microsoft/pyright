@@ -20,7 +20,6 @@ import {
     isClassInstance,
     isInstantiableClass,
     isNever,
-    isNoneInstance,
     isParamSpec,
     isTypeSame,
     isTypeVar,
@@ -28,7 +27,6 @@ import {
     isUnpacked,
     isVariadicTypeVar,
     maxTypeRecursionCount,
-    removeNoneFromUnion,
     TupleTypeArgument,
     Type,
     TypeBase,
@@ -37,7 +35,7 @@ import {
     TypeVarType,
     Variance,
 } from './types';
-import { convertToInstance, doForEachSubtype, isTupleClass } from './typeUtils';
+import { convertToInstance, doForEachSubtype, isNoneInstance, isTupleClass, removeNoneFromUnion } from './typeUtils';
 
 const singleTickRegEx = /'/g;
 const escapedDoubleQuoteRegEx = /\\"/g;

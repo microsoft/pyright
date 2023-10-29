@@ -30,7 +30,6 @@ import {
     isInstantiableClass,
     isKeywordOnlySeparator,
     isNever,
-    isNoneInstance,
     isOverloadedFunction,
     isParamSpec,
     isPositionOnlySeparator,
@@ -46,6 +45,7 @@ import {
     NeverType,
     NoneType,
     OverloadedFunctionType,
+    removeFromUnion,
     SignatureWithOffsets,
     SpecializedFunctionTypes,
     TupleTypeArgument,
@@ -291,6 +291,20 @@ export function isOptionalType(type: Type): boolean {
     }
 
     return false;
+}
+
+export function isNoneInstance(type: Type): type is NoneType {
+    return type.category === TypeCategory.None && TypeBase.isInstance(type);
+}
+
+export function isNoneTypeClass(type: Type): type is NoneType {
+    return type.category === TypeCategory.None && TypeBase.isInstantiable(type);
+}
+
+// If the type is a union, remove an "None" type from the union,
+// returning only the known types.
+export function removeNoneFromUnion(type: Type): Type {
+    return removeFromUnion(type, (t: Type) => isNoneInstance(t));
 }
 
 export function isIncompleteUnknown(type: Type): boolean {

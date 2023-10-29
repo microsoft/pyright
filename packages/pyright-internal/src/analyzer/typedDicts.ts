@@ -46,7 +46,6 @@ import {
     isTypeSame,
     maxTypeRecursionCount,
     NeverType,
-    NoneType,
     OverloadedFunctionType,
     Type,
     TypedDictEntry,
@@ -253,7 +252,7 @@ export function synthesizeTypedDictClassMethods(
         type: ClassType.cloneAsInstance(classType),
         hasDeclaredType: true,
     });
-    initOverride1.details.declaredReturnType = NoneType.createInstance();
+    initOverride1.details.declaredReturnType = evaluator.getNoneType();
 
     // The first parameter must be positional-only.
     FunctionType.addParameter(initOverride1, {
@@ -283,7 +282,7 @@ export function synthesizeTypedDictClassMethods(
         type: ClassType.cloneAsInstance(classType),
         hasDeclaredType: true,
     });
-    initOverride2.details.declaredReturnType = NoneType.createInstance();
+    initOverride2.details.declaredReturnType = evaluator.getNoneType();
 
     // All parameters must be named, so insert an empty "*".
     FunctionType.addParameter(initOverride2, {
@@ -395,7 +394,7 @@ export function synthesizeTypedDictClassMethods(
             } else {
                 getOverload.details.declaredReturnType = isEntryRequired
                     ? valueType
-                    : combineTypes([valueType, NoneType.createInstance()]);
+                    : combineTypes([valueType, evaluator.getNoneType()]);
             }
             return getOverload;
         }
@@ -474,7 +473,7 @@ export function synthesizeTypedDictClassMethods(
                 hasDeclaredType: true,
                 type: keyType,
             });
-            delItemOverload.details.declaredReturnType = NoneType.createInstance();
+            delItemOverload.details.declaredReturnType = evaluator.getNoneType();
             return delItemOverload;
         }
 
@@ -514,9 +513,9 @@ export function synthesizeTypedDictClassMethods(
                 type: UnknownType.create(),
             });
 
-            updateMethod1.details.declaredReturnType = NoneType.createInstance();
-            updateMethod2.details.declaredReturnType = NoneType.createInstance();
-            updateMethod3.details.declaredReturnType = NoneType.createInstance();
+            updateMethod1.details.declaredReturnType = evaluator.getNoneType();
+            updateMethod2.details.declaredReturnType = evaluator.getNoneType();
+            updateMethod3.details.declaredReturnType = evaluator.getNoneType();
 
             const tuplesToCombine: Type[] = [];
             const tupleClass = evaluator.getBuiltInType(node, 'tuple');
@@ -616,7 +615,7 @@ export function synthesizeTypedDictClassMethods(
                 getOverloads.push(
                     createGetMethod(
                         literalStringInstance,
-                        NoneType.createInstance(),
+                        evaluator.getNoneType(),
                         /* includeDefault */ false,
                         /* isEntryRequired */ true
                     )
@@ -666,12 +665,13 @@ export function synthesizeTypedDictClassMethods(
         if (isClassFinal && allEntriesAreNotRequired && !allEntriesAreReadOnly) {
             const clearMethod = FunctionType.createSynthesizedInstance('clear');
             FunctionType.addParameter(clearMethod, selfParam);
-            clearMethod.details.declaredReturnType = NoneType.createInstance();
+            clearMethod.details.declaredReturnType = evaluator.getNoneType();
             symbolTable.set('clear', Symbol.createWithType(SymbolFlags.ClassMember, clearMethod));
 
             const popItemMethod = FunctionType.createSynthesizedInstance('popitem');
             FunctionType.addParameter(popItemMethod, selfParam);
-            let tupleType = evaluator.getTupleClassType();
+            let tupleType: Type | undefined = evaluator.getTupleClassType();
+
             if (tupleType && isInstantiableClass(tupleType)) {
                 tupleType = specializeTupleClass(
                     ClassType.cloneAsInstance(tupleType),
@@ -684,6 +684,7 @@ export function synthesizeTypedDictClassMethods(
             } else {
                 tupleType = UnknownType.create();
             }
+
             popItemMethod.details.declaredReturnType = tupleType;
             symbolTable.set('popitem', Symbol.createWithType(SymbolFlags.ClassMember, popItemMethod));
         }

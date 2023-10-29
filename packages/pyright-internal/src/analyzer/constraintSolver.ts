@@ -33,7 +33,6 @@ import {
     isUnpacked,
     isUnpackedClass,
     isVariadicTypeVar,
-    NoneType,
     TupleTypeArgument,
     Type,
     TypeBase,
@@ -449,7 +448,6 @@ export function assignTypeToTypeVar(
                         isUnion(curSolvedNarrowTypeBound) &&
                         curSolvedNarrowTypeBound.subtypes.length > maxSubtypesForInferredType &&
                         (destType as TypeVarType).details.boundType !== undefined &&
-                        objectType &&
                         isClassInstance(objectType)
                     ) {
                         newNarrowTypeBound = combineTypes(
@@ -873,8 +871,8 @@ function assignTypeToParamSpec(
             if (existingType) {
                 if (
                     isTypeSame(
-                        existingType.details.paramSpec ?? NoneType.createInstance(),
-                        srcType.details.paramSpec ?? NoneType.createInstance()
+                        existingType.details.paramSpec ?? evaluator.getNoneType(),
+                        srcType.details.paramSpec ?? evaluator.getNoneType()
                     )
                 ) {
                     // Convert the remaining portion of the signature to a function
