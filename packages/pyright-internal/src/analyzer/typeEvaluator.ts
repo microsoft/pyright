@@ -10155,8 +10155,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // with a ParamSpec and a Concatenate operator. PEP 612 indicates that
                 // all positional parameters specified in the Concatenate must be
                 // filled explicitly.
-                if (typeResult.type.details.paramSpec && paramIndex < positionParamLimitIndex) {
-                    if (isTypeVar(argTypeResult.type) && argTypeResult.type.paramSpecAccess === 'args') {
+                if (paramIndex < positionParamLimitIndex) {
+                    if (
+                        isTypeVar(argTypeResult.type) &&
+                        argTypeResult.type.paramSpecAccess === 'args' &&
+                        paramDetails.params[paramIndex].param.category !== ParameterCategory.ArgsList
+                    ) {
                         if (!isDiagnosticSuppressedForNode(errorNode)) {
                             addDiagnostic(
                                 AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -11695,8 +11699,47 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             functionType.details.parameters.length === 0 &&
             isTypeSame(functionType.details.paramSpec, paramSpec)
         ) {
-            // TODO - need to perform additional validation here.
-            return { argumentErrors: false, typeVarContexts: [srcTypeVarContext] };
+            // If there are any arguments other than *args: P.args or **kwargs: P.kwargs,
+            // report an error.
+            let sawArgs = false;
+            let sawKwargs = false;
+            let argumentErrors = false;
+            let argErrorNode: ExpressionNode | undefined;
+
+            for (const arg of argList) {
+                const argType = getTypeOfArgument(arg)?.type;
+                const isArgTypeCompatible = argType && (isTypeSame(argType, paramSpec) || isAnyOrUnknown(argType));
+
+                if (arg.argumentCategory === ArgumentCategory.UnpackedList && !sawArgs && isArgTypeCompatible) {
+                    sawArgs = true;
+                } else if (
+                    arg.argumentCategory === ArgumentCategory.UnpackedDictionary &&
+                    !sawKwargs &&
+                    isArgTypeCompatible
+                ) {
+                    sawKwargs = true;
+                } else {
+                    argErrorNode = argErrorNode ?? arg.valueExpression;
+                    argumentErrors = true;
+                }
+            }
+
+            if (!sawArgs || !sawKwargs) {
+                argumentErrors = true;
+            }
+
+            if (argumentErrors) {
+                addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.paramSpecArgsMissing().format({
+                        type: printType(functionType.details.paramSpec),
+                    }),
+                    argErrorNode ?? errorNode
+                );
+            }
+
+            return { argumentErrors, typeVarContexts: [srcTypeVarContext] };
         }
 
         const result = validateFunctionArgumentTypes(errorNode, matchResults, srcTypeVarContext, signatureTracker);
