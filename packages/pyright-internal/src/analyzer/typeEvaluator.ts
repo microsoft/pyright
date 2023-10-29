@@ -284,7 +284,6 @@ import {
     LiteralValue,
     ModuleType,
     NeverType,
-    NoneType,
     OverloadedFunctionType,
     SignatureWithOffsets,
     TupleTypeArgument,
@@ -914,8 +913,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // that occurs when resolving tuple below.
             getTypingType(node, 'Collection');
 
-            noneClassType = getTypeshedType(node, 'NoneType') || AnyType.create();
-            noneType = NoneType.createInstance();
+            noneClassType = getTypeshedType(node, 'NoneType') ?? UnknownType.create();
+            noneType = isInstantiableClass(noneClassType)
+                ? ClassType.cloneAsInstance(noneClassType)
+                : UnknownType.create();
 
             tupleClassType = getBuiltInType(node, 'tuple');
             boolClassType = getBuiltInType(node, 'bool');
@@ -1730,8 +1731,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             case TypeCategory.Unbound:
             case TypeCategory.Unknown:
             case TypeCategory.Any:
-            case TypeCategory.Never:
-            case TypeCategory.None: {
+            case TypeCategory.Never: {
                 return true;
             }
 
@@ -1828,14 +1828,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return findSubtype(type, (subtype) => canBeTruthy(subtype, recursionCount)) !== undefined;
             }
 
-            case TypeCategory.Unbound:
-            case TypeCategory.None: {
+            case TypeCategory.Unbound: {
                 return false;
             }
 
             case TypeCategory.Class: {
                 if (TypeBase.isInstantiable(type)) {
                     return true;
+                }
+
+                if (isNoneInstance(type)) {
+                    return false;
                 }
 
                 // Check for Tuple[()] (an empty tuple).
@@ -5210,23 +5213,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        function getTypeOfNoneBase(subtype: NoneType) {
-            if (noneClassType && isInstantiableClass(noneClassType)) {
-                if (TypeBase.isInstance(subtype)) {
-                    return getTypeOfObjectMember(
-                        node.memberName,
-                        ClassType.cloneAsInstance(noneClassType),
-                        memberName,
-                        usage,
-                        diag
-                    );
-                } else {
-                    return getTypeOfClassMember(node.memberName, noneClassType, memberName, usage, diag);
-                }
-            }
-            return undefined;
-        }
-
         if (isParamSpec(baseType) && baseType.paramSpecAccess) {
             baseType = makeTopLevelTypeVarsConcrete(baseType);
         }
@@ -5468,50 +5454,55 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case TypeCategory.Union: {
                 type = mapSubtypes(baseType, (subtype) => {
-                    if (isNoneInstance(subtype)) {
-                        const typeResult = getTypeOfNoneBase(subtype);
+                    if (isUnbound(subtype)) {
+                        // Don't do anything if it's unbound. The error will already
+                        // be reported elsewhere.
+                        return undefined;
+                    }
+
+                    if (isNoneInstance(subtype) && noneType && isClassInstance(noneType)) {
+                        const typeResult = getTypeOfObjectMember(node.memberName, noneType, memberName, usage, diag);
+
                         if (typeResult) {
                             type = addConditionToType(typeResult.type, getTypeCondition(baseType));
                             if (typeResult.isIncomplete) {
                                 isIncomplete = true;
                             }
+
                             return type;
-                        } else {
-                            if (!isIncomplete) {
-                                addDiagnostic(
-                                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportOptionalMemberAccess,
-                                    DiagnosticRule.reportOptionalMemberAccess,
-                                    Localizer.Diagnostic.noneUnknownMember().format({ name: memberName }),
-                                    node.memberName
-                                );
-                            }
-                            return undefined;
                         }
-                    } else if (isUnbound(subtype)) {
-                        // Don't do anything if it's unbound. The error will already
-                        // be reported elsewhere.
+
+                        if (!isIncomplete) {
+                            addDiagnostic(
+                                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportOptionalMemberAccess,
+                                DiagnosticRule.reportOptionalMemberAccess,
+                                Localizer.Diagnostic.noneUnknownMember().format({ name: memberName }),
+                                node.memberName
+                            );
+                        }
+
                         return undefined;
-                    } else {
-                        const typeResult = getTypeOfMemberAccessWithBaseType(
-                            node,
-                            {
-                                type: subtype,
-                                isIncomplete: baseTypeResult.isIncomplete,
-                            },
-                            usage,
-                            EvaluatorFlags.None
-                        );
-
-                        if (typeResult.isIncomplete) {
-                            isIncomplete = true;
-                        }
-
-                        if (typeResult?.memberAccessDeprecationInfo) {
-                            memberAccessDeprecationInfo = typeResult.memberAccessDeprecationInfo;
-                        }
-
-                        return typeResult.type;
                     }
+
+                    const typeResult = getTypeOfMemberAccessWithBaseType(
+                        node,
+                        {
+                            type: subtype,
+                            isIncomplete: baseTypeResult.isIncomplete,
+                        },
+                        usage,
+                        EvaluatorFlags.None
+                    );
+
+                    if (typeResult.isIncomplete) {
+                        isIncomplete = true;
+                    }
+
+                    if (typeResult?.memberAccessDeprecationInfo) {
+                        memberAccessDeprecationInfo = typeResult.memberAccessDeprecationInfo;
+                    }
+
+                    return typeResult.type;
                 });
                 break;
             }
@@ -5537,17 +5528,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         type = AnyType.create();
                     } else {
                         type = getTypeOfMemberAccessWithBaseType(node, { type: functionObj }, usage, flags).type;
-                    }
-                }
-                break;
-            }
-
-            case TypeCategory.None: {
-                const typeResult = getTypeOfNoneBase(baseType);
-                if (typeResult) {
-                    type = addConditionToType(typeResult.type, getTypeCondition(baseType));
-                    if (typeResult.isIncomplete) {
-                        isIncomplete = true;
                     }
                 }
                 break;
@@ -9296,6 +9276,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case TypeCategory.Class: {
+                if (isNoneInstance(expandedCallType)) {
+                    addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
+                        DiagnosticRule.reportOptionalCall,
+                        Localizer.Diagnostic.noneNotCallable(),
+                        errorNode
+                    );
+
+                    return { argumentErrors: true };
+                }
+
                 if (TypeBase.isInstantiable(expandedCallType)) {
                     return validateCallForInstantiableClass(
                         errorNode,
@@ -9317,34 +9308,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     inferenceContext,
                     recursionCount
                 );
-            }
-
-            case TypeCategory.None: {
-                if (TypeBase.isInstantiable(expandedCallType)) {
-                    if (noneClassType && isInstantiableClass(noneClassType)) {
-                        const callResult = validateCallForInstantiableClass(
-                            errorNode,
-                            argList,
-                            noneClassType,
-                            noneClassType,
-                            skipUnknownArgCheck,
-                            inferenceContext
-                        );
-
-                        return { ...callResult, returnType: NoneType.createInstance() };
-                    }
-
-                    return { returnType: NoneType.createInstance() };
-                }
-
-                addDiagnostic(
-                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
-                    DiagnosticRule.reportOptionalCall,
-                    Localizer.Diagnostic.noneNotCallable(),
-                    errorNode
-                );
-
-                return { argumentErrors: true };
             }
 
             // TypeVars should have been expanded in most cases,
@@ -12771,10 +12734,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let type: Type | undefined;
 
         if (node.constType === KeywordType.None) {
-            type =
-                (flags & EvaluatorFlags.ExpectingInstantiableType) !== 0
-                    ? NoneType.createType()
-                    : NoneType.createInstance();
+            type = (flags & EvaluatorFlags.ExpectingInstantiableType) !== 0 ? noneClassType : noneType;
         } else if (
             node.constType === KeywordType.True ||
             node.constType === KeywordType.False ||
@@ -14061,9 +14021,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             type = ClassType.cloneAsInstance(
                 ClassType.cloneForSpecialization(
                     builtInIteratorType,
-                    isAsync
-                        ? [elementType, NoneType.createInstance()]
-                        : [elementType, NoneType.createInstance(), NoneType.createInstance()],
+                    isAsync ? [elementType, getNoneType()] : [elementType, getNoneType(), getNoneType()],
                     /* isTypeArgumentExplicit */ true
                 )
             );
@@ -14470,7 +14428,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             typeArg0Type = UnknownType.create();
         }
 
-        const optionalType = combineTypes([typeArg0Type, NoneType.createType()]);
+        const optionalType = combineTypes([typeArg0Type, noneClassType ?? UnknownType.create()]);
 
         if (isUnion(optionalType)) {
             TypeBase.setSpecialForm(optionalType);
@@ -14536,7 +14494,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else if (itemExpr.constType === KeywordType.False) {
                     type = cloneBuiltinClassWithLiteral(node, 'bool', false);
                 } else if (itemExpr.constType === KeywordType.None) {
-                    type = NoneType.createType();
+                    type = noneClassType ?? UnknownType.create();
                 }
             } else if (
                 itemExpr.nodeType === ParseNodeType.UnaryOperation &&
@@ -15816,7 +15774,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             scope?.type === ScopeType.Builtin ||
             fileInfo.isTypingStubFile ||
             fileInfo.isTypingExtensionsStubFile ||
-            fileInfo.isBuiltInStubFile
+            fileInfo.isBuiltInStubFile ||
+            fileInfo.isTypeshedStubFile
         ) {
             classFlags |= ClassTypeFlags.BuiltInClass;
 

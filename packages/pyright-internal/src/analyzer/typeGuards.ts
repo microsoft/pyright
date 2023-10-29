@@ -9,6 +9,7 @@
  * negative ("else") narrowing cases.
  */
 
+import { assert } from '../common/debug';
 import {
     ArgumentCategory,
     AssignmentExpressionNode,
@@ -49,7 +50,6 @@ import {
     isTypeVar,
     isUnpackedVariadicTypeVar,
     maxTypeRecursionCount,
-    NoneType,
     OverloadedFunctionType,
     TupleTypeArgument,
     Type,
@@ -1192,9 +1192,9 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiv
 // that accepts a single class, and a more complex form that accepts a tuple
 // of classes (including arbitrarily-nested tuples). This method determines
 // which form and returns a list of classes or undefined.
-function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | NoneType | FunctionType)[] | undefined {
+function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | FunctionType)[] | undefined {
     let foundNonClassType = false;
-    const classTypeList: (ClassType | TypeVarType | NoneType | FunctionType)[] = [];
+    const classTypeList: (ClassType | TypeVarType | FunctionType)[] = [];
 
     // Create a helper function that returns a list of class types or
     // undefined if any of the types are not valid.
@@ -1203,6 +1203,7 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | None
             if (isInstantiableClass(subtype) || (isTypeVar(subtype) && TypeBase.isInstantiable(subtype))) {
                 classTypeList.push(subtype);
             } else if (isNoneTypeClass(subtype)) {
+                assert(isInstantiableClass(subtype));
                 classTypeList.push(subtype);
             } else if (
                 isFunction(subtype) &&
@@ -1309,7 +1310,7 @@ export function isIsinstanceFilterSubclass(
 function narrowTypeForIsInstance(
     evaluator: TypeEvaluator,
     type: Type,
-    classTypeList: (ClassType | TypeVarType | NoneType | FunctionType)[],
+    classTypeList: (ClassType | TypeVarType | FunctionType)[],
     isInstanceCheck: boolean,
     isPositiveTest: boolean,
     allowIntersections: boolean,
@@ -2484,12 +2485,15 @@ function narrowTypeForCallable(
                 return isPositiveTest ? subtype : undefined;
             }
 
-            case TypeCategory.None:
             case TypeCategory.Module: {
                 return isPositiveTest ? undefined : subtype;
             }
 
             case TypeCategory.Class: {
+                if (isNoneInstance(subtype)) {
+                    return isPositiveTest ? undefined : subtype;
+                }
+
                 if (TypeBase.isInstantiable(subtype)) {
                     return isPositiveTest ? subtype : undefined;
                 }

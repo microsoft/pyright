@@ -43,7 +43,6 @@ import {
     maxTypeRecursionCount,
     ModuleType,
     NeverType,
-    NoneType,
     OverloadedFunctionType,
     removeFromUnion,
     SignatureWithOffsets,
@@ -293,12 +292,12 @@ export function isOptionalType(type: Type): boolean {
     return false;
 }
 
-export function isNoneInstance(type: Type): type is NoneType {
-    return type.category === TypeCategory.None && TypeBase.isInstance(type);
+export function isNoneInstance(type: Type): boolean {
+    return isClassInstance(type) && ClassType.isBuiltIn(type, 'NoneType');
 }
 
-export function isNoneTypeClass(type: Type): type is NoneType {
-    return type.category === TypeCategory.None && TypeBase.isInstantiable(type);
+export function isNoneTypeClass(type: Type): boolean {
+    return isInstantiableClass(type) && ClassType.isBuiltIn(type, 'NoneType');
 }
 
 // If the type is a union, remove an "None" type from the union,
@@ -507,7 +506,6 @@ function compareTypes(a: Type, b: Type, recursionCount = 0): number {
         case TypeCategory.Unbound:
         case TypeCategory.Unknown:
         case TypeCategory.Any:
-        case TypeCategory.None:
         case TypeCategory.Never:
         case TypeCategory.Union: {
             return 0;
@@ -754,9 +752,6 @@ export function getFullNameOfType(type: Type): string | undefined {
         case TypeCategory.Unknown:
             return 'typing.Any';
 
-        case TypeCategory.None:
-            return 'builtins.None';
-
         case TypeCategory.Class:
             return type.details.fullName;
 
@@ -787,7 +782,6 @@ export function addConditionToType(type: Type, condition: TypeCondition[] | unde
         case TypeCategory.TypeVar:
             return type;
 
-        case TypeCategory.None:
         case TypeCategory.Function:
             return TypeBase.cloneForCondition(type, TypeCondition.combine(type.condition, condition));
 
@@ -816,7 +810,6 @@ export function getTypeCondition(type: Type): TypeCondition[] | undefined {
         case TypeCategory.Union:
             return undefined;
 
-        case TypeCategory.None:
         case TypeCategory.Class:
         case TypeCategory.Function:
             return type.condition;
@@ -2255,16 +2248,7 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
                     }
                 }
 
-                // Handle NoneType as a special case.
-                if (TypeBase.isInstantiable(subtype) && ClassType.isBuiltIn(subtype, 'NoneType')) {
-                    return NoneType.createInstance();
-                }
-
                 return ClassType.cloneAsInstance(subtype, includeSubclasses);
-            }
-
-            case TypeCategory.None: {
-                return NoneType.createInstance();
             }
 
             case TypeCategory.Function: {
@@ -2323,10 +2307,6 @@ export function convertToInstantiable(type: Type, includeSubclasses = true): Typ
         switch (subtype.category) {
             case TypeCategory.Class: {
                 return ClassType.cloneAsInstantiable(subtype, includeSubclasses);
-            }
-
-            case TypeCategory.None: {
-                return NoneType.createType();
             }
 
             case TypeCategory.Function: {

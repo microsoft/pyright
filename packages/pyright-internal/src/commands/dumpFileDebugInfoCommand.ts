@@ -522,8 +522,6 @@ function getTypeCategoryString(typeCategory: TypeCategory, type: any) {
             return 'Unknown';
         case TypeCategory.Any:
             return 'Any';
-        case TypeCategory.None:
-            return 'None';
         case TypeCategory.Never:
             return 'Never';
         case TypeCategory.Function:

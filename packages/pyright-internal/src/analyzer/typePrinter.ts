@@ -713,12 +713,6 @@ function printTypeInternal(
                 return typeVarName;
             }
 
-            case TypeCategory.None: {
-                return `${
-                    TypeBase.isInstantiable(type) ? `${_printNestedInstantiable(type, 'None')}` : 'None'
-                }${getConditionalIndicator(type)}`;
-            }
-
             case TypeCategory.Never: {
                 return type.isNoReturn ? 'NoReturn' : 'Never';
             }
@@ -850,6 +844,11 @@ function printObjectTypeForClassInternal(
     if (!objName) {
         objName =
             (printTypeFlags & PrintTypeFlags.UseFullyQualifiedNames) !== 0 ? type.details.fullName : type.details.name;
+    }
+
+    // Special-case NoneType to convert it to None.
+    if (ClassType.isBuiltIn(type, 'NoneType')) {
+        objName = 'None';
     }
 
     // Use the fully-qualified name if the name isn't unique.
