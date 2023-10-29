@@ -930,7 +930,7 @@ export function assignTypedDictToTypedDict(
                 // so we need to make sure the dest entry is compatible with that.
                 const objType = evaluator.getObjectType();
 
-                if (objType && isClassInstance(objType)) {
+                if (isClassInstance(objType)) {
                     const subDiag = diag?.createAddendum();
                     if (
                         !evaluator.assignType(

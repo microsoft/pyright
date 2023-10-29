@@ -173,6 +173,10 @@ export class SourceFile {
     // special-case handling.
     private readonly _isTypingExtensionsStubFile: boolean;
 
+    // True if the file is the "_typeshed.pyi" file, which needs special-
+    // case handling.
+    private readonly _isTypeshedStubFile: boolean;
+
     // True if the file one of the other built-in stub files
     // that require special-case handling: "collections.pyi",
     // "dataclasses.pyi", "abc.pyi", "asyncio/coroutines.pyi".
@@ -221,6 +225,8 @@ export class SourceFile {
             this._isStubFile &&
             (this._filePath.endsWith(normalizeSlashes('stdlib/typing.pyi')) || fileName === 'typing_extensions.pyi');
         this._isTypingExtensionsStubFile = this._isStubFile && fileName === 'typing_extensions.pyi';
+        this._isTypeshedStubFile =
+            this._isStubFile && this._filePath.endsWith(normalizeSlashes('stdlib/_typeshed/__init__.pyi'));
 
         this._isBuiltInStubFile = false;
         if (this._isStubFile) {
@@ -1217,6 +1223,7 @@ export class SourceFile {
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
             isTypingExtensionsStubFile: this._isTypingExtensionsStubFile,
+            isTypeshedStubFile: this._isTypeshedStubFile,
             isBuiltInStubFile: this._isBuiltInStubFile,
             isInPyTypedPackage: this._isThirdPartyPyTypedPresent,
             ipythonMode: this._ipythonMode,

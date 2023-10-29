@@ -122,6 +122,7 @@ export function buildAnalyzerFileInfo(
         isTypingStubFile: false,
         isInPyTypedPackage: false,
         isTypingExtensionsStubFile: false,
+        isTypeshedStubFile: false,
         isBuiltInStubFile: false,
         ipythonMode: IPythonMode.None,
         accessedSymbolSet: new Set<number>(),

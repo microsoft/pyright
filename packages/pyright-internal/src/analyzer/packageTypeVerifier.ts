@@ -710,7 +710,6 @@ export class PackageTypeVerifier {
         switch (type.category) {
             case TypeCategory.Unbound:
             case TypeCategory.Any:
-            case TypeCategory.None:
             case TypeCategory.Never:
             case TypeCategory.TypeVar:
                 break;
@@ -1293,7 +1292,6 @@ export class PackageTypeVerifier {
         switch (type.category) {
             case TypeCategory.Unbound:
             case TypeCategory.Any:
-            case TypeCategory.None:
             case TypeCategory.Never:
             case TypeCategory.TypeVar:
                 break;

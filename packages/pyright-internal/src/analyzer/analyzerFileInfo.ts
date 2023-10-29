@@ -57,6 +57,7 @@ export interface AnalyzerFileInfo {
     isStubFile: boolean;
     isTypingStubFile: boolean;
     isTypingExtensionsStubFile: boolean;
+    isTypeshedStubFile: boolean;
     isBuiltInStubFile: boolean;
     isInPyTypedPackage: boolean;
     ipythonMode: IPythonMode;
