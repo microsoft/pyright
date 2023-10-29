@@ -1474,7 +1474,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             });
         }
 
-        // File watcher is pylance wide service. Dispose all existing file watchers and create new ones.
+        // Dispose all existing file watchers and create new ones.
         this.connection.client.register(DidChangeWatchedFilesNotification.type, { watchers }).then((d) => {
             if (this._lastFileWatcherRegistration) {
                 this._lastFileWatcherRegistration.dispose();
