@@ -15,7 +15,6 @@ import {
     FunctionType,
     ModuleType,
     NeverType,
-    NoneType,
     OverloadedFunctionType,
     Type,
     TypeCategory,
@@ -66,10 +65,6 @@ export class TypeWalker {
 
             case TypeCategory.Unknown:
                 this.visitUnknown(type);
-                break;
-
-            case TypeCategory.None:
-                this.visitNone(type);
                 break;
 
             case TypeCategory.Never:
@@ -133,10 +128,6 @@ export class TypeWalker {
     }
 
     visitUnknown(type: UnknownType): void {
-        // Nothing to do.
-    }
-
-    visitNone(type: NoneType): void {
         // Nothing to do.
     }
 

@@ -206,7 +206,6 @@ export class TypeVarSignatureContext {
         switch (type.category) {
             case TypeCategory.Unknown:
             case TypeCategory.Any:
-            case TypeCategory.None:
             case TypeCategory.TypeVar: {
                 return 0.5;
             }
