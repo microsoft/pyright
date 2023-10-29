@@ -46,7 +46,6 @@ import {
     isTypeSame,
     maxTypeRecursionCount,
     NeverType,
-    NoneType,
     OverloadedFunctionType,
     Type,
     TypedDictEntry,

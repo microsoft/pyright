@@ -29,7 +29,6 @@ import {
     isTypeSame,
     isTypeVar,
     ModuleType,
-    NoneType,
     OverloadedFunctionType,
     Type,
     UnknownType,
