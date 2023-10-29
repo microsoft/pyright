@@ -9,7 +9,7 @@ T = TypeVar("T")
 
 class A(Generic[T]):
     def __new__(cls, *args, **kwargs):
-        ...
+        return super().__new__(cls, *args, **kwargs)
 
 
 class B(Generic[T]):
@@ -19,7 +19,7 @@ class B(Generic[T]):
 
 class C(Generic[T]):
     def __new__(cls, *args, **kwargs):
-        ...
+        return super().__new__(cls, *args, **kwargs)
 
     def __init__(self):
         ...
@@ -27,7 +27,7 @@ class C(Generic[T]):
 
 class D(Generic[T]):
     def __new__(cls, *args, **kwargs):
-        ...
+        return super().__new__(cls, *args, **kwargs)
 
     def __init__(self, a: T):
         ...

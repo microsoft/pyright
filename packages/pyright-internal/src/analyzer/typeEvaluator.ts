@@ -227,6 +227,8 @@ import {
     isLiteralType,
     isMaybeDescriptorInstance,
     isMetaclassInstance,
+    isNoneInstance,
+    isNoneTypeClass,
     isOptionalType,
     isPartlyUnknown,
     isProperty,
@@ -244,6 +246,7 @@ import {
     mapSubtypes,
     partiallySpecializeType,
     preserveUnknown,
+    removeNoneFromUnion,
     removeParamSpecVariadicsFromFunction,
     removeParamSpecVariadicsFromSignature,
     requiresSpecialization,
@@ -309,8 +312,6 @@ import {
     isInstantiableClass,
     isModule,
     isNever,
-    isNoneInstance,
-    isNoneTypeClass,
     isOverloadedFunction,
     isParamSpec,
     isPositionOnlySeparator,
@@ -325,7 +326,6 @@ import {
     isVariadicTypeVar,
     maxTypeRecursionCount,
     removeFromUnion,
-    removeNoneFromUnion,
     removeUnbound,
 } from './types';
 
@@ -565,6 +565,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let deferredClassCompletions: DeferredClassCompletion[] = [];
     let cancellationToken: CancellationToken | undefined;
     let isBasicTypesInitialized = false;
+    let noneClassType: Type | undefined;
     let noneType: Type | undefined;
     let objectType: Type | undefined;
     let typeClassType: Type | undefined;
@@ -806,6 +807,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // context, logging any errors in the process. This may require the
     // type of surrounding statements to be evaluated.
     function getType(node: ExpressionNode): Type | undefined {
+        initializedBasicTypes(node);
+
         let type = evaluateTypeForSubnode(node, () => {
             evaluateTypesForExpressionInContext(node);
         })?.type;
@@ -911,7 +914,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // that occurs when resolving tuple below.
             getTypingType(node, 'Collection');
 
-            noneType = getTypeshedType(node, 'NoneType') || AnyType.create();
+            noneClassType = getTypeshedType(node, 'NoneType') || AnyType.create();
+            noneType = NoneType.createInstance();
+
             tupleClassType = getBuiltInType(node, 'tuple');
             boolClassType = getBuiltInType(node, 'bool');
             intClassType = getBuiltInType(node, 'int');
@@ -2835,16 +2840,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return isTypeHashable;
     }
 
-    function getTypedDictClassType() {
-        return typedDictPrivateClassType;
+    function getTypedDictClassType(): ClassType | undefined {
+        return typedDictPrivateClassType && isInstantiableClass(typedDictPrivateClassType)
+            ? typedDictPrivateClassType
+            : undefined;
     }
 
-    function getTupleClassType() {
-        return tupleClassType;
+    function getTupleClassType(): ClassType | undefined {
+        return tupleClassType && isInstantiableClass(tupleClassType) ? tupleClassType : undefined;
     }
 
-    function getObjectType() {
-        return objectType;
+    function getObjectType(): Type {
+        return objectType ?? UnknownType.create();
+    }
+
+    function getNoneType(): Type {
+        return noneType ?? UnknownType.create();
     }
 
     function getTypingType(node: ParseNode, symbolName: string): Type | undefined {
@@ -5200,17 +5211,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         function getTypeOfNoneBase(subtype: NoneType) {
-            if (noneType && isInstantiableClass(noneType)) {
+            if (noneClassType && isInstantiableClass(noneClassType)) {
                 if (TypeBase.isInstance(subtype)) {
                     return getTypeOfObjectMember(
                         node.memberName,
-                        ClassType.cloneAsInstance(noneType),
+                        ClassType.cloneAsInstance(noneClassType),
                         memberName,
                         usage,
                         diag
                     );
                 } else {
-                    return getTypeOfClassMember(node.memberName, noneType, memberName, usage, diag);
+                    return getTypeOfClassMember(node.memberName, noneClassType, memberName, usage, diag);
                 }
             }
             return undefined;
@@ -5966,7 +5977,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         ? baseTypeClass
                                         : isAccessedThroughObject
                                         ? bindToType ?? ClassType.cloneAsInstance(baseTypeClass)
-                                        : NoneType.createInstance(),
+                                        : getNoneType(),
                                 },
                             },
                         ];
@@ -7125,6 +7136,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return result.type;
                 }
 
+                if (isNoneInstance(concreteSubtype)) {
+                    if (!isIncomplete) {
+                        addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportOptionalSubscript,
+                            DiagnosticRule.reportOptionalSubscript,
+                            Localizer.Diagnostic.noneNotSubscriptable(),
+                            node.baseExpression
+                        );
+                    }
+
+                    return UnknownType.create();
+                }
+
                 if (isClassInstance(concreteSubtype)) {
                     const typeResult = getTypeOfIndexedObjectOrClass(node, concreteSubtype, usage);
                     if (typeResult.isIncomplete) {
@@ -7135,17 +7159,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (isNever(concreteSubtype) || isUnbound(concreteSubtype)) {
                     return NeverType.createNever();
-                }
-
-                if (isNoneInstance(concreteSubtype) && !isIncomplete) {
-                    addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportOptionalSubscript,
-                        DiagnosticRule.reportOptionalSubscript,
-                        Localizer.Diagnostic.noneNotSubscriptable(),
-                        node.baseExpression
-                    );
-
-                    return UnknownType.create();
                 }
 
                 if (!isIncomplete) {
@@ -8361,7 +8374,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addInformation(Localizer.Diagnostic.revealLocalsNone(), node);
         }
 
-        return NoneType.createInstance();
+        return getNoneType();
     }
 
     function getTypeOfSuperCall(node: CallNode): TypeResult {
@@ -9308,12 +9321,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case TypeCategory.None: {
                 if (TypeBase.isInstantiable(expandedCallType)) {
-                    if (noneType && isInstantiableClass(noneType)) {
+                    if (noneClassType && isInstantiableClass(noneClassType)) {
                         const callResult = validateCallForInstantiableClass(
                             errorNode,
                             argList,
-                            noneType,
-                            noneType,
+                            noneClassType,
+                            noneClassType,
                             skipUnknownArgCheck,
                             inferenceContext
                         );
@@ -12694,7 +12707,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type: ClassType.cloneAsInstance(baseClass),
                 hasDeclaredType: true,
             });
-            initType.details.declaredReturnType = NoneType.createInstance();
+            initType.details.declaredReturnType = getNoneType();
             classType.details.fields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
 
             // Synthesize a trivial __new__ method.
@@ -12754,7 +12767,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return classType;
     }
 
-    function getTypeOfConstant(node: ConstantNode, flags: EvaluatorFlags): TypeResult | undefined {
+    function getTypeOfConstant(node: ConstantNode, flags: EvaluatorFlags): TypeResult {
         let type: Type | undefined;
 
         if (node.constType === KeywordType.None) {
@@ -12780,11 +12793,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (!type) {
-            return undefined;
-        }
-
-        return { type };
+        return { type: type ?? UnknownType.create() };
     }
 
     function getTypeOfMagicMethodReturn(
@@ -15578,10 +15587,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (typeAliasNameNode) {
                     // If this was a speculative type alias, it becomes a real type alias
                     // only if the evaluated type is an instantiable type.
-                    if (
-                        !isSpeculativeTypeAlias ||
-                        (TypeBase.isInstantiable(rightHandType) && !isUnknown(rightHandType))
-                    ) {
+                    if (!isSpeculativeTypeAlias || isLegalImplicitTypeAliasType(rightHandType)) {
                         // If this is a type alias, record its name based on the assignment target.
                         rightHandType = transformTypeForTypeAlias(
                             rightHandType,
@@ -15784,6 +15790,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeOfClass(node: ClassNode): ClassTypeResult | undefined {
+        initializedBasicTypes(node);
+
         // Is this type already cached?
         const cachedClassType = readTypeCache(node.name, EvaluatorFlags.None);
 
@@ -16247,7 +16255,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             SymbolFlags.ClassVar |
                             SymbolFlags.IgnoredForProtocolMatch |
                             SymbolFlags.IgnoredForOverrideChecks,
-                        NoneType.createInstance()
+                        getNoneType()
                     )
                 );
             }
@@ -16888,7 +16896,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     { type: initSubclassMethodType },
                     /* typeVarContext */ undefined,
                     /* skipUnknownArgCheck */ false,
-                    makeInferenceContext(NoneType.createInstance())
+                    makeInferenceContext(getNoneType())
                 );
             }
         } else if (classType.details.effectiveMetaclass && isClass(classType.details.effectiveMetaclass)) {
@@ -16987,6 +16995,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeOfFunction(node: FunctionNode): FunctionTypeResult | undefined {
+        initializedBasicTypes(node);
+
         // Is this predecorated function type cached?
         let functionType = readTypeCache(node.name, EvaluatorFlags.None);
 
@@ -17441,7 +17451,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Special-case the __init__ method, which is commonly left without
                 // an annotated return type, but we can assume it returns None.
                 if (node.name.value === '__init__') {
-                    functionType.details.declaredReturnType = NoneType.createInstance();
+                    functionType.details.declaredReturnType = getNoneType();
                 } else {
                     functionType.details.declaredReturnType = UnknownType.create();
                 }
@@ -17564,7 +17574,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !isOptionalType(type) &&
             !AnalyzerNodeInfo.getFileInfo(param).diagnosticRuleSet.strictParameterNoneValue
         ) {
-            return combineTypes([type, NoneType.createInstance()]);
+            return combineTypes([type, getNoneType()]);
         }
 
         return type;
@@ -17917,14 +17927,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                         inferredReturnTypes.push(returnType);
                                     } else {
-                                        inferredReturnTypes.push(NoneType.createInstance());
+                                        inferredReturnTypes.push(getNoneType());
                                     }
                                 }
                             });
                         }
 
                         if (!functionNeverReturns && implicitlyReturnsNone) {
-                            inferredReturnTypes.push(NoneType.createInstance());
+                            inferredReturnTypes.push(getNoneType());
                         }
 
                         inferredReturnType = combineTypes(inferredReturnTypes);
@@ -17972,7 +17982,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                             const yieldType = getTypeOfExpression(yieldNode.expression).type;
                                             inferredYieldTypes.push(yieldType ?? UnknownType.create());
                                         } else {
-                                            inferredYieldTypes.push(NoneType.createInstance());
+                                            inferredYieldTypes.push(getNoneType());
                                         }
                                     }
                                 }
@@ -17980,7 +17990,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         if (inferredYieldTypes.length === 0) {
-                            inferredYieldTypes.push(NoneType.createInstance());
+                            inferredYieldTypes.push(getNoneType());
                         }
                         const inferredYieldType = combineTypes(inferredYieldTypes);
 
@@ -18004,7 +18014,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             typeArgs.push(
                                 inferredYieldType,
                                 sendType,
-                                isNever(inferredReturnType) ? NoneType.createInstance() : inferredReturnType
+                                isNever(inferredReturnType) ? getNoneType() : inferredReturnType
                             );
 
                             if (useAwaitableGenerator) {
@@ -20269,7 +20279,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     if (declaration.intrinsicType === 'str | None') {
-                        return { type: combineTypes([strType, NoneType.createInstance()]) };
+                        return { type: combineTypes([strType, getNoneType()]) };
                     }
 
                     if (declaration.intrinsicType === 'int') {
@@ -20728,11 +20738,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // If this was a speculative type alias, it becomes a real type alias only
                 // in the event that its inferred type is instantiable or explicitly Any
                 // (but not an ellipsis).
-                if (
-                    TypeBase.isInstantiable(inferredType) &&
-                    !isUnknown(inferredType) &&
-                    !isEllipsisType(inferredType)
-                ) {
+                if (isLegalImplicitTypeAliasType(inferredType)) {
                     inferredType = transformTypeForTypeAlias(
                         inferredType,
                         resolvedDecl.typeAliasName,
@@ -21303,7 +21309,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Don't bother inferring the return type of __init__ because it's
             // always None.
             if (FunctionType.isInstanceMethod(type) && type.details.name === '__init__') {
-                returnType = NoneType.createInstance();
+                returnType = getNoneType();
             } else if (type.details.declaration) {
                 const functionNode = type.details.declaration.node;
                 analyzeUnannotatedFunctions =
@@ -23200,11 +23206,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Are we trying to assign None to a protocol?
         if (isNoneInstance(srcType) && isClassInstance(destType) && ClassType.isProtocolClass(destType)) {
-            if (noneType && isInstantiableClass(noneType)) {
+            if (noneClassType && isInstantiableClass(noneClassType)) {
                 return assignClassToProtocol(
                     evaluatorInterface,
                     ClassType.cloneAsInstantiable(destType),
-                    noneType,
+                    noneClassType,
                     diag,
                     destTypeVarContext,
                     srcTypeVarContext,
@@ -25935,6 +25941,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return true;
     }
 
+    function isLegalImplicitTypeAliasType(type: Type) {
+        // We explicitly exclude "Unknown" and "...".
+        if (isUnknown(type) || isEllipsisType(type)) {
+            return false;
+        }
+
+        // Look at the subtypes within the union. If any of them are not
+        // instantiable (other than "None" which is special-cased), it is
+        // not a legal type alias type.
+        let isLegal = true;
+        doForEachSubtype(type, (subtype) => {
+            if (!TypeBase.isInstantiable(subtype) && !isNoneInstance(subtype)) {
+                isLegal = false;
+            }
+        });
+
+        return isLegal;
+    }
+
     function printObjectTypeForClass(type: ClassType): string {
         return TypePrinter.printObjectTypeForClass(
             type,
@@ -26160,6 +26185,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getTypedDictClassType,
         getTupleClassType,
         getObjectType,
+        getNoneType,
         getBuiltInObject,
         getTypingType,
         assignTypeArguments,

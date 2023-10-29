@@ -139,6 +139,7 @@ import {
     getTypeVarScopeId,
     isLiteralType,
     isLiteralTypeOrUnion,
+    isNoneInstance,
     isPartlyUnknown,
     isProperty,
     isTupleClass,
@@ -156,7 +157,6 @@ import {
     ClassTypeFlags,
     FunctionType,
     FunctionTypeFlags,
-    NoneType,
     OverloadedFunctionType,
     Type,
     TypeBase,
@@ -172,7 +172,6 @@ import {
     isInstantiableClass,
     isModule,
     isNever,
-    isNoneInstance,
     isOverloadedFunction,
     isParamSpec,
     isPossiblyUnbound,
@@ -875,7 +874,7 @@ export class Checker extends ParseTreeWalker {
             returnTypeResult = this._evaluator.getTypeResult(node.returnExpression) ?? { type: UnknownType.create() };
         } else {
             // There is no return expression, so "None" is assumed.
-            returnTypeResult = { type: NoneType.createInstance() };
+            returnTypeResult = { type: this._evaluator.getNoneType() };
         }
 
         // If the enclosing function is async and a generator, the return
@@ -998,7 +997,7 @@ export class Checker extends ParseTreeWalker {
     override visitYield(node: YieldNode) {
         const yieldTypeResult = node.expression
             ? this._evaluator.getTypeResult(node.expression)
-            : { type: NoneType.createInstance() };
+            : { type: this._evaluator.getNoneType() };
         this._validateYieldType(
             node,
             yieldTypeResult?.type ?? UnknownType.create(),
@@ -1961,7 +1960,7 @@ export class Checker extends ParseTreeWalker {
         doForEachSubtype(leftType, (subtype) => {
             subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
-            if (this._evaluator.assignType(subtype, NoneType.createInstance())) {
+            if (this._evaluator.assignType(subtype, this._evaluator.getNoneType())) {
                 foundMatchForNone = true;
             }
         });
@@ -4475,7 +4474,7 @@ export class Checker extends ParseTreeWalker {
                     const diagAddendum = new DiagnosticAddendum();
 
                     // If the declared type isn't compatible with 'None', flag an error.
-                    if (!this._evaluator.assignType(declaredReturnType, NoneType.createInstance(), diagAddendum)) {
+                    if (!this._evaluator.assignType(declaredReturnType, this._evaluator.getNoneType(), diagAddendum)) {
                         // If the function consists entirely of "...", assume that it's
                         // an abstract method or a protocol method and don't require that
                         // the return type matches. This check can also be skipped for an overload.

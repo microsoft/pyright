@@ -654,9 +654,10 @@ export interface TypeEvaluator {
     ) => void;
     assignClassToSelf: (destType: ClassType, srcType: ClassType) => boolean;
     getBuiltInObject: (node: ParseNode, name: string, typeArguments?: Type[]) => Type;
-    getTypedDictClassType: () => Type | undefined;
-    getTupleClassType: () => Type | undefined;
-    getObjectType: () => Type | undefined;
+    getTypedDictClassType: () => ClassType | undefined;
+    getTupleClassType: () => ClassType | undefined;
+    getObjectType: () => Type;
+    getNoneType: () => Type;
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
     inferReturnTypeIfNecessary: (type: Type) => void;
     inferTypeParameterVarianceForClass: (type: ClassType) => void;

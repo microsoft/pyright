@@ -283,7 +283,7 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     FunctionType.addParameter(getFunction1, {
         category: ParameterCategory.Simple,
         name: 'obj',
-        type: NoneType.createInstance(),
+        type: evaluator.getNoneType(),
         hasDeclaredType: true,
     });
     FunctionType.addParameter(getFunction1, {
@@ -365,11 +365,11 @@ function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     FunctionType.addParameter(setFunction, {
         category: ParameterCategory.Simple,
         name: 'obj',
-        type: combineTypes([objType, NoneType.createInstance()]),
+        type: combineTypes([objType, evaluator.getNoneType()]),
         hasDeclaredType: true,
     });
 
-    setFunction.details.declaredReturnType = NoneType.createInstance();
+    setFunction.details.declaredReturnType = evaluator.getNoneType();
 
     // Adopt the TypeVarScopeId of the fset function in case it has any
     // TypeVars that need to be solved.
@@ -420,10 +420,10 @@ function addDelMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     FunctionType.addParameter(delFunction, {
         category: ParameterCategory.Simple,
         name: 'obj',
-        type: combineTypes([objType, NoneType.createInstance()]),
+        type: combineTypes([objType, evaluator.getNoneType()]),
         hasDeclaredType: true,
     });
-    delFunction.details.declaredReturnType = NoneType.createInstance();
+    delFunction.details.declaredReturnType = evaluator.getNoneType();
     const delSymbol = Symbol.createWithType(SymbolFlags.ClassMember, delFunction);
     fields.set('__delete__', delSymbol);
 }

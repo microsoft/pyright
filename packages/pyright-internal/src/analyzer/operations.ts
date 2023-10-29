@@ -27,9 +27,11 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     InferenceContext,
+    convertToInstantiable,
     getLiteralTypeClassName,
     getTypeCondition,
     getUnionSubtypeCount,
+    isNoneInstance,
     isOptionalType,
     isTupleClass,
     isUnboundedTupleClass,
@@ -38,12 +40,12 @@ import {
     makeInferenceContext,
     mapSubtypes,
     preserveUnknown,
+    removeNoneFromUnion,
     specializeTupleClass,
 } from './typeUtils';
 import {
     ClassType,
     NeverType,
-    NoneType,
     Type,
     TypeBase,
     UnknownType,
@@ -54,10 +56,8 @@ import {
     isFunction,
     isInstantiableClass,
     isNever,
-    isNoneInstance,
     isOverloadedFunction,
     isUnion,
-    removeNoneFromUnion,
 } from './types';
 
 // Maps binary operators to the magic methods that implement them.
@@ -587,9 +587,9 @@ export function getTypeOfBinaryOperation(
             // with something else. Even though "None" will normally be interpreted
             // as the None singleton object in contexts where a type annotation isn't
             // assumed, we'll allow it here.
-            adjustedRightType = NoneType.createType();
+            adjustedRightType = convertToInstantiable(evaluator.getNoneType());
         } else if (!isNoneInstance(rightType) && isNoneInstance(leftType)) {
-            adjustedLeftType = NoneType.createType();
+            adjustedLeftType = convertToInstantiable(evaluator.getNoneType());
         }
 
         if (isUnionableType([adjustedLeftType, adjustedRightType])) {
@@ -1108,10 +1108,7 @@ function customMetaclassSupportsMethod(type: Type, methodName: string): boolean 
 // to an object instance.
 function convertFunctionToObject(evaluator: TypeEvaluator, type: Type) {
     if (isFunction(type) || isOverloadedFunction(type)) {
-        const objectType = evaluator.getObjectType();
-        if (objectType) {
-            return objectType;
-        }
+        return evaluator.getObjectType();
     }
 
     return type;

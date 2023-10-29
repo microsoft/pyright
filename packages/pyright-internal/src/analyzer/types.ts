@@ -46,7 +46,7 @@ export const enum TypeCategory {
     // Module instance.
     Module,
 
-    // Composite type (e.g. Number OR String OR None).
+    // Composite type (e.g. Number OR String).
     Union,
 
     // Type variable (defined with TypeVar)
@@ -2659,14 +2659,6 @@ export function isNever(type: Type): type is NeverType {
     return type.category === TypeCategory.Never;
 }
 
-export function isNoneInstance(type: Type): type is NoneType {
-    return type.category === TypeCategory.None && TypeBase.isInstance(type);
-}
-
-export function isNoneTypeClass(type: Type): type is NoneType {
-    return type.category === TypeCategory.None && TypeBase.isInstantiable(type);
-}
-
 export function isAny(type: Type): type is AnyType {
     return type.category === TypeCategory.Any;
 }
@@ -3149,12 +3141,6 @@ export function removeUnbound(type: Type): Type {
     }
 
     return type;
-}
-
-// If the type is a union, remove an "None" type from the union,
-// returning only the known types.
-export function removeNoneFromUnion(type: Type): Type {
-    return removeFromUnion(type, (t: Type) => isNoneInstance(t));
 }
 
 export function removeFromUnion(type: Type, removeFilter: (type: Type) => boolean) {
