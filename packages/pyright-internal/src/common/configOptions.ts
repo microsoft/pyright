@@ -19,16 +19,16 @@ import { DiagnosticRule } from './diagnosticRules';
 import { FileSystem } from './fileSystem';
 import { Host } from './host';
 import {
+    FileSpec,
     combinePaths,
     ensureTrailingDirectorySeparator,
-    FileSpec,
     getFileSpec,
     isDirectory,
     normalizePath,
     realCasePath,
     resolvePaths,
 } from './pathUtils';
-import { latestStablePythonVersion, PythonVersion, versionFromString, versionToString } from './pythonVersion';
+import { PythonVersion, latestStablePythonVersion, versionFromString, versionToString } from './pythonVersion';
 import { ServiceProvider } from './serviceProvider';
 import { ServiceKeys } from './serviceProviderExtensions';
 
@@ -890,39 +890,36 @@ export class ConfigOptions {
         typeCheckingMode: string | undefined,
         serviceProvider: ServiceProvider,
         host: Host,
-        diagnosticOverrides?: DiagnosticSeverityOverridesMap,
-        skipIncludeSection = false
+        diagnosticOverrides?: DiagnosticSeverityOverridesMap
     ) {
         this.initializedFromJson = true;
         const console = serviceProvider.tryGet(ServiceKeys.console) ?? new NullConsole();
 
         // Read the "include" entry.
-        if (!skipIncludeSection) {
-            this.include = [];
-            if (configObj.include !== undefined) {
-                if (!Array.isArray(configObj.include)) {
-                    console.error(`Config "include" entry must must contain an array.`);
-                } else {
-                    const filesList = configObj.include as string[];
-                    filesList.forEach((fileSpec, index) => {
-                        if (typeof fileSpec !== 'string') {
-                            console.error(`Index ${index} of "include" array should be a string.`);
-                        } else if (isAbsolute(fileSpec)) {
-                            console.error(`Ignoring path "${fileSpec}" in "include" array because it is not relative.`);
-                        } else {
-                            this.include.push(getFileSpec(serviceProvider, this.projectRoot, fileSpec));
-                        }
-                    });
-                }
+        if (configObj.include !== undefined) {
+            if (!Array.isArray(configObj.include)) {
+                console.error(`Config "include" entry must must contain an array.`);
+            } else {
+                this.include = [];
+                const filesList = configObj.include as string[];
+                filesList.forEach((fileSpec, index) => {
+                    if (typeof fileSpec !== 'string') {
+                        console.error(`Index ${index} of "include" array should be a string.`);
+                    } else if (isAbsolute(fileSpec)) {
+                        console.error(`Ignoring path "${fileSpec}" in "include" array because it is not relative.`);
+                    } else {
+                        this.include.push(getFileSpec(serviceProvider, this.projectRoot, fileSpec));
+                    }
+                });
             }
         }
 
         // Read the "exclude" entry.
-        this.exclude = [];
         if (configObj.exclude !== undefined) {
             if (!Array.isArray(configObj.exclude)) {
                 console.error(`Config "exclude" entry must contain an array.`);
             } else {
+                this.exclude = [];
                 const filesList = configObj.exclude as string[];
                 filesList.forEach((fileSpec, index) => {
                     if (typeof fileSpec !== 'string') {
@@ -937,11 +934,11 @@ export class ConfigOptions {
         }
 
         // Read the "ignore" entry.
-        this.ignore = [];
         if (configObj.ignore !== undefined) {
             if (!Array.isArray(configObj.ignore)) {
                 console.error(`Config "ignore" entry must contain an array.`);
             } else {
+                this.ignore = [];
                 const filesList = configObj.ignore as string[];
                 filesList.forEach((fileSpec, index) => {
                     if (typeof fileSpec !== 'string') {
@@ -956,11 +953,11 @@ export class ConfigOptions {
         }
 
         // Read the "strict" entry.
-        this.strict = [];
         if (configObj.strict !== undefined) {
             if (!Array.isArray(configObj.strict)) {
                 console.error(`Config "strict" entry must contain an array.`);
             } else {
+                this.strict = [];
                 const filesList = configObj.strict as string[];
                 filesList.forEach((fileSpec, index) => {
                     if (typeof fileSpec !== 'string') {
