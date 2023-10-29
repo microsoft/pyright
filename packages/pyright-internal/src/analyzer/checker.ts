@@ -1052,7 +1052,7 @@ export class Checker extends ParseTreeWalker {
                 doForEachSubtype(exceptionType, (subtype) => {
                     subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
-                    if (!isAnyOrUnknown(subtype) && !isNoneInstance(subtype)) {
+                    if (!isAnyOrUnknown(subtype)) {
                         if (isClass(subtype)) {
                             if (!derivesFromClassRecursive(subtype, baseExceptionType, /* ignoreUnknown */ false)) {
                                 diagAddendum.addMessage(
@@ -3786,15 +3786,13 @@ export class Checker extends ParseTreeWalker {
                     break;
 
                 case TypeCategory.Class:
-                    // If it's a class, make sure that it has not been given explicit
-                    // type arguments. This will result in a TypeError exception.
-                    if (subtype.isTypeArgumentExplicit && !subtype.includeSubclasses) {
+                    if (isNoneInstance(subtype)) {
+                        isSupported = false;
+                    } else if (subtype.isTypeArgumentExplicit && !subtype.includeSubclasses) {
+                        // If it's a class, make sure that it has not been given explicit
+                        // type arguments. This will result in a TypeError exception.
                         isSupported = false;
                     }
-                    break;
-
-                case TypeCategory.None:
-                    isSupported = TypeBase.isInstantiable(subtype);
                     break;
 
                 case TypeCategory.Function:

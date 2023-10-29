@@ -24,9 +24,6 @@ export const enum TypeCategory {
     // Type can be anything.
     Any,
 
-    // Special "None" type defined in Python.
-    None,
-
     // Used in type narrowing to indicate that all possible
     // subtypes in a union have been eliminated, and execution
     // should never get to this point.
@@ -74,7 +71,6 @@ export type UnionableType =
     | UnboundType
     | UnknownType
     | AnyType
-    | NoneType
     | FunctionType
     | OverloadedFunctionType
     | ClassType
@@ -2069,30 +2065,6 @@ export namespace OverloadedFunctionType {
 
     export function getImplementation(type: OverloadedFunctionType): FunctionType | undefined {
         return type.overloads.find((func) => !FunctionType.isOverloaded(func));
-    }
-}
-
-export interface NoneType extends TypeBase {
-    category: TypeCategory.None;
-}
-
-export namespace NoneType {
-    const _noneInstance: NoneType = {
-        category: TypeCategory.None,
-        flags: TypeFlags.Instance,
-    };
-
-    const _noneType: NoneType = {
-        category: TypeCategory.None,
-        flags: TypeFlags.Instantiable,
-    };
-
-    export function createInstance() {
-        return _noneInstance;
-    }
-
-    export function createType() {
-        return _noneType;
     }
 }
 

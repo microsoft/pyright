@@ -79,9 +79,6 @@ export function createTracePrinter(roots: string[]): TracePrinter {
                 case TypeCategory.Never:
                     return `Never ${wrap(type.typeAliasInfo?.fullName)}`;
 
-                case TypeCategory.None:
-                    return `None ${wrap(type.typeAliasInfo?.fullName)}`;
-
                 case TypeCategory.OverloadedFunction:
                     return `OverloadedFunction [${type.overloads.map((o) => wrap(printType(o), '"')).join(',')}]`;
 
