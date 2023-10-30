@@ -4,8 +4,10 @@
 # pyright: reportOptionalMemberAccess=false
 
 from random import random
+from typing import final
 
 
+@final
 class ClassA:
     def x(self):
         return

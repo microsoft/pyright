@@ -4,12 +4,15 @@
 
 
 import random
+from typing import final
 
 
+@final
 class A:
     a: int
 
 
+@final
 class B:
     b: int
 

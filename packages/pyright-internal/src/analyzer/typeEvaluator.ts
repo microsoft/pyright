@@ -1800,7 +1800,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return true;
                 }
 
-                return false;
+                return !ClassType.isFinal(type);
             }
         }
     }
@@ -1948,6 +1948,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // "false" is a falsy value.
                 if (ClassType.isBuiltIn(concreteSubtype, 'bool')) {
                     return ClassType.cloneWithLiteral(concreteSubtype, /* value */ true);
+                }
+
+                // If the object is a "None" instance, we can eliminate it.
+                if (isNoneInstance(concreteSubtype)) {
+                    return undefined;
+                }
+
+                // If this is an instance of a class that cannot be subclassed,
+                // we cannot say definitively that it's not falsy because a subclass
+                // could override `__bool__`.
+                if (!ClassType.isFinal(concreteSubtype)) {
+                    return subtype;
                 }
             }
 
