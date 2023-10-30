@@ -1,6 +1,6 @@
 # This sample tests type narrowing for falsey and truthy values.
 
-from typing import AnyStr, Iterable, Literal, NamedTuple, Union
+from typing import AnyStr, Iterable, Literal, NamedTuple, TypeVar, Union, final
 
 
 class A:
@@ -22,7 +22,7 @@ class D:
         ...
 
 
-def func1(x: Union[int, list[int], A, B, C, D, None]) -> None:
+def func1(x: int | list[int] | A | B | C | D | None) -> None:
     if x:
         reveal_type(x, expected_text="int | list[int] | A | B | D")
     else:
@@ -36,61 +36,68 @@ def func2(maybe_int: int | None):
         reveal_type(maybe_int, expected_text="Literal[0] | None")
 
 
-def func3(maybe_a: A | None):
+def func3_1(maybe_a: A | None):
     if bool(maybe_a):
         reveal_type(maybe_a, expected_text="A")
     else:
         reveal_type(maybe_a, expected_text="None")
 
 
-def func4(foo: Iterable[int]) -> None:
-    if foo:
-        reveal_type(foo, expected_text="Iterable[int]")
+def func3_2(maybe_a: A | None):
+    if bool(maybe_a):
+        reveal_type(maybe_a, expected_text="A")
     else:
-        reveal_type(foo, expected_text="Iterable[int]")
+        reveal_type(maybe_a, expected_text="None")
 
 
-def func5(foo: tuple[int]) -> None:
-    if foo:
-        reveal_type(foo, expected_text="tuple[int]")
+def func4(val: Iterable[int]) -> None:
+    if val:
+        reveal_type(val, expected_text="Iterable[int]")
     else:
-        reveal_type(foo, expected_text="Never")
+        reveal_type(val, expected_text="Iterable[int]")
 
 
-def func6(foo: tuple[int, ...]) -> None:
-    if foo:
-        reveal_type(foo, expected_text="tuple[int, ...]")
+def func5(val: tuple[int]) -> None:
+    if val:
+        reveal_type(val, expected_text="tuple[int]")
     else:
-        reveal_type(foo, expected_text="tuple[int, ...]")
+        reveal_type(val, expected_text="Never")
 
 
-def func7(foo: tuple[()]) -> None:
-    if foo:
-        reveal_type(foo, expected_text="Never")
+def func6(val: tuple[int, ...]) -> None:
+    if val:
+        reveal_type(val, expected_text="tuple[int, ...]")
     else:
-        reveal_type(foo, expected_text="tuple[()]")
+        reveal_type(val, expected_text="tuple[int, ...]")
+
+
+def func7(val: tuple[()]) -> None:
+    if val:
+        reveal_type(val, expected_text="Never")
+    else:
+        reveal_type(val, expected_text="tuple[()]")
 
 
 class NT1(NamedTuple):
-    foo: int
+    val: int
 
 
-def func8(foo: NT1) -> None:
-    if foo:
-        reveal_type(foo, expected_text="NT1")
+def func8(val: NT1) -> None:
+    if val:
+        reveal_type(val, expected_text="NT1")
     else:
-        reveal_type(foo, expected_text="Never")
+        reveal_type(val, expected_text="Never")
 
 
 class NT2(NT1):
     pass
 
 
-def func9(foo: NT2) -> None:
-    if foo:
-        reveal_type(foo, expected_text="NT2")
+def func9(val: NT2) -> None:
+    if val:
+        reveal_type(val, expected_text="NT2")
     else:
-        reveal_type(foo, expected_text="Never")
+        reveal_type(val, expected_text="Never")
 
 
 class E:
@@ -113,3 +120,15 @@ def func10(val: AnyStr | None):
 def func11(val: AnyStr | None):
     assert val
     reveal_type(val, expected_text="AnyStr@func11")
+
+
+T = TypeVar("T")
+
+
+def func12(val: T) -> T:
+    if val:
+        reveal_type(val, expected_text="T@func12")
+    else:
+        reveal_type(val, expected_text="T@func12")
+
+    return val
