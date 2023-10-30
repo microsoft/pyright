@@ -1800,7 +1800,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return true;
                 }
 
-                return false;
+                // If the class is not final, it's possible that it could be overridden
+                // such that it is falsy. To be fully correct, we'd need to do the
+                // following:
+                // return !ClassType.isFinal(type);
+                // However, pragmatically if the class is not an `object`, it's typically
+                // OK to assume that it will not be overridden in this manner.
+                return ClassType.isBuiltIn(type, 'object');
             }
         }
     }
@@ -1948,6 +1954,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // "false" is a falsy value.
                 if (ClassType.isBuiltIn(concreteSubtype, 'bool')) {
                     return ClassType.cloneWithLiteral(concreteSubtype, /* value */ true);
+                }
+
+                // If the object is a "None" instance, we can eliminate it.
+                if (isNoneInstance(concreteSubtype)) {
+                    return undefined;
+                }
+
+                // If this is an instance of a class that cannot be subclassed,
+                // we cannot say definitively that it's not falsy because a subclass
+                // could override `__bool__`. For this reason, the code should not
+                // remove any classes that are not final.
+                // if (!ClassType.isFinal(concreteSubtype)) {
+                //     return subtype;
+                // }
+                // However, we're going to pragmatically assume that any classes
+                // other than `object` will not be overridden in this manner.
+                if (ClassType.isBuiltIn(concreteSubtype, 'object')) {
+                    return subtype;
                 }
             }
 
