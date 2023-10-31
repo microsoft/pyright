@@ -429,7 +429,11 @@ export function updateNamedTupleBaseClass(
         }
 
         // Create a copy of the NamedTuple class that replaces the tuple base class.
-        const clonedNamedTupleClass = ClassType.cloneForSpecialization(baseClass, [], isTypeArgumentExplicit);
+        const clonedNamedTupleClass = ClassType.cloneForSpecialization(
+            baseClass,
+            /* typeArguments */ undefined,
+            isTypeArgumentExplicit
+        );
         clonedNamedTupleClass.details = { ...clonedNamedTupleClass.details };
 
         clonedNamedTupleClass.details.baseClasses = clonedNamedTupleClass.details.baseClasses.map(

@@ -106,6 +106,7 @@ export function validateConstructorArguments(
         /* diag */ undefined,
         MemberAccessFlags.AccessClassMembersOnly |
             MemberAccessFlags.SkipObjectBaseClass |
+            MemberAccessFlags.SkipAttributeAccessOverride |
             MemberAccessFlags.TreatConstructorAsClassMethod,
         type
     );
@@ -271,13 +272,18 @@ function validateNewAndInitMethods(
         }
 
         // Determine whether the class overrides the object.__init__ method.
-        initMethodTypeResult = evaluator.getTypeOfObjectMember(
+        initMethodTypeResult = evaluator.getTypeOfClassMemberName(
             errorNode,
             initMethodBindToType,
+            /* isAccessedThroughObject */ false,
             '__init__',
             { method: 'get' },
             /* diag */ undefined,
-            MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
+            MemberAccessFlags.AccessClassMembersOnly |
+                MemberAccessFlags.SkipObjectBaseClass |
+                MemberAccessFlags.SkipAttributeAccessOverride,
+
+            type
         );
 
         // Validate __init__ if it's present.

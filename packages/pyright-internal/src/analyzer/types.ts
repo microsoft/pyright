@@ -767,7 +767,7 @@ export namespace ClassType {
     ): ClassType {
         const newClassType = TypeBase.cloneType(classType);
 
-        newClassType.typeArguments = typeArguments;
+        newClassType.typeArguments = typeArguments?.length === 0 ? undefined : typeArguments;
         newClassType.isTypeArgumentExplicit = isTypeArgumentExplicit;
 
         if (includeSubclasses) {
