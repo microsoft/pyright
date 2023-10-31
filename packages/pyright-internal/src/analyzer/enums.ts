@@ -27,7 +27,7 @@ import {
 } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { isSingleDunderName } from './symbolNameUtils';
-import { FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
+import { FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
 import { ClassMemberLookupFlags, computeMroLinearization, lookUpClassMember } from './typeUtils';
 import {
@@ -394,9 +394,9 @@ export function getTypeOfEnumMember(
     classType: ClassType,
     memberName: string,
     isIncomplete: boolean
-) {
+): TypeResult | undefined {
     // Handle the special case of 'name' and 'value' members within an enum.
-    if (!ClassType.isEnumClass(classType)) {
+    if (!isClassInstance(classType) || !ClassType.isEnumClass(classType)) {
         return undefined;
     }
 
