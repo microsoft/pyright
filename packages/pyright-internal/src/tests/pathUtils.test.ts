@@ -23,6 +23,7 @@ import {
     ensureTrailingDirectorySeparator,
     getAnyExtensionFromPath,
     getBaseFileName,
+    getDirectoryPath,
     getFileExtension,
     getFileName,
     getPathComponents,
@@ -35,6 +36,7 @@ import {
     isDirectoryWildcardPatternPresent,
     isFileSystemCaseSensitiveInternal,
     isRootedDiskPath,
+    isUri,
     normalizeSlashes,
     realCasePath,
     reducePathComponents,
@@ -89,9 +91,27 @@ test('getPathComponents6', () => {
     assert.equal(components[3], 'file.py');
 });
 
+test('getPathComponents7', () => {
+    const components = getPathComponents('ab:cdef/test');
+    assert.equal(components.length, 3);
+    assert.equal(components[0], 'ab:');
+    assert.equal(components[1], 'cdef');
+    assert.equal(components[2], 'test');
+});
+
 test('combinePaths1', () => {
     const p = combinePaths('/user', '1', '2', '3');
     assert.equal(p, normalizeSlashes('/user/1/2/3'));
+});
+
+test('combinePaths2', () => {
+    const p = combinePaths('/foo', 'ab:c');
+    assert.equal(p, normalizeSlashes('/foo/ab:c'));
+});
+
+test('combinePaths3', () => {
+    const p = combinePaths('untitled:foo', 'ab:c');
+    assert.equal(p, normalizeSlashes('untitled:foo/ab%3Ac'));
 });
 
 test('ensureTrailingDirectorySeparator1', () => {
@@ -362,7 +382,7 @@ test('getRootLength7', () => {
 });
 
 test('getRootLength8', () => {
-    assert.equal(getRootLength('scheme:/no/authority'), 8);
+    assert.equal(getRootLength('scheme:/no/authority'), 7);
 });
 
 test('getRootLength9', () => {
@@ -404,6 +424,24 @@ test('getRelativePath', () => {
     );
 });
 
+test('getDirectoryPath', () => {
+    assert.equal(getDirectoryPath(normalizeSlashes('/a/b/c/d/e/f')), normalizeSlashes('/a/b/c/d/e'));
+    assert.equal(
+        getDirectoryPath(normalizeSlashes('untitled:/a/b/c/d/e/f?query#frag')),
+        normalizeSlashes('untitled:/a/b/c/d/e')
+    );
+});
+
+test('isUri', () => {
+    assert.ok(isUri('untitled:/a/b/c/d/e/f?query#frag'));
+    assert.ok(isUri('untitled:/a/b/c/d/e/f'));
+    assert.ok(isUri('untitled:a/b/c/d/e/f'));
+    assert.ok(isUri('untitled:/a/b/c/d/e/f?query'));
+    assert.ok(isUri('untitled:/a/b/c/d/e/f#frag'));
+    assert.ok(!isUri('c:/foo/bar'));
+    assert.ok(!isUri('c:/foo#/bar'));
+    assert.ok(!isUri('222/dd:/foo/bar'));
+});
 test('CaseSensitivity', () => {
     const cwd = normalizeSlashes('/');
 

@@ -642,7 +642,7 @@
         "memberSetClassVar": "Člen „{name}“ nelze přiřadit prostřednictvím instance třídy, protože se jedná o třídu ClassVar",
         "memberTypeMismatch": "{name} je nekompatibilní typ",
         "memberUnknown": "Člen {name} je neznámý",
-        "metaclassConflict": "Metaclass \"{metaclass1}\" conflicts with \"{metaclass2}\"",
+        "metaclassConflict": "Metatřída {metaclass1} je v konfliktu s metatřídou {metaclass2}.",
         "missingDeleter": "Chybí metoda odstranění vlastnosti",
         "missingGetter": "Chybí metoda getter vlastnosti",
         "missingProtocolMember": "Člen {name} je deklarován ve třídě protokolu {classType}",

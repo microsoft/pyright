@@ -642,7 +642,7 @@
         "memberSetClassVar": "\"{name}\" üyesi bir ClassVar olduğundan sınıf örneği aracılığıyla atanamaz",
         "memberTypeMismatch": "\"{name}\" uyumsuz bir tür",
         "memberUnknown": "\"{name}\" üyesi bilinmiyor",
-        "metaclassConflict": "Metaclass \"{metaclass1}\" conflicts with \"{metaclass2}\"",
+        "metaclassConflict": "Metaclass \"{metaclass1}\", \"{metaclass2}\" ile çakışıyor",
         "missingDeleter": "Özellik silici metodu eksik",
         "missingGetter": "Özellik alıcı metodu eksik",
         "missingProtocolMember": "\"{name}\" üyesi \"{classType}\" protokol sınıfında bildirildi",

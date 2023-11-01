@@ -642,7 +642,7 @@
         "memberSetClassVar": "Элемент \"{name}\" не может быть назначен через экземпляр класса, так как это ClassVar",
         "memberTypeMismatch": "\"{name}\" является несовместимым типом",
         "memberUnknown": "Элемент \"{name}\" неизвестен",
-        "metaclassConflict": "Metaclass \"{metaclass1}\" conflicts with \"{metaclass2}\"",
+        "metaclassConflict": "Метакласс \"{metaclass1}\" конфликтует с \"{metaclass2}\"",
         "missingDeleter": "Отсутствует метод удаления свойства",
         "missingGetter": "Отсутствует метод получения свойства",
         "missingProtocolMember": "Элемент \"{name}\" объявлен в классе протокола \"{classType}\"",

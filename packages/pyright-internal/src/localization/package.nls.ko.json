@@ -642,7 +642,7 @@
         "memberSetClassVar": "‘{name}’ 멤버는 ClassVar이므로 클래스 인스턴스를 통해 할당할 수 없습니다.",
         "memberTypeMismatch": "\"{name}\"은(는) 호환되지 않는 형식입니다.",
         "memberUnknown": "멤버 \"{name}\"을(를) 알 수 없습니다.",
-        "metaclassConflict": "Metaclass \"{metaclass1}\" conflicts with \"{metaclass2}\"",
+        "metaclassConflict": "메타클래스 \"{metaclass1}\"이(가) \"{metaclass2}\"과(와) 충돌합니다.",
         "missingDeleter": "속성 삭제자 메서드가 없습니다.",
         "missingGetter": "속성 getter 메서드가 없습니다.",
         "missingProtocolMember": "\"{name}\" 멤버가 프로토콜 클래스 \"{classType}\"로 선언되었습니다.",

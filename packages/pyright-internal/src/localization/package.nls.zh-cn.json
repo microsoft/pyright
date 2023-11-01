@@ -642,7 +642,7 @@
         "memberSetClassVar": "无法通过类实例分配成员“{name}”，因为它是 ClassVar",
         "memberTypeMismatch": "\"{name}\"是不兼容的类型",
         "memberUnknown": "成员\"{name}\"未知",
-        "metaclassConflict": "Metaclass \"{metaclass1}\" conflicts with \"{metaclass2}\"",
+        "metaclassConflict": "元类“{metaclass1}”与“{metaclass2}”存在冲突",
         "missingDeleter": "缺少属性 deleter方法",
         "missingGetter": "缺少属性 getter 方法",
         "missingProtocolMember": "成员\"{name}\"已在协议类\"{classType}\"中声明",

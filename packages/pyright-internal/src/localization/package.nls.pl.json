@@ -642,7 +642,7 @@
         "memberSetClassVar": "Nie można przypisać składowej „{name}” przez wystąpienie klasy, ponieważ jest to element ClassVar",
         "memberTypeMismatch": "Nazwa „{name}” jest niezgodnym typem",
         "memberUnknown": "Składowa „{name}” jest nieznana",
-        "metaclassConflict": "Metaclass \"{metaclass1}\" conflicts with \"{metaclass2}\"",
+        "metaclassConflict": "Metaklasa „{metaclass1}” powoduje konflikt z „{metaclass2}”",
         "missingDeleter": "Brak metody usuwania właściwości",
         "missingGetter": "Brak metody pobierającej właściwości",
         "missingProtocolMember": "Składowa „{name}” jest zadeklarowana w klasie protokołu „{classType}”",

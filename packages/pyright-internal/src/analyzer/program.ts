@@ -355,7 +355,8 @@ export class Program {
 
     addTrackedFile(filePath: string, isThirdPartyImport = false, isInPyTypedPackage = false): SourceFile {
         let sourceFileInfo = this.getSourceFileInfo(filePath);
-        const importName = this._getImportNameForFile(filePath);
+        const moduleImportInfo = this._getModuleImportInfoForFile(filePath);
+        const importName = moduleImportInfo.moduleName;
 
         if (sourceFileInfo) {
             // The module name may have changed based on updates to the
@@ -392,11 +393,11 @@ export class Program {
     setFileOpened(filePath: string, version: number | null, contents: string, options?: OpenFileOptions) {
         let sourceFileInfo = this.getSourceFileInfo(filePath);
         if (!sourceFileInfo) {
-            const importName = this._getImportNameForFile(filePath);
+            const moduleImportInfo = this._getModuleImportInfoForFile(filePath);
             const sourceFile = this._sourceFileFactory.createSourceFile(
                 this.serviceProvider,
                 filePath,
-                importName,
+                moduleImportInfo.moduleName,
                 /* isThirdPartyImport */ false,
                 /* isInPyTypedPackage */ false,
                 this._editModeTracker,
@@ -1436,11 +1437,11 @@ export class Program {
                 // of the program.
                 let importedFileInfo = this.getSourceFileInfo(importInfo.path);
                 if (!importedFileInfo) {
-                    const importName = this._getImportNameForFile(importInfo.path);
+                    const moduleImportInfo = this._getModuleImportInfoForFile(importInfo.path);
                     const sourceFile = new SourceFile(
                         this.serviceProvider,
                         importInfo.path,
-                        importName,
+                        moduleImportInfo.moduleName,
                         importInfo.isThirdPartyImport,
                         importInfo.isPyTypedPresent,
                         this._editModeTracker,
@@ -1526,7 +1527,7 @@ export class Program {
         return flags;
     }
 
-    private _getImportNameForFile(filePath: string) {
+    private _getModuleImportInfoForFile(filePath: string) {
         // We allow illegal module names (e.g. names that include "-" in them)
         // because we want a unique name for each module even if it cannot be
         // imported through an "import" statement. It's important to have a
@@ -1536,9 +1537,11 @@ export class Program {
         const moduleNameAndType = this._importResolver.getModuleNameForImport(
             filePath,
             this._configOptions.getDefaultExecEnvironment(),
-            /* allowIllegalModuleName */ true
+            /* allowIllegalModuleName */ true,
+            /* detectPyTyped */ false
         );
-        return moduleNameAndType.moduleName;
+
+        return moduleNameAndType;
     }
 
     // A "shadowed" file is a python source file that has been added to the program because
@@ -1564,17 +1567,13 @@ export class Program {
     }
 
     private _createInterimFileInfo(filePath: string) {
-        const moduleImportInfo = this._importResolver.getModuleNameForImport(
-            filePath,
-            this._configOptions.getDefaultExecEnvironment(),
-            /* allowIllegalModuleName */ true
-        );
+        const moduleImportInfo = this._getModuleImportInfoForFile(filePath);
         const sourceFile = this._sourceFileFactory.createSourceFile(
             this.serviceProvider,
             filePath,
             moduleImportInfo.moduleName,
-            moduleImportInfo.importType === ImportType.ThirdParty,
-            moduleImportInfo.isThirdPartyPyTypedPresent,
+            /* isThirdPartyImport */ false,
+            /* isInPyTypedPackage */ false,
             this._editModeTracker,
             this._console,
             this._logTracker
@@ -1582,8 +1581,8 @@ export class Program {
         const sourceFileInfo = new SourceFileInfo(
             sourceFile,
             /* isTypeshedFile */ false,
-            moduleImportInfo.importType === ImportType.ThirdParty,
-            moduleImportInfo.isThirdPartyPyTypedPresent,
+            /* isThirdPartyImport */ false,
+            /* isThirdPartyPyTypedPresent */ false,
             this._editModeTracker
         );
 

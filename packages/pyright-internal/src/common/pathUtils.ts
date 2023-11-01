@@ -23,6 +23,7 @@ import { equateStringsCaseInsensitive, equateStringsCaseSensitive } from './stri
 
 let _fsCaseSensitivity: boolean | undefined = undefined;
 let _underTest: boolean = false;
+const _uriSchemePattern = /^\w[\w\d+.-]*$/;
 
 export interface FileSpec {
     // File specs can contain wildcard characters (**, *, ?). This
@@ -92,19 +93,19 @@ export function forEachAncestorDirectory(
 
 export function getDirectoryPath(pathString: string): string {
     if (isUri(pathString)) {
-        return Utils.dirname(URI.parse(pathString).with({ fragment: '' })).toString();
+        return Utils.dirname(URI.parse(pathString).with({ fragment: '', query: '' })).toString();
     }
     return pathString.substr(0, Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep)));
 }
 
 export function isUri(pathString: string) {
-    return pathString.indexOf(':') > 1;
+    return pathString.indexOf(':') > 1 && _uriSchemePattern.test(pathString.split(':')[0]);
 }
 
 /**
  * Returns length of the root part of a path or URL (i.e. length of "/", "x:/", "//server/").
  */
-export function getRootLength(pathString: string): number {
+export function getRootLength(pathString: string, checkUri = true): number {
     if (pathString.charAt(0) === path.sep) {
         if (pathString.charAt(1) !== path.sep) {
             return 1; // POSIX: "/" (or non-normalized "\")
@@ -124,12 +125,12 @@ export function getRootLength(pathString: string): number {
         }
     }
 
-    if (isUri(pathString)) {
+    if (checkUri && isUri(pathString)) {
         const uri = URI.parse(pathString);
         if (uri.authority) {
             return uri.scheme.length + 3; // URI: "file://"
         } else {
-            return uri.scheme.length + 2; // URI: "untitled:/"
+            return uri.scheme.length + 1; // URI: "untitled:"
         }
     }
 
@@ -142,7 +143,7 @@ export function getPathSeparator(pathString: string) {
 
 export function getPathComponents(pathString: string) {
     const normalizedPath = normalizeSlashes(pathString);
-    const rootLength = getRootLength(normalizedPath);
+    const rootLength = getRootLength(normalizedPath, /* checkUri */ isUri(normalizedPath));
     const root = normalizedPath.substring(0, rootLength);
     const sep = getPathSeparator(pathString);
     const rest = normalizedPath.substring(rootLength).split(sep);
@@ -282,7 +283,7 @@ function combineFilePaths(pathString: string, ...paths: (string | undefined)[]):
 
         relativePath = normalizeSlashes(relativePath);
 
-        if (!pathString || getRootLength(relativePath) !== 0) {
+        if (!pathString || getRootLength(relativePath, /* checkUri */ false) !== 0) {
             pathString = relativePath;
         } else {
             pathString = ensureTrailingDirectorySeparator(pathString) + relativePath;
@@ -300,7 +301,7 @@ export function combinePaths(pathString: string, ...paths: (string | undefined)[
 
     // Go through the paths to see if any are rooted. If so, treat as
     // a file path. On linux this might be wrong if a path starts with '/'.
-    if (some(paths, (p) => !!p && getRootLength(p) !== 0)) {
+    if (some(paths, (p) => !!p && getRootLength(p, /* checkUri */ false) !== 0)) {
         return combineFilePaths(pathString, ...paths);
     }
 
@@ -312,7 +313,7 @@ export function combinePaths(pathString: string, ...paths: (string | undefined)[
     if (uri.path === '' || uri.path === undefined) {
         nonEmptyPaths.unshift('/');
     }
-    return Utils.joinPath(uri.with({ fragment: '' }), ...nonEmptyPaths).toString();
+    return Utils.joinPath(uri.with({ fragment: '', query: '' }), ...nonEmptyPaths).toString();
 }
 
 /**
@@ -485,7 +486,7 @@ export function getBaseFileName(pathString: string, extensions?: string | readon
     // separator but not including any trailing directory separator.
     pathString = stripTrailingDirectorySeparator(pathString);
     const name = isUri(pathString)
-        ? Utils.basename(URI.parse(pathString))
+        ? Utils.basename(URI.parse(pathString).with({ fragment: '', query: '' }))
         : pathString.slice(Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep) + 1));
     const extension =
         extensions !== undefined && ignoreCase !== undefined
