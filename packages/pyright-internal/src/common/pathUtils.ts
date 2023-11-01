@@ -23,6 +23,7 @@ import { equateStringsCaseInsensitive, equateStringsCaseSensitive } from './stri
 
 let _fsCaseSensitivity: boolean | undefined = undefined;
 let _underTest: boolean = false;
+const _uriSchemePattern = /^\w[\w\d+.-]*$/;
 
 export interface FileSpec {
     // File specs can contain wildcard characters (**, *, ?). This
@@ -97,10 +98,8 @@ export function getDirectoryPath(pathString: string): string {
     return pathString.substr(0, Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep)));
 }
 
-const _schemePattern = /^\w[\w\d+.-]*$/;
-
 export function isUri(pathString: string) {
-    return pathString.indexOf(':') > 1 && _schemePattern.test(pathString.split(':')[0]);
+    return pathString.indexOf(':') > 1 && _uriSchemePattern.test(pathString.split(':')[0]);
 }
 
 /**
