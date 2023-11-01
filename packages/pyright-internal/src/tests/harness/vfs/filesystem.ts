@@ -13,10 +13,10 @@ import { URI } from 'vscode-uri';
 import { FileSystem, MkDirOptions, TempFile, TmpfileOptions } from '../../../common/fileSystem';
 import { FileWatcher, FileWatcherEventHandler, FileWatcherEventType } from '../../../common/fileWatcher';
 import * as pathUtil from '../../../common/pathUtils';
+import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../../common/stringUtils';
 import { bufferFrom, createIOError } from '../utils';
 import { Metadata, SortedMap, closeIterator, getIterator, nextResult } from './../utils';
 import { ValidationFlags, validate } from './pathValidation';
-import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../../common/stringUtils';
 
 export const MODULE_PATH = pathUtil.normalizeSlashes('/');
 
@@ -368,17 +368,17 @@ export class TestFileSystem implements FileSystem, TempFile {
         return path;
     }
 
-    isMappedFilePath(filepath: string): boolean {
+    isMappedUri(filepath: string): boolean {
         return false;
     }
 
     // Get original filepath if the given filepath is mapped.
-    getOriginalFilePath(mappedFilePath: string) {
+    getOriginalUri(mappedFilePath: string) {
         return mappedFilePath;
     }
 
     // Get mapped filepath if the given filepath is mapped.
-    getMappedFilePath(originalFilepath: string) {
+    getMappedUri(originalFilepath: string) {
         return originalFilepath;
     }
 

@@ -12,7 +12,6 @@ import * as path from 'path';
 import { URI, Utils } from 'vscode-uri';
 
 import { Char } from './charCodes';
-import { some } from './collectionUtils';
 import { GetCanonicalFileName, identity } from './core';
 import { randomBytesHex } from './crypto';
 import * as debug from './debug';
@@ -20,6 +19,7 @@ import { ServiceProvider } from './extensibility';
 import { FileSystem, ReadOnlyFileSystem, Stats, TempFile } from './fileSystem';
 import { ServiceKeys } from './serviceProviderExtensions';
 import { equateStringsCaseInsensitive, equateStringsCaseSensitive } from './stringUtils';
+import { Uri } from './uri';
 
 let _fsCaseSensitivity: boolean | undefined = undefined;
 let _underTest: boolean = false;
@@ -28,7 +28,7 @@ export interface FileSpec {
     // File specs can contain wildcard characters (**, *, ?). This
     // specifies the first portion of the file spec that contains
     // no wildcards.
-    wildcardRoot: string;
+    wildcardRoot: Uri;
 
     // Regular expression that can be used to match against this
     // file spec.
@@ -47,17 +47,17 @@ export namespace FileSpec {
         const candidate: FileSpec = value as FileSpec;
         return candidate && !!candidate.wildcardRoot && !!candidate.regExp;
     }
-    export function isInPath(path: string, paths: FileSpec[]) {
-        return !!paths.find((p) => p.regExp.test(path));
+    export function isInPath(uri: Uri, paths: FileSpec[]) {
+        return !!paths.find((p) => uri.test(p.regExp));
     }
 
-    export function matchesIncludeFileRegex(filePath: string, isFile = true) {
-        return isFile ? _includeFileRegex.test(filePath) : true;
+    export function matchesIncludeFileRegex(uri: Uri, isFile = true) {
+        return isFile ? uri.test(_includeFileRegex) : true;
     }
 
-    export function matchIncludeFileSpec(includeRegExp: RegExp, exclude: FileSpec[], filePath: string, isFile = true) {
-        if (includeRegExp.test(filePath)) {
-            if (!FileSpec.isInPath(filePath, exclude) && FileSpec.matchesIncludeFileRegex(filePath, isFile)) {
+    export function matchIncludeFileSpec(includeRegExp: RegExp, exclude: FileSpec[], uri: Uri, isFile = true) {
+        if (uri.test(includeRegExp)) {
+            if (!FileSpec.isInPath(uri, exclude) && FileSpec.matchesIncludeFileRegex(uri, isFile)) {
                 return true;
             }
         }
@@ -67,21 +67,21 @@ export namespace FileSpec {
 }
 
 export interface FileSystemEntries {
-    files: string[];
-    directories: string[];
+    files: Uri[];
+    directories: Uri[];
 }
 
 export function forEachAncestorDirectory(
-    directory: string,
-    callback: (directory: string) => string | undefined
-): string | undefined {
+    directory: Uri,
+    callback: (directory: Uri) => Uri | undefined
+): Uri | undefined {
     while (true) {
         const result = callback(directory);
         if (result !== undefined) {
             return result;
         }
 
-        const parentPath = getDirectoryPath(directory);
+        const parentPath = directory.dirname();
         if (parentPath === directory) {
             return undefined;
         }
@@ -90,235 +90,44 @@ export function forEachAncestorDirectory(
     }
 }
 
-export function getDirectoryPath(pathString: string): string {
-    if (isUri(pathString)) {
-        return Utils.dirname(URI.parse(pathString).with({ fragment: '' })).toString();
-    }
-    return pathString.substr(0, Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep)));
-}
-
-export function isUri(pathString: string) {
-    return pathString.indexOf(':') > 1;
-}
-
-/**
- * Returns length of the root part of a path or URL (i.e. length of "/", "x:/", "//server/").
- */
-export function getRootLength(pathString: string): number {
-    if (pathString.charAt(0) === path.sep) {
-        if (pathString.charAt(1) !== path.sep) {
-            return 1; // POSIX: "/" (or non-normalized "\")
-        }
-        const p1 = pathString.indexOf(path.sep, 2);
-        if (p1 < 0) {
-            return pathString.length; // UNC: "//server" or "\\server"
-        }
-        return p1 + 1; // UNC: "//server/" or "\\server\"
-    }
-    if (pathString.charAt(1) === ':') {
-        if (pathString.charAt(2) === path.sep) {
-            return 3; // DOS: "c:/" or "c:\"
-        }
-        if (pathString.length === 2) {
-            return 2; // DOS: "c:" (but not "c:d")
-        }
-    }
-
-    if (isUri(pathString)) {
-        const uri = URI.parse(pathString);
-        if (uri.authority) {
-            return uri.scheme.length + 3; // URI: "file://"
-        } else {
-            return uri.scheme.length + 2; // URI: "untitled:/"
-        }
-    }
-
-    return 0;
-}
-
-export function getPathSeparator(pathString: string) {
-    return isUri(pathString) ? '/' : path.sep;
-}
-
-export function getPathComponents(pathString: string) {
-    const normalizedPath = normalizeSlashes(pathString);
-    const rootLength = getRootLength(normalizedPath);
-    const root = normalizedPath.substring(0, rootLength);
-    const sep = getPathSeparator(pathString);
-    const rest = normalizedPath.substring(rootLength).split(sep);
-    if (rest.length > 0 && !rest[rest.length - 1]) {
-        rest.pop();
-    }
-
-    return reducePathComponents([root, ...rest]);
-}
-
-export function reducePathComponents(components: readonly string[]) {
-    if (!some(components)) {
-        return [];
-    }
-
-    // Reduce the path components by eliminating
-    // any '.' or '..'.
-    const reduced = [components[0]];
-    for (let i = 1; i < components.length; i++) {
-        const component = components[i];
-        if (!component || component === '.') {
-            continue;
-        }
-
-        if (component === '..') {
-            if (reduced.length > 1) {
-                if (reduced[reduced.length - 1] !== '..') {
-                    reduced.pop();
-                    continue;
-                }
-            } else if (reduced[0]) {
-                continue;
-            }
-        }
-        reduced.push(component);
-    }
-
-    return reduced;
-}
-
-export function combinePathComponents(components: string[]): string {
-    if (components.length === 0) {
-        return '';
-    }
-
-    const root = components[0] && ensureTrailingDirectorySeparator(components[0]);
-    const sep = getPathSeparator(root);
-    return normalizeSlashes(root + components.slice(1).join(sep));
-}
-
-export function getRelativePath(dirPath: string, relativeTo: string) {
-    if (!dirPath.startsWith(ensureTrailingDirectorySeparator(relativeTo))) {
-        return undefined;
-    }
-
-    const pathComponents = getPathComponents(dirPath);
-    const relativeToComponents = getPathComponents(relativeTo);
-    const sep = getPathSeparator(dirPath);
-
-    let relativePath = '.';
-    for (let i = relativeToComponents.length; i < pathComponents.length; i++) {
-        relativePath += sep + pathComponents[i];
-    }
-
-    return relativePath;
-}
-
 // Creates a directory hierarchy for a path, starting from some ancestor path.
-export function makeDirectories(fs: FileSystem, dirPath: string, startingFromDirPath: string) {
-    if (!dirPath.startsWith(startingFromDirPath)) {
+export function makeDirectories(fs: FileSystem, dir: Uri, startingFrom: Uri) {
+    if (!dir.startsWith(startingFrom)) {
         return;
     }
 
-    const pathComponents = getPathComponents(dirPath);
-    const relativeToComponents = getPathComponents(startingFromDirPath);
-    let curPath = startingFromDirPath;
+    const pathComponents = dir.getPathComponents();
+    const relativeToComponents = startingFrom.getPathComponents();
+    let curPath = startingFrom;
 
     for (let i = relativeToComponents.length; i < pathComponents.length; i++) {
-        curPath = combinePaths(curPath, pathComponents[i]);
+        curPath = curPath.combinePaths(pathComponents[i]);
         if (!fs.existsSync(curPath)) {
             fs.mkdirSync(curPath);
         }
     }
 }
 
-export function getFileSize(fs: ReadOnlyFileSystem, path: string) {
-    const stat = tryStat(fs, path);
+export function getFileSize(fs: ReadOnlyFileSystem, uri: Uri) {
+    const stat = tryStat(fs, uri);
     if (stat?.isFile()) {
         return stat.size;
     }
     return 0;
 }
 
-export function fileExists(fs: ReadOnlyFileSystem, path: string): boolean {
-    return fileSystemEntryExists(fs, path, FileSystemEntryKind.File);
+export function fileExists(fs: ReadOnlyFileSystem, uri: Uri): boolean {
+    return fileSystemEntryExists(fs, uri, FileSystemEntryKind.File);
 }
 
-export function directoryExists(fs: ReadOnlyFileSystem, path: string): boolean {
-    return fileSystemEntryExists(fs, path, FileSystemEntryKind.Directory);
-}
-
-const getInvalidSeparator = (sep: string) => (sep === '/' ? '\\' : '/');
-export function normalizeSlashes(pathString: string, sep = path.sep): string {
-    if (!isUri(pathString)) {
-        if (pathString.includes(getInvalidSeparator(sep))) {
-            const separatorRegExp = /[\\/]/g;
-            return pathString.replace(separatorRegExp, sep);
-        }
-    }
-
-    return pathString;
-}
-
-/**
- * Combines and resolves paths. If a path is absolute, it replaces any previous path. Any
- * `.` and `..` path components are resolved. Trailing directory separators are preserved.
- *
- * ```ts
- * resolvePath("/path", "to", "file.ext") === "path/to/file.ext"
- * resolvePath("/path", "to", "file.ext/") === "path/to/file.ext/"
- * resolvePath("/path", "dir", "..", "to", "file.ext") === "path/to/file.ext"
- * ```
- */
-export function resolvePaths(path: string, ...paths: (string | undefined)[]): string {
-    return normalizePath(some(paths) ? combinePaths(path, ...paths) : normalizeSlashes(path));
-}
-
-function combineFilePaths(pathString: string, ...paths: (string | undefined)[]): string {
-    if (pathString) {
-        pathString = normalizeSlashes(pathString);
-    }
-
-    for (let relativePath of paths) {
-        if (!relativePath) {
-            continue;
-        }
-
-        relativePath = normalizeSlashes(relativePath);
-
-        if (!pathString || getRootLength(relativePath) !== 0) {
-            pathString = relativePath;
-        } else {
-            pathString = ensureTrailingDirectorySeparator(pathString) + relativePath;
-        }
-    }
-
-    return pathString;
-}
-
-export function combinePaths(pathString: string, ...paths: (string | undefined)[]): string {
-    if (!isUri(pathString)) {
-        // Not a URI, or a URI with a single letter scheme.
-        return combineFilePaths(pathString, ...paths);
-    }
-
-    // Go through the paths to see if any are rooted. If so, treat as
-    // a file path. On linux this might be wrong if a path starts with '/'.
-    if (some(paths, (p) => !!p && getRootLength(p) !== 0)) {
-        return combineFilePaths(pathString, ...paths);
-    }
-
-    // Otherwise this is a URI
-    const nonEmptyPaths = paths.filter((p) => !!p) as string[];
-    const uri = URI.parse(pathString);
-
-    // Make sure we have a path to append to.
-    if (uri.path === '' || uri.path === undefined) {
-        nonEmptyPaths.unshift('/');
-    }
-    return Utils.joinPath(uri.with({ fragment: '' }), ...nonEmptyPaths).toString();
+export function directoryExists(fs: ReadOnlyFileSystem, uri: Uri): boolean {
+    return fileSystemEntryExists(fs, uri, FileSystemEntryKind.Directory);
 }
 
 /**
  * Determines whether a `parent` path contains a `child` path using the provide case sensitivity.
  */
-export function containsPath(parent: string, child: string, ignoreCase?: boolean): boolean;
+export function containsPath(parent: uri, child: string, ignoreCase?: boolean): boolean;
 export function containsPath(parent: string, child: string, currentDirectory: string, ignoreCase?: boolean): boolean;
 export function containsPath(parent: string, child: string, currentDirectory?: string | boolean, ignoreCase?: boolean) {
     if (typeof currentDirectory === 'string') {
@@ -621,10 +430,10 @@ export function isFile(fs: ReadOnlyFileSystem, path: string, treatZipDirectoryAs
     return stats?.isZipDirectory?.() ?? false;
 }
 
-export function tryStat(fs: ReadOnlyFileSystem, path: string): Stats | undefined {
+export function tryStat(fs: ReadOnlyFileSystem, uri: Uri): Stats | undefined {
     try {
-        if (fs.existsSync(path)) {
-            return fs.statSync(path);
+        if (fs.existsSync(uri)) {
+            return fs.statSync(uri);
         }
     } catch (e: any) {
         return undefined;
@@ -632,17 +441,17 @@ export function tryStat(fs: ReadOnlyFileSystem, path: string): Stats | undefined
     return undefined;
 }
 
-export function tryRealpath(fs: ReadOnlyFileSystem, path: string): string | undefined {
+export function tryRealpath(fs: ReadOnlyFileSystem, uri: Uri): string | undefined {
     try {
-        return fs.realCasePath(path);
+        return fs.realCasePath(uri);
     } catch (e: any) {
         return undefined;
     }
 }
 
-export function getFileSystemEntries(fs: ReadOnlyFileSystem, path: string): FileSystemEntries {
+export function getFileSystemEntries(fs: ReadOnlyFileSystem, uri: Uri): FileSystemEntries {
     try {
-        return getFileSystemEntriesFromDirEntries(fs.readdirEntriesSync(path || '.'), fs, path);
+        return getFileSystemEntriesFromDirEntries(fs.readdirEntriesSync(uri), fs, uri);
     } catch (e: any) {
         return { files: [], directories: [] };
     }
@@ -652,7 +461,7 @@ export function getFileSystemEntries(fs: ReadOnlyFileSystem, path: string): File
 export function getFileSystemEntriesFromDirEntries(
     dirEntries: Dirent[],
     fs: ReadOnlyFileSystem,
-    path: string
+    uri: Uri
 ): FileSystemEntries {
     const entries = dirEntries.sort((a, b) => {
         if (a.name < b.name) {
@@ -663,8 +472,8 @@ export function getFileSystemEntriesFromDirEntries(
             return 0;
         }
     });
-    const files: string[] = [];
-    const directories: string[] = [];
+    const files: Uri[] = [];
+    const directories: Uri[] = [];
     for (const entry of entries) {
         // This is necessary because on some file system node fails to exclude
         // "." and "..". See https://github.com/nodejs/node/issues/4002
@@ -672,17 +481,17 @@ export function getFileSystemEntriesFromDirEntries(
             continue;
         }
 
+        const entryUri = uri.combinePaths(entry.name);
         if (entry.isFile()) {
-            files.push(entry.name);
+            files.push(entryUri);
         } else if (entry.isDirectory()) {
-            directories.push(entry.name);
+            directories.push(entryUri);
         } else if (entry.isSymbolicLink()) {
-            const entryPath = combinePaths(path, entry.name);
-            const stat = tryStat(fs, entryPath);
+            const stat = tryStat(fs, entryUri);
             if (stat?.isFile()) {
-                files.push(entry.name);
+                files.push(entryUri);
             } else if (stat?.isDirectory()) {
-                directories.push(entry.name);
+                directories.push(entryUri);
             }
         }
     }
@@ -930,7 +739,7 @@ function fileSystemEntryExists(fs: ReadOnlyFileSystem, path: string, entryKind: 
 }
 
 export function convertUriToPath(fs: ReadOnlyFileSystem, uriString: string): string {
-    return realCasePath(fs.getMappedFilePath(extractPathFromUri(uriString)), fs);
+    return realCasePath(fs.getMappedUri(extractPathFromUri(uriString)), fs);
 }
 
 export function extractPathFromUri(uriString: string) {
@@ -955,7 +764,7 @@ export function extractPathFromUri(uriString: string) {
 }
 
 export function convertPathToUri(fs: ReadOnlyFileSystem, path: string): string {
-    return fs.getUri(fs.getOriginalFilePath(path));
+    return fs.getUri(fs.getOriginalUri(path));
 }
 
 export function setTestingMode(underTest: boolean) {

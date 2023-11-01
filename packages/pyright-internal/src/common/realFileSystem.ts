@@ -373,15 +373,15 @@ class RealFileSystem implements FileSystem {
         }
     }
 
-    isMappedFilePath(filepath: string): boolean {
+    isMappedUri(filepath: string): boolean {
         return false;
     }
 
-    getOriginalFilePath(mappedFilePath: string) {
+    getOriginalUri(mappedFilePath: string) {
         return mappedFilePath;
     }
 
-    getMappedFilePath(originalFilepath: string) {
+    getMappedUri(originalFilepath: string) {
         return originalFilepath;
     }
 

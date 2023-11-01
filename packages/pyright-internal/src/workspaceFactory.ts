@@ -9,6 +9,7 @@ import { InitializeParams, WorkspaceFoldersChangeEvent } from 'vscode-languagese
 import { AnalyzerService } from './analyzer/service';
 import { ConsoleInterface } from './common/console';
 import { createDeferred } from './common/deferred';
+import { Uri } from './common/uri';
 import { UriParser } from './common/uriParser';
 
 let WorkspaceFactoryIdCounter = 0;
@@ -241,7 +242,7 @@ export class WorkspaceFactory {
                     const version = fileInfo.sourceFile.getClientVersion() ?? null;
                     const content = fileInfo.sourceFile.getFileContent() || '';
                     const ipythonMode = fileInfo.sourceFile.getIPythonMode();
-                    const chainedSourceFile = fileInfo.chainedSourceFile?.sourceFile.getFilePath();
+                    const chainedSourceFile = fileInfo.chainedSourceFile?.sourceFile.getUri();
                     const realFilePath = fileInfo.sourceFile.getRealFilePath();
 
                     // Remove the file from the old workspace first (closing will propagate to the toWorkspace automatically).
@@ -285,13 +286,13 @@ export class WorkspaceFactory {
 
     // Returns the best workspace for a file. Waits for the workspace to be finished handling other events before
     // returning the appropriate workspace.
-    async getWorkspaceForFile(filePath: string, pythonPath: string | undefined): Promise<Workspace> {
+    async getWorkspaceForFile(uri: Uri, pythonPath: string | undefined): Promise<Workspace> {
         // Wait for all workspaces to be initialized before attempting to find the best workspace. Otherwise
         // the list of files won't be complete and the `contains` check might fail.
         await Promise.all(this.items().map((w) => w.isInitialized.promise));
 
         // Find or create best match.
-        const workspace = await this._getOrCreateBestWorkspaceForFile(filePath, pythonPath);
+        const workspace = await this._getOrCreateBestWorkspaceForFile(uri, pythonPath);
 
         // The workspace may have just been created. Wait for it to be initialized before returning it.
         await workspace.isInitialized.promise;
@@ -461,12 +462,9 @@ export class WorkspaceFactory {
         }`;
     }
 
-    private async _getOrCreateBestWorkspaceForFile(
-        filePath: string,
-        pythonPath: string | undefined
-    ): Promise<Workspace> {
+    private async _getOrCreateBestWorkspaceForFile(uri: Uri, pythonPath: string | undefined): Promise<Workspace> {
         // Find the current best workspace (without creating a new one)
-        let bestInstance = this._getBestWorkspaceForFile(filePath, pythonPath);
+        let bestInstance = this._getBestWorkspaceForFile(uri, pythonPath);
 
         // Make sure the best instance is initialized so that it has its pythonPath.
         await bestInstance.isInitialized.promise;
@@ -479,9 +477,9 @@ export class WorkspaceFactory {
         return bestInstance;
     }
 
-    private _getOrCreateBestWorkspaceFileSync(filePath: string, pythonPath: string | undefined) {
+    private _getOrCreateBestWorkspaceFileSync(uri: Uri, pythonPath: string | undefined) {
         // Find the current best workspace (without creating a new one)
-        let bestInstance = this._getBestWorkspaceForFile(filePath, pythonPath);
+        let bestInstance = this._getBestWorkspaceForFile(uri, pythonPath);
 
         // If this best instance doesn't match the pythonPath, then we need to create a new one.
         if (pythonPath !== undefined && bestInstance.pythonPath !== pythonPath) {
@@ -505,7 +503,7 @@ export class WorkspaceFactory {
                     sourceFile.getClientVersion() || null,
                     fileContents || '',
                     sourceFile.getIPythonMode(),
-                    sourceFileInfo.chainedSourceFile?.sourceFile.getFilePath(),
+                    sourceFileInfo.chainedSourceFile?.sourceFile.getUri(),
                     sourceFile.getRealFilePath()
                 );
             }
@@ -528,7 +526,7 @@ export class WorkspaceFactory {
         return result;
     }
 
-    private _getBestWorkspaceForFile(filePath: string, pythonPath: string | undefined): Workspace {
+    private _getBestWorkspaceForFile(uri: Uri, pythonPath: string | undefined): Workspace {
         let bestInstance: Workspace | undefined;
 
         // The order of how we find the best matching workspace for the given file is
@@ -543,7 +541,7 @@ export class WorkspaceFactory {
 
         // First find the workspaces that are tracking the file
         const regularWorkspaces = this.getNonDefaultWorkspaces(WellKnownWorkspaceKinds.Regular);
-        const trackingWorkspaces = this.items().filter((w) => w.service.isTracked(filePath));
+        const trackingWorkspaces = this.items().filter((w) => w.service.isTracked(uri));
 
         // Then find the best in all of those that actually matches the pythonPath.
         bestInstance = this._getBestRegularWorkspace(trackingWorkspaces, pythonPath);

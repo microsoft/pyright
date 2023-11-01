@@ -51,6 +51,7 @@ import { ServiceProvider } from '../common/serviceProvider';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
+import { Uri } from '../common/uri';
 import { AnalysisCompleteCallback } from './analysis';
 import {
     BackgroundAnalysisProgram,
@@ -229,11 +230,11 @@ export class AnalyzerService {
             const version = fileInfo.sourceFile.getClientVersion();
             if (version !== undefined) {
                 service.setFileOpened(
-                    fileInfo.sourceFile.getFilePath(),
+                    fileInfo.sourceFile.getUri(),
                     version,
                     fileInfo.sourceFile.getOpenFileContents()!,
                     fileInfo.sourceFile.getIPythonMode(),
-                    fileInfo.chainedSourceFile?.sourceFile.getFilePath(),
+                    fileInfo.chainedSourceFile?.sourceFile.getUri(),
                     fileInfo.sourceFile.getRealFilePath()
                 );
             }
@@ -301,20 +302,20 @@ export class AnalyzerService {
         this._applyConfigOptions(host);
     }
 
-    hasSourceFile(filePath: string): boolean {
-        return this.backgroundAnalysisProgram.hasSourceFile(filePath);
+    hasSourceFile(uri: Uri): boolean {
+        return this.backgroundAnalysisProgram.hasSourceFile(uri);
     }
 
-    isTracked(filePath: string): boolean {
-        return this._program.owns(filePath);
+    isTracked(uri: Uri): boolean {
+        return this._program.owns(uri);
     }
 
     getUserFiles() {
-        return this._program.getUserFiles().map((i) => i.sourceFile.getFilePath());
+        return this._program.getUserFiles().map((i) => i.sourceFile.getUri());
     }
 
     getOpenFiles() {
-        return this._program.getOpened().map((i) => i.sourceFile.getFilePath());
+        return this._program.getOpened().map((i) => i.sourceFile.getUri());
     }
 
     setFileOpened(
@@ -1017,7 +1018,7 @@ export class AnalyzerService {
         // files in file system but only exist in memory (ex, virtual workspace)
         this._backgroundAnalysisProgram.program
             .getOpened()
-            .map((o) => o.sourceFile.getFilePath())
+            .map((o) => o.sourceFile.getUri())
             .filter((f) => matchFileSpecs(this._program.configOptions, f))
             .forEach((f) => fileMap.set(f, f));
 

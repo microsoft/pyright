@@ -10,6 +10,7 @@ import * as assert from 'assert';
 import { TextDocumentEdit, WorkspaceEdit } from 'vscode-languageserver-types';
 
 import { CancellationToken } from 'vscode-languageserver';
+import { AnalyzerService } from '../analyzer/service';
 import { IPythonMode } from '../analyzer/sourceFile';
 import { combinePaths, convertPathToUri, getDirectoryPath } from '../common/pathUtils';
 import { applyWorkspaceEdit, generateWorkspaceEdit } from '../common/workspaceEditUtils';
@@ -17,7 +18,6 @@ import { AnalyzerServiceExecutor } from '../languageService/analyzerServiceExecu
 import { TestLanguageService } from './harness/fourslash/testLanguageService';
 import { TestState, parseAndGetTestState } from './harness/fourslash/testState';
 import { verifyWorkspaceEdit } from './harness/fourslash/workspaceEditTestUtils';
-import { AnalyzerService } from '../analyzer/service';
 
 test('test applyWorkspaceEdits changes', async () => {
     const code = `
@@ -155,7 +155,7 @@ test('test edit mode for workspace', async () => {
 
     // After leaving edit mode, we should be back to where we were.
     const oldSourceFile = state.workspace.service.test_program.getSourceFile(range.fileName);
-    state.workspace.service.backgroundAnalysisProgram.analyzeFile(oldSourceFile!.getFilePath(), CancellationToken.None);
+    state.workspace.service.backgroundAnalysisProgram.analyzeFile(oldSourceFile!.getUri(), CancellationToken.None);
 
     assert.strictEqual(oldSourceFile?.getFileContent(), '');
     assert.strictEqual(oldSourceFile.getImports().length, 1);

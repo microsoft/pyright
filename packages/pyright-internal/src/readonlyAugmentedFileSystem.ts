@@ -142,18 +142,18 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
     }
 
     // See whether the file is mapped to another location.
-    isMappedFilePath(filepath: string): boolean {
-        return this._entryMap.has(filepath) || this.realFS.isMappedFilePath(filepath);
+    isMappedUri(filepath: string): boolean {
+        return this._entryMap.has(filepath) || this.realFS.isMappedUri(filepath);
     }
 
     // Get original filepath if the given filepath is mapped.
-    getOriginalFilePath(mappedFilePath: string) {
-        return this.realFS.getOriginalFilePath(this.getOriginalPath(mappedFilePath));
+    getOriginalUri(mappedFilePath: string) {
+        return this.realFS.getOriginalUri(this.getOriginalPath(mappedFilePath));
     }
 
     // Get mapped filepath if the given filepath is mapped.
-    getMappedFilePath(originalFilepath: string) {
-        const mappedFilePath = this.realFS.getMappedFilePath(originalFilepath);
+    getMappedUri(originalFilepath: string) {
+        const mappedFilePath = this.realFS.getMappedUri(originalFilepath);
         return this._reverseEntryMap.get(mappedFilePath) ?? mappedFilePath;
     }
 

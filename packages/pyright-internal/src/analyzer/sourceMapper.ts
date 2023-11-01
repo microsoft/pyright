@@ -21,24 +21,24 @@ import {
     ClassDeclaration,
     Declaration,
     FunctionDeclaration,
+    ParameterDeclaration,
+    SpecialBuiltInClassDeclaration,
+    VariableDeclaration,
     isAliasDeclaration,
     isClassDeclaration,
     isFunctionDeclaration,
     isParameterDeclaration,
     isSpecialBuiltInClassDeclaration,
     isVariableDeclaration,
-    ParameterDeclaration,
-    SpecialBuiltInClassDeclaration,
-    VariableDeclaration,
 } from './declaration';
 import { ImportResolver } from './importResolver';
-import { SourceFileInfo } from './sourceFileInfo';
 import { SourceFile } from './sourceFile';
+import { SourceFileInfo } from './sourceFileInfo';
 import { isUserCode } from './sourceFileInfoUtils';
 import { buildImportTree } from './sourceMapperUtils';
 import { TypeEvaluator } from './typeEvaluatorTypes';
-import { ClassType, isFunction, isInstantiableClass, isOverloadedFunction } from './types';
 import { lookUpClassMember } from './typeUtils';
+import { ClassType, isFunction, isInstantiableClass, isOverloadedFunction } from './types';
 
 type ClassOrFunctionOrVariableDeclaration = ClassDeclaration | FunctionDeclaration | VariableDeclaration;
 
@@ -266,7 +266,7 @@ export class SourceMapper {
     ): VariableDeclaration[] {
         let result: VariableDeclaration[] = [];
 
-        const uniqueId = `@${sourceFile.getFilePath()}/c/${className}/v/${variableName}`;
+        const uniqueId = `@${sourceFile.getUri()}/c/${className}/v/${variableName}`;
         if (recursiveDeclCache.has(uniqueId)) {
             return result;
         }
@@ -305,7 +305,7 @@ export class SourceMapper {
     ): ClassOrFunctionOrVariableDeclaration[] {
         let result: ClassOrFunctionOrVariableDeclaration[] = [];
 
-        const uniqueId = `@${sourceFile.getFilePath()}/c/${className}/f/${functionName}`;
+        const uniqueId = `@${sourceFile.getUri()}/c/${className}/f/${functionName}`;
         if (recursiveDeclCache.has(uniqueId)) {
             return result;
         }
@@ -339,7 +339,7 @@ export class SourceMapper {
     ): ClassOrFunctionOrVariableDeclaration[] {
         const result: ClassOrFunctionOrVariableDeclaration[] = [];
 
-        const uniqueId = `@${sourceFile.getFilePath()}/v/${variableName}`;
+        const uniqueId = `@${sourceFile.getUri()}/v/${variableName}`;
         if (recursiveDeclCache.has(uniqueId)) {
             return result;
         }
@@ -373,7 +373,7 @@ export class SourceMapper {
     ): ClassOrFunctionOrVariableDeclaration[] {
         const result: ClassOrFunctionOrVariableDeclaration[] = [];
 
-        const uniqueId = `@${sourceFile.getFilePath()}/f/${functionName}`;
+        const uniqueId = `@${sourceFile.getUri()}/f/${functionName}`;
         if (recursiveDeclCache.has(uniqueId)) {
             return result;
         }
@@ -434,7 +434,7 @@ export class SourceMapper {
     ): ClassOrFunctionOrVariableDeclaration[] {
         const result: ClassOrFunctionOrVariableDeclaration[] = [];
 
-        const uniqueId = `@${sourceFile.getFilePath()}[${parentNode.start}]${className}`;
+        const uniqueId = `@${sourceFile.getUri()}[${parentNode.start}]${className}`;
         if (recursiveDeclCache.has(uniqueId)) {
             return result;
         }
@@ -570,7 +570,7 @@ export class SourceMapper {
         }
 
         const synthesizedDecl = { ...decl };
-        synthesizedDecl.path = sources[0].getFilePath();
+        synthesizedDecl.path = sources[0].getUri();
 
         return synthesizedDecl;
 
@@ -727,10 +727,7 @@ export class SourceMapper {
         stubToShadow?: string,
         originated?: string
     ): SourceFile[] {
-        const paths = this._getSourcePathsFromStub(
-            stubFilePath,
-            originated ?? this._fromFile?.sourceFile.getFilePath()
-        );
+        const paths = this._getSourcePathsFromStub(stubFilePath, originated ?? this._fromFile?.sourceFile.getUri());
         return paths.map((fp) => this._fileBinder(stubToShadow ?? stubFilePath, fp)).filter(isDefined);
     }
 
@@ -771,9 +768,7 @@ export class SourceMapper {
                 stubFilePath,
                 (p) => {
                     const boundSourceInfo = this._boundSourceGetter(p);
-                    return boundSourceInfo
-                        ? boundSourceInfo.importedBy.map((info) => info.sourceFile.getFilePath())
-                        : [];
+                    return boundSourceInfo ? boundSourceInfo.importedBy.map((info) => info.sourceFile.getUri()) : [];
                 },
                 this._cancelToken
             ).filter((p) => this._isStubThatShouldBeMappedToImplementation(p));

@@ -202,7 +202,7 @@ export function getAnalysisResults(
         if (sourceFile) {
             const diagnostics = sourceFile.getDiagnostics(configOptions) || [];
             const analysisResult: FileAnalysisResult = {
-                filePath: sourceFile.getFilePath(),
+                filePath: sourceFile.getUri(),
                 parseResults: sourceFile.getParseResults(),
                 errors: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Error),
                 warnings: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Warning),

@@ -31,6 +31,7 @@ import {
 import { PythonVersion, latestStablePythonVersion, versionFromString, versionToString } from './pythonVersion';
 import { ServiceProvider } from './serviceProvider';
 import { ServiceKeys } from './serviceProviderExtensions';
+import { Uri } from './uri';
 
 export enum PythonPlatform {
     Darwin = 'Darwin',
@@ -695,9 +696,9 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
     return diagSettings;
 }
 
-export function matchFileSpecs(configOptions: ConfigOptions, filePath: string, isFile = true) {
+export function matchFileSpecs(configOptions: ConfigOptions, uri: Uri, isFile = true) {
     for (const includeSpec of configOptions.include) {
-        if (FileSpec.matchIncludeFileSpec(includeSpec.regExp, configOptions.exclude, filePath, isFile)) {
+        if (FileSpec.matchIncludeFileSpec(includeSpec.regExp, configOptions.exclude, uri, isFile)) {
             return true;
         }
     }

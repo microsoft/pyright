@@ -830,16 +830,16 @@ class CombinedFileSystem implements FileSystem {
         return this._testFS.realCasePath(path);
     }
 
-    isMappedFilePath(filepath: string): boolean {
-        return this._testFS.isMappedFilePath(filepath);
+    isMappedUri(filepath: string): boolean {
+        return this._testFS.isMappedUri(filepath);
     }
 
-    getOriginalFilePath(mappedFilePath: string): string {
-        return this._testFS.getOriginalFilePath(mappedFilePath);
+    getOriginalUri(mappedFilePath: string): string {
+        return this._testFS.getOriginalUri(mappedFilePath);
     }
 
-    getMappedFilePath(originalFilepath: string): string {
-        return this._testFS.getMappedFilePath(originalFilepath);
+    getMappedUri(originalFilepath: string): string {
+        return this._testFS.getMappedUri(originalFilepath);
     }
 
     getUri(path: string): string {

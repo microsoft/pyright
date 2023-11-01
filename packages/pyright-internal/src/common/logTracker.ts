@@ -14,8 +14,8 @@ import { Duration, timingStats } from './timing';
 const durationThresholdForInfoInMs = 2000;
 
 export function getPathForLogging(fs: ReadOnlyFileSystem, filepath: string) {
-    if (fs.isMappedFilePath(filepath)) {
-        return fs.getOriginalFilePath(filepath);
+    if (fs.isMappedUri(filepath)) {
+        return fs.getOriginalUri(filepath);
     }
 
     return filepath;

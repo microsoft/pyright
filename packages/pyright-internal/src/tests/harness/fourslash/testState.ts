@@ -295,7 +295,7 @@ export class TestState {
 
     getMappedFilePath(path: string): string {
         this.importResolver.ensurePartialStubPackages(this.configOptions.findExecEnvironment(path));
-        return this.fs.getMappedFilePath(path);
+        return this.fs.getMappedUri(path);
     }
 
     getMarkerName(m: Marker): string {
@@ -1838,7 +1838,7 @@ export class TestState {
         const results = sourceFiles.map((sourceFile, index) => {
             if (sourceFile) {
                 const diagnostics = sourceFile.getDiagnostics(this.configOptions) || [];
-                const filePath = sourceFile.getFilePath();
+                const filePath = sourceFile.getUri();
                 const value = {
                     filePath,
                     parseResults: sourceFile.getParseResults(),
