@@ -1312,7 +1312,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 return;
             }
 
-            this._sendDiagnostics(this.convertDiagnostics(fs, fileDiag));
+            this.sendDiagnostics(this.convertDiagnostics(fs, fileDiag));
         });
 
         if (!this._progressReporter.isEnabled(results)) {
@@ -1360,7 +1360,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 if (otherWorkspaces.some((w) => w.service.isTracked(filePath))) {
                     continue;
                 }
-                this._sendDiagnostics([
+                this.sendDiagnostics([
                     {
                         uri: uri,
                         diagnostics: [],
@@ -1441,6 +1441,17 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         };
     }
 
+    protected sendDiagnostics(params: PublishDiagnosticsParams[]) {
+        for (const param of params) {
+            if (param.diagnostics.length === 0) {
+                this.documentsWithDiagnostics.delete(param.uri);
+            } else {
+                this.documentsWithDiagnostics.add(param.uri);
+            }
+            this.connection.sendDiagnostics(param);
+        }
+    }
+
     private _setupFileWatcher() {
         if (!this.client.hasWatchFileCapability) {
             return;
@@ -1482,17 +1493,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
             this._lastFileWatcherRegistration = d;
         });
-    }
-
-    private _sendDiagnostics(params: PublishDiagnosticsParams[]) {
-        for (const param of params) {
-            if (param.diagnostics.length === 0) {
-                this.documentsWithDiagnostics.delete(param.uri);
-            } else {
-                this.documentsWithDiagnostics.add(param.uri);
-            }
-            this.connection.sendDiagnostics(param);
-        }
     }
 
     private _getCompatibleMarkupKind(clientSupportedFormats: MarkupKind[] | undefined) {

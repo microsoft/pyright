@@ -642,7 +642,7 @@
         "memberSetClassVar": "O membro \"{name}\" não pode ser atribuído por meio de uma instância de classe porque é um ClassVar",
         "memberTypeMismatch": "\"{name}\" é um tipo incompatível",
         "memberUnknown": "O membro \"{name}\" é desconhecido",
-        "metaclassConflict": "Metaclass \"{metaclass1}\" conflicts with \"{metaclass2}\"",
+        "metaclassConflict": "A metaclasse \"{metaclass1}\" entra em conflito com \"{metaclass2}\"",
         "missingDeleter": "O método de exclusão de propriedade está ausente",
         "missingGetter": "O método getter da propriedade está ausente",
         "missingProtocolMember": "O membro \"{name}\" está declarado na classe de protocolo \"{classType}\"",

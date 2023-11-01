@@ -642,7 +642,7 @@
         "memberSetClassVar": "Der Member \"{name}\" kann nicht über eine Klasseninstanz zugewiesen werden, da es sich um eine ClassVar handelt.",
         "memberTypeMismatch": "\"{name}\" ist ein inkompatibler Typ.",
         "memberUnknown": "Das Member \"{name}\" ist unbekannt.",
-        "metaclassConflict": "Metaclass \"{metaclass1}\" conflicts with \"{metaclass2}\"",
+        "metaclassConflict": "Die Metaklasse \"{metaclass1}\" verursacht einen Konflikt mit \"{metaclass2}\"",
         "missingDeleter": "Die Eigenschaft-Deleter-Methode fehlt.",
         "missingGetter": "Die Eigenschaft-Getter-Methode fehlt.",
         "missingProtocolMember": "Member \"{name}\" ist in Protokollklasse \"{classType}\" deklariert.",

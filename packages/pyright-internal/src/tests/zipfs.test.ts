@@ -19,6 +19,8 @@ function runTests(p: string): void {
         const stats = fs.statSync(zipRoot);
         assert.strictEqual(stats.isDirectory(), true);
         assert.strictEqual(stats.isFile(), false);
+        assert.strictEqual((stats as any).isZipDirectory(), true);
+        assert.strictEqual(stats.isSymbolicLink(), false);
     });
 
     test('readdirEntriesSync root', () => {

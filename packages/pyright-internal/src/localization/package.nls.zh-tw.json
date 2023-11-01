@@ -642,7 +642,7 @@
         "memberSetClassVar": "無法透過類別執行個體指派成員 \"{name}\"，因為它是 ClassVar",
         "memberTypeMismatch": "\"{name}\" 是不相容的類型",
         "memberUnknown": "成員 \"{name}\" 未知",
-        "metaclassConflict": "Metaclass \"{metaclass1}\" conflicts with \"{metaclass2}\"",
+        "metaclassConflict": "Metaclass「{metaclass1}」與「{metaclass2}」衝突",
         "missingDeleter": "屬性 deleter 方法遺失",
         "missingGetter": "屬性 getter 方法遺失",
         "missingProtocolMember": "成員 \"{name}\" 已在通訊協定類別 \"{classType}\" 中宣告",
