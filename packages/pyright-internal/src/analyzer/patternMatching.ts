@@ -1080,10 +1080,10 @@ function narrowTypeBasedOnValuePattern(
                         // Determine if assignment is supported for this combination of
                         // value subtype and matching subtype.
                         const returnType = evaluator.useSpeculativeMode(pattern.expression, () =>
-                            evaluator.getTypeOfMagicMethodReturn(
+                            evaluator.getTypeOfMagicMethodCall(
                                 valueSubtypeExpanded,
-                                [{ type: subjectSubtypeExpanded }],
                                 '__eq__',
+                                [{ type: subjectSubtypeExpanded }],
                                 pattern.expression,
                                 /* expectedType */ undefined
                             )

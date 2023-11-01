@@ -2115,8 +2115,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getBoundMethod(
         classType: ClassType,
         memberName: string,
-        recursionCount = 0,
-        treatConstructorAsClassMember = false
+        recursionCount = 0
     ): FunctionType | OverloadedFunctionType | undefined {
         const memberInfo = lookUpClassMember(classType, memberName, ClassMemberLookupFlags.SkipInstanceVariables);
 
@@ -2127,7 +2126,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ClassType.cloneAsInstance(classType),
                     unboundMethodType,
                     /* memberClass */ undefined,
-                    treatConstructorAsClassMember,
+                    /* treatConstructorAsClassMember */ true,
                     /* selfType */ undefined,
                     /* diag */ undefined,
                     recursionCount
@@ -2261,12 +2260,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // the `object` class or accepts only default parameters(* args, ** kwargs),
                         // see if we can find a better signature from the `__new__` method.
                         if (!methodType || isObjectInit || isDefaultParams) {
-                            const constructorType = getBoundMethod(
-                                subtype,
-                                '__new__',
-                                /* recursionCount */ undefined,
-                                /* treatConstructorAsClassMember */ true
-                            );
+                            const constructorType = getBoundMethod(subtype, '__new__');
 
                             if (constructorType) {
                                 // Is this the __new__ method provided by the object class?
@@ -2552,7 +2546,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeOfIterator(
         typeResult: TypeResult,
         isAsync: boolean,
-        errorNode: ExpressionNode | undefined
+        errorNode: ExpressionNode,
+        emitNotIterableError = true
     ): TypeResult | undefined {
         const iterMethodName = isAsync ? '__aiter__' : '__iter__';
         const nextMethodName = isAsync ? '__anext__' : '__next__';
@@ -2562,7 +2557,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         type = makeTopLevelTypeVarsConcrete(type);
 
         if (isOptionalType(type)) {
-            if (errorNode && !typeResult.isIncomplete) {
+            if (!typeResult.isIncomplete && emitNotIterableError) {
                 addDiagnostic(
                     AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable,
                     DiagnosticRule.reportOptionalIterable,
@@ -2582,49 +2577,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             const diag = new DiagnosticAddendum();
             if (isClass(subtype)) {
-                let iterReturnType: Type | undefined;
-
-                if (TypeBase.isInstance(subtype)) {
-                    // Handle an empty tuple specially.
-                    if (
-                        isTupleClass(subtype) &&
-                        subtype.tupleTypeArguments &&
-                        subtype.tupleTypeArguments.length === 0
-                    ) {
-                        return NeverType.createNever();
-                    }
-
-                    iterReturnType = getSpecializedReturnType(subtype, iterMethodName, [], errorNode);
-                } else if (
-                    TypeBase.isInstantiable(subtype) &&
-                    subtype.details.effectiveMetaclass &&
-                    isInstantiableClass(subtype.details.effectiveMetaclass)
+                // Handle an empty tuple specially.
+                if (
+                    TypeBase.isInstance(subtype) &&
+                    isTupleClass(subtype) &&
+                    subtype.tupleTypeArguments &&
+                    subtype.tupleTypeArguments.length === 0
                 ) {
-                    iterReturnType = getSpecializedReturnType(
-                        ClassType.cloneAsInstance(subtype.details.effectiveMetaclass),
-                        iterMethodName,
-                        [],
-                        errorNode,
-                        subtype
-                    );
+                    return NeverType.createNever();
                 }
+
+                const iterReturnType = getTypeOfMagicMethodCall(subtype, iterMethodName, [], errorNode);
 
                 if (!iterReturnType) {
                     // There was no __iter__. See if we can fall back to
                     // the __getitem__ method instead.
                     if (!isAsync && isClassInstance(subtype)) {
-                        const getItemReturnType = getSpecializedReturnType(
+                        const getItemReturnType = getTypeOfMagicMethodCall(
                             subtype,
                             '__getitem__',
                             [
                                 {
-                                    argumentCategory: ArgumentCategory.Simple,
-                                    typeResult: {
-                                        type:
-                                            intClassType && isInstantiableClass(intClassType)
-                                                ? ClassType.cloneAsInstance(intClassType)
-                                                : UnknownType.create(),
-                                    },
+                                    type:
+                                        intClassType && isInstantiableClass(intClassType)
+                                            ? ClassType.cloneAsInstance(intClassType)
+                                            : UnknownType.create(),
                                 },
                             ],
                             errorNode
@@ -2647,7 +2624,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
 
                             if (isClassInstance(subtype)) {
-                                let nextReturnType = getSpecializedReturnType(subtype, nextMethodName, [], errorNode);
+                                let nextReturnType = getTypeOfMagicMethodCall(subtype, nextMethodName, [], errorNode);
 
                                 if (!nextReturnType) {
                                     iterReturnTypeDiag.addMessage(
@@ -2693,7 +2670,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            if (errorNode && !typeResult.isIncomplete) {
+            if (!typeResult.isIncomplete && emitNotIterableError) {
                 addDiagnostic(
                     AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -2713,7 +2690,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeOfIterable(
         typeResult: TypeResult,
         isAsync: boolean,
-        errorNode: ExpressionNode | undefined
+        errorNode: ExpressionNode,
+        emitNotIterableError = true
     ): TypeResult | undefined {
         const iterMethodName = isAsync ? '__aiter__' : '__iter__';
         let isValidIterable = true;
@@ -2721,7 +2699,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let type = makeTopLevelTypeVarsConcrete(typeResult.type);
 
         if (isOptionalType(type)) {
-            if (errorNode && !typeResult.isIncomplete) {
+            if (!typeResult.isIncomplete && emitNotIterableError) {
                 addDiagnostic(
                     AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable,
                     DiagnosticRule.reportOptionalIterable,
@@ -2738,30 +2716,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (isClass(subtype)) {
-                let iterReturnType: Type | undefined;
-
-                if (TypeBase.isInstance(subtype)) {
-                    iterReturnType = getSpecializedReturnType(subtype, iterMethodName, [], errorNode);
-                } else if (
-                    TypeBase.isInstantiable(subtype) &&
-                    subtype.details.effectiveMetaclass &&
-                    isInstantiableClass(subtype.details.effectiveMetaclass)
-                ) {
-                    iterReturnType = getSpecializedReturnType(
-                        ClassType.cloneAsInstance(subtype.details.effectiveMetaclass),
-                        iterMethodName,
-                        [],
-                        errorNode,
-                        subtype
-                    );
-                }
+                const iterReturnType = getTypeOfMagicMethodCall(subtype, iterMethodName, [], errorNode);
 
                 if (iterReturnType) {
                     return makeTopLevelTypeVarsConcrete(iterReturnType);
                 }
             }
 
-            if (errorNode) {
+            if (emitNotIterableError) {
                 addDiagnostic(
                     AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -4248,60 +4210,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!isSpeculativeModeInUse(node)) {
             fileInfo.accessedSymbolSet.add(symbol.id);
         }
-    }
-
-    function getSpecializedReturnType(
-        objType: ClassType,
-        memberName: string,
-        argList: FunctionArgument[],
-        errorNode: ExpressionNode | undefined,
-        bindToClass?: ClassType
-    ) {
-        const classMember = lookUpObjectMember(objType, memberName, ClassMemberLookupFlags.SkipInstanceVariables);
-        if (!classMember) {
-            return undefined;
-        }
-
-        const memberTypeResult = getTypeOfMemberInternal(classMember, objType);
-        if (!memberTypeResult) {
-            return undefined;
-        }
-
-        const memberType = memberTypeResult.type;
-        if (isAnyOrUnknown(memberType)) {
-            return memberType;
-        }
-
-        if (isFunction(memberType) || isOverloadedFunction(memberType)) {
-            const methodType = bindFunctionToClassOrObjectWithErrors(
-                bindToClass ?? objType,
-                memberType,
-                classMember && isInstantiableClass(classMember.classType) ? classMember.classType : undefined,
-                errorNode,
-                /* treatConstructorAsClassMember */ false,
-                /* selfType */ bindToClass
-            );
-
-            if (methodType) {
-                if (isOverloadedFunction(methodType)) {
-                    if (errorNode) {
-                        const bestOverload = getBestOverloadForArguments(
-                            errorNode,
-                            { type: methodType, isIncomplete: memberTypeResult.isIncomplete },
-                            argList
-                        );
-
-                        if (bestOverload) {
-                            return getFunctionEffectiveReturnType(bestOverload);
-                        }
-                    }
-                } else {
-                    return getFunctionEffectiveReturnType(methodType);
-                }
-            }
-        }
-
-        return undefined;
     }
 
     function getTypeOfName(node: NameNode, flags: EvaluatorFlags): TypeResult {
@@ -12680,12 +12588,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { type: type ?? UnknownType.create() };
     }
 
-    function getTypeOfMagicMethodReturn(
+    function getTypeOfMagicMethodCall(
         objType: Type,
-        args: TypeResult[],
-        magicMethodName: string,
+        methodName: string,
+        argList: TypeResult[],
         errorNode: ExpressionNode,
-        inferenceContext: InferenceContext | undefined
+        inferenceContext?: InferenceContext
     ): Type | undefined {
         let magicMethodSupported = true;
 
@@ -12698,7 +12606,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 magicMethodType = getTypeOfObjectMember(
                     errorNode,
                     concreteSubtype,
-                    magicMethodName,
+                    methodName,
                     /* usage */ undefined,
                     /* diag */ undefined,
                     MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipAttributeAccessOverride
@@ -12706,7 +12614,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (magicMethodType) {
-                const functionArgs: FunctionArgument[] = args.map((arg) => {
+                const functionArgs: FunctionArgument[] = argList.map((arg) => {
                     return {
                         argumentCategory: ArgumentCategory.Simple,
                         typeResult: arg,
@@ -13907,7 +13815,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             expectedElementType = getTypeOfIterator(
                 { type: inferenceContext.expectedType },
                 isAsync,
-                /* errorNode */ undefined
+                node,
+                /* emitNotIterableError */ false
             )?.type;
         }
 
@@ -18071,10 +17980,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const additionalHelp = new DiagnosticAddendum();
 
             if (isClass(subtype)) {
-                let enterType = getTypeOfMagicMethodReturn(
+                let enterType = getTypeOfMagicMethodCall(
                     subtype,
-                    [],
                     enterMethodName,
+                    [],
                     node.expression,
                     /* inferenceContext */ undefined
                 );
@@ -18090,10 +17999,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (!isAsync) {
                     if (
-                        getTypeOfMagicMethodReturn(
+                        getTypeOfMagicMethodCall(
                             subtype,
-                            [],
                             '__aenter__',
+                            [],
                             node.expression,
                             /* inferenceContext */ undefined
                         )
@@ -18125,10 +18034,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (isClass(subtype)) {
                 const anyArg: TypeResult = { type: AnyType.create() };
-                const exitType = getTypeOfMagicMethodReturn(
+                const exitType = getTypeOfMagicMethodCall(
                     subtype,
-                    [anyArg, anyArg, anyArg],
                     exitMethodName,
+                    [anyArg, anyArg, anyArg],
                     node.expression,
                     /* inferenceContext */ undefined
                 );
@@ -25565,10 +25474,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // If the memberType is an instance or class method, creates a new
     // version of the function that has the "self" or "cls" parameter bound
-    // to it. If treatAsClassMethod is true, the function is treated like a
-    // class method even if it's not marked as such. That's needed to
-    // special-case the __new__ magic method when it's invoked as a
-    // constructor (as opposed to by name).
+    // to it. If treatConstructorAsClassMember is true, the function is
+    // treated like a class method even if it's not marked as such. That's
+    // needed to special-case the __new__ magic method when it's invoked as
+    // a constructor (as opposed to by name).
     function bindFunctionToClassOrObject(
         baseType: ClassType | undefined,
         memberType: FunctionType | OverloadedFunctionType,
@@ -26064,7 +25973,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getTypeOfObjectMember,
         getTypeOfClassMemberName,
         getBoundMethod,
-        getTypeOfMagicMethodReturn,
+        getTypeOfMagicMethodCall,
         bindFunctionToClassOrObject,
         getCallSignatureInfo,
         getAbstractMethods,
