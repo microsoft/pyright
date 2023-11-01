@@ -2231,6 +2231,9 @@ export function isEffectivelyInstantiable(type: Type): boolean {
     return false;
 }
 
+export function convertToInstance(type: ClassType, includeSubclasses?: boolean): ClassType;
+export function convertToInstance(type: TypeVarType, includeSubclasses?: boolean): TypeVarType;
+export function convertToInstance(type: Type, includeSubclasses?: boolean): Type;
 export function convertToInstance(type: Type, includeSubclasses = true): Type {
     // See if we've already performed this conversion and cached it.
     if (type.cached?.instanceType && includeSubclasses) {

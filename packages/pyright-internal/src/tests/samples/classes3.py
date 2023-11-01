@@ -35,7 +35,8 @@ instance = TestClass()
 instance.__doc__
 instance.__module__
 
-# These should generate an error because they are not visible to instances.
+# These should generate an error because they are not visible to instances,
+# but the "type" class in builtins.pyi defines these as instance variables.
 instance.__name__
 instance.__qualname__
 
@@ -47,7 +48,8 @@ class Meta(type):
 
 class NonMeta:
     def method1(self) -> str:
-        # This should generate an error
+        # This should generate an error, but the "type" class in builtins.pyi
+        # defines this as an instance variable.
         return self.__name__
 
 
