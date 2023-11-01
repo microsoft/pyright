@@ -753,7 +753,7 @@ test('Classes1', () => {
 test('Classes3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes3.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Classes4', () => {

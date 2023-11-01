@@ -171,7 +171,7 @@ export interface TypeResult<T extends Type = Type> {
     // as the class or object used to bind the member, but the
     // "super" call can specify a different class or object to
     // bind.
-    bindToType?: ClassType | TypeVarType | undefined;
+    bindToSelfType?: ClassType | TypeVarType | undefined;
 
     unpackedType?: Type | undefined;
     typeList?: TypeResultWithNode[] | undefined;
@@ -455,11 +455,6 @@ export const enum MemberAccessFlags {
     // acts like a class method instead.
     TreatConstructorAsClassMethod = 1 << 5,
 
-    // By default, class member lookups start with the class itself
-    // and fall back on the metaclass if it's not found. This option
-    // skips the first check.
-    ConsiderMetaclassOnly = 1 << 6,
-
     // If an attribute cannot be found when looking for instance
     // members, normally an attribute access override method
     // (__getattr__, etc.) may provide the missing attribute type.
@@ -582,18 +577,17 @@ export interface TypeEvaluator {
         memberName: string,
         usage?: EvaluatorUsage,
         diag?: DiagnosticAddendum | undefined,
-        memberAccessFlags?: MemberAccessFlags,
-        bindToType?: ClassType | TypeVarType
+        flags?: MemberAccessFlags,
+        selfType?: ClassType | TypeVarType
     ): TypeResult | undefined;
     getTypeOfClassMemberName: (
         errorNode: ExpressionNode,
         classType: ClassType,
-        isAccessedThroughObject: boolean,
         memberName: string,
         usage: EvaluatorUsage,
         diag: DiagnosticAddendum | undefined,
         flags: MemberAccessFlags,
-        bindToType?: ClassType | TypeVarType
+        selfType?: ClassType | TypeVarType
     ) => ClassMemberLookup | undefined;
     getBoundMethod: (
         classType: ClassType,
@@ -613,7 +607,7 @@ export interface TypeEvaluator {
         memberType: FunctionType | OverloadedFunctionType,
         memberClass?: ClassType,
         treatConstructorAsClassMember?: boolean,
-        firstParamType?: ClassType | TypeVarType,
+        selfType?: ClassType | TypeVarType,
         diag?: DiagnosticAddendum,
         recursionCount?: number
     ) => FunctionType | OverloadedFunctionType | undefined;

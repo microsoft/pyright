@@ -1984,8 +1984,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
     }
 
-    // Gets a member type from an object and if it's a function binds
-    // it to the object. If bindToClass is undefined, the binding is done
+    // Gets a member type from an object or class. If it's a function, binds
+    // it to the object or class. If selfType is undefined, the binding is done
     // using the objectType parameter. Callers can specify these separately
     // to handle the case where we're fetching the object member from a
     // metaclass but binding to the class.
@@ -1995,41 +1995,108 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberName: string,
         usage: EvaluatorUsage = { method: 'get' },
         diag: DiagnosticAddendum | undefined = undefined,
-        memberAccessFlags = MemberAccessFlags.None,
-        bindToType?: ClassType | TypeVarType
+        flags = MemberAccessFlags.None,
+        selfType?: ClassType | TypeVarType
     ): TypeResult | undefined {
-        let memberInfo = getTypeOfClassMemberName(
-            errorNode,
-            ClassType.cloneAsInstantiable(objectType),
-            /* isAccessedThroughObject */ true,
-            memberName,
-            usage,
-            diag,
-            memberAccessFlags | MemberAccessFlags.DisallowClassVarWrites,
-            bindToType
-        );
+        if (ClassType.isPartiallyEvaluated(objectType)) {
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.classDefinitionCycle().format({ name: objectType.details.name }),
+                errorNode
+            );
+            return { type: UnknownType.create() };
+        }
 
-        if (!memberInfo) {
-            const metaclass = objectType.details.effectiveMetaclass;
-            if (
-                metaclass &&
-                isInstantiableClass(metaclass) &&
-                !ClassType.isBuiltIn(metaclass, 'type') &&
-                !ClassType.isSameGenericClass(metaclass, objectType)
-            ) {
-                memberInfo = getTypeOfClassMemberName(
-                    errorNode,
-                    metaclass,
-                    /* isAccessedThroughObject */ false,
-                    memberName,
-                    usage,
-                    /* diag */ undefined,
-                    memberAccessFlags |
-                        MemberAccessFlags.AccessInstanceMembersOnly |
-                        MemberAccessFlags.SkipAttributeAccessOverride,
-                    ClassType.cloneAsInstantiable(objectType)
-                );
+        // Determine the class that was used to instantiate the objectType.
+        // If the objectType is a class itself, then the class used to instantiate
+        // it is the metaclass.
+        const objectTypeIsInstantiable = TypeBase.isInstantiable(objectType);
+        const metaclass = objectType.details.effectiveMetaclass;
+
+        let memberInfo: ClassMemberLookup | undefined;
+
+        // If the object type is an instantiable (i.e. it derives from "type") and
+        // we've been asked not to consider instance members, don't look in the class.
+        // Consider only the metaclass class variables in this case.
+        let skipObjectTypeLookup = objectTypeIsInstantiable && (flags & MemberAccessFlags.AccessClassMembersOnly) !== 0;
+
+        // Look up the attribute in the metaclass first. If the member is a descriptor
+        // (an object with a __get__ and __set__ method) and the access is a 'get',
+        // the Python runtime uses this descriptor to satisfy the lookup. Skip this
+        // costly lookup in the common case where the metaclass is 'type' since we know
+        // that `type` doesn't have any attributes that are descriptors.
+        if (
+            usage.method === 'get' &&
+            objectTypeIsInstantiable &&
+            metaclass &&
+            isInstantiableClass(metaclass) &&
+            !ClassType.isBuiltIn(metaclass, 'type') &&
+            !ClassType.isSameGenericClass(metaclass, objectType)
+        ) {
+            const descMemberInfo = getTypeOfClassMemberName(
+                errorNode,
+                metaclass,
+                memberName,
+                usage,
+                /* diag */ undefined,
+                flags | MemberAccessFlags.SkipAttributeAccessOverride,
+                objectType
+            );
+
+            if (descMemberInfo) {
+                const isProperty =
+                    isClassInstance(descMemberInfo.type) && ClassType.isPropertyClass(descMemberInfo.type);
+                if (isDescriptorInstance(descMemberInfo.type, /* requireSetter */ true) || isProperty) {
+                    skipObjectTypeLookup = true;
+                }
             }
+        }
+
+        if (!skipObjectTypeLookup) {
+            let effectiveFlags = flags;
+
+            if (objectTypeIsInstantiable) {
+                effectiveFlags |=
+                    MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipAttributeAccessOverride;
+            } else {
+                effectiveFlags |= MemberAccessFlags.DisallowClassVarWrites;
+            }
+
+            // See if the member is present in the object itself.
+            memberInfo = getTypeOfClassMemberName(
+                errorNode,
+                objectType,
+                memberName,
+                usage,
+                diag,
+                effectiveFlags,
+                selfType
+            );
+        }
+
+        // If it wasn't found on the object, see if it's part of the metaclass.
+        if (!memberInfo && metaclass && isInstantiableClass(metaclass)) {
+            let effectiveFlags = flags;
+
+            // Class members cannot be accessed on a class's metaclass through
+            // an instance of a class. Limit access to metaclass instance members
+            // in this case.
+            if (!objectTypeIsInstantiable) {
+                effectiveFlags |=
+                    MemberAccessFlags.AccessInstanceMembersOnly | MemberAccessFlags.SkipAttributeAccessOverride;
+                effectiveFlags &= ~MemberAccessFlags.AccessClassMembersOnly;
+            }
+
+            memberInfo = getTypeOfClassMemberName(
+                errorNode,
+                ClassType.cloneAsInstance(metaclass),
+                memberName,
+                usage,
+                /* diag */ undefined,
+                effectiveFlags,
+                objectTypeIsInstantiable ? objectType : ClassType.cloneAsInstantiable(objectType)
+            );
         }
 
         if (memberInfo && !memberInfo.isSetTypeError) {
@@ -2040,113 +2107,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isAsymmetricAccessor: memberInfo.isAsymmetricAccessor,
                 memberAccessDeprecationInfo: memberInfo.memberAccessDeprecationInfo,
             };
-        }
-
-        return undefined;
-    }
-
-    // Gets a member type from a class and if it's a function binds
-    // it to the class.
-    function getTypeOfClassMember(
-        errorNode: ExpressionNode,
-        classType: ClassType,
-        memberName: string,
-        usage: EvaluatorUsage = { method: 'get' },
-        diag: DiagnosticAddendum | undefined = undefined,
-        memberAccessFlags = MemberAccessFlags.None,
-        bindToType?: ClassType | TypeVarType
-    ): TypeResult | undefined {
-        let memberInfo: ClassMemberLookup | undefined;
-        const classDiag = diag ? new DiagnosticAddendum() : undefined;
-        const metaclassDiag = diag ? new DiagnosticAddendum() : undefined;
-        let considerMetaclassOnly = (memberAccessFlags & MemberAccessFlags.ConsiderMetaclassOnly) !== 0;
-
-        if (ClassType.isPartiallyEvaluated(classType)) {
-            addDiagnostic(
-                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.classDefinitionCycle().format({ name: classType.details.name }),
-                errorNode
-            );
-            return { type: UnknownType.create() };
-        }
-
-        const metaclass = classType.details.effectiveMetaclass;
-
-        // Look up the attribute in the metaclass first. If the member is a descriptor
-        // (an object with a __get__ method) and the access is a 'get', the Python runtime
-        // uses this metaclass descriptor to satisfy the lookup. Skip this costly lookup
-        // in the common case where the metaclass is 'type' since we know that `type` doesn't
-        // have any attributes that are descriptors.
-        if (
-            usage.method === 'get' &&
-            metaclass &&
-            isInstantiableClass(metaclass) &&
-            !ClassType.isBuiltIn(metaclass, 'type') &&
-            !ClassType.isSameGenericClass(metaclass, classType)
-        ) {
-            const metaclassMemberInfo = getTypeOfClassMemberName(
-                errorNode,
-                metaclass,
-                /* isAccessedThroughObject */ false,
-                memberName,
-                usage,
-                metaclassDiag,
-                memberAccessFlags | MemberAccessFlags.SkipAttributeAccessOverride,
-                classType
-            );
-
-            if (metaclassMemberInfo && isDescriptorInstance(metaclassMemberInfo.type)) {
-                considerMetaclassOnly = true;
-            }
-        }
-
-        // Look up the attribute in the class object.
-        if (!memberInfo && !considerMetaclassOnly) {
-            memberInfo = getTypeOfClassMemberName(
-                errorNode,
-                classType,
-                /* isAccessedThroughObject */ false,
-                memberName,
-                usage,
-                classDiag,
-                memberAccessFlags | MemberAccessFlags.AccessClassMembersOnly,
-                bindToType
-            );
-        }
-
-        const isMemberPresentOnClass = memberInfo?.classType !== undefined;
-
-        // If it wasn't found on the class, see if it's part of the metaclass.
-        if (!memberInfo) {
-            const metaclass = classType.details.effectiveMetaclass;
-            if (metaclass && isInstantiableClass(metaclass) && !ClassType.isSameGenericClass(metaclass, classType)) {
-                memberInfo = getTypeOfClassMemberName(
-                    errorNode,
-                    metaclass,
-                    /* isAccessedThroughObject */ true,
-                    memberName,
-                    usage,
-                    metaclassDiag,
-                    memberAccessFlags,
-                    classType
-                );
-            }
-        }
-
-        if (memberInfo && !memberInfo.isSetTypeError) {
-            return {
-                type: memberInfo.type,
-                isIncomplete: !!memberInfo.isTypeIncomplete,
-                isAsymmetricAccessor: memberInfo.isAsymmetricAccessor,
-                memberAccessDeprecationInfo: memberInfo.memberAccessDeprecationInfo,
-            };
-        }
-
-        // Determine whether to use the class or metaclass diagnostic addendum.
-        const subDiag = isMemberPresentOnClass ? classDiag : metaclassDiag;
-        if (diag && subDiag) {
-            diag.addAddendum(subDiag);
         }
 
         return undefined;
@@ -2168,7 +2128,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     unboundMethodType,
                     /* memberClass */ undefined,
                     treatConstructorAsClassMember,
-                    /* firstParamType */ undefined,
+                    /* selfType */ undefined,
                     /* diag */ undefined,
                     recursionCount
                 );
@@ -4314,13 +4274,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isFunction(memberType) || isOverloadedFunction(memberType)) {
             const methodType = bindFunctionToClassOrObjectWithErrors(
-                bindToClass || objType,
+                bindToClass ?? objType,
                 memberType,
                 classMember && isInstantiableClass(classMember.classType) ? classMember.classType : undefined,
                 errorNode,
                 /* treatConstructorAsClassMember */ false,
-                /* firstParamType */ bindToClass
+                /* selfType */ bindToClass
             );
+
             if (methodType) {
                 if (isOverloadedFunction(methodType)) {
                     if (errorNode) {
@@ -5277,7 +5238,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         node,
                         {
                             type: makeTopLevelTypeVarsConcrete(baseType),
-                            bindToType: baseType,
+                            bindToSelfType: TypeBase.isInstantiable(baseType) ? convertToInstance(baseType) : baseType,
                             isIncomplete,
                         },
                         usage,
@@ -5289,67 +5250,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case TypeCategory.Class: {
-                if (TypeBase.isInstantiable(baseType)) {
-                    const typeResult = getTypeOfClassMember(
-                        node.memberName,
-                        baseType,
-                        memberName,
-                        usage,
-                        diag,
-                        MemberAccessFlags.None,
-                        baseTypeResult.bindToType
-                    );
-
-                    type = typeResult?.type;
-                    if (typeResult?.isIncomplete) {
-                        isIncomplete = true;
-                    }
-
-                    if (typeResult?.isAsymmetricAccessor) {
-                        isAsymmetricAccessor = true;
-                    }
-
-                    if (typeResult?.memberAccessDeprecationInfo) {
-                        memberAccessDeprecationInfo = typeResult.memberAccessDeprecationInfo;
-                    }
-                } else {
-                    // Handle the special case of 'name' and 'value' members within an enum.
-                    const enumMemberResult = getTypeOfEnumMember(
-                        evaluatorInterface,
-                        node,
-                        baseType,
-                        memberName,
-                        isIncomplete
-                    );
-                    if (enumMemberResult) {
-                        return enumMemberResult;
-                    }
-
-                    const typeResult = getTypeOfObjectMember(
+                const typeResult =
+                    getTypeOfEnumMember(evaluatorInterface, node, baseType, memberName, isIncomplete) ??
+                    getTypeOfObjectMember(
                         node.memberName,
                         baseType,
                         memberName,
                         usage,
                         diag,
                         /* memberAccessFlags */ undefined,
-                        baseTypeResult.bindToType
+                        baseTypeResult.bindToSelfType
                     );
 
-                    if (typeResult) {
-                        type = addConditionToType(typeResult.type, getTypeCondition(baseType));
-                    }
+                if (typeResult) {
+                    type = addConditionToType(typeResult.type, getTypeCondition(baseType));
+                }
 
-                    if (typeResult?.isIncomplete) {
-                        isIncomplete = true;
-                    }
+                if (typeResult?.isIncomplete) {
+                    isIncomplete = true;
+                }
 
-                    if (typeResult?.isAsymmetricAccessor) {
-                        isAsymmetricAccessor = true;
-                    }
+                if (typeResult?.isAsymmetricAccessor) {
+                    isAsymmetricAccessor = true;
+                }
 
-                    if (typeResult?.memberAccessDeprecationInfo) {
-                        memberAccessDeprecationInfo = typeResult.memberAccessDeprecationInfo;
-                    }
+                if (typeResult?.memberAccessDeprecationInfo) {
+                    memberAccessDeprecationInfo = typeResult.memberAccessDeprecationInfo;
                 }
                 break;
             }
@@ -5617,12 +5543,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeOfClassMemberName(
         errorNode: ExpressionNode,
         classType: ClassType,
-        isAccessedThroughObject: boolean,
         memberName: string,
         usage: EvaluatorUsage,
         diag: DiagnosticAddendum | undefined,
         flags: MemberAccessFlags,
-        bindToType?: ClassType | TypeVarType
+        selfType?: ClassType | TypeVarType
     ): ClassMemberLookup | undefined {
         let classLookupFlags = ClassMemberLookupFlags.Default;
         if (flags & MemberAccessFlags.AccessClassMembersOnly) {
@@ -5643,6 +5568,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (flags & MemberAccessFlags.SkipOriginalClass) {
             classLookupFlags |= ClassMemberLookupFlags.SkipOriginalClass;
         }
+
+        const isAccessedThroughObject = TypeBase.isInstance(classType);
 
         // Always look for a member with a declared type first.
         let memberInfo = lookUpClassMember(
@@ -5688,7 +5615,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // if the class variable is a descriptor object. In this case, we will
                         // clear the flag that causes an error to be generated.
                         if (usage.method === 'set' && memberInfo.symbol.isClassVar() && isAccessedThroughObject) {
-                            const selfClass = bindToType || memberName === '__new__' ? undefined : classType;
+                            const selfClass = selfType ?? memberName === '__new__' ? undefined : classType;
                             const typeResult = getTypeOfMemberInternal(memberInfo, selfClass);
 
                             if (typeResult) {
@@ -5715,9 +5642,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // to leave the Self type generic (not specialized). We'll also
                 // skip this for __new__ methods because they are not bound
                 // to the class but rather assume the type of the cls argument.
-                if (bindToType) {
-                    if (isTypeVar(bindToType) && bindToType.details.isSynthesizedSelf) {
-                        selfClass = bindToType;
+                if (selfType) {
+                    if (isTypeVar(selfType) && selfType.details.isSynthesizedSelf) {
+                        selfClass = selfType;
                     } else {
                         selfClass = undefined;
                     }
@@ -5769,8 +5696,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type,
                 memberInfo,
                 classType,
-                bindToType,
-                isAccessedThroughObject,
+                selfType,
                 flags,
                 errorNode,
                 memberName,
@@ -5833,7 +5759,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             (flags & (MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipAttributeAccessOverride)) ===
             0
         ) {
-            const generalAttrType = applyAttributeAccessOverride(classType, errorNode, usage, memberName);
+            const generalAttrType = applyAttributeAccessOverride(classType, errorNode, usage, memberName, selfType);
             if (generalAttrType) {
                 return {
                     symbol: undefined,
@@ -5858,9 +5784,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function applyDescriptorAccessMethod(
         type: Type,
         memberInfo: ClassMember | undefined,
-        baseTypeClass: ClassType,
-        bindToType: ClassType | TypeVarType | undefined,
-        isAccessedThroughObject: boolean,
+        classType: ClassType,
+        selfType: ClassType | TypeVarType | undefined,
         flags: MemberAccessFlags,
         errorNode: ExpressionNode,
         memberName: string,
@@ -5868,6 +5793,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         diag: DiagnosticAddendum | undefined
     ): MemberAccessTypeResult | undefined {
         const treatConstructorAsClassMember = (flags & MemberAccessFlags.TreatConstructorAsClassMethod) !== 0;
+        const isAccessedThroughObject = TypeBase.isInstance(classType);
         let isTypeValid = true;
         let isAsymmetricAccessor = false;
         let memberAccessDeprecationInfo: MemberAccessDeprecationInfo | undefined;
@@ -5950,9 +5876,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 argumentCategory: ArgumentCategory.Simple,
                                 typeResult: {
                                     type: ClassType.isClassProperty(lookupClass)
-                                        ? baseTypeClass
+                                        ? classType
                                         : isAccessedThroughObject
-                                        ? bindToType ?? ClassType.cloneAsInstance(baseTypeClass)
+                                        ? selfType ?? ClassType.cloneAsInstance(classType)
                                         : getNoneType(),
                                 },
                             },
@@ -5963,7 +5889,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             argList.push({
                                 argumentCategory: ArgumentCategory.Simple,
                                 typeResult: {
-                                    type: baseTypeClass,
+                                    type: isAccessedThroughObject
+                                        ? ClassType.cloneAsInstantiable(classType)
+                                        : classType,
                                 },
                             });
                         } else if (usage.method === 'set') {
@@ -5999,7 +5927,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // it directly from the class has an ambiguous meaning.
                             if (
                                 (flags & MemberAccessFlags.AccessClassMembersOnly) !== 0 &&
-                                ClassType.isProtocolClass(baseTypeClass)
+                                ClassType.isProtocolClass(classType)
                             ) {
                                 diag?.addMessage(Localizer.DiagnosticAddendum.propertyAccessFromProtocolClass());
                                 isTypeValid = false;
@@ -6023,11 +5951,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 // because of the way we model the __get__ logic in the property class.
                                 if (ClassType.isPropertyClass(concreteSubtype) && !isAccessedThroughMetaclass) {
                                     if (memberInfo && isInstantiableClass(memberInfo.classType)) {
-                                        bindToClass = memberInfo.classType;
-                                    }
-                                } else {
-                                    if (isInstantiableClass(accessMethod.classType)) {
-                                        bindToClass = accessMethod.classType;
+                                        bindToClass = ClassType.cloneAsInstance(memberInfo.classType);
                                     }
                                 }
 
@@ -6052,7 +5976,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         const specializedBoundType = partiallySpecializeType(
                                             boundMethodType,
                                             bindToClass,
-                                            baseTypeClass
+                                            classType
                                         );
                                         if (specializedBoundType) {
                                             if (
@@ -6169,33 +6093,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // If this function is an instance member (e.g. a lambda that was
                 // assigned to an instance variable), don't perform any binding.
                 if (!isAccessedThroughObject || (memberInfo && !memberInfo.isInstanceMember)) {
-                    let effectiveBindToType = bindToType;
-
-                    if (bindToType && !isInstantiableMetaclass(baseTypeClass)) {
-                        // If bindToType is an instantiable class or TypeVar but we're targeting
-                        // an instance method (in a non-metaclass), we need to convert
-                        // the bindToType to an instance.
-                        const targetMethod = isFunction(concreteSubtype)
-                            ? concreteSubtype
-                            : concreteSubtype.overloads[0];
-                        if (FunctionType.isInstanceMethod(targetMethod) && !TypeBase.isInstance(bindToType)) {
-                            effectiveBindToType = convertToInstance(bindToType) as ClassType | TypeVarType;
-                        }
-                    }
-
-                    // If the bind-to type is a specific class, add the "includeSubclasses" flag
-                    // to the type to indicate that it could be a subclass.
-                    if (effectiveBindToType && isClass(effectiveBindToType)) {
-                        effectiveBindToType = ClassType.cloneIncludeSubclasses(effectiveBindToType);
-                    }
-
                     return bindFunctionToClassOrObjectWithErrors(
-                        isAccessedThroughObject ? ClassType.cloneAsInstance(baseTypeClass) : baseTypeClass,
+                        classType,
                         concreteSubtype,
                         memberInfo && isInstantiableClass(memberInfo.classType) ? memberInfo.classType : undefined,
                         errorNode,
                         treatConstructorAsClassMember,
-                        effectiveBindToType
+                        selfType && isClass(selfType) ? ClassType.cloneIncludeSubclasses(selfType) : selfType
                     );
                 }
             }
@@ -6363,18 +6267,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         classType: ClassType,
         errorNode: ExpressionNode,
         usage: EvaluatorUsage,
-        memberName: string
+        memberName: string,
+        selfType?: ClassType | TypeVarType
     ): MemberAccessTypeResult | undefined {
         const getAttributeAccessMember = (name: string) => {
             // See if the class has a "__getattribute__" or "__getattr__" method.
             // If so, arbitrary members are supported.
-            return getTypeOfClassMember(
+            return getTypeOfObjectMember(
                 errorNode,
                 classType,
                 name,
                 { method: 'get' },
                 /* diag */ undefined,
-                MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
+                MemberAccessFlags.AccessClassMembersOnly |
+                    MemberAccessFlags.SkipObjectBaseClass |
+                    MemberAccessFlags.SkipAttributeAccessOverride,
+                selfType
             )?.type;
         };
 
@@ -6396,11 +6304,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             const argList: FunctionArgument[] = [
                 {
-                    // Provide "self" argument.
-                    argumentCategory: ArgumentCategory.Simple,
-                    typeResult: { type: ClassType.cloneAsInstance(classType) },
-                },
-                {
                     // Provide "name" argument.
                     argumentCategory: ArgumentCategory.Simple,
                     typeResult: { type: nameLiteralType },
@@ -6419,33 +6322,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (isFunction(accessMemberType) || isOverloadedFunction(accessMemberType)) {
-                const boundMethodType = bindFunctionToClassOrObjectWithErrors(
-                    classType,
-                    accessMemberType,
-                    classType,
-                    errorNode
+                const typeVarContext = new TypeVarContext(getTypeVarScopeId(accessMemberType));
+                const callResult = validateCallArguments(
+                    errorNode,
+                    argList,
+                    { type: accessMemberType },
+                    typeVarContext,
+                    /* skipUnknownArgCheck */ true
                 );
 
-                if (boundMethodType && (isFunction(boundMethodType) || isOverloadedFunction(boundMethodType))) {
-                    const typeVarContext = new TypeVarContext(getTypeVarScopeId(boundMethodType));
-                    const callResult = validateCallArguments(
-                        errorNode,
-                        argList,
-                        { type: boundMethodType },
-                        typeVarContext,
-                        /* skipUnknownArgCheck */ true
-                    );
-
-                    let isAsymmetricAccessor = false;
-                    if (usage.method === 'set') {
-                        isAsymmetricAccessor = isClassWithAsymmetricAttributeAccessor(classType);
-                    }
-
-                    return {
-                        type: callResult.returnType ?? UnknownType.create(),
-                        isAsymmetricAccessor,
-                    };
+                let isAsymmetricAccessor = false;
+                if (usage.method === 'set') {
+                    isAsymmetricAccessor = isClassWithAsymmetricAttributeAccessor(classType);
                 }
+
+                return {
+                    type: callResult.returnType ?? UnknownType.create(),
+                    isAsymmetricAccessor,
+                };
             }
         }
 
@@ -6971,13 +6865,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         !ClassType.isBuiltIn(concreteSubtype.details.effectiveMetaclass, ['type', '_InitVarMeta']) &&
                         (flags & EvaluatorFlags.ExpectingInstantiableType) === 0
                     ) {
-                        const itemMethodType = getTypeOfClassMember(
+                        const itemMethodType = getTypeOfObjectMember(
                             node,
                             concreteSubtype,
                             getIndexAccessMagicMethodName(usage),
                             /* usage */ undefined,
                             /* diag */ undefined,
-                            MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.ConsiderMetaclassOnly
+                            MemberAccessFlags.SkipAttributeAccessOverride
                         );
 
                         if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
@@ -7300,23 +7194,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const magicMethodName = getIndexAccessMagicMethodName(usage);
-        const itemMethodType = isClassInstance(baseType)
-            ? getTypeOfObjectMember(
-                  node,
-                  baseType,
-                  magicMethodName,
-                  /* usage */ undefined,
-                  /* diag */ undefined,
-                  MemberAccessFlags.SkipAttributeAccessOverride
-              )?.type
-            : getTypeOfClassMember(
-                  node,
-                  baseType,
-                  magicMethodName,
-                  /* usage */ undefined,
-                  /* diag */ undefined,
-                  MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.ConsiderMetaclassOnly
-              )?.type;
+        const itemMethodType = getTypeOfObjectMember(
+            node,
+            baseType,
+            magicMethodName,
+            /* usage */ undefined,
+            /* diag */ undefined,
+            MemberAccessFlags.SkipAttributeAccessOverride
+        )?.type;
 
         if (!itemMethodType) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
@@ -8502,9 +8387,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     type: resultIsInstance
                         ? ClassType.cloneAsInstance(lookupResults.classType)
                         : lookupResults.classType,
-                    bindToType: bindToType
+                    bindToSelfType: bindToType
                         ? TypeBase.cloneForCondition(
-                              synthesizeTypeVarForSelfCls(bindToType, !resultIsInstance),
+                              synthesizeTypeVarForSelfCls(bindToType, /* isClsParam */ false),
                               bindToType.condition
                           )
                         : undefined,
@@ -12809,23 +12694,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let magicMethodType: Type | undefined;
             const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
-            if (isClassInstance(concreteSubtype)) {
+            if (isClass(concreteSubtype)) {
                 magicMethodType = getTypeOfObjectMember(
                     errorNode,
                     concreteSubtype,
                     magicMethodName,
                     /* usage */ undefined,
                     /* diag */ undefined,
-                    MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.AccessClassMembersOnly
-                )?.type;
-            } else if (isInstantiableClass(concreteSubtype)) {
-                magicMethodType = getTypeOfClassMember(
-                    errorNode,
-                    concreteSubtype,
-                    magicMethodName,
-                    /* usage */ undefined,
-                    /* diag */ undefined,
-                    MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.ConsiderMetaclassOnly
+                    MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipAttributeAccessOverride
                 )?.type;
             }
 
@@ -15211,7 +15087,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (TypeBase.isInstance(typeVar)) {
                 return typeVar;
             }
-            return convertToInstance(typeVar) as TypeVarType;
+            return convertToInstance(typeVar);
         });
 
         const typeAliasScopeId = ParseTreeUtils.getScopeIdForNode(name);
@@ -16874,14 +16750,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const initSubclassMethodInfo = getTypeOfClassMemberName(
             errorNode,
             classType,
-            /* isAccessedThroughObject */ false,
             '__init_subclass__',
             { method: 'get' },
             /* diag */ undefined,
             MemberAccessFlags.AccessClassMembersOnly |
                 MemberAccessFlags.SkipObjectBaseClass |
-                MemberAccessFlags.SkipOriginalClass,
-            classType
+                MemberAccessFlags.SkipOriginalClass
         );
 
         if (initSubclassMethodInfo) {
@@ -24654,9 +24528,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     remainingParams.forEach((param) => {
                         FunctionType.addParameter(remainingFunction, param);
                     });
-                    remainingFunction.details.paramSpec = srcParamSpec
-                        ? (convertToInstance(srcParamSpec) as TypeVarType)
-                        : undefined;
+                    remainingFunction.details.paramSpec = srcParamSpec ? convertToInstance(srcParamSpec) : undefined;
 
                     if (
                         !assignType(
@@ -24675,8 +24547,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             remainingParams.length > 0 ||
                             !srcParamSpec ||
                             !assignType(
-                                convertToInstance(destParamSpec) as TypeVarType,
-                                convertToInstance(srcParamSpec) as TypeVarType,
+                                convertToInstance(destParamSpec),
+                                convertToInstance(srcParamSpec),
                                 /* diag */ undefined,
                                 destTypeVarContext,
                                 srcTypeVarContext,
@@ -25666,15 +25538,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberClass?: ClassType,
         errorNode?: ParseNode,
         treatConstructorAsClassMember = false,
-        firstParamType?: ClassType | TypeVarType
+        selfType?: ClassType | TypeVarType
     ): FunctionType | OverloadedFunctionType | undefined {
         const diag = errorNode ? new DiagnosticAddendum() : undefined;
+
         const result = bindFunctionToClassOrObject(
             baseType,
             memberType,
             memberClass,
             treatConstructorAsClassMember,
-            firstParamType,
+            selfType,
             diag
         );
 
@@ -25701,7 +25574,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberType: FunctionType | OverloadedFunctionType,
         memberClass?: ClassType,
         treatConstructorAsClassMember = false,
-        firstParamType?: ClassType | TypeVarType,
+        selfType?: ClassType | TypeVarType,
         diag?: DiagnosticAddendum,
         recursionCount = 0
     ): FunctionType | OverloadedFunctionType | undefined {
@@ -25718,16 +25591,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return memberType;
                 }
 
-                const baseObj = isClassInstance(baseType)
-                    ? baseType
-                    : ClassType.cloneAsInstance(specializeClassType(baseType));
+                const baseObj: ClassType = isInstantiableClass(baseType)
+                    ? ClassType.cloneAsInstance(specializeClassType(baseType))
+                    : baseType;
+
                 return partiallySpecializeFunctionForBoundClassOrObject(
                     baseType,
                     memberType,
-                    memberClass || ClassType.cloneAsInstantiable(baseObj),
+                    memberClass ?? ClassType.cloneAsInstantiable(baseObj),
                     diag,
                     recursionCount,
-                    firstParamType || baseObj,
+                    selfType ?? baseObj,
                     /* stripFirstParam */ isClassInstance(baseType)
                 );
             }
@@ -25737,22 +25611,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 (treatConstructorAsClassMember && FunctionType.isConstructorMethod(memberType))
             ) {
                 const baseClass = isInstantiableClass(baseType) ? baseType : ClassType.cloneAsInstantiable(baseType);
-
-                // If the caller passed an object as the base type, we need to also
-                // convert the firstParamType to an instantiable.
-                const effectiveFirstParamType = firstParamType
-                    ? isInstantiableClass(baseType)
-                        ? firstParamType
-                        : (convertToInstantiable(firstParamType) as ClassType | TypeVarType)
-                    : baseClass;
+                const clsType = selfType ? (convertToInstantiable(selfType) as ClassType | TypeVarType) : undefined;
 
                 return partiallySpecializeFunctionForBoundClassOrObject(
-                    TypeBase.isInstance(baseType) ? ClassType.cloneAsInstantiable(baseType) : baseType,
+                    baseClass,
                     memberType,
-                    memberClass || baseClass,
+                    memberClass ?? baseClass,
                     diag,
                     recursionCount,
-                    effectiveFirstParamType,
+                    clsType ?? baseClass,
                     /* stripFirstParam */ true
                 );
             }
@@ -25761,12 +25628,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const baseClass = isInstantiableClass(baseType) ? baseType : ClassType.cloneAsInstantiable(baseType);
 
                 return partiallySpecializeFunctionForBoundClassOrObject(
-                    TypeBase.isInstance(baseType) ? ClassType.cloneAsInstantiable(baseType) : baseType,
+                    baseClass,
                     memberType,
-                    memberClass || baseClass,
+                    memberClass ?? baseClass,
                     diag,
                     recursionCount,
-                    /* effectiveFirstParamType */ undefined,
+                    /* firstParamType */ undefined,
                     /* stripFirstParam */ false
                 );
             }
@@ -25780,7 +25647,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     overload,
                     memberClass,
                     treatConstructorAsClassMember,
-                    firstParamType,
+                    selfType,
                     /* diag */ undefined,
                     recursionCount
                 );
@@ -25801,7 +25668,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             overload,
                             memberClass,
                             treatConstructorAsClassMember,
-                            firstParamType,
+                            selfType,
                             diag,
                             recursionCount
                         );

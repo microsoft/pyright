@@ -100,15 +100,13 @@ export function validateConstructorArguments(
     const newMethodTypeResult = evaluator.getTypeOfClassMemberName(
         errorNode,
         type,
-        /* isAccessedThroughObject */ false,
         '__new__',
         { method: 'get' },
         /* diag */ undefined,
         MemberAccessFlags.AccessClassMembersOnly |
             MemberAccessFlags.SkipObjectBaseClass |
             MemberAccessFlags.SkipAttributeAccessOverride |
-            MemberAccessFlags.TreatConstructorAsClassMethod,
-        type
+            MemberAccessFlags.TreatConstructorAsClassMethod
     );
 
     const useConstructorTransform = hasConstructorTransform(type);
@@ -275,15 +273,12 @@ function validateNewAndInitMethods(
         initMethodTypeResult = evaluator.getTypeOfClassMemberName(
             errorNode,
             initMethodBindToType,
-            /* isAccessedThroughObject */ false,
             '__init__',
             { method: 'get' },
             /* diag */ undefined,
             MemberAccessFlags.AccessClassMembersOnly |
                 MemberAccessFlags.SkipObjectBaseClass |
-                MemberAccessFlags.SkipAttributeAccessOverride,
-
-            type
+                MemberAccessFlags.SkipAttributeAccessOverride
         );
 
         // Validate __init__ if it's present.
@@ -665,12 +660,11 @@ function validateMetaclassCall(
     if (metaclass && isInstantiableClass(metaclass) && !ClassType.isSameGenericClass(metaclass, type)) {
         const metaclassCallMethodInfo = evaluator.getTypeOfClassMemberName(
             errorNode,
-            metaclass,
-            /* isAccessedThroughObject */ true,
+            ClassType.cloneAsInstance(metaclass),
             '__call__',
             { method: 'get' },
             /* diag */ undefined,
-            MemberAccessFlags.ConsiderMetaclassOnly |
+            MemberAccessFlags.AccessClassMembersOnly |
                 MemberAccessFlags.SkipTypeBaseClass |
                 MemberAccessFlags.SkipAttributeAccessOverride,
             type

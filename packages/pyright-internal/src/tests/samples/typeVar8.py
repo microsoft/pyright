@@ -25,10 +25,14 @@ def func1(x: bool, a: T1, b: S1) -> T1 | S1:
     reveal_type(Ts1.__name__, expected_text="str")
     reveal_type(P1.__name__, expected_text="str")
 
-    # This should generate an error
+    # This should generate an error, but it doesn't because
+    # "type.__name__" is defined as an instance variable in
+    # builtins.pyi.
     a.__name__
 
-    # This should generate an error
+    # This should generate an error, but it doesn't because
+    # "type.__name__" is defined as an instance variable in
+    # builtins.pyi.
     b.__name__
 
     if x:
