@@ -589,7 +589,7 @@ class DocStringConverter {
 
         // catch-all for styles except reST
         const hasArguments =
-            !line?.endsWith(':') && !line?.endsWith('::') && !!line.match(/^\s*.*?\w+(\s*\(.*?\))*\s*:[\s\S]*/g);
+            !line?.endsWith(':') && !line?.endsWith('::') && !!line.match(/^\s*.*?\w+(\s*\(.*?\))*\s*:\s*[\u4e00-\u9fa5\w+]*/g);
 
         // reSt params. Attempt to put directives lines into their own paragraphs.
         const restDirective = DirectivesExtraNewlineRegExp.test(line); //line.match(/^\s*:param/);
