@@ -144,7 +144,7 @@ export function getPathSeparator(pathString: string) {
 
 export function getPathComponents(pathString: string) {
     const normalizedPath = normalizeSlashes(pathString);
-    const rootLength = getRootLength(normalizedPath, /*checkUri*/ isUri(normalizedPath));
+    const rootLength = getRootLength(normalizedPath, /* checkUri */ isUri(normalizedPath));
     const root = normalizedPath.substring(0, rootLength);
     const sep = getPathSeparator(pathString);
     const rest = normalizedPath.substring(rootLength).split(sep);
