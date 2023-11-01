@@ -1678,10 +1678,10 @@ export class Checker extends ParseTreeWalker {
             }
 
             // Invoke the __bool__ method on the type.
-            const boolReturnType = this._evaluator.getTypeOfMagicMethodReturn(
+            const boolReturnType = this._evaluator.getTypeOfMagicMethodCall(
                 expandedSubtype,
-                [],
                 '__bool__',
+                [],
                 node,
                 /* inferenceContext */ undefined
             );
@@ -6553,7 +6553,8 @@ export class Checker extends ParseTreeWalker {
                     this._evaluator.getTypeOfIterator(
                         { type: exceptionType },
                         /* isAsync */ false,
-                        /* errorNode */ undefined
+                        /* errorNode */ except.typeExpression,
+                        /* emitNotIterableError */ false
                     )?.type ?? UnknownType.create();
 
                 doForEachSubtype(iterableType, (subtype) => {
