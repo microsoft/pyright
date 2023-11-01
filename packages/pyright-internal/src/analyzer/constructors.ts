@@ -608,14 +608,16 @@ function validateFallbackConstructorCall(
 
     // It's OK if the argument list consists only of `*args` and `**kwargs`.
     if (argList.length > 0 && argList.some((arg) => arg.argumentCategory === ArgumentCategory.Simple)) {
-        const fileInfo = getFileInfo(errorNode);
-        evaluator.addDiagnostic(
-            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.constructorNoArgs().format({ type: type.aliasName || type.details.name }),
-            errorNode
-        );
-        reportedErrors = true;
+        if (!type.includeSubclasses) {
+            const fileInfo = getFileInfo(errorNode);
+            evaluator.addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.constructorNoArgs().format({ type: type.aliasName || type.details.name }),
+                errorNode
+            );
+            reportedErrors = true;
+        }
     }
 
     if (!inferenceContext && type.typeArguments) {

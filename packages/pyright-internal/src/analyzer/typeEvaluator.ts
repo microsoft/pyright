@@ -3755,25 +3755,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
-                if (subtype.details.boundType) {
-                    const boundType = TypeBase.isInstantiable(subtype)
-                        ? convertToInstantiable(subtype.details.boundType)
-                        : subtype.details.boundType;
-
-                    // Handle Self and type[Self] specially.
-                    if (subtype.details.isSynthesizedSelf && isClass(boundType)) {
-                        return ClassType.cloneIncludeSubclasses(boundType);
-                    }
-
-                    return addConditionToType(boundType, [
-                        {
-                            typeVarName: TypeVarType.getNameWithScope(subtype),
-                            constraintIndex: 0,
-                            isConstrainedTypeVar: false,
-                        },
-                    ]);
-                }
-
                 // If this is a recursive type alias placeholder
                 // that hasn't yet been resolved, return it as is.
                 if (subtype.details.recursiveTypeAliasName) {
@@ -3821,31 +3802,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return AnyType.create();
                 }
 
-                // Convert to an "object" or "type" instance depending on whether
-                // it's instantiable.
-                if (TypeBase.isInstantiable(subtype)) {
-                    if (typeClassType && isInstantiableClass(typeClassType)) {
-                        return subtype.details.isSynthesized
-                            ? typeClassType
-                            : addConditionToType(ClassType.cloneAsInstance(typeClassType), [
-                                  {
-                                      typeVarName: TypeVarType.getNameWithScope(subtype),
-                                      constraintIndex: 0,
-                                      isConstrainedTypeVar: false,
-                                  },
-                              ]);
-                    }
-                } else if (objectType) {
-                    return subtype.details.isSynthesized
-                        ? objectType
-                        : addConditionToType(objectType, [
-                              {
-                                  typeVarName: TypeVarType.getNameWithScope(subtype),
-                                  constraintIndex: 0,
-                                  isConstrainedTypeVar: false,
-                              },
-                          ]);
+                // Fall back to a bound of "object" if no bound is provided.
+                let boundType = subtype.details.boundType ?? objectType ?? UnknownType.create();
+                boundType = TypeBase.isInstantiable(subtype) ? convertToInstantiable(boundType) : boundType;
+
+                // Handle Self and type[Self] specially.
+                if (subtype.details.isSynthesizedSelf && isClass(boundType)) {
+                    return ClassType.cloneIncludeSubclasses(boundType);
                 }
+
+                return addConditionToType(boundType, [
+                    {
+                        typeVarName: TypeVarType.getNameWithScope(subtype),
+                        constraintIndex: 0,
+                        isConstrainedTypeVar: false,
+                    },
+                ]);
 
                 return AnyType.create();
             }
@@ -22782,7 +22754,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // Is the src a specialized "Type" object?
+        // Is the src a specialized "type" object?
         if (isClassInstance(expandedSrcType) && ClassType.isBuiltIn(expandedSrcType, 'type')) {
             const srcTypeArgs = expandedSrcType.typeArguments;
             let typeTypeArg: Type | undefined;
@@ -22870,6 +22842,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType))
                 );
                 return false;
+            } else if (isClassInstance(expandedSrcType) && isMetaclassInstance(expandedSrcType)) {
+                // If the source is a metaclass instance, verify that it's compatible with
+                // the metaclass of the instantiable dest type.
+                const destMetaclass = destType.details.effectiveMetaclass;
+
+                if (destMetaclass && isInstantiableClass(destMetaclass)) {
+                    if (
+                        assignClass(
+                            ClassType.cloneAsInstance(destMetaclass),
+                            expandedSrcType,
+                            diag,
+                            destTypeVarContext,
+                            srcTypeVarContext,
+                            flags,
+                            recursionCount,
+                            /* reportErrorsUsingObjType */ false
+                        )
+                    ) {
+                        return true;
+                    }
+
+                    diag?.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                            printSrcDestTypes(srcType, destType)
+                        )
+                    );
+                    return false;
+                }
             }
         }
 
