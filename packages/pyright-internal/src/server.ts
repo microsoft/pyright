@@ -170,7 +170,7 @@ export class PyrightServer extends LanguageServerBase {
                         .map((p) => resolvePaths(workspace.rootPath, expandPathVariables(workspace.rootPath, p)));
                 }
 
-                serverSettings.fileSpecs = this._getStringValues(pythonAnalysisSection.include);
+                serverSettings.includeFileSpecs = this._getStringValues(pythonAnalysisSection.include);
                 serverSettings.excludeFileSpecs = this._getStringValues(pythonAnalysisSection.exclude);
                 serverSettings.ignoreFileSpecs = this._getStringValues(pythonAnalysisSection.ignore);
 

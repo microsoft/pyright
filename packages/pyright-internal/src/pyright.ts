@@ -31,10 +31,10 @@ import { FullAccessHost } from './common/fullAccessHost';
 import { combinePaths, normalizePath } from './common/pathUtils';
 import { versionFromString } from './common/pythonVersion';
 import { RealTempFile, createFromRealFileSystem } from './common/realFileSystem';
+import { ServiceProvider } from './common/serviceProvider';
+import { createServiceProvider } from './common/serviceProviderExtensions';
 import { Range, isEmptyRange } from './common/textRange';
 import { PyrightFileSystem } from './pyrightFileSystem';
-import { createServiceProvider } from './common/serviceProviderExtensions';
-import { ServiceProvider } from './common/serviceProvider';
 
 const toolName = 'pyright';
 
@@ -239,10 +239,10 @@ async function processArgs(): Promise<ExitStatus> {
             }
         }
 
-        options.fileSpecs = fileSpecList;
-        options.fileSpecs = options.fileSpecs.map((f) => combinePaths(process.cwd(), f));
+        options.includeFileSpecs = fileSpecList;
+        options.includeFileSpecs = options.includeFileSpecs.map((f) => combinePaths(process.cwd(), f));
     } else {
-        options.fileSpecs = [];
+        options.includeFileSpecs = [];
     }
 
     if (args.project) {

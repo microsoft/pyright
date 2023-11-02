@@ -38,7 +38,7 @@ export class CommandLineOptions {
     // A list of file specs to include in the analysis. Can contain
     // directories, in which case all "*.py" files within those directories
     // are included.
-    fileSpecs: string[] = [];
+    includeFileSpecs: string[] = [];
 
     // A list of file specs to exclude in the analysis. Can contain
     // directories, in which case all "*.py" files within those directories

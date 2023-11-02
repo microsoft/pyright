@@ -152,7 +152,7 @@ export interface ServerSettings {
     indexing?: boolean | undefined;
     logTypeEvaluationTime?: boolean | undefined;
     typeEvaluationTimeThreshold?: number | undefined;
-    fileSpecs?: string[];
+    includeFileSpecs?: string[];
     excludeFileSpecs?: string[];
     ignoreFileSpecs?: string[];
     taskListTokens?: TaskListToken[];

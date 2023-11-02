@@ -623,8 +623,8 @@ export class AnalyzerService {
             commandLineOptions.extraPaths
         );
 
-        if (commandLineOptions.fileSpecs.length > 0) {
-            commandLineOptions.fileSpecs.forEach((fileSpec) => {
+        if (commandLineOptions.includeFileSpecs.length > 0) {
+            commandLineOptions.includeFileSpecs.forEach((fileSpec) => {
                 configOptions.include.push(getFileSpec(this.serviceProvider, projectRoot, fileSpec));
             });
         }
@@ -642,7 +642,7 @@ export class AnalyzerService {
         }
 
         if (!configFilePath && commandLineOptions.executionRoot) {
-            if (commandLineOptions.fileSpecs.length === 0) {
+            if (commandLineOptions.includeFileSpecs.length === 0) {
                 // If no config file was found and there are no explicit include
                 // paths specified, assume the caller wants to include all source
                 // files under the execution root path.
