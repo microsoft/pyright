@@ -37,17 +37,17 @@ import { ModuleNode, ParseNodeType } from '../parser/parseNodes';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassIteratorFlags,
-    ClassMemberLookupFlags,
     getClassIterator,
     getClassMemberIterator,
     isMaybeDescriptorInstance,
+    MemberAccessFlags,
 } from './typeUtils';
 
 const DefaultClassIteratorFlagsForFunctions =
-    ClassMemberLookupFlags.SkipObjectBaseClass |
-    ClassMemberLookupFlags.SkipInstanceVariables |
-    ClassMemberLookupFlags.SkipOriginalClass |
-    ClassMemberLookupFlags.DeclaredTypesOnly;
+    MemberAccessFlags.SkipObjectBaseClass |
+    MemberAccessFlags.SkipInstanceMembers |
+    MemberAccessFlags.SkipOriginalClass |
+    MemberAccessFlags.DeclaredTypesOnly;
 
 function isInheritedFromBuiltin(type: FunctionType | OverloadedFunctionType, classType?: ClassType): boolean {
     if (type.category === TypeCategory.OverloadedFunction) {

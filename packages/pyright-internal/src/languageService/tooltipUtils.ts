@@ -22,7 +22,7 @@ import {
     getVariableDocString,
 } from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { ClassMemberLookupFlags, lookUpClassMember } from '../analyzer/typeUtils';
+import { MemberAccessFlags, lookUpClassMember } from '../analyzer/typeUtils';
 import {
     ClassType,
     FunctionType,
@@ -400,7 +400,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
 
     // Try to get the `__init__` method first because it typically has more type information than `__new__`.
     // Don't exclude `object.__init__` since in the plain case we want to show Foo().
-    const initMember = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipInstanceVariables);
+    const initMember = lookUpClassMember(classType, '__init__', MemberAccessFlags.SkipInstanceMembers);
 
     if (initMember) {
         const functionType = evaluator.getTypeOfMember(initMember);
@@ -421,7 +421,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
         const newMember = lookUpClassMember(
             classType,
             '__new__',
-            ClassMemberLookupFlags.SkipObjectBaseClass | ClassMemberLookupFlags.SkipInstanceVariables
+            MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipInstanceMembers
         );
 
         if (newMember) {

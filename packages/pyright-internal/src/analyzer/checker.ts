@@ -123,7 +123,7 @@ import {
 import {
     AssignTypeFlags,
     ClassMember,
-    ClassMemberLookupFlags,
+    MemberAccessFlags,
     applySolvedTypeVars,
     buildTypeVarContextFromSpecializedClass,
     convertToInstance,
@@ -2137,7 +2137,7 @@ export class Checker extends ParseTreeWalker {
             // Does the class have an operator overload for eq?
             const metaclass = leftType.details.effectiveMetaclass;
             if (metaclass && isClass(metaclass)) {
-                if (lookUpClassMember(metaclass, '__eq__', ClassMemberLookupFlags.SkipObjectBaseClass)) {
+                if (lookUpClassMember(metaclass, '__eq__', MemberAccessFlags.SkipObjectBaseClass)) {
                     return true;
                 }
             }
@@ -2176,7 +2176,7 @@ export class Checker extends ParseTreeWalker {
             const eqMethod = lookUpClassMember(
                 ClassType.cloneAsInstantiable(leftType),
                 '__eq__',
-                ClassMemberLookupFlags.SkipObjectBaseClass
+                MemberAccessFlags.SkipObjectBaseClass
             );
 
             if (eqMethod) {
@@ -4519,7 +4519,7 @@ export class Checker extends ParseTreeWalker {
     // as Final in parent classes.
     private _validateFinalMemberOverrides(classType: ClassType) {
         classType.details.fields.forEach((localSymbol, name) => {
-            const parentSymbol = lookUpClassMember(classType, name, ClassMemberLookupFlags.SkipOriginalClass);
+            const parentSymbol = lookUpClassMember(classType, name, MemberAccessFlags.SkipOriginalClass);
             if (
                 parentSymbol &&
                 isInstantiableClass(parentSymbol.classType) &&
@@ -4656,7 +4656,7 @@ export class Checker extends ParseTreeWalker {
         const postInitMember = lookUpClassMember(
             classType,
             '__post_init__',
-            ClassMemberLookupFlags.SkipBaseClasses | ClassMemberLookupFlags.DeclaredTypesOnly
+            MemberAccessFlags.SkipBaseClasses | MemberAccessFlags.DeclaredTypesOnly
         );
 
         // If there's no __post_init__ method, there's nothing to check.
@@ -4897,7 +4897,7 @@ export class Checker extends ParseTreeWalker {
 
             // If the symbol is declared by its parent, we can assume it
             // is initialized there.
-            const parentSymbol = lookUpClassMember(classType, name, ClassMemberLookupFlags.SkipOriginalClass);
+            const parentSymbol = lookUpClassMember(classType, name, MemberAccessFlags.SkipOriginalClass);
             if (parentSymbol) {
                 return;
             }
@@ -5097,12 +5097,12 @@ export class Checker extends ParseTreeWalker {
         const initMember = lookUpClassMember(
             classType,
             '__init__',
-            ClassMemberLookupFlags.SkipObjectBaseClass | ClassMemberLookupFlags.SkipInstanceVariables
+            MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipInstanceMembers
         );
         const newMember = lookUpClassMember(
             classType,
             '__new__',
-            ClassMemberLookupFlags.SkipObjectBaseClass | ClassMemberLookupFlags.SkipInstanceVariables
+            MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipInstanceMembers
         );
 
         if (!initMember || !newMember || !isClass(initMember.classType) || !isClass(newMember.classType)) {
@@ -5125,7 +5125,7 @@ export class Checker extends ParseTreeWalker {
             const callMethod = lookUpClassMember(
                 metaclass,
                 '__call__',
-                ClassMemberLookupFlags.SkipTypeBaseClass | ClassMemberLookupFlags.SkipInstanceVariables
+                MemberAccessFlags.SkipTypeBaseClass | MemberAccessFlags.SkipInstanceMembers
             );
             if (callMethod) {
                 return;
@@ -5628,7 +5628,7 @@ export class Checker extends ParseTreeWalker {
                 }
 
                 assert(isClass(mroBaseClass));
-                const baseClassAndSymbol = lookUpClassMember(mroBaseClass, name, ClassMemberLookupFlags.Default);
+                const baseClassAndSymbol = lookUpClassMember(mroBaseClass, name, MemberAccessFlags.Default);
                 if (!baseClassAndSymbol) {
                     continue;
                 }
@@ -6286,9 +6286,9 @@ export class Checker extends ParseTreeWalker {
         // it could be combined with other classes in a multi-inheritance
         // situation that effectively adds new superclasses that we don't know
         // about statically.
-        let effectiveFlags = ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipOriginalClass;
+        let effectiveFlags = MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipOriginalClass;
         if (ClassType.isFinal(classType)) {
-            effectiveFlags |= ClassMemberLookupFlags.SkipObjectBaseClass;
+            effectiveFlags |= MemberAccessFlags.SkipObjectBaseClass;
         }
 
         const methodMember = lookUpClassMember(classType, methodType.details.name, effectiveFlags);

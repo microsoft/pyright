@@ -65,7 +65,6 @@ import {
     applySolvedTypeVars,
     AssignTypeFlags,
     ClassMember,
-    ClassMemberLookupFlags,
     computeMroLinearization,
     containsAnyOrUnknown,
     convertToInstance,
@@ -87,6 +86,7 @@ import {
     lookUpClassMember,
     lookUpObjectMember,
     mapSubtypes,
+    MemberAccessFlags,
     specializeTupleClass,
     specializeWithUnknown,
     transformPossibleRecursiveTypeAlias,
@@ -1563,7 +1563,7 @@ function narrowTypeForIsInstance(
                             isCallable = !!lookUpClassMember(
                                 concreteVarType,
                                 '__call__',
-                                ClassMemberLookupFlags.SkipInstanceVariables
+                                MemberAccessFlags.SkipInstanceMembers
                             );
                         }
                     }
@@ -2499,11 +2499,7 @@ function narrowTypeForCallable(
                 }
 
                 // See if the object is callable.
-                const callMemberType = lookUpClassMember(
-                    subtype,
-                    '__call__',
-                    ClassMemberLookupFlags.SkipInstanceVariables
-                );
+                const callMemberType = lookUpClassMember(subtype, '__call__', MemberAccessFlags.SkipInstanceMembers);
 
                 if (!callMemberType) {
                     if (!isPositiveTest) {

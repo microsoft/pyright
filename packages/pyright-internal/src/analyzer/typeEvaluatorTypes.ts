@@ -48,7 +48,7 @@ import {
     TypeVarType,
     UnknownType,
 } from './types';
-import { AssignTypeFlags, ClassMember, InferenceContext } from './typeUtils';
+import { AssignTypeFlags, ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
 // Maximum number of unioned subtypes for an inferred type (e.g.
@@ -387,8 +387,8 @@ export interface ClassMemberLookup {
     type: Type;
     isTypeIncomplete: boolean;
 
-    // True if access violates the type (used only for 'set' usage).
-    isSetTypeError: boolean;
+    // True if binding or descriptor access failed.
+    isDescriptorError: boolean;
 
     // True if class member, false otherwise.
     isClassMember: boolean;
@@ -426,46 +426,6 @@ export interface DeclaredSymbolTypeInfo {
 export interface ResolveAliasOptions {
     allowExternallyHiddenAccess?: boolean;
     skipFileNeededCheck?: boolean;
-}
-
-export const enum MemberAccessFlags {
-    None = 0,
-
-    // By default, member accesses are assumed to access the attributes
-    // of a class instance. By setting this flag, only attributes of
-    // the class are considered.
-    AccessClassMembersOnly = 1 << 0,
-
-    // Consider only instance members, not members that could be
-    // class members.
-    AccessInstanceMembersOnly = 1 << 1,
-
-    // By default, members of base classes are also searched.
-    // Set this flag to consider only the specified class' members.
-    SkipBaseClasses = 1 << 2,
-
-    // Do not include the "object" base class in the search.
-    SkipObjectBaseClass = 1 << 3,
-
-    // Consider writes to symbols flagged as ClassVars as an error.
-    DisallowClassVarWrites = 1 << 4,
-
-    // Normally __new__ is treated as a static method, but when
-    // it is invoked implicitly through a constructor call, it
-    // acts like a class method instead.
-    TreatConstructorAsClassMethod = 1 << 5,
-
-    // If an attribute cannot be found when looking for instance
-    // members, normally an attribute access override method
-    // (__getattr__, etc.) may provide the missing attribute type.
-    // This disables this check.
-    SkipAttributeAccessOverride = 1 << 7,
-
-    // Do not include the class itself, only base classes.
-    SkipOriginalClass = 1 << 8,
-
-    // Do not include the "type" base class in the search.
-    SkipTypeBaseClass = 1 << 9,
 }
 
 export interface ValidateTypeArgsOptions {
@@ -582,15 +542,6 @@ export interface TypeEvaluator {
         flags?: MemberAccessFlags,
         selfType?: ClassType | TypeVarType
     ): TypeResult | undefined;
-    getTypeOfClassMemberName: (
-        errorNode: ExpressionNode,
-        classType: ClassType,
-        memberName: string,
-        usage: EvaluatorUsage,
-        diag: DiagnosticAddendum | undefined,
-        flags: MemberAccessFlags,
-        selfType?: ClassType | TypeVarType
-    ) => ClassMemberLookup | undefined;
     getBoundMethod: (
         classType: ClassType,
         memberName: string,
