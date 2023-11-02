@@ -3758,38 +3758,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             expandedType = transformPossibleRecursiveTypeAlias(expandedType);
 
-            doForEachSubtype(expandedType, (subtype, index, allSubtypes) => {
-                if (conditionFilter) {
-                    const filteredType = applyConditionFilterToType(subtype, conditionFilter, recursionCount);
-                    if (!filteredType) {
-                        return undefined;
+            doForEachSubtype(
+                expandedType,
+                (subtype, index, allSubtypes) => {
+                    if (conditionFilter) {
+                        const filteredType = applyConditionFilterToType(subtype, conditionFilter, recursionCount);
+                        if (!filteredType) {
+                            return undefined;
+                        }
+
+                        subtype = filteredType;
                     }
 
-                    subtype = filteredType;
-                }
-
-                let transformedType = callback(
-                    subtype,
-                    unexpandedType,
-                    isLastSubtype && index === allSubtypes.length - 1
-                );
-                if (transformedType !== unexpandedType) {
-                    typeChanged = true;
-                }
-                if (transformedType) {
-                    // Apply the type condition if it's associated with a constrained TypeVar.
-                    const typeCondition = getTypeCondition(subtype)?.filter(
-                        (condition) => condition.isConstrainedTypeVar
+                    let transformedType = callback(
+                        subtype,
+                        unexpandedType,
+                        isLastSubtype && index === allSubtypes.length - 1
                     );
-
-                    if (typeCondition && typeCondition.length > 0) {
-                        transformedType = addConditionToType(transformedType, typeCondition);
+                    if (transformedType !== unexpandedType) {
+                        typeChanged = true;
                     }
+                    if (transformedType) {
+                        // Apply the type condition if it's associated with a constrained TypeVar.
+                        const typeCondition = getTypeCondition(subtype)?.filter(
+                            (condition) => condition.isConstrainedTypeVar
+                        );
 
-                    newSubtypes.push(transformedType);
-                }
-                return undefined;
-            }, sortSubtypes);
+                        if (typeCondition && typeCondition.length > 0) {
+                            transformedType = addConditionToType(transformedType, typeCondition);
+                        }
+
+                        newSubtypes.push(transformedType);
+                    }
+                    return undefined;
+                },
+                sortSubtypes
+            );
         }
 
         if (isUnion(type)) {
