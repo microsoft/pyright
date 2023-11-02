@@ -711,6 +711,14 @@ export class AnalyzerService {
                 commandLineOptions.analyzeUnannotatedFunctions;
         }
 
+        // Override the include based on command-line settings.
+        if (commandLineOptions.includeFileSpecsOverride) {
+            configOptions.include = [];
+            commandLineOptions.includeFileSpecsOverride.forEach((include) => {
+                configOptions.include.push(getFileSpec(this.serviceProvider, include, '.'));
+            });
+        }
+
         const reportDuplicateSetting = (settingName: string, configValue: number | string | boolean) => {
             const settingSource = commandLineOptions.fromVsCodeExtension
                 ? 'the client settings'

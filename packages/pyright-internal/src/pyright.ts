@@ -239,10 +239,8 @@ async function processArgs(): Promise<ExitStatus> {
             }
         }
 
-        options.includeFileSpecs = fileSpecList;
-        options.includeFileSpecs = options.includeFileSpecs.map((f) => combinePaths(process.cwd(), f));
-    } else {
-        options.includeFileSpecs = [];
+        options.includeFileSpecsOverride = fileSpecList;
+        options.includeFileSpecsOverride = options.includeFileSpecsOverride.map((f) => combinePaths(process.cwd(), f));
     }
 
     if (args.project) {
