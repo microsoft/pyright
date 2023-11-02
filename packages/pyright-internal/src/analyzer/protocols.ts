@@ -36,10 +36,10 @@ import {
     applySolvedTypeVars,
     AssignTypeFlags,
     ClassMember,
-    ClassMemberLookupFlags,
     containsLiteralType,
     getTypeVarScopeId,
     lookUpClassMember,
+    MemberAccessFlags,
     partiallySpecializeType,
     populateTypeVarContextForSelfType,
     removeParamSpecVariadicsFromSignature,
@@ -489,9 +489,7 @@ function assignClassToProtocolInternal(
                     if (isSrcReadOnly) {
                         // The source attribute is read-only. Make sure the setter
                         // is not defined in the dest property.
-                        if (
-                            lookUpClassMember(destMemberType, '__set__', ClassMemberLookupFlags.SkipInstanceVariables)
-                        ) {
+                        if (lookUpClassMember(destMemberType, '__set__', MemberAccessFlags.SkipInstanceMembers)) {
                             if (subDiag) {
                                 subDiag.addMessage(
                                     Localizer.DiagnosticAddendum.memberIsWritableInProtocol().format({ name })

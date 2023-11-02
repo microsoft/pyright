@@ -90,7 +90,7 @@ export interface ClassMember {
     skippedUndeclaredType: boolean;
 }
 
-export const enum ClassMemberLookupFlags {
+export const enum MemberAccessFlags {
     Default = 0,
 
     // By default, the original (derived) class is searched along
@@ -106,21 +106,35 @@ export const enum ClassMemberLookupFlags {
     // Skip the 'object' base class in particular.
     SkipObjectBaseClass = 1 << 2,
 
+    // Skip the 'type' base class in particular.
+    SkipTypeBaseClass = 1 << 3,
+
     // By default, both class and instance variables are searched.
     // If this flag is set, the instance variables are skipped.
-    SkipInstanceVariables = 1 << 3,
+    SkipInstanceMembers = 1 << 4,
 
     // By default, both class and instance variables are searched.
     // If this flag is set, the class variables are skipped.
-    SkipClassVariables = 1 << 4,
+    SkipClassMembers = 1 << 5,
 
     // By default, the first symbol is returned even if it has only
     // an inferred type associated with it. If this flag is set,
     // the search looks only for symbols with declared types.
-    DeclaredTypesOnly = 1 << 5,
+    DeclaredTypesOnly = 1 << 6,
 
-    // Skip the 'type' base class in particular.
-    SkipTypeBaseClass = 1 << 6,
+    // Consider writes to symbols flagged as ClassVars as an error.
+    DisallowClassVarWrites = 1 << 7,
+
+    // Normally __new__ is treated as a static method, but when
+    // it is invoked implicitly through a constructor call, it
+    // acts like a class method instead.
+    TreatConstructorAsClassMethod = 1 << 8,
+
+    // If an attribute cannot be found when looking for instance
+    // members, normally an attribute access override method
+    // (__getattr__, etc.) may provide the missing attribute type.
+    // This disables this check.
+    SkipAttributeAccessOverride = 1 << 9,
 }
 
 export const enum ClassIteratorFlags {
@@ -1135,7 +1149,7 @@ export function isCallableType(type: Type): boolean {
             return true;
         }
 
-        const callMember = lookUpObjectMember(type, '__call__', ClassMemberLookupFlags.SkipInstanceVariables);
+        const callMember = lookUpObjectMember(type, '__call__', MemberAccessFlags.SkipInstanceMembers);
         return !!callMember;
     }
 
@@ -1489,7 +1503,7 @@ export function getContainerDepth(type: Type, recursionCount = 0) {
 export function lookUpObjectMember(
     objectType: ClassType,
     memberName: string,
-    flags = ClassMemberLookupFlags.Default,
+    flags = MemberAccessFlags.Default,
     skipMroClass?: ClassType | undefined
 ): ClassMember | undefined {
     if (isClassInstance(objectType)) {
@@ -1504,7 +1518,7 @@ export function lookUpObjectMember(
 export function lookUpClassMember(
     classType: ClassType,
     memberName: string,
-    flags = ClassMemberLookupFlags.Default,
+    flags = MemberAccessFlags.Default,
     skipMroClass?: ClassType | undefined
 ): ClassMember | undefined {
     const memberItr = getClassMemberIterator(classType, memberName, flags, skipMroClass);
@@ -1525,26 +1539,26 @@ export function lookUpClassMember(
 export function* getClassMemberIterator(
     classType: ClassType | AnyType | UnknownType,
     memberName: string,
-    flags = ClassMemberLookupFlags.Default,
+    flags = MemberAccessFlags.Default,
     skipMroClass?: ClassType | undefined
 ) {
-    const declaredTypesOnly = (flags & ClassMemberLookupFlags.DeclaredTypesOnly) !== 0;
+    const declaredTypesOnly = (flags & MemberAccessFlags.DeclaredTypesOnly) !== 0;
     let skippedUndeclaredType = false;
 
     if (isClass(classType)) {
         let classFlags = ClassIteratorFlags.Default;
-        if (flags & ClassMemberLookupFlags.SkipOriginalClass) {
+        if (flags & MemberAccessFlags.SkipOriginalClass) {
             if (isClass(classType)) {
                 skipMroClass = classType;
             }
         }
-        if (flags & ClassMemberLookupFlags.SkipBaseClasses) {
+        if (flags & MemberAccessFlags.SkipBaseClasses) {
             classFlags = classFlags | ClassIteratorFlags.SkipBaseClasses;
         }
-        if (flags & ClassMemberLookupFlags.SkipObjectBaseClass) {
+        if (flags & MemberAccessFlags.SkipObjectBaseClass) {
             classFlags = classFlags | ClassIteratorFlags.SkipObjectBaseClass;
         }
-        if (flags & ClassMemberLookupFlags.SkipTypeBaseClass) {
+        if (flags & MemberAccessFlags.SkipTypeBaseClass) {
             classFlags = classFlags | ClassIteratorFlags.SkipTypeBaseClass;
         }
 
@@ -1576,7 +1590,7 @@ export function* getClassMemberIterator(
             const memberFields = specializedMroClass.details.fields;
 
             // Look at instance members first if requested.
-            if ((flags & ClassMemberLookupFlags.SkipInstanceVariables) === 0) {
+            if ((flags & MemberAccessFlags.SkipInstanceMembers) === 0) {
                 const symbol = memberFields.get(memberName);
                 if (symbol && symbol.isInstanceMember()) {
                     const hasDeclaredType = symbol.hasTypedDeclarations();
@@ -1598,7 +1612,7 @@ export function* getClassMemberIterator(
             }
 
             // Next look at class members.
-            if ((flags & ClassMemberLookupFlags.SkipClassVariables) === 0) {
+            if ((flags & MemberAccessFlags.SkipClassMembers) === 0) {
                 const symbol = memberFields.get(memberName);
                 if (symbol && symbol.isClassMember()) {
                     const hasDeclaredType = symbol.hasTypedDeclarations();

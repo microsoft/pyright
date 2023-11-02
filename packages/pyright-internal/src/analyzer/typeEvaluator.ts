@@ -171,7 +171,6 @@ import {
     FunctionArgument,
     FunctionTypeResult,
     MemberAccessDeprecationInfo,
-    MemberAccessFlags,
     PrintTypeOptions,
     ResolveAliasOptions,
     TypeEvaluator,
@@ -185,8 +184,8 @@ import * as TypePrinter from './typePrinter';
 import {
     AssignTypeFlags,
     ClassMember,
-    ClassMemberLookupFlags,
     InferenceContext,
+    MemberAccessFlags,
     UniqueSignatureTracker,
     addConditionToType,
     addTypeVarsToListIfUnique,
@@ -1995,7 +1994,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberName: string,
         usage: EvaluatorUsage = { method: 'get' },
         diag: DiagnosticAddendum | undefined = undefined,
-        flags = MemberAccessFlags.None,
+        flags = MemberAccessFlags.Default,
         selfType?: ClassType | TypeVarType
     ): TypeResult | undefined {
         if (ClassType.isPartiallyEvaluated(objectType)) {
@@ -2019,7 +2018,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the object type is an instantiable (i.e. it derives from "type") and
         // we've been asked not to consider instance members, don't look in the class.
         // Consider only the metaclass class variables in this case.
-        let skipObjectTypeLookup = objectTypeIsInstantiable && (flags & MemberAccessFlags.AccessClassMembersOnly) !== 0;
+        let skipObjectTypeLookup = objectTypeIsInstantiable && (flags & MemberAccessFlags.SkipInstanceMembers) !== 0;
 
         // Look up the attribute in the metaclass first. If the member is a descriptor
         // (an object with a __get__ and __set__ method) and the access is a 'get',
@@ -2057,8 +2056,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let effectiveFlags = flags;
 
             if (objectTypeIsInstantiable) {
-                effectiveFlags |=
-                    MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipAttributeAccessOverride;
+                effectiveFlags |= MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride;
+                effectiveFlags &= ~MemberAccessFlags.SkipClassMembers;
             } else {
                 effectiveFlags |= MemberAccessFlags.DisallowClassVarWrites;
             }
@@ -2083,9 +2082,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // an instance of a class. Limit access to metaclass instance members
             // in this case.
             if (!objectTypeIsInstantiable) {
-                effectiveFlags |=
-                    MemberAccessFlags.AccessInstanceMembersOnly | MemberAccessFlags.SkipAttributeAccessOverride;
-                effectiveFlags &= ~MemberAccessFlags.AccessClassMembersOnly;
+                effectiveFlags |= MemberAccessFlags.SkipClassMembers | MemberAccessFlags.SkipAttributeAccessOverride;
+                effectiveFlags &= ~MemberAccessFlags.SkipInstanceMembers;
             }
 
             memberInfo = getTypeOfClassMemberName(
@@ -2099,7 +2097,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        if (memberInfo && !memberInfo.isSetTypeError) {
+        if (memberInfo && !memberInfo.isDescriptorError) {
             return {
                 type: memberInfo.type,
                 classType: memberInfo.classType,
@@ -2117,32 +2115,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberName: string,
         recursionCount = 0
     ): FunctionType | OverloadedFunctionType | undefined {
-        const memberInfo = lookUpClassMember(classType, memberName, ClassMemberLookupFlags.SkipInstanceVariables);
+        const memberInfo = lookUpClassMember(classType, memberName, MemberAccessFlags.SkipInstanceMembers);
 
-        if (memberInfo) {
-            const unboundMethodType = getTypeOfMember(memberInfo);
-            if (isFunction(unboundMethodType) || isOverloadedFunction(unboundMethodType)) {
-                const boundMethod = bindFunctionToClassOrObject(
-                    ClassType.cloneAsInstance(classType),
-                    unboundMethodType,
-                    /* memberClass */ undefined,
-                    /* treatConstructorAsClassMember */ true,
-                    /* selfType */ undefined,
-                    /* diag */ undefined,
-                    recursionCount
-                );
+        if (!memberInfo) {
+            return undefined;
+        }
 
-                if (boundMethod) {
-                    return boundMethod;
-                }
-            } else if (isAnyOrUnknown(unboundMethodType)) {
-                const unknownFunction = FunctionType.createSynthesizedInstance(
-                    '',
-                    FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
-                );
-                FunctionType.addDefaultParameters(unknownFunction);
-                return unknownFunction;
-            }
+        const unboundMethodType = getTypeOfMember(memberInfo);
+        if (isFunction(unboundMethodType) || isOverloadedFunction(unboundMethodType)) {
+            return bindFunctionToClassOrObject(
+                ClassType.cloneAsInstance(classType),
+                unboundMethodType,
+                /* memberClass */ undefined,
+                /* treatConstructorAsClassMember */ true,
+                /* selfType */ undefined,
+                /* diag */ undefined,
+                recursionCount
+            );
+        }
+
+        if (isAnyOrUnknown(unboundMethodType)) {
+            const unknownFunction = FunctionType.createSynthesizedInstance(
+                '',
+                FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+            );
+            FunctionType.addDefaultParameters(unknownFunction);
+            return unknownFunction;
         }
 
         return undefined;
@@ -2345,8 +2343,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 const classMemberInfo = lookUpClassMember(
                                     classTypeInfo.classType,
                                     expression.value,
-                                    ClassMemberLookupFlags.SkipInstanceVariables |
-                                        ClassMemberLookupFlags.DeclaredTypesOnly
+                                    MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.DeclaredTypesOnly
                                 );
                                 if (classMemberInfo) {
                                     symbol = classMemberInfo.symbol;
@@ -2372,7 +2369,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     classMemberInfo = lookUpObjectMember(
                         baseType,
                         expression.memberName.value,
-                        ClassMemberLookupFlags.DeclaredTypesOnly
+                        MemberAccessFlags.DeclaredTypesOnly
                     );
                     classOrObjectBase = baseType;
                     memberAccessClass = classMemberInfo?.classType;
@@ -2388,7 +2385,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     classMemberInfo = lookUpClassMember(
                         baseType,
                         expression.memberName.value,
-                        ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.DeclaredTypesOnly
+                        MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.DeclaredTypesOnly
                     );
                     classOrObjectBase = baseType;
                     memberAccessClass = classMemberInfo?.classType;
@@ -2751,11 +2748,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (subtype.details.isInstanceHashable !== undefined) {
                     isObjectHashable = subtype.details.isInstanceHashable;
                 } else {
-                    const hashMember = lookUpObjectMember(
-                        subtype,
-                        '__hash__',
-                        ClassMemberLookupFlags.SkipObjectBaseClass
-                    );
+                    const hashMember = lookUpObjectMember(subtype, '__hash__', MemberAccessFlags.SkipObjectBaseClass);
 
                     if (hashMember && hashMember.isTypeDeclared) {
                         const decls = hashMember.symbol.getTypedDeclarations();
@@ -3110,7 +3103,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const memberInfo = lookUpClassMember(
                         classType.classType,
                         nameNode.value,
-                        ClassMemberLookupFlags.SkipOriginalClass
+                        MemberAccessFlags.SkipOriginalClass
                     );
                     if (memberInfo?.isTypeDeclared) {
                         declaredType = getTypeOfMember(memberInfo);
@@ -3307,7 +3300,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let memberInfo = lookUpClassMember(
                 classTypeInfo.classType,
                 memberName,
-                isInstanceMember ? ClassMemberLookupFlags.Default : ClassMemberLookupFlags.SkipInstanceVariables
+                isInstanceMember ? MemberAccessFlags.Default : MemberAccessFlags.SkipInstanceMembers
             );
 
             const memberFields = classTypeInfo.classType.details.fields;
@@ -3333,7 +3326,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const classMemberDetails = lookUpClassMember(
                                 memberClass,
                                 memberName,
-                                ClassMemberLookupFlags.SkipInstanceVariables
+                                MemberAccessFlags.SkipInstanceMembers
                             );
                             let isPotentiallyDescriptor = false;
 
@@ -3400,11 +3393,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             // Look up the member info again, now that we've potentially updated it.
-            memberInfo = lookUpClassMember(
-                classTypeInfo.classType,
-                memberName,
-                ClassMemberLookupFlags.DeclaredTypesOnly
-            );
+            memberInfo = lookUpClassMember(classTypeInfo.classType, memberName, MemberAccessFlags.DeclaredTypesOnly);
 
             if (!memberInfo && srcExprNode && !isTypeIncomplete) {
                 reportPossibleUnknownAssignment(
@@ -4997,13 +4986,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     classMemberInfo = lookUpClassMember(
                         baseType,
                         node.memberName.value,
-                        ClassMemberLookupFlags.SkipOriginalClass
+                        MemberAccessFlags.SkipOriginalClass
                     );
                 } else if (isClassInstance(baseType)) {
                     classMemberInfo = lookUpObjectMember(
                         baseType,
                         node.memberName.value,
-                        ClassMemberLookupFlags.SkipOriginalClass
+                        MemberAccessFlags.SkipOriginalClass
                     );
                 }
 
@@ -5339,11 +5328,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case TypeCategory.Function:
             case TypeCategory.OverloadedFunction: {
-                if (memberName === '__defaults__') {
-                    // The "__defaults__" member is not currently defined in the "function"
-                    // class, so we'll special-case it here.
-                    type = AnyType.create();
-                } else if (memberName === '__self__') {
+                if (memberName === '__self__') {
                     // The "__self__" member is not currently defined in the "function"
                     // class, so we'll special-case it here.
                     const functionType = isFunction(baseType) ? baseType : baseType.overloads[0];
@@ -5354,11 +5339,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         type = functionType.boundToType;
                     }
                 } else {
-                    if (!functionObj) {
-                        type = AnyType.create();
-                    } else {
-                        type = getTypeOfMemberAccessWithBaseType(node, { type: functionObj }, usage, flags).type;
-                    }
+                    type = getTypeOfMemberAccessWithBaseType(
+                        node,
+                        { type: functionObj ?? AnyType.create() },
+                        usage,
+                        flags
+                    ).type;
                 }
                 break;
             }
@@ -5457,39 +5443,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         flags: MemberAccessFlags,
         selfType?: ClassType | TypeVarType
     ): ClassMemberLookup | undefined {
-        let classLookupFlags = ClassMemberLookupFlags.Default;
-        if (flags & MemberAccessFlags.AccessClassMembersOnly) {
-            classLookupFlags |= ClassMemberLookupFlags.SkipInstanceVariables;
-        }
-        if (flags & MemberAccessFlags.AccessInstanceMembersOnly) {
-            classLookupFlags |= ClassMemberLookupFlags.SkipClassVariables;
-        }
-        if (flags & MemberAccessFlags.SkipBaseClasses) {
-            classLookupFlags |= ClassMemberLookupFlags.SkipBaseClasses;
-        }
-        if (flags & MemberAccessFlags.SkipObjectBaseClass) {
-            classLookupFlags |= ClassMemberLookupFlags.SkipObjectBaseClass;
-        }
-        if (flags & MemberAccessFlags.SkipTypeBaseClass) {
-            classLookupFlags |= ClassMemberLookupFlags.SkipTypeBaseClass;
-        }
-        if (flags & MemberAccessFlags.SkipOriginalClass) {
-            classLookupFlags |= ClassMemberLookupFlags.SkipOriginalClass;
-        }
-
         const isAccessedThroughObject = TypeBase.isInstance(classType);
 
         // Always look for a member with a declared type first.
-        let memberInfo = lookUpClassMember(
-            classType,
-            memberName,
-            classLookupFlags | ClassMemberLookupFlags.DeclaredTypesOnly
-        );
+        let memberInfo = lookUpClassMember(classType, memberName, flags | MemberAccessFlags.DeclaredTypesOnly);
 
         // If we couldn't find a symbol with a declared type, use
         // a symbol with an inferred type.
         if (!memberInfo) {
-            memberInfo = lookUpClassMember(classType, memberName, classLookupFlags);
+            memberInfo = lookUpClassMember(classType, memberName, flags);
         }
 
         if (memberInfo) {
@@ -5612,38 +5574,40 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 diag
             );
 
-            if (!descriptorResult) {
-                return undefined;
-            }
-            type = descriptorResult.type;
-            let isSetTypeError = false;
+            let isDescriptorError = true;
 
-            if (usage.method === 'set' && usage.setType) {
-                // Verify that the assigned type is compatible.
-                if (!assignType(type, usage.setType.type, diag?.createAddendum())) {
-                    if (!usage.setType.isIncomplete) {
+            if (descriptorResult) {
+                isDescriptorError = false;
+
+                type = descriptorResult.type;
+
+                if (usage.method === 'set' && usage.setType) {
+                    // Verify that the assigned type is compatible.
+                    if (!assignType(type, usage.setType.type, diag?.createAddendum())) {
+                        if (!usage.setType.isIncomplete) {
+                            diag?.addMessage(
+                                Localizer.DiagnosticAddendum.memberAssignment().format({
+                                    type: printType(usage.setType.type),
+                                    name: memberName,
+                                    classType: printObjectTypeForClass(classType),
+                                })
+                            );
+                        }
+                        isDescriptorError = true;
+                    }
+
+                    if (
+                        isInstantiableClass(memberInfo.classType) &&
+                        ClassType.isFrozenDataClass(memberInfo.classType) &&
+                        isAccessedThroughObject
+                    ) {
                         diag?.addMessage(
-                            Localizer.DiagnosticAddendum.memberAssignment().format({
-                                type: printType(usage.setType.type),
-                                name: memberName,
-                                classType: printObjectTypeForClass(classType),
+                            Localizer.DiagnosticAddendum.dataClassFrozen().format({
+                                name: printType(ClassType.cloneAsInstance(memberInfo.classType)),
                             })
                         );
+                        isDescriptorError = true;
                     }
-                    isSetTypeError = true;
-                }
-
-                if (
-                    isInstantiableClass(memberInfo.classType) &&
-                    ClassType.isFrozenDataClass(memberInfo.classType) &&
-                    isAccessedThroughObject
-                ) {
-                    diag?.addMessage(
-                        Localizer.DiagnosticAddendum.dataClassFrozen().format({
-                            name: printType(ClassType.cloneAsInstance(memberInfo.classType)),
-                        })
-                    );
-                    isSetTypeError = true;
                 }
             }
 
@@ -5651,11 +5615,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 symbol: memberInfo.symbol,
                 type,
                 isTypeIncomplete,
-                isSetTypeError,
+                isDescriptorError,
                 isClassMember: !memberInfo.isInstanceMember,
                 isClassVar: memberInfo.isClassVar,
                 classType: memberInfo.classType,
-                isAsymmetricAccessor: descriptorResult.isAsymmetricAccessor,
+                isAsymmetricAccessor: descriptorResult?.isAsymmetricAccessor ?? false,
                 memberAccessDeprecationInfo: descriptorResult?.memberAccessDeprecationInfo,
             };
         }
@@ -5663,17 +5627,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // No attribute of that name was found. If this is a member access
         // through an object, see if there's an attribute access override
         // method ("__getattr__", etc.).
-        if (
-            (flags & (MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipAttributeAccessOverride)) ===
-            0
-        ) {
+        if ((flags & (MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride)) === 0) {
             const generalAttrType = applyAttributeAccessOverride(classType, errorNode, usage, memberName, selfType);
             if (generalAttrType) {
                 return {
                     symbol: undefined,
                     type: generalAttrType.type,
                     isTypeIncomplete: false,
-                    isSetTypeError: false,
+                    isDescriptorError: false,
                     isClassMember: false,
                     isClassVar: false,
                     isAsymmetricAccessor: generalAttrType.isAsymmetricAccessor,
@@ -5748,7 +5709,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const accessMethod = lookUpClassMember(
                         lookupClass,
                         accessMethodName,
-                        ClassMemberLookupFlags.SkipInstanceVariables
+                        MemberAccessFlags.SkipInstanceMembers
                     );
 
                     // Handle properties specially.
@@ -5834,7 +5795,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // interpreted as a read-only attribute rather than a protocol, so accessing
                             // it directly from the class has an ambiguous meaning.
                             if (
-                                (flags & MemberAccessFlags.AccessClassMembersOnly) !== 0 &&
+                                (flags & MemberAccessFlags.SkipInstanceMembers) !== 0 &&
                                 ClassType.isProtocolClass(classType)
                             ) {
                                 diag?.addMessage(Localizer.DiagnosticAddendum.propertyAccessFromProtocolClass());
@@ -6104,8 +6065,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let isAsymmetric = false;
 
-        const getterSymbolResult = lookUpClassMember(classType, '__get__', ClassMemberLookupFlags.SkipBaseClasses);
-        const setterSymbolResult = lookUpClassMember(classType, '__set__', ClassMemberLookupFlags.SkipBaseClasses);
+        const getterSymbolResult = lookUpClassMember(classType, '__get__', MemberAccessFlags.SkipBaseClasses);
+        const setterSymbolResult = lookUpClassMember(classType, '__set__', MemberAccessFlags.SkipBaseClasses);
 
         if (!getterSymbolResult || !setterSymbolResult) {
             isAsymmetric = false;
@@ -6141,8 +6102,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let isAsymmetric = false;
 
-        const getterSymbolResult = lookUpClassMember(classType, '__getattr__', ClassMemberLookupFlags.SkipBaseClasses);
-        const setterSymbolResult = lookUpClassMember(classType, '__setattr__', ClassMemberLookupFlags.SkipBaseClasses);
+        const getterSymbolResult = lookUpClassMember(classType, '__getattr__', MemberAccessFlags.SkipBaseClasses);
+        const setterSymbolResult = lookUpClassMember(classType, '__setattr__', MemberAccessFlags.SkipBaseClasses);
 
         if (!getterSymbolResult || !setterSymbolResult) {
             isAsymmetric = false;
@@ -6187,7 +6148,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 name,
                 { method: 'get' },
                 /* diag */ undefined,
-                MemberAccessFlags.AccessClassMembersOnly |
+                MemberAccessFlags.SkipInstanceMembers |
                     MemberAccessFlags.SkipObjectBaseClass |
                     MemberAccessFlags.SkipAttributeAccessOverride,
                 selfType
@@ -8288,7 +8249,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const effectiveTargetClass = isClass(targetClassType) ? targetClassType : undefined;
 
             const lookupResults = bindToType
-                ? lookUpClassMember(bindToType, memberName, ClassMemberLookupFlags.Default, effectiveTargetClass)
+                ? lookUpClassMember(bindToType, memberName, MemberAccessFlags.Default, effectiveTargetClass)
                 : undefined;
             if (lookupResults && isInstantiableClass(lookupResults.classType)) {
                 return {
@@ -9592,7 +9553,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             '__call__',
             /* usage */ undefined,
             /* diag */ undefined,
-            MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.AccessClassMembersOnly
+            MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.SkipInstanceMembers
         )?.type;
 
         if (!memberType) {
@@ -11729,11 +11690,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (isClassInstance(argType)) {
-                    const callMember = lookUpObjectMember(
-                        argType,
-                        '__call__',
-                        ClassMemberLookupFlags.SkipInstanceVariables
-                    );
+                    const callMember = lookUpObjectMember(argType, '__call__', MemberAccessFlags.SkipInstanceMembers);
                     if (callMember) {
                         const memberType = getTypeOfMember(callMember);
                         if (isOverloadedFunction(memberType)) {
@@ -12609,7 +12566,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     methodName,
                     /* usage */ undefined,
                     /* diag */ undefined,
-                    MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipAttributeAccessOverride
+                    MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
                 )?.type;
             }
 
@@ -16251,14 +16208,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // See if there's already a non-synthesized __init__ method.
                 // We shouldn't override it.
                 if (!skipSynthesizedInit) {
-                    const initSymbol = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipBaseClasses);
+                    const initSymbol = lookUpClassMember(classType, '__init__', MemberAccessFlags.SkipBaseClasses);
                     if (initSymbol) {
                         hasExistingInitMethod = true;
                     }
                 }
 
                 let skipSynthesizeHash = false;
-                const hashSymbol = lookUpClassMember(classType, '__hash__', ClassMemberLookupFlags.SkipBaseClasses);
+                const hashSymbol = lookUpClassMember(classType, '__hash__', MemberAccessFlags.SkipBaseClasses);
 
                 // If there is a hash symbol defined in the class (i.e. one that we didn't
                 // synthesize above), then we shouldn't synthesize a new one for the dataclass.
@@ -16656,15 +16613,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         const errorNode = argList.length > 0 ? argList[0].node!.name! : node.name;
-        const initSubclassMethodInfo = getTypeOfClassMemberName(
+        const initSubclassMethodInfo = getTypeOfObjectMember(
             errorNode,
             classType,
             '__init_subclass__',
             { method: 'get' },
             /* diag */ undefined,
-            MemberAccessFlags.AccessClassMembersOnly |
+            MemberAccessFlags.SkipClassMembers |
                 MemberAccessFlags.SkipObjectBaseClass |
-                MemberAccessFlags.SkipOriginalClass
+                MemberAccessFlags.SkipOriginalClass |
+                MemberAccessFlags.SkipAttributeAccessOverride
         );
 
         if (initSubclassMethodInfo) {
@@ -16685,7 +16643,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const newMethodMember = lookUpClassMember(
                 classType.details.effectiveMetaclass,
                 '__new__',
-                ClassMemberLookupFlags.SkipTypeBaseClass
+                MemberAccessFlags.SkipTypeBaseClass
             );
 
             if (newMethodMember) {
@@ -17384,7 +17342,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const baseClassMemberInfo = lookUpClassMember(
                 containingClassType,
                 methodName,
-                ClassMemberLookupFlags.SkipOriginalClass
+                MemberAccessFlags.SkipOriginalClass
             );
 
             if (baseClassMemberInfo) {
@@ -19893,7 +19851,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (isInstantiableClass(subtype)) {
                         // Try to find a member that has a declared type. If so, that
                         // overrides any inferred types.
-                        let member = lookUpClassMember(subtype, memberName, ClassMemberLookupFlags.DeclaredTypesOnly);
+                        let member = lookUpClassMember(subtype, memberName, MemberAccessFlags.DeclaredTypesOnly);
                         if (!member) {
                             member = lookUpClassMember(subtype, memberName);
                         }
@@ -19911,7 +19869,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     } else if (isClassInstance(subtype)) {
                         // Try to find a member that has a declared type. If so, that
                         // overrides any inferred types.
-                        let member = lookUpObjectMember(subtype, memberName, ClassMemberLookupFlags.DeclaredTypesOnly);
+                        let member = lookUpObjectMember(subtype, memberName, MemberAccessFlags.DeclaredTypesOnly);
                         if (!member) {
                             member = lookUpObjectMember(subtype, memberName);
                         }
@@ -25971,7 +25929,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getBuiltInType,
         getTypeOfMember,
         getTypeOfObjectMember,
-        getTypeOfClassMemberName,
         getBoundMethod,
         getTypeOfMagicMethodCall,
         bindFunctionToClassOrObject,

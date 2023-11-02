@@ -24,7 +24,7 @@ import {
     OverloadedFunctionType,
     Type,
 } from './types';
-import { ClassMember, ClassMemberLookupFlags, lookUpObjectMember, synthesizeTypeVarForSelfCls } from './typeUtils';
+import { ClassMember, lookUpObjectMember, MemberAccessFlags, synthesizeTypeVarForSelfCls } from './typeUtils';
 
 export function applyFunctionTransform(
     evaluator: TypeEvaluator,
@@ -65,7 +65,7 @@ function applyTotalOrderingTransform(
     // Verify that the class has at least one of the required functions.
     let firstMemberFound: ClassMember | undefined;
     const missingMethods = orderingMethods.filter((methodName) => {
-        const memberInfo = lookUpObjectMember(instanceType, methodName, ClassMemberLookupFlags.SkipInstanceVariables);
+        const memberInfo = lookUpObjectMember(instanceType, methodName, MemberAccessFlags.SkipInstanceMembers);
         if (memberInfo && !firstMemberFound) {
             firstMemberFound = memberInfo;
         }

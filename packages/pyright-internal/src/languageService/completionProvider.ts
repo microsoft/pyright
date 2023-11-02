@@ -60,7 +60,6 @@ import {
     TypeCategory,
 } from '../analyzer/types';
 import {
-    ClassMemberLookupFlags,
     containsLiteralType,
     doForEachSignature,
     doForEachSubtype,
@@ -70,6 +69,7 @@ import {
     isMaybeDescriptorInstance,
     isNoneInstance,
     lookUpClassMember,
+    MemberAccessFlags,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
@@ -1633,7 +1633,7 @@ export class CompletionProvider {
         const classMember = lookUpClassMember(
             classResults.classType,
             classVariableName,
-            ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipOriginalClass
+            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipOriginalClass
         );
 
         // First, see whether we can use semantic info to get variable type.
