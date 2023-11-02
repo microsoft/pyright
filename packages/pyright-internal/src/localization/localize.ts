@@ -1165,6 +1165,14 @@ export namespace Localizer {
         export const dataClassFrozen = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.dataClassFrozen'));
         export const dataClassFieldLocation = () => getRawString('DiagnosticAddendum.dataClassFieldLocation');
+        export const descriptorAccessBindingFailed = () =>
+            new ParameterizedString<{ name: string; className: string }>(
+                getRawString('DiagnosticAddendum.descriptorAccessBindingFailed')
+            );
+        export const descriptorAccessCallFailed = () =>
+            new ParameterizedString<{ name: string; className: string }>(
+                getRawString('DiagnosticAddendum.descriptorAccessCallFailed')
+            );
         export const finalMethod = () => getRawString('DiagnosticAddendum.finalMethod');
         export const functionParamDefaultMissing = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.functionParamDefaultMissing'));

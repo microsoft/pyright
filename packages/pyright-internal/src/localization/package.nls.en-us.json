@@ -593,6 +593,8 @@
         "bytesTypePromotions": "Set disableBytesTypePromotions to false to enable type promotion behavior for \"bytearray\" and \"memoryview\"",
         "conditionalRequiresBool": "Method __bool__ for type \"{operandType}\" returns type \"{boolReturnType}\" rather than \"bool\"",
         "dataClassFieldLocation": "Field declaration",
+        "descriptorAccessBindingFailed": "Failed to bind method \"{name}\" for class \"{className}\"",
+        "descriptorAccessCallFailed": "Failed to call method \"{name}\" for class \"{className}\"",
         "dataClassFrozen": "\"{name}\" is frozen",
         "finalMethod": "Final method",
         "keyNotRequired": "\"{name}\" is not a required key in \"{type}\", so access may result in runtime exception",
