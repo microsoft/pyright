@@ -5389,6 +5389,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 assertNever(baseType);
         }
 
+        // If type is undefined, emit a general error message indicating that the
+        // member could not be accessed.
         if (!type) {
             const isFunctionRule =
                 isFunction(baseType) ||
@@ -5847,6 +5849,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                             bindToClass,
                                             classType
                                         );
+
                                         if (specializedBoundType) {
                                             if (
                                                 isFunction(specializedBoundType) ||
@@ -5906,6 +5909,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                                     Localizer.Diagnostic.noOverload().format({ name: accessMethodName })
                                                 );
                                             }
+                                        } else {
+                                            diag?.addMessage(
+                                                Localizer.DiagnosticAddendum.descriptorAccessCallFailed().format({
+                                                    name: accessMethodName,
+                                                    className: printType(convertToInstance(accessMethod.classType)),
+                                                })
+                                            );
                                         }
 
                                         isTypeValid = false;
@@ -5918,6 +5928,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         : AnyType.create();
                                 }
 
+                                diag?.addMessage(
+                                    Localizer.DiagnosticAddendum.descriptorAccessBindingFailed().format({
+                                        name: accessMethodName,
+                                        className: printType(convertToInstance(accessMethod.classType)),
+                                    })
+                                );
+                                isTypeValid = false;
                                 return undefined;
                             });
 
