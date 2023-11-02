@@ -2052,6 +2052,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        let subDiag: DiagnosticAddendum | undefined;
+
         if (!skipObjectTypeLookup) {
             let effectiveFlags = flags;
 
@@ -2062,13 +2064,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 effectiveFlags |= MemberAccessFlags.DisallowClassVarWrites;
             }
 
+            subDiag = diag ? new DiagnosticAddendum() : undefined;
+
             // See if the member is present in the object itself.
             memberInfo = getTypeOfClassMemberName(
                 errorNode,
                 objectType,
                 memberName,
                 usage,
-                diag,
+                subDiag,
                 effectiveFlags,
                 selfType
             );
@@ -2086,15 +2090,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 effectiveFlags &= ~MemberAccessFlags.SkipInstanceMembers;
             }
 
+            const metaclassDiag = diag ? new DiagnosticAddendum() : undefined;
             memberInfo = getTypeOfClassMemberName(
                 errorNode,
                 ClassType.cloneAsInstance(metaclass),
                 memberName,
                 usage,
-                /* diag */ undefined,
+                metaclassDiag,
                 effectiveFlags,
                 objectTypeIsInstantiable ? objectType : ClassType.cloneAsInstantiable(objectType)
             );
+
+            // If there was a descriptor error (as opposed to an error where the members
+            // was simply not found), use this diagnostic message.
+            if (memberInfo?.isDescriptorError) {
+                subDiag = metaclassDiag;
+            }
         }
 
         if (memberInfo && !memberInfo.isDescriptorError) {
@@ -2105,6 +2116,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isAsymmetricAccessor: memberInfo.isAsymmetricAccessor,
                 memberAccessDeprecationInfo: memberInfo.memberAccessDeprecationInfo,
             };
+        }
+
+        if (diag && subDiag) {
+            diag.addAddendum(subDiag);
         }
 
         return undefined;
@@ -5462,10 +5477,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // No attribute of that name was found. If this is a member access
             // through an object, see if there's an attribute access override
             // method ("__getattr__", etc.).
-            if (
-                (flags & (MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride)) ===
-                0
-            ) {
+            if ((flags & MemberAccessFlags.SkipAttributeAccessOverride) === 0) {
                 const generalAttrType = applyAttributeAccessOverride(classType, errorNode, usage, memberName, selfType);
                 if (generalAttrType) {
                     return {
@@ -5480,6 +5492,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
+            // Report that the member could not be accessed.
             diag?.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
             return undefined;
         }
