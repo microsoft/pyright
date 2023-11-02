@@ -20,14 +20,7 @@ import { getFileInfo } from './analyzerNodeInfo';
 import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
 import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
 import { getTypeVarScopesForNode } from './parseTreeUtils';
-import {
-    CallResult,
-    ClassMemberLookup,
-    FunctionArgument,
-    MemberAccessFlags,
-    TypeEvaluator,
-    TypeResult,
-} from './typeEvaluatorTypes';
+import { CallResult, FunctionArgument, MemberAccessFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     ClassMemberLookupFlags,
     InferenceContext,
@@ -57,7 +50,6 @@ import {
     isAnyOrUnknown,
     isClassInstance,
     isFunction,
-    isInstantiableClass,
     isNever,
     isOverloadedFunction,
     isTypeVar,
@@ -97,13 +89,13 @@ export function validateConstructorArguments(
     }
 
     // Determine whether the class overrides the object.__new__ method.
-    const newMethodTypeResult = evaluator.getTypeOfClassMemberName(
+    const newMethodTypeResult = evaluator.getTypeOfObjectMember(
         errorNode,
         type,
         '__new__',
         { method: 'get' },
         /* diag */ undefined,
-        MemberAccessFlags.AccessClassMembersOnly |
+        MemberAccessFlags.AccessInstanceMembersOnly |
             MemberAccessFlags.SkipObjectBaseClass |
             MemberAccessFlags.SkipAttributeAccessOverride |
             MemberAccessFlags.TreatConstructorAsClassMethod
@@ -200,7 +192,7 @@ function validateNewAndInitMethods(
     type: ClassType,
     skipUnknownArgCheck: boolean,
     inferenceContext: InferenceContext | undefined,
-    newMethodTypeResult: ClassMemberLookup | undefined
+    newMethodTypeResult: TypeResult | undefined
 ): CallResult {
     let returnType: Type | undefined;
     let validatedArgExpressions = false;
@@ -270,7 +262,7 @@ function validateNewAndInitMethods(
         }
 
         // Determine whether the class overrides the object.__init__ method.
-        initMethodTypeResult = evaluator.getTypeOfClassMemberName(
+        initMethodTypeResult = evaluator.getTypeOfObjectMember(
             errorNode,
             initMethodBindToType,
             '__init__',
@@ -655,46 +647,36 @@ function validateMetaclassCall(
     skipUnknownArgCheck: boolean,
     inferenceContext: InferenceContext | undefined
 ): CallResult | undefined {
-    const metaclass = type.details.effectiveMetaclass;
+    const metaclassCallMethodInfo = evaluator.getTypeOfObjectMember(
+        errorNode,
+        type,
+        '__call__',
+        { method: 'get' },
+        /* diag */ undefined,
+        MemberAccessFlags.AccessClassMembersOnly |
+            MemberAccessFlags.SkipTypeBaseClass |
+            MemberAccessFlags.SkipAttributeAccessOverride
+    );
 
-    if (metaclass && isInstantiableClass(metaclass) && !ClassType.isSameGenericClass(metaclass, type)) {
-        const metaclassCallMethodInfo = evaluator.getTypeOfClassMemberName(
+    if (metaclassCallMethodInfo) {
+        const callResult = evaluator.validateCallArguments(
             errorNode,
-            ClassType.cloneAsInstance(metaclass),
-            '__call__',
-            { method: 'get' },
-            /* diag */ undefined,
-            MemberAccessFlags.AccessClassMembersOnly |
-                MemberAccessFlags.SkipTypeBaseClass |
-                MemberAccessFlags.SkipAttributeAccessOverride,
-            type
+            argList,
+            metaclassCallMethodInfo,
+            /* typeVarContext */ undefined,
+            skipUnknownArgCheck,
+            inferenceContext
         );
 
-        if (metaclassCallMethodInfo) {
-            const callResult = evaluator.validateCallArguments(
-                errorNode,
-                argList,
-                metaclassCallMethodInfo,
-                /* typeVarContext */ undefined,
-                skipUnknownArgCheck,
-                inferenceContext
-            );
-
-            if (!callResult.returnType || isUnknown(callResult.returnType)) {
-                // The return result isn't known. We'll assume in this case that
-                // the metaclass __call__ method allocated a new instance of the
-                // requested class.
-                const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
-                callResult.returnType = applyExpectedTypeForConstructor(
-                    evaluator,
-                    type,
-                    inferenceContext,
-                    typeVarContext
-                );
-            }
-
-            return callResult;
+        if (!callResult.returnType || isUnknown(callResult.returnType)) {
+            // The return result isn't known. We'll assume in this case that
+            // the metaclass __call__ method allocated a new instance of the
+            // requested class.
+            const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
+            callResult.returnType = applyExpectedTypeForConstructor(evaluator, type, inferenceContext, typeVarContext);
         }
+
+        return callResult;
     }
 
     return undefined;

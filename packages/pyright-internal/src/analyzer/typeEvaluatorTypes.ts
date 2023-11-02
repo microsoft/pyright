@@ -387,8 +387,8 @@ export interface ClassMemberLookup {
     type: Type;
     isTypeIncomplete: boolean;
 
-    // True if access violates the type (used only for 'set' usage).
-    isSetTypeError: boolean;
+    // True if binding or descriptor access failed.
+    isDescriptorError: boolean;
 
     // True if class member, false otherwise.
     isClassMember: boolean;
@@ -582,15 +582,6 @@ export interface TypeEvaluator {
         flags?: MemberAccessFlags,
         selfType?: ClassType | TypeVarType
     ): TypeResult | undefined;
-    getTypeOfClassMemberName: (
-        errorNode: ExpressionNode,
-        classType: ClassType,
-        memberName: string,
-        usage: EvaluatorUsage,
-        diag: DiagnosticAddendum | undefined,
-        flags: MemberAccessFlags,
-        selfType?: ClassType | TypeVarType
-    ) => ClassMemberLookup | undefined;
     getBoundMethod: (
         classType: ClassType,
         memberName: string,

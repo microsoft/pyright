@@ -2059,6 +2059,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (objectTypeIsInstantiable) {
                 effectiveFlags |=
                     MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipAttributeAccessOverride;
+                effectiveFlags &= ~MemberAccessFlags.AccessInstanceMembersOnly;
             } else {
                 effectiveFlags |= MemberAccessFlags.DisallowClassVarWrites;
             }
@@ -2099,7 +2100,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        if (memberInfo && !memberInfo.isSetTypeError) {
+        if (memberInfo && !memberInfo.isDescriptorError) {
             return {
                 type: memberInfo.type,
                 classType: memberInfo.classType,
@@ -2119,30 +2120,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): FunctionType | OverloadedFunctionType | undefined {
         const memberInfo = lookUpClassMember(classType, memberName, ClassMemberLookupFlags.SkipInstanceVariables);
 
-        if (memberInfo) {
-            const unboundMethodType = getTypeOfMember(memberInfo);
-            if (isFunction(unboundMethodType) || isOverloadedFunction(unboundMethodType)) {
-                const boundMethod = bindFunctionToClassOrObject(
-                    ClassType.cloneAsInstance(classType),
-                    unboundMethodType,
-                    /* memberClass */ undefined,
-                    /* treatConstructorAsClassMember */ true,
-                    /* selfType */ undefined,
-                    /* diag */ undefined,
-                    recursionCount
-                );
+        if (!memberInfo) {
+            return undefined;
+        }
 
-                if (boundMethod) {
-                    return boundMethod;
-                }
-            } else if (isAnyOrUnknown(unboundMethodType)) {
-                const unknownFunction = FunctionType.createSynthesizedInstance(
-                    '',
-                    FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
-                );
-                FunctionType.addDefaultParameters(unknownFunction);
-                return unknownFunction;
-            }
+        const unboundMethodType = getTypeOfMember(memberInfo);
+        if (isFunction(unboundMethodType) || isOverloadedFunction(unboundMethodType)) {
+            return bindFunctionToClassOrObject(
+                ClassType.cloneAsInstance(classType),
+                unboundMethodType,
+                /* memberClass */ undefined,
+                /* treatConstructorAsClassMember */ true,
+                /* selfType */ undefined,
+                /* diag */ undefined,
+                recursionCount
+            );
+        }
+
+        if (isAnyOrUnknown(unboundMethodType)) {
+            const unknownFunction = FunctionType.createSynthesizedInstance(
+                '',
+                FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+            );
+            FunctionType.addDefaultParameters(unknownFunction);
+            return unknownFunction;
         }
 
         return undefined;
@@ -5339,11 +5340,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case TypeCategory.Function:
             case TypeCategory.OverloadedFunction: {
-                if (memberName === '__defaults__') {
-                    // The "__defaults__" member is not currently defined in the "function"
-                    // class, so we'll special-case it here.
-                    type = AnyType.create();
-                } else if (memberName === '__self__') {
+                if (memberName === '__self__') {
                     // The "__self__" member is not currently defined in the "function"
                     // class, so we'll special-case it here.
                     const functionType = isFunction(baseType) ? baseType : baseType.overloads[0];
@@ -5354,11 +5351,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         type = functionType.boundToType;
                     }
                 } else {
-                    if (!functionObj) {
-                        type = AnyType.create();
-                    } else {
-                        type = getTypeOfMemberAccessWithBaseType(node, { type: functionObj }, usage, flags).type;
-                    }
+                    type = getTypeOfMemberAccessWithBaseType(node, { type: functionObj ?? AnyType.create() }, usage, flags).type;
                 }
                 break;
             }
@@ -5612,38 +5605,40 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 diag
             );
 
-            if (!descriptorResult) {
-                return undefined;
-            }
-            type = descriptorResult.type;
-            let isSetTypeError = false;
+            let isDescriptorError = true;
 
-            if (usage.method === 'set' && usage.setType) {
-                // Verify that the assigned type is compatible.
-                if (!assignType(type, usage.setType.type, diag?.createAddendum())) {
-                    if (!usage.setType.isIncomplete) {
+            if (descriptorResult) {
+                isDescriptorError = false;
+
+                type = descriptorResult.type;
+
+                if (usage.method === 'set' && usage.setType) {
+                    // Verify that the assigned type is compatible.
+                    if (!assignType(type, usage.setType.type, diag?.createAddendum())) {
+                        if (!usage.setType.isIncomplete) {
+                            diag?.addMessage(
+                                Localizer.DiagnosticAddendum.memberAssignment().format({
+                                    type: printType(usage.setType.type),
+                                    name: memberName,
+                                    classType: printObjectTypeForClass(classType),
+                                })
+                            );
+                        }
+                        isDescriptorError = true;
+                    }
+
+                    if (
+                        isInstantiableClass(memberInfo.classType) &&
+                        ClassType.isFrozenDataClass(memberInfo.classType) &&
+                        isAccessedThroughObject
+                    ) {
                         diag?.addMessage(
-                            Localizer.DiagnosticAddendum.memberAssignment().format({
-                                type: printType(usage.setType.type),
-                                name: memberName,
-                                classType: printObjectTypeForClass(classType),
+                            Localizer.DiagnosticAddendum.dataClassFrozen().format({
+                                name: printType(ClassType.cloneAsInstance(memberInfo.classType)),
                             })
                         );
+                        isDescriptorError = true;
                     }
-                    isSetTypeError = true;
-                }
-
-                if (
-                    isInstantiableClass(memberInfo.classType) &&
-                    ClassType.isFrozenDataClass(memberInfo.classType) &&
-                    isAccessedThroughObject
-                ) {
-                    diag?.addMessage(
-                        Localizer.DiagnosticAddendum.dataClassFrozen().format({
-                            name: printType(ClassType.cloneAsInstance(memberInfo.classType)),
-                        })
-                    );
-                    isSetTypeError = true;
                 }
             }
 
@@ -5651,11 +5646,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 symbol: memberInfo.symbol,
                 type,
                 isTypeIncomplete,
-                isSetTypeError,
+                isDescriptorError,
                 isClassMember: !memberInfo.isInstanceMember,
                 isClassVar: memberInfo.isClassVar,
                 classType: memberInfo.classType,
-                isAsymmetricAccessor: descriptorResult.isAsymmetricAccessor,
+                isAsymmetricAccessor: descriptorResult?.isAsymmetricAccessor ?? false,
                 memberAccessDeprecationInfo: descriptorResult?.memberAccessDeprecationInfo,
             };
         }
@@ -5673,7 +5668,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     symbol: undefined,
                     type: generalAttrType.type,
                     isTypeIncomplete: false,
-                    isSetTypeError: false,
+                    isDescriptorError: false,
                     isClassMember: false,
                     isClassVar: false,
                     isAsymmetricAccessor: generalAttrType.isAsymmetricAccessor,
@@ -16656,15 +16651,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         const errorNode = argList.length > 0 ? argList[0].node!.name! : node.name;
-        const initSubclassMethodInfo = getTypeOfClassMemberName(
+        const initSubclassMethodInfo = getTypeOfObjectMember(
             errorNode,
             classType,
             '__init_subclass__',
             { method: 'get' },
             /* diag */ undefined,
-            MemberAccessFlags.AccessClassMembersOnly |
+            MemberAccessFlags.AccessInstanceMembersOnly |
                 MemberAccessFlags.SkipObjectBaseClass |
-                MemberAccessFlags.SkipOriginalClass
+                MemberAccessFlags.SkipOriginalClass |
+                MemberAccessFlags.SkipAttributeAccessOverride
         );
 
         if (initSubclassMethodInfo) {
@@ -25971,7 +25967,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getBuiltInType,
         getTypeOfMember,
         getTypeOfObjectMember,
-        getTypeOfClassMemberName,
         getBoundMethod,
         getTypeOfMagicMethodCall,
         bindFunctionToClassOrObject,
