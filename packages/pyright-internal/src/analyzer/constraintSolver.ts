@@ -55,6 +55,7 @@ import {
     isEffectivelyInstantiable,
     isPartlyUnknown,
     mapSubtypes,
+    sortTypes,
     specializeTupleClass,
     specializeWithDefaultTypeArgs,
     transformExpectedType,
@@ -1090,7 +1091,7 @@ export function populateTypeVarContextBasedOnExpectedType(
                 if (isUnion(synthTypeVar)) {
                     let foundSynthTypeVar: TypeVarType | undefined;
 
-                    synthTypeVar.subtypes.forEach((subtype) => {
+                    sortTypes(synthTypeVar.subtypes).forEach((subtype) => {
                         if (
                             isTypeVar(subtype) &&
                             subtype.details.isSynthesized &&

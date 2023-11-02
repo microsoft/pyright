@@ -31,8 +31,8 @@ CorD = ClassC | ClassD
 def foo(a: CorD):
     reveal_type(a, expected_text="ClassC | ClassD")
     options = a.get("options", [])
-    reveal_type(options, expected_text="Any | list[Any] | list[ClassC | ClassD]")
+    reveal_type(options, expected_text="list[ClassC | ClassD] | Any | list[Any]")
 
     for option in options:
-        reveal_type(option, expected_text="Any | ClassC | ClassD")
-        reveal_type(option["type"], expected_text="Any | int")
+        reveal_type(option, expected_text="ClassC | ClassD | Any")
+        reveal_type(option["type"], expected_text="int | Any")

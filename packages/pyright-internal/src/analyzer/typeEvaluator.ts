@@ -3747,6 +3747,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         type: Type,
         conditionFilter: TypeCondition[] | undefined,
         callback: (expandedSubtype: Type, unexpandedSubtype: Type, isLastIteration: boolean) => Type | undefined,
+        sortSubtypes = false,
         recursionCount = 0
     ): Type {
         const newSubtypes: Type[] = [];
@@ -3788,11 +3789,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     newSubtypes.push(transformedType);
                 }
                 return undefined;
-            });
+            }, sortSubtypes);
         }
 
         if (isUnion(type)) {
-            type.subtypes.forEach((subtype, index) => {
+            const subtypes = sortSubtypes ? sortTypes(type.subtypes) : type.subtypes;
+            subtypes.forEach((subtype, index) => {
                 expandSubtype(subtype, index === type.subtypes.length - 1);
             });
         } else {
@@ -3852,6 +3854,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     (expandedSubtype) => {
                         return expandedSubtype;
                     },
+                    /* sortSubtypes */ undefined,
                     recursionCount
                 );
 
@@ -8985,7 +8988,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         allowDiagnostics: true,
                     }
                 );
-            }
+            },
+            /* sortSubtypes */ true
         );
 
         // If we ended up with a "Never" type because all code paths returned

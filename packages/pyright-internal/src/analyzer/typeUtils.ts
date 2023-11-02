@@ -541,15 +541,19 @@ function compareTypes(a: Type, b: Type, recursionCount = 0): number {
                     return bParam.category - aParam.category;
                 }
 
-                const typeComparison = compareTypes(aParam.type, bParam.type);
+                const typeComparison = compareTypes(
+                    FunctionType.getEffectiveParameterType(a, i),
+                    FunctionType.getEffectiveParameterType(bFunc, i)
+                );
+
                 if (typeComparison !== 0) {
                     return typeComparison;
                 }
             }
 
             const returnTypeComparison = compareTypes(
-                a.details.declaredReturnType ?? UnknownType.create(),
-                bFunc.details.declaredReturnType ?? UnknownType.create()
+                FunctionType.getSpecializedReturnType(a) ?? UnknownType.create(),
+                FunctionType.getSpecializedReturnType(bFunc) ?? UnknownType.create()
             );
 
             if (returnTypeComparison !== 0) {
