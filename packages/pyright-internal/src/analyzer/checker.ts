@@ -6173,34 +6173,6 @@ export class Checker extends ParseTreeWalker {
             if (classType) {
                 this._validateClsSelfParameterType(functionType, classType, /* isCls */ true);
             }
-        } else if (node.name?.value === '__init_subclass__') {
-            // __init_subclass__ overrides should have a "cls" parameter.
-            if (node.parameters.length === 0 || !node.parameters[0].name || node.parameters[0].name.value !== 'cls') {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportSelfClsParameterName,
-                    DiagnosticRule.reportSelfClsParameterName,
-                    Localizer.Diagnostic.initSubclassClsParam(),
-                    node.parameters.length > 0 ? node.parameters[0] : node.name
-                );
-            }
-
-            if (classType) {
-                this._validateClsSelfParameterType(functionType, classType, /* isCls */ true);
-            }
-        } else if (node.name?.value === '__class_getitem__') {
-            // __class_getitem__ overrides should have a "cls" parameter.
-            if (node.parameters.length === 0 || !node.parameters[0].name || node.parameters[0].name.value !== 'cls') {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportSelfClsParameterName,
-                    DiagnosticRule.reportSelfClsParameterName,
-                    Localizer.Diagnostic.classGetItemClsParam(),
-                    node.parameters.length > 0 ? node.parameters[0] : node.name
-                );
-            }
-
-            if (classType) {
-                this._validateClsSelfParameterType(functionType, classType, /* isCls */ true);
-            }
         } else if (node.name?.value === '_generate_next_value_') {
             // Skip this check for _generate_next_value_.
         } else if (FunctionType.isStaticMethod(functionType)) {
