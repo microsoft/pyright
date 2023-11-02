@@ -8153,6 +8153,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else {
             if (enclosingClassType) {
                 targetClassType = enclosingClassType ?? UnknownType.create();
+
+                // Zero-argument forms of super are not allowed within static methods.
+                // This results in a runtime exception.
+                if (enclosingFunction) {
+                    const functionInfo = getFunctionInfoFromDecorators(
+                        evaluatorInterface,
+                        enclosingFunction,
+                        /* isInClass */ true
+                    );
+
+                    if ((functionInfo?.flags & FunctionTypeFlags.StaticMethod) !== 0) {
+                        addError(Localizer.Diagnostic.superCallZeroArgFormStaticMethod(), node.leftExpression);
+                        targetClassType = UnknownType.create();
+                    }
+                }
             } else {
                 addError(Localizer.Diagnostic.superCallZeroArgForm(), node.leftExpression);
                 targetClassType = UnknownType.create();

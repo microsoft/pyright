@@ -858,6 +858,8 @@ export namespace Localizer {
         export const superCallSecondArg = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.superCallSecondArg'));
         export const superCallZeroArgForm = () => getRawString('Diagnostic.superCallZeroArgForm');
+        export const superCallZeroArgFormStaticMethod = () =>
+            getRawString('Diagnostic.superCallZeroArgFormStaticMethod');
         export const symbolIsUnbound = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.symbolIsUnbound'));
         export const symbolIsUndefined = () =>
