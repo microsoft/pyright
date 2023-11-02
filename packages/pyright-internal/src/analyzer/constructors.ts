@@ -234,10 +234,9 @@ function validateNewAndInitMethods(
         // (cls, *args, **kwargs) -> Self, allow the __init__ method to
         // determine the specialized type of the class.
         newMethodReturnType = ClassType.cloneAsInstance(type);
-    } else if (!isNever(newMethodReturnType) && !isClassInstance(newMethodReturnType)) {
-        // If the __new__ method returns something other than an object or
-        // NoReturn, we'll ignore its return type and assume that it
-        // returns Self.
+    } else if (isUnknown(newMethodReturnType)) {
+        // If the __new__ method returns an unknown type, we'll ignore its return
+        // type and assume that it returns Self.
         newMethodReturnType = applySolvedTypeVars(
             ClassType.cloneAsInstance(type),
             new TypeVarContext(getTypeVarScopeId(type)),
@@ -251,7 +250,8 @@ function validateNewAndInitMethods(
     if (
         !argumentErrors &&
         !isNever(newMethodReturnType) &&
-        !shouldSkipInitEvaluation(evaluator, type, newMethodReturnType)
+        !shouldSkipInitEvaluation(evaluator, type, newMethodReturnType) &&
+        isClassInstance(newMethodReturnType)
     ) {
         // If the __new__ method returned the same type as the class it's constructing
         // but didn't supply solved type arguments, we'll ignore its specialized return
