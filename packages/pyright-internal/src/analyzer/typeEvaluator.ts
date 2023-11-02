@@ -5030,6 +5030,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             typeResult.isIncomplete = true;
         }
 
+        // See if we need to log an "unknown member access" diagnostic.
+        let skipPartialUnknownCheck = typeResult.isIncomplete;
+
+        // Don't report an error if the type is a partially-specialized
+        // class being passed as an argument. This comes up frequently in
+        // cases where a type is passed as an argument (e.g. "defaultdict(list)").
+        // It can also come up in cases like "isinstance(x, (list, dict))".
+        if (isInstantiableClass(typeResult.type)) {
+            const argNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.Argument);
+            if (argNode && argNode?.parent?.nodeType === ParseNodeType.Call) {
+                skipPartialUnknownCheck = true;
+            }
+        }
+
+        if (!skipPartialUnknownCheck) {
+            reportPossibleUnknownAssignment(
+                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportUnknownMemberType,
+                DiagnosticRule.reportUnknownMemberType,
+                node.memberName,
+                typeResult.type,
+                node,
+                /* ignoreEmptyContainers */ false
+            );
+        }
+
         // Cache the type information in the member name node.
         writeTypeCache(node.memberName, typeResult, flags);
 
@@ -5079,24 +5104,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 break;
             }
 
+            case TypeCategory.Unbound: {
+                break;
+            }
+
             case TypeCategory.TypeVar: {
                 if (baseType.details.isParamSpec) {
-                    if (memberName === 'args') {
+                    // Handle special cases for "P.args" and "P.kwargs".
+                    if (memberName === 'args' || memberName === 'kwargs') {
+                        const isArgs = memberName === 'args';
                         const paramNode = ParseTreeUtils.getEnclosingParameter(node);
-                        if (!paramNode || paramNode.category !== ParameterCategory.ArgsList) {
-                            addError(Localizer.Diagnostic.paramSpecArgsUsage(), node);
-                            return { type: UnknownType.create(isIncomplete), isIncomplete };
-                        }
-                        return { type: TypeVarType.cloneForParamSpecAccess(baseType, 'args'), isIncomplete };
-                    }
+                        const expectedCategory = isArgs ? ParameterCategory.ArgsList : ParameterCategory.KwargsDict;
 
-                    if (memberName === 'kwargs') {
-                        const paramNode = ParseTreeUtils.getEnclosingParameter(node);
-                        if (!paramNode || paramNode.category !== ParameterCategory.KwargsDict) {
-                            addError(Localizer.Diagnostic.paramSpecKwargsUsage(), node);
-                            return { type: UnknownType.create(isIncomplete), isIncomplete };
+                        if (!paramNode || paramNode.category !== expectedCategory) {
+                            const errorMessage = isArgs
+                                ? Localizer.Diagnostic.paramSpecArgsUsage()
+                                : Localizer.Diagnostic.paramSpecKwargsUsage();
+                            addError(errorMessage, node);
+                            type = UnknownType.create(isIncomplete);
+                            break;
                         }
-                        return { type: TypeVarType.cloneForParamSpecAccess(baseType, 'kwargs'), isIncomplete };
+
+                        type = TypeVarType.cloneForParamSpecAccess(baseType, memberName);
+                        break;
                     }
 
                     if (!isIncomplete) {
@@ -5107,13 +5137,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             node
                         );
                     }
-                    return { type: UnknownType.create(isIncomplete), isIncomplete };
+
+                    type = UnknownType.create(isIncomplete);
+                    break;
                 }
 
+                // It's illegal to reference a member from a type variable.
                 if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
                     if (!isIncomplete) {
                         addDiagnostic(
-                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.typeVarNoMember().format({
                                 type: printType(baseType),
@@ -5123,27 +5156,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
                     }
 
-                    return { type: UnknownType.create(isIncomplete), isIncomplete };
+                    type = UnknownType.create(isIncomplete);
+                    break;
                 }
 
                 if (baseType.details.recursiveTypeAliasName) {
-                    return { type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
+                    type = UnknownType.create(/* isIncomplete */ true);
+                    isIncomplete = true;
+                    break;
                 }
 
-                if (!baseType.details.isVariadic) {
-                    return getTypeOfMemberAccessWithBaseType(
-                        node,
-                        {
-                            type: makeTopLevelTypeVarsConcrete(baseType),
-                            bindToSelfType: TypeBase.isInstantiable(baseType) ? convertToInstance(baseType) : baseType,
-                            isIncomplete,
-                        },
-                        usage,
-                        EvaluatorFlags.None
-                    );
+                if (baseType.details.isVariadic) {
+                    break;
                 }
 
-                break;
+                return getTypeOfMemberAccessWithBaseType(
+                    node,
+                    {
+                        type: makeTopLevelTypeVarsConcrete(baseType),
+                        bindToSelfType: TypeBase.isInstantiable(baseType) ? convertToInstance(baseType) : baseType,
+                        isIncomplete,
+                    },
+                    usage,
+                    EvaluatorFlags.None
+                );
             }
 
             case TypeCategory.Class: {
@@ -5181,7 +5217,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const symbol = ModuleType.getField(baseType, memberName);
                 if (symbol && !symbol.isExternallyHidden()) {
                     if (usage.method === 'get') {
-                        setSymbolAccessed(AnalyzerNodeInfo.getFileInfo(node), symbol, node.memberName);
+                        setSymbolAccessed(fileInfo, symbol, node.memberName);
                     }
 
                     type = getEffectiveTypeOfSymbolForUsage(
@@ -5204,7 +5240,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (symbol.isPrivateMember()) {
                         addDiagnostic(
-                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportPrivateUsage,
+                            fileInfo.diagnosticRuleSet.reportPrivateUsage,
                             DiagnosticRule.reportPrivateUsage,
                             Localizer.Diagnostic.privateUsedOutsideOfModule().format({
                                 name: memberName,
@@ -5215,7 +5251,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (symbol.isPrivatePyTypedImport()) {
                         addDiagnostic(
-                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportPrivateImportUsage,
+                            fileInfo.diagnosticRuleSet.reportPrivateImportUsage,
                             DiagnosticRule.reportPrivateImportUsage,
                             Localizer.Diagnostic.privateImportFromPyTypedModule().format({
                                 name: memberName,
@@ -5293,7 +5329,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         if (!isIncomplete) {
                             addDiagnostic(
-                                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportOptionalMemberAccess,
+                                fileInfo.diagnosticRuleSet.reportOptionalMemberAccess,
                                 DiagnosticRule.reportOptionalMemberAccess,
                                 Localizer.Diagnostic.noneUnknownMember().format({ name: memberName }),
                                 node.memberName
@@ -5350,8 +5386,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             default:
-                diag.addMessage(Localizer.DiagnosticAddendum.typeUnsupported().format({ type: printType(baseType) }));
-                break;
+                assertNever(baseType);
         }
 
         if (!type) {
@@ -5398,39 +5433,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             reportUseOfTypeCheckOnly(type, node.memberName);
         }
 
-        // Should we specialize the class?
-        if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
-            if (isInstantiableClass(type) && !type.typeArguments) {
-                type = createSpecializedClassType(type, /* typeArgs */ undefined, flags, node)?.type;
-            }
-        }
-
-        if (usage.method === 'get') {
-            let skipPartialUnknownCheck = isIncomplete;
-
-            // Don't report an error if the type is a partially-specialized
-            // class being passed as an argument. This comes up frequently in
-            // cases where a type is passed as an argument (e.g. "defaultdict(list)").
-            // It can also come up in cases like "isinstance(x, (list, dict))".
-            if (isInstantiableClass(type)) {
-                const argNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.Argument);
-                if (argNode && argNode?.parent?.nodeType === ParseNodeType.Call) {
-                    skipPartialUnknownCheck = true;
-                }
-            }
-
-            if (!skipPartialUnknownCheck) {
-                reportPossibleUnknownAssignment(
-                    fileInfo.diagnosticRuleSet.reportUnknownMemberType,
-                    DiagnosticRule.reportUnknownMemberType,
-                    node.memberName,
-                    type,
-                    node,
-                    /* ignoreEmptyContainers */ false
-                );
-            }
-        }
-
         return { type, isIncomplete, isAsymmetricAccessor, isRequired, isNotRequired, memberAccessDeprecationInfo };
     }
 
@@ -5454,197 +5456,195 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             memberInfo = lookUpClassMember(classType, memberName, flags);
         }
 
-        if (memberInfo) {
-            let type: Type | undefined;
-            let isTypeIncomplete = false;
-
-            if (memberInfo.symbol.isInitVar()) {
-                diag?.addMessage(Localizer.DiagnosticAddendum.memberIsInitVar().format({ name: memberName }));
-                return undefined;
+        if (!memberInfo) {
+            // No attribute of that name was found. If this is a member access
+            // through an object, see if there's an attribute access override
+            // method ("__getattr__", etc.).
+            if (
+                (flags & (MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride)) ===
+                0
+            ) {
+                const generalAttrType = applyAttributeAccessOverride(classType, errorNode, usage, memberName, selfType);
+                if (generalAttrType) {
+                    return {
+                        symbol: undefined,
+                        type: generalAttrType.type,
+                        isTypeIncomplete: false,
+                        isDescriptorError: false,
+                        isClassMember: false,
+                        isClassVar: false,
+                        isAsymmetricAccessor: generalAttrType.isAsymmetricAccessor,
+                    };
+                }
             }
 
-            if (usage.method !== 'get') {
-                // If the usage indicates a 'set' or 'delete' and the access is within the
-                // class definition itself, use only the declared type to avoid circular
-                // type evaluation.
-                const containingClass = ParseTreeUtils.getEnclosingClass(errorNode);
-                if (containingClass) {
-                    const containingClassType = getTypeOfClass(containingClass)?.classType;
-                    if (
-                        containingClassType &&
-                        isInstantiableClass(containingClassType) &&
-                        ClassType.isSameGenericClass(containingClassType, classType)
-                    ) {
-                        type = getDeclaredTypeOfSymbol(memberInfo.symbol)?.type;
-                        if (type && isInstantiableClass(memberInfo.classType)) {
-                            type = partiallySpecializeType(type, memberInfo.classType);
-                        }
+            diag?.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
+            return undefined;
+        }
 
-                        // If we're setting a class variable via a write through an object,
-                        // this is normally considered a type violation. But it is allowed
-                        // if the class variable is a descriptor object. In this case, we will
-                        // clear the flag that causes an error to be generated.
-                        if (usage.method === 'set' && memberInfo.symbol.isClassVar() && isAccessedThroughObject) {
-                            const selfClass = selfType ?? memberName === '__new__' ? undefined : classType;
-                            const typeResult = getTypeOfMemberInternal(memberInfo, selfClass);
+        let type: Type | undefined;
+        let isTypeIncomplete = false;
 
-                            if (typeResult) {
-                                if (isDescriptorInstance(typeResult.type, /* requireSetter */ true)) {
-                                    type = typeResult.type;
-                                    flags &= MemberAccessFlags.DisallowClassVarWrites;
-                                }
+        if (memberInfo.symbol.isInitVar()) {
+            diag?.addMessage(Localizer.DiagnosticAddendum.memberIsInitVar().format({ name: memberName }));
+            return undefined;
+        }
+
+        if (usage.method !== 'get') {
+            // If the usage indicates a 'set' or 'delete' and the access is within the
+            // class definition itself, use only the declared type to avoid circular
+            // type evaluation.
+            const containingClass = ParseTreeUtils.getEnclosingClass(errorNode);
+            if (containingClass) {
+                const containingClassType = getTypeOfClass(containingClass)?.classType;
+                if (
+                    containingClassType &&
+                    isInstantiableClass(containingClassType) &&
+                    ClassType.isSameGenericClass(containingClassType, classType)
+                ) {
+                    type = getDeclaredTypeOfSymbol(memberInfo.symbol)?.type;
+                    if (type && isInstantiableClass(memberInfo.classType)) {
+                        type = partiallySpecializeType(type, memberInfo.classType);
+                    }
+
+                    // If we're setting a class variable via a write through an object,
+                    // this is normally considered a type violation. But it is allowed
+                    // if the class variable is a descriptor object. In this case, we will
+                    // clear the flag that causes an error to be generated.
+                    if (usage.method === 'set' && memberInfo.symbol.isClassVar() && isAccessedThroughObject) {
+                        const selfClass = selfType ?? memberName === '__new__' ? undefined : classType;
+                        const typeResult = getTypeOfMemberInternal(memberInfo, selfClass);
+
+                        if (typeResult) {
+                            if (isDescriptorInstance(typeResult.type, /* requireSetter */ true)) {
+                                type = typeResult.type;
+                                flags &= MemberAccessFlags.DisallowClassVarWrites;
                             }
                         }
+                    }
 
-                        if (!type) {
-                            type = UnknownType.create();
-                        }
+                    if (!type) {
+                        type = UnknownType.create();
                     }
                 }
             }
+        }
 
-            if (!type) {
-                let selfClass: ClassType | TypeVarType | undefined = classType;
+        if (!type) {
+            let selfClass: ClassType | TypeVarType | undefined = classType;
 
-                // Determine whether to replace Self variables with a specific
-                // class. Avoid doing this if there's a "bindToType" specified
-                // because that case is used for super() calls where we want
-                // to leave the Self type generic (not specialized). We'll also
-                // skip this for __new__ methods because they are not bound
-                // to the class but rather assume the type of the cls argument.
-                if (selfType) {
-                    if (isTypeVar(selfType) && selfType.details.isSynthesizedSelf) {
-                        selfClass = selfType;
-                    } else {
-                        selfClass = undefined;
-                    }
-                } else if (memberName === '__new__') {
+            // Determine whether to replace Self variables with a specific
+            // class. Avoid doing this if there's a "selfType" specified
+            // because that case is used for super() calls where we want
+            // to leave the Self type generic (not specialized). We'll also
+            // skip this for __new__ methods because they are not bound
+            // to the class but rather assume the type of the cls argument.
+            if (selfType) {
+                if (isTypeVar(selfType) && selfType.details.isSynthesizedSelf) {
+                    selfClass = selfType;
+                } else {
                     selfClass = undefined;
                 }
-
-                const typeResult = getTypeOfMemberInternal(memberInfo, selfClass);
-
-                if (typeResult) {
-                    type = typeResult.type;
-                    if (typeResult.isIncomplete) {
-                        isTypeIncomplete = true;
-                    }
-                } else {
-                    type = UnknownType.create();
-                }
+            } else if (memberName === '__new__') {
+                selfClass = undefined;
             }
 
-            // Don't include variables within typed dict classes.
-            if (isClass(memberInfo.classType) && ClassType.isTypedDictClass(memberInfo.classType)) {
-                const typedDecls = memberInfo.symbol.getTypedDeclarations();
-                if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Variable) {
-                    diag?.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
-                    return undefined;
-                }
+            const typeResult = getTypeOfMemberInternal(memberInfo, selfClass);
+
+            type = typeResult?.type ?? UnknownType.create();
+            if (typeResult?.isIncomplete) {
+                isTypeIncomplete = true;
+            }
+        }
+
+        // Don't include variables within typed dict classes.
+        if (isClass(memberInfo.classType) && ClassType.isTypedDictClass(memberInfo.classType)) {
+            const typedDecls = memberInfo.symbol.getTypedDeclarations();
+            if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Variable) {
+                diag?.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
+                return undefined;
+            }
+        }
+
+        if (usage.method === 'get') {
+            // Mark the member accessed if it's not coming from a parent class.
+            if (
+                isInstantiableClass(memberInfo.classType) &&
+                ClassType.isSameGenericClass(memberInfo.classType, classType)
+            ) {
+                setSymbolAccessed(AnalyzerNodeInfo.getFileInfo(errorNode), memberInfo.symbol, errorNode);
             }
 
-            if (usage.method === 'get') {
-                // Mark the member accessed if it's not coming from a parent class.
-                if (
-                    isInstantiableClass(memberInfo.classType) &&
-                    ClassType.isSameGenericClass(memberInfo.classType, classType)
-                ) {
-                    setSymbolAccessed(AnalyzerNodeInfo.getFileInfo(errorNode), memberInfo.symbol, errorNode);
-                }
-
-                // Special-case `__init_subclass` and `__class_getitem__` because
-                // these are always treated as class methods even if they're not
-                // decorated as such.
-                if (memberName === '__init_subclass__' || memberName === '__class_getitem__') {
-                    if (isFunction(type) && !FunctionType.isClassMethod(type)) {
-                        type = FunctionType.cloneWithNewFlags(type, type.details.flags | FunctionTypeFlags.ClassMethod);
-                    }
+            // Special-case `__init_subclass` and `__class_getitem__` because
+            // these are always treated as class methods even if they're not
+            // decorated as such.
+            if (memberName === '__init_subclass__' || memberName === '__class_getitem__') {
+                if (isFunction(type) && !FunctionType.isClassMethod(type)) {
+                    type = FunctionType.cloneWithNewFlags(type, type.details.flags | FunctionTypeFlags.ClassMethod);
                 }
             }
+        }
 
-            const descriptorResult = applyDescriptorAccessMethod(
-                type,
-                memberInfo,
-                classType,
-                selfType,
-                flags,
-                errorNode,
-                memberName,
-                usage,
-                diag
-            );
+        const descResult = applyDescriptorAccessMethod(
+            type,
+            memberInfo,
+            classType,
+            selfType,
+            flags,
+            errorNode,
+            memberName,
+            usage,
+            diag
+        );
 
-            let isDescriptorError = true;
+        let isDescriptorError = true;
 
-            if (descriptorResult) {
-                isDescriptorError = false;
+        if (descResult) {
+            isDescriptorError = false;
 
-                type = descriptorResult.type;
+            type = descResult.type;
 
-                if (usage.method === 'set' && usage.setType) {
-                    // Verify that the assigned type is compatible.
-                    if (!assignType(type, usage.setType.type, diag?.createAddendum())) {
-                        if (!usage.setType.isIncomplete) {
-                            diag?.addMessage(
-                                Localizer.DiagnosticAddendum.memberAssignment().format({
-                                    type: printType(usage.setType.type),
-                                    name: memberName,
-                                    classType: printObjectTypeForClass(classType),
-                                })
-                            );
-                        }
-                        isDescriptorError = true;
-                    }
-
-                    if (
-                        isInstantiableClass(memberInfo.classType) &&
-                        ClassType.isFrozenDataClass(memberInfo.classType) &&
-                        isAccessedThroughObject
-                    ) {
+            if (usage.method === 'set' && usage.setType) {
+                // Verify that the assigned type is compatible.
+                if (!assignType(type, usage.setType.type, diag?.createAddendum())) {
+                    if (!usage.setType.isIncomplete) {
                         diag?.addMessage(
-                            Localizer.DiagnosticAddendum.dataClassFrozen().format({
-                                name: printType(ClassType.cloneAsInstance(memberInfo.classType)),
+                            Localizer.DiagnosticAddendum.memberAssignment().format({
+                                type: printType(usage.setType.type),
+                                name: memberName,
+                                classType: printObjectTypeForClass(classType),
                             })
                         );
-                        isDescriptorError = true;
                     }
+                    isDescriptorError = true;
+                }
+
+                if (
+                    isInstantiableClass(memberInfo.classType) &&
+                    ClassType.isFrozenDataClass(memberInfo.classType) &&
+                    isAccessedThroughObject
+                ) {
+                    diag?.addMessage(
+                        Localizer.DiagnosticAddendum.dataClassFrozen().format({
+                            name: printType(ClassType.cloneAsInstance(memberInfo.classType)),
+                        })
+                    );
+                    isDescriptorError = true;
                 }
             }
-
-            return {
-                symbol: memberInfo.symbol,
-                type,
-                isTypeIncomplete,
-                isDescriptorError,
-                isClassMember: !memberInfo.isInstanceMember,
-                isClassVar: memberInfo.isClassVar,
-                classType: memberInfo.classType,
-                isAsymmetricAccessor: descriptorResult?.isAsymmetricAccessor ?? false,
-                memberAccessDeprecationInfo: descriptorResult?.memberAccessDeprecationInfo,
-            };
         }
 
-        // No attribute of that name was found. If this is a member access
-        // through an object, see if there's an attribute access override
-        // method ("__getattr__", etc.).
-        if ((flags & (MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride)) === 0) {
-            const generalAttrType = applyAttributeAccessOverride(classType, errorNode, usage, memberName, selfType);
-            if (generalAttrType) {
-                return {
-                    symbol: undefined,
-                    type: generalAttrType.type,
-                    isTypeIncomplete: false,
-                    isDescriptorError: false,
-                    isClassMember: false,
-                    isClassVar: false,
-                    isAsymmetricAccessor: generalAttrType.isAsymmetricAccessor,
-                };
-            }
-        }
-
-        diag?.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
-
-        return undefined;
+        return {
+            symbol: memberInfo.symbol,
+            type,
+            isTypeIncomplete,
+            isDescriptorError,
+            isClassMember: !memberInfo.isInstanceMember,
+            isClassVar: memberInfo.isClassVar,
+            classType: memberInfo.classType,
+            isAsymmetricAccessor: descResult?.isAsymmetricAccessor ?? false,
+            memberAccessDeprecationInfo: descResult?.memberAccessDeprecationInfo,
+        };
     }
 
     // Applies descriptor access methods "__get__", "__set__", or "__delete__"
