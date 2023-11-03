@@ -3804,7 +3804,10 @@ class TypeVarTransformer {
                     // Unpack the tuple into individual parameters.
                     variadicTypesToUnpack!.forEach((unpackedType) => {
                         FunctionType.addParameter(newFunctionType, {
-                            category: unpackedType.isUnbounded ? ParameterCategory.ArgsList : ParameterCategory.Simple,
+                            category:
+                                unpackedType.isUnbounded || isVariadicTypeVar(unpackedType.type)
+                                    ? ParameterCategory.ArgsList
+                                    : ParameterCategory.Simple,
                             name: `__p${newFunctionType.details.parameters.length}`,
                             isNameSynthesized: true,
                             type: unpackedType.type,

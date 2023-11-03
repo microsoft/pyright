@@ -83,3 +83,10 @@ Alias7 = Callable[[Unpack[_Xs]], None]
 
 def func3(cb: Alias7[int, Unpack[_Xs]]) -> tuple[Unpack[_Xs]]:
     ...
+
+
+def func4(a: int, b: str) -> None:
+    ...
+
+
+reveal_type(func3(func4), expected_text="tuple[str]")
