@@ -672,7 +672,7 @@ test('Lambda1', () => {
 test('Lambda2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda2.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('Lambda3', () => {
