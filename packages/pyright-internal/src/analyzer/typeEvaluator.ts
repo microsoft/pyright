@@ -13668,11 +13668,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // lambda depends on itself.
         writeTypeCache(node, { type: functionType, isIncomplete: true }, EvaluatorFlags.None);
 
+        // We assume for simplicity that the parameter signature of the lambda is
+        // the same as the expected type. If this isn't the case, we'll use
+        // object for any lambda parameters that don't match. We could make this
+        // more sophisticated in the future, but it becomes very complex to handle
+        // all of the permutations.
+        let sawParamMismatch = false;
+
         node.parameters.forEach((param, index) => {
             let paramType: Type | undefined;
-            if (expectedParamDetails) {
+
+            if (expectedParamDetails && !sawParamMismatch) {
                 if (index < expectedParamDetails.params.length) {
-                    paramType = expectedParamDetails.params[index].type;
+                    const expectedParam = expectedParamDetails.params[index];
+
+                    // If the parameter category matches and both of the parameters are
+                    // either separators (/ or *) or not separators, copy the type
+                    // from the expected parameter.
+                    if (expectedParam.param.category === param.category && !param.name === !expectedParam.param.name) {
+                        paramType = expectedParam.type;
+                    } else {
+                        sawParamMismatch = true;
+                    }
                 } else if (param.defaultValue) {
                     // If the lambda param has a default value but there is no associated
                     // parameter in the expected type, assume that the default value is
