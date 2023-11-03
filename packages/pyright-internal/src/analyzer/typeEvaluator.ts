@@ -6177,8 +6177,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         selfType?: ClassType | TypeVarType
     ): MemberAccessTypeResult | undefined {
         const getAttributeAccessMember = (name: string) => {
-            // See if the class has a "__getattribute__" or "__getattr__" method.
-            // If so, arbitrary members are supported.
             return getTypeOfObjectMember(
                 errorNode,
                 classType,
@@ -6202,54 +6200,59 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             accessMemberType = getAttributeAccessMember('__delattr__');
         }
 
-        if (accessMemberType) {
-            let nameLiteralType: Type = AnyType.create();
-            if (strClassType && isInstantiableClass(strClassType)) {
-                nameLiteralType = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(strClassType), memberName);
-            }
-
-            const argList: FunctionArgument[] = [
-                {
-                    // Provide "name" argument.
-                    argumentCategory: ArgumentCategory.Simple,
-                    typeResult: { type: nameLiteralType },
-                },
-            ];
-
-            if (usage.method === 'set') {
-                argList.push({
-                    // Provide "value" argument.
-                    argumentCategory: ArgumentCategory.Simple,
-                    typeResult: {
-                        type: usage.setType?.type ?? UnknownType.create(),
-                        isIncomplete: !!usage.setType?.isIncomplete,
-                    },
-                });
-            }
-
-            if (isFunction(accessMemberType) || isOverloadedFunction(accessMemberType)) {
-                const typeVarContext = new TypeVarContext(getTypeVarScopeId(accessMemberType));
-                const callResult = validateCallArguments(
-                    errorNode,
-                    argList,
-                    { type: accessMemberType },
-                    typeVarContext,
-                    /* skipUnknownArgCheck */ true
-                );
-
-                let isAsymmetricAccessor = false;
-                if (usage.method === 'set') {
-                    isAsymmetricAccessor = isClassWithAsymmetricAttributeAccessor(classType);
-                }
-
-                return {
-                    type: callResult.returnType ?? UnknownType.create(),
-                    isAsymmetricAccessor,
-                };
-            }
+        if (!accessMemberType) {
+            return undefined;
         }
 
-        return undefined;
+        let nameLiteralType: Type = AnyType.create();
+        if (strClassType && isInstantiableClass(strClassType)) {
+            nameLiteralType = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(strClassType), memberName);
+        }
+
+        const argList: FunctionArgument[] = [
+            {
+                // Provide "name" argument.
+                argumentCategory: ArgumentCategory.Simple,
+                typeResult: { type: nameLiteralType },
+            },
+        ];
+
+        if (usage.method === 'set') {
+            argList.push({
+                // Provide "value" argument.
+                argumentCategory: ArgumentCategory.Simple,
+                typeResult: {
+                    type: usage.setType?.type ?? UnknownType.create(),
+                    isIncomplete: !!usage.setType?.isIncomplete,
+                },
+            });
+        }
+
+        if (!isFunction(accessMemberType) && !isOverloadedFunction(accessMemberType)) {
+            // TODO - need to handle and report this error.
+            return undefined;
+        }
+
+        const typeVarContext = new TypeVarContext(getTypeVarScopeId(accessMemberType));
+        const callResult = validateCallArguments(
+            errorNode,
+            argList,
+            { type: accessMemberType },
+            typeVarContext,
+            /* skipUnknownArgCheck */ true
+        );
+
+        // TODO - need to handle and report errors when validating call to
+        // attribute access method.
+        let isAsymmetricAccessor = false;
+        if (usage.method === 'set') {
+            isAsymmetricAccessor = isClassWithAsymmetricAttributeAccessor(classType);
+        }
+
+        return {
+            type: callResult.returnType ?? UnknownType.create(),
+            isAsymmetricAccessor,
+        };
     }
 
     function getTypeOfIndex(node: IndexNode, flags = EvaluatorFlags.None): TypeResult {
