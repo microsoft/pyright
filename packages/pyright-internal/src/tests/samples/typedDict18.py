@@ -126,3 +126,15 @@ f6 = ClassA[str](x=1)
 
 f7 = ClassA(x=1)
 reveal_type(f7, expected_text="ClassA[int]")
+
+
+class TD10(TypedDict, Generic[_T1]):
+    x: _T1
+
+
+class TD11(TypedDict):
+    y: int
+
+
+class TD12(TD10[str], TD11):
+    ...

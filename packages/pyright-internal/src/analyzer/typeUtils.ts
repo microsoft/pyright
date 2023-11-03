@@ -3006,9 +3006,9 @@ export function computeMroLinearization(classType: ClassType): boolean {
             // Generic has some special-case logic (see description of __mro_entries__
             // in PEP 560) that we need to account for here.
             if (ClassType.isBuiltIn(baseClass, 'Generic')) {
-                // If the class is a Protocol, the generic is ignored for the purposes
-                // of computing the MRO.
-                if (ClassType.isProtocolClass(classType)) {
+                // If the class is a Protocol or TypedDict, the generic is ignored for
+                // the purposes of computing the MRO.
+                if (ClassType.isProtocolClass(classType) || ClassType.isTypedDictClass(classType)) {
                     return false;
                 }
 
