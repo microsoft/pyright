@@ -3791,7 +3791,9 @@ class TypeVarTransformer {
             }
 
             // Unpack the tuple and synthesize a new function in the process.
-            const newFunctionType = FunctionType.createSynthesizedInstance('', functionType.details.flags);
+            const newFunctionType = TypeBase.isInstantiable(functionType)
+                ? FunctionType.createInstantiable(functionType.details.flags | FunctionTypeFlags.SynthesizedMethod)
+                : FunctionType.createSynthesizedInstance('', functionType.details.flags);
             let insertKeywordOnlySeparator = false;
             let swallowPositionOnlySeparator = false;
 
