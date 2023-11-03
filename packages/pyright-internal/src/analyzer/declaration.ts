@@ -59,7 +59,7 @@ export interface DeclarationBase {
     // The file and range within that file that
     // contains the declaration. Unless this is an alias, then path refers to the
     // file the alias is referring to.
-    path: string;
+    uri: string;
     range: Range;
 
     // The dot-separated import name for the file that
@@ -282,5 +282,5 @@ export function isIntrinsicDeclaration(decl: Declaration): decl is IntrinsicDecl
 }
 
 export function isUnresolvedAliasDeclaration(decl: Declaration): boolean {
-    return isAliasDeclaration(decl) && decl.path === UnresolvedModuleMarker;
+    return isAliasDeclaration(decl) && decl.uri === UnresolvedModuleMarker;
 }

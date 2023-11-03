@@ -35,6 +35,7 @@ import { ProgressReporter } from './common/progressReporter';
 import { RealTempFile, WorkspaceFileWatcherProvider, createFromRealFileSystem } from './common/realFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
 import { createServiceProvider } from './common/serviceProviderExtensions';
+import { Uri } from './common/uri';
 import { LanguageServerBase, ServerSettings } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 import { PyrightFileSystem } from './pyrightFileSystem';
@@ -49,10 +50,10 @@ export class PyrightServer extends LanguageServerBase {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const version = require('../package.json').version || '';
 
-        // When executed from CLI command (pyright-langserver), __rootDirectory is
+        // When executed from CLI command (pyright-langserver), __rootUri is
         // already defined. When executed from VSCode extension, rootDirectory should
         // be __dirname.
-        const rootDirectory = (global as any).__rootDirectory || __dirname;
+        const rootDirectory = (global as any).__rootUri || Uri.file(__dirname);
 
         const console = new ConsoleWithLogLevel(connection.console);
         const fileWatcherProvider = new WorkspaceFileWatcherProvider();
@@ -103,8 +104,8 @@ export class PyrightServer extends LanguageServerBase {
                 const pythonPath = pythonSection.pythonPath;
                 if (pythonPath && isString(pythonPath) && !isPythonBinary(pythonPath)) {
                     serverSettings.pythonPath = resolvePaths(
-                        workspace.rootPath,
-                        expandPathVariables(workspace.rootPath, pythonPath)
+                        workspace.rootUri,
+                        expandPathVariables(workspace.rootUri, pythonPath)
                     );
                 }
 
@@ -112,8 +113,8 @@ export class PyrightServer extends LanguageServerBase {
 
                 if (venvPath && isString(venvPath)) {
                     serverSettings.venvPath = resolvePaths(
-                        workspace.rootPath,
-                        expandPathVariables(workspace.rootPath, venvPath)
+                        workspace.rootUri,
+                        expandPathVariables(workspace.rootUri, venvPath)
                     );
                 }
             }
@@ -125,8 +126,8 @@ export class PyrightServer extends LanguageServerBase {
                     const typeshedPath = typeshedPaths[0];
                     if (typeshedPath && isString(typeshedPath)) {
                         serverSettings.typeshedPath = resolvePaths(
-                            workspace.rootPath,
-                            expandPathVariables(workspace.rootPath, typeshedPath)
+                            workspace.rootUri,
+                            expandPathVariables(workspace.rootUri, typeshedPath)
                         );
                     }
                 }
@@ -134,8 +135,8 @@ export class PyrightServer extends LanguageServerBase {
                 const stubPath = pythonAnalysisSection.stubPath;
                 if (stubPath && isString(stubPath)) {
                     serverSettings.stubPath = resolvePaths(
-                        workspace.rootPath,
-                        expandPathVariables(workspace.rootPath, stubPath)
+                        workspace.rootUri,
+                        expandPathVariables(workspace.rootUri, stubPath)
                     );
                 }
 
@@ -167,7 +168,7 @@ export class PyrightServer extends LanguageServerBase {
                 if (extraPaths && Array.isArray(extraPaths) && extraPaths.length > 0) {
                     serverSettings.extraPaths = extraPaths
                         .filter((p) => p && isString(p))
-                        .map((p) => resolvePaths(workspace.rootPath, expandPathVariables(workspace.rootPath, p)));
+                        .map((p) => resolvePaths(workspace.rootUri, expandPathVariables(workspace.rootUri, p)));
                 }
 
                 serverSettings.fileSpecs = this._getStringValues(pythonAnalysisSection.include);

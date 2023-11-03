@@ -24,10 +24,10 @@ import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
 import { ProgramView, ServiceProvider } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
 import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
 
 export enum DefinitionFilter {
     All = 'all',
@@ -50,7 +50,7 @@ export function addDeclarationsToDefinitions(
             allowExternallyHiddenAccess: true,
         });
 
-        if (!resolvedDecl || !resolvedDecl.path) {
+        if (!resolvedDecl || !resolvedDecl.uri) {
             return;
         }
 
@@ -66,13 +66,13 @@ export function addDeclarationsToDefinitions(
             resolvedDecl.type === DeclarationType.Alias &&
             resolvedDecl.symbolName &&
             resolvedDecl.submoduleFallback &&
-            resolvedDecl.submoduleFallback.path
+            resolvedDecl.submoduleFallback.uri
         ) {
             resolvedDecl = resolvedDecl.submoduleFallback;
         }
 
         _addIfUnique(definitions, {
-            path: resolvedDecl.path,
+            path: resolvedDecl.uri,
             range: resolvedDecl.range,
         });
 
@@ -82,22 +82,22 @@ export function addDeclarationsToDefinitions(
             if (functionType && isOverloadedFunction(functionType)) {
                 for (const overloadDecl of functionType.overloads.map((o) => o.details.declaration).filter(isDefined)) {
                     _addIfUnique(definitions, {
-                        path: overloadDecl.path,
+                        path: overloadDecl.uri,
                         range: overloadDecl.range,
                     });
                 }
             }
         }
 
-        if (!isStubFile(resolvedDecl.path)) {
+        if (!isStubFile(resolvedDecl.uri)) {
             return;
         }
 
         if (resolvedDecl.type === DeclarationType.Alias) {
             // Add matching source module
             sourceMapper
-                .findModules(resolvedDecl.path)
-                .map((m) => getFileInfo(m)?.filePath)
+                .findModules(resolvedDecl.uri)
+                .map((m) => getFileInfo(m)?.fileUri)
                 .filter(isDefined)
                 .forEach((f) => _addIfUnique(definitions, _createModuleEntry(f)));
             return;
@@ -105,9 +105,9 @@ export function addDeclarationsToDefinitions(
 
         const implDecls = sourceMapper.findDeclarations(resolvedDecl);
         for (const implDecl of implDecls) {
-            if (implDecl && implDecl.path) {
+            if (implDecl && implDecl.uri) {
                 _addIfUnique(definitions, {
-                    path: implDecl.path,
+                    path: implDecl.uri,
                     range: implDecl.range,
                 });
             }

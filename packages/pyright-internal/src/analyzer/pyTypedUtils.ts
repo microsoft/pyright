@@ -8,22 +8,23 @@
  */
 
 import { FileSystem } from '../common/fileSystem';
-import { combinePaths, isDirectory, isFile } from '../common/pathUtils';
+import { isDirectory, isFile } from '../common/pathUtils';
+import { Uri } from '../common/uri';
 
 export interface PyTypedInfo {
-    pyTypedPath: string;
+    pyTypedPath: Uri;
     isPartiallyTyped: boolean;
 }
 
 const _pyTypedFileName = 'py.typed';
 
-export function getPyTypedInfo(fileSystem: FileSystem, dirPath: string): PyTypedInfo | undefined {
+export function getPyTypedInfo(fileSystem: FileSystem, dirPath: Uri): PyTypedInfo | undefined {
     if (!fileSystem.existsSync(dirPath) || !isDirectory(fileSystem, dirPath)) {
         return undefined;
     }
 
     let isPartiallyTyped = false;
-    const pyTypedPath = combinePaths(dirPath, _pyTypedFileName);
+    const pyTypedPath = dirPath.combinePaths(_pyTypedFileName);
 
     if (!fileSystem.existsSync(dirPath) || !isFile(fileSystem, pyTypedPath)) {
         return undefined;

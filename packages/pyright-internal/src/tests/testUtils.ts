@@ -32,7 +32,7 @@ import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 // directory to be located when running within the jest environment. This
 // assumes that the working directory has been set appropriately before
 // running the tests.
-(global as any).__rootDirectory = path.resolve();
+(global as any).__rootUri = path.resolve();
 
 export interface FileAnalysisResult {
     filePath: string;
@@ -116,7 +116,7 @@ export function buildAnalyzerFileInfo(
         definedConstants: configOptions.defineConstant,
         fileContents,
         lines: parseResults.tokenizerOutput.lines,
-        filePath,
+        fileUri: filePath,
         moduleName: '',
         isStubFile: filePath.endsWith('.pyi'),
         isTypingStubFile: false,

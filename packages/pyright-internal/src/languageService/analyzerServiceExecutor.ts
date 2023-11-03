@@ -33,7 +33,7 @@ export class AnalyzerServiceExecutor {
     ): void {
         const commandLineOptions = getEffectiveCommandLineOptions(
             languageServiceRootPath,
-            workspace.rootPath,
+            workspace.rootUri,
             serverSettings,
             trackFiles,
             typeStubTargetImportName,
@@ -58,7 +58,7 @@ export class AnalyzerServiceExecutor {
         const tempWorkspace: Workspace = {
             ...workspace,
             workspaceName: `temp workspace for cloned service`,
-            rootPath: workspace.rootPath,
+            rootUri: workspace.rootUri,
             uri: workspace.uri,
             pythonPath: workspace.pythonPath,
             pythonPathKind: workspace.pythonPathKind,

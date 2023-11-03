@@ -9,25 +9,25 @@
 import assert from 'assert';
 import { WorkspaceEdit } from 'vscode-languageserver-protocol';
 
+import { CancellationToken, CreateFile, DeleteFile, RenameFile, TextDocumentEdit } from 'vscode-languageserver';
+import { findNodeByOffset } from '../analyzer/parseTreeUtils';
+import { Program } from '../analyzer/program';
 import { createMapFromItems } from '../common/collectionUtils';
+import { ConfigOptions } from '../common/configOptions';
+import { isArray } from '../common/core';
 import { assertNever } from '../common/debug';
 import { FileEditAction, FileEditActions, FileOperations } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
 import { convertUriToPath, getDirectoryPath, isFile } from '../common/pathUtils';
 import { TextRange, rangesAreEqual } from '../common/textRange';
 import { applyTextEditsToString } from '../common/workspaceEditUtils';
-import { Range } from './harness/fourslash/fourSlashTypes';
-import { TestState } from './harness/fourslash/testState';
-import { CancellationToken, CreateFile, DeleteFile, RenameFile, TextDocumentEdit } from 'vscode-languageserver';
-import { Program } from '../analyzer/program';
-import { ConfigOptions } from '../common/configOptions';
-import { findNodeByOffset } from '../analyzer/parseTreeUtils';
 import { DocumentSymbolCollector } from '../languageService/documentSymbolCollector';
 import { NameNode } from '../parser/parseNodes';
-import { isArray } from '../common/core';
+import { Range } from './harness/fourslash/fourSlashTypes';
+import { TestState } from './harness/fourslash/testState';
 
 export function convertFileEditActionToString(edit: FileEditAction): string {
-    return `'${edit.replacementText.replace(/\n/g, '!n!')}'@'${edit.filePath}:(${edit.range.start.line},${
+    return `'${edit.replacementText.replace(/\n/g, '!n!')}'@'${edit.fileUri}:(${edit.range.start.line},${
         edit.range.start.character
     })-(${edit.range.end.line},${edit.range.end.character})'`;
 }
@@ -35,7 +35,7 @@ export function convertFileEditActionToString(edit: FileEditAction): string {
 export function convertRangeToFileEditAction(state: TestState, range: Range, replacementText?: string): FileEditAction {
     const data = range.marker?.data as { r: string } | undefined;
     return {
-        filePath: range.fileName,
+        fileUri: range.fileName,
         replacementText: (replacementText ?? data?.r ?? 'N/A').replace(/!n!/g, '\n'),
         range: state.convertPositionRange(range),
     };
@@ -52,7 +52,7 @@ export function verifyEdits(
         assert(
             expected.some((a) => {
                 return (
-                    a.filePath === edit.filePath &&
+                    a.fileUri === edit.fileUri &&
                     rangesAreEqual(a.range, edit.range) &&
                     a.replacementText === edit.replacementText
                 );
@@ -67,7 +67,7 @@ export function verifyEdits(
 export function applyFileEditActions(state: TestState, fileEditActions: FileEditActions) {
     // Apply changes
     // First, apply text changes
-    const editsPerFileMap = createMapFromItems(fileEditActions.edits, (e) => e.filePath);
+    const editsPerFileMap = createMapFromItems(fileEditActions.edits, (e) => e.fileUri);
 
     for (const [editFileName, editsPerFile] of editsPerFileMap) {
         const result = _applyEdits(state, editFileName, editsPerFile);
@@ -77,11 +77,11 @@ export function applyFileEditActions(state: TestState, fileEditActions: FileEdit
         if (result.version) {
             let openedFilePath = editFileName;
             const renamed = fileEditActions.fileOperations.find(
-                (o) => o.kind === 'rename' && o.oldFilePath === editFileName
+                (o) => o.kind === 'rename' && o.oldFileUri === editFileName
             );
             if (renamed?.kind === 'rename') {
-                openedFilePath = renamed.newFilePath;
-                state.program.setFileClosed(renamed.oldFilePath);
+                openedFilePath = renamed.newFileUri;
+                state.program.setFileClosed(renamed.oldFileUri);
             }
 
             state.program.setFileOpened(openedFilePath, result.version + 1, result.text);
@@ -92,19 +92,19 @@ export function applyFileEditActions(state: TestState, fileEditActions: FileEdit
     for (const fileOperation of fileEditActions.fileOperations) {
         switch (fileOperation.kind) {
             case 'create': {
-                state.testFS.mkdirpSync(getDirectoryPath(fileOperation.filePath));
-                state.testFS.writeFileSync(fileOperation.filePath, '');
+                state.testFS.mkdirpSync(getDirectoryPath(fileOperation.fileUri));
+                state.testFS.writeFileSync(fileOperation.fileUri, '');
                 break;
             }
             case 'rename': {
-                if (isFile(state.testFS, fileOperation.oldFilePath)) {
-                    state.testFS.mkdirpSync(getDirectoryPath(fileOperation.newFilePath));
-                    state.testFS.renameSync(fileOperation.oldFilePath, fileOperation.newFilePath);
+                if (isFile(state.testFS, fileOperation.oldFileUri)) {
+                    state.testFS.mkdirpSync(getDirectoryPath(fileOperation.newFileUri));
+                    state.testFS.renameSync(fileOperation.oldFileUri, fileOperation.newFileUri);
 
                     // Add new file as tracked file
-                    state.program.addTrackedFile(fileOperation.newFilePath);
+                    state.program.addTrackedFile(fileOperation.newFileUri);
                 } else {
-                    state.testFS.renameSync(fileOperation.oldFilePath, fileOperation.newFilePath);
+                    state.testFS.renameSync(fileOperation.oldFileUri, fileOperation.newFileUri);
                 }
                 break;
             }
@@ -127,7 +127,7 @@ function _applyEdits(state: TestState, filePath: string, edits: FileEditAction[]
     const parseResults = sourceFile.getParseResults()!;
 
     const current = applyTextEditsToString(
-        edits.filter((e) => e.filePath === filePath),
+        edits.filter((e) => e.fileUri === filePath),
         parseResults.tokenizerOutput.lines,
         parseResults.text
     );
@@ -142,7 +142,7 @@ export function convertWorkspaceEditToFileEditActions(fs: FileSystem, edit: Work
     if (edit.changes) {
         for (const kv of Object.entries(edit.changes)) {
             const filePath = convertUriToPath(fs, kv[0]);
-            kv[1].forEach((e) => edits.push({ filePath, range: e.range, replacementText: e.newText }));
+            kv[1].forEach((e) => edits.push({ fileUri: filePath, range: e.range, replacementText: e.newText }));
         }
     }
 
@@ -151,18 +151,18 @@ export function convertWorkspaceEditToFileEditActions(fs: FileSystem, edit: Work
             if (TextDocumentEdit.is(change)) {
                 for (const e of change.edits) {
                     edits.push({
-                        filePath: convertUriToPath(fs, change.textDocument.uri),
+                        fileUri: convertUriToPath(fs, change.textDocument.uri),
                         range: e.range,
                         replacementText: e.newText,
                     });
                 }
             } else if (CreateFile.is(change)) {
-                fileOperations.push({ kind: 'create', filePath: convertUriToPath(fs, change.uri) });
+                fileOperations.push({ kind: 'create', fileUri: convertUriToPath(fs, change.uri) });
             } else if (RenameFile.is(change)) {
                 fileOperations.push({
                     kind: 'rename',
-                    oldFilePath: convertUriToPath(fs, change.oldUri),
-                    newFilePath: convertUriToPath(fs, change.newUri),
+                    oldFileUri: convertUriToPath(fs, change.oldUri),
+                    newFileUri: convertUriToPath(fs, change.newUri),
                 });
             } else if (DeleteFile.is(change)) {
                 fileOperations.push({ kind: 'delete', filePath: convertUriToPath(fs, change.uri) });

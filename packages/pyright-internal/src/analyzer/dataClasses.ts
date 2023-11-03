@@ -835,7 +835,7 @@ function getDescriptorForConverterField(
         descriptorName,
         getClassFullName(converterNode, fileInfo.moduleName, descriptorName),
         fileInfo.moduleName,
-        fileInfo.filePath,
+        fileInfo.fileUri,
         ClassTypeFlags.None,
         getTypeSourceId(converterNode),
         /* declaredMetaclass */ undefined,

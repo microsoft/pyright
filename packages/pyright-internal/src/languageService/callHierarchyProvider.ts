@@ -26,18 +26,18 @@ import { ClassMemberLookupFlags, doForEachSubtype, lookUpClassMember, lookUpObje
 import { ClassType, isClassInstance, isFunction, isInstantiableClass } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
+import { isDefined } from '../common/core';
 import { ProgramView, ReferenceUseCase, SymbolUsageProvider } from '../common/extensibility';
 import { getSymbolKind } from '../common/lspUtils';
 import { convertPathToUri, getFileName } from '../common/pathUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { Position, rangesAreEqual } from '../common/textRange';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { CallNode, MemberAccessNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { canNavigateToFile } from './navigationUtils';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
-import { isDefined } from '../common/core';
 
 export class CallHierarchyProvider {
     private readonly _parseResults: ParseResults | undefined;
@@ -259,7 +259,7 @@ export class CallHierarchyProvider {
             callItemUri = this._filePath;
         } else {
             symbolName = DeclarationUtils.getNameFromDeclaration(targetDecl) || referencesResult.symbolNames[0];
-            callItemUri = targetDecl.path;
+            callItemUri = targetDecl.uri;
         }
 
         return { targetDecl, callItemUri, symbolName };
@@ -394,7 +394,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
         const callDest: CallHierarchyItem = {
             name: nameNode.value,
             kind: getSymbolKind(resolvedDecl, this._evaluator, nameNode.value) ?? SymbolKind.Module,
-            uri: resolvedDecl.path,
+            uri: resolvedDecl.uri,
             range: resolvedDecl.range,
             selectionRange: resolvedDecl.range,
         };

@@ -809,7 +809,7 @@ test('completion quote trigger', async () => {
 
     const result = new CompletionProvider(
         state.program,
-        state.workspace.rootPath,
+        state.workspace.rootUri,
         filePath,
         position,
         options,
@@ -847,7 +847,7 @@ test('completion quote trigger - middle', async () => {
 
     const result = new CompletionProvider(
         state.program,
-        state.workspace.rootPath,
+        state.workspace.rootUri,
         filePath,
         position,
         options,
@@ -892,7 +892,7 @@ test('auto import sort text', async () => {
 
     const result = new CompletionProvider(
         state.program,
-        state.workspace.rootPath,
+        state.workspace.rootUri,
         filePath,
         position,
         options,

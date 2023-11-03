@@ -31,10 +31,10 @@ import { FullAccessHost } from './common/fullAccessHost';
 import { combinePaths, normalizePath } from './common/pathUtils';
 import { versionFromString } from './common/pythonVersion';
 import { RealTempFile, createFromRealFileSystem } from './common/realFileSystem';
+import { ServiceProvider } from './common/serviceProvider';
+import { createServiceProvider } from './common/serviceProviderExtensions';
 import { Range, isEmptyRange } from './common/textRange';
 import { PyrightFileSystem } from './pyrightFileSystem';
-import { createServiceProvider } from './common/serviceProviderExtensions';
-import { ServiceProvider } from './common/serviceProvider';
 
 const toolName = 'pyright';
 
@@ -796,7 +796,7 @@ function reportDiagnosticsAsJson(
                 diag.category === DiagnosticCategory.Warning ||
                 diag.category === DiagnosticCategory.Information
             ) {
-                const jsonDiag = convertDiagnosticToJson(fileDiag.filePath, diag);
+                const jsonDiag = convertDiagnosticToJson(fileDiag.fileUri, diag);
                 if (isDiagnosticIncluded(jsonDiag.severity, minSeverityLevel)) {
                     report.generalDiagnostics.push(jsonDiag);
                 }
@@ -876,9 +876,9 @@ function reportDiagnosticsAsText(
         );
 
         if (fileErrorsAndWarnings.length > 0) {
-            console.info(`${fileDiagnostics.filePath}`);
+            console.info(`${fileDiagnostics.fileUri}`);
             fileErrorsAndWarnings.forEach((diag) => {
-                const jsonDiag = convertDiagnosticToJson(fileDiagnostics.filePath, diag);
+                const jsonDiag = convertDiagnosticToJson(fileDiagnostics.fileUri, diag);
                 logDiagnosticToConsole(jsonDiag);
 
                 if (diag.category === DiagnosticCategory.Error) {

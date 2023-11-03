@@ -407,7 +407,7 @@ export class Binder extends ParseTreeWalker {
         const classDeclaration: ClassDeclaration = {
             type: DeclarationType.Class,
             node,
-            path: this._fileInfo.filePath,
+            uri: this._fileInfo.fileUri,
             range: convertTextRangeToRange(node.name, this._fileInfo.lines),
             moduleName: this._fileInfo.moduleName,
             isInExceptSuite: this._isInExceptSuite,
@@ -465,7 +465,7 @@ export class Binder extends ParseTreeWalker {
             node,
             isMethod: !!containingClassNode,
             isGenerator: false,
-            path: this._fileInfo.filePath,
+            uri: this._fileInfo.fileUri,
             range: convertTextRangeToRange(node.name, this._fileInfo.lines),
             moduleName: this._fileInfo.moduleName,
             isInExceptSuite: this._isInExceptSuite,
@@ -539,7 +539,7 @@ export class Binder extends ParseTreeWalker {
                             const paramDeclaration: ParameterDeclaration = {
                                 type: DeclarationType.Parameter,
                                 node: paramNode,
-                                path: this._fileInfo.filePath,
+                                uri: this._fileInfo.fileUri,
                                 range: convertTextRangeToRange(paramNode, this._fileInfo.lines),
                                 moduleName: this._fileInfo.moduleName,
                                 isInExceptSuite: this._isInExceptSuite,
@@ -613,7 +613,7 @@ export class Binder extends ParseTreeWalker {
                             const paramDeclaration: ParameterDeclaration = {
                                 type: DeclarationType.Parameter,
                                 node: paramNode,
-                                path: this._fileInfo.filePath,
+                                uri: this._fileInfo.fileUri,
                                 range: convertTextRangeToRange(paramNode, this._fileInfo.lines),
                                 moduleName: this._fileInfo.moduleName,
                                 isInExceptSuite: this._isInExceptSuite,
@@ -765,7 +765,7 @@ export class Binder extends ParseTreeWalker {
             const paramDeclaration: TypeParameterDeclaration = {
                 type: DeclarationType.TypeParameter,
                 node: param,
-                path: this._fileInfo.filePath,
+                uri: this._fileInfo.fileUri,
                 range: convertTextRangeToRange(node, this._fileInfo.lines),
                 moduleName: this._fileInfo.moduleName,
                 isInExceptSuite: this._isInExceptSuite,
@@ -806,7 +806,7 @@ export class Binder extends ParseTreeWalker {
         const typeAliasDeclaration: TypeAliasDeclaration = {
             type: DeclarationType.TypeAlias,
             node,
-            path: this._fileInfo.filePath,
+            uri: this._fileInfo.fileUri,
             range: convertTextRangeToRange(node.name, this._fileInfo.lines),
             moduleName: this._fileInfo.moduleName,
             isInExceptSuite: this._isInExceptSuite,
@@ -1413,7 +1413,7 @@ export class Binder extends ParseTreeWalker {
                     node: node.name,
                     isConstant: isConstantName(node.name.value),
                     inferredTypeSource: node,
-                    path: this._fileInfo.filePath,
+                    uri: this._fileInfo.fileUri,
                     range: convertTextRangeToRange(node.name, this._fileInfo.lines),
                     moduleName: this._fileInfo.moduleName,
                     isInExceptSuite: this._isInExceptSuite,
@@ -1751,7 +1751,7 @@ export class Binder extends ParseTreeWalker {
         // symbols below) in case one of the imported symbols is the same name as the
         // submodule. In that case, we want to the symbol to appear later in the
         // declaration list because it should "win" when resolving the alias.
-        const fileName = stripFileExtension(getFileName(this._fileInfo.filePath));
+        const fileName = stripFileExtension(getFileName(this._fileInfo.fileUri));
         const isModuleInitFile =
             fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length === 1;
 
@@ -1809,7 +1809,7 @@ export class Binder extends ParseTreeWalker {
                                 const aliasDecl: AliasDeclaration = {
                                     type: DeclarationType.Alias,
                                     node,
-                                    path: resolvedPath,
+                                    uri: resolvedPath,
                                     loadSymbolsFromPath: true,
                                     range: getEmptyRange(), // Range is unknown for wildcard name import.
                                     usesLocalName: false,
@@ -1829,7 +1829,7 @@ export class Binder extends ParseTreeWalker {
                                         const submoduleFallback: AliasDeclaration = {
                                             type: DeclarationType.Alias,
                                             node,
-                                            path: implicitImport.path,
+                                            uri: implicitImport.path,
                                             loadSymbolsFromPath: true,
                                             range: getEmptyRange(),
                                             usesLocalName: false,
@@ -1840,7 +1840,7 @@ export class Binder extends ParseTreeWalker {
                                         const aliasDecl: AliasDeclaration = {
                                             type: DeclarationType.Alias,
                                             node,
-                                            path: resolvedPath,
+                                            uri: resolvedPath,
                                             loadSymbolsFromPath: true,
                                             usesLocalName: false,
                                             symbolName: name,
@@ -1921,7 +1921,7 @@ export class Binder extends ParseTreeWalker {
                         submoduleFallback = {
                             type: DeclarationType.Alias,
                             node: importSymbolNode,
-                            path: implicitImport.path,
+                            uri: implicitImport.path,
                             loadSymbolsFromPath: true,
                             range: getEmptyRange(),
                             usesLocalName: false,
@@ -1937,7 +1937,7 @@ export class Binder extends ParseTreeWalker {
                         if (fileName === '__init__') {
                             if (node.module.leadingDots === 1 && node.module.nameParts.length === 0) {
                                 loadSymbolsFromPath = false;
-                            } else if (resolvedPath === this._fileInfo.filePath) {
+                            } else if (resolvedPath === this._fileInfo.fileUri) {
                                 loadSymbolsFromPath = false;
                             }
                         }
@@ -1946,7 +1946,7 @@ export class Binder extends ParseTreeWalker {
                     const aliasDecl: AliasDeclaration = {
                         type: DeclarationType.Alias,
                         node: importSymbolNode,
-                        path: resolvedPath,
+                        uri: resolvedPath,
                         loadSymbolsFromPath,
                         usesLocalName: !!importSymbolNode.alias,
                         symbolName: importedName,
@@ -2299,7 +2299,7 @@ export class Binder extends ParseTreeWalker {
                     node: node.target,
                     isConstant: isConstantName(node.target.value),
                     inferredTypeSource: node,
-                    path: this._fileInfo.filePath,
+                    uri: this._fileInfo.fileUri,
                     range: convertTextRangeToRange(node.target, this._fileInfo.lines),
                     moduleName: this._fileInfo.moduleName,
                     isInExceptSuite: this._isInExceptSuite,
@@ -2384,7 +2384,7 @@ export class Binder extends ParseTreeWalker {
                 node: slotNameNode,
                 isConstant: isConstantName(slotName),
                 isDefinedBySlots: true,
-                path: this._fileInfo.filePath,
+                uri: this._fileInfo.fileUri,
                 range: convertTextRangeToRange(slotNameNode, this._fileInfo.lines),
                 moduleName: this._fileInfo.moduleName,
                 isInExceptSuite: this._isInExceptSuite,
@@ -2433,7 +2433,7 @@ export class Binder extends ParseTreeWalker {
                 node: target,
                 isConstant: isConstantName(target.value),
                 inferredTypeSource: target.parent,
-                path: this._fileInfo.filePath,
+                uri: this._fileInfo.fileUri,
                 range: convertTextRangeToRange(target, this._fileInfo.lines),
                 moduleName: this._fileInfo.moduleName,
                 isInExceptSuite: this._isInExceptSuite,
@@ -2462,10 +2462,10 @@ export class Binder extends ParseTreeWalker {
             | AliasDeclaration
             | undefined;
         const resolvedPath =
-            aliasDecl?.path && aliasDecl.loadSymbolsFromPath
-                ? aliasDecl.path
-                : aliasDecl?.submoduleFallback?.path && aliasDecl.submoduleFallback.loadSymbolsFromPath
-                ? aliasDecl.submoduleFallback.path
+            aliasDecl?.uri && aliasDecl.loadSymbolsFromPath
+                ? aliasDecl.uri
+                : aliasDecl?.submoduleFallback?.uri && aliasDecl.submoduleFallback.loadSymbolsFromPath
+                ? aliasDecl.submoduleFallback.uri
                 : undefined;
         if (!resolvedPath) {
             return undefined;
@@ -2476,8 +2476,8 @@ export class Binder extends ParseTreeWalker {
             return lookupInfo.dunderAllNames;
         }
 
-        if (aliasDecl?.submoduleFallback?.path) {
-            lookupInfo = this._fileInfo.importLookup(aliasDecl.submoduleFallback.path);
+        if (aliasDecl?.submoduleFallback?.uri) {
+            lookupInfo = this._fileInfo.importLookup(aliasDecl.submoduleFallback.uri);
             return lookupInfo?.dunderAllNames;
         }
 
@@ -2531,7 +2531,7 @@ export class Binder extends ParseTreeWalker {
             newDecl = {
                 type: DeclarationType.Alias,
                 node,
-                path: pathOfLastSubmodule,
+                uri: pathOfLastSubmodule,
                 loadSymbolsFromPath: false,
                 range: getEmptyRange(),
                 usesLocalName: !!importAlias,
@@ -2546,7 +2546,7 @@ export class Binder extends ParseTreeWalker {
             newDecl = {
                 type: DeclarationType.Alias,
                 node,
-                path: pathOfLastSubmodule,
+                uri: pathOfLastSubmodule,
                 loadSymbolsFromPath: true,
                 range: getEmptyRange(),
                 usesLocalName: !!importAlias,
@@ -2561,7 +2561,7 @@ export class Binder extends ParseTreeWalker {
         // to implicitly import all of the modules in a multi-part module name.
         const implicitImportInfo = AnalyzerNodeInfo.getImportInfo(node.module.nameParts[0]);
         if (implicitImportInfo && implicitImportInfo.resolvedPaths.length) {
-            newDecl.path = implicitImportInfo.resolvedPaths[0];
+            newDecl.uri = implicitImportInfo.resolvedPaths[0];
             newDecl.loadSymbolsFromPath = true;
             this._addImplicitImportsToLoaderActions(implicitImportInfo, newDecl);
         }
@@ -2569,7 +2569,7 @@ export class Binder extends ParseTreeWalker {
         // Add the implicit imports for this module if it's the last
         // name part we're resolving.
         if (importAlias || node.module.nameParts.length === 1) {
-            newDecl.path = pathOfLastSubmodule;
+            newDecl.uri = pathOfLastSubmodule;
             newDecl.loadSymbolsFromPath = true;
             newDecl.isUnresolved = false;
 
@@ -3481,7 +3481,7 @@ export class Binder extends ParseTreeWalker {
                 type: DeclarationType.Intrinsic,
                 node,
                 intrinsicType: type,
-                path: this._fileInfo.filePath,
+                uri: this._fileInfo.fileUri,
                 range: getEmptyRange(),
                 moduleName: this._fileInfo.moduleName,
                 isInExceptSuite: this._isInExceptSuite,
@@ -3556,7 +3556,7 @@ export class Binder extends ParseTreeWalker {
                         inferredTypeSource: source,
                         isInferenceAllowedInPyTyped: this._isInferenceAllowedInPyTyped(name.value),
                         typeAliasName: isPossibleTypeAlias ? target : undefined,
-                        path: this._fileInfo.filePath,
+                        uri: this._fileInfo.fileUri,
                         range: convertTextRangeToRange(name, this._fileInfo.lines),
                         moduleName: this._fileInfo.moduleName,
                         isInExceptSuite: this._isInExceptSuite,
@@ -3604,7 +3604,7 @@ export class Binder extends ParseTreeWalker {
                         isConstant: isConstantName(name.value),
                         inferredTypeSource: source,
                         isDefinedByMemberAccess: true,
-                        path: this._fileInfo.filePath,
+                        uri: this._fileInfo.fileUri,
                         range: convertTextRangeToRange(target.memberName, this._fileInfo.lines),
                         moduleName: this._fileInfo.moduleName,
                         isInExceptSuite: this._isInExceptSuite,
@@ -3696,7 +3696,7 @@ export class Binder extends ParseTreeWalker {
                         isConstant: isConstantName(name.value),
                         isFinal: finalInfo.isFinal,
                         typeAliasName: target,
-                        path: this._fileInfo.filePath,
+                        uri: this._fileInfo.fileUri,
                         typeAnnotationNode,
                         range: convertTextRangeToRange(name, this._fileInfo.lines),
                         moduleName: this._fileInfo.moduleName,
@@ -3769,7 +3769,7 @@ export class Binder extends ParseTreeWalker {
                         isConstant: isConstantName(name.value),
                         isDefinedByMemberAccess: true,
                         isFinal: finalInfo.isFinal,
-                        path: this._fileInfo.filePath,
+                        uri: this._fileInfo.fileUri,
                         typeAnnotationNode: finalInfo.isFinal && !finalInfo.finalTypeNode ? undefined : typeAnnotation,
                         range: convertTextRangeToRange(target.memberName, this._fileInfo.lines),
                         moduleName: this._fileInfo.moduleName,
@@ -4090,7 +4090,7 @@ export class Binder extends ParseTreeWalker {
             symbol.addDeclaration({
                 type: DeclarationType.SpecialBuiltInClass,
                 node: annotationNode,
-                path: this._fileInfo.filePath,
+                uri: this._fileInfo.fileUri,
                 range: convertTextRangeToRange(annotationNode, this._fileInfo.lines),
                 moduleName: this._fileInfo.moduleName,
                 isInExceptSuite: this._isInExceptSuite,

@@ -19,18 +19,18 @@ import { isVisibleExternally } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { maxTypeRecursionCount } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { isDefined } from '../common/core';
 import { appendArray } from '../common/collectionUtils';
+import { isDefined } from '../common/core';
 import { assertNever } from '../common/debug';
 import { ProgramView, ReferenceUseCase, SymbolUsageProvider } from '../common/extensibility';
+import { ReadOnlyFileSystem } from '../common/fileSystem';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { DocumentRange, Position, TextRange, doesRangeContain } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { CollectionResult, DocumentSymbolCollector } from './documentSymbolCollector';
-import { ReadOnlyFileSystem } from '../common/fileSystem';
 import { convertDocumentRangesToLocation } from './navigationUtils';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
 
 export type ReferenceCallback = (locations: DocumentRange[]) => void;
 
@@ -246,12 +246,12 @@ export class ReferencesProvider {
             for (const decl of referencesResult.declarations) {
                 throwIfCancellationRequested(this._token);
 
-                if (referencesResult.locations.some((l) => l.path === decl.path)) {
+                if (referencesResult.locations.some((l) => l.path === decl.uri)) {
                     // Already included.
                     continue;
                 }
 
-                const declFileInfo = this._program.getSourceFileInfo(decl.path);
+                const declFileInfo = this._program.getSourceFileInfo(decl.uri);
                 if (!declFileInfo) {
                     // The file the declaration belongs to doesn't belong to the program.
                     continue;
@@ -269,7 +269,7 @@ export class ReferencesProvider {
                 this.addReferencesToResult(declFileInfo.sourceFile.getFilePath(), includeDeclaration, tempResult);
                 for (const loc of tempResult.locations) {
                     // Include declarations only. And throw away any references
-                    if (loc.path === decl.path && doesRangeContain(decl.range, loc.range)) {
+                    if (loc.path === decl.uri && doesRangeContain(decl.range, loc.range)) {
                         referencesResult.addLocations(loc);
                     }
                 }
@@ -394,7 +394,7 @@ function isVisibleOutside(
     // that is within the current file and cannot be imported directly from other modules.
     return declarations.some((decl) => {
         // If the declaration is outside of this file, a global search is needed.
-        if (decl.path !== currentFilePath) {
+        if (decl.uri !== currentFilePath) {
             return true;
         }
 

@@ -98,7 +98,7 @@ export function createTypedDictType(
         className,
         ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
         fileInfo.moduleName,
-        fileInfo.filePath,
+        fileInfo.fileUri,
         ClassTypeFlags.TypedDictClass,
         ParseTreeUtils.getTypeSourceId(errorNode),
         /* declaredMetaclass */ undefined,
@@ -148,7 +148,7 @@ export function createTypedDictType(
                 const declaration: VariableDeclaration = {
                     type: DeclarationType.Variable,
                     node: entry.name,
-                    path: fileInfo.filePath,
+                    uri: fileInfo.fileUri,
                     typeAnnotationNode: entry.valueExpression,
                     isRuntimeTypeExpression: true,
                     range: convertOffsetsToRange(
@@ -210,7 +210,7 @@ export function createTypedDictTypeInlined(
         className,
         ParseTreeUtils.getClassFullName(dictNode, fileInfo.moduleName, className),
         fileInfo.moduleName,
-        fileInfo.filePath,
+        fileInfo.fileUri,
         ClassTypeFlags.TypedDictClass,
         ParseTreeUtils.getTypeSourceId(dictNode),
         /* declaredMetaclass */ undefined,
@@ -774,7 +774,7 @@ function getTypedDictFieldsFromDictSyntax(
         const declaration: VariableDeclaration = {
             type: DeclarationType.Variable,
             node: entry.keyExpression,
-            path: fileInfo.filePath,
+            uri: fileInfo.fileUri,
             typeAnnotationNode: entry.valueExpression,
             isRuntimeTypeExpression: !isInline,
             range: convertOffsetsToRange(

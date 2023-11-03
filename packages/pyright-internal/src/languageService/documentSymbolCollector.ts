@@ -29,12 +29,12 @@ import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { TypeCategory } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
+import { isDefined } from '../common/core';
 import { assert } from '../common/debug';
 import { ProgramView, ReferenceUseCase, SymbolUsageProvider } from '../common/extensibility';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { TextRange } from '../common/textRange';
 import { ImportAsNode, NameNode, ParseNode, ParseNodeType, StringListNode, StringNode } from '../parser/parseNodes';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
-import { isDefined } from '../common/core';
 
 export type CollectionResult = {
     node: NameNode | StringNode;
@@ -186,15 +186,15 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
         const resolvedDeclarations: Declaration[] = [];
-        const sourceMapper = program.getSourceMapper(fileInfo.filePath, token);
+        const sourceMapper = program.getSourceMapper(fileInfo.fileUri, token);
         declarations.forEach((decl) => {
             const resolvedDecl = evaluator.resolveAliasDeclaration(decl, resolveLocalName);
             if (resolvedDecl) {
                 addDeclarationIfUnique(resolvedDeclarations, resolvedDecl);
-                if (sourceMapper && isStubFile(resolvedDecl.path)) {
+                if (sourceMapper && isStubFile(resolvedDecl.uri)) {
                     const implDecls = sourceMapper.findDeclarations(resolvedDecl);
                     for (const implDecl of implDecls) {
-                        if (implDecl && implDecl.path) {
+                        if (implDecl && implDecl.uri) {
                             addDeclarationIfUnique(resolvedDeclarations, implDecl);
                         }
                     }
@@ -202,7 +202,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             }
         });
 
-        const sourceFileInfo = program.getSourceFileInfo(fileInfo.filePath);
+        const sourceFileInfo = program.getSourceFileInfo(fileInfo.fileUri);
         if (sourceFileInfo && sourceFileInfo.sourceFile.getIPythonMode() === IPythonMode.CellDocs) {
             // Add declarations from chained source files
             let builtinsScope = fileInfo.builtinsScope;

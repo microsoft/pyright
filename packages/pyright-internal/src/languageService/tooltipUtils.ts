@@ -310,7 +310,7 @@ export function getDocumentationPartsForTypeAndDecl(
             }
         }
 
-        typeDoc = getModuleDocStringFromPaths([resolvedDecl.path], sourceMapper);
+        typeDoc = getModuleDocStringFromPaths([resolvedDecl.uri], sourceMapper);
     }
 
     typeDoc =

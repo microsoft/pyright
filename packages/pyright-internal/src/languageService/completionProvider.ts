@@ -2187,7 +2187,7 @@ export class CompletionProvider {
             return [];
         }
 
-        if (declaration.path !== this.filePath) {
+        if (declaration.uri !== this.filePath) {
             return [];
         }
 
@@ -2197,8 +2197,8 @@ export class CompletionProvider {
 
             // Find the lowest tree to search the symbol.
             if (
-                ParseTreeUtils.getFileInfoFromNode(startingNode)?.filePath ===
-                ParseTreeUtils.getFileInfoFromNode(scopeRoot)?.filePath
+                ParseTreeUtils.getFileInfoFromNode(startingNode)?.fileUri ===
+                ParseTreeUtils.getFileInfoFromNode(scopeRoot)?.fileUri
             ) {
                 startingNode = scopeRoot;
             }

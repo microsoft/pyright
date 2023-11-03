@@ -566,7 +566,7 @@ interface ClassDetails {
     name: string;
     fullName: string;
     moduleName: string;
-    filePath: string;
+    fileUri: string;
     flags: ClassTypeFlags;
     typeSourceId: TypeSourceId;
     baseClasses: Type[];
@@ -708,7 +708,7 @@ export namespace ClassType {
                 name,
                 fullName,
                 moduleName,
-                filePath,
+                fileUri: filePath,
                 flags,
                 typeSourceId,
                 baseClasses: [],

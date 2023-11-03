@@ -229,7 +229,7 @@ export class Checker extends ParseTreeWalker {
         const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(this._moduleNode);
 
         if (isPrintCodeComplexityEnabled) {
-            console.log(`Code complexity of module ${this._fileInfo.filePath} is ${codeComplexity.toString()}`);
+            console.log(`Code complexity of module ${this._fileInfo.fileUri} is ${codeComplexity.toString()}`);
         }
 
         if (codeComplexity > maxCodeComplexity) {
@@ -1525,11 +1525,11 @@ export class Checker extends ParseTreeWalker {
             }
 
             const resolvedAlias = this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
-            if (!resolvedAlias?.path || !isStubFile(resolvedAlias.path)) {
+            if (!resolvedAlias?.uri || !isStubFile(resolvedAlias.uri)) {
                 continue;
             }
 
-            const importResult = this._getImportResult(node, resolvedAlias.path);
+            const importResult = this._getImportResult(node, resolvedAlias.uri);
             if (!importResult) {
                 continue;
             }
@@ -1623,14 +1623,14 @@ export class Checker extends ParseTreeWalker {
         const moduleName =
             moduleNameNode.leadingDots === 0
                 ? this._importResolver.getModuleNameForImport(filePath, execEnv).moduleName
-                : getRelativeModuleName(this._importResolver.fileSystem, this._fileInfo.filePath, filePath);
+                : getRelativeModuleName(this._importResolver.fileSystem, this._fileInfo.fileUri, filePath);
 
         if (!moduleName) {
             return undefined;
         }
 
         return this._importResolver.resolveImport(
-            this._fileInfo.filePath,
+            this._fileInfo.fileUri,
             execEnv,
             createImportedModuleDescriptor(moduleName)
         );
@@ -2979,7 +2979,7 @@ export class Checker extends ParseTreeWalker {
                                     if (diagnostic && overload.details.declaration) {
                                         diagnostic.addRelatedInfo(
                                             Localizer.DiagnosticAddendum.overloadSignature(),
-                                            overload.details.declaration?.path ?? primaryDecl.path,
+                                            overload.details.declaration?.uri ?? primaryDecl.uri,
                                             overload.details.declaration?.range ?? primaryDecl.range
                                         );
                                     }
@@ -3172,7 +3172,7 @@ export class Checker extends ParseTreeWalker {
                 }
 
                 if (primaryDeclNode) {
-                    diag.addRelatedInfo(primaryDeclInfo, primaryDecl.path, primaryDecl.range);
+                    diag.addRelatedInfo(primaryDeclInfo, primaryDecl.uri, primaryDecl.range);
                 }
             }
         };
@@ -4060,7 +4060,7 @@ export class Checker extends ParseTreeWalker {
         if (
             stdlibPath &&
             this._importResolver.isStdlibModule(desc, this._fileInfo.executionEnvironment) &&
-            this._sourceMapper.isUserCode(this._fileInfo.filePath)
+            this._sourceMapper.isUserCode(this._fileInfo.fileUri)
         ) {
             // This means the user has a module that is overwriting the stdlib module.
             const diag = this._evaluator.addDiagnosticForTextRange(
@@ -4069,7 +4069,7 @@ export class Checker extends ParseTreeWalker {
                 DiagnosticRule.reportShadowedImports,
                 Localizer.Diagnostic.stdlibModuleOverridden().format({
                     name: moduleName,
-                    path: this._fileInfo.filePath,
+                    path: this._fileInfo.fileUri,
                 }),
                 this._moduleNode
             );
@@ -4078,8 +4078,8 @@ export class Checker extends ParseTreeWalker {
             if (diag) {
                 const renameAction: RenameShadowedFileAction = {
                     action: ActionKind.RenameShadowedFileAction,
-                    oldFile: this._fileInfo.filePath,
-                    newFile: this._sourceMapper.getNextFileName(this._fileInfo.filePath),
+                    oldFile: this._fileInfo.fileUri,
+                    newFile: this._sourceMapper.getNextFileName(this._fileInfo.fileUri),
                 };
                 diag.addAction(renameAction);
             }
@@ -4621,7 +4621,7 @@ export class Checker extends ParseTreeWalker {
                                 decl.type !== DeclarationType.Function || ParseTreeUtils.isSuiteEmpty(decl.node.suite)
                         )
                     ) {
-                        if (getFileExtension(decls[0].path).toLowerCase() !== '.pyi') {
+                        if (getFileExtension(decls[0].uri).toLowerCase() !== '.pyi') {
                             if (!isSymbolImplemented(name)) {
                                 diagAddendum.addMessage(
                                     Localizer.DiagnosticAddendum.missingProtocolMember().format({
@@ -4747,7 +4747,7 @@ export class Checker extends ParseTreeWalker {
                         if (fieldDecls.length > 0) {
                             diagnostic.addRelatedInfo(
                                 Localizer.DiagnosticAddendum.dataClassFieldLocation(),
-                                fieldDecls[0].path,
+                                fieldDecls[0].uri,
                                 fieldDecls[0].range
                             );
                         }
@@ -5268,7 +5268,7 @@ export class Checker extends ParseTreeWalker {
                                 ClassType.cloneAsInstance(displayOnInit ? newMember.classType : initMember.classType)
                             ),
                         }),
-                        secondaryDecl.path,
+                        secondaryDecl.uri,
                         secondaryDecl.range
                     );
                 }
@@ -5570,7 +5570,7 @@ export class Checker extends ParseTreeWalker {
                     baseClass: this._evaluator.printType(convertToInstance(overriddenClassAndSymbol.classType)),
                     type: this._evaluator.printType(overriddenType),
                 }),
-                overriddenDecl.path,
+                overriddenDecl.uri,
                 overriddenDecl.range
             );
 
@@ -5579,7 +5579,7 @@ export class Checker extends ParseTreeWalker {
                     baseClass: this._evaluator.printType(convertToInstance(overrideClassAndSymbol.classType)),
                     type: this._evaluator.printType(overrideType),
                 }),
-                overrideDecl.path,
+                overrideDecl.uri,
                 overrideDecl.range
             );
         }
@@ -5823,7 +5823,7 @@ export class Checker extends ParseTreeWalker {
                             if (diag && origDecl) {
                                 diag.addRelatedInfo(
                                     Localizer.DiagnosticAddendum.overriddenMethod(),
-                                    origDecl.path,
+                                    origDecl.uri,
                                     origDecl.range
                                 );
                             }
@@ -5848,7 +5848,7 @@ export class Checker extends ParseTreeWalker {
                             if (diag && origDecl) {
                                 diag.addRelatedInfo(
                                     Localizer.DiagnosticAddendum.finalMethod(),
-                                    origDecl.path,
+                                    origDecl.uri,
                                     origDecl.range
                                 );
                             }
@@ -5878,7 +5878,7 @@ export class Checker extends ParseTreeWalker {
                         if (diag && origDecl) {
                             diag.addRelatedInfo(
                                 Localizer.DiagnosticAddendum.overriddenMethod(),
-                                origDecl.path,
+                                origDecl.uri,
                                 origDecl.range
                             );
                         }
@@ -5940,7 +5940,7 @@ export class Checker extends ParseTreeWalker {
                                     if (diag && origDecl) {
                                         diag.addRelatedInfo(
                                             Localizer.DiagnosticAddendum.overriddenMethod(),
-                                            origDecl.path,
+                                            origDecl.uri,
                                             origDecl.range
                                         );
                                     }
@@ -5980,7 +5980,7 @@ export class Checker extends ParseTreeWalker {
                                             if (diag && origDecl) {
                                                 diag.addRelatedInfo(
                                                     Localizer.DiagnosticAddendum.overriddenMethod(),
-                                                    origDecl.path,
+                                                    origDecl.uri,
                                                     origDecl.range
                                                 );
                                             }
@@ -6053,7 +6053,7 @@ export class Checker extends ParseTreeWalker {
                         if (diag && origDecl) {
                             diag.addRelatedInfo(
                                 Localizer.DiagnosticAddendum.overriddenSymbol(),
-                                origDecl.path,
+                                origDecl.uri,
                                 origDecl.range
                             );
                         }
@@ -6077,7 +6077,7 @@ export class Checker extends ParseTreeWalker {
                         if (diag) {
                             diag.addRelatedInfo(
                                 Localizer.DiagnosticAddendum.overriddenSymbol(),
-                                overrideFinalVarDecl.path,
+                                overrideFinalVarDecl.uri,
                                 overrideFinalVarDecl.range
                             );
                         }
@@ -6124,7 +6124,7 @@ export class Checker extends ParseTreeWalker {
                         if (diag && origDecl) {
                             diag.addRelatedInfo(
                                 Localizer.DiagnosticAddendum.overriddenSymbol(),
-                                origDecl.path,
+                                origDecl.uri,
                                 origDecl.range
                             );
                         }

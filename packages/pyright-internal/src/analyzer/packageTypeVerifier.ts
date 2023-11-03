@@ -572,7 +572,7 @@ export class PackageTypeVerifier {
                     const decls = symbol.getDeclarations();
                     const primaryDecl = decls.length > 0 ? decls[decls.length - 1] : undefined;
                     const declRange = primaryDecl?.range || getEmptyRange();
-                    const declPath = primaryDecl?.path || '';
+                    const declPath = primaryDecl?.uri || '';
                     const symbolCategory = this._getSymbolCategory(symbol, symbolType);
                     const isExported = publicSymbols.has(fullName);
 
@@ -616,7 +616,7 @@ export class PackageTypeVerifier {
                     const decls = symbol.getDeclarations();
                     const primaryDecl = decls.length > 0 ? decls[decls.length - 1] : undefined;
                     const declRange = primaryDecl?.range || getEmptyRange();
-                    const declPath = primaryDecl?.path || '';
+                    const declPath = primaryDecl?.uri || '';
 
                     const extraInfo = new DiagnosticAddendum();
                     if (baseSymbolType) {
@@ -902,7 +902,7 @@ export class PackageTypeVerifier {
 
         // If the file path wasn't provided, try to get it from the type.
         if (type.details.declaration && !declFilePath) {
-            declFilePath = type.details.declaration.path;
+            declFilePath = type.details.declaration.uri;
         }
 
         type.details.parameters.forEach((param, index) => {
@@ -1095,7 +1095,7 @@ export class PackageTypeVerifier {
             category: SymbolCategory.Class,
             name: type.details.name,
             fullName: type.details.fullName,
-            filePath: type.details.filePath,
+            filePath: type.details.fileUri,
             isExported: publicSymbols.has(type.details.fullName),
             typeKnownStatus: TypeKnownStatus.Known,
             referenceCount: 1,

@@ -103,7 +103,7 @@ function verifyEdits(code: string, mergeOnlyDuplications = true) {
     const changeRanges = _getChangeRanges(ranges);
     for (const range of changeRanges) {
         const edit = convertRangeToFileEditAction(state, range);
-        tracker.addEdit(edit.filePath, edit.range, edit.replacementText);
+        tracker.addEdit(edit.fileUri, edit.range, edit.replacementText);
     }
 
     const edits = tracker.getEdits(CancellationToken.None);

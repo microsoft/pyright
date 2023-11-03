@@ -160,7 +160,7 @@ export function getPropertyDocStringInherited(
 
 export function getVariableInStubFileDocStrings(decl: VariableDeclaration, sourceMapper: SourceMapper) {
     const docStrings: string[] = [];
-    if (!isStubFile(decl.path)) {
+    if (!isStubFile(decl.uri)) {
         return docStrings;
     }
 
@@ -213,7 +213,7 @@ export function getModuleDocString(
 ) {
     let docString = type.docString;
     if (!docString) {
-        const filePath = resolvedDecl?.path ?? type.filePath;
+        const filePath = resolvedDecl?.uri ?? type.filePath;
         docString = getModuleDocStringFromPaths([filePath], sourceMapper);
     }
 
@@ -228,12 +228,7 @@ export function getClassDocString(
     let docString = classType.details.docString;
     if (!docString && resolvedDecl && isClassDeclaration(resolvedDecl)) {
         docString = _getFunctionOrClassDeclsDocString([resolvedDecl]);
-        if (
-            !docString &&
-            resolvedDecl &&
-            isStubFile(resolvedDecl.path) &&
-            resolvedDecl.type === DeclarationType.Class
-        ) {
+        if (!docString && resolvedDecl && isStubFile(resolvedDecl.uri) && resolvedDecl.type === DeclarationType.Class) {
             for (const implDecl of sourceMapper.findDeclarations(resolvedDecl)) {
                 if (isVariableDeclaration(implDecl) && !!implDecl.docString) {
                     docString = implDecl.docString;
@@ -249,7 +244,7 @@ export function getClassDocString(
     }
 
     if (!docString && resolvedDecl) {
-        const implDecls = sourceMapper.findClassDeclarationsByType(resolvedDecl.path, classType);
+        const implDecls = sourceMapper.findClassDeclarationsByType(resolvedDecl.uri, classType);
         if (implDecls) {
             const classDecls = implDecls.filter((d) => isClassDeclaration(d)).map((d) => d);
             docString = _getFunctionOrClassDeclsDocString(classDecls);
@@ -294,7 +289,7 @@ function _getOverloadedFunctionDocStrings(
                 docStrings.push(overload.details.docString);
             }
         });
-    } else if (resolvedDecl && isStubFile(resolvedDecl.path) && isFunctionDeclaration(resolvedDecl)) {
+    } else if (resolvedDecl && isStubFile(resolvedDecl.uri) && isFunctionDeclaration(resolvedDecl)) {
         const implDecls = sourceMapper.findFunctionDeclarations(resolvedDecl);
         const docString = _getFunctionOrClassDeclsDocString(implDecls);
         if (docString) {
@@ -372,7 +367,7 @@ function _getFunctionDocString(type: Type, resolvedDecl: FunctionDeclaration | u
 
 function _getFunctionDocStringFromDeclaration(resolvedDecl: FunctionDeclaration, sourceMapper: SourceMapper) {
     let docString = _getFunctionOrClassDeclsDocString([resolvedDecl]);
-    if (!docString && isStubFile(resolvedDecl.path)) {
+    if (!docString && isStubFile(resolvedDecl.uri)) {
         const implDecls = sourceMapper.findFunctionDeclarations(resolvedDecl);
         docString = _getFunctionOrClassDeclsDocString(implDecls);
     }

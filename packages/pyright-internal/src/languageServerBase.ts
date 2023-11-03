@@ -102,17 +102,11 @@ import { FileSystem, ReadOnlyFileSystem } from './common/fileSystem';
 import { FileWatcherEventType, FileWatcherHandler } from './common/fileWatcher';
 import { Host } from './common/host';
 import { fromLSPAny } from './common/lspUtils';
-import {
-    convertPathToUri,
-    convertUriToPath,
-    deduplicateFolders,
-    getDirectoryPath,
-    getFileName,
-    isFile,
-} from './common/pathUtils';
+import { deduplicateFolders, isFile } from './common/pathUtils';
 import { ProgressReportTracker, ProgressReporter } from './common/progressReporter';
 import { ServiceProvider } from './common/serviceProvider';
 import { DocumentRange, Position, Range } from './common/textRange';
+import { Uri } from './common/uri';
 import { UriParser } from './common/uriParser';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CallHierarchyProvider } from './languageService/callHierarchyProvider';
@@ -192,7 +186,7 @@ export interface LanguageServerInterface {
 
 export interface ServerOptions {
     productName: string;
-    rootDirectory: string;
+    rootDirectory: Uri;
     version: string;
     cancellationProvider: CancellationProvider;
     serviceProvider: ServiceProvider;
@@ -362,7 +356,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     ) {
         // Stash the base directory into a global variable.
         // This must happen before fs.getModulePath().
-        (global as any).__rootDirectory = serverOptions.rootDirectory;
+        (global as any).__rootUri = serverOptions.rootDirectory;
 
         this.console.info(
             `${serverOptions.productName} language server ${
@@ -467,11 +461,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         return workspaces;
     }
 
-    async getWorkspaceForFile(filePath: string, pythonPath?: string): Promise<Workspace> {
+    async getWorkspaceForFile(fileUri: Uri, pythonPath?: Uri): Promise<Workspace> {
         return this.workspaceFactory.getWorkspaceForFile(filePath, pythonPath);
     }
 
-    async getContainingWorkspacesForFile(filePath: string): Promise<Workspace[]> {
+    async getContainingWorkspacesForFile(fileUri: Uri): Promise<Workspace[]> {
         return this.workspaceFactory.getContainingWorkspacesForFile(filePath);
     }
 
@@ -1041,7 +1035,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         return workspace.service.run((program) => {
             const completions = new CompletionProvider(
                 program,
-                workspace.rootPath,
+                workspace.rootUri,
                 filePath,
                 position,
                 {
@@ -1071,7 +1065,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             workspace.service.run((program) => {
                 return new CompletionProvider(
                     program,
-                    workspace.rootPath,
+                    workspace.rootUri,
                     completionItemData.filePath,
                     completionItemData.position,
                     {
@@ -1294,7 +1288,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected convertDiagnostics(fs: FileSystem, fileDiagnostics: FileDiagnostics): PublishDiagnosticsParams[] {
         return [
             {
-                uri: convertPathToUri(fs, fileDiagnostics.filePath),
+                uri: convertPathToUri(fs, fileDiagnostics.fileUri),
                 version: fileDiagnostics.version,
                 diagnostics: this._convertDiagnostics(fs, fileDiagnostics.diagnostics),
             },
@@ -1308,7 +1302,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected onAnalysisCompletedHandler(fs: FileSystem, results: AnalysisResults): void {
         // Send the computed diagnostics to the client.
         results.diagnostics.forEach((fileDiag) => {
-            if (!this.canNavigateToFile(fileDiag.filePath, fs)) {
+            if (!this.canNavigateToFile(fileDiag.fileUri, fs)) {
                 return;
             }
 
@@ -1462,7 +1456,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             const foldersToWatch = deduplicateFolders(
                 this.workspaceFactory
                     .getNonDefaultWorkspaces()
-                    .map((w) => w.searchPathsToWatch.filter((p) => !p.startsWith(w.rootPath)))
+                    .map((w) => w.searchPathsToWatch.filter((p) => !p.startsWith(w.rootUri)))
             );
 
             foldersToWatch.forEach((p) => {

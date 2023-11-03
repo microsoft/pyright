@@ -65,7 +65,7 @@ export class CodeActionProvider {
                         Command.create(
                             Localizer.CodeAction.createTypeStub(),
                             Commands.createTypeStub,
-                            workspace.rootPath,
+                            workspace.rootUri,
                             action.moduleName,
                             filePath
                         ),
@@ -118,8 +118,8 @@ export class CodeActionProvider {
                         fileOperations: [
                             {
                                 kind: 'rename',
-                                oldFilePath: action.oldFile,
-                                newFilePath: action.newFile,
+                                oldFileUri: action.oldFile,
+                                newFileUri: action.newFile,
                             },
                         ],
                     };

@@ -5,6 +5,7 @@
  */
 
 import { CancellationToken } from 'vscode-jsonrpc';
+import { Uri } from '../common/uri';
 
 const MAX_TREE_SEARCH_COUNT = 1000;
 
@@ -15,12 +16,7 @@ class NumberReference {
 // Builds an array of imports from the 'from' to the 'to' entry where 'from'
 // is on the front of the array and the item just before 'to' is on the
 // back of the array.
-export function buildImportTree(
-    to: string,
-    from: string,
-    next: (from: string) => string[],
-    token: CancellationToken
-): string[] {
+export function buildImportTree(to: Uri, from: Uri, next: (from: Uri) => Uri[], token: CancellationToken): Uri[] {
     const totalCountRef = new NumberReference();
     const results = _buildImportTreeImpl(to, from, next, [], totalCountRef, token);
 
@@ -29,13 +25,13 @@ export function buildImportTree(
 }
 
 function _buildImportTreeImpl(
-    to: string,
-    from: string,
-    next: (from: string) => string[],
-    previous: string[],
+    to: Uri,
+    from: Uri,
+    next: (from: Uri) => Uri[],
+    previous: Uri[],
     totalSearched: NumberReference,
     token: CancellationToken
-): string[] {
+): Uri[] {
     // Exit early if cancellation is requested or we've exceeded max count
     if (totalSearched.value > MAX_TREE_SEARCH_COUNT || token.isCancellationRequested) {
         return [];

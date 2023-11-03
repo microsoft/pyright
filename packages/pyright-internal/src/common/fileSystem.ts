@@ -43,22 +43,22 @@ export interface ReadOnlyFileSystem {
     readFileSync(uri: Uri, encoding?: BufferEncoding | null): string | Buffer;
 
     statSync(uri: Uri): Stats;
-    realpathSync(uri: Uri): string;
-    getModulePath(): string;
+    realpathSync(uri: Uri): Uri;
+    getModulePath(): Uri;
     // Async I/O
     readFile(uri: Uri): Promise<Buffer>;
     readFileText(uri: Uri, encoding?: BufferEncoding): Promise<string>;
     // Return path in casing on OS.
-    realCasePath(uri: Uri): string;
+    realCasePath(uri: Uri): Uri;
 
     // See whether the file is mapped to another location.
     isMappedUri(uri: Uri): boolean;
 
     // Get original uri if the given uri is mapped.
-    getOriginalUri(mappedUri: Uri): string;
+    getOriginalUri(mappedUri: Uri): Uri;
 
     // Get mapped uri if the given uri is mapped.
-    getMappedUri(originalUri: Uri): string;
+    getMappedUri(originalUri: Uri): Uri;
 
     isInZip(uri: Uri): boolean;
 }
@@ -83,8 +83,8 @@ export interface TmpfileOptions {
 
 export interface TempFile {
     // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
-    tmpdir(): string;
-    tmpfile(options?: TmpfileOptions): string;
+    tmpdir(): Uri;
+    tmpfile(options?: TmpfileOptions): Uri;
     dispose(): void;
 }
 

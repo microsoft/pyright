@@ -26,24 +26,14 @@ import { Host, HostFactory, NoAccessHost } from '../common/host';
 import { defaultStubsDirectory } from '../common/pathConsts';
 import {
     FileSpec,
-    combinePaths,
-    containsPath,
     forEachAncestorDirectory,
-    getDirectoryPath,
-    getFileExtension,
-    getFileName,
     getFileSpec,
     getFileSystemEntries,
-    getPathComponents,
     hasPythonExtension,
     isDirectory,
     isFile,
     isFileSystemCaseSensitive,
     makeDirectories,
-    normalizePath,
-    normalizeSlashes,
-    realCasePath,
-    stripFileExtension,
     tryRealpath,
     tryStat,
 } from '../common/pathUtils';
@@ -76,7 +66,7 @@ export const pyprojectTomlName = 'pyproject.toml';
 // the analyzer on any files that have not yet been analyzed?
 const _userActivityBackoffTimeInMs = 250;
 
-const _gitDirectory = normalizeSlashes('/.git/');
+const _gitDirectory = '/.git/';
 
 export interface AnalyzerServiceOptions {
     console?: ConsoleInterface;
@@ -106,16 +96,16 @@ export class AnalyzerService {
     private readonly _backgroundAnalysisProgram: BackgroundAnalysisProgram;
     private readonly _serviceProvider: ServiceProvider;
 
-    private _executionRootPath: string;
-    private _typeStubTargetPath: string | undefined;
+    private _executionRootPath: Uri;
+    private _typeStubTargetPath: Uri | undefined;
     private _typeStubTargetIsSingleFile = false;
     private _sourceFileWatcher: FileWatcher | undefined;
     private _reloadConfigTimer: any;
     private _libraryReanalysisTimer: any;
-    private _configFilePath: string | undefined;
+    private _configFilePath: Uri | undefined;
     private _configFileWatcher: FileWatcher | undefined;
     private _libraryFileWatcher: FileWatcher | undefined;
-    private _librarySearchPathsToWatch: string[] | undefined;
+    private _librarySearchPathsToWatch: Uri[] | undefined;
     private _onCompletionCallback: AnalysisCompleteCallback | undefined;
     private _commandLineOptions: CommandLineOptions | undefined;
     private _analyzeTimer: any;
@@ -129,7 +119,7 @@ export class AnalyzerService {
     constructor(instanceName: string, serviceProvider: ServiceProvider, options: AnalyzerServiceOptions) {
         this._instanceName = instanceName;
 
-        this._executionRootPath = '';
+        this._executionRootPath = Uri.empty();
         this._options = options;
 
         this._options.serviceId = this._options.serviceId ?? getNextServiceId(instanceName);
@@ -150,7 +140,7 @@ export class AnalyzerService {
         this._options.cancellationProvider = options.cancellationProvider ?? new DefaultCancellationProvider();
         this._options.hostFactory = options.hostFactory ?? (() => new NoAccessHost());
 
-        this._options.configOptions = options.configOptions ?? new ConfigOptions(process.cwd());
+        this._options.configOptions = options.configOptions ?? new ConfigOptions(Uri.file(process.cwd()));
         const importResolver = this._options.importResolverFactory(
             this._serviceProvider,
             this._options.configOptions,
@@ -234,8 +224,7 @@ export class AnalyzerService {
                     version,
                     fileInfo.sourceFile.getOpenFileContents()!,
                     fileInfo.sourceFile.getIPythonMode(),
-                    fileInfo.chainedSourceFile?.sourceFile.getUri(),
-                    fileInfo.sourceFile.getRealFilePath()
+                    fileInfo.chainedSourceFile?.sourceFile.getUri()
                 );
             }
         }
@@ -319,12 +308,11 @@ export class AnalyzerService {
     }
 
     setFileOpened(
-        path: string,
+        path: Uri,
         version: number | null,
         contents: string,
         ipythonMode = IPythonMode.None,
-        chainedFilePath?: string,
-        realFilePath?: string
+        chainedFilePath?: Uri
     ) {
         // Open the file. Notebook cells are always tracked as they aren't 3rd party library files.
         // This is how it's worked in the past since each notebook used to have its own
@@ -332,38 +320,30 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.setFileOpened(path, version, contents, {
             isTracked: this.isTracked(path) || ipythonMode !== IPythonMode.None,
             ipythonMode,
-            chainedFilePath,
-            realFilePath,
+            chainedUri: chainedFilePath,
         });
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
-    getChainedFilePath(path: string): string | undefined {
-        return this._backgroundAnalysisProgram.getChainedFilePath(path);
+    getChainedUri(path: Uri): Uri | undefined {
+        return this._backgroundAnalysisProgram.getChainedUri(path);
     }
 
-    updateChainedFilePath(path: string, chainedFilePath: string | undefined) {
-        this._backgroundAnalysisProgram.updateChainedFilePath(path, chainedFilePath);
+    updateChainedUri(path: Uri, chainedFilePath: Uri | undefined) {
+        this._backgroundAnalysisProgram.updateChainedUri(path, chainedFilePath);
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
-    updateOpenFileContents(
-        path: string,
-        version: number | null,
-        contents: string,
-        ipythonMode = IPythonMode.None,
-        realFilePath?: string
-    ) {
+    updateOpenFileContents(path: Uri, version: number | null, contents: string, ipythonMode = IPythonMode.None) {
         this._backgroundAnalysisProgram.updateOpenFileContents(path, version, contents, {
             isTracked: this.isTracked(path),
             ipythonMode,
-            chainedFilePath: undefined,
-            realFilePath,
+            chainedUri: undefined,
         });
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
-    setFileClosed(path: string, isTracked?: boolean) {
+    setFileClosed(path: Uri, isTracked?: boolean) {
         this._backgroundAnalysisProgram.setFileClosed(path, isTracked);
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }

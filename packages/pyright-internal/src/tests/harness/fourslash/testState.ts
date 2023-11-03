@@ -195,7 +195,7 @@ export class TestState {
 
         this.workspace = {
             workspaceName: 'test workspace',
-            rootPath: vfsInfo.projectRoot,
+            rootUri: vfsInfo.projectRoot,
             pythonPath: undefined,
             pythonPathKind: WorkspacePythonPathKind.Mutable,
             uri: convertPathToUri(this.fs, vfsInfo.projectRoot),
@@ -1510,7 +1510,7 @@ export class TestState {
 
         const provider = new CompletionProvider(
             this.program,
-            this.workspace.rootPath,
+            this.workspace.rootUri,
             filePath,
             completionPosition,
             options,

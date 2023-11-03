@@ -9,16 +9,16 @@
 
 import { CancellationToken, WorkspaceEdit } from 'vscode-languageserver';
 
+import { isUserCode } from '../analyzer/sourceFileInfoUtils';
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { assertNever } from '../common/debug';
 import { FileEditAction } from '../common/editAction';
 import { ProgramView, ReferenceUseCase } from '../common/extensibility';
 import { convertTextRangeToRange } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
-import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
-import { isUserCode } from '../analyzer/sourceFileInfoUtils';
-import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { ParseResults } from '../parser/parser';
 import { convertToWorkspaceEdit } from '../common/workspaceEditUtils';
+import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
+import { ParseResults } from '../parser/parser';
 
 export class RenameProvider {
     private readonly _parseResults: ParseResults | undefined;
@@ -124,7 +124,7 @@ export class RenameProvider {
         const edits: FileEditAction[] = [];
         referencesResult.locations.forEach((loc) => {
             edits.push({
-                filePath: loc.path,
+                fileUri: loc.path,
                 range: loc.range,
                 replacementText: newName,
             });
@@ -156,12 +156,12 @@ export class RenameProvider {
             (userFile && !referencesResult.requiresGlobalSearch) ||
             (!userFile &&
                 sourceFileInfo.isOpenByClient &&
-                referencesResult.declarations.every((d) => program.getSourceFileInfo(d.path) === sourceFileInfo))
+                referencesResult.declarations.every((d) => program.getSourceFileInfo(d.uri) === sourceFileInfo))
         ) {
             return 'singleFileMode';
         }
 
-        if (!isUntitled && referencesResult.declarations.every((d) => isUserCode(program.getSourceFileInfo(d.path)))) {
+        if (!isUntitled && referencesResult.declarations.every((d) => isUserCode(program.getSourceFileInfo(d.uri)))) {
             return 'multiFileMode';
         }
 

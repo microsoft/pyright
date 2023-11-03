@@ -33,9 +33,9 @@ export function verifyNoCyclesInChainedFiles<T extends SourceFileInfo>(fileInfo:
         return;
     }
 
-    const set = new Set<string>([fileInfo.sourceFile.getFilePath()]);
+    const set = new Set<string>([fileInfo.sourceFile.getUri().key]);
     while (nextChainedFile) {
-        const path = nextChainedFile.sourceFile.getFilePath();
+        const path = nextChainedFile.sourceFile.getUri().key;
         if (set.has(path)) {
             // We found a cycle.
             fail(`Found a cycle in implicit imports files`);
@@ -80,7 +80,7 @@ function _parseAllOpenCells(program: ProgramView): void {
             continue;
         }
 
-        program.getParseResults(file.sourceFile.getFilePath());
+        program.getParseResults(file.sourceFile.getUri());
         program.handleMemoryHighUsage();
     }
 }

@@ -18,16 +18,7 @@ import { TaskListToken } from './diagnostic';
 import { DiagnosticRule } from './diagnosticRules';
 import { FileSystem } from './fileSystem';
 import { Host } from './host';
-import {
-    FileSpec,
-    combinePaths,
-    ensureTrailingDirectorySeparator,
-    getFileSpec,
-    isDirectory,
-    normalizePath,
-    realCasePath,
-    resolvePaths,
-} from './pathUtils';
+import { FileSpec, getFileSpec, isDirectory } from './pathUtils';
 import { PythonVersion, latestStablePythonVersion, versionFromString, versionToString } from './pythonVersion';
 import { ServiceProvider } from './serviceProvider';
 import { ServiceKeys } from './serviceProviderExtensions';
@@ -43,7 +34,7 @@ export class ExecutionEnvironment {
     // Root directory for execution - absolute or relative to the
     // project root.
     // Undefined if this is a rootless environment (e.g., open file mode).
-    root?: string;
+    root?: string | Uri;
 
     // Name of a virtual environment if there is one, otherwise
     // just the path to the python executable.
@@ -56,15 +47,15 @@ export class ExecutionEnvironment {
     pythonPlatform?: string | undefined;
 
     // Default to no extra paths.
-    extraPaths: string[] = [];
+    extraPaths: Uri[] = [];
 
     // Default to "." which indicates every file in the project.
     constructor(
         name: string,
-        root: string,
+        root: string | Uri,
         defaultPythonVersion: PythonVersion | undefined,
         defaultPythonPlatform: string | undefined,
-        defaultExtraPaths: string[] | undefined
+        defaultExtraPaths: Uri[] | undefined
     ) {
         this.name = name;
         this.root = root || undefined;
@@ -711,19 +702,19 @@ export function matchFileSpecs(configOptions: ConfigOptions, uri: Uri, isFile = 
 export class ConfigOptions {
     // Absolute directory of project. All relative paths in the config
     // are based on this path.
-    projectRoot: string;
+    projectRoot: Uri;
 
     // Path to python interpreter.
-    pythonPath?: string | undefined;
+    pythonPath?: Uri | undefined;
 
     // Name of the python environment.
     pythonEnvironmentName?: string | undefined;
 
     // Path to use for typeshed definitions.
-    typeshedPath?: string | undefined;
+    typeshedPath?: Uri | undefined;
 
     // Path to custom typings (stub) modules.
-    stubPath?: string | undefined;
+    stubPath?: Uri | undefined;
 
     // A list of file specs to include in the analysis. Can contain
     // directories, in which case all "*.py" files within those directories
@@ -803,7 +794,7 @@ export class ConfigOptions {
     // directories. This is used in conjunction with the "venv" name in
     // the config file to identify the python environment used for resolving
     // third-party modules.
-    venvPath?: string | undefined;
+    venvPath?: Uri | undefined;
 
     // Default venv environment.
     venv?: string | undefined;
@@ -815,7 +806,7 @@ export class ConfigOptions {
     defaultPythonPlatform?: string | undefined;
 
     // Default extraPaths. Can be overridden by executionEnvironment.
-    defaultExtraPaths?: string[] | undefined;
+    defaultExtraPaths?: Uri[] | undefined;
 
     //---------------------------------------------------------------
     // Internal-only switches
@@ -833,7 +824,7 @@ export class ConfigOptions {
     // Controls how hover and completion function signatures are displayed.
     functionSignatureDisplay: SignatureDisplayType;
 
-    constructor(projectRoot: string, typeCheckingMode?: string) {
+    constructor(projectRoot: Uri, typeCheckingMode?: string) {
         this.projectRoot = projectRoot;
         this.typeCheckingMode = typeCheckingMode;
         this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
@@ -862,17 +853,15 @@ export class ConfigOptions {
         );
     }
 
-    // Finds the best execution environment for a given file path. The
+    // Finds the best execution environment for a given file uri. The
     // specified file path should be absolute.
     // If no matching execution environment can be found, a default
     // execution environment is used.
-    findExecEnvironment(filePath: string): ExecutionEnvironment {
+    findExecEnvironment(file: Uri): ExecutionEnvironment {
         return (
             this.executionEnvironments.find((env) => {
-                const envRoot = ensureTrailingDirectorySeparator(
-                    normalizePath(combinePaths(this.projectRoot, env.root))
-                );
-                return filePath.startsWith(envRoot);
+                const envRoot = Uri.isUri(env.root) ? env.root : this.projectRoot.combinePaths(env.root || '');
+                return file.startsWith(envRoot);
             }) ?? this.getDefaultExecEnvironment()
         );
     }
@@ -1027,7 +1016,7 @@ export class ConfigOptions {
             if (typeof configObj.venvPath !== 'string') {
                 console.error(`Config "venvPath" field must contain a string.`);
             } else {
-                this.venvPath = normalizePath(combinePaths(this.projectRoot, configObj.venvPath));
+                this.venvPath = this.projectRoot.combinePaths(configObj.venvPath);
             }
         }
 
@@ -1052,7 +1041,7 @@ export class ConfigOptions {
                     if (typeof path !== 'string') {
                         console.error(`Config "extraPaths" field ${pathIndex} must be a string.`);
                     } else {
-                        this.defaultExtraPaths!.push(normalizePath(combinePaths(this.projectRoot, path)));
+                        this.defaultExtraPaths!.push(this.projectRoot.combinePaths(path));
                     }
                 });
             }
@@ -1092,8 +1081,8 @@ export class ConfigOptions {
                 console.error(`Config "typeshedPath" field must contain a string.`);
             } else {
                 this.typeshedPath = configObj.typeshedPath
-                    ? normalizePath(combinePaths(this.projectRoot, configObj.typeshedPath))
-                    : '';
+                    ? this.projectRoot.combinePaths(configObj.typeshedPath)
+                    : undefined;
             }
         }
 
@@ -1106,7 +1095,7 @@ export class ConfigOptions {
                 console.error(`Config "typingsPath" field must contain a string.`);
             } else {
                 console.error(`Config "typingsPath" is now deprecated. Please, use stubPath instead.`);
-                this.stubPath = normalizePath(combinePaths(this.projectRoot, configObj.typingsPath));
+                this.stubPath = this.projectRoot.combinePaths(configObj.typingsPath);
             }
         }
 
@@ -1114,7 +1103,7 @@ export class ConfigOptions {
             if (typeof configObj.stubPath !== 'string') {
                 console.error(`Config "stubPath" field must contain a string.`);
             } else {
-                this.stubPath = normalizePath(combinePaths(this.projectRoot, configObj.stubPath));
+                this.stubPath = this.projectRoot.combinePaths(configObj.stubPath);
             }
         }
 
@@ -1256,20 +1245,20 @@ export class ConfigOptions {
     }
 
     ensureDefaultExtraPaths(fs: FileSystem, autoSearchPaths: boolean, extraPaths: string[] | undefined) {
-        const paths: string[] = [];
+        const paths: Uri[] = [];
 
         if (autoSearchPaths) {
             // Auto-detect the common scenario where the sources are under the src folder
-            const srcPath = resolvePaths(this.projectRoot, pathConsts.src);
-            if (fs.existsSync(srcPath) && !fs.existsSync(resolvePaths(srcPath, '__init__.py'))) {
-                paths.push(realCasePath(srcPath, fs));
+            const srcPath = this.projectRoot.combinePaths(pathConsts.src);
+            if (fs.existsSync(srcPath) && !fs.existsSync(srcPath.combinePaths('__init__.py'))) {
+                paths.push(fs.realCasePath(srcPath));
             }
         }
 
         if (extraPaths && extraPaths.length > 0) {
             for (const p of extraPaths) {
-                const path = resolvePaths(this.projectRoot, p);
-                paths.push(realCasePath(path, fs));
+                const path = this.projectRoot.combinePaths(p);
+                paths.push(fs.realCasePath(path));
                 if (isDirectory(fs, path)) {
                     appendArray(paths, getPathsFromPthFiles(fs, path));
                 }
@@ -1295,7 +1284,7 @@ export class ConfigOptions {
     }
 
     private _getEnvironmentName(): string {
-        return this.pythonEnvironmentName || this.pythonPath || 'python';
+        return this.pythonEnvironmentName || this.pythonPath?.toString() || 'python';
     }
 
     private _convertBoolean(value: any, fieldName: string, defaultValue: boolean): boolean {
@@ -1340,7 +1329,7 @@ export class ConfigOptions {
 
             // Validate the root.
             if (envObj.root && typeof envObj.root === 'string') {
-                newExecEnv.root = normalizePath(combinePaths(this.projectRoot, envObj.root));
+                newExecEnv.root = this.projectRoot.combinePaths(envObj.root);
             } else {
                 console.error(`Config executionEnvironments index ${index}: missing root value.`);
             }
@@ -1360,7 +1349,7 @@ export class ConfigOptions {
                                     ` extraPaths field ${pathIndex} must be a string.`
                             );
                         } else {
-                            newExecEnv.extraPaths.push(normalizePath(combinePaths(this.projectRoot, path)));
+                            newExecEnv.extraPaths.push(this.projectRoot.combinePaths(path));
                         }
                     });
                 }

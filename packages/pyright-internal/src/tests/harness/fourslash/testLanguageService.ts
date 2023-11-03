@@ -22,6 +22,7 @@ import { ConfigOptions } from '../../../common/configOptions';
 import { ConsoleInterface } from '../../../common/console';
 import * as debug from '../../../common/debug';
 import { FileSystem } from '../../../common/fileSystem';
+import { ServiceProvider } from '../../../common/serviceProvider';
 import { Range } from '../../../common/textRange';
 import { UriParser } from '../../../common/uriParser';
 import { LanguageServerInterface, MessageAction, ServerSettings, WindowInterface } from '../../../languageServerBase';
@@ -34,7 +35,6 @@ import {
 } from '../../../workspaceFactory';
 import { TestAccessHost } from '../testAccessHost';
 import { HostSpecificFeatures } from './testState';
-import { ServiceProvider } from '../../../common/serviceProvider';
 
 export class TestFeatures implements HostSpecificFeatures {
     importResolverFactory: ImportResolverFactory = AnalyzerService.createImportResolver;
@@ -88,7 +88,7 @@ export class TestLanguageService implements LanguageServerInterface {
         this._uriParser = new UriParser(this.fs);
         this._defaultWorkspace = {
             workspaceName: '',
-            rootPath: '',
+            rootUri: '',
             uri: '',
             pythonPath: undefined,
             pythonPathKind: WorkspacePythonPathKind.Mutable,
@@ -118,7 +118,7 @@ export class TestLanguageService implements LanguageServerInterface {
     }
 
     getWorkspaceForFile(filePath: string): Promise<Workspace> {
-        if (filePath.startsWith(this._workspace.rootPath)) {
+        if (filePath.startsWith(this._workspace.rootUri)) {
             return Promise.resolve(this._workspace);
         }
 

@@ -17,6 +17,7 @@ import { FileSystem } from './fileSystem';
 import { HostKind, NoAccessHost, ScriptOutput } from './host';
 import { isDirectory, normalizePath } from './pathUtils';
 import { PythonVersion, versionFromMajorMinor } from './pythonVersion';
+import { Uri } from './uri';
 
 // preventLocalImports removes the working directory from sys.path.
 // The -c flag adds it automatically, which can allow some stdlib
@@ -81,7 +82,7 @@ export class FullAccessHost extends LimitedAccessHost {
         }
     }
 
-    override getPythonSearchPaths(pythonPath?: string, logInfo?: string[]): PythonPathResult {
+    override getPythonSearchPaths(pythonPath?: Uri, logInfo?: string[]): PythonPathResult {
         const importFailureInfo = logInfo ?? [];
         let result = this._executePythonInterpreter(pythonPath, (p) =>
             this._getSearchPathResultFromInterpreter(this.fs, p, importFailureInfo)
@@ -90,7 +91,7 @@ export class FullAccessHost extends LimitedAccessHost {
         if (!result) {
             result = {
                 paths: [],
-                prefix: '',
+                prefix: undefined,
             };
         }
 
@@ -102,13 +103,13 @@ export class FullAccessHost extends LimitedAccessHost {
         return result;
     }
 
-    override getPythonVersion(pythonPath?: string, logInfo?: string[]): PythonVersion | undefined {
+    override getPythonVersion(pythonPath?: Uri, logInfo?: string[]): PythonVersion | undefined {
         const importFailureInfo = logInfo ?? [];
 
         try {
             const commandLineArgs: string[] = ['-c', extractVersion];
             const execOutput = this._executePythonInterpreter(pythonPath, (p) =>
-                child_process.execFileSync(p, commandLineArgs, { encoding: 'utf8' })
+                child_process.execFileSync(p.getFilePath(), commandLineArgs, { encoding: 'utf8' })
             );
 
             const versionJson: { major: number; minor: number } = JSON.parse(execOutput!);
@@ -128,8 +129,8 @@ export class FullAccessHost extends LimitedAccessHost {
     }
 
     override runScript(
-        pythonPath: string | undefined,
-        script: string,
+        pythonPath: Uri | undefined,
+        script: Uri,
         args: string[],
         cwd: string,
         token: CancellationToken
@@ -141,10 +142,10 @@ export class FullAccessHost extends LimitedAccessHost {
         return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
             let stdout = '';
             let stderr = '';
-            const commandLineArgs = [script, ...args];
+            const commandLineArgs = [script.getFilePath(), ...args];
 
             const child = this._executePythonInterpreter(pythonPath, (p) =>
-                child_process.spawn(p, commandLineArgs, { cwd })
+                child_process.spawn(p.getFilePath(), commandLineArgs, { cwd })
             );
             const tokenWatch = token.onCancellationRequested(() => {
                 if (child) {
@@ -182,8 +183,8 @@ export class FullAccessHost extends LimitedAccessHost {
     }
 
     private _executePythonInterpreter<T>(
-        pythonPath: string | undefined,
-        execute: (path: string) => T | undefined
+        pythonPath: Uri | undefined,
+        execute: (path: Uri) => T | undefined
     ): T | undefined {
         if (pythonPath) {
             return execute(pythonPath);
@@ -194,7 +195,7 @@ export class FullAccessHost extends LimitedAccessHost {
                 // avoid this on Windows because it might invoke a script that displays
                 // a dialog box indicating that python can be downloaded from the app store.
                 if (process.platform !== 'win32') {
-                    result = execute('python3');
+                    result = execute(Uri.file('python3'));
                 }
             } catch {
                 // Ignore failure on python3
@@ -205,25 +206,26 @@ export class FullAccessHost extends LimitedAccessHost {
             }
 
             // On some platforms, 'python3' might not exist. Try 'python' instead.
-            return execute('python');
+            return execute(Uri.file('python'));
         }
     }
 
     private _getSearchPathResultFromInterpreter(
         fs: FileSystem,
-        interpreter: string,
+        interpreter: Uri,
         importFailureInfo: string[]
     ): PythonPathResult | undefined {
         const result: PythonPathResult = {
             paths: [],
-            prefix: '',
+            prefix: undefined,
         };
 
         try {
             const commandLineArgs: string[] = ['-c', extractSys];
+            const interpreterPath = interpreter.getFilePath();
 
             importFailureInfo.push(`Executing interpreter: '${interpreter}'`);
-            const execOutput = child_process.execFileSync(interpreter, commandLineArgs, { encoding: 'utf8' });
+            const execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, { encoding: 'utf8' });
 
             // Parse the execOutput. It should be a JSON-encoded array of paths.
             try {
@@ -232,16 +234,17 @@ export class FullAccessHost extends LimitedAccessHost {
                     execSplitEntry = execSplitEntry.trim();
                     if (execSplitEntry) {
                         const normalizedPath = normalizePath(execSplitEntry);
+                        const normalizedUri = Uri.file(normalizedPath);
                         // Skip non-existent paths and broken zips/eggs.
-                        if (fs.existsSync(normalizedPath) && isDirectory(fs, normalizedPath)) {
-                            result.paths.push(normalizedPath);
+                        if (fs.existsSync(normalizedUri) && isDirectory(fs, normalizedUri)) {
+                            result.paths.push(normalizedUri);
                         } else {
                             importFailureInfo.push(`Skipping '${normalizedPath}' because it is not a valid directory`);
                         }
                     }
                 }
 
-                result.prefix = execSplit.prefix;
+                result.prefix = Uri.file(execSplit.prefix);
 
                 if (result.paths.length === 0) {
                     importFailureInfo.push(`Found no valid directories`);

@@ -17,6 +17,7 @@ import { createFromRealFileSystem, RealTempFile } from './common/realFileSystem'
 import { ServiceProvider } from './common/serviceProvider';
 import './common/serviceProviderExtensions';
 import { ServiceKeys } from './common/serviceProviderExtensions';
+import { Uri } from './common/uri';
 
 export class BackgroundConsole implements ConsoleInterface {
     // We always generate logs in the background. For the foreground,
@@ -49,7 +50,7 @@ export class BackgroundThreadBase {
         setCancellationFolderName(data.cancellationFolderName);
 
         // Stash the base directory into a global variable.
-        (global as any).__rootDirectory = data.rootDirectory;
+        (global as any).__rootUri = Uri.parse(data.rootUri);
 
         // Make sure there's a file system and a console interface.
         this._serviceProvider = serviceProvider ?? new ServiceProvider();
@@ -170,7 +171,7 @@ export function getBackgroundWaiter<T>(port: MessagePort): Promise<T> {
 }
 
 export interface InitializationData {
-    rootDirectory: string;
+    rootUri: string;
     cancellationFolderName: string | undefined;
     runner: string | undefined;
     title?: string;

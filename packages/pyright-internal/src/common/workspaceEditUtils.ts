@@ -67,7 +67,7 @@ export function convertToWorkspaceEdit(
 
 export function appendToWorkspaceEdit(fs: ReadOnlyFileSystem, edits: FileEditAction[], workspaceEdit: WorkspaceEdit) {
     edits.forEach((edit) => {
-        const uri = convertPathToUri(fs, edit.filePath);
+        const uri = convertPathToUri(fs, edit.fileUri);
         workspaceEdit.changes![uri] = workspaceEdit.changes![uri] || [];
         workspaceEdit.changes![uri].push({ range: edit.range, newText: edit.replacementText });
     });
@@ -143,7 +143,7 @@ export function applyDocumentChanges(program: EditableProgram, fileInfo: SourceF
         program.setFileOpened(fileInfo.sourceFile.getFilePath(), 0, fileContent ?? '', {
             isTracked: fileInfo.isTracked,
             ipythonMode: fileInfo.sourceFile.getIPythonMode(),
-            chainedFilePath: fileInfo.chainedSourceFile?.sourceFile.getFilePath(),
+            chainedUri: fileInfo.chainedSourceFile?.sourceFile.getFilePath(),
             realFilePath: fileInfo.sourceFile.getRealFilePath(),
         });
     }
@@ -155,7 +155,7 @@ export function applyDocumentChanges(program: EditableProgram, fileInfo: SourceF
     program.setFileOpened(filePath, version + 1, TextDocument.applyEdits(sourceDoc, edits), {
         isTracked: fileInfo.isTracked,
         ipythonMode: fileInfo.sourceFile.getIPythonMode(),
-        chainedFilePath: fileInfo.chainedSourceFile?.sourceFile.getFilePath(),
+        chainedUri: fileInfo.chainedSourceFile?.sourceFile.getFilePath(),
         realFilePath: fileInfo.sourceFile.getRealFilePath(),
     });
 }
@@ -224,7 +224,7 @@ function _convertToWorkspaceEditWithDocumentChanges(
             case 'create':
                 workspaceEdit.documentChanges!.push(
                     CreateFile.create(
-                        convertPathToUri(fs, operation.filePath),
+                        convertPathToUri(fs, operation.fileUri),
                         /* options */ undefined,
                         defaultAnnotationId
                     )
@@ -239,7 +239,7 @@ function _convertToWorkspaceEditWithDocumentChanges(
     }
 
     // Text edit's file path must refer to original file paths unless it is a new file just created.
-    const mapPerFile = createMapFromItems(editActions.edits, (e) => e.filePath);
+    const mapPerFile = createMapFromItems(editActions.edits, (e) => e.fileUri);
     for (const [key, value] of mapPerFile) {
         workspaceEdit.documentChanges!.push(
             TextDocumentEdit.create(
@@ -262,8 +262,8 @@ function _convertToWorkspaceEditWithDocumentChanges(
             case 'rename':
                 workspaceEdit.documentChanges!.push(
                     RenameFile.create(
-                        convertPathToUri(fs, operation.oldFilePath),
-                        convertPathToUri(fs, operation.newFilePath),
+                        convertPathToUri(fs, operation.oldFileUri),
+                        convertPathToUri(fs, operation.newFileUri),
                         /* options */ undefined,
                         defaultAnnotationId
                     )

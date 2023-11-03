@@ -656,7 +656,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         `Type cache flag mismatch for node type ${node.nodeType} ` +
                         `(parent ${node.parent?.nodeType ?? 'none'}): ` +
                         `cached flags = ${expectedFlags}, access flags = ${flags}, ` +
-                        `file = {${fileInfo.filePath} [${position.line + 1}:${position.character + 1}]}`;
+                        `file = {${fileInfo.fileUri} [${position.line + 1}:${position.character + 1}]}`;
                     if (evaluatorOptions.verifyTypeCacheEvaluatorFlags) {
                         fail(message);
                     } else {
@@ -2897,7 +2897,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfModule(node: ParseNode, symbolName: string, nameParts: string[]) {
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-        const lookupResult = importLookup({ nameParts, importingFilePath: fileInfo.filePath });
+        const lookupResult = importLookup({ nameParts, importingFilePath: fileInfo.fileUri });
 
         if (!lookupResult) {
             return undefined;
@@ -5436,9 +5436,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (getAttrSymbol) {
                             const isModuleGetAttrSupported =
                                 fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_7 ||
-                                getAttrSymbol
-                                    .getDeclarations()
-                                    .some((decl) => decl.path.toLowerCase().endsWith('.pyi'));
+                                getAttrSymbol.getDeclarations().some((decl) => decl.uri.toLowerCase().endsWith('.pyi'));
 
                             if (isModuleGetAttrSupported) {
                                 const getAttrTypeResult = getEffectiveTypeOfSymbolForUsage(getAttrSymbol);
@@ -8996,7 +8994,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (diagnostic && overrideDecl) {
                     diagnostic.addRelatedInfo(
                         Localizer.DiagnosticAddendum.overloadIndex().format({ index: bestMatch.overloadIndex + 1 }),
-                        overrideDecl.path,
+                        overrideDecl.uri,
                         overrideDecl.range
                     );
                 }
@@ -9796,7 +9794,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 newClassName,
                 '',
                 '',
-                AnalyzerNodeInfo.getFileInfo(errorNode).filePath,
+                AnalyzerNodeInfo.getFileInfo(errorNode).fileUri,
                 ClassTypeFlags.None,
                 ParseTreeUtils.getTypeSourceId(errorNode),
                 ClassType.cloneAsInstantiable(returnType),
@@ -12713,7 +12711,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             className,
             ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
-            fileInfo.filePath,
+            fileInfo.fileUri,
             classFlags,
             ParseTreeUtils.getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
@@ -12774,7 +12772,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             className,
             ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
-            fileInfo.filePath,
+            fileInfo.fileUri,
             ClassTypeFlags.None,
             ParseTreeUtils.getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
@@ -15303,7 +15301,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             assignedName,
             ParseTreeUtils.getClassFullName(node, fileInfo.moduleName, assignedName),
             fileInfo.moduleName,
-            fileInfo.filePath,
+            fileInfo.fileUri,
             ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
             /* typeSourceId */ 0,
             /* declaredMetaclass */ undefined,
@@ -15867,7 +15865,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             node.name.value,
             ParseTreeUtils.getClassFullName(node, fileInfo.moduleName, node.name.value),
             fileInfo.moduleName,
-            fileInfo.filePath,
+            fileInfo.fileUri,
             classFlags,
             /* typeSourceId */ 0,
             /* declaredMetaclass */ undefined,
@@ -20657,7 +20655,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (resolvedDecl.type === DeclarationType.Alias) {
             // Build a module type that corresponds to the declaration and
             // its associated loader actions.
-            const moduleType = ModuleType.create(resolvedDecl.moduleName, resolvedDecl.path);
+            const moduleType = ModuleType.create(resolvedDecl.moduleName, resolvedDecl.uri);
             if (resolvedDecl.symbolName && resolvedDecl.submoduleFallback) {
                 return applyLoaderActionsToModuleType(moduleType, resolvedDecl.submoduleFallback, importLookup);
             } else {

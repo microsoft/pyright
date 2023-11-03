@@ -20,7 +20,6 @@ import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSin
 import { ServiceProvider } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { LogTracker, getPathForLogging } from '../common/logTracker';
-import { getFileName, normalizeSlashes, stripFileExtension } from '../common/pathUtils';
 import { convertOffsetsToRange, convertTextRangeToRange } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
@@ -199,46 +198,42 @@ export class SourceFile {
 
     constructor(
         readonly serviceProvider: ServiceProvider,
-        filePath: string,
+        uri: Uri,
         moduleName: string,
         isThirdPartyImport: boolean,
         isThirdPartyPyTypedPresent: boolean,
         editMode: SourceFileEditMode,
         console?: ConsoleInterface,
         logTracker?: LogTracker,
-        realFilePath?: string,
         ipythonMode?: IPythonMode
     ) {
         this.fileSystem = serviceProvider.get(ServiceKeys.fs);
         this._console = console || new StandardConsole();
         this._editMode = editMode;
-        this._uri = filePath;
-        this._realFilePath = realFilePath ?? filePath;
+        this._uri = uri;
         this._moduleName = moduleName;
-        this._isStubFile = filePath.endsWith('.pyi');
+        this._isStubFile = uri.extname === '.pyi';
         this._isThirdPartyImport = isThirdPartyImport;
         this._isThirdPartyPyTypedPresent = isThirdPartyPyTypedPresent;
-        const fileName = getFileName(filePath);
+        const fileName = uri.basename;
         this._isTypingStubFile =
-            this._isStubFile &&
-            (this._uri.endsWith(normalizeSlashes('stdlib/typing.pyi')) || fileName === 'typing_extensions.pyi');
+            this._isStubFile && (this._uri.pathEndsWith('stdlib/typing.pyi') || fileName === 'typing_extensions.pyi');
         this._isTypingExtensionsStubFile = this._isStubFile && fileName === 'typing_extensions.pyi';
-        this._isTypeshedStubFile =
-            this._isStubFile && this._uri.endsWith(normalizeSlashes('stdlib/_typeshed/__init__.pyi'));
+        this._isTypeshedStubFile = this._isStubFile && this._uri.pathEndsWith('stdlib/_typeshed/__init__.pyi');
 
         this._isBuiltInStubFile = false;
         if (this._isStubFile) {
             if (
-                this._uri.endsWith(normalizeSlashes('stdlib/collections/__init__.pyi')) ||
-                this._uri.endsWith(normalizeSlashes('stdlib/asyncio/futures.pyi')) ||
-                this._uri.endsWith(normalizeSlashes('stdlib/asyncio/tasks.pyi')) ||
-                this._uri.endsWith(normalizeSlashes('stdlib/builtins.pyi')) ||
-                this._uri.endsWith(normalizeSlashes('stdlib/_importlib_modulespec.pyi')) ||
-                this._uri.endsWith(normalizeSlashes('stdlib/dataclasses.pyi')) ||
-                this._uri.endsWith(normalizeSlashes('stdlib/abc.pyi')) ||
-                this._uri.endsWith(normalizeSlashes('stdlib/enum.pyi')) ||
-                this._uri.endsWith(normalizeSlashes('stdlib/queue.pyi')) ||
-                this._uri.endsWith(normalizeSlashes('stdlib/types.pyi'))
+                this._uri.pathEndsWith('stdlib/collections/__init__.pyi') ||
+                this._uri.pathEndsWith('stdlib/asyncio/futures.pyi') ||
+                this._uri.pathEndsWith('stdlib/asyncio/tasks.pyi') ||
+                this._uri.pathEndsWith('stdlib/builtins.pyi') ||
+                this._uri.pathEndsWith('stdlib/_importlib_modulespec.pyi') ||
+                this._uri.pathEndsWith('stdlib/dataclasses.pyi') ||
+                this._uri.pathEndsWith('stdlib/abc.pyi') ||
+                this._uri.pathEndsWith('stdlib/enum.pyi') ||
+                this._uri.pathEndsWith('stdlib/queue.pyi') ||
+                this._uri.pathEndsWith('stdlib/types.pyi')
             ) {
                 this._isBuiltInStubFile = true;
             }
@@ -249,15 +244,11 @@ export class SourceFile {
         this._ipythonMode = ipythonMode ?? IPythonMode.None;
     }
 
-    getRealFilePath(): string {
-        return this._realFilePath;
-    }
-
     getIPythonMode(): IPythonMode {
         return this._ipythonMode;
     }
 
-    getUri(): string {
+    getUri(): Uri {
         return this._uri;
     }
 
@@ -267,7 +258,7 @@ export class SourceFile {
         }
 
         // Synthesize a module name using the file path.
-        return stripFileExtension(getFileName(this._uri));
+        return this._uri.stripExtension().basename;
     }
 
     setModuleName(name: string) {
@@ -1212,7 +1203,7 @@ export class SourceFile {
             lines: this._writableData.parseResults!.tokenizerOutput.lines,
             typingSymbolAliases: this._writableData.parseResults!.typingSymbolAliases,
             definedConstants: configOptions.defineConstant,
-            filePath: this._uri,
+            fileUri: this._uri,
             moduleName: this.getModuleName(),
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,

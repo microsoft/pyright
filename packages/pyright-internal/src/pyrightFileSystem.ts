@@ -15,13 +15,14 @@ import { getPyTypedInfo } from './analyzer/pyTypedUtils';
 import { ExecutionEnvironment } from './common/configOptions';
 import { FileSystem, MkDirOptions } from './common/fileSystem';
 import { stubsSuffix } from './common/pathConsts';
-import { combinePaths, ensureTrailingDirectorySeparator, isDirectory, tryStat } from './common/pathUtils';
+import { isDirectory, tryStat } from './common/pathUtils';
+import { Uri } from './common/uri';
 import { ReadOnlyAugmentedFileSystem } from './readonlyAugmentedFileSystem';
 
 export interface SupportPartialStubs {
     isPartialStubPackagesScanned(execEnv: ExecutionEnvironment): boolean;
-    isPathScanned(path: string): boolean;
-    processPartialStubPackages(paths: string[], roots: string[], bundledStubPath?: string): void;
+    isPathScanned(path: Uri): boolean;
+    processPartialStubPackages(paths: Uri[], roots: Uri[], bundledStubPath?: Uri): void;
     clearPartialStubs(): void;
 }
 
@@ -43,55 +44,51 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
     private readonly _rootSearched = new Set<string>();
 
     // Partial stub package paths processed
-    private readonly _partialStubPackagePaths = new Set<string>();
+    private readonly _partialStubPackagePaths = new Set<Uri>();
 
     constructor(realFS: FileSystem) {
         super(realFS);
     }
 
-    override mkdirSync(path: string, options?: MkDirOptions): void {
-        this.realFS.mkdirSync(path, options);
+    override mkdirSync(uri: Uri, options?: MkDirOptions): void {
+        this.realFS.mkdirSync(uri, options);
     }
 
-    override chdir(path: string): void {
-        this.realFS.chdir(path);
+    override chdir(uri: Uri): void {
+        this.realFS.chdir(uri);
     }
 
-    override writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null): void {
-        this.realFS.writeFileSync(this.getOriginalPath(path), data, encoding);
+    override writeFileSync(uri: Uri, data: string | Buffer, encoding: BufferEncoding | null): void {
+        this.realFS.writeFileSync(this.getOriginalPath(uri), data, encoding);
     }
 
-    override rmdirSync(path: string): void {
-        this.realFS.rmdirSync(this.getOriginalPath(path));
+    override rmdirSync(uri: Uri): void {
+        this.realFS.rmdirSync(this.getOriginalPath(uri));
     }
 
-    override unlinkSync(path: string): void {
-        this.realFS.unlinkSync(this.getOriginalPath(path));
+    override unlinkSync(uri: Uri): void {
+        this.realFS.unlinkSync(this.getOriginalPath(uri));
     }
 
-    override createWriteStream(path: string): fs.WriteStream {
-        return this.realFS.createWriteStream(this.getOriginalPath(path));
+    override createWriteStream(uri: Uri): fs.WriteStream {
+        return this.realFS.createWriteStream(this.getOriginalPath(uri));
     }
 
-    override copyFileSync(src: string, dst: string): void {
+    override copyFileSync(src: Uri, dst: Uri): void {
         this.realFS.copyFileSync(this.getOriginalPath(src), this.getOriginalPath(dst));
     }
 
-    override getUri(originalPath: string): string {
-        return this.realFS.getUri(originalPath);
-    }
-
     isPartialStubPackagesScanned(execEnv: ExecutionEnvironment): boolean {
-        return this.isPathScanned(execEnv.root ?? '');
+        return Uri.isUri(execEnv.root) ? this.isPathScanned(execEnv.root) : false;
     }
 
-    isPathScanned(path: string): boolean {
-        return this._rootSearched.has(path);
+    isPathScanned(uri: Uri): boolean {
+        return this._rootSearched.has(uri.key);
     }
 
-    processPartialStubPackages(paths: string[], roots: string[], bundledStubPath?: string) {
+    processPartialStubPackages(paths: Uri[], roots: Uri[], bundledStubPath?: Uri) {
         for (const path of paths) {
-            this._rootSearched.add(path);
+            this._rootSearched.add(path.key);
 
             if (!this.realFS.existsSync(path) || !isDirectory(this.realFS, path)) {
                 continue;
@@ -105,9 +102,9 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
                 // Leave empty set of dir entries to process.
             }
 
-            const isBundledStub = path === bundledStubPath;
+            const isBundledStub = path.equals(bundledStubPath);
             for (const entry of dirEntries) {
-                const partialStubPackagePath = combinePaths(path, entry.name);
+                const partialStubPackagePath = path.combinePaths(entry.name);
                 const isDirectory = !entry.isSymbolicLink()
                     ? entry.isDirectory()
                     : !!tryStat(this.realFS, partialStubPackagePath)?.isDirectory();
@@ -129,7 +126,7 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
                 let partialStubs: string[] | undefined;
                 const packageName = entry.name.substr(0, entry.name.length - stubsSuffix.length);
                 for (const root of roots) {
-                    const packagePath = combinePaths(root, packageName);
+                    const packagePath = root.combinePaths(packageName);
                     try {
                         const stat = tryStat(this.realFS, packagePath);
                         if (!stat?.isDirectory()) {
@@ -149,8 +146,8 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
                         // Merge partial stub packages to the library.
                         partialStubs = partialStubs ?? this._getRelativePathPartialStubs(partialStubPackagePath);
                         for (const partialStub of partialStubs) {
-                            const originalPyiFile = combinePaths(partialStubPackagePath, partialStub);
-                            const mappedPyiFile = combinePaths(packagePath, partialStub);
+                            const originalPyiFile = partialStubPackagePath.combinePaths(partialStub);
+                            const mappedPyiFile = packagePath.combinePaths(partialStub);
 
                             this.recordMovedEntry(mappedPyiFile, originalPyiFile);
                         }
@@ -169,17 +166,17 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
         this._partialStubPackagePaths.clear();
     }
 
-    protected override isMovedEntry(path: string) {
-        return this._partialStubPackagePaths.has(path) || super.isMovedEntry(path);
+    protected override isMovedEntry(uri: Uri) {
+        return this._partialStubPackagePaths.has(uri) || super.isMovedEntry(uri);
     }
 
-    private _getRelativePathPartialStubs(path: string) {
+    private _getRelativePathPartialStubs(uri: Uri) {
         const paths: string[] = [];
 
-        const partialStubPathLength = ensureTrailingDirectorySeparator(path).length;
-        const searchAllStubs = (path: string) => {
-            for (const entry of this.realFS.readdirEntriesSync(path)) {
-                const filePath = combinePaths(path, entry.name);
+        const partialStubPathLength = uri.dirname.pathLength();
+        const searchAllStubs = (uri: Uri) => {
+            for (const entry of this.realFS.readdirEntriesSync(uri)) {
+                const filePath = uri.combinePaths(entry.name);
 
                 let isDirectory = entry.isDirectory();
                 let isFile = entry.isFile();
@@ -196,7 +193,7 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
                 }
 
                 if (isFile && entry.name.endsWith('.pyi')) {
-                    const relative = filePath.substring(partialStubPathLength);
+                    const relative = filePath.slicePath(partialStubPathLength);
                     if (relative) {
                         paths.push(relative);
                     }
@@ -204,7 +201,7 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
             }
         };
 
-        searchAllStubs(path);
+        searchAllStubs(uri);
         return paths;
     }
 }

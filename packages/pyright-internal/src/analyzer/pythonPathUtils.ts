@@ -12,22 +12,13 @@ import { compareComparableValues } from '../common/core';
 import { FileSystem } from '../common/fileSystem';
 import { Host } from '../common/host';
 import * as pathConsts from '../common/pathConsts';
-import {
-    combinePaths,
-    containsPath,
-    ensureTrailingDirectorySeparator,
-    getDirectoryPath,
-    getFileSystemEntries,
-    isDirectory,
-    normalizePath,
-    tryStat,
-} from '../common/pathUtils';
-import { versionToString } from '../common/pythonVersion';
-import { PythonVersion } from '../common/pythonVersion';
+import { getFileSystemEntries, isDirectory, tryStat } from '../common/pathUtils';
+import { PythonVersion, versionToString } from '../common/pythonVersion';
+import { Uri } from '../common/uri';
 
 export interface PythonPathResult {
-    paths: string[];
-    prefix: string;
+    paths: Uri[];
+    prefix: Uri | undefined;
 }
 
 export const stdLibFolderName = 'stdlib';
@@ -39,16 +30,16 @@ export function getTypeShedFallbackPath(fs: FileSystem) {
         return undefined;
     }
 
-    moduleDirectory = getDirectoryPath(ensureTrailingDirectorySeparator(normalizePath(moduleDirectory)));
+    moduleDirectory = moduleDirectory.dirname;
 
-    const typeshedPath = combinePaths(moduleDirectory, pathConsts.typeshedFallback);
+    const typeshedPath = moduleDirectory.combinePaths(pathConsts.typeshedFallback);
     if (fs.existsSync(typeshedPath)) {
         return fs.realCasePath(typeshedPath);
     }
 
     // In the debug version of Pyright, the code is one level
     // deeper, so we need to look one level up for the typeshed fallback.
-    const debugTypeshedPath = combinePaths(getDirectoryPath(moduleDirectory), pathConsts.typeshedFallback);
+    const debugTypeshedPath = moduleDirectory.dirname.combinePaths(pathConsts.typeshedFallback);
     if (fs.existsSync(debugTypeshedPath)) {
         return fs.realCasePath(debugTypeshedPath);
     }
@@ -56,8 +47,8 @@ export function getTypeShedFallbackPath(fs: FileSystem) {
     return undefined;
 }
 
-export function getTypeshedSubdirectory(typeshedPath: string, isStdLib: boolean) {
-    return combinePaths(typeshedPath, isStdLib ? stdLibFolderName : thirdPartyFolderName);
+export function getTypeshedSubdirectory(typeshedPath: Uri, isStdLib: boolean) {
+    return typeshedPath.combinePaths(isStdLib ? stdLibFolderName : thirdPartyFolderName);
 }
 
 export function findPythonSearchPaths(
@@ -66,21 +57,21 @@ export function findPythonSearchPaths(
     host: Host,
     importFailureInfo: string[],
     includeWatchPathsOnly?: boolean | undefined,
-    workspaceRoot?: string | undefined
-): string[] | undefined {
+    workspaceRoot?: Uri | undefined
+): Uri[] | undefined {
     importFailureInfo.push('Finding python search paths');
 
     if (configOptions.venvPath !== undefined && configOptions.venv) {
         const venvDir = configOptions.venv;
-        const venvPath = combinePaths(configOptions.venvPath, venvDir);
+        const venvPath = configOptions.venvPath.combinePaths(venvDir);
 
-        const foundPaths: string[] = [];
-        const sitePackagesPaths: string[] = [];
+        const foundPaths: Uri[] = [];
+        const sitePackagesPaths: Uri[] = [];
 
         [pathConsts.lib, pathConsts.lib64, pathConsts.libAlternate].forEach((libPath) => {
             const sitePackagesPath = findSitePackagesPath(
                 fs,
-                combinePaths(venvPath, libPath),
+                venvPath.combinePaths(libPath),
                 configOptions.defaultPythonVersion,
                 importFailureInfo
             );
@@ -115,11 +106,7 @@ export function findPythonSearchPaths(
     const pathResult = host.getPythonSearchPaths(configOptions.pythonPath, importFailureInfo);
     if (includeWatchPathsOnly && workspaceRoot) {
         const paths = pathResult.paths
-            .filter(
-                (p) =>
-                    !containsPath(workspaceRoot, p, /* ignoreCase */ true) ||
-                    containsPath(pathResult.prefix, p, /* ignoreCase */ true)
-            )
+            .filter((p) => !p.startsWith(workspaceRoot) || pathResult.prefix?.startsWith(p))
             .map((p) => fs.realCasePath(p));
 
         return paths;
@@ -135,10 +122,10 @@ export function isPythonBinary(p: string): boolean {
 
 function findSitePackagesPath(
     fs: FileSystem,
-    libPath: string,
+    libPath: Uri,
     pythonVersion: PythonVersion | undefined,
     importFailureInfo: string[]
-): string | undefined {
+): Uri | undefined {
     if (fs.existsSync(libPath)) {
         importFailureInfo.push(`Found path '${libPath}'; looking for ${pathConsts.sitePackages}`);
     } else {
@@ -146,7 +133,7 @@ function findSitePackagesPath(
         return undefined;
     }
 
-    const sitePackagesPath = combinePaths(libPath, pathConsts.sitePackages);
+    const sitePackagesPath = libPath.combinePaths(pathConsts.sitePackages);
     if (fs.existsSync(sitePackagesPath)) {
         importFailureInfo.push(`Found path '${sitePackagesPath}'`);
         return sitePackagesPath;
@@ -160,8 +147,8 @@ function findSitePackagesPath(
 
     // Candidate directories start with "python3.".
     const candidateDirs = entries.directories.filter((dirName) => {
-        if (dirName.startsWith('python3.')) {
-            const dirPath = combinePaths(libPath, dirName, pathConsts.sitePackages);
+        if (dirName.pathStartsWith('python3.')) {
+            const dirPath = dirName.combinePaths(pathConsts.sitePackages);
             return fs.existsSync(dirPath);
         }
         return false;
@@ -170,9 +157,11 @@ function findSitePackagesPath(
     // If there is a python3.X directory (where 3.X matches the configured python
     // version), prefer that over other python directories.
     if (pythonVersion) {
-        const preferredDir = candidateDirs.find((dirName) => dirName === `python${versionToString(pythonVersion)}`);
+        const preferredDir = candidateDirs.find(
+            (dirName) => dirName.basename === `python${versionToString(pythonVersion)}`
+        );
         if (preferredDir) {
-            const dirPath = combinePaths(libPath, preferredDir, pathConsts.sitePackages);
+            const dirPath = preferredDir.combinePaths(pathConsts.sitePackages);
             importFailureInfo.push(`Found path '${dirPath}'`);
             return dirPath;
         }
@@ -182,7 +171,7 @@ function findSitePackagesPath(
     // first directory that starts with "python". Most of the time, there will be
     // only one.
     if (candidateDirs.length > 0) {
-        const dirPath = combinePaths(libPath, candidateDirs[0], pathConsts.sitePackages);
+        const dirPath = candidateDirs[0].combinePaths(pathConsts.sitePackages);
         importFailureInfo.push(`Found path '${dirPath}'`);
         return dirPath;
     }
@@ -190,8 +179,8 @@ function findSitePackagesPath(
     return undefined;
 }
 
-export function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[] {
-    const searchPaths: string[] = [];
+export function getPathsFromPthFiles(fs: FileSystem, parentDir: Uri): Uri[] {
+    const searchPaths: Uri[] = [];
 
     // Get a list of all *.pth files within the specified directory.
     const pthFiles = fs
@@ -200,7 +189,7 @@ export function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[
         .sort((a, b) => compareComparableValues(a.name, b.name));
 
     pthFiles.forEach((pthFile) => {
-        const filePath = fs.realCasePath(combinePaths(parentDir, pthFile.name));
+        const filePath = fs.realCasePath(parentDir.combinePaths(pthFile.name));
         const fileStats = tryStat(fs, filePath);
 
         // Skip all files that are much larger than expected.
@@ -210,7 +199,7 @@ export function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[
             lines.forEach((line) => {
                 const trimmedLine = line.trim();
                 if (trimmedLine.length > 0 && !trimmedLine.startsWith('#') && !trimmedLine.match(/^import\s/)) {
-                    const pthPath = combinePaths(parentDir, trimmedLine);
+                    const pthPath = parentDir.combinePaths(trimmedLine);
                     if (fs.existsSync(pthPath) && isDirectory(fs, pthPath)) {
                         searchPaths.push(fs.realCasePath(pthPath));
                     }
@@ -222,8 +211,8 @@ export function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[
     return searchPaths;
 }
 
-function addPathIfUnique(pathList: string[], pathToAdd: string) {
-    if (!pathList.some((path) => path === pathToAdd)) {
+function addPathIfUnique(pathList: Uri[], pathToAdd: Uri) {
+    if (!pathList.some((path) => path.key === pathToAdd.key)) {
         pathList.push(pathToAdd);
         return true;
     }

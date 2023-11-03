@@ -93,7 +93,7 @@ test('test edit mode for workspace', async () => {
         program.setFileOpened(addedFilePath, 0, '', {
             isTracked: true,
             ipythonMode: IPythonMode.None,
-            chainedFilePath: undefined,
+            chainedUri: undefined,
             realFilePath: addedFilePath,
         });
 

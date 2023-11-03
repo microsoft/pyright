@@ -14,16 +14,11 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { addIfUnique, appendArray, createMapFromItems } from '../common/collectionUtils';
 import { TextEditAction } from '../common/editAction';
 import { ReadOnlyFileSystem } from '../common/fileSystem';
-import {
-    getDirectoryPath,
-    getFileName,
-    getRelativePathComponentsFromDirectory,
-    isFile,
-    stripFileExtension,
-} from '../common/pathUtils';
+import { isFile } from '../common/pathUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
 import { Position, Range, TextRange } from '../common/textRange';
+import { Uri } from '../common/uri';
 import {
     ImportAsNode,
     ImportFromAsNode,
@@ -44,7 +39,7 @@ export interface ImportStatement {
     node: ImportNode | ImportFromNode;
     subnode?: ImportAsNode;
     importResult: ImportResult | undefined;
-    resolvedPath: string | undefined;
+    resolvedPath: Uri | undefined;
     moduleName: string;
     followsNonImportStatement: boolean;
 }
@@ -623,7 +618,7 @@ function _getInsertionEditForAutoImportInsertion(
 function _processImportNode(node: ImportNode, localImports: ImportStatements, followsNonImportStatement: boolean) {
     node.list.forEach((importAsNode) => {
         const importResult = AnalyzerNodeInfo.getImportInfo(importAsNode.module);
-        let resolvedPath: string | undefined;
+        let resolvedPath: Uri | undefined;
 
         if (importResult && importResult.isImportFound) {
             resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
@@ -645,8 +640,8 @@ function _processImportNode(node: ImportNode, localImports: ImportStatements, fo
             // Don't overwrite existing import or import from statements
             // because we always want to prefer 'import from' over 'import'
             // in the map.
-            if (!localImports.mapByFilePath.has(resolvedPath)) {
-                localImports.mapByFilePath.set(resolvedPath, localImport);
+            if (!localImports.mapByFilePath.has(resolvedPath.key)) {
+                localImports.mapByFilePath.set(resolvedPath.key, localImport);
             }
         }
     });
@@ -659,7 +654,7 @@ function _processImportFromNode(
     includeImplicitImports: boolean
 ) {
     const importResult = AnalyzerNodeInfo.getImportInfo(node.module);
-    let resolvedPath: string | undefined;
+    let resolvedPath: Uri | undefined;
 
     if (importResult && importResult.isImportFound) {
         resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
@@ -671,7 +666,7 @@ function _processImportFromNode(
         for (const implicitImport of importResult.implicitImports.values()) {
             const importFromAs = node.imports.find((i) => i.name.value === implicitImport.name);
             if (importFromAs) {
-                localImports.implicitImports.set(implicitImport.path, importFromAs);
+                localImports.implicitImports.set(implicitImport.path.key, importFromAs);
             }
         }
     }
@@ -688,7 +683,7 @@ function _processImportFromNode(
 
     // Add it to the map.
     if (resolvedPath) {
-        const prevEntry = localImports.mapByFilePath.get(resolvedPath);
+        const prevEntry = localImports.mapByFilePath.get(resolvedPath.key);
         // Overwrite existing import statements because we always want to prefer
         // 'import from' over 'import'. Also, overwrite existing 'import from' if
         // the module name is shorter.
@@ -697,7 +692,7 @@ function _processImportFromNode(
             prevEntry.node.nodeType === ParseNodeType.Import ||
             prevEntry.moduleName.length > localImport.moduleName.length
         ) {
-            localImports.mapByFilePath.set(resolvedPath, localImport);
+            localImports.mapByFilePath.set(resolvedPath.key, localImport);
         }
     }
 }
@@ -810,23 +805,23 @@ function getConsecutiveNumberPairs(indices: number[]) {
 
 export function getRelativeModuleName(
     fs: ReadOnlyFileSystem,
-    sourcePath: string,
-    targetPath: string,
+    sourcePath: Uri,
+    targetPath: Uri,
     ignoreFolderStructure = false,
     sourceIsFile?: boolean
 ) {
     let srcPath = sourcePath;
     sourceIsFile = sourceIsFile !== undefined ? sourceIsFile : isFile(fs, sourcePath);
     if (sourceIsFile) {
-        srcPath = getDirectoryPath(sourcePath);
+        srcPath = sourcePath.dirname;
     }
 
     let symbolName: string | undefined;
     let destPath = targetPath;
     if (sourceIsFile) {
-        destPath = getDirectoryPath(targetPath);
+        destPath = targetPath.dirname;
 
-        const fileName = stripFileExtension(getFileName(targetPath));
+        const fileName = targetPath.stripAllExtensions().basename;
         if (fileName !== '__init__') {
             // ex) src: a.py, dest: b.py -> ".b" will be returned.
             symbolName = fileName;
@@ -835,12 +830,12 @@ export function getRelativeModuleName(
             //     like how it would return for sibling folder.
             //
             // if folder structure is not ignored, ".." will be returned
-            symbolName = getFileName(destPath);
-            destPath = getDirectoryPath(destPath);
+            symbolName = destPath.basename;
+            destPath = destPath.dirname;
         }
     }
 
-    const relativePaths = getRelativePathComponentsFromDirectory(srcPath, destPath, (f) => fs.realCasePath(f));
+    const relativePaths = srcPath.getRelativePathComponents(destPath);
 
     // This assumes both file paths are under the same importing root.
     // So this doesn't handle paths pointing to 2 different import roots.
@@ -867,14 +862,14 @@ export function getRelativeModuleName(
     return currentPaths;
 }
 
-export function getDirectoryLeadingDotsPointsTo(fromDirectory: string, leadingDots: number) {
+export function getDirectoryLeadingDotsPointsTo(fromDirectory: Uri, leadingDots: number) {
     let currentDirectory = fromDirectory;
     for (let i = 1; i < leadingDots; i++) {
-        if (currentDirectory === '') {
+        if (currentDirectory.isDiskPathRoot()) {
             return undefined;
         }
 
-        currentDirectory = getDirectoryPath(currentDirectory);
+        currentDirectory = currentDirectory.dirname;
     }
 
     return currentDirectory;
@@ -885,7 +880,7 @@ export function getResolvedFilePath(importResult: ImportResult | undefined) {
         return undefined;
     }
 
-    if (importResult.resolvedPaths.length === 1 && importResult.resolvedPaths[0] === '') {
+    if (importResult.resolvedPaths.length === 1 && importResult.resolvedPaths[0].equals(Uri.empty())) {
         // Import is resolved to namespace package folder.
         if (importResult.packageDirectory) {
             return importResult.packageDirectory;
