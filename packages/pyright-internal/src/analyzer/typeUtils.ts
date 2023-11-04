@@ -437,6 +437,45 @@ export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefin
     return transformedSubtype;
 }
 
+// Iterates over each signature in a function or overload, allowing the
+// caller to replace one or more signatures with new ones.
+export function mapSignatures(
+    type: FunctionType | OverloadedFunctionType,
+    callback: (type: FunctionType, index: number) => FunctionType | undefined
+): OverloadedFunctionType | FunctionType | undefined {
+    if (isFunction(type)) {
+        return callback(type, 0);
+    }
+
+    const newSignatures: FunctionType[] = [];
+    let changeMade = false;
+
+    OverloadedFunctionType.getOverloads(type).forEach((overload, index) => {
+        const newOverload = callback(overload, index);
+        if (newOverload !== overload) {
+            changeMade = true;
+        }
+
+        if (newOverload) {
+            newSignatures.push(newOverload);
+        }
+    });
+
+    if (!changeMade) {
+        return type;
+    }
+
+    if (newSignatures.length === 0) {
+        return undefined;
+    }
+
+    if (newSignatures.length === 1) {
+        return newSignatures[0];
+    }
+
+    return OverloadedFunctionType.create(newSignatures);
+}
+
 // The code flow engine uses a special form of the UnknownType (with the
 // isIncomplete flag set) to distinguish between an unknown that was generated
 // in a loop because it was temporarily incomplete versus an unknown that is

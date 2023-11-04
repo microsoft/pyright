@@ -242,6 +242,7 @@ import {
     lookUpClassMember,
     lookUpObjectMember,
     makeInferenceContext,
+    mapSignatures,
     mapSubtypes,
     partiallySpecializeType,
     preserveUnknown,
@@ -2171,7 +2172,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): CallSignatureInfo | undefined {
         const exprNode = callNode.leftExpression;
         const callType = getType(exprNode);
-        if (callType === undefined) {
+        if (!callType) {
             return undefined;
         }
 
@@ -25518,17 +25519,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         diag?: DiagnosticAddendum,
         recursionCount = 0
     ): FunctionType | OverloadedFunctionType | undefined {
-        if (isFunction(memberType)) {
+        return mapSignatures(memberType, (functionType) => {
             // If the caller specified no base type, always strip the
             // first parameter. This is used in cases like constructors.
             if (!baseType) {
-                return FunctionType.clone(memberType, /* stripFirstParam */ true);
+                return FunctionType.clone(functionType, /* stripFirstParam */ true);
             }
 
-            if (FunctionType.isInstanceMethod(memberType)) {
+            if (FunctionType.isInstanceMethod(functionType)) {
                 // If the baseType is a metaclass, don't specialize the function.
                 if (isInstantiableMetaclass(baseType)) {
-                    return memberType;
+                    return functionType;
                 }
 
                 const baseObj: ClassType = isInstantiableClass(baseType)
@@ -25537,7 +25538,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 return partiallySpecializeFunctionForBoundClassOrObject(
                     baseType,
-                    memberType,
+                    functionType,
                     memberClass ?? ClassType.cloneAsInstantiable(baseObj),
                     diag,
                     recursionCount,
@@ -25547,15 +25548,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (
-                FunctionType.isClassMethod(memberType) ||
-                (treatConstructorAsClassMember && FunctionType.isConstructorMethod(memberType))
+                FunctionType.isClassMethod(functionType) ||
+                (treatConstructorAsClassMember && FunctionType.isConstructorMethod(functionType))
             ) {
                 const baseClass = isInstantiableClass(baseType) ? baseType : ClassType.cloneAsInstantiable(baseType);
                 const clsType = selfType ? (convertToInstantiable(selfType) as ClassType | TypeVarType) : undefined;
 
                 return partiallySpecializeFunctionForBoundClassOrObject(
                     baseClass,
-                    memberType,
+                    functionType,
                     memberClass ?? baseClass,
                     diag,
                     recursionCount,
@@ -25564,12 +25565,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
             }
 
-            if (FunctionType.isStaticMethod(memberType)) {
+            if (FunctionType.isStaticMethod(functionType)) {
                 const baseClass = isInstantiableClass(baseType) ? baseType : ClassType.cloneAsInstantiable(baseType);
 
                 return partiallySpecializeFunctionForBoundClassOrObject(
                     baseClass,
-                    memberType,
+                    functionType,
                     memberClass ?? baseClass,
                     diag,
                     recursionCount,
@@ -25577,55 +25578,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* stripFirstParam */ false
                 );
             }
-        } else if (isOverloadedFunction(memberType)) {
-            const newOverloadType = OverloadedFunctionType.create([]);
 
-            // Don't bother binding the implementation.
-            OverloadedFunctionType.getOverloads(memberType).forEach((overload) => {
-                const boundMethod = bindFunctionToClassOrObject(
-                    baseType,
-                    overload,
-                    memberClass,
-                    treatConstructorAsClassMember,
-                    selfType,
-                    /* diag */ undefined,
-                    recursionCount
-                );
-
-                if (boundMethod) {
-                    OverloadedFunctionType.addOverload(newOverloadType, boundMethod as FunctionType);
-                }
-            });
-
-            const newOverloads = OverloadedFunctionType.getOverloads(newOverloadType);
-            if (newOverloads.length === 0) {
-                // No overloads matched, so rebind with the diag
-                // to report the error(s) to the user.
-                if (diag) {
-                    memberType.overloads.forEach((overload) => {
-                        bindFunctionToClassOrObject(
-                            baseType,
-                            overload,
-                            memberClass,
-                            treatConstructorAsClassMember,
-                            selfType,
-                            diag,
-                            recursionCount
-                        );
-                    });
-                }
-
-                return undefined;
-            }
-
-            if (newOverloads.length === 1) {
-                return newOverloads[0];
-            }
-
-            return newOverloadType;
-        }
-
-        return memberType;
+            return functionType;
+        });
     }
 
     // Specializes the specified function for the specified class,
