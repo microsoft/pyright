@@ -23980,6 +23980,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): boolean {
         let canAssign = true;
         const checkReturnType = (flags & AssignTypeFlags.SkipFunctionReturnTypeCheck) === 0;
+        const reverseMatching = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
         flags &= ~AssignTypeFlags.SkipFunctionReturnTypeCheck;
 
         destType = removeParamSpecVariadicsFromFunction(destType);
@@ -23987,12 +23988,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const destParamDetails = getParameterListDetails(destType);
         const srcParamDetails = getParameterListDetails(srcType);
-        adjustSourceParamDetailsForDestVariadic(srcParamDetails, destParamDetails);
+        adjustSourceParamDetailsForDestVariadic(
+            reverseMatching ? destParamDetails : srcParamDetails,
+            reverseMatching ? srcParamDetails : destParamDetails
+        );
 
-        const targetIncludesParamSpec =
-            (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0
-                ? !!srcType.details.paramSpec
-                : !!destType.details.paramSpec;
+        const targetIncludesParamSpec = reverseMatching ? !!srcType.details.paramSpec : !!destType.details.paramSpec;
 
         const destPositionalCount =
             destParamDetails.argsIndex ?? destParamDetails.firstKeywordOnlyIndex ?? destParamDetails.params.length;
@@ -24437,8 +24438,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const effectiveSrcTypeVarContext =
-            (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? srcTypeVarContext : destTypeVarContext;
+        const effectiveSrcTypeVarContext = reverseMatching ? destTypeVarContext : srcTypeVarContext;
 
         // If the target function was generic and we solved some of the type variables
         // in that generic type, assign them back to the destination typeVar.
@@ -24457,8 +24457,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Are we assigning to a function with a ParamSpec?
         if (targetIncludesParamSpec) {
-            const effectiveDestType = (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destType : srcType;
-            const effectiveSrcType = (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? srcType : destType;
+            const effectiveDestType = reverseMatching ? srcType : destType;
+            const effectiveSrcType = reverseMatching ? destType : srcType;
 
             if (effectiveDestType.details.paramSpec) {
                 const requiredMatchParamCount = effectiveDestType.details.parameters.filter((p) => {
