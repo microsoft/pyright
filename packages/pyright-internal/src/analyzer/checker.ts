@@ -395,9 +395,16 @@ export class Checker extends ParseTreeWalker {
             // parameters after this need to be flagged as an error.
             let sawParamSpecArgs = false;
 
+            const keywordNames = new Set<string>();
+            const paramDetails = getParameterListDetails(functionTypeResult.functionType);
+
             // Report any unknown or missing parameter types.
             node.parameters.forEach((param, index) => {
                 if (param.name) {
+                    if (param.category === ParameterCategory.Simple && index >= paramDetails.positionOnlyParamCount) {
+                        keywordNames.add(param.name.value);
+                    }
+
                     // Determine whether this is a P.args parameter.
                     if (param.category === ParameterCategory.ArgsList) {
                         const annotationExpr = param.typeAnnotation || param.typeAnnotationComment;
@@ -487,6 +494,32 @@ export class Checker extends ParseTreeWalker {
                     }
                 }
             });
+
+            // Verify that an unpacked TypedDict doesn't overlap any keyword parameters.
+            if (paramDetails.hasUnpackedTypedDict) {
+                const kwargsIndex = functionTypeResult.functionType.details.parameters.length - 1;
+                const kwargsType = FunctionType.getEffectiveParameterType(functionTypeResult.functionType, kwargsIndex);
+
+                if (isClass(kwargsType) && kwargsType.details.typedDictEntries) {
+                    const overlappingEntries = new Set<string>();
+                    kwargsType.details.typedDictEntries.forEach((_, name) => {
+                        if (keywordNames.has(name)) {
+                            overlappingEntries.add(name);
+                        }
+                    });
+
+                    if (overlappingEntries.size > 0) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.overlappingKeywordArgs().format({
+                                names: [...overlappingEntries.values()].join(', '),
+                            }),
+                            node.parameters[kwargsIndex].typeAnnotation ?? node.parameters[kwargsIndex]
+                        );
+                    }
+                }
+            }
 
             // Check for invalid use of ParamSpec P.args and P.kwargs.
             const paramSpecParams = functionTypeResult.functionType.details.parameters.filter((param) => {

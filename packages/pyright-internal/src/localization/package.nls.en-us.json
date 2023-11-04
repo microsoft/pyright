@@ -316,6 +316,7 @@
         "optionalExtraArgs": "Expected one type argument after \"Optional\"",
         "orPatternIrrefutable": "Irrefutable pattern allowed only as the last subpattern in an \"or\" pattern",
         "orPatternMissingName": "All subpatterns within an \"or\" pattern must target the same names",
+        "overlappingKeywordArgs": "Typed dictionary overlaps with keyword parameter: {names}",
         "overlappingOverload": "Overload {obscured} for \"{name}\" will never be used because its parameters overlap overload {obscuredBy}",
         "overloadAbstractMismatch": "Overloaded methods must all be abstract or not",
         "overloadImplementationMismatch": "Overloaded implementation is not consistent with signature of overload {index}",
