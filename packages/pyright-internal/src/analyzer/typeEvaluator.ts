@@ -24911,9 +24911,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (previousMatchIndex < baseOverloads.length - 1) {
-            // We didn't find matches for all of the base overloads.
-            diag.addMessage(Localizer.DiagnosticAddendum.overrideOverloadNoMatch());
-            return false;
+            const unmatchedOverloads = baseOverloads.slice(previousMatchIndex + 1);
+
+            // See if all of the remaining overrides are nonapplicable.
+            if (
+                !baseClass ||
+                unmatchedOverloads.some((overload) => {
+                    return isOverrideMethodApplicable(overload, baseClass);
+                })
+            ) {
+                // We didn't find matches for all of the base overloads.
+                diag.addMessage(Localizer.DiagnosticAddendum.overrideOverloadNoMatch());
+                return false;
+            }
         }
 
         return true;
