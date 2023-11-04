@@ -23,4 +23,4 @@ class Thing(Generic[T_contra]):
         self._callback: Callback[T_contra] = callback
 
     def copy(self) -> Self:
-        return Thing(self._callback)
+        return type(self)(self._callback)

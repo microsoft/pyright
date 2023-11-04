@@ -5800,13 +5800,15 @@ export class Checker extends ParseTreeWalker {
         }
 
         const baseClass = baseClassAndSymbol.classType;
-        const childClassSelf = selfSpecializeClass(childClassType);
+        const childClassSelf = ClassType.cloneAsInstance(selfSpecializeClass(childClassType));
 
         const baseType = partiallySpecializeType(
             this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol),
             baseClass,
-            ClassType.cloneAsInstance(childClassSelf)
+            childClassSelf
         );
+
+        overrideType = partiallySpecializeType(overrideType, childClassType, childClassSelf);
 
         if (isFunction(baseType) || isOverloadedFunction(baseType)) {
             const diagAddendum = new DiagnosticAddendum();

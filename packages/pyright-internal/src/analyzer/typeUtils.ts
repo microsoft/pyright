@@ -1279,7 +1279,7 @@ export function partiallySpecializeType(
 ): Type {
     // If the context class is not specialized (or doesn't need specialization),
     // then there's no need to do any more work.
-    if (ClassType.isUnspecialized(contextClassType)) {
+    if (ClassType.isUnspecialized(contextClassType) && !selfClass) {
         return type;
     }
 
