@@ -2024,6 +2024,10 @@ export namespace FunctionType {
 
     export function addParameter(type: FunctionType, param: FunctionParameter) {
         type.details.parameters.push(param);
+
+        if (type.specializedTypes) {
+            type.specializedTypes.parameterTypes.push(param.type);
+        }
     }
 
     export function getSpecializedReturnType(type: FunctionType) {

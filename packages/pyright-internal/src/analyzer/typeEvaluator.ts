@@ -2231,7 +2231,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             signatures.push({
-                type,
+                type: expandTypedKwargs(type),
                 activeParam: callResult?.activeParam,
             });
         }
@@ -2310,6 +2310,59 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             callNode,
             signatures,
         };
+    }
+
+    // If the function includes a `**kwargs: Unpack[TypedDict]` parameter, the
+    // parameter is expanded to include individual keyword args.
+    function expandTypedKwargs(functionType: FunctionType): FunctionType {
+        const kwargsIndex = functionType.details.parameters.findIndex(
+            (param) => param.category === ParameterCategory.KwargsDict
+        );
+        if (kwargsIndex < 0) {
+            return functionType;
+        }
+        assert(kwargsIndex === functionType.details.parameters.length - 1);
+
+        const kwargsType = FunctionType.getEffectiveParameterType(functionType, kwargsIndex);
+        if (!isClassInstance(kwargsType) || !ClassType.isTypedDictClass(kwargsType) || !kwargsType.isUnpacked) {
+            return functionType;
+        }
+
+        const tdEntries = kwargsType.typedDictNarrowedEntries ?? kwargsType.details.typedDictEntries;
+        if (!tdEntries) {
+            return functionType;
+        }
+
+        const newFunction = FunctionType.clone(functionType);
+        newFunction.details.parameters.splice(kwargsIndex);
+        if (newFunction.specializedTypes) {
+            newFunction.specializedTypes.parameterTypes.splice(kwargsIndex);
+        }
+
+        const kwSeparatorIndex = functionType.details.parameters.findIndex(
+            (param) => param.category === ParameterCategory.ArgsList
+        );
+
+        // Add a keyword separator if necessary.
+        if (kwSeparatorIndex < 0) {
+            FunctionType.addParameter(newFunction, {
+                category: ParameterCategory.ArgsList,
+                type: AnyType.create(),
+            });
+        }
+
+        tdEntries.forEach((tdEntry, name) => {
+            FunctionType.addParameter(newFunction, {
+                category: ParameterCategory.Simple,
+                name,
+                hasDeclaredType: true,
+                type: tdEntry.valueType,
+                hasDefault: !tdEntry.isRequired,
+                defaultType: tdEntry.valueType,
+            });
+        });
+
+        return newFunction;
     }
 
     // Determines whether the specified expression is an explicit TypeAlias declaration.
