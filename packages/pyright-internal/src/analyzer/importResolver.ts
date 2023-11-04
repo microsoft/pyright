@@ -14,13 +14,13 @@ import { appendArray, flatten, getMapValues, getOrAdd } from '../common/collecti
 import { ConfigOptions, ExecutionEnvironment, matchFileSpecs } from '../common/configOptions';
 import { Host } from '../common/host';
 import { stubsSuffix } from '../common/pathConsts';
-import { getFileSystemEntriesFromDirEntries, isDirectory, isFile, tryRealpath, tryStat } from '../common/pathUtils';
 import { PythonVersion, versionFromString } from '../common/pythonVersion';
 import { ServiceProvider } from '../common/serviceProvider';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import { Uri } from '../common/uri';
+import { getFileSystemEntriesFromDirEntries, isDirectory, isFile, tryRealpath, tryStat } from '../common/uriUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { getDirectoryLeadingDotsPointsTo } from './importStatementUtils';

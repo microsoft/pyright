@@ -8,6 +8,7 @@
 
 import { URI, Utils } from 'vscode-uri';
 import { some } from './collectionUtils';
+import { getRootLength } from './pathUtils';
 
 export class Uri {
     private readonly _originalString;
@@ -167,6 +168,14 @@ export class Uri {
     }
 
     combinePaths(...paths: string[]): Uri {
+        // Make sure none of the paths are rooted. If so, use that as a file path
+        // and combine the rest.
+        const rooted = paths.findIndex((p) => getRootLength(p) > 0);
+        if (rooted >= 0 && this._uri.scheme === 'file') {
+            return new Uri(Utils.joinPath(URI.file(paths[rooted]), ...paths.slice(rooted)));
+        }
+
+        // Otherwise just join the paths.
         return new Uri(Utils.joinPath(this._uri.with({ fragment: '', query: '' }), ...paths));
     }
 

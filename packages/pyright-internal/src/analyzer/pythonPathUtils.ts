@@ -12,9 +12,9 @@ import { compareComparableValues } from '../common/core';
 import { FileSystem } from '../common/fileSystem';
 import { Host } from '../common/host';
 import * as pathConsts from '../common/pathConsts';
-import { getFileSystemEntries, isDirectory, tryStat } from '../common/pathUtils';
 import { PythonVersion, versionToString } from '../common/pythonVersion';
 import { Uri } from '../common/uri';
+import { getFileSystemEntries, isDirectory, tryStat } from '../common/uriUtils';
 
 export interface PythonPathResult {
     paths: Uri[];

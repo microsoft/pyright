@@ -14,11 +14,11 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { addIfUnique, appendArray, createMapFromItems } from '../common/collectionUtils';
 import { TextEditAction } from '../common/editAction';
 import { ReadOnlyFileSystem } from '../common/fileSystem';
-import { isFile } from '../common/pathUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
 import { Position, Range, TextRange } from '../common/textRange';
 import { Uri } from '../common/uri';
+import { isFile } from '../common/uriUtils';
 import {
     ImportAsNode,
     ImportFromAsNode,

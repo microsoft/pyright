@@ -8,8 +8,8 @@
  */
 
 import { FileSystem } from '../common/fileSystem';
-import { isDirectory, isFile } from '../common/pathUtils';
 import { Uri } from '../common/uri';
+import { isDirectory, isFile } from '../common/uriUtils';
 
 export interface PyTypedInfo {
     pyTypedPath: Uri;
