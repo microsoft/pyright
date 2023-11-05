@@ -22059,13 +22059,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const fgetSymbol = propertyClass.details.fields.get('fget');
-
-        if (fgetSymbol) {
-            const fgetType = getDeclaredTypeOfSymbol(fgetSymbol)?.type;
-            if (fgetType && isFunction(fgetType)) {
-                return getFunctionEffectiveReturnType(fgetType, /* args */ undefined, inferTypeIfNeeded);
-            }
+        if (propertyClass.fgetFunction) {
+            return getFunctionEffectiveReturnType(propertyClass.fgetFunction, /* args */ undefined, inferTypeIfNeeded);
         }
 
         return undefined;
