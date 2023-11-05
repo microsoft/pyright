@@ -5694,13 +5694,8 @@ export class Checker extends ParseTreeWalker {
         } else if (isOverloadedFunction(overrideType)) {
             overrideFunction = OverloadedFunctionType.getImplementation(overrideType);
         } else if (isClassInstance(overrideType) && ClassType.isPropertyClass(overrideType)) {
-            const fgetSymbol = overrideType.details.fields.get('fget');
-
-            if (fgetSymbol) {
-                const fgetType = this._evaluator.getDeclaredTypeOfSymbol(fgetSymbol)?.type;
-                if (fgetType && isFunction(fgetType)) {
-                    overrideFunction = fgetType;
-                }
+            if (overrideType.fgetFunction) {
+                overrideFunction = overrideType.fgetFunction;
             }
         }
 
@@ -5742,13 +5737,8 @@ export class Checker extends ParseTreeWalker {
         } else if (isOverloadedFunction(overrideType)) {
             overrideFunction = OverloadedFunctionType.getImplementation(overrideType);
         } else if (isClassInstance(overrideType) && ClassType.isPropertyClass(overrideType)) {
-            const fgetSymbol = overrideType.details.fields.get('fget');
-
-            if (fgetSymbol) {
-                const fgetType = this._evaluator.getDeclaredTypeOfSymbol(fgetSymbol)?.type;
-                if (fgetType && isFunction(fgetType)) {
-                    overrideFunction = fgetType;
-                }
+            if (overrideType.fgetFunction) {
+                overrideFunction = overrideType.fgetFunction;
             }
         }
 
@@ -5936,21 +5926,22 @@ export class Checker extends ParseTreeWalker {
                     );
                 }
             } else {
-                const basePropFields = (baseType as ClassType).details.fields;
-                const subclassPropFields = (overrideType as ClassType).details.fields;
                 const baseClassType = baseClass;
+                const propMethodInfo: [string, (c: ClassType) => FunctionType | undefined][] = [
+                    ['fget', (c) => c.fgetFunction],
+                    ['fset', (c) => c.fsetFunction],
+                    ['fdel', (c) => c.fdelFunction],
+                ];
 
-                ['fget', 'fset', 'fdel'].forEach((methodName) => {
+                propMethodInfo.forEach((info) => {
                     const diagAddendum = new DiagnosticAddendum();
-                    const baseClassPropMethod = basePropFields.get(methodName);
-                    const subclassPropMethod = subclassPropFields.get(methodName);
+                    const [methodName, methodAccessor] = info;
+                    const baseClassPropMethod = methodAccessor(baseType as ClassType);
+                    const subclassPropMethod = methodAccessor(overrideType as ClassType);
 
                     // Is the method present on the base class but missing in the subclass?
                     if (baseClassPropMethod) {
-                        const baseClassMethodType = partiallySpecializeType(
-                            this._evaluator.getEffectiveTypeOfSymbol(baseClassPropMethod),
-                            baseClassType
-                        );
+                        const baseClassMethodType = partiallySpecializeType(baseClassPropMethod, baseClassType);
                         if (isFunction(baseClassMethodType)) {
                             if (!subclassPropMethod) {
                                 // The method is missing.
@@ -5981,10 +5972,7 @@ export class Checker extends ParseTreeWalker {
                                     }
                                 }
                             } else {
-                                const subclassMethodType = partiallySpecializeType(
-                                    this._evaluator.getEffectiveTypeOfSymbol(subclassPropMethod),
-                                    childClassType
-                                );
+                                const subclassMethodType = partiallySpecializeType(subclassPropMethod, childClassType);
                                 if (isFunction(subclassMethodType)) {
                                     if (
                                         !this._evaluator.validateOverrideMethod(
