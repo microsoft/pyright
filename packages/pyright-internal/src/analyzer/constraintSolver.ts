@@ -99,7 +99,6 @@ export function assignTypeToTypeVar(
         logTypeVarContext(evaluator, typeVarContext, indent);
     }
 
-    let isTypeVarInScope = true;
     const isInvariant = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
     const isContravariant = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
 
@@ -139,15 +138,10 @@ export function assignTypeToTypeVar(
             return true;
         }
 
-        isTypeVarInScope = false;
-        if (!destType.details.isSynthesized) {
-            diag?.addMessage(
-                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
-                    evaluator.printSrcDestTypes(srcType, destType)
-                )
-            );
-            return false;
-        }
+        diag?.addMessage(
+            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(evaluator.printSrcDestTypes(srcType, destType))
+        );
+        return false;
     }
 
     if ((flags & AssignTypeFlags.SkipSolveTypeVars) !== 0) {
@@ -219,7 +213,6 @@ export function assignTypeToTypeVar(
             diag,
             typeVarContext,
             flags,
-            isTypeVarInScope,
             recursionCount
         );
     }
@@ -556,7 +549,7 @@ export function assignTypeToTypeVar(
         }
     }
 
-    if (!typeVarContext.isLocked() && isTypeVarInScope) {
+    if (!typeVarContext.isLocked()) {
         updateTypeVarType(
             evaluator,
             typeVarContext,
@@ -616,7 +609,6 @@ function assignTypeToConstrainedTypeVar(
     diag: DiagnosticAddendum | undefined,
     typeVarContext: TypeVarContext,
     flags: AssignTypeFlags,
-    isTypeVarInScope: boolean,
     recursionCount: number
 ) {
     let constrainedType: Type | undefined;
@@ -786,7 +778,7 @@ function assignTypeToConstrainedTypeVar(
                     recursionCount
                 )
             ) {
-                if (!typeVarContext.isLocked() && isTypeVarInScope) {
+                if (!typeVarContext.isLocked()) {
                     updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curWideTypeBound);
                 }
             } else {
@@ -801,7 +793,7 @@ function assignTypeToConstrainedTypeVar(
         }
     } else {
         // Assign the type to the type var.
-        if (!typeVarContext.isLocked() && isTypeVarInScope) {
+        if (!typeVarContext.isLocked()) {
             updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curWideTypeBound);
         }
     }
