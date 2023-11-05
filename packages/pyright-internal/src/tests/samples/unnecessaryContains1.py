@@ -1,5 +1,6 @@
 # This sample tests the "reportUnnecessaryContains" diagnostic rule.
 
+from enum import Enum
 from typing import Literal, TypeVar
 
 T1 = TypeVar("T1")
@@ -48,3 +49,17 @@ def func5(x: list[T2]) -> T2:
     if 0 not in x:
         pass
     return x[0]
+
+
+class Enum1(Enum):
+    a = "a"
+    b = "b"
+    c = "c"
+
+    @property
+    def is_ab(self):
+        return self in (Enum1.a, Enum1.b)
+
+    @property
+    def is_c(self):
+        return self not in (Enum1.a, Enum1.b)

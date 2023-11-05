@@ -2020,7 +2020,10 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
 
         if (evaluator.assignType(elementTypeWithoutLiteral, concreteReferenceType)) {
             return mapSubtypes(elementType, (elementSubtype) => {
-                if (isClassInstance(elementSubtype) && isSameWithoutLiteralValue(referenceSubtype, elementSubtype)) {
+                if (
+                    isClassInstance(elementSubtype) &&
+                    isSameWithoutLiteralValue(concreteReferenceType, elementSubtype)
+                ) {
                     return elementSubtype;
                 }
                 return undefined;
