@@ -143,7 +143,7 @@ export function assignTypeToTypeVar(
 
         // Emit an error unless this is a synthesized type variable used
         // for pseudo-generic classes.
-        if (!destType.details.isSynthesized && !destType.details.isSynthesizedSelf) {
+        if (!destType.details.isSynthesized || destType.details.isSynthesizedSelf) {
             diag?.addMessage(
                 Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
                     evaluator.printSrcDestTypes(srcType, destType)
