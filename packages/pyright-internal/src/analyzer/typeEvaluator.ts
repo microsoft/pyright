@@ -5818,8 +5818,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Applies descriptor access methods "__get__", "__set__", or "__delete__"
     // if they apply.
     function applyDescriptorAccessMethod(
-        subtype: Type,
-        concreteSubtype: ClassType,
+        memberType: Type,
+        concreteMemberType: ClassType,
         memberInfo: ClassMember | undefined,
         classType: ClassType,
         selfType: ClassType | TypeVarType | undefined,
@@ -5832,21 +5832,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const isAccessedThroughObject = TypeBase.isInstance(classType);
         let isAsymmetricAccessor = false;
         let memberAccessDeprecationInfo: MemberAccessDeprecationInfo | undefined;
-        let lookupClass: ClassType | undefined = concreteSubtype;
+        let lookupClass: ClassType | undefined = concreteMemberType;
         let isAccessedThroughMetaclass = false;
 
         // If it's an object, use its class to lookup the descriptor. If it's a class,
         // use its metaclass instead.
-        if (TypeBase.isInstantiable(concreteSubtype)) {
+        if (TypeBase.isInstantiable(concreteMemberType)) {
             if (
-                concreteSubtype.details.effectiveMetaclass &&
-                isInstantiableClass(concreteSubtype.details.effectiveMetaclass)
+                concreteMemberType.details.effectiveMetaclass &&
+                isInstantiableClass(concreteMemberType.details.effectiveMetaclass)
             ) {
                 // When accessing a class member that is a class whose metaclass implements
                 // a descriptor protocol, only 'get' operations are allowed. If it's accessed
                 // through the object, all access methods are supported.
                 if (isAccessedThroughObject || usage.method === 'get') {
-                    lookupClass = ClassType.cloneAsInstance(concreteSubtype.details.effectiveMetaclass);
+                    lookupClass = ClassType.cloneAsInstance(concreteMemberType.details.effectiveMetaclass);
                     isAccessedThroughMetaclass = true;
                 } else {
                     lookupClass = undefined;
@@ -5857,7 +5857,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!lookupClass) {
-            return { type: subtype };
+            return { type: memberType };
         }
 
         let accessMethodName: string;
@@ -5885,63 +5885,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!accessMethod) {
-            return { type: subtype };
+            return { type: memberType };
         }
 
         let accessMethodType = getTypeOfMember(accessMethod);
-        const argList: FunctionArgument[] = [
-            {
-                // Provide "obj" argument.
-                argumentCategory: ArgumentCategory.Simple,
-                typeResult: {
-                    type: ClassType.isClassProperty(lookupClass)
-                        ? classType
-                        : isAccessedThroughObject
-                        ? selfType ?? ClassType.cloneAsInstance(classType)
-                        : getNoneType(),
-                },
-            },
-        ];
 
-        if (usage.method === 'get') {
-            // Provide "owner" argument.
-            argList.push({
-                argumentCategory: ArgumentCategory.Simple,
-                typeResult: {
-                    type: isAccessedThroughObject ? ClassType.cloneAsInstantiable(classType) : classType,
-                },
-            });
-        } else if (usage.method === 'set') {
-            // Provide "value" argument.
-            argList.push({
-                argumentCategory: ArgumentCategory.Simple,
-                typeResult: {
-                    type: usage.setType?.type ?? UnknownType.create(),
-                    isIncomplete: !!usage.setType?.isIncomplete,
-                },
-            });
-        }
-
+        // Special-case logic for properties.
         if (ClassType.isPropertyClass(lookupClass) && memberInfo && isInstantiableClass(memberInfo!.classType)) {
-            // This specialization is required specifically for properties, which should be
-            // generic but are not defined that way. Because of this, we use type variables
-            // in the synthesized methods (e.g. __get__) for the property class that are
-            // defined in the class that declares the fget method.
-
-            // Infer return types before specializing. Otherwise a generic inferred
-            // return type won't be properly specialized.
-            inferReturnTypeIfNecessary(accessMethodType);
-
-            accessMethodType = partiallySpecializeType(accessMethodType, memberInfo.classType);
-
             // If the property is being accessed from a protocol class (not an instance),
             // flag this as an error because a property within a protocol is meant to be
             // interpreted as a read-only attribute rather than a protocol, so accessing
             // it directly from the class has an ambiguous meaning.
             if ((flags & MemberAccessFlags.SkipInstanceMembers) !== 0 && ClassType.isProtocolClass(classType)) {
                 diag?.addMessage(Localizer.DiagnosticAddendum.propertyAccessFromProtocolClass());
-                return { type: subtype, typeErrors: true };
+                return { type: memberType, typeErrors: true };
             }
+
+            // Infer return types before specializing. Otherwise a generic inferred
+            // return type won't be properly specialized.
+            inferReturnTypeIfNecessary(accessMethodType);
+
+            // This specialization is required specifically for properties, which should be
+            // generic but are not defined that way. Because of this, we use type variables
+            // in the synthesized methods (e.g. __get__) for the property class that are
+            // defined in the class that declares the fget method.
+            accessMethodType = partiallySpecializeType(accessMethodType, memberInfo.classType);
         }
 
         if (!isFunction(accessMethodType) && !isOverloadedFunction(accessMethodType)) {
@@ -5950,7 +5918,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             // TODO - emit an error for this condition.
-            return { type: subtype, typeErrors: true };
+            return { type: memberType, typeErrors: true };
         }
 
         const methodType = accessMethodType;
@@ -5971,7 +5939,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // The "bind-to" class depends on whether the descriptor is defined
             // on the metaclass or the class. We handle properties specially here
             // because of the way we model the __get__ logic in the property class.
-            if (ClassType.isPropertyClass(concreteSubtype) && !isAccessedThroughMetaclass) {
+            if (ClassType.isPropertyClass(concreteMemberType) && !isAccessedThroughMetaclass) {
                 if (memberInfo && isInstantiableClass(memberInfo.classType)) {
                     bindToClass = ClassType.cloneAsInstance(memberInfo.classType);
                 }
@@ -5982,7 +5950,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 methodType,
                 bindToClass,
                 /* treatConstructorAsClassMember */ undefined,
-                isAccessedThroughMetaclass ? concreteSubtype : undefined
+                isAccessedThroughMetaclass ? concreteMemberType : undefined
             );
 
             // The synthesized access method for the property may contain
@@ -6014,6 +5982,39 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         boundMethodType = specializedBoundType;
                     }
                 }
+            }
+
+            const argList: FunctionArgument[] = [];
+
+            // Provide "obj" argument.
+            argList.push({
+                argumentCategory: ArgumentCategory.Simple,
+                typeResult: {
+                    type: ClassType.isClassProperty(lookupClass!)
+                        ? classType
+                        : isAccessedThroughObject
+                        ? selfType ?? ClassType.cloneAsInstance(classType)
+                        : getNoneType(),
+                },
+            });
+
+            if (usage.method === 'get') {
+                // Provide "owner" argument.
+                argList.push({
+                    argumentCategory: ArgumentCategory.Simple,
+                    typeResult: {
+                        type: isAccessedThroughObject ? ClassType.cloneAsInstantiable(classType) : classType,
+                    },
+                });
+            } else if (usage.method === 'set') {
+                // Provide "value" argument.
+                argList.push({
+                    argumentCategory: ArgumentCategory.Simple,
+                    typeResult: {
+                        type: usage.setType?.type ?? UnknownType.create(),
+                        isIncomplete: !!usage.setType?.isIncomplete,
+                    },
+                });
             }
 
             const callResult = validateCallArguments(
