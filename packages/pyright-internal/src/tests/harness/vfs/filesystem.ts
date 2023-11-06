@@ -8,17 +8,15 @@
 
 /* eslint-disable no-dupe-class-members */
 import { Dirent, ReadStream, WriteStream } from 'fs';
-import { URI } from 'vscode-uri';
 
 import { FileSystem, MkDirOptions, TempFile, TmpfileOptions } from '../../../common/fileSystem';
 import { FileWatcher, FileWatcherEventHandler, FileWatcherEventType } from '../../../common/fileWatcher';
 import * as pathUtil from '../../../common/pathUtils';
 import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../../common/stringUtils';
+import { Uri } from '../../../common/uri';
 import { bufferFrom, createIOError } from '../utils';
 import { Metadata, SortedMap, closeIterator, getIterator, nextResult } from './../utils';
 import { ValidationFlags, validate } from './pathValidation';
-
-export const MODULE_PATH = pathUtil.normalizeSlashes('/');
 
 let devCount = 0; // A monotonically increasing count of device ids
 let inoCount = 0; // A monotonically increasing count of inodes
@@ -28,18 +26,17 @@ export interface DiffOptions {
 }
 
 export class TestFileSystemWatcher implements FileWatcher {
-    private _paths: string[] = [];
+    private _paths: Uri[] = [];
     constructor(paths: string[], private _listener: FileWatcherEventHandler) {
-        this._paths = paths.map((p) => pathUtil.normalizePath(p));
+        this._paths = paths.map((p) => Uri.file(p));
     }
     close() {
         // Do nothing.
     }
 
-    fireFileChange(path: string, eventType: FileWatcherEventType): boolean {
-        const normalized = pathUtil.normalizePath(path);
-        if (this._paths.some((p) => normalized.startsWith(p))) {
-            this._listener(eventType, normalized);
+    fireFileChange(path: Uri, eventType: FileWatcherEventType): boolean {
+        if (this._paths.some((p) => path.startsWith(p))) {
+            this._listener(eventType, path);
             return true;
         }
         return false;
@@ -242,7 +239,7 @@ export class TestFileSystem implements FileSystem, TempFile {
      *
      * @link http://pubs.opengroup.org/onlinepubs/9699919799/functions/chdir.html
      */
-    chdir(path: string) {
+    chdir(path: Uri) {
         if (this.isReadonly) {
             throw createIOError('EPERM');
         }

@@ -153,7 +153,7 @@ export class ImportResolver {
         }
 
         const root = this.getParentImportResolutionRoot(sourceFileUri, execEnv.root);
-        const origin = sourceFileUri.dirname;
+        const origin = sourceFileUri.getDirectory();
 
         let current: Uri | undefined = origin;
         while (this._shouldWalkUp(current, root, execEnv)) {
@@ -268,8 +268,8 @@ export class ImportResolver {
                         if (filePathWithoutExtension.pathEndsWith('__init__')) {
                             // Did not match: <root>/package/__init__.py
                             // Try equivalent: <root>/package.py
-                            const root = filePathWithoutExtension.dirname.dirname;
-                            const packageFile = `${filePathWithoutExtension.dirname.basename}.py}`;
+                            const root = filePathWithoutExtension.getDirectory().getDirectory();
+                            const packageFile = `${filePathWithoutExtension.getDirectory().basename}.py}`;
                             absoluteSourcePath = root.combinePaths(packageFile);
                             if (this.fileExistsCached(absoluteSourcePath)) {
                                 sourceFileUris.push(absoluteSourcePath);
@@ -493,7 +493,7 @@ export class ImportResolver {
         // absolute in the importing file's directory, then the parent directory,
         // and so on, until the import root is reached.
         sourceFileUri = this.fileSystem.realCasePath(sourceFileUri);
-        const origin = sourceFileUri.dirname;
+        const origin = sourceFileUri.getDirectory();
 
         const result = this.cachedParentImportResults.getImportResult(origin, importName, importResult);
         if (result) {
@@ -750,7 +750,7 @@ export class ImportResolver {
 
         // Strip off the '/__init__' if it's present.
         if (filePathWithoutExtension.pathEndsWith('__init__')) {
-            filePathWithoutExtension = filePathWithoutExtension.dirname;
+            filePathWithoutExtension = filePathWithoutExtension.getDirectory();
         }
 
         const parts = containerPath.getRelativePathComponents(filePathWithoutExtension);
@@ -827,7 +827,7 @@ export class ImportResolver {
             return this.fileSystem.realCasePath(executionRoot);
         }
 
-        return sourceFileUri.dirname;
+        return sourceFileUri.getDirectory();
     }
 
     private _resolveImportStrict(
@@ -1189,7 +1189,7 @@ export class ImportResolver {
             const root = this.getParentImportResolutionRoot(fileUri, execEnv.root);
 
             // Go up directories one by one looking for a py.typed file.
-            let current: Uri | undefined = fileUri.dirname;
+            let current: Uri | undefined = fileUri.getDirectory();
             while (this._shouldWalkUp(current, root, execEnv)) {
                 if (this.fileExistsCached(current!.combinePaths('py.typed'))) {
                     const pyTypedInfo = getPyTypedInfo(this.fileSystem, current!);
@@ -1241,7 +1241,7 @@ export class ImportResolver {
             return [uri, ''];
         }
 
-        const containingPath = uri.dirname;
+        const containingPath = uri.getDirectory();
         const fileOrDirName = pathComponents[pathComponents.length - 1];
 
         return [containingPath, fileOrDirName];
@@ -1366,7 +1366,7 @@ export class ImportResolver {
                 // no __init__.py[i] file. See if we can find a ".py" or ".pyi" file
                 // with this name.
                 const fileNameWithoutExtension = dirPath.basename;
-                const fileDirectory = dirPath.dirname;
+                const fileDirectory = dirPath.getDirectory();
                 const pyFilePath = fileDirectory.combinePaths(fileNameWithoutExtension + '.py');
                 const pyiFilePath = fileDirectory.combinePaths(fileNameWithoutExtension + '.pyi');
 
@@ -2183,7 +2183,7 @@ export class ImportResolver {
         importFailureInfo.push('Attempting to resolve relative import');
 
         // Determine which search path this file is part of.
-        const directory = getDirectoryLeadingDotsPointsTo(sourceFileUri.dirname, moduleDescriptor.leadingDots);
+        const directory = getDirectoryLeadingDotsPointsTo(sourceFileUri.getDirectory(), moduleDescriptor.leadingDots);
         if (!directory) {
             importFailureInfo.push(`Invalid relative path '${importName}'`);
             return undefined;
@@ -2244,7 +2244,7 @@ export class ImportResolver {
         suggestions: Map<string, Uri>
     ) {
         // Determine which search path this file is part of.
-        const directory = getDirectoryLeadingDotsPointsTo(sourceFileUri.dirname, moduleDescriptor.leadingDots);
+        const directory = getDirectoryLeadingDotsPointsTo(sourceFileUri.getDirectory(), moduleDescriptor.leadingDots);
         if (!directory) {
             return;
         }

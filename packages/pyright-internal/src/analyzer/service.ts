@@ -37,7 +37,6 @@ import {
     hasPythonExtension,
     isDirectory,
     isFile,
-    isFileSystemCaseSensitive,
     makeDirectories,
     tryRealpath,
     tryStat,
@@ -418,7 +417,7 @@ export class AnalyzerService {
         return this._getConfigOptions(this._backgroundAnalysisProgram.host, commandLineOptions);
     }
 
-    test_getFileNamesFromFileSpecs(): string[] {
+    test_getFileNamesFromFileSpecs(): Uri[] {
         return this._getFileNamesFromFileSpecs();
     }
 
@@ -426,7 +425,7 @@ export class AnalyzerService {
         return this._shouldHandleSourceFileWatchChanges(path, isFile);
     }
 
-    test_shouldHandleLibraryFileWatchChanges(path: Uri, libSearchPaths: string[]) {
+    test_shouldHandleLibraryFileWatchChanges(path: Uri, libSearchPaths: Uri[]) {
         return this._shouldHandleLibraryFileWatchChanges(path, libSearchPaths);
     }
 
@@ -525,7 +524,7 @@ export class AnalyzerService {
                 configFilePath = projectRoot;
             } else {
                 if (configFilePath.extname.endsWith('.json')) {
-                    projectRoot = configFilePath.dirname;
+                    projectRoot = configFilePath.getDirectory();
                 } else {
                     projectRoot = configFilePath;
                     configFilePath = this._findConfigFile(configFilePath);
@@ -547,7 +546,7 @@ export class AnalyzerService {
             }
 
             if (configFilePath) {
-                projectRoot = configFilePath.dirname;
+                projectRoot = configFilePath.getDirectory();
             } else {
                 this._console.log(`No configuration file found.`);
                 configFilePath = undefined;
@@ -563,7 +562,7 @@ export class AnalyzerService {
             }
 
             if (pyprojectFilePath) {
-                projectRoot = pyprojectFilePath.dirname;
+                projectRoot = pyprojectFilePath.getDirectory();
                 this._console.log(`pyproject.toml file found at ${projectRoot}.`);
             } else {
                 this._console.log(`No pyproject.toml file found.`);
@@ -653,7 +652,7 @@ export class AnalyzerService {
                 commandLineOptions.diagnosticSeverityOverrides
             );
 
-            const configFileDir = this._configFilePath!.dirname;
+            const configFileDir = this._configFilePath!.getDirectory();
 
             // If no include paths were provided, assume that all files within
             // the project should be included.
@@ -730,7 +729,7 @@ export class AnalyzerService {
             this._console.info(`Excluding typeshed stdlib stubs according to VERSIONS file:`);
             excludeList.forEach((exclude) => {
                 this._console.info(`    ${exclude}`);
-                configOptions.exclude.push(getFileSpec(this.serviceProvider, projectRoot, exclude));
+                configOptions.exclude.push(getFileSpec(this.serviceProvider, projectRoot, exclude.getFilePath()));
             });
         }
 
@@ -784,8 +783,8 @@ export class AnalyzerService {
             // so first, try to set venv from existing configOption if it is null. if both are null,
             // then, resolveImport won't consider venv
             configOptions.venv = configOptions.venv ?? this._configOptions.venv;
-            if (configOptions.venv) {
-                const fullVenvPath = combinePaths(configOptions.venvPath, configOptions.venv);
+            if (configOptions.venv && configOptions.venvPath) {
+                const fullVenvPath = configOptions.venvPath.combinePaths(configOptions.venv);
 
                 if (!this.fs.existsSync(fullVenvPath) || !isDirectory(this.fs, fullVenvPath)) {
                     this._console.error(
@@ -828,7 +827,7 @@ export class AnalyzerService {
     private _getTypeStubFolder() {
         const stubPath =
             this._configOptions.stubPath ??
-            realCasePath(combinePaths(this._configOptions.projectRoot, defaultStubsDirectory), this.fs);
+            this.fs.realCasePath(this._configOptions.projectRoot.combinePaths(defaultStubsDirectory));
 
         if (!this._typeStubTargetPath || !this._typeStubTargetImportName) {
             const errMsg = `Import '${this._typeStubTargetImportName}'` + ` could not be resolved`;
@@ -857,8 +856,8 @@ export class AnalyzerService {
         }
 
         // Generate a typings subdirectory hierarchy.
-        const typingsSubdirPath = combinePaths(stubPath, typeStubInputTargetParts[0]);
-        const typingsSubdirHierarchy = combinePaths(stubPath, ...typeStubInputTargetParts);
+        const typingsSubdirPath = stubPath.combinePaths(typeStubInputTargetParts[0]);
+        const typingsSubdirHierarchy = stubPath.combinePaths(...typeStubInputTargetParts);
 
         try {
             // Generate a new typings subdirectory if necessary.
@@ -971,7 +970,7 @@ export class AnalyzerService {
         return undefined;
     }
 
-    private _getFileNamesFromFileSpecs(): string[] {
+    private _getFileNamesFromFileSpecs(): Uri[] {
         // Use a map to generate a list of unique files.
         const fileMap = new Map<string, Uri>();
 
@@ -980,7 +979,7 @@ export class AnalyzerService {
             const matchedFiles = this._matchFiles(this._configOptions.include, this._configOptions.exclude);
 
             for (const file of matchedFiles) {
-                fileMap.set(file, file);
+                fileMap.set(file.key, file);
             }
         });
 
@@ -1007,25 +1006,25 @@ export class AnalyzerService {
             const execEnv = this._configOptions.findExecEnvironment(this._executionRootPath);
             const moduleDescriptor = createImportedModuleDescriptor(this._typeStubTargetImportName);
             const importResult = this._backgroundAnalysisProgram.importResolver.resolveImport(
-                '',
+                Uri.empty(),
                 execEnv,
                 moduleDescriptor
             );
 
             if (importResult.isImportFound) {
-                const filesToImport: string[] = [];
+                const filesToImport: Uri[] = [];
 
                 // Determine the directory that contains the root package.
                 const finalResolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
                 const isFinalPathFile = isFile(this.fs, finalResolvedPath);
                 const isFinalPathInitFile =
-                    isFinalPathFile && stripFileExtension(getFileName(finalResolvedPath)) === '__init__';
+                    isFinalPathFile && finalResolvedPath.stripAllExtensions().basename === '__init__';
 
                 let rootPackagePath = finalResolvedPath;
 
                 if (isFinalPathFile) {
                     // If the module is a __init__.pyi? file, use its parent directory instead.
-                    rootPackagePath = getDirectoryPath(rootPackagePath);
+                    rootPackagePath = rootPackagePath.getDirectory();
                 }
 
                 for (let i = importResult.resolvedPaths.length - 2; i >= 0; i--) {
@@ -1035,7 +1034,7 @@ export class AnalyzerService {
                         // If there was no file corresponding to this portion
                         // of the name path, assume that it's contained
                         // within its parent directory.
-                        rootPackagePath = getDirectoryPath(rootPackagePath);
+                        rootPackagePath = rootPackagePath.getDirectory();
                     }
                 }
 
@@ -1044,7 +1043,7 @@ export class AnalyzerService {
                 } else if (isFile(this.fs, rootPackagePath)) {
                     // This can occur if there is a "dir/__init__.py" at the same level as a
                     // module "dir/module.py" that is specifically targeted for stub generation.
-                    this._typeStubTargetPath = getDirectoryPath(rootPackagePath);
+                    this._typeStubTargetPath = rootPackagePath.getDirectory();
                 }
 
                 if (!finalResolvedPath) {
@@ -1056,7 +1055,7 @@ export class AnalyzerService {
 
                 // Add the implicit import paths.
                 importResult.filteredImplicitImports.forEach((implicitImport) => {
-                    const fileExtension = getFileExtension(implicitImport.path).toLowerCase();
+                    const fileExtension = implicitImport.path.extname.toLowerCase();
                     if (supportedSourceFileExtensions.some((ext) => fileExtension === ext)) {
                         filesToImport.push(implicitImport.path);
                     }
@@ -1068,7 +1067,7 @@ export class AnalyzerService {
                 this._console.error(`Import '${this._typeStubTargetImportName}' not found`);
             }
         } else if (!this._options.skipScanningUserFiles) {
-            let fileList: string[] = [];
+            let fileList: Uri[] = [];
             this._console.log(`Searching for source files`);
             fileList = this._getFileNamesFromFileSpecs();
 
@@ -1140,7 +1139,7 @@ export class AnalyzerService {
             }
 
             for (const dirPath of directories) {
-                if (includeRegExp.test(dirPath) || hasDirectoryWildcard) {
+                if (dirPath.test(includeRegExp) || hasDirectoryWildcard) {
                     if (!FileSpec.isInPath(dirPath, exclude)) {
                         visitDirectory(dirPath, includeRegExp, hasDirectoryWildcard);
                     }
@@ -1207,7 +1206,7 @@ export class AnalyzerService {
 
         if (this._configOptions.include.length > 0) {
             const fileList = this._configOptions.include.map((spec) => {
-                return combinePaths(this._executionRootPath, spec.wildcardRoot);
+                return spec.wildcardRoot;
             });
 
             try {
@@ -1215,7 +1214,7 @@ export class AnalyzerService {
                     this._console.info(`Adding fs watcher for directories:\n ${fileList.join('\n')}`);
                 }
 
-                const isIgnored = ignoredWatchEventFunction(fileList);
+                const isIgnored = ignoredWatchEventFunction(fileList.map((f) => f.getFilePath()));
                 this._sourceFileWatcher = this.fs.createFileSystemWatcher(fileList, (event, path) => {
                     if (!path) {
                         return;
@@ -1225,17 +1224,17 @@ export class AnalyzerService {
                         this._console.info(`SourceFile: Received fs event '${event}' for path '${path}'`);
                     }
 
-                    if (isIgnored(path)) {
+                    if (isIgnored(path.getFilePath())) {
                         return;
                     }
 
                     // Wholesale ignore events that appear to be from tmp file / .git modification.
-                    if (path.endsWith('.tmp') || path.endsWith('.git') || path.includes(_gitDirectory)) {
+                    if (path.pathEndsWith('.tmp') || path.pathEndsWith('.git') || path.pathIncludes(_gitDirectory)) {
                         return;
                     }
 
                     // Make sure path is the true case.
-                    path = realCasePath(path, this.fs);
+                    path = this.fs.realCasePath(path);
 
                     const eventInfo = getEventInfo(this.fs, this._console, this._program, event, path);
                     if (!eventInfo) {
@@ -1337,11 +1336,11 @@ export class AnalyzerService {
             return false;
         }
 
-        const parentPath = getDirectoryPath(path);
+        const parentPath = path.getDirectory();
         const hasInit =
             parentPath.startsWith(this._configOptions.projectRoot) &&
-            (this.fs.existsSync(combinePaths(parentPath, '__init__.py')) ||
-                this.fs.existsSync(combinePaths(parentPath, '__init__.pyi')));
+            (this.fs.existsSync(parentPath.combinePaths('__init__.py')) ||
+                this.fs.existsSync(parentPath.combinePaths('__init__.pyi')));
 
         // We don't have any file under the given path and its parent folder doesn't have __init__ then this folder change
         // doesn't have any meaning to us.
@@ -1357,7 +1356,7 @@ export class AnalyzerService {
             // alongside the original file and name them "x.py.<temp-id>.py" where
             // <temp-id> is a 32-character random string of hex digits. We don't
             // want these events to trigger a full reanalysis.
-            const fileName = getFileName(path);
+            const fileName = path.basename;
             const fileNameSplit = fileName.split('.');
             if (fileNameSplit.length === 4) {
                 if (fileNameSplit[3] === fileNameSplit[1] && fileNameSplit[2].length === 32) {
@@ -1401,7 +1400,7 @@ export class AnalyzerService {
                 if (this._verboseOutput) {
                     this._console.info(`Adding fs watcher for library directories:\n ${watchList.join('\n')}`);
                 }
-                const isIgnored = ignoredWatchEventFunction(watchList);
+                const isIgnored = ignoredWatchEventFunction(watchList.map((f) => f.getFilePath()));
                 this._libraryFileWatcher = this.fs.createFileSystemWatcher(watchList, (event, path) => {
                     if (!path) {
                         return;
@@ -1411,7 +1410,7 @@ export class AnalyzerService {
                         this._console.info(`LibraryFile: Received fs event '${event}' for path '${path}'`);
                     }
 
-                    if (isIgnored(path)) {
+                    if (isIgnored(path.getFilePath())) {
                         return;
                     }
 
@@ -1429,19 +1428,17 @@ export class AnalyzerService {
         }
     }
 
-    private _shouldHandleLibraryFileWatchChanges(path: Uri, libSearchPaths: string[]) {
+    private _shouldHandleLibraryFileWatchChanges(path: Uri, libSearchPaths: Uri[]) {
         if (this._program.getSourceFileInfo(path)) {
             return true;
         }
 
         // find the innermost matching search path
         let matchingSearchPath;
-        const tempFile = this.serviceProvider.tryGet(ServiceKeys.tempFile);
-        const ignoreCase = !isFileSystemCaseSensitive(this.fs, tempFile);
         for (const libSearchPath of libSearchPaths) {
             if (
-                containsPath(libSearchPath, path, ignoreCase) &&
-                (!matchingSearchPath || matchingSearchPath.length < libSearchPath.length)
+                path.isChild(libSearchPath) &&
+                (!matchingSearchPath || matchingSearchPath.pathLength() < libSearchPath.pathLength())
             ) {
                 matchingSearchPath = libSearchPath;
             }
@@ -1451,8 +1448,8 @@ export class AnalyzerService {
             return true;
         }
 
-        const parentComponents = getPathComponents(matchingSearchPath);
-        const childComponents = getPathComponents(path);
+        const parentComponents = matchingSearchPath.getPathComponents();
+        const childComponents = path.getPathComponents();
 
         for (let i = parentComponents.length; i < childComponents.length; i++) {
             if (childComponents[i].startsWith('.')) {
@@ -1536,7 +1533,7 @@ export class AnalyzerService {
                 }
 
                 if (event === 'add' || event === 'change') {
-                    const fileName = getFileName(path);
+                    const fileName = path.basename;
                     if (fileName && configFileNames.some((name) => name === fileName)) {
                         if (this._verboseOutput) {
                             this._console.info(`Received fs event '${event}' for config file`);

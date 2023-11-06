@@ -167,7 +167,7 @@ export class WorkspaceFactory {
             }
 
             // If the python path has changed, we may need to move the immutable files to the correct workspace.
-            if (originalPythonPath && newPythonPath !== originalPythonPath && workspaceInMap) {
+            if (originalPythonPath && !newPythonPath.equals(originalPythonPath) && workspaceInMap) {
                 // Potentially move immutable files from one workspace to another.
                 this._moveImmutableFilesToCorrectWorkspace(originalPythonPath, workspaceInMap);
             }
@@ -521,7 +521,7 @@ export class WorkspaceFactory {
         // length root path
         if (
             bestInstance === undefined &&
-            regularWorkspaces.every((w) => w.rootUri.rootLength() === regularWorkspaces[0].rootUri.rootLength())
+            regularWorkspaces.every((w) => w.rootUri.getRootLength() === regularWorkspaces[0].rootUri.getRootLength())
         ) {
             bestInstance = this._getBestRegularWorkspace(regularWorkspaces, pythonPath);
         }

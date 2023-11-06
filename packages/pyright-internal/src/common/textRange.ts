@@ -131,7 +131,7 @@ export namespace Range {
 
 // Represents a range within a particular document.
 export interface DocumentRange {
-    path: string;
+    uri: string;
     range: Range;
 }
 

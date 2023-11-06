@@ -75,7 +75,7 @@ export class TestFeatures implements HostSpecificFeatures {
 }
 
 export class TestLanguageService implements LanguageServerInterface {
-    readonly rootPath = path.sep;
+    readonly rootUri = path.sep;
     readonly window = new TestWindow();
     readonly supportAdvancedEdits = true;
 

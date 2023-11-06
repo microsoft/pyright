@@ -33,6 +33,7 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ProgramView } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
+import { Uri } from '../common/uri';
 import { CallNode, NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { getDocumentationPartsForTypeAndDecl, getFunctionDocStringFromType } from './tooltipUtils';
@@ -43,7 +44,7 @@ export class SignatureHelpProvider {
 
     constructor(
         private _program: ProgramView,
-        private _filePath: string,
+        private _fileUri: Uri,
         private _position: Position,
         private _format: MarkupKind,
         private _hasSignatureLabelOffsetCapability: boolean,
@@ -51,8 +52,8 @@ export class SignatureHelpProvider {
         private _context: SignatureHelpContext | undefined,
         private _token: CancellationToken
     ) {
-        this._parseResults = this._program.getParseResults(this._filePath);
-        this._sourceMapper = this._program.getSourceMapper(this._filePath, this._token, /* mapCompiled */ true);
+        this._parseResults = this._program.getParseResults(this._fileUri);
+        this._sourceMapper = this._program.getSourceMapper(this._fileUri, this._token, /* mapCompiled */ true);
     }
 
     getSignatureHelp(): SignatureHelp | undefined {

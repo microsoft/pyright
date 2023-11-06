@@ -239,7 +239,7 @@ export class Program {
 
                 // Add an edit action to the list.
                 edits.push({
-                    fileUri: fileInfo.sourceFile.getUri(),
+                    fileUri: fileInfo.sourceFile.getUri().toString(),
                     range: {
                         start: { line: 0, character: 0 },
                         end: { line: textDocument.lineCount, character: 0 },
@@ -564,9 +564,9 @@ export class Program {
         return this._configOptions.functionSignatureDisplay;
     }
 
-    containsSourceFileIn(folder: string): boolean {
-        for (const normalizedSourceFilePath of this._sourceFileMap.keys()) {
-            if (normalizedSourceFilePath.startsWith(folder)) {
+    containsSourceFileIn(folder: Uri): boolean {
+        for (const normalizedSourceFilePath of this._sourceFileMap.values()) {
+            if (normalizedSourceFilePath.sourceFile.getUri().startsWith(folder)) {
                 return true;
             }
         }
@@ -811,12 +811,12 @@ export class Program {
                 // a package in a directory, transform the name of the type stub
                 // to __init__.pyi because we're placing it in a directory.
                 if (targetIsSingleFile) {
-                    typeStubPath = typeStubPath.dirname.combinePaths('__init__.pyi');
+                    typeStubPath = typeStubPath.getDirectory().combinePaths('__init__.pyi');
                 } else {
                     typeStubPath = typeStubPath.replaceExtension('.pyi');
                 }
 
-                const typeStubDir = typeStubPath.dirname;
+                const typeStubDir = typeStubPath.getDirectory();
 
                 try {
                     makeDirectories(this.fileSystem, typeStubDir, stubPath);

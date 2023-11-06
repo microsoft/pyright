@@ -15,8 +15,8 @@ import { getPyTypedInfo } from './analyzer/pyTypedUtils';
 import { ExecutionEnvironment } from './common/configOptions';
 import { FileSystem, MkDirOptions } from './common/fileSystem';
 import { stubsSuffix } from './common/pathConsts';
-import { isDirectory, tryStat } from './common/pathUtils';
 import { Uri } from './common/uri';
+import { isDirectory, tryStat } from './common/uriUtils';
 import { ReadOnlyAugmentedFileSystem } from './readonlyAugmentedFileSystem';
 
 export interface SupportPartialStubs {
@@ -173,7 +173,7 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
     private _getRelativePathPartialStubs(uri: Uri) {
         const paths: string[] = [];
 
-        const partialStubPathLength = uri.dirname.pathLength();
+        const partialStubPathLength = uri.getDirectory().pathLength();
         const searchAllStubs = (uri: Uri) => {
             for (const entry of this.realFS.readdirEntriesSync(uri)) {
                 const filePath = uri.combinePaths(entry.name);

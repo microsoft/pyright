@@ -18,11 +18,11 @@ import { TaskListToken } from './diagnostic';
 import { DiagnosticRule } from './diagnosticRules';
 import { FileSystem } from './fileSystem';
 import { Host } from './host';
-import { FileSpec, getFileSpec, isDirectory } from './pathUtils';
 import { PythonVersion, latestStablePythonVersion, versionFromString, versionToString } from './pythonVersion';
 import { ServiceProvider } from './serviceProvider';
 import { ServiceKeys } from './serviceProviderExtensions';
 import { Uri } from './uri';
+import { FileSpec, getFileSpec, isDirectory } from './uriUtils';
 
 export enum PythonPlatform {
     Darwin = 'Darwin',

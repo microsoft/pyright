@@ -411,7 +411,7 @@ class RealFileSystem implements FileSystem {
 
     private _getNormalizedPath(uri: Uri) {
         const path = this._getFileSystemPath(uri);
-        const driveLength = uri.rootLength();
+        const driveLength = uri.getRootLength();
 
         if (driveLength === 0) {
             return path;
@@ -459,15 +459,15 @@ export class WorkspaceFileWatcherProvider implements FileWatcherProvider, FileWa
         return fileWatcher;
     }
 
-    onFileChange(eventType: FileWatcherEventType, filePath: string): void {
+    onFileChange(eventType: FileWatcherEventType, fileUri: Uri): void {
         // Since file watcher is a server wide service, we don't know which watcher is
         // for which workspace (for multi workspace case), also, we don't know which watcher
         // is for source or library. so we need to solely rely on paths that can cause us
         // to raise events both for source and library if .venv is inside of workspace root
         // for a file change. It is event handler's job to filter those out.
         this._fileWatchers.forEach((watcher) => {
-            if (watcher.workspacePaths.some((dirPath) => filePath.startsWith(dirPath))) {
-                watcher.eventHandler(eventType, filePath);
+            if (watcher.workspacePaths.some((dirPath) => fileUri.pathStartsWith(dirPath))) {
+                watcher.eventHandler(eventType, fileUri);
             }
         });
     }

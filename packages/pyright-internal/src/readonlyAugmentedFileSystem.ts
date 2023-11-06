@@ -162,7 +162,7 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
             this._reverseEntryMap.set(originaluri.key, mappeduri);
         }
 
-        const directory = mappeduri.dirname;
+        const directory = mappeduri.getDirectory();
         const folderInfo = getOrAdd(this._folderMap, directory.key, () => []);
 
         const name = mappeduri.basename;

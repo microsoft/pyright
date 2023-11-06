@@ -4078,8 +4078,8 @@ export class Checker extends ParseTreeWalker {
             if (diag) {
                 const renameAction: RenameShadowedFileAction = {
                     action: ActionKind.RenameShadowedFileAction,
-                    oldFile: this._fileInfo.fileUri,
-                    newFile: this._sourceMapper.getNextFileName(this._fileInfo.fileUri),
+                    oldUri: this._fileInfo.fileUri,
+                    newUri: this._sourceMapper.getNextFileName(this._fileInfo.fileUri),
                 };
                 diag.addAction(renameAction);
             }
@@ -4128,7 +4128,7 @@ export class Checker extends ParseTreeWalker {
                 namePartNodes[namePartNodes.length - 1].start,
                 CancellationToken.None
             );
-            const paths = definitions ? definitions.map((d) => d.path) : [];
+            const paths = definitions ? definitions.map((d) => d.uri) : [];
             paths.forEach((p) => {
                 if (!p.startsWith(stdlibPath) && !isStubFile(p) && this._sourceMapper.isUserCode(p)) {
                     // This means the user has a module that is overwriting the stdlib module.
@@ -4145,8 +4145,8 @@ export class Checker extends ParseTreeWalker {
                     if (diag) {
                         const renameAction: RenameShadowedFileAction = {
                             action: ActionKind.RenameShadowedFileAction,
-                            oldFile: p,
-                            newFile: this._sourceMapper.getNextFileName(p),
+                            oldUri: p,
+                            newUri: this._sourceMapper.getNextFileName(p),
                         };
                         diag.addAction(renameAction);
                     }

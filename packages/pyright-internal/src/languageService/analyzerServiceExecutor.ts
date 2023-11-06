@@ -8,12 +8,11 @@
  * with a specified set of options.
  */
 
-import { isPythonBinary } from '../analyzer/pythonPathUtils';
 import { AnalyzerService, getNextServiceId } from '../analyzer/service';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { LogLevel } from '../common/console';
 import { FileSystem } from '../common/fileSystem';
-import { combinePaths } from '../common/pathUtils';
+import { Uri } from '../common/uri';
 import { LanguageServerInterface, ServerSettings } from '../languageServerBase';
 import { WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../workspaceFactory';
 
@@ -25,15 +24,15 @@ export interface CloneOptions {
 
 export class AnalyzerServiceExecutor {
     static runWithOptions(
-        languageServiceRootPath: string,
+        languageServiceRootUri: Uri,
         workspace: Workspace,
         serverSettings: ServerSettings,
         typeStubTargetImportName?: string,
         trackFiles = true
     ): void {
         const commandLineOptions = getEffectiveCommandLineOptions(
-            languageServiceRootPath,
-            workspace.rootUri,
+            languageServiceRootUri.getFilePath(),
+            workspace.rootUri.getFilePath(),
             serverSettings,
             trackFiles,
             typeStubTargetImportName,
@@ -59,7 +58,6 @@ export class AnalyzerServiceExecutor {
             ...workspace,
             workspaceName: `temp workspace for cloned service`,
             rootUri: workspace.rootUri,
-            uri: workspace.uri,
             pythonPath: workspace.pythonPath,
             pythonPathKind: workspace.pythonPathKind,
             kinds: [...workspace.kinds, WellKnownWorkspaceKinds.Cloned],
@@ -78,7 +76,7 @@ export class AnalyzerServiceExecutor {
 
         const serverSettings = await ls.getSettings(workspace);
         AnalyzerServiceExecutor.runWithOptions(
-            ls.rootPath,
+            ls.rootUri,
             tempWorkspace,
             serverSettings,
             options.typeStubTargetImportName,
@@ -120,33 +118,25 @@ function getEffectiveCommandLineOptions(
     }
 
     if (serverSettings.venvPath) {
-        commandLineOptions.venvPath = combinePaths(
-            workspaceRootPath || languageServiceRootPath,
-            serverSettings.venvPath
-        );
+        commandLineOptions.venvPath = serverSettings.venvPath.getFilePath();
     }
 
-    if (serverSettings.pythonPath) {
+    if (serverSettings.pythonPath && serverSettings.pythonPath.getRootLength() > 0) {
         // The Python VS Code extension treats the value "python" specially. This means
         // the local python interpreter should be used rather than interpreting the
         // setting value as a path to the interpreter. We'll simply ignore it in this case.
-        if (!isPythonBinary(serverSettings.pythonPath)) {
-            commandLineOptions.pythonPath = combinePaths(
-                workspaceRootPath || languageServiceRootPath,
-                serverSettings.pythonPath
-            );
-        }
+        commandLineOptions.pythonPath = serverSettings.pythonPath.getFilePath();
     }
 
     if (serverSettings.typeshedPath) {
         // Pyright supports only one typeshed path currently, whereas the
         // official VS Code Python extension supports multiple typeshed paths.
         // We'll use the first one specified and ignore the rest.
-        commandLineOptions.typeshedPath = serverSettings.typeshedPath;
+        commandLineOptions.typeshedPath = serverSettings.typeshedPath.getFilePath();
     }
 
     if (serverSettings.stubPath) {
-        commandLineOptions.stubPath = serverSettings.stubPath;
+        commandLineOptions.stubPath = serverSettings.stubPath.getFilePath();
     }
 
     if (serverSettings.logLevel === LogLevel.Log) {
@@ -160,7 +150,7 @@ function getEffectiveCommandLineOptions(
     }
 
     commandLineOptions.autoSearchPaths = serverSettings.autoSearchPaths;
-    commandLineOptions.extraPaths = serverSettings.extraPaths;
+    commandLineOptions.extraPaths = serverSettings.extraPaths?.map((e) => e.getFilePath()) ?? [];
     commandLineOptions.diagnosticSeverityOverrides = serverSettings.diagnosticSeverityOverrides;
 
     commandLineOptions.fileSpecs = serverSettings.fileSpecs ?? [];

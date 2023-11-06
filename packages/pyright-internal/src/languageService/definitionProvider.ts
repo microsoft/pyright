@@ -26,6 +26,7 @@ import { ProgramView, ServiceProvider } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
+import { Uri } from '../common/uri';
 import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
@@ -72,7 +73,7 @@ export function addDeclarationsToDefinitions(
         }
 
         _addIfUnique(definitions, {
-            path: resolvedDecl.uri,
+            uri: resolvedDecl.uri,
             range: resolvedDecl.range,
         });
 
@@ -82,21 +83,22 @@ export function addDeclarationsToDefinitions(
             if (functionType && isOverloadedFunction(functionType)) {
                 for (const overloadDecl of functionType.overloads.map((o) => o.details.declaration).filter(isDefined)) {
                     _addIfUnique(definitions, {
-                        path: overloadDecl.uri,
+                        uri: overloadDecl.uri,
                         range: overloadDecl.range,
                     });
                 }
             }
         }
 
-        if (!isStubFile(resolvedDecl.uri)) {
+        const resolvedUri = Uri.parse(resolvedDecl.uri);
+        if (!isStubFile(resolvedUri)) {
             return;
         }
 
         if (resolvedDecl.type === DeclarationType.Alias) {
             // Add matching source module
             sourceMapper
-                .findModules(resolvedDecl.uri)
+                .findModules(resolvedUri)
                 .map((m) => getFileInfo(m)?.fileUri)
                 .filter(isDefined)
                 .forEach((f) => _addIfUnique(definitions, _createModuleEntry(f)));
@@ -107,7 +109,7 @@ export function addDeclarationsToDefinitions(
         for (const implDecl of implDecls) {
             if (implDecl && implDecl.uri) {
                 _addIfUnique(definitions, {
-                    path: implDecl.uri,
+                    uri: implDecl.uri,
                     range: implDecl.range,
                 });
             }
@@ -123,7 +125,7 @@ export function filterDefinitions(filter: DefinitionFilter, definitions: Documen
     // If go-to-declaration is supported, attempt to only show only pyi files in go-to-declaration
     // and none in go-to-definition, unless filtering would produce an empty list.
     const preferStubs = filter === DefinitionFilter.PreferStubs;
-    const wantedFile = (v: DocumentRange) => preferStubs === isStubFile(v.path);
+    const wantedFile = (v: DocumentRange) => preferStubs === isStubFile(Uri.parse(v.uri));
     if (definitions.find(wantedFile)) {
         return definitions.filter(wantedFile);
     }
@@ -181,13 +183,13 @@ class DefinitionProviderBase {
 export class DefinitionProvider extends DefinitionProviderBase {
     constructor(
         program: ProgramView,
-        filePath: string,
+        fileUri: Uri,
         position: Position,
         filter: DefinitionFilter,
         token: CancellationToken
     ) {
-        const sourceMapper = program.getSourceMapper(filePath, token);
-        const parseResults = program.getParseResults(filePath);
+        const sourceMapper = program.getSourceMapper(fileUri, token);
+        const parseResults = program.getParseResults(fileUri);
         const { node, offset } = _tryGetNode(parseResults, position);
 
         super(sourceMapper, program.evaluator!, program.serviceProvider, node, offset, filter, token);
@@ -222,15 +224,15 @@ export class DefinitionProvider extends DefinitionProviderBase {
 }
 
 export class TypeDefinitionProvider extends DefinitionProviderBase {
-    private readonly _filePath: string;
+    private readonly _fileUri: Uri;
 
-    constructor(program: ProgramView, filePath: string, position: Position, token: CancellationToken) {
-        const sourceMapper = program.getSourceMapper(filePath, token, /*mapCompiled*/ false, /*preferStubs*/ true);
-        const parseResults = program.getParseResults(filePath);
+    constructor(program: ProgramView, fileUri: Uri, position: Position, token: CancellationToken) {
+        const sourceMapper = program.getSourceMapper(fileUri, token, /*mapCompiled*/ false, /*preferStubs*/ true);
+        const parseResults = program.getParseResults(fileUri);
         const { node, offset } = _tryGetNode(parseResults, position);
 
         super(sourceMapper, program.evaluator!, program.serviceProvider, node, offset, DefinitionFilter.All, token);
-        this._filePath = filePath;
+        this._fileUri = fileUri;
     }
 
     getDefinitions(): DocumentRange[] | undefined {
@@ -251,7 +253,7 @@ export class TypeDefinitionProvider extends DefinitionProviderBase {
                     if (subtype?.category === TypeCategory.Class) {
                         appendArray(
                             declarations,
-                            this.sourceMapper.findClassDeclarationsByType(this._filePath, subtype)
+                            this.sourceMapper.findClassDeclarationsByType(this._fileUri, subtype)
                         );
                     }
                 });
@@ -292,7 +294,7 @@ function _tryGetNode(parseResults: ParseResults | undefined, position: Position)
 
 function _createModuleEntry(filePath: string): DocumentRange {
     return {
-        path: filePath,
+        uri: filePath,
         range: {
             start: { line: 0, character: 0 },
             end: { line: 0, character: 0 },
@@ -302,7 +304,7 @@ function _createModuleEntry(filePath: string): DocumentRange {
 
 function _addIfUnique(definitions: DocumentRange[], itemToAdd: DocumentRange) {
     for (const def of definitions) {
-        if (def.path === itemToAdd.path && rangesAreEqual(def.range, itemToAdd.range)) {
+        if (def.uri === itemToAdd.uri && rangesAreEqual(def.range, itemToAdd.range)) {
             return;
         }
     }

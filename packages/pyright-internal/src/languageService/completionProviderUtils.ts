@@ -55,7 +55,7 @@ export interface CompletionDetail extends CommonDetail {
     };
     sortText?: string;
     itemDetail?: string;
-    modulePath?: string;
+    moduleUri?: string;
 }
 
 export function getTypeDetail(

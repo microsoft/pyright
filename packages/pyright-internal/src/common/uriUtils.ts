@@ -11,13 +11,12 @@ import type { Dirent } from 'fs';
 import { randomBytesHex } from './crypto';
 import { ServiceProvider } from './extensibility';
 import { FileSystem, ReadOnlyFileSystem, Stats, TempFile } from './fileSystem';
-import { getRegexEscapedSeparator } from './pathUtils';
+import { getRegexEscapedSeparator, isDirectoryWildcardPatternPresent } from './pathUtils';
 import { ServiceKeys } from './serviceProviderExtensions';
 import { Uri } from './uri';
 
 let _fsCaseSensitivity: boolean | undefined = undefined;
 let _underTest: boolean = false;
-const _DirectoryContainsWildcardPattern = /[/\\]+\*\*[/\\]*/;
 
 export interface FileSpec {
     // File specs can contain wildcard characters (**, *, ?). This
@@ -76,7 +75,7 @@ export function forEachAncestorDirectory(
             return result;
         }
 
-        const parentPath = directory.dirname;
+        const parentPath = directory.getDirectory();
         if (parentPath === directory) {
             return undefined;
         }
@@ -251,11 +250,6 @@ export function getWildcardRegexPattern(root: Uri, fileSpec: string): string {
     return regExPattern;
 }
 
-// Determines whether the file spec contains a directory wildcard pattern ("**").
-export function isDirectoryWildcardPatternPresent(fileSpec: string): boolean {
-    return _DirectoryContainsWildcardPattern.test(fileSpec);
-}
-
 // Returns the topmost path that contains no wildcard characters.
 export function getWildcardRoot(root: Uri, fileSpec: string): Uri {
     let absolutePath = root.combinePaths(fileSpec);
@@ -389,4 +383,37 @@ export function getLibraryPathWithoutExtension(libraryUri: Uri) {
 
     // Strip off the '/__init__' if it's present.
     return filePathWithoutExtension.remove('__init__');
+}
+
+export function deduplicateFolders(listOfFolders: Uri[][]): Uri[] {
+    const foldersToWatch = new Map<string, Uri>();
+
+    listOfFolders.forEach((folders) => {
+        folders.forEach((p) => {
+            if (foldersToWatch.has(p.key)) {
+                // Bail out on exact match.
+                return;
+            }
+
+            for (const existing of foldersToWatch) {
+                // ex) p: "/user/test" existing: "/user"
+                if (p.startsWith(existing[1])) {
+                    // We already have the parent folder in the watch list
+                    return;
+                }
+
+                // ex) p: "/user" folderToWatch: "/user/test"
+                if (existing[1].startsWith(p)) {
+                    // We found better one to watch. replace.
+                    foldersToWatch.delete(existing[0]);
+                    foldersToWatch.set(p.key, p);
+                    return;
+                }
+            }
+
+            foldersToWatch.set(p.key, p);
+        });
+    });
+
+    return [...foldersToWatch.values()];
 }

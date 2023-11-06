@@ -15,9 +15,10 @@ import { PythonPlatform } from './configOptions';
 import { assertNever } from './debug';
 import { FileSystem } from './fileSystem';
 import { HostKind, NoAccessHost, ScriptOutput } from './host';
-import { isDirectory, normalizePath } from './pathUtils';
+import { normalizePath } from './pathUtils';
 import { PythonVersion, versionFromMajorMinor } from './pythonVersion';
 import { Uri } from './uri';
+import { isDirectory } from './uriUtils';
 
 // preventLocalImports removes the working directory from sys.path.
 // The -c flag adds it automatically, which can allow some stdlib

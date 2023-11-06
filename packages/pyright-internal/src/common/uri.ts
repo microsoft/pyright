@@ -26,11 +26,6 @@ export class Uri {
         return this._key;
     }
 
-    // Returns a URI where the path is the directory name of the original URI, similar to the UNIX dirname command.
-    get dirname(): Uri {
-        return new Uri(Utils.dirname(this._uri.with({ query: '', fragment: '' })));
-    }
-
     // Returns the last segment of the URI, similar to the UNIX basename command.
     get basename(): string {
         return Utils.basename(this._uri.with({ query: '', fragment: '' }));
@@ -70,6 +65,13 @@ export class Uri {
         return this._originalString;
     }
 
+    toUserVisibleString(): string {
+        if (this._uri.scheme === 'file') {
+            return this._uri.fsPath;
+        }
+        return this._uri.toString();
+    }
+
     test(regex: RegExp): boolean {
         // Just test the path portion of the URI.
         return regex.test(this.getPath());
@@ -99,13 +101,33 @@ export class Uri {
         return new Uri(this._uri);
     }
 
+    // Returns just the fsPath path portion of the URI.
     getFilePath(): string {
         // Might want to assert this is a file scheme.
         return this._uri.fsPath;
     }
 
-    rootLength(): number {
+    // Returns just the path portion of the URI.
+    getPath(): string {
+        return this._uri.path;
+    }
+
+    // Returns a URI where the path is the directory name of the original URI, similar to the UNIX dirname command.
+    getDirectory(): Uri {
+        return new Uri(Utils.dirname(this._uri.with({ query: '', fragment: '' })));
+    }
+
+    getRootLength(): number {
         return this._getRootPath().length;
+    }
+
+    getAllExtensions(): string {
+        const path = this.getPath();
+        const index = path.lastIndexOf('.');
+        if (index > 0) {
+            return path.slice(index);
+        }
+        return '';
     }
 
     // Slice the path portion of the URI.
@@ -142,6 +164,10 @@ export class Uri {
         return this._uri.scheme === 'file';
     }
 
+    isUntitled(): boolean {
+        return this._uri.scheme === 'untitled';
+    }
+
     equals(other: Uri | undefined): boolean {
         return this.key === other?.key;
     }
@@ -158,6 +184,10 @@ export class Uri {
         return this.getPath().endsWith(name);
     }
 
+    pathIncludes(include: string): boolean {
+        return this.getPath().includes(include);
+    }
+
     hasSameStartPath(diskPath: string): boolean {
         return diskPath.startsWith(this.getPath());
     }
@@ -171,7 +201,7 @@ export class Uri {
         // Make sure none of the paths are rooted. If so, use that as a file path
         // and combine the rest.
         const rooted = paths.findIndex((p) => getRootLength(p) > 0);
-        if (rooted >= 0 && this._uri.scheme === 'file') {
+        if (rooted >= 0) {
             return new Uri(Utils.joinPath(URI.file(paths[rooted]), ...paths.slice(rooted)));
         }
 
@@ -215,6 +245,15 @@ export class Uri {
         return childComponents.slice(parentComponents.length);
     }
 
+    getShortenedFileName(maxDirLength = 15) {
+        const fileName = this.basename;
+        const dirName = this.getDirectory().getPath();
+        if (dirName.length > maxDirLength) {
+            return `...${dirName.slice(dirName.length - maxDirLength)}/${fileName}`;
+        }
+        return this.getPath();
+    }
+
     stripExtension(): Uri {
         const path = this.getPath();
         const index = path.lastIndexOf('.');
@@ -226,13 +265,9 @@ export class Uri {
 
     stripAllExtensions(): Uri {
         const base = this.basename;
-        const dir = this.dirname;
+        const dir = this.getDirectory();
         const stripped = base.split('.')[0];
         return dir.combinePaths(stripped);
-    }
-
-    protected getPath(): string {
-        return this._uri.path;
     }
 
     private _getRootPath(): string {

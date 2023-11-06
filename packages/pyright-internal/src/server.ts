@@ -30,7 +30,6 @@ import { expandPathVariables } from './common/envVarUtils';
 import { FileBasedCancellationProvider } from './common/fileBasedCancellationUtils';
 import { FullAccessHost } from './common/fullAccessHost';
 import { Host } from './common/host';
-import { realCasePath, resolvePaths } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
 import { RealTempFile, WorkspaceFileWatcherProvider, createFromRealFileSystem } from './common/realFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
@@ -53,7 +52,7 @@ export class PyrightServer extends LanguageServerBase {
         // When executed from CLI command (pyright-langserver), __rootUri is
         // already defined. When executed from VSCode extension, rootDirectory should
         // be __dirname.
-        const rootDirectory = (global as any).__rootUri || Uri.file(__dirname);
+        const rootDirectory: Uri = (global as any).__rootUri || Uri.file(__dirname);
 
         const console = new ConsoleWithLogLevel(connection.console);
         const fileWatcherProvider = new WorkspaceFileWatcherProvider();
@@ -63,7 +62,7 @@ export class PyrightServer extends LanguageServerBase {
         const cacheManager = new CacheManager();
 
         const serviceProvider = createServiceProvider(pyrightFs, tempFile, console, cacheManager);
-        const realPathRoot = realCasePath(rootDirectory, pyrightFs);
+        const realPathRoot = pyrightFs.realCasePath(rootDirectory);
 
         super(
             {
@@ -99,12 +98,11 @@ export class PyrightServer extends LanguageServerBase {
         };
 
         try {
-            const pythonSection = await this.getConfiguration(workspace.uri, 'python');
+            const pythonSection = await this.getConfiguration(workspace.rootUri, 'python');
             if (pythonSection) {
                 const pythonPath = pythonSection.pythonPath;
                 if (pythonPath && isString(pythonPath) && !isPythonBinary(pythonPath)) {
-                    serverSettings.pythonPath = resolvePaths(
-                        workspace.rootUri,
+                    serverSettings.pythonPath = workspace.rootUri.combinePaths(
                         expandPathVariables(workspace.rootUri, pythonPath)
                     );
                 }
@@ -112,21 +110,19 @@ export class PyrightServer extends LanguageServerBase {
                 const venvPath = pythonSection.venvPath;
 
                 if (venvPath && isString(venvPath)) {
-                    serverSettings.venvPath = resolvePaths(
-                        workspace.rootUri,
+                    serverSettings.venvPath = workspace.rootUri.combinePaths(
                         expandPathVariables(workspace.rootUri, venvPath)
                     );
                 }
             }
 
-            const pythonAnalysisSection = await this.getConfiguration(workspace.uri, 'python.analysis');
+            const pythonAnalysisSection = await this.getConfiguration(workspace.rootUri, 'python.analysis');
             if (pythonAnalysisSection) {
                 const typeshedPaths = pythonAnalysisSection.typeshedPaths;
                 if (typeshedPaths && Array.isArray(typeshedPaths) && typeshedPaths.length > 0) {
                     const typeshedPath = typeshedPaths[0];
                     if (typeshedPath && isString(typeshedPath)) {
-                        serverSettings.typeshedPath = resolvePaths(
-                            workspace.rootUri,
+                        serverSettings.typeshedPath = workspace.rootUri.combinePaths(
                             expandPathVariables(workspace.rootUri, typeshedPath)
                         );
                     }
@@ -134,8 +130,7 @@ export class PyrightServer extends LanguageServerBase {
 
                 const stubPath = pythonAnalysisSection.stubPath;
                 if (stubPath && isString(stubPath)) {
-                    serverSettings.stubPath = resolvePaths(
-                        workspace.rootUri,
+                    serverSettings.stubPath = workspace.rootUri.combinePaths(
                         expandPathVariables(workspace.rootUri, stubPath)
                     );
                 }
@@ -168,7 +163,7 @@ export class PyrightServer extends LanguageServerBase {
                 if (extraPaths && Array.isArray(extraPaths) && extraPaths.length > 0) {
                     serverSettings.extraPaths = extraPaths
                         .filter((p) => p && isString(p))
-                        .map((p) => resolvePaths(workspace.rootUri, expandPathVariables(workspace.rootUri, p)));
+                        .map((p) => workspace.rootUri.combinePaths(expandPathVariables(workspace.rootUri, p)));
                 }
 
                 serverSettings.fileSpecs = this._getStringValues(pythonAnalysisSection.include);
@@ -197,7 +192,7 @@ export class PyrightServer extends LanguageServerBase {
                 serverSettings.autoSearchPaths = true;
             }
 
-            const pyrightSection = await this.getConfiguration(workspace.uri, 'pyright');
+            const pyrightSection = await this.getConfiguration(workspace.rootUri, 'pyright');
             if (pyrightSection) {
                 if (pyrightSection.openFilesOnly !== undefined) {
                     serverSettings.openFilesOnly = !!pyrightSection.openFilesOnly;
@@ -263,15 +258,9 @@ export class PyrightServer extends LanguageServerBase {
     ): Promise<(Command | CodeAction)[] | undefined | null> {
         this.recordUserInteractionTime();
 
-        const filePath = this.uriParser.decodeTextDocumentUri(params.textDocument.uri);
-        const workspace = await this.getWorkspaceForFile(filePath);
-        return CodeActionProvider.getCodeActionsForPosition(
-            workspace,
-            filePath,
-            params.range,
-            params.context.only,
-            token
-        );
+        const uri = Uri.parse(params.textDocument.uri);
+        const workspace = await this.getWorkspaceForFile(uri);
+        return CodeActionProvider.getCodeActionsForPosition(workspace, uri, params.range, params.context.only, token);
     }
 
     protected createProgressReporter(): ProgressReporter {

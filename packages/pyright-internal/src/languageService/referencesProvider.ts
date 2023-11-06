@@ -27,6 +27,7 @@ import { ReadOnlyFileSystem } from '../common/fileSystem';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { DocumentRange, Position, TextRange, doesRangeContain } from '../common/textRange';
+import { Uri } from '../common/uri';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { CollectionResult, DocumentSymbolCollector } from './documentSymbolCollector';
@@ -103,17 +104,17 @@ export class FindReferencesTreeWalker {
 
     constructor(
         private _program: ProgramView,
-        private _filePath: string,
+        private _fileUri: Uri,
         private _referencesResult: ReferencesResult,
         private _includeDeclaration: boolean,
         private _cancellationToken: CancellationToken,
         private readonly _createDocumentRange: (
-            filePath: string,
+            fileUri: Uri,
             result: CollectionResult,
             parseResults: ParseResults
         ) => DocumentRange = FindReferencesTreeWalker.createDocumentRange
     ) {
-        this._parseResults = this._program.getParseResults(this._filePath);
+        this._parseResults = this._program.getParseResults(this._fileUri);
     }
 
     findReferences(rootNode = this._parseResults?.parseTree) {
@@ -139,16 +140,16 @@ export class FindReferencesTreeWalker {
         for (const result of collector.collect()) {
             // Is it the same symbol?
             if (this._includeDeclaration || result.node !== this._referencesResult.nodeAtOffset) {
-                results.push(this._createDocumentRange(this._filePath, result, this._parseResults));
+                results.push(this._createDocumentRange(this._fileUri, result, this._parseResults));
             }
         }
 
         return results;
     }
 
-    static createDocumentRange(filePath: string, result: CollectionResult, parseResults: ParseResults): DocumentRange {
+    static createDocumentRange(fileUri: Uri, result: CollectionResult, parseResults: ParseResults): DocumentRange {
         return {
-            path: filePath,
+            uri: fileUri.toString(),
             range: {
                 start: convertOffsetToPosition(result.range.start, parseResults.tokenizerOutput.lines),
                 end: convertOffsetToPosition(TextRange.getEnd(result.range), parseResults.tokenizerOutput.lines),
@@ -162,7 +163,7 @@ export class ReferencesProvider {
         private _program: ProgramView,
         private _token: CancellationToken,
         private readonly _createDocumentRange?: (
-            filePath: string,
+            fileUri: Uri,
             result: CollectionResult,
             parseResults: ParseResults
         ) => DocumentRange,
@@ -172,17 +173,17 @@ export class ReferencesProvider {
     }
 
     reportReferences(
-        filePath: string,
+        fileUri: Uri,
         position: Position,
         includeDeclaration: boolean,
         resultReporter?: ResultProgressReporter<Location[]>
     ) {
-        const sourceFileInfo = this._program.getSourceFileInfo(filePath);
+        const sourceFileInfo = this._program.getSourceFileInfo(fileUri);
         if (!sourceFileInfo) {
             return;
         }
 
-        const parseResults = this._program.getParseResults(filePath);
+        const parseResults = this._program.getParseResults(fileUri);
         if (!parseResults) {
             return;
         }
@@ -202,7 +203,7 @@ export class ReferencesProvider {
         const invokedFromUserFile = isUserCode(sourceFileInfo);
         const referencesResult = ReferencesProvider.getDeclarationForPosition(
             this._program,
-            filePath,
+            fileUri,
             position,
             reporter,
             ReferenceUseCase.References,
@@ -214,7 +215,7 @@ export class ReferencesProvider {
 
         // Do we need to do a global search as well?
         if (!referencesResult.requiresGlobalSearch) {
-            this.addReferencesToResult(sourceFileInfo.sourceFile.getFilePath(), includeDeclaration, referencesResult);
+            this.addReferencesToResult(sourceFileInfo.sourceFile.getUri(), includeDeclaration, referencesResult);
         }
 
         for (const curSourceFileInfo of this._program.getSourceFileInfoList()) {
@@ -228,7 +229,7 @@ export class ReferencesProvider {
                 const fileContents = curSourceFileInfo.sourceFile.getFileContent();
                 if (!fileContents || referencesResult.symbolNames.some((s) => fileContents.search(s) >= 0)) {
                     this.addReferencesToResult(
-                        curSourceFileInfo.sourceFile.getFilePath(),
+                        curSourceFileInfo.sourceFile.getUri(),
                         includeDeclaration,
                         referencesResult
                     );
@@ -246,12 +247,12 @@ export class ReferencesProvider {
             for (const decl of referencesResult.declarations) {
                 throwIfCancellationRequested(this._token);
 
-                if (referencesResult.locations.some((l) => l.path === decl.uri)) {
+                if (referencesResult.locations.some((l) => l.uri === decl.uri)) {
                     // Already included.
                     continue;
                 }
 
-                const declFileInfo = this._program.getSourceFileInfo(decl.uri);
+                const declFileInfo = this._program.getSourceFileInfo(Uri.parse(decl.uri));
                 if (!declFileInfo) {
                     // The file the declaration belongs to doesn't belong to the program.
                     continue;
@@ -266,10 +267,10 @@ export class ReferencesProvider {
                     referencesResult.providers
                 );
 
-                this.addReferencesToResult(declFileInfo.sourceFile.getFilePath(), includeDeclaration, tempResult);
+                this.addReferencesToResult(declFileInfo.sourceFile.getUri(), includeDeclaration, tempResult);
                 for (const loc of tempResult.locations) {
                     // Include declarations only. And throw away any references
-                    if (loc.path === decl.uri && doesRangeContain(decl.range, loc.range)) {
+                    if (loc.uri === decl.uri && doesRangeContain(decl.range, loc.range)) {
                         referencesResult.addLocations(loc);
                     }
                 }
@@ -279,15 +280,15 @@ export class ReferencesProvider {
         return locations;
     }
 
-    addReferencesToResult(filePath: string, includeDeclaration: boolean, referencesResult: ReferencesResult): void {
-        const parseResults = this._program.getParseResults(filePath);
+    addReferencesToResult(fileUri: Uri, includeDeclaration: boolean, referencesResult: ReferencesResult): void {
+        const parseResults = this._program.getParseResults(fileUri);
         if (!parseResults) {
             return;
         }
 
         const refTreeWalker = new FindReferencesTreeWalker(
             this._program,
-            filePath,
+            fileUri,
             referencesResult,
             includeDeclaration,
             this._token,
@@ -299,7 +300,7 @@ export class ReferencesProvider {
 
     static getDeclarationForNode(
         program: ProgramView,
-        filePath: string,
+        fileUri: Uri,
         node: NameNode,
         reporter: ReferenceCallback | undefined,
         useCase: ReferenceUseCase,
@@ -318,7 +319,7 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        const requiresGlobalSearch = isVisibleOutside(program.evaluator!, filePath, node, declarations);
+        const requiresGlobalSearch = isVisibleOutside(program.evaluator!, fileUri, node, declarations);
         const symbolNames = new Set<string>(declarations.map((d) => getNameFromDeclaration(d)!).filter((n) => !!n));
         symbolNames.add(node.value);
 
@@ -345,14 +346,14 @@ export class ReferencesProvider {
 
     static getDeclarationForPosition(
         program: ProgramView,
-        filePath: string,
+        fileUri: Uri,
         position: Position,
         reporter: ReferenceCallback | undefined,
         useCase: ReferenceUseCase,
         token: CancellationToken
     ): ReferencesResult | undefined {
         throwIfCancellationRequested(token);
-        const parseResults = program.getParseResults(filePath);
+        const parseResults = program.getParseResults(fileUri);
         if (!parseResults) {
             return undefined;
         }
@@ -372,16 +373,11 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        return this.getDeclarationForNode(program, filePath, node, reporter, useCase, token);
+        return this.getDeclarationForNode(program, fileUri, node, reporter, useCase, token);
     }
 }
 
-function isVisibleOutside(
-    evaluator: TypeEvaluator,
-    currentFilePath: string,
-    node: NameNode,
-    declarations: Declaration[]
-) {
+function isVisibleOutside(evaluator: TypeEvaluator, currentUri: Uri, node: NameNode, declarations: Declaration[]) {
     const result = evaluator.lookUpSymbolRecursive(node, node.value, /* honorCodeFlow */ false);
     if (result && !isExternallyVisible(result.symbol)) {
         return false;
@@ -394,7 +390,7 @@ function isVisibleOutside(
     // that is within the current file and cannot be imported directly from other modules.
     return declarations.some((decl) => {
         // If the declaration is outside of this file, a global search is needed.
-        if (decl.uri !== currentFilePath) {
+        if (decl.uri !== currentUri.toString()) {
             return true;
         }
 

@@ -813,13 +813,13 @@ export function getRelativeModuleName(
     let srcPath = sourcePath;
     sourceIsFile = sourceIsFile !== undefined ? sourceIsFile : isFile(fs, sourcePath);
     if (sourceIsFile) {
-        srcPath = sourcePath.dirname;
+        srcPath = sourcePath.getDirectory();
     }
 
     let symbolName: string | undefined;
     let destPath = targetPath;
     if (sourceIsFile) {
-        destPath = targetPath.dirname;
+        destPath = targetPath.getDirectory();
 
         const fileName = targetPath.stripAllExtensions().basename;
         if (fileName !== '__init__') {
@@ -831,7 +831,7 @@ export function getRelativeModuleName(
             //
             // if folder structure is not ignored, ".." will be returned
             symbolName = destPath.basename;
-            destPath = destPath.dirname;
+            destPath = destPath.getDirectory();
         }
     }
 
@@ -869,7 +869,7 @@ export function getDirectoryLeadingDotsPointsTo(fromDirectory: Uri, leadingDots:
             return undefined;
         }
 
-        currentDirectory = currentDirectory.dirname;
+        currentDirectory = currentDirectory.getDirectory();
     }
 
     return currentDirectory;

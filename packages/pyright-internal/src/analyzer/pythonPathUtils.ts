@@ -30,7 +30,7 @@ export function getTypeShedFallbackPath(fs: FileSystem) {
         return undefined;
     }
 
-    moduleDirectory = moduleDirectory.dirname;
+    moduleDirectory = moduleDirectory.getDirectory();
 
     const typeshedPath = moduleDirectory.combinePaths(pathConsts.typeshedFallback);
     if (fs.existsSync(typeshedPath)) {
@@ -39,7 +39,7 @@ export function getTypeShedFallbackPath(fs: FileSystem) {
 
     // In the debug version of Pyright, the code is one level
     // deeper, so we need to look one level up for the typeshed fallback.
-    const debugTypeshedPath = moduleDirectory.dirname.combinePaths(pathConsts.typeshedFallback);
+    const debugTypeshedPath = moduleDirectory.getDirectory().combinePaths(pathConsts.typeshedFallback);
     if (fs.existsSync(debugTypeshedPath)) {
         return fs.realCasePath(debugTypeshedPath);
     }

@@ -606,8 +606,7 @@ export class SourceFile {
 
                 // Is this file in a "strict" path?
                 const useStrict =
-                    configOptions.strict.find((strictFileSpec) => strictFileSpec.regExp.test(this._realFilePath)) !==
-                    undefined;
+                    configOptions.strict.find((strictFileSpec) => this._uri.test(strictFileSpec.regExp)) !== undefined;
 
                 const commentDiags: CommentUtils.CommentDiagnostic[] = [];
                 this._diagnosticRuleSet = CommentUtils.getFileLevelDirectives(
@@ -637,7 +636,12 @@ export class SourceFile {
                     (e.stack ? e.stack.toString() : undefined) ||
                     (typeof e.message === 'string' ? e.message : undefined) ||
                     JSON.stringify(e);
-                this._console.error(Localizer.Diagnostic.internalParseError().format({ file: this.getUri(), message }));
+                this._console.error(
+                    Localizer.Diagnostic.internalParseError().format({
+                        file: this.getUri().toUserVisibleString(),
+                        message,
+                    })
+                );
 
                 // Create dummy parse results.
                 this._writableData.parseResults = {
@@ -664,7 +668,10 @@ export class SourceFile {
 
                 const diagSink = this.createDiagnosticSink();
                 diagSink.addError(
-                    Localizer.Diagnostic.internalParseError().format({ file: this.getUri(), message }),
+                    Localizer.Diagnostic.internalParseError().format({
+                        file: this.getUri().toUserVisibleString(),
+                        message,
+                    }),
                     getEmptyRange()
                 );
                 this._writableData.parseDiagnostics = diagSink.fetchAndClear();
@@ -732,11 +739,19 @@ export class SourceFile {
                     (e.stack ? e.stack.toString() : undefined) ||
                     (typeof e.message === 'string' ? e.message : undefined) ||
                     JSON.stringify(e);
-                this._console.error(Localizer.Diagnostic.internalBindError().format({ file: this.getUri(), message }));
+                this._console.error(
+                    Localizer.Diagnostic.internalBindError().format({
+                        file: this.getUri().toUserVisibleString(),
+                        message,
+                    })
+                );
 
                 const diagSink = this.createDiagnosticSink();
                 diagSink.addError(
-                    Localizer.Diagnostic.internalBindError().format({ file: this.getUri(), message }),
+                    Localizer.Diagnostic.internalBindError().format({
+                        file: this.getUri().toUserVisibleString(),
+                        message,
+                    }),
                     getEmptyRange()
                 );
                 this._writableData.bindDiagnostics = diagSink.fetchAndClear();
@@ -794,11 +809,17 @@ export class SourceFile {
                         (typeof e.message === 'string' ? e.message : undefined) ||
                         JSON.stringify(e);
                     this._console.error(
-                        Localizer.Diagnostic.internalTypeCheckingError().format({ file: this.getUri(), message })
+                        Localizer.Diagnostic.internalTypeCheckingError().format({
+                            file: this.getUri().toUserVisibleString(),
+                            message,
+                        })
                     );
                     const diagSink = this.createDiagnosticSink();
                     diagSink.addError(
-                        Localizer.Diagnostic.internalTypeCheckingError().format({ file: this.getUri(), message }),
+                        Localizer.Diagnostic.internalTypeCheckingError().format({
+                            file: this.getUri().toUserVisibleString(),
+                            message,
+                        }),
                         getEmptyRange()
                     );
 
@@ -1074,7 +1095,7 @@ export class SourceFile {
         this._addTaskListDiagnostics(configOptions.taskListTokens, diagList);
 
         // If the file is in the ignore list, clear the diagnostic list.
-        if (configOptions.ignore.find((ignoreFileSpec) => ignoreFileSpec.regExp.test(this._realFilePath))) {
+        if (configOptions.ignore.find((ignoreFileSpec) => this._uri.test(ignoreFileSpec.regExp))) {
             diagList = [];
         }
 
@@ -1203,7 +1224,7 @@ export class SourceFile {
             lines: this._writableData.parseResults!.tokenizerOutput.lines,
             typingSymbolAliases: this._writableData.parseResults!.typingSymbolAliases,
             definedConstants: configOptions.defineConstant,
-            fileUri: this._uri,
+            fileUri: this._uri.toString(),
             moduleName: this.getModuleName(),
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
@@ -1301,24 +1322,24 @@ export class SourceFile {
         };
     }
 
-    private _getPathForLogging(filepath: string) {
-        return getPathForLogging(this.fileSystem, filepath);
+    private _getPathForLogging(fileUri: Uri) {
+        return getPathForLogging(this.fileSystem, fileUri);
     }
 
     private _parseFile(
         configOptions: ConfigOptions,
-        filePath: string,
+        fileUri: Uri,
         fileContents: string,
         ipythonMode: IPythonMode,
         diagSink: DiagnosticSink
     ) {
         // Use the configuration options to determine the environment in which
         // this source file will be executed.
-        const execEnvironment = configOptions.findExecEnvironment(filePath);
+        const execEnvironment = configOptions.findExecEnvironment(fileUri);
 
         const parseOptions = new ParseOptions();
         parseOptions.ipythonMode = ipythonMode;
-        if (filePath.endsWith('pyi')) {
+        if (fileUri.pathEndsWith('pyi')) {
             parseOptions.isStubFile = true;
         }
         parseOptions.pythonVersion = execEnvironment.pythonVersion;

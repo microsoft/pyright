@@ -12,12 +12,12 @@ import { OperationCanceledException, setCancellationFolderName } from './common/
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface, LogLevel } from './common/console';
 import * as debug from './common/debug';
-import { FileSpec } from './common/pathUtils';
 import { createFromRealFileSystem, RealTempFile } from './common/realFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
 import './common/serviceProviderExtensions';
 import { ServiceKeys } from './common/serviceProviderExtensions';
 import { Uri } from './common/uri';
+import { FileSpec } from './common/uriUtils';
 
 export class BackgroundConsole implements ConsoleInterface {
     // We always generate logs in the background. For the foreground,
