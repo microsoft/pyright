@@ -49,7 +49,6 @@ import {
     isFunction,
     isInstantiableClass,
     isOverloadedFunction,
-    NoneType,
     OverloadedFunctionType,
     TupleTypeArgument,
     Type,
@@ -107,7 +106,7 @@ export function synthesizeDataClassMethods(
         hasDeclaredType: true,
     };
     FunctionType.addParameter(initType, selfParam);
-    initType.details.declaredReturnType = NoneType.createInstance();
+    initType.details.declaredReturnType = evaluator.getNoneType();
 
     // Maintain a list of all dataclass entries (including
     // those from inherited classes) plus a list of only those
@@ -650,7 +649,7 @@ export function synthesizeDataClassMethods(
             '__hash__',
             Symbol.createWithType(
                 SymbolFlags.ClassMember | SymbolFlags.IgnoredForOverrideChecks,
-                NoneType.createInstance()
+                evaluator.getNoneType()
             )
         );
     }
@@ -867,7 +866,7 @@ function getDescriptorForConverterField(
         type: setType,
         hasDeclaredType: true,
     });
-    setFunction.details.declaredReturnType = NoneType.createInstance();
+    setFunction.details.declaredReturnType = evaluator.getNoneType();
     const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
     fields.set('__set__', setSymbol);
 

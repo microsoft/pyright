@@ -2,6 +2,7 @@
 # include property declarations.
 
 from typing import ContextManager, NamedTuple, Protocol, TypeVar
+from dataclasses import dataclass
 
 
 class Class1(Protocol):
@@ -158,3 +159,52 @@ class Class8(NamedTuple):
 
 
 b: Proto8 = Class8("")
+
+
+class Proto9(Protocol):
+    @property
+    def x(self) -> str:
+        ...
+
+    @x.setter
+    def x(self, n: str) -> None:
+        ...
+
+
+class Proto10(Protocol):
+    x: str
+
+
+class NT9(NamedTuple):
+    x: str = ""
+
+
+@dataclass(frozen=False)
+class DC9:
+    x: str = ""
+
+
+@dataclass(frozen=True)
+class DCFrozen9:
+    x: str = ""
+
+
+# This should generate an error because named tuple
+# attributes are immutable.
+p9_1: Proto9 = NT9()
+
+# This should generate an error because frozen dataclass
+# attributes are immutable.
+p9_2: Proto9 = DCFrozen9()
+
+p9_3: Proto9 = DC9()
+
+# This should generate an error because named tuple
+# attributes are immutable.
+p10_1: Proto10 = NT9()
+
+# This should generate an error because frozen dataclass
+# attributes are immutable.
+p10_2: Proto10 = DCFrozen9()
+
+p10_3: Proto10 = DC9()

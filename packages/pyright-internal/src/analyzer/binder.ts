@@ -644,16 +644,7 @@ export class Binder extends ParseTreeWalker {
         this._disableTrueFalseTargets(() => {
             this.walk(node.leftExpression);
 
-            // Sort all keyword arguments to the end of the parameter list. This is
-            // necessary because all positional arguments (including *args) are evaluated
-            // prior to any keyword arguments at runtime.
-            const positionalArgs = node.arguments.filter(
-                (arg) => !arg.name && arg.argumentCategory !== ArgumentCategory.UnpackedDictionary
-            );
-            const keywordArgs = node.arguments.filter(
-                (arg) => !!arg.name || arg.argumentCategory === ArgumentCategory.UnpackedDictionary
-            );
-            const sortedArgs = positionalArgs.concat(keywordArgs);
+            const sortedArgs = ParseTreeUtils.getArgumentsByRuntimeOrder(node);
 
             sortedArgs.forEach((argNode) => {
                 if (this._currentFlowNode) {

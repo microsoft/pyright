@@ -1,7 +1,6 @@
-from _typeshed import FileDescriptorOrPath, SupportsKeysAndGetItem
+from _typeshed import FileDescriptorOrPath, SupportsKeysAndGetItem, Unused
 from collections.abc import Iterable
 from struct import Struct
-from typing import Any
 from typing_extensions import Final, Literal, Self, TypeAlias
 
 from .bks import BksKeyEntry
@@ -48,7 +47,7 @@ class AbstractKeystoreEntry:
     store_type: _KeystoreType | None
     alias: str
     timestamp: int
-    def __init__(self, *, store_type: _KeystoreType = ..., alias: str = ..., timestamp: int = ..., **kwargs: Any) -> None: ...
+    def __init__(self, *, store_type: _KeystoreType | None = None, alias: str, timestamp: int, **kwargs: Unused) -> None: ...
     @classmethod
     def new(cls, alias: str) -> Self: ...
     def is_decrypted(self) -> bool: ...

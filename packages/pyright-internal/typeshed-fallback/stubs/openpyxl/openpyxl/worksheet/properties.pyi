@@ -1,9 +1,9 @@
-from _typeshed import Incomplete
 from typing import ClassVar
 from typing_extensions import Literal
 
 from openpyxl.descriptors.base import Bool, String, Typed, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.styles.colors import Color, ColorDescriptor
 
 class Outline(Serialisable):
     tagname: ClassVar[str]
@@ -36,7 +36,7 @@ class WorksheetProperties(Serialisable):
     syncVertical: Bool[Literal[True]]
     transitionEvaluation: Bool[Literal[True]]
     transitionEntry: Bool[Literal[True]]
-    tabColor: Incomplete
+    tabColor: ColorDescriptor[Literal[True]]
     outlinePr: Typed[Outline, Literal[True]]
     pageSetUpPr: Typed[PageSetupProperties, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
@@ -51,7 +51,7 @@ class WorksheetProperties(Serialisable):
         syncVertical: _ConvertibleToBool | None = None,
         transitionEvaluation: _ConvertibleToBool | None = None,
         transitionEntry: _ConvertibleToBool | None = None,
-        tabColor: Incomplete | None = None,
+        tabColor: str | Color | None = None,
         outlinePr: Outline | None = None,
         pageSetUpPr: PageSetupProperties | None = None,
     ) -> None: ...

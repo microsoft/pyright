@@ -9,6 +9,7 @@
  * negative ("else") narrowing cases.
  */
 
+import { assert } from '../common/debug';
 import {
     ArgumentCategory,
     AssignmentExpressionNode,
@@ -43,15 +44,12 @@ import {
     isInstantiableClass,
     isModule,
     isNever,
-    isNoneInstance,
-    isNoneTypeClass,
     isOverloadedFunction,
     isSameWithoutLiteralValue,
     isTypeSame,
     isTypeVar,
     isUnpackedVariadicTypeVar,
     maxTypeRecursionCount,
-    NoneType,
     OverloadedFunctionType,
     TupleTypeArgument,
     Type,
@@ -67,7 +65,6 @@ import {
     applySolvedTypeVars,
     AssignTypeFlags,
     ClassMember,
-    ClassMemberLookupFlags,
     computeMroLinearization,
     containsAnyOrUnknown,
     convertToInstance,
@@ -76,16 +73,22 @@ import {
     getSpecializedTupleType,
     getTypeCondition,
     getTypeVarScopeId,
+    isInstantiableMetaclass,
     isLiteralType,
     isLiteralTypeOrUnion,
     isMaybeDescriptorInstance,
+    isMetaclassInstance,
+    isNoneInstance,
+    isNoneTypeClass,
     isProperty,
     isTupleClass,
     isUnboundedTupleClass,
     lookUpClassMember,
     lookUpObjectMember,
     mapSubtypes,
+    MemberAccessFlags,
     specializeTupleClass,
+    specializeWithUnknown,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
@@ -407,9 +410,7 @@ export function getTypeNarrowingCallback(
             if (
                 equalsOrNotEqualsOperator &&
                 testExpression.leftExpression.nodeType === ParseNodeType.Call &&
-                testExpression.leftExpression.arguments.length === 1 &&
-                testExpression.rightExpression.nodeType === ParseNodeType.Number &&
-                testExpression.rightExpression.isInteger
+                testExpression.leftExpression.arguments.length === 1
             ) {
                 const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
 
@@ -421,13 +422,20 @@ export function getTypeNarrowingCallback(
                     const callType = callTypeResult.type;
 
                     if (isFunction(callType) && callType.details.fullName === 'builtins.len') {
-                        const tupleLength = testExpression.rightExpression.value;
+                        const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                        const rightType = rightTypeResult.type;
 
-                        if (typeof tupleLength === 'number') {
+                        if (
+                            isClassInstance(rightType) &&
+                            typeof rightType.literalValue === 'number' &&
+                            rightType.literalValue >= 0
+                        ) {
+                            const tupleLength = rightType.literalValue;
+
                             return (type: Type) => {
                                 return {
                                     type: narrowTypeForTupleLength(evaluator, type, tupleLength, adjIsPositiveTest),
-                                    isIncomplete: !!callTypeResult.isIncomplete,
+                                    isIncomplete: !!callTypeResult.isIncomplete || !!rightTypeResult.isIncomplete,
                                 };
                             };
                         }
@@ -1068,7 +1076,7 @@ function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositi
         const typeOfEntry = evaluator.makeTopLevelTypeVarsConcrete(tupleType.tupleTypeArguments[indexValue].type);
 
         if (isPositiveTest) {
-            if (!evaluator.assignType(typeOfEntry, NoneType.createInstance())) {
+            if (!evaluator.assignType(typeOfEntry, evaluator.getNoneType())) {
                 return undefined;
             }
         } else {
@@ -1111,7 +1119,7 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
             if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
                 resultIncludesNoneSubtype = true;
                 return isPositiveTest
-                    ? addConditionToType(NoneType.createInstance(), subtype.condition)
+                    ? addConditionToType(evaluator.getNoneType(), subtype.condition)
                     : adjustedSubtype;
             }
 
@@ -1164,7 +1172,7 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiv
             // See if it's a match for object.
             if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
                 return isPositiveTest
-                    ? addConditionToType(NoneType.createInstance(), subtype.condition)
+                    ? addConditionToType(evaluator.getNoneType(), subtype.condition)
                     : adjustedSubtype;
             }
 
@@ -1184,9 +1192,9 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiv
 // that accepts a single class, and a more complex form that accepts a tuple
 // of classes (including arbitrarily-nested tuples). This method determines
 // which form and returns a list of classes or undefined.
-function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | NoneType | FunctionType)[] | undefined {
+function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | FunctionType)[] | undefined {
     let foundNonClassType = false;
-    const classTypeList: (ClassType | TypeVarType | NoneType | FunctionType)[] = [];
+    const classTypeList: (ClassType | TypeVarType | FunctionType)[] = [];
 
     // Create a helper function that returns a list of class types or
     // undefined if any of the types are not valid.
@@ -1195,6 +1203,7 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | None
             if (isInstantiableClass(subtype) || (isTypeVar(subtype) && TypeBase.isInstantiable(subtype))) {
                 classTypeList.push(subtype);
             } else if (isNoneTypeClass(subtype)) {
+                assert(isInstantiableClass(subtype));
                 classTypeList.push(subtype);
             } else if (
                 isFunction(subtype) &&
@@ -1301,7 +1310,7 @@ export function isIsinstanceFilterSubclass(
 function narrowTypeForIsInstance(
     evaluator: TypeEvaluator,
     type: Type,
-    classTypeList: (ClassType | TypeVarType | NoneType | FunctionType)[],
+    classTypeList: (ClassType | TypeVarType | FunctionType)[],
     isInstanceCheck: boolean,
     isPositiveTest: boolean,
     allowIntersections: boolean,
@@ -1328,9 +1337,22 @@ function narrowTypeForIsInstance(
         let isClassRelationshipIndeterminate = false;
 
         for (const filterType of classTypeList) {
-            const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
+            let concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
 
             if (isInstantiableClass(concreteFilterType)) {
+                // If the class was implicitly specialized (e.g. because its type
+                // parameters have default values), replace the default type arguments
+                // with Unknown.
+                if (concreteFilterType.typeArguments && !concreteFilterType.isTypeArgumentExplicit) {
+                    concreteFilterType = specializeWithUnknown(
+                        ClassType.cloneForSpecialization(
+                            concreteFilterType,
+                            /* typeArguments */ undefined,
+                            /* isTypeArgumentExplicit */ false
+                        )
+                    );
+                }
+
                 const filterIsSuperclass = isIsinstanceFilterSuperclass(
                     evaluator,
                     varType,
@@ -1372,7 +1394,7 @@ function narrowTypeForIsInstance(
                         if (
                             evaluator.assignType(
                                 concreteVarType,
-                                filterType,
+                                concreteFilterType,
                                 /* diag */ undefined,
                                 /* destTypeVarContext */ undefined,
                                 /* srcTypeVarContext */ undefined,
@@ -1541,7 +1563,7 @@ function narrowTypeForIsInstance(
                             isCallable = !!lookUpClassMember(
                                 concreteVarType,
                                 '__call__',
-                                ClassMemberLookupFlags.SkipInstanceVariables
+                                MemberAccessFlags.SkipInstanceMembers
                             );
                         }
                     }
@@ -1580,6 +1602,61 @@ function narrowTypeForIsInstance(
         }
 
         return filteredTypes.map((t) => convertToInstance(t));
+    };
+
+    // Filters the metaclassType (which is assumed to be a metaclass instance)
+    // by the classTypeList and returns the list of types the varType could be
+    // after applying the filter.
+    const filterMetaclassType = (metaclassType: ClassType, negativeFallbackType: Type): Type[] => {
+        const filteredTypes: Type[] = [];
+
+        let foundPositiveMatch = false;
+        let isMatchIndeterminate = false;
+
+        for (const filterType of classTypeList) {
+            const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
+
+            if (isInstantiableClass(concreteFilterType)) {
+                const filterMetaclass = concreteFilterType.details.effectiveMetaclass;
+
+                if (filterMetaclass && isInstantiableClass(filterMetaclass)) {
+                    const isMetaclassOverlap = evaluator.assignType(
+                        metaclassType,
+                        ClassType.cloneAsInstance(filterMetaclass)
+                    );
+
+                    if (isMetaclassOverlap) {
+                        if (isPositiveTest) {
+                            filteredTypes.push(filterType);
+                            foundPositiveMatch = true;
+                        } else if (!isTypeSame(metaclassType, filterMetaclass) || filterMetaclass.includeSubclasses) {
+                            filteredTypes.push(metaclassType);
+                            isMatchIndeterminate = true;
+                        }
+                    }
+                } else {
+                    filteredTypes.push(metaclassType);
+                    isMatchIndeterminate = true;
+                }
+            } else {
+                filteredTypes.push(metaclassType);
+                isMatchIndeterminate = true;
+            }
+        }
+
+        // In the negative case, if one or more of the filters
+        // always match the type in the positive case, then there's nothing
+        // left after the filter is applied.
+        if (!isPositiveTest) {
+            if (!foundPositiveMatch || isMatchIndeterminate) {
+                filteredTypes.push(negativeFallbackType);
+            }
+        }
+
+        // We perform a double conversion from instance to instantiable
+        // here to make sure that the includeSubclasses flag is cleared
+        // if it's a class.
+        return filteredTypes.map((t) => (isInstantiableClass(t) ? convertToInstantiable(convertToInstance(t)) : t));
     };
 
     const filterFunctionType = (varType: FunctionType | OverloadedFunctionType, unexpandedType: Type): Type[] => {
@@ -1626,6 +1703,14 @@ function narrowTypeForIsInstance(
         return filteredTypes;
     };
 
+    const classListContainsNoneType = () =>
+        classTypeList.some((t) => {
+            if (isNoneTypeClass(t)) {
+                return true;
+            }
+            return isInstantiableClass(t) && ClassType.isBuiltIn(t, 'NoneType');
+        });
+
     const anyOrUnknownSubstitutions: Type[] = [];
     const anyOrUnknown: Type[] = [];
 
@@ -1639,7 +1724,7 @@ function narrowTypeForIsInstance(
             // on a constrained TypeVar that they want to filter based on its constrained
             // parts.
             const negativeFallback = getTypeCondition(subtype) ? subtype : unexpandedSubtype;
-            const isSubtypeTypeObject = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'type');
+            const isSubtypeMetaclass = isMetaclassInstance(subtype);
 
             if (isPositiveTest && isAnyOrUnknown(subtype)) {
                 // If this is a positive test and the effective type is Any or
@@ -1666,18 +1751,7 @@ function narrowTypeForIsInstance(
 
             if (isInstanceCheck) {
                 if (isNoneInstance(subtype)) {
-                    const containsNoneType = classTypeList.some((t) => {
-                        if (isNoneTypeClass(t)) {
-                            return true;
-                        }
-                        return isInstantiableClass(t) && ClassType.isBuiltIn(t, 'NoneType');
-                    });
-
-                    if (isPositiveTest) {
-                        return containsNoneType ? subtype : undefined;
-                    } else {
-                        return containsNoneType ? undefined : subtype;
-                    }
+                    return classListContainsNoneType() === isPositiveTest ? subtype : undefined;
                 }
 
                 if (isModule(subtype) || (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'ModuleType'))) {
@@ -1697,7 +1771,7 @@ function narrowTypeForIsInstance(
                     }
                 }
 
-                if (isClassInstance(subtype) && !isSubtypeTypeObject) {
+                if (isClassInstance(subtype) && !isSubtypeMetaclass) {
                     return combineTypes(
                         filterClassType(
                             convertToInstance(unexpandedSubtype),
@@ -1712,25 +1786,31 @@ function narrowTypeForIsInstance(
                     return combineTypes(filterFunctionType(subtype, convertToInstance(unexpandedSubtype)));
                 }
 
-                if (isInstantiableClass(subtype) || isSubtypeTypeObject) {
-                    // Handle the special case of isinstance(x, type).
-                    const includesTypeType = classTypeList.some(
-                        (classType) => isInstantiableClass(classType) && ClassType.isBuiltIn(classType, 'type')
-                    );
+                if (isInstantiableClass(subtype) || isSubtypeMetaclass) {
+                    // Handle the special case of isinstance(x, metaclass).
+                    const includesMetaclassType = classTypeList.some((classType) => isInstantiableMetaclass(classType));
                     if (isPositiveTest) {
-                        return includesTypeType ? negativeFallback : undefined;
+                        return includesMetaclassType ? negativeFallback : undefined;
                     } else {
-                        return includesTypeType ? undefined : negativeFallback;
+                        return includesMetaclassType ? undefined : negativeFallback;
                     }
                 }
             } else {
-                if (isInstantiableClass(subtype)) {
-                    return combineTypes(
-                        filterClassType(unexpandedSubtype, subtype, getTypeCondition(subtype), negativeFallback)
-                    );
+                if (isNoneTypeClass(subtype)) {
+                    return classListContainsNoneType() === isPositiveTest ? subtype : undefined;
                 }
 
-                if (isSubtypeTypeObject) {
+                if (isClass(subtype)) {
+                    if (isInstantiableClass(subtype)) {
+                        return combineTypes(
+                            filterClassType(unexpandedSubtype, subtype, getTypeCondition(subtype), negativeFallback)
+                        );
+                    } else if (isMetaclassInstance(subtype)) {
+                        return combineTypes(filterMetaclassType(subtype, negativeFallback));
+                    }
+                }
+
+                if (isSubtypeMetaclass) {
                     const objectType = evaluator.getBuiltInObject(errorNode, 'object');
                     if (objectType && isClassInstance(objectType)) {
                         return combineTypes(
@@ -1940,7 +2020,10 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
 
         if (evaluator.assignType(elementTypeWithoutLiteral, concreteReferenceType)) {
             return mapSubtypes(elementType, (elementSubtype) => {
-                if (isClassInstance(elementSubtype) && isSameWithoutLiteralValue(referenceSubtype, elementSubtype)) {
+                if (
+                    isClassInstance(elementSubtype) &&
+                    isSameWithoutLiteralValue(concreteReferenceType, elementSubtype)
+                ) {
                     return elementSubtype;
                 }
                 return undefined;
@@ -2136,15 +2219,11 @@ function narrowTypeForDiscriminatedLiteralFieldComparison(
             // Handle the case where the field is a property
             // that has a declared literal return type for its getter.
             if (isClassInstance(subtype) && isClassInstance(memberType) && isProperty(memberType)) {
-                const getterInfo = lookUpObjectMember(memberType, 'fget');
-
-                if (getterInfo && getterInfo.isTypeDeclared) {
-                    const getterType = evaluator.getTypeOfMember(getterInfo);
-                    if (isFunction(getterType) && getterType.details.declaredReturnType) {
-                        const getterReturnType = FunctionType.getSpecializedReturnType(getterType);
-                        if (getterReturnType) {
-                            memberType = getterReturnType;
-                        }
+                const getterType = memberType.fgetFunction;
+                if (getterType && getterType.details.declaredReturnType) {
+                    const getterReturnType = FunctionType.getSpecializedReturnType(getterType);
+                    if (getterReturnType) {
+                        memberType = getterReturnType;
                     }
                 }
             }
@@ -2405,22 +2484,21 @@ function narrowTypeForCallable(
                 return isPositiveTest ? subtype : undefined;
             }
 
-            case TypeCategory.None:
             case TypeCategory.Module: {
                 return isPositiveTest ? undefined : subtype;
             }
 
             case TypeCategory.Class: {
+                if (isNoneInstance(subtype)) {
+                    return isPositiveTest ? undefined : subtype;
+                }
+
                 if (TypeBase.isInstantiable(subtype)) {
                     return isPositiveTest ? subtype : undefined;
                 }
 
                 // See if the object is callable.
-                const callMemberType = lookUpClassMember(
-                    subtype,
-                    '__call__',
-                    ClassMemberLookupFlags.SkipInstanceVariables
-                );
+                const callMemberType = lookUpClassMember(subtype, '__call__', MemberAccessFlags.SkipInstanceMembers);
 
                 if (!callMemberType) {
                     if (!isPositiveTest) {

@@ -5,9 +5,10 @@
  *
  * Shortcuts to common services.
  */
+import { CacheManager } from '../analyzer/cacheManager';
 import { ISourceFileFactory } from '../analyzer/program';
 import { IPythonMode, SourceFile, SourceFileEditMode } from '../analyzer/sourceFile';
-import { SupportPartialStubs, SupportUriToPathMapping } from '../pyrightFileSystem';
+import { SupportPartialStubs } from '../pyrightFileSystem';
 import { ConsoleInterface } from './console';
 import {
     StatusMutationListener,
@@ -24,7 +25,6 @@ declare module './serviceProvider' {
         fs(): FileSystem;
         console(): ConsoleInterface;
         sourceFileFactory(): ISourceFileFactory;
-        uriMapper(): SupportUriToPathMapping;
         partialStubs(): SupportPartialStubs;
     }
 }
@@ -34,11 +34,11 @@ export namespace ServiceKeys {
     export const console = new ServiceKey<ConsoleInterface>();
     export const sourceFileFactory = new ServiceKey<ISourceFileFactory>();
     export const partialStubs = new ServiceKey<SupportPartialStubs>();
-    export const uriMapper = new ServiceKey<SupportUriToPathMapping>();
     export const symbolDefinitionProvider = new GroupServiceKey<SymbolDefinitionProvider>();
     export const symbolUsageProviderFactory = new GroupServiceKey<SymbolUsageProviderFactory>();
     export const stateMutationListeners = new GroupServiceKey<StatusMutationListener>();
     export const tempFile = new ServiceKey<TempFile>();
+    export const cacheManager = new ServiceKey<CacheManager>();
 }
 
 export function createServiceProvider(...services: any): ServiceProvider {
@@ -58,11 +58,11 @@ export function createServiceProvider(...services: any): ServiceProvider {
         if (SupportPartialStubs.is(service)) {
             sp.add(ServiceKeys.partialStubs, service);
         }
-        if (SupportUriToPathMapping.is(service)) {
-            sp.add(ServiceKeys.uriMapper, service);
-        }
         if (TempFile.is(service)) {
             sp.add(ServiceKeys.tempFile, service);
+        }
+        if (CacheManager.is(service)) {
+            sp.add(ServiceKeys.cacheManager, service);
         }
     });
     return sp;
@@ -73,9 +73,6 @@ ServiceProvider.prototype.fs = function () {
 };
 ServiceProvider.prototype.console = function () {
     return this.get(ServiceKeys.console);
-};
-ServiceProvider.prototype.uriMapper = function () {
-    return this.get(ServiceKeys.uriMapper);
 };
 ServiceProvider.prototype.partialStubs = function () {
     return this.get(ServiceKeys.partialStubs);

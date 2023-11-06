@@ -16,6 +16,7 @@ import {
 } from 'vscode-languageserver';
 
 import { AnalysisResults } from './analyzer/analysis';
+import { CacheManager } from './analyzer/cacheManager';
 import { ImportResolver } from './analyzer/importResolver';
 import { isPythonBinary } from './analyzer/pythonPathUtils';
 import { BackgroundAnalysis } from './backgroundAnalysis';
@@ -58,8 +59,9 @@ export class PyrightServer extends LanguageServerBase {
         const fileSystem = createFromRealFileSystem(console, fileWatcherProvider);
         const pyrightFs = new PyrightFileSystem(fileSystem);
         const tempFile = new RealTempFile();
+        const cacheManager = new CacheManager();
 
-        const serviceProvider = createServiceProvider(pyrightFs, tempFile, console);
+        const serviceProvider = createServiceProvider(pyrightFs, tempFile, console, cacheManager);
         const realPathRoot = realCasePath(rootDirectory, pyrightFs);
 
         super(
@@ -167,6 +169,10 @@ export class PyrightServer extends LanguageServerBase {
                         .filter((p) => p && isString(p))
                         .map((p) => resolvePaths(workspace.rootPath, expandPathVariables(workspace.rootPath, p)));
                 }
+
+                serverSettings.includeFileSpecs = this._getStringValues(pythonAnalysisSection.include);
+                serverSettings.excludeFileSpecs = this._getStringValues(pythonAnalysisSection.exclude);
+                serverSettings.ignoreFileSpecs = this._getStringValues(pythonAnalysisSection.ignore);
 
                 if (pythonAnalysisSection.typeCheckingMode !== undefined) {
                     serverSettings.typeCheckingMode = pythonAnalysisSection.typeCheckingMode;
@@ -310,5 +316,13 @@ export class PyrightServer extends LanguageServerBase {
                 }
             },
         };
+    }
+
+    private _getStringValues(values: any) {
+        if (!values || !Array.isArray(values) || values.length === 0) {
+            return [];
+        }
+
+        return values.filter((p) => p && isString(p)) as string[];
     }
 }

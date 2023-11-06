@@ -1,5 +1,10 @@
 /// <reference path="fourslash.ts" />
 
+// @filename: pyrightconfig.json
+//// {
+////   "useLibraryCodeForTypes": true
+//// }
+
 // @filename: module1.py
 //// '''module1 docs'''
 ////

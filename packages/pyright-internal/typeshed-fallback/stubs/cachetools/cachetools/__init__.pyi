@@ -1,7 +1,7 @@
 from _typeshed import IdentityFunction, Unused
 from collections.abc import Callable, Iterator, MutableMapping, Sequence
 from contextlib import AbstractContextManager
-from typing import Any, Generic, TypeVar, overload
+from typing import Any, TypeVar, overload
 
 __all__ = ("Cache", "FIFOCache", "LFUCache", "LRUCache", "MRUCache", "RRCache", "TLRUCache", "TTLCache", "cached", "cachedmethod")
 __version__: str
@@ -10,7 +10,7 @@ _KT = TypeVar("_KT")
 _VT = TypeVar("_VT")
 _T = TypeVar("_T")
 
-class Cache(MutableMapping[_KT, _VT], Generic[_KT, _VT]):
+class Cache(MutableMapping[_KT, _VT]):
     @overload
     def __init__(self, maxsize: float, getsizeof: Callable[[_VT], float]) -> None: ...
     @overload

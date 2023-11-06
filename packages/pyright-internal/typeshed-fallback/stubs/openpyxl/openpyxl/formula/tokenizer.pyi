@@ -1,6 +1,13 @@
 from _typeshed import Incomplete
 from re import Pattern
-from typing_extensions import Final
+from typing_extensions import Final, Literal, TypeAlias
+
+_TokenTypesNotOperand: TypeAlias = Literal[
+    "LITERAL", "FUNC", "ARRAY", "PAREN", "SEP", "OPERATOR-PREFIX", "OPERATOR-INFIX", "OPERATOR-POSTFIX", "WHITE-SPACE"
+]
+_TokenTypes: TypeAlias = Literal["OPERAND", _TokenTypesNotOperand]
+_TokenOperandSubtypes: TypeAlias = Literal["TEXT", "NUMBER", "LOGICAL", "ERROR", "RANGE"]
+_TokenSubtypes: TypeAlias = Literal["", _TokenOperandSubtypes, "OPEN", "CLOSE", "ARG", "ROW"]
 
 class TokenizerError(Exception): ...
 
@@ -33,9 +40,9 @@ class Token:
     OP_POST: Final = "OPERATOR-POSTFIX"
     WSPACE: Final = "WHITE-SPACE"
     value: Incomplete
-    type: Incomplete
-    subtype: Incomplete
-    def __init__(self, value, type_, subtype: str = "") -> None: ...
+    type: _TokenTypes
+    subtype: _TokenSubtypes
+    def __init__(self, value, type_: _TokenTypes, subtype: _TokenSubtypes = "") -> None: ...
     TEXT: Final = "TEXT"
     NUMBER: Final = "NUMBER"
     LOGICAL: Final = "LOGICAL"

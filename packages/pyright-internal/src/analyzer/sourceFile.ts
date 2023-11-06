@@ -57,7 +57,6 @@ const _maxSourceFileSize = 50 * 1024 * 1024;
 interface ResolveImportResult {
     imports: ImportResult[];
     builtinsImportResult?: ImportResult | undefined;
-    ipythonDisplayImportResult?: ImportResult | undefined;
 }
 
 // Indicates whether IPython syntax is supported and if so, what
@@ -134,8 +133,6 @@ class WriteableData {
     // Information about implicit and explicit imports from this file.
     imports: ImportResult[] | undefined;
     builtinsImport: ImportResult | undefined;
-    ipythonDisplayImport: ImportResult | undefined;
-
     // True if the file appears to have been deleted.
     isFileDeleted = false;
 }
@@ -175,6 +172,10 @@ export class SourceFile {
     // True if the file is the "typing_extensions.pyi" file, which needs
     // special-case handling.
     private readonly _isTypingExtensionsStubFile: boolean;
+
+    // True if the file is the "_typeshed.pyi" file, which needs special-
+    // case handling.
+    private readonly _isTypeshedStubFile: boolean;
 
     // True if the file one of the other built-in stub files
     // that require special-case handling: "collections.pyi",
@@ -224,6 +225,8 @@ export class SourceFile {
             this._isStubFile &&
             (this._filePath.endsWith(normalizeSlashes('stdlib/typing.pyi')) || fileName === 'typing_extensions.pyi');
         this._isTypingExtensionsStubFile = this._isStubFile && fileName === 'typing_extensions.pyi';
+        this._isTypeshedStubFile =
+            this._isStubFile && this._filePath.endsWith(normalizeSlashes('stdlib/_typeshed/__init__.pyi'));
 
         this._isBuiltInStubFile = false;
         if (this._isStubFile) {
@@ -304,10 +307,6 @@ export class SourceFile {
         return this._writableData.builtinsImport;
     }
 
-    getIPythonDisplayImport(): ImportResult | undefined {
-        return this._writableData.ipythonDisplayImport;
-    }
-
     getModuleSymbolTable(): SymbolTable | undefined {
         return this._writableData.moduleSymbolTable;
     }
@@ -348,13 +347,18 @@ export class SourceFile {
         // that of the previous contents.
         try {
             // Read the file's contents.
-            const fileContents = this.fileSystem.readFileSync(this._filePath, 'utf8');
+            if (this.fileSystem.existsSync(this._filePath)) {
+                const fileContents = this.fileSystem.readFileSync(this._filePath, 'utf8');
 
-            if (fileContents.length !== this._writableData.lastFileContentLength) {
-                return true;
-            }
+                if (fileContents.length !== this._writableData.lastFileContentLength) {
+                    return true;
+                }
 
-            if (StringUtils.hashString(fileContents) !== this._writableData.lastFileContentHash) {
+                if (StringUtils.hashString(fileContents) !== this._writableData.lastFileContentHash) {
+                    return true;
+                }
+            } else {
+                // No longer exists, so yes it has changed.
                 return true;
             }
         } catch (error) {
@@ -607,7 +611,6 @@ export class SourceFile {
 
                     this._writableData.imports = importResult.imports;
                     this._writableData.builtinsImport = importResult.builtinsImportResult;
-                    this._writableData.ipythonDisplayImport = importResult.ipythonDisplayImportResult;
 
                     this._writableData.parseDiagnostics = diagSink.fetchAndClear();
                 });
@@ -671,7 +674,6 @@ export class SourceFile {
                 };
                 this._writableData.imports = undefined;
                 this._writableData.builtinsImport = undefined;
-                this._writableData.ipythonDisplayImport = undefined;
 
                 const diagSink = this.createDiagnosticSink();
                 diagSink.addError(
@@ -1221,6 +1223,7 @@ export class SourceFile {
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
             isTypingExtensionsStubFile: this._isTypingExtensionsStubFile,
+            isTypeshedStubFile: this._isTypeshedStubFile,
             isBuiltInStubFile: this._isBuiltInStubFile,
             isInPyTypedPackage: this._isThirdPartyPyTypedPresent,
             ipythonMode: this._ipythonMode,
@@ -1279,10 +1282,6 @@ export class SourceFile {
             builtinsImportResult = resolveAndAddIfNotSelf(['builtins']);
         }
 
-        const ipythonDisplayImportResult = this._ipythonMode
-            ? resolveAndAddIfNotSelf(['IPython', 'display'])
-            : undefined;
-
         for (const moduleImport of moduleImports) {
             const importResult = importResolver.resolveImport(this._filePath, execEnv, {
                 leadingDots: moduleImport.leadingDots,
@@ -1314,7 +1313,6 @@ export class SourceFile {
         return {
             imports,
             builtinsImportResult,
-            ipythonDisplayImportResult,
         };
     }
 

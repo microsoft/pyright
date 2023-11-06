@@ -40,10 +40,6 @@ export class SourceFileInfo {
         return this._writableData.builtinsImport;
     }
 
-    get ipythonDisplayImport() {
-        return this._writableData.ipythonDisplayImport;
-    }
-
     // Information about the chained source file
     // Chained source file is not supposed to exist on file system but
     // must exist in the program's source file list. Module level
@@ -91,11 +87,6 @@ export class SourceFileInfo {
     set builtinsImport(value: SourceFileInfo | undefined) {
         this._cachePreEditState();
         this._writableData.builtinsImport = value;
-    }
-
-    set ipythonDisplayImport(value: SourceFileInfo | undefined) {
-        this._cachePreEditState();
-        this._writableData.ipythonDisplayImport = value;
     }
 
     set chainedSourceFile(value: SourceFileInfo | undefined) {
@@ -154,7 +145,6 @@ export class SourceFileInfo {
             chainedSourceFile: args.chainedSourceFile,
             diagnosticsVersion: args.diagnosticsVersion,
             effectiveFutureImports: args.effectiveFutureImports,
-            ipythonDisplayImport: args.ipythonDisplayImport,
             imports: [],
             importedBy: [],
             shadows: [],
@@ -170,7 +160,6 @@ export class SourceFileInfo {
             chainedSourceFile: data.chainedSourceFile,
             diagnosticsVersion: data.diagnosticsVersion,
             effectiveFutureImports: data.effectiveFutureImports,
-            ipythonDisplayImport: data.ipythonDisplayImport,
             imports: data.imports.slice(),
             importedBy: data.importedBy.slice(),
             shadows: data.shadows.slice(),
@@ -189,7 +178,6 @@ interface OptionalArguments {
     isOpenByClient?: boolean;
     diagnosticsVersion?: number | undefined;
     builtinsImport?: SourceFileInfo | undefined;
-    ipythonDisplayImport?: SourceFileInfo | undefined;
     chainedSourceFile?: SourceFileInfo | undefined;
     effectiveFutureImports?: ReadonlySet<string>;
 }
@@ -200,7 +188,6 @@ interface WriteableData {
     diagnosticsVersion?: number | undefined;
 
     builtinsImport?: SourceFileInfo | undefined;
-    ipythonDisplayImport?: SourceFileInfo | undefined;
 
     // Information about the chained source file
     // Chained source file is not supposed to exist on file system but

@@ -4,7 +4,7 @@
 from abc import ABC, abstractmethod
 
 
-class AbstractFoo(ABC):
+class AbstractClassA(ABC):
     @abstractmethod
     def foo1(self):
         pass
@@ -26,26 +26,30 @@ class AbstractFoo(ABC):
         return cls()
 
 
+v1 = [subclass() for subclass in AbstractClassA.__subclasses__()]
+reveal_type(v1, expected_text="list[AbstractClassA]")
+
+
 # This should generate an error because AbstractFoo
 # is an abstract class.
-a = AbstractFoo()
+a = AbstractClassA()
 
 
-class AbstractBar1(AbstractFoo):
+class AbstractClassB(AbstractClassA):
     def foo1(self):
         pass
 
 
 # This should generate an error because AbstractBar1
 # is an abstract class.
-b = AbstractBar1()
+b = AbstractClassB()
 
 
-class AbstractBar2(AbstractBar1):
+class AbstractClassC(AbstractClassB):
     def foo2(self):
         pass
 
 
 # This should not generate an error because AbstractBar2
 # overrides all of the abstract methods it inherits.
-c = AbstractBar2()
+c = AbstractClassC()

@@ -14,7 +14,17 @@ import { isString } from './core';
 import { FileSystem } from './fileSystem';
 import { convertUriToPath } from './pathUtils';
 
-export class UriParser {
+export interface IUriParser {
+    decodeTextDocumentPosition(
+        textDocument: TextDocumentIdentifier,
+        position: Position
+    ): { filePath: string; position: Position };
+    decodeTextDocumentUri(uriString: string): string;
+    isUntitled(uri: URI | string | undefined): boolean;
+    isLocal(uri: URI | string | undefined): boolean;
+}
+
+export class UriParser implements IUriParser {
     constructor(protected readonly fs: FileSystem) {}
 
     decodeTextDocumentPosition(textDocument: TextDocumentIdentifier, position: Position) {

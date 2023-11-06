@@ -1,5 +1,10 @@
 /// <reference path="fourslash.ts" />
 
+// @filename: pyrightconfig.json
+//// {
+////   "useLibraryCodeForTypes": true
+//// }
+
 // @filename: testLib1/__init__.pyi
 // @library: true
 //// from typing import overload

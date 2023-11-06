@@ -3,27 +3,15 @@ from collections.abc import Callable, Iterable
 from logging import Logger
 from typing import Any
 
-from aws_xray_sdk import global_sdk_config as global_sdk_config
-from aws_xray_sdk.version import VERSION as VERSION
-
-from .context import Context as Context
-from .daemon_config import DaemonConfig as DaemonConfig
-from .emitters.udp_emitter import UDPEmitter as UDPEmitter
-from .exceptions.exceptions import (
-    SegmentNameMissingException as SegmentNameMissingException,
-    SegmentNotFoundException as SegmentNotFoundException,
-)
-from .lambda_launcher import check_in_lambda as check_in_lambda
-from .models.default_dynamic_naming import DefaultDynamicNaming as DefaultDynamicNaming
-from .models.dummy_entities import DummySegment as DummySegment, DummySubsegment as DummySubsegment
-from .models.segment import Segment as Segment, SegmentContextManager as SegmentContextManager
-from .models.subsegment import Subsegment as Subsegment, SubsegmentContextManager as SubsegmentContextManager
-from .plugins.utils import get_plugin_modules as get_plugin_modules
+from .context import Context
+from .emitters.udp_emitter import UDPEmitter
+from .models.default_dynamic_naming import DefaultDynamicNaming
+from .models.dummy_entities import DummySegment, DummySubsegment
+from .models.segment import Segment, SegmentContextManager
+from .models.subsegment import Subsegment, SubsegmentContextManager
 from .sampling.local.sampler import LocalSampler
 from .sampling.sampler import DefaultSampler
-from .streaming.default_streaming import DefaultStreaming as DefaultStreaming
-from .utils import stacktrace as stacktrace
-from .utils.compat import string_types as string_types
+from .streaming.default_streaming import DefaultStreaming
 
 log: Logger
 TRACING_NAME_KEY: str

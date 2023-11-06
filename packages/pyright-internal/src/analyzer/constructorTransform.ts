@@ -36,11 +36,11 @@ import {
 } from './types';
 import {
     applySolvedTypeVars,
-    ClassMemberLookupFlags,
     convertToInstance,
     getTypeVarScopeId,
     lookUpObjectMember,
     makeInferenceContext,
+    MemberAccessFlags,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
@@ -79,11 +79,7 @@ function applyPartialTransform(
         return result;
     }
 
-    const callMemberResult = lookUpObjectMember(
-        result.returnType,
-        '__call__',
-        ClassMemberLookupFlags.SkipInstanceVariables
-    );
+    const callMemberResult = lookUpObjectMember(result.returnType, '__call__', MemberAccessFlags.SkipInstanceMembers);
     if (!callMemberResult || !isTypeSame(convertToInstance(callMemberResult.classType), result.returnType)) {
         return result;
     }

@@ -459,6 +459,12 @@ test('TypeNarrowingIsinstance18', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeNarrowingIsinstance19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance19.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeNarrowingTupleLength1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTupleLength1.py']);
 
@@ -666,7 +672,7 @@ test('Lambda1', () => {
 test('Lambda2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda2.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('Lambda3', () => {
@@ -866,7 +872,7 @@ test('Function10', () => {
 test('KwargsUnpack1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['kwargsUnpack1.py']);
 
-    TestUtils.validateResults(analysisResults, 11);
+    TestUtils.validateResults(analysisResults, 12);
 });
 
 test('FunctionMember1', () => {
@@ -1101,7 +1107,7 @@ test('Property10', () => {
 test('Property11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property11.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Property12', () => {
@@ -1474,6 +1480,12 @@ test('Self9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self9.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Self10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self10.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('UnusedVariable1', () => {

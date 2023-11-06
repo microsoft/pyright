@@ -71,3 +71,14 @@ def func4(y: list[Any]):
 def func5(v1: list[Any | None]):
     x1: list[int | None] = v1
     reveal_type(x1, expected_text="list[int | None]")
+
+
+def func6(v1: tuple[Any], v2: tuple[int, Any], v3: tuple[Any, ...]):
+    x1: tuple[int] = v1
+    reveal_type(x1, expected_text="tuple[int]")
+
+    x2: tuple[int, str] = v2
+    reveal_type(x2, expected_text="tuple[int, str]")
+
+    x3: tuple[str, ...] = v3
+    reveal_type(x3, expected_text="tuple[str, ...]")

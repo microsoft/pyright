@@ -382,7 +382,7 @@ class PubSubWorkerThread(threading.Thread):
     def run(self) -> None: ...
     def stop(self) -> None: ...
 
-class Pipeline(Redis[_StrType], Generic[_StrType]):
+class Pipeline(Redis[_StrType]):
     UNWATCH_COMMANDS: Any
     connection_pool: Any
     connection: Any

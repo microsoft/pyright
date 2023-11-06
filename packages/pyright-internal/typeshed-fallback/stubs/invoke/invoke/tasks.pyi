@@ -57,7 +57,7 @@ class Task(Generic[_P, _R_co]):
     def get_arguments(self, ignore_unknown_help: bool | None = None) -> list[Argument]: ...
 
 @overload
-def task(
+def task(  # type: ignore[misc]
     *args: Task[..., Any] | Call,
     name: str | None = ...,
     aliases: tuple[str, ...] = ...,

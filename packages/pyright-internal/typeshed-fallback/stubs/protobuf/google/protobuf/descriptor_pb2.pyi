@@ -252,7 +252,7 @@ class FieldDescriptorProto(google.protobuf.message.Message):
         ValueType = typing.NewType("ValueType", builtins.int)
         V: typing_extensions.TypeAlias = ValueType
 
-    class _TypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[FieldDescriptorProto._Type.ValueType], builtins.type):  # noqa: F821
+    class _TypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[FieldDescriptorProto._Type.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         TYPE_DOUBLE: FieldDescriptorProto._Type.ValueType  # 1
         """0 is reserved for errors.
@@ -333,7 +333,7 @@ class FieldDescriptorProto(google.protobuf.message.Message):
         ValueType = typing.NewType("ValueType", builtins.int)
         V: typing_extensions.TypeAlias = ValueType
 
-    class _LabelEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[FieldDescriptorProto._Label.ValueType], builtins.type):  # noqa: F821
+    class _LabelEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[FieldDescriptorProto._Label.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         LABEL_OPTIONAL: FieldDescriptorProto._Label.ValueType  # 1
         """0 is reserved for errors"""
@@ -654,7 +654,7 @@ class FileOptions(google.protobuf.message.Message):
         ValueType = typing.NewType("ValueType", builtins.int)
         V: typing_extensions.TypeAlias = ValueType
 
-    class _OptimizeModeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[FileOptions._OptimizeMode.ValueType], builtins.type):  # noqa: F821
+    class _OptimizeModeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[FileOptions._OptimizeMode.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         SPEED: FileOptions._OptimizeMode.ValueType  # 1
         """Generate complete code for parsing, serialization,"""
@@ -916,7 +916,7 @@ class FieldOptions(google.protobuf.message.Message):
         ValueType = typing.NewType("ValueType", builtins.int)
         V: typing_extensions.TypeAlias = ValueType
 
-    class _CTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[FieldOptions._CType.ValueType], builtins.type):  # noqa: F821
+    class _CTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[FieldOptions._CType.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         STRING: FieldOptions._CType.ValueType  # 0
         """Default mode."""
@@ -933,7 +933,7 @@ class FieldOptions(google.protobuf.message.Message):
         ValueType = typing.NewType("ValueType", builtins.int)
         V: typing_extensions.TypeAlias = ValueType
 
-    class _JSTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[FieldOptions._JSType.ValueType], builtins.type):  # noqa: F821
+    class _JSTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[FieldOptions._JSType.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         JS_NORMAL: FieldOptions._JSType.ValueType  # 0
         """Use the default type."""
@@ -1167,7 +1167,7 @@ class MethodOptions(google.protobuf.message.Message):
         ValueType = typing.NewType("ValueType", builtins.int)
         V: typing_extensions.TypeAlias = ValueType
 
-    class _IdempotencyLevelEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[MethodOptions._IdempotencyLevel.ValueType], builtins.type):  # noqa: F821
+    class _IdempotencyLevelEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[MethodOptions._IdempotencyLevel.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         IDEMPOTENCY_UNKNOWN: MethodOptions._IdempotencyLevel.ValueType  # 0
         NO_SIDE_EFFECTS: MethodOptions._IdempotencyLevel.ValueType  # 1

@@ -3,7 +3,7 @@
 
 # pyright: reportMissingModuleSource=false, reportMissingTypeArgument=true
 
-from typing import Generic, TypeVar, Union
+from typing import Callable, Generic, TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 _Xs = TypeVarTuple("_Xs")
@@ -76,3 +76,17 @@ def func2(x: Alias6[float, bool], y: Alias6, z: Alias6[()]):
     reveal_type(y, expected_text="tuple[int, Unknown]")
 
     reveal_type(z, expected_text="tuple[int]")
+
+
+Alias7 = Callable[[Unpack[_Xs]], None]
+
+
+def func3(cb: Alias7[int, Unpack[_Xs]]) -> tuple[Unpack[_Xs]]:
+    ...
+
+
+def func4(a: int, b: str) -> None:
+    ...
+
+
+reveal_type(func3(func4), expected_text="tuple[str]")

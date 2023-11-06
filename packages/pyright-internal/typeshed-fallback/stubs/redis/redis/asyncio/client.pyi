@@ -289,7 +289,7 @@ PSWorkerThreadExcHandlerT: TypeAlias = PubsubWorkerExceptionHandler | AsyncPubsu
 CommandT: TypeAlias = tuple[tuple[str | bytes, ...], Mapping[str, Any]]
 CommandStackT: TypeAlias = list[CommandT]
 
-class Pipeline(Redis[_StrType], Generic[_StrType]):
+class Pipeline(Redis[_StrType]):
     UNWATCH_COMMANDS: ClassVar[set[str]]
     connection_pool: Any
     connection: Any

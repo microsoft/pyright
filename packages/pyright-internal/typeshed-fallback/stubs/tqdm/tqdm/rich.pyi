@@ -1,11 +1,13 @@
 from _typeshed import Incomplete, SupportsWrite
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
-from typing import Generic, NoReturn, TypeVar, overload
+from typing import NoReturn, TypeVar, overload
 
 from .std import tqdm as std_tqdm
 
 __all__ = ["tqdm_rich", "trrange", "tqdm", "trange"]
+
+_T = TypeVar("_T")
 
 # Actually rich.progress.ProgressColumn
 class _ProgressColumn(ABC):
@@ -31,9 +33,7 @@ class RateColumn(_ProgressColumn):
     def __init__(self, unit: str = ..., unit_scale: bool = ..., unit_divisor: int = ...) -> None: ...
     def render(self, task): ...
 
-_T = TypeVar("_T")
-
-class tqdm_rich(std_tqdm[_T], Generic[_T]):
+class tqdm_rich(std_tqdm[_T]):
     def close(self) -> None: ...
     def clear(self, *_, **__) -> None: ...
     def display(self, *_, **__) -> None: ...

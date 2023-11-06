@@ -1,7 +1,7 @@
 from _typeshed import Incomplete, Unused
 from collections.abc import Generator, Iterable
-from typing import Any, Protocol
-from typing_extensions import Self, TypeVar
+from typing import Any, Protocol, TypeVar
+from typing_extensions import Self
 
 from openpyxl.descriptors import Strict
 from openpyxl.descriptors.serialisable import Serialisable, _SerialisableTreeElement

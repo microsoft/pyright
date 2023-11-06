@@ -90,7 +90,7 @@ export class TestFileSystem implements FileSystem, TempFile {
         }
 
         let cwd = options.cwd;
-        if ((!cwd || !pathUtil.isDiskPathRoot(cwd)) && this._lazy.links) {
+        if ((!cwd || (!pathUtil.isDiskPathRoot(cwd) && !pathUtil.isUri(cwd))) && this._lazy.links) {
             const iterator = getIterator(this._lazy.links.keys());
             try {
                 for (let i = nextResult(iterator); i; i = nextResult(iterator)) {
@@ -383,6 +383,11 @@ export class TestFileSystem implements FileSystem, TempFile {
     }
 
     getUri(path: string): string {
+        // If this is not a file path, just return the original path.
+        if (pathUtil.isUri(path)) {
+            return path;
+        }
+
         return URI.file(path).toString();
     }
 

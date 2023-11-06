@@ -1,14 +1,9 @@
 from _typeshed import Incomplete
 from types import TracebackType
 
-from .models.segment import SegmentContextManager as SegmentContextManager
-from .models.subsegment import (
-    SubsegmentContextManager as SubsegmentContextManager,
-    is_already_recording as is_already_recording,
-    subsegment_decorator as subsegment_decorator,
-)
-from .recorder import AWSXRayRecorder as AWSXRayRecorder
-from .utils import stacktrace as stacktrace
+from .models.segment import SegmentContextManager
+from .models.subsegment import SubsegmentContextManager
+from .recorder import AWSXRayRecorder
 
 class AsyncSegmentContextManager(SegmentContextManager):
     async def __aenter__(self): ...

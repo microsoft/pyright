@@ -40,7 +40,6 @@ import {
     FunctionParameter,
     FunctionType,
     FunctionTypeFlags,
-    NoneType,
     TupleTypeArgument,
     Type,
     UnknownType,
@@ -348,7 +347,7 @@ export function createNamedTupleType(
     const initType = FunctionType.createSynthesizedInstance('__init__');
     FunctionType.addParameter(initType, selfParameter);
     FunctionType.addDefaultParameters(initType);
-    initType.details.declaredReturnType = NoneType.createInstance();
+    initType.details.declaredReturnType = evaluator.getNoneType();
 
     classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
     classFields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
@@ -430,7 +429,11 @@ export function updateNamedTupleBaseClass(
         }
 
         // Create a copy of the NamedTuple class that replaces the tuple base class.
-        const clonedNamedTupleClass = ClassType.cloneForSpecialization(baseClass, [], isTypeArgumentExplicit);
+        const clonedNamedTupleClass = ClassType.cloneForSpecialization(
+            baseClass,
+            /* typeArguments */ undefined,
+            isTypeArgumentExplicit
+        );
         clonedNamedTupleClass.details = { ...clonedNamedTupleClass.details };
 
         clonedNamedTupleClass.details.baseClasses = clonedNamedTupleClass.details.baseClasses.map(

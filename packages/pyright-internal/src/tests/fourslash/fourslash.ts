@@ -234,6 +234,8 @@ declare namespace _ {
         ): Range[];
         getPositionRange(markerString: string): PositionRange;
         getPosition(markerString: string): Position;
+        get BOF(): number;
+        get EOF(): number;
         expandPositionRange(range: PositionRange, start: number, end: number): PositionRange;
         convertPositionRange(range: Range): PositionRange;
         convertPathToUri(path: string): string;
@@ -347,11 +349,11 @@ declare namespace _ {
             isUntitled?: boolean
         ): void;
 
+        replace(start: number, length: number, text: string): void;
+
         /* not tested yet
         paste(text: string): void;
-
         type(text: string): void;
-        replace(start: number, length: number, text: string): void;
         deleteChar(count: number): void;
         deleteLineRange(startIndex: number, endIndexInclusive: number): void;
         deleteCharBehindMarker(count: number): void;

@@ -38,3 +38,10 @@ func1(**A(a=(v5 + 1)), b=(v5 := 1))
 func1(**A(a=(v5 := 1)), b=(v5 + 1))
 
 func1(b=(v6 + 1), *[(v6 := 1)], **C(c=(v6 + 2)))
+
+
+def func2(a: int, b: int):
+    pass
+
+
+func2(b=1, *(2,))

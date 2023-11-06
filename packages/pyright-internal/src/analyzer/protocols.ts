@@ -26,7 +26,6 @@ import {
     isInstantiableClass,
     isOverloadedFunction,
     isTypeSame,
-    maxTypeRecursionCount,
     ModuleType,
     OverloadedFunctionType,
     ProtocolCompatibility,
@@ -40,6 +39,7 @@ import {
     containsLiteralType,
     getTypeVarScopeId,
     lookUpClassMember,
+    MemberAccessFlags,
     partiallySpecializeType,
     populateTypeVarContextForSelfType,
     removeParamSpecVariadicsFromSignature,
@@ -71,11 +71,6 @@ export function assignClassToProtocol(
     recursionCount: number
 ): boolean {
     const enforceInvariance = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
-
-    if (recursionCount > maxTypeRecursionCount) {
-        return true;
-    }
-    recursionCount++;
 
     // Use a stack of pending protocol class evaluations to detect recursion.
     // This can happen when a protocol class refers to itself.
@@ -302,6 +297,7 @@ function assignClassToProtocolInternal(
             }
 
             let srcMemberType: Type;
+            let isSrcReadOnly = false;
 
             if (isClass(srcType)) {
                 // Look in the metaclass first if we're treating the source as an instantiable class.
@@ -366,15 +362,24 @@ function assignClassToProtocolInternal(
                                 : ClassType.cloneAsInstance(srcType),
                             srcMemberType,
                             isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
-                            /* errorNode */ undefined,
-                            recursionCount,
                             /* treatConstructorAsClassMember */ undefined,
-                            isMemberFromMetaclass ? srcType : undefined
+                            isMemberFromMetaclass ? srcType : undefined,
+                            diag?.createAddendum(),
+                            recursionCount
                         );
+
                         if (boundSrcFunction) {
                             srcMemberType = removeParamSpecVariadicsFromSignature(boundSrcFunction);
+                        } else {
+                            typesAreConsistent = false;
+                            return;
                         }
                     }
+                }
+
+                // Frozen dataclasses and named tuples should be treated as read-only.
+                if (ClassType.isFrozenDataClass(srcType) || ClassType.isReadOnlyInstanceVariables(srcType)) {
+                    isSrcReadOnly = true;
                 }
             } else {
                 srcSymbol = srcType.fields.get(name);
@@ -403,10 +408,10 @@ function assignClassToProtocolInternal(
                             ClassType.cloneAsInstance(srcType),
                             destMemberType,
                             isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
-                            /* errorNode */ undefined,
-                            recursionCount,
                             /* treatConstructorAsClassMember */ undefined,
-                            isMemberFromMetaclass ? srcType : undefined
+                            isMemberFromMetaclass ? srcType : undefined,
+                            diag,
+                            recursionCount
                         );
                     }
                 } else {
@@ -414,13 +419,18 @@ function assignClassToProtocolInternal(
                         ClassType.cloneAsInstance(destType),
                         destMemberType,
                         destType,
-                        /* errorNode */ undefined,
+                        /* treatConstructorAsClassMember */ undefined,
+                        /* firstParamType */ undefined,
+                        diag,
                         recursionCount
                     );
                 }
 
                 if (boundDeclaredType) {
                     destMemberType = removeParamSpecVariadicsFromSignature(boundDeclaredType);
+                } else {
+                    typesAreConsistent = false;
+                    return;
                 }
             }
 
@@ -457,6 +467,7 @@ function assignClassToProtocolInternal(
                         destMemberType,
                         /* inferTypeIfNeeded */ true
                     );
+
                     if (
                         !getterType ||
                         !evaluator.assignType(
@@ -473,6 +484,19 @@ function assignClassToProtocolInternal(
                             subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
                         }
                         typesAreConsistent = false;
+                    }
+
+                    if (isSrcReadOnly) {
+                        // The source attribute is read-only. Make sure the setter
+                        // is not defined in the dest property.
+                        if (lookUpClassMember(destMemberType, '__set__', MemberAccessFlags.SkipInstanceMembers)) {
+                            if (subDiag) {
+                                subDiag.addMessage(
+                                    Localizer.DiagnosticAddendum.memberIsWritableInProtocol().format({ name })
+                                );
+                            }
+                            typesAreConsistent = false;
+                        }
                     }
                 }
             } else {
@@ -534,14 +558,18 @@ function assignClassToProtocolInternal(
                 destPrimaryDecl?.type === DeclarationType.Variable &&
                 srcPrimaryDecl?.type === DeclarationType.Variable
             ) {
-                const isDestConst = !!destPrimaryDecl.isConstant;
-                const isSrcConst =
-                    (srcMemberInfo &&
-                        isClass(srcMemberInfo.classType) &&
-                        ClassType.isReadOnlyInstanceVariables(srcMemberInfo.classType)) ||
-                    !!srcPrimaryDecl.isConstant;
+                const isDestReadOnly = !!destPrimaryDecl.isConstant;
+                let isSrcReadOnly = !!srcPrimaryDecl.isConstant;
+                if (srcMemberInfo && isClass(srcMemberInfo.classType)) {
+                    if (
+                        ClassType.isReadOnlyInstanceVariables(srcMemberInfo.classType) ||
+                        ClassType.isFrozenDataClass(srcMemberInfo.classType)
+                    ) {
+                        isSrcReadOnly = true;
+                    }
+                }
 
-                if (!isDestConst && isSrcConst) {
+                if (!isDestReadOnly && isSrcReadOnly) {
                     if (subDiag) {
                         subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsWritableInProtocol().format({ name }));
                     }
@@ -605,43 +633,31 @@ function createProtocolTypeVarContext(
 ): TypeVarContext {
     const protocolTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
 
-    let specializedDestType = destType;
-    if (destTypeVarContext) {
-        specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, {
-            useNarrowBoundOnly: true,
-        }) as ClassType;
-    }
-
     destType.details.typeParameters.forEach((typeParam, index) => {
-        if (specializedDestType.typeArguments && index < specializedDestType.typeArguments.length) {
-            const typeArg = specializedDestType.typeArguments[index];
+        const entry = destTypeVarContext?.getPrimarySignature().getTypeVar(typeParam);
 
-            if (!requiresSpecialization(typeArg)) {
-                // If the caller hasn't provided a destTypeVarContext, assume that
-                // the destType represents an "expected type" and populate the
-                // typeVarContext accordingly. For example, if the destType is
-                // MyProto[Literal[0]], we want to constrain the type argument to be
-                // no wider than Literal[0] if the type param is not contravariant.
-                assignTypeToTypeVar(
-                    evaluator,
-                    typeParam,
-                    typeArg,
-                    /* diag */ undefined,
-                    protocolTypeVarContext,
-                    destTypeVarContext ? AssignTypeFlags.Default : AssignTypeFlags.PopulatingExpectedType
-                );
+        if (entry) {
+            protocolTypeVarContext.setTypeVarType(
+                typeParam,
+                entry.narrowBound,
+                entry.narrowBoundNoLiterals,
+                entry.wideBound
+            );
+        } else if (destType.typeArguments && index < destType.typeArguments.length) {
+            let typeArg = destType.typeArguments[index];
+            let flags = AssignTypeFlags.PopulatingExpectedType;
+            let hasUnsolvedTypeVars = requiresSpecialization(typeArg);
+
+            // If the type argument has unsolved TypeVars, see if they have
+            // solved values in the destTypeVarContext.
+            if (hasUnsolvedTypeVars && destTypeVarContext) {
+                typeArg = applySolvedTypeVars(typeArg, destTypeVarContext, { useNarrowBoundOnly: true });
+                flags = AssignTypeFlags.Default;
+                hasUnsolvedTypeVars = requiresSpecialization(typeArg);
             }
-        }
 
-        if (destTypeVarContext) {
-            const entry = destTypeVarContext.getPrimarySignature().getTypeVar(typeParam);
-            if (entry) {
-                protocolTypeVarContext.setTypeVarType(
-                    typeParam,
-                    entry.narrowBound,
-                    entry.narrowBoundNoLiterals,
-                    entry.wideBound
-                );
+            if (!hasUnsolvedTypeVars) {
+                assignTypeToTypeVar(evaluator, typeParam, typeArg, /* diag */ undefined, protocolTypeVarContext, flags);
             }
         }
     });

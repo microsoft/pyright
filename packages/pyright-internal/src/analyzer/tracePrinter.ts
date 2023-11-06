@@ -10,7 +10,7 @@ import { isNumber, isString } from '../common/core';
 import { assertNever } from '../common/debug';
 import { ensureTrailingDirectorySeparator, stripFileExtension } from '../common/pathUtils';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { isExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ParseNode, ParseNodeType, isExpressionNode } from '../parser/parseNodes';
 import { AbsoluteModuleDescriptor } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType } from './declaration';
@@ -78,9 +78,6 @@ export function createTracePrinter(roots: string[]): TracePrinter {
 
                 case TypeCategory.Never:
                     return `Never ${wrap(type.typeAliasInfo?.fullName)}`;
-
-                case TypeCategory.None:
-                    return `None ${wrap(type.typeAliasInfo?.fullName)}`;
 
                 case TypeCategory.OverloadedFunction:
                     return `OverloadedFunction [${type.overloads.map((o) => wrap(printType(o), '"')).join(',')}]`;

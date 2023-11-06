@@ -20,17 +20,10 @@ import { getFileInfo } from './analyzerNodeInfo';
 import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
 import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
 import { getTypeVarScopesForNode } from './parseTreeUtils';
+import { CallResult, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
-    CallResult,
-    ClassMemberLookup,
-    FunctionArgument,
-    MemberAccessFlags,
-    TypeEvaluator,
-    TypeResult,
-} from './typeEvaluatorTypes';
-import {
-    ClassMemberLookupFlags,
     InferenceContext,
+    MemberAccessFlags,
     applySolvedTypeVars,
     buildTypeVarContextFromSpecializedClass,
     convertToInstance,
@@ -57,7 +50,6 @@ import {
     isAnyOrUnknown,
     isClassInstance,
     isFunction,
-    isInstantiableClass,
     isNever,
     isOverloadedFunction,
     isTypeVar,
@@ -97,17 +89,16 @@ export function validateConstructorArguments(
     }
 
     // Determine whether the class overrides the object.__new__ method.
-    const newMethodTypeResult = evaluator.getTypeOfClassMemberName(
+    const newMethodTypeResult = evaluator.getTypeOfObjectMember(
         errorNode,
         type,
-        /* isAccessedThroughObject */ false,
         '__new__',
         { method: 'get' },
         /* diag */ undefined,
-        MemberAccessFlags.AccessClassMembersOnly |
+        MemberAccessFlags.SkipClassMembers |
             MemberAccessFlags.SkipObjectBaseClass |
-            MemberAccessFlags.TreatConstructorAsClassMethod,
-        type
+            MemberAccessFlags.SkipAttributeAccessOverride |
+            MemberAccessFlags.TreatConstructorAsClassMethod
     );
 
     const useConstructorTransform = hasConstructorTransform(type);
@@ -201,7 +192,7 @@ function validateNewAndInitMethods(
     type: ClassType,
     skipUnknownArgCheck: boolean,
     inferenceContext: InferenceContext | undefined,
-    newMethodTypeResult: ClassMemberLookup | undefined
+    newMethodTypeResult: TypeResult | undefined
 ): CallResult {
     let returnType: Type | undefined;
     let validatedArgExpressions = false;
@@ -243,10 +234,9 @@ function validateNewAndInitMethods(
         // (cls, *args, **kwargs) -> Self, allow the __init__ method to
         // determine the specialized type of the class.
         newMethodReturnType = ClassType.cloneAsInstance(type);
-    } else if (!isNever(newMethodReturnType) && !isClassInstance(newMethodReturnType)) {
-        // If the __new__ method returns something other than an object or
-        // NoReturn, we'll ignore its return type and assume that it
-        // returns Self.
+    } else if (isAnyOrUnknown(newMethodReturnType)) {
+        // If the __new__ method returns Any or Unknown, we'll ignore its return
+        // type and assume that it returns Self.
         newMethodReturnType = applySolvedTypeVars(
             ClassType.cloneAsInstance(type),
             new TypeVarContext(getTypeVarScopeId(type)),
@@ -260,7 +250,8 @@ function validateNewAndInitMethods(
     if (
         !argumentErrors &&
         !isNever(newMethodReturnType) &&
-        !shouldSkipInitEvaluation(evaluator, type, newMethodReturnType)
+        !shouldSkipInitEvaluation(evaluator, type, newMethodReturnType) &&
+        isClassInstance(newMethodReturnType)
     ) {
         // If the __new__ method returned the same type as the class it's constructing
         // but didn't supply solved type arguments, we'll ignore its specialized return
@@ -277,7 +268,9 @@ function validateNewAndInitMethods(
             '__init__',
             { method: 'get' },
             /* diag */ undefined,
-            MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
+            MemberAccessFlags.SkipInstanceMembers |
+                MemberAccessFlags.SkipObjectBaseClass |
+                MemberAccessFlags.SkipAttributeAccessOverride
         );
 
         // Validate __init__ if it's present.
@@ -602,14 +595,16 @@ function validateFallbackConstructorCall(
 
     // It's OK if the argument list consists only of `*args` and `**kwargs`.
     if (argList.length > 0 && argList.some((arg) => arg.argumentCategory === ArgumentCategory.Simple)) {
-        const fileInfo = getFileInfo(errorNode);
-        evaluator.addDiagnostic(
-            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.constructorNoArgs().format({ type: type.aliasName || type.details.name }),
-            errorNode
-        );
-        reportedErrors = true;
+        if (!type.includeSubclasses) {
+            const fileInfo = getFileInfo(errorNode);
+            evaluator.addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.constructorNoArgs().format({ type: type.aliasName || type.details.name }),
+                errorNode
+            );
+            reportedErrors = true;
+        }
     }
 
     if (!inferenceContext && type.typeArguments) {
@@ -652,47 +647,36 @@ function validateMetaclassCall(
     skipUnknownArgCheck: boolean,
     inferenceContext: InferenceContext | undefined
 ): CallResult | undefined {
-    const metaclass = type.details.effectiveMetaclass;
+    const metaclassCallMethodInfo = evaluator.getTypeOfObjectMember(
+        errorNode,
+        type,
+        '__call__',
+        { method: 'get' },
+        /* diag */ undefined,
+        MemberAccessFlags.SkipInstanceMembers |
+            MemberAccessFlags.SkipTypeBaseClass |
+            MemberAccessFlags.SkipAttributeAccessOverride
+    );
 
-    if (metaclass && isInstantiableClass(metaclass) && !ClassType.isSameGenericClass(metaclass, type)) {
-        const metaclassCallMethodInfo = evaluator.getTypeOfClassMemberName(
+    if (metaclassCallMethodInfo) {
+        const callResult = evaluator.validateCallArguments(
             errorNode,
-            metaclass,
-            /* isAccessedThroughObject */ true,
-            '__call__',
-            { method: 'get' },
-            /* diag */ undefined,
-            MemberAccessFlags.ConsiderMetaclassOnly |
-                MemberAccessFlags.SkipTypeBaseClass |
-                MemberAccessFlags.SkipAttributeAccessOverride,
-            type
+            argList,
+            metaclassCallMethodInfo,
+            /* typeVarContext */ undefined,
+            skipUnknownArgCheck,
+            inferenceContext
         );
 
-        if (metaclassCallMethodInfo) {
-            const callResult = evaluator.validateCallArguments(
-                errorNode,
-                argList,
-                metaclassCallMethodInfo,
-                /* typeVarContext */ undefined,
-                skipUnknownArgCheck,
-                inferenceContext
-            );
-
-            if (!callResult.returnType || isUnknown(callResult.returnType)) {
-                // The return result isn't known. We'll assume in this case that
-                // the metaclass __call__ method allocated a new instance of the
-                // requested class.
-                const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
-                callResult.returnType = applyExpectedTypeForConstructor(
-                    evaluator,
-                    type,
-                    inferenceContext,
-                    typeVarContext
-                );
-            }
-
-            return callResult;
+        if (!callResult.returnType || isUnknown(callResult.returnType)) {
+            // The return result isn't known. We'll assume in this case that
+            // the metaclass __call__ method allocated a new instance of the
+            // requested class.
+            const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
+            callResult.returnType = applyExpectedTypeForConstructor(evaluator, type, inferenceContext, typeVarContext);
         }
+
+        return callResult;
     }
 
     return undefined;
@@ -787,7 +771,7 @@ export function createFunctionFromConstructor(
     const initInfo = lookUpClassMember(
         classType,
         '__init__',
-        ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
+        MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass
     );
 
     if (initInfo) {
@@ -799,14 +783,17 @@ export function createFunctionFromConstructor(
                 objectType,
                 initSubtype,
                 /* memberClass */ undefined,
-                /* errorNode */ undefined,
+                /* treatConstructorAsClassMember */ undefined,
+                /* selfType */ undefined,
+                /* diag */ undefined,
                 recursionCount
             ) as FunctionType | undefined;
 
             if (constructorFunction) {
                 constructorFunction = FunctionType.clone(constructorFunction);
                 constructorFunction.details.declaredReturnType = objectType;
-                constructorFunction.details.typeVarScopeId = initSubtype.details.typeVarScopeId;
+                constructorFunction.details.name = '';
+                constructorFunction.details.fullName = '';
 
                 if (constructorFunction.specializedTypes) {
                     constructorFunction.specializedTypes.returnType = objectType;
@@ -848,7 +835,7 @@ export function createFunctionFromConstructor(
     const newInfo = lookUpClassMember(
         classType,
         '__new__',
-        ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
+        MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass
     );
 
     if (newInfo) {
@@ -859,9 +846,10 @@ export function createFunctionFromConstructor(
                 classType,
                 newSubtype,
                 /* memberClass */ undefined,
-                /* errorNode */ undefined,
-                recursionCount,
-                /* treatConstructorAsClassMember */ true
+                /* treatConstructorAsClassMember */ true,
+                /* selfType */ undefined,
+                /* diag */ undefined,
+                recursionCount
             ) as FunctionType | undefined;
 
             if (constructorFunction) {

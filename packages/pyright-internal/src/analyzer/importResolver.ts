@@ -38,6 +38,8 @@ import {
     tryStat,
 } from '../common/pathUtils';
 import { PythonVersion, versionFromString } from '../common/pythonVersion';
+import { ServiceProvider } from '../common/serviceProvider';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
@@ -48,8 +50,6 @@ import { PyTypedInfo, getPyTypedInfo } from './pyTypedUtils';
 import * as PythonPathUtils from './pythonPathUtils';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { isDunderName } from './symbolNameUtils';
-import { ServiceProvider } from '../common/serviceProvider';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
 
 export interface ImportedModuleDescriptor {
     leadingDots: number;
@@ -62,6 +62,11 @@ export interface ModuleNameAndType {
     moduleName: string;
     importType: ImportType;
     isLocalTypingsFile: boolean;
+}
+
+export interface ModuleImportInfo extends ModuleNameAndType {
+    isTypeshedFile: boolean;
+    isThirdPartyPyTypedPresent: boolean;
 }
 
 export interface ModuleNameInfoFromPath {
@@ -111,7 +116,7 @@ const allowPartialResolutionForThirdPartyPackages = false;
 export class ImportResolver {
     private _cachedPythonSearchPaths: { paths: string[]; failureInfo: string[] } | undefined;
     private _cachedImportResults = new Map<string | undefined, CachedImportResults>();
-    private _cachedModuleNameResults = new Map<string, Map<string, ModuleNameAndType>>();
+    private _cachedModuleNameResults = new Map<string, Map<string, ModuleImportInfo>>();
     private _cachedTypeshedRoot: string | undefined;
     private _cachedTypeshedStdLibPath: string | undefined;
     private _cachedTypeshedStdLibModuleVersions: Map<string, SupportedVersionRange> | undefined;
@@ -136,7 +141,7 @@ export class ImportResolver {
 
     invalidateCache() {
         this._cachedImportResults = new Map<string | undefined, CachedImportResults>();
-        this._cachedModuleNameResults = new Map<string, Map<string, ModuleNameAndType>>();
+        this._cachedModuleNameResults = new Map<string, Map<string, ModuleImportInfo>>();
         this.cachedParentImportResults.reset();
         this._stdlibModules = undefined;
 
@@ -309,10 +314,18 @@ export class ImportResolver {
     // Returns the module name (of the form X.Y.Z) that needs to be imported
     // from the current context to access the module with the specified file path.
     // In a sense, it's performing the inverse of resolveImport.
-    getModuleNameForImport(filePath: string, execEnv: ExecutionEnvironment, allowInvalidModuleName = false) {
+    getModuleNameForImport(
+        filePath: string,
+        execEnv: ExecutionEnvironment,
+        allowInvalidModuleName = false,
+        detectPyTyped = false
+    ) {
         // Cache results of the reverse of resolveImport as we cache resolveImport.
-        const cache = getOrAdd(this._cachedModuleNameResults, execEnv.root, () => new Map<string, ModuleNameAndType>());
-        return getOrAdd(cache, filePath, () => this._getModuleNameForImport(filePath, execEnv, allowInvalidModuleName));
+        const cache = getOrAdd(this._cachedModuleNameResults, execEnv.root, () => new Map<string, ModuleImportInfo>());
+        const key = `${allowInvalidModuleName}.${detectPyTyped}.${filePath}`;
+        return getOrAdd(cache, key, () =>
+            this._getModuleNameForImport(filePath, execEnv, allowInvalidModuleName, detectPyTyped)
+        );
     }
 
     getTypeshedStdLibPath(execEnv: ExecutionEnvironment) {
@@ -1045,11 +1058,14 @@ export class ImportResolver {
     private _getModuleNameForImport(
         filePath: string,
         execEnv: ExecutionEnvironment,
-        allowInvalidModuleName: boolean
-    ): ModuleNameAndType {
+        allowInvalidModuleName: boolean,
+        detectPyTyped: boolean
+    ): ModuleImportInfo {
         let moduleName: string | undefined;
         let importType = ImportType.BuiltIn;
         let isLocalTypingsFile = false;
+        let isThirdPartyPyTypedPresent = false;
+        let isTypeshedFile = false;
 
         const importFailureInfo: string[] = [];
 
@@ -1083,7 +1099,13 @@ export class ImportResolver {
                         []
                     )
                 ) {
-                    return { moduleName, importType, isLocalTypingsFile };
+                    return {
+                        moduleName,
+                        importType,
+                        isTypeshedFile: true,
+                        isLocalTypingsFile,
+                        isThirdPartyPyTypedPresent,
+                    };
                 }
             }
         }
@@ -1161,6 +1183,7 @@ export class ImportResolver {
             if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
                 moduleName = candidateModuleName;
                 importType = ImportType.ThirdParty;
+                isTypeshedFile = true;
             }
         }
 
@@ -1173,6 +1196,7 @@ export class ImportResolver {
             if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
                 moduleName = candidateModuleName;
                 importType = ImportType.ThirdParty;
+                isTypeshedFile = true;
             }
         }
 
@@ -1192,21 +1216,56 @@ export class ImportResolver {
                     if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
                         moduleName = candidateModuleName;
                         importType = ImportType.ThirdParty;
+                        isTypeshedFile = false;
                     }
                 }
             }
         }
 
+        if (detectPyTyped && importType === ImportType.ThirdParty) {
+            const root = this.getParentImportResolutionRoot(filePath, execEnv.root);
+
+            // Go up directories one by one looking for a py.typed file.
+            let current = ensureTrailingDirectorySeparator(getDirectoryPath(filePath));
+            while (this._shouldWalkUp(current, root, execEnv)) {
+                if (this.fileExistsCached(combinePaths(current, 'py.typed'))) {
+                    const pyTypedInfo = getPyTypedInfo(this.fileSystem, current);
+                    if (pyTypedInfo && !pyTypedInfo.isPartiallyTyped) {
+                        isThirdPartyPyTypedPresent = true;
+                    }
+                    break;
+                }
+
+                let success;
+                [success, current] = this._tryWalkUp(current);
+                if (!success) {
+                    break;
+                }
+            }
+        }
+
         if (moduleName) {
-            return { moduleName, importType, isLocalTypingsFile };
+            return { moduleName, importType, isTypeshedFile, isLocalTypingsFile, isThirdPartyPyTypedPresent };
         }
 
         if (allowInvalidModuleName && moduleNameWithInvalidCharacters) {
-            return { moduleName: moduleNameWithInvalidCharacters, importType, isLocalTypingsFile };
+            return {
+                moduleName: moduleNameWithInvalidCharacters,
+                isTypeshedFile,
+                importType,
+                isLocalTypingsFile,
+                isThirdPartyPyTypedPresent,
+            };
         }
 
         // We didn't find any module name.
-        return { moduleName: '', importType: ImportType.Local, isLocalTypingsFile };
+        return {
+            moduleName: '',
+            isTypeshedFile,
+            importType: ImportType.Local,
+            isLocalTypingsFile,
+            isThirdPartyPyTypedPresent,
+        };
     }
 
     private _invalidateFileSystemCache() {

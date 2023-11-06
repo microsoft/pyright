@@ -63,7 +63,6 @@ import {
     UnknownType,
 } from './types';
 import {
-    ClassMemberLookupFlags,
     cleanIncompleteUnknown,
     derivesFromStdlibClass,
     doForEachSubtype,
@@ -71,6 +70,7 @@ import {
     isTypeAliasPlaceholder,
     lookUpClassMember,
     mapSubtypes,
+    MemberAccessFlags,
 } from './typeUtils';
 
 export interface FlowNodeTypeResult {
@@ -83,7 +83,6 @@ export interface FlowNodeTypeResult {
 
 export interface FlowNodeTypeOptions {
     isTypeAtStartIncomplete?: boolean;
-    skipNoReturnCallAnalysis?: boolean;
     skipConditionalNarrowing?: boolean;
 }
 
@@ -431,7 +430,7 @@ export function getCodeFlowEngine(
                         // If this function returns a "NoReturn" type, that means
                         // it always raises an exception or otherwise doesn't return,
                         // so we can assume that the code before this is unreachable.
-                        if (!options?.skipNoReturnCallAnalysis && isCallNoReturn(evaluator, callFlowNode)) {
+                        if (isCallNoReturn(evaluator, callFlowNode)) {
                             return setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ false);
                         }
 
@@ -1526,7 +1525,7 @@ export function getCodeFlowEngine(
                         const metaclassCallMember = lookUpClassMember(
                             callSubtype.details.effectiveMetaclass,
                             '__call__',
-                            ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
+                            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass
                         );
                         if (metaclassCallMember) {
                             return;
@@ -1536,14 +1535,14 @@ export function getCodeFlowEngine(
                     let constructorMember = lookUpClassMember(
                         callSubtype,
                         '__init__',
-                        ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
+                        MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass
                     );
 
                     if (constructorMember === undefined) {
                         constructorMember = lookUpClassMember(
                             callSubtype,
                             '__new__',
-                            ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
+                            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass
                         );
                     }
 
@@ -1565,7 +1564,7 @@ export function getCodeFlowEngine(
                     const callMember = lookUpClassMember(
                         callSubtype,
                         '__call__',
-                        ClassMemberLookupFlags.SkipInstanceVariables
+                        MemberAccessFlags.SkipInstanceMembers
                     );
                     if (callMember) {
                         const callMemberType = evaluator.getTypeOfMember(callMember);

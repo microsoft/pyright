@@ -41,4 +41,4 @@ def func() -> Either[int, str]:
 
 
 result = func().map_left(lambda lv: lv + 1).map_right(lambda rv: rv + "a")
-reveal_type(result, expected_text="Left[int] | Right[str]")
+reveal_type(result, expected_text="Right[str] | Left[int]")

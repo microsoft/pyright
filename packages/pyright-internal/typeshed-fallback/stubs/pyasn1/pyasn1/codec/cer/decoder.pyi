@@ -4,7 +4,9 @@ from pyasn1.codec.ber import decoder
 from pyasn1.type import univ
 from pyasn1.type.tag import TagSet
 
-class BooleanDecoder(decoder.AbstractSimpleDecoder):
+__all__ = ["decode", "StreamingDecoder"]
+
+class BooleanPayloadDecoder(decoder.AbstractSimplePayloadDecoder):
     protoComponent: univ.Boolean
     def valueDecoder(
         self,
@@ -18,10 +20,24 @@ class BooleanDecoder(decoder.AbstractSimpleDecoder):
         **options,
     ): ...
 
-BitStringDecoder = decoder.BitStringDecoder
-OctetStringDecoder = decoder.OctetStringDecoder
-RealDecoder = decoder.RealDecoder
+BitStringPayloadDecoder = decoder.BitStringPayloadDecoder
+OctetStringPayloadDecoder = decoder.OctetStringPayloadDecoder
+RealPayloadDecoder = decoder.RealPayloadDecoder
 
-class Decoder(decoder.Decoder): ...
+TAG_MAP: dict[TagSet, decoder.AbstractPayloadDecoder]
+TYPE_MAP: dict[int, decoder.AbstractPayloadDecoder]
+# deprecated aliases
+tagMap = TAG_MAP
+typeMap = TYPE_MAP
+
+class SingleItemDecoder(decoder.SingleItemDecoder):
+    TAG_MAP: dict[TagSet, decoder.AbstractPayloadDecoder]
+    TYPE_MAP: dict[int, decoder.AbstractPayloadDecoder]
+
+class StreamingDecoder(decoder.StreamingDecoder):
+    SINGLE_ITEM_DECODER: type[SingleItemDecoder]
+
+class Decoder(decoder.Decoder):
+    STREAMING_DECODER: type[StreamingDecoder]
 
 decode: Decoder

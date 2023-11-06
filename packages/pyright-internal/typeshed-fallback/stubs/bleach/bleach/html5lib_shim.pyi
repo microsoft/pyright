@@ -1,11 +1,14 @@
 from _typeshed import Incomplete
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, Iterator
 
 class HTMLParser:  # actually html5lib.HTMLParser
     def __getattr__(self, __name: str) -> Incomplete: ...
 
 class Filter:  # actually html5lib.filters.base.Filter
-    def __getattr__(self, __name: str) -> Incomplete: ...
+    source: Incomplete
+    def __init__(self, source) -> None: ...
+    def __iter__(self) -> Iterator[Incomplete]: ...
+    def __getattr__(self, name: str) -> Incomplete: ...  # copy attributes from source
 
 class SanitizerFilter:  # actually html5lib.filters.sanitizer.Filter
     def __getattr__(self, __name: str) -> Incomplete: ...

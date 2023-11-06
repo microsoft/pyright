@@ -26,6 +26,7 @@ import {
     validateDataClassTransformDecorator,
 } from './dataClasses';
 import { DeclarationType, FunctionDeclaration } from './declaration';
+import { convertDocStringToPlainText } from './docStringConversion';
 import {
     clonePropertyWithDeleter,
     clonePropertyWithSetter,
@@ -626,7 +627,8 @@ function getCustomDeprecationMessage(decorator: DecoratorNode): string {
         decorator.expression.arguments[0].valueExpression.nodeType === ParseNodeType.StringList &&
         decorator.expression.arguments[0].valueExpression.strings.length === 1
     ) {
-        return decorator.expression.arguments[0].valueExpression.strings[0].value;
+        const message = decorator.expression.arguments[0].valueExpression.strings[0].value;
+        return convertDocStringToPlainText(message);
     }
 
     return '';

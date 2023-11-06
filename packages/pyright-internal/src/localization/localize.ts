@@ -115,6 +115,8 @@ declare let navigator: { language: string } | undefined;
 let localeOverride: string | undefined;
 
 export function setLocaleOverride(locale: string) {
+    // Force a reload of the localized strings.
+    localizedStrings = undefined;
     localeOverride = locale.toLowerCase();
 }
 
@@ -685,6 +687,8 @@ export namespace Localizer {
         export const optionalExtraArgs = () => getRawString('Diagnostic.optionalExtraArgs');
         export const orPatternIrrefutable = () => getRawString('Diagnostic.orPatternIrrefutable');
         export const orPatternMissingName = () => getRawString('Diagnostic.orPatternMissingName');
+        export const overlappingKeywordArgs = () =>
+            new ParameterizedString<{ names: string }>(getRawString('Diagnostic.overlappingKeywordArgs'));
         export const overlappingOverload = () =>
             new ParameterizedString<{ name: string; obscured: number; obscuredBy: number }>(
                 getRawString('Diagnostic.overlappingOverload')
@@ -724,8 +728,6 @@ export namespace Localizer {
         export const paramSpecDefaultNotTuple = () => getRawString('Diagnostic.paramSpecDefaultNotTuple');
         export const paramSpecFirstArg = () => getRawString('Diagnostic.paramSpecFirstArg');
         export const paramSpecKwargsUsage = () => getRawString('Diagnostic.paramSpecKwargsUsage');
-        export const paramSpecNotBound = () =>
-            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.paramSpecNotBound'));
         export const paramSpecNotUsedByOuterScope = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramSpecNotUsedByOuterScope'));
         export const paramSpecScopedToReturnType = () =>
@@ -858,6 +860,8 @@ export namespace Localizer {
         export const superCallSecondArg = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.superCallSecondArg'));
         export const superCallZeroArgForm = () => getRawString('Diagnostic.superCallZeroArgForm');
+        export const superCallZeroArgFormStaticMethod = () =>
+            getRawString('Diagnostic.superCallZeroArgFormStaticMethod');
         export const symbolIsUnbound = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.symbolIsUnbound'));
         export const symbolIsUndefined = () =>
@@ -1165,6 +1169,14 @@ export namespace Localizer {
         export const dataClassFrozen = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.dataClassFrozen'));
         export const dataClassFieldLocation = () => getRawString('DiagnosticAddendum.dataClassFieldLocation');
+        export const descriptorAccessBindingFailed = () =>
+            new ParameterizedString<{ name: string; className: string }>(
+                getRawString('DiagnosticAddendum.descriptorAccessBindingFailed')
+            );
+        export const descriptorAccessCallFailed = () =>
+            new ParameterizedString<{ name: string; className: string }>(
+                getRawString('DiagnosticAddendum.descriptorAccessCallFailed')
+            );
         export const finalMethod = () => getRawString('DiagnosticAddendum.finalMethod');
         export const functionParamDefaultMissing = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.functionParamDefaultMissing'));
@@ -1238,6 +1250,10 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberTypeMismatch'));
         export const memberUnknown = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberUnknown'));
+        export const metaclassConflict = () =>
+            new ParameterizedString<{ metaclass1: string; metaclass2: string }>(
+                getRawString('DiagnosticAddendum.metaclassConflict')
+            );
         export const missingProtocolMember = () =>
             new ParameterizedString<{ name: string; classType: string }>(
                 getRawString('DiagnosticAddendum.missingProtocolMember')

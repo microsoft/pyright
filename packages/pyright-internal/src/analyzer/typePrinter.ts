@@ -20,7 +20,6 @@ import {
     isClassInstance,
     isInstantiableClass,
     isNever,
-    isNoneInstance,
     isParamSpec,
     isTypeSame,
     isTypeVar,
@@ -28,15 +27,15 @@ import {
     isUnpacked,
     isVariadicTypeVar,
     maxTypeRecursionCount,
-    removeNoneFromUnion,
     TupleTypeArgument,
     Type,
     TypeBase,
     TypeCategory,
+    TypeFlags,
     TypeVarType,
     Variance,
 } from './types';
-import { convertToInstance, doForEachSubtype, isTupleClass } from './typeUtils';
+import { convertToInstance, doForEachSubtype, isNoneInstance, isTupleClass, removeNoneFromUnion } from './typeUtils';
 
 const singleTickRegEx = /'/g;
 const escapedDoubleQuoteRegEx = /\\"/g;
@@ -501,9 +500,14 @@ function printTypeInternal(
                         for (const sourceSubtype of typeAliasSource.subtypes) {
                             let unionSubtypeIndex = 0;
                             let foundMatch = false;
+                            const sourceSubtypeInstance = convertToInstance(sourceSubtype);
 
                             for (const unionSubtype of type.subtypes) {
-                                if (isTypeSame(sourceSubtype, unionSubtype, { ignoreTypeFlags: true })) {
+                                if (
+                                    isTypeSame(sourceSubtypeInstance, unionSubtype, {
+                                        typeFlagsToHonor: TypeFlags.Instance | TypeFlags.Instantiable,
+                                    })
+                                ) {
                                     if (!subtypeHandledSet.has(unionSubtypeIndex)) {
                                         allSubtypesPreviouslyHandled = false;
                                     }
@@ -709,12 +713,6 @@ function printTypeInternal(
                 return typeVarName;
             }
 
-            case TypeCategory.None: {
-                return `${
-                    TypeBase.isInstantiable(type) ? `${_printNestedInstantiable(type, 'None')}` : 'None'
-                }${getConditionalIndicator(type)}`;
-            }
-
             case TypeCategory.Never: {
                 return type.isNoReturn ? 'NoReturn' : 'Never';
             }
@@ -846,6 +844,11 @@ function printObjectTypeForClassInternal(
     if (!objName) {
         objName =
             (printTypeFlags & PrintTypeFlags.UseFullyQualifiedNames) !== 0 ? type.details.fullName : type.details.name;
+    }
+
+    // Special-case NoneType to convert it to None.
+    if (ClassType.isBuiltIn(type, 'NoneType')) {
+        objName = 'None';
     }
 
     // Use the fully-qualified name if the name isn't unique.

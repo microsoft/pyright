@@ -1,6 +1,6 @@
-import datetime
 from _typeshed import Incomplete
 from collections.abc import Container, Generator
+from datetime import datetime
 from typing_extensions import Final
 
 from openpyxl.cell.rich_text import CellRichText
@@ -45,7 +45,7 @@ def parse_richtext_string(element: _ChildSerialisableTreeElement) -> CellRichTex
 class WorkSheetParser:
     min_row: Incomplete | None
     min_col: Incomplete | None
-    epoch: datetime.datetime
+    epoch: datetime
     source: Incomplete
     shared_strings: Incomplete
     data_only: bool
@@ -73,7 +73,7 @@ class WorkSheetParser:
         src,
         shared_strings,
         data_only: bool = False,
-        epoch: datetime.datetime = ...,
+        epoch: datetime = ...,
         date_formats: Container[Incomplete] = ...,
         timedelta_formats: Container[Incomplete] = ...,
         rich_text: bool = False,

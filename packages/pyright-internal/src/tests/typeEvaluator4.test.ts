@@ -43,7 +43,7 @@ test('Required3', () => {
 
 test('Metaclass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass1.py']);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Metaclass2', () => {
@@ -346,7 +346,7 @@ test('Overload15', () => {
 
 test('Overload16', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload16.py']);
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Final1', () => {
@@ -517,7 +517,7 @@ test('MemberAccess16', () => {
 
 test('MemberAccess17', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess17.py']);
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('MemberAccess18', () => {
@@ -1052,7 +1052,7 @@ test('ParamSpec40', () => {
 
 test('ParamSpec41', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec41.py']);
-    TestUtils.validateResults(results, 1);
+    TestUtils.validateResults(results, 2);
 });
 
 test('ParamSpec42', () => {
@@ -1088,6 +1088,11 @@ test('ParamSpec47', () => {
 test('ParamSpec48', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec48.py']);
     TestUtils.validateResults(results, 0);
+});
+
+test('ParamSpec49', () => {
+    const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec49.py']);
+    TestUtils.validateResults(results, 5);
 });
 
 test('ClassVar1', () => {
@@ -1291,4 +1296,10 @@ test('Del2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['del2.py']);
 
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('Any1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['any1.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
 });

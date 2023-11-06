@@ -2,7 +2,7 @@ from typing import ClassVar
 from typing_extensions import Literal
 
 from openpyxl.descriptors.base import Bool, String, Typed, _ConvertibleToBool
-from openpyxl.descriptors.serialisable import Serialisable as Serialisable
+from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.styles.colors import Color
 
 class ChartsheetProperties(Serialisable):

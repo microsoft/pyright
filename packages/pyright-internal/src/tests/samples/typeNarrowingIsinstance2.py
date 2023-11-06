@@ -24,7 +24,7 @@ class ClassC:
     @classmethod
     def test(cls: type[TC], id: int | TC):
         if isinstance(id, cls):
-            reveal_type(id, expected_text="TC@test")
+            reveal_type(id, expected_text="object*")
         else:
             reveal_type(id, expected_text="int")
 

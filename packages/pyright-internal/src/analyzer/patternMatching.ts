@@ -48,7 +48,6 @@ import {
     isClassInstance,
     isInstantiableClass,
     isNever,
-    isNoneInstance,
     isSameWithoutLiteralValue,
     isTypeSame,
     isUnknown,
@@ -68,6 +67,7 @@ import {
     getTypeVarScopeId,
     isLiteralType,
     isMetaclassInstance,
+    isNoneInstance,
     isPartlyUnknown,
     isTupleClass,
     isUnboundedTupleClass,
@@ -287,6 +287,11 @@ function narrowTypeBasedOnSequencePattern(
                 }
             }
         });
+
+        // If the pattern is an empty sequence, use the entry types.
+        if (pattern.entries.length === 0 && entry.entryTypes.length > 0) {
+            narrowedEntryTypes.push(combineTypes(entry.entryTypes));
+        }
 
         if (!isPositiveTest) {
             // If the positive case is a definite match, the negative case can
@@ -1075,10 +1080,10 @@ function narrowTypeBasedOnValuePattern(
                         // Determine if assignment is supported for this combination of
                         // value subtype and matching subtype.
                         const returnType = evaluator.useSpeculativeMode(pattern.expression, () =>
-                            evaluator.getTypeOfMagicMethodReturn(
+                            evaluator.getTypeOfMagicMethodCall(
                                 valueSubtypeExpanded,
-                                [{ type: subjectSubtypeExpanded }],
                                 '__eq__',
+                                [{ type: subjectSubtypeExpanded }],
                                 pattern.expression,
                                 /* expectedType */ undefined
                             )

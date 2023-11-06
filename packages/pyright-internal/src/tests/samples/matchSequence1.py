@@ -5,6 +5,8 @@ from typing import Any, Generic, Iterator, List, Literal, Protocol, Reversible, 
 
 def test_unknown(value_to_match):
     match value_to_match:
+        case []:
+            reveal_type(value_to_match, expected_text="Sequence[Unknown]")
         case a1, a2:
             reveal_type(a1, expected_text="Unknown")
             reveal_type(a2, expected_text="Unknown")
@@ -34,6 +36,8 @@ def test_unknown(value_to_match):
 
 def test_any(value_to_match: Any):
     match value_to_match:
+        case []:
+            reveal_type(value_to_match, expected_text="Sequence[Any]")
         case [*a1]:
             reveal_type(a1, expected_text="list[Any]")
         case b1:

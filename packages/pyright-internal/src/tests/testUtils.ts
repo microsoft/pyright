@@ -25,8 +25,8 @@ import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { FullAccessHost } from '../common/fullAccessHost';
 import { createFromRealFileSystem } from '../common/realFileSystem';
-import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
+import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 
 // This is a bit gross, but it's necessary to allow the fallback typeshed
 // directory to be located when running within the jest environment. This
@@ -122,6 +122,7 @@ export function buildAnalyzerFileInfo(
         isTypingStubFile: false,
         isInPyTypedPackage: false,
         isTypingExtensionsStubFile: false,
+        isTypeshedStubFile: false,
         isBuiltInStubFile: false,
         ipythonMode: IPythonMode.None,
         accessedSymbolSet: new Set<number>(),

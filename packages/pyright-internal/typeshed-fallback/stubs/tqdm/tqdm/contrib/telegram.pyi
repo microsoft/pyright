@@ -1,6 +1,6 @@
 from _typeshed import Incomplete, SupportsWrite
 from collections.abc import Iterable, Mapping
-from typing import Generic, NoReturn, TypeVar, overload
+from typing import NoReturn, TypeVar, overload
 
 from ..auto import tqdm as tqdm_auto
 from .utils_worker import MonoWorker
@@ -21,7 +21,7 @@ class TelegramIO(MonoWorker):
 
 _T = TypeVar("_T")
 
-class tqdm_telegram(tqdm_auto[_T], Generic[_T]):
+class tqdm_telegram(tqdm_auto[_T]):
     tgio: Incomplete
     @overload
     def __init__(

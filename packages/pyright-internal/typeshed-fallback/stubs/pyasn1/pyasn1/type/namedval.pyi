@@ -1,6 +1,8 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
 
+__all__ = ["NamedValues"]
+
 class NamedValues:
     def __init__(self, *args, **kwargs) -> None: ...
     def __eq__(self, other): ...

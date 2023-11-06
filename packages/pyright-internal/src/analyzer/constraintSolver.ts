@@ -18,6 +18,7 @@ import {
     combineTypes,
     FunctionParameter,
     FunctionType,
+    FunctionTypeFlags,
     isAny,
     isAnyOrUnknown,
     isClass,
@@ -32,7 +33,6 @@ import {
     isUnpacked,
     isUnpackedClass,
     isVariadicTypeVar,
-    NoneType,
     TupleTypeArgument,
     Type,
     TypeBase,
@@ -55,12 +55,13 @@ import {
     isEffectivelyInstantiable,
     isPartlyUnknown,
     mapSubtypes,
+    sortTypes,
     specializeTupleClass,
     specializeWithDefaultTypeArgs,
     transformExpectedType,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
+import { TypeVarContext, TypeVarSignatureContext } from './typeVarContext';
 
 // As we widen the narrow bound of a type variable, we may end up with
 // many subtypes. For performance reasons, we need to cap this at some
@@ -93,11 +94,13 @@ export function assignTypeToTypeVar(
         console.log(`${indent}destType: ${evaluator.printType(destType)}`);
         console.log(`${indent}srcType: ${evaluator.printType(srcType)}`);
         console.log(`${indent}flags: ${flags}`);
-        console.log(`${indent}typeVarContext #${typeVarContext.getId()}: `);
+        console.log(`${indent}scopes: ${(typeVarContext.getSolveForScopes() || []).join(', ')}`);
+        console.log(`${indent}pre-call context #${typeVarContext.getId()}: `);
         logTypeVarContext(evaluator, typeVarContext, indent);
     }
 
     let isTypeVarInScope = true;
+    const isInvariant = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
     const isContravariant = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
 
     // If the TypeVar doesn't have a scope ID, then it's being used
@@ -126,7 +129,7 @@ export function assignTypeToTypeVar(
 
         // Never or NoReturn is always assignable to all type variables unless
         // we're enforcing invariance.
-        if (isNever(srcType) && (flags & AssignTypeFlags.EnforceInvariance) === 0) {
+        if (isNever(srcType) && !isInvariant) {
             return true;
         }
 
@@ -137,7 +140,10 @@ export function assignTypeToTypeVar(
         }
 
         isTypeVarInScope = false;
-        if (!destType.details.isSynthesized) {
+
+        // Emit an error unless this is a synthesized type variable used
+        // for pseudo-generic classes.
+        if (!destType.details.isSynthesized || destType.details.isSynthesizedSelf) {
             diag?.addMessage(
                 Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
                     evaluator.printSrcDestTypes(srcType, destType)
@@ -285,7 +291,7 @@ export function assignTypeToTypeVar(
         // narrow type bound, wide type bound or both. Don't overwrite
         // an existing entry.
         if (!curEntry) {
-            if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+            if (isInvariant) {
                 newNarrowTypeBound = adjSrcType;
                 newWideTypeBound = adjSrcType;
             } else if (isContravariant) {
@@ -446,7 +452,6 @@ export function assignTypeToTypeVar(
                         isUnion(curSolvedNarrowTypeBound) &&
                         curSolvedNarrowTypeBound.subtypes.length > maxSubtypesForInferredType &&
                         (destType as TypeVarType).details.boundType !== undefined &&
-                        objectType &&
                         isClassInstance(objectType)
                     ) {
                         newNarrowTypeBound = combineTypes(
@@ -568,7 +573,7 @@ export function assignTypeToTypeVar(
     if (logTypeVarContextUpdates) {
         const indent = ' '.repeat(recursionCount * 2);
         console.log(`${indent}`);
-        console.log(`${indent}post-call typeVarContext: `);
+        console.log(`${indent}post-call context #${typeVarContext.getId()}: `);
         logTypeVarContext(evaluator, typeVarContext, indent);
     }
 
@@ -829,7 +834,7 @@ function assignTypeToParamSpec(
                 }
             } else {
                 if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.scopeId)) {
-                    typeVarContext.setTypeVarType(destType, convertTypeToParamSpecValue(srcType));
+                    signatureContext.setTypeVarType(destType, convertTypeToParamSpecValue(srcType));
                 }
                 return;
             }
@@ -842,32 +847,47 @@ function assignTypeToParamSpec(
                     isNameSynthesized: p.isNameSynthesized,
                     hasDefault: !!p.hasDefault,
                     defaultValueExpression: p.defaultValueExpression,
+                    hasDeclaredType: p.hasDeclaredType,
                     type: FunctionType.getEffectiveParameterType(functionSrcType, index),
                 };
                 return param;
             });
 
+            const newFunction = FunctionType.createInstance(
+                '',
+                '',
+                '',
+                srcType.details.flags | FunctionTypeFlags.ParamSpecValue
+            );
+            parameters.forEach((param) => {
+                FunctionType.addParameter(newFunction, param);
+            });
+            newFunction.details.typeVarScopeId = srcType.details.typeVarScopeId;
+            newFunction.details.constructorTypeVarScopeId = srcType.details.constructorTypeVarScopeId;
+            newFunction.details.paramSpecTypeVarScopeId = srcType.details.paramSpecTypeVarScopeId;
+            newFunction.details.docString = srcType.details.docString;
+            newFunction.details.deprecatedMessage = srcType.details.deprecatedMessage;
+            newFunction.details.paramSpec = srcType.details.paramSpec;
+
+            let updateContextWithNewFunction = false;
+
             const existingType = signatureContext.getParamSpecType(destType);
             if (existingType) {
                 if (
                     isTypeSame(
-                        existingType.details.paramSpec ?? NoneType.createInstance(),
-                        srcType.details.paramSpec ?? NoneType.createInstance()
+                        existingType.details.paramSpec ?? evaluator.getNoneType(),
+                        srcType.details.paramSpec ?? evaluator.getNoneType()
                     )
                 ) {
                     // Convert the remaining portion of the signature to a function
                     // for comparison purposes.
                     const existingFunction = convertParamSpecValueToType(existingType, /* omitParamSpec */ true);
-                    const assignedFunction = FunctionType.createInstance('', '', '', srcType.details.flags);
-                    parameters.forEach((param) => {
-                        FunctionType.addParameter(assignedFunction, param);
-                    });
-                    assignedFunction.details.typeVarScopeId = srcType.details.typeVarScopeId;
 
+                    // Should we narrow the type?
                     if (
                         evaluator.assignType(
                             existingFunction,
-                            assignedFunction,
+                            newFunction,
                             /* diag */ undefined,
                             /* destTypeVarContext */ undefined,
                             /* srcTypeVarContext */ undefined,
@@ -875,22 +895,30 @@ function assignTypeToParamSpec(
                             recursionCount
                         )
                     ) {
+                        updateContextWithNewFunction = true;
+                    } else if (
+                        evaluator.assignType(
+                            newFunction,
+                            existingFunction,
+                            /* diag */ undefined,
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            AssignTypeFlags.SkipFunctionReturnTypeCheck,
+                            recursionCount
+                        )
+                    ) {
+                        // The existing function is already narrower than the new function, so
+                        // no need to narrow it further.
                         return;
                     }
                 }
             } else {
+                updateContextWithNewFunction = true;
+            }
+
+            if (updateContextWithNewFunction) {
                 if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.scopeId)) {
-                    const newFunction = FunctionType.createInstance('', '', '', srcType.details.flags);
-                    parameters.forEach((param) => {
-                        FunctionType.addParameter(newFunction, param);
-                    });
-                    newFunction.details.typeVarScopeId = srcType.details.typeVarScopeId;
-                    newFunction.details.constructorTypeVarScopeId = srcType.details.constructorTypeVarScopeId;
-                    newFunction.details.paramSpecTypeVarScopeId = srcType.details.paramSpecTypeVarScopeId;
-                    newFunction.details.docString = srcType.details.docString;
-                    newFunction.details.deprecatedMessage = srcType.details.deprecatedMessage;
-                    newFunction.details.paramSpec = srcType.details.paramSpec;
-                    typeVarContext.setTypeVarType(destType, newFunction);
+                    signatureContext.setTypeVarType(destType, newFunction);
                 }
                 return;
             }
@@ -907,6 +935,13 @@ function assignTypeToParamSpec(
 
         isAssignable = false;
     });
+
+    if (logTypeVarContextUpdates) {
+        const indent = ' '.repeat(recursionCount * 2);
+        console.log(`${indent}`);
+        console.log(`${indent}post-call typeVarContext: `);
+        logTypeVarContext(evaluator, typeVarContext, indent);
+    }
 
     return isAssignable;
 }
@@ -1004,6 +1039,9 @@ export function populateTypeVarContextBasedOnExpectedType(
     const synthExpectedTypeArgs = ClassType.getTypeParameters(expectedType).map((typeParam, index) => {
         const typeVar = TypeVarType.createInstance(`__dest${index}`);
         typeVar.details.isSynthesized = true;
+        if (typeParam.details.isParamSpec) {
+            typeVar.details.isParamSpec = true;
+        }
 
         // Use invariance here so we set the narrow and wide values on the TypeVar.
         typeVar.details.declaredVariance = Variance.Invariant;
@@ -1017,11 +1055,14 @@ export function populateTypeVarContextBasedOnExpectedType(
     );
 
     // For each type param in the target type, create a placeholder type variable.
-    const typeArgs = ClassType.getTypeParameters(type).map((_, index) => {
+    const typeArgs = ClassType.getTypeParameters(type).map((typeParam, index) => {
         const typeVar = TypeVarType.createInstance(`__source${index}`);
         typeVar.details.isSynthesized = true;
         typeVar.details.synthesizedIndex = index;
         typeVar.details.isExemptFromBoundCheck = true;
+        if (typeParam.details.isParamSpec) {
+            typeVar.details.isParamSpec = true;
+        }
         return TypeVarType.cloneAsInScopePlaceholder(typeVar);
     });
 
@@ -1045,24 +1086,30 @@ export function populateTypeVarContextBasedOnExpectedType(
 
             // If the resulting type is a union, try to find a matching type var and move
             // the remaining subtypes to the "otherSubtypes" array.
-            if (synthTypeVar && isUnion(synthTypeVar)) {
-                let foundSynthTypeVar: TypeVarType | undefined;
+            if (synthTypeVar) {
+                if (typeVar.details.isParamSpec && isFunction(synthTypeVar)) {
+                    synthTypeVar = convertParamSpecValueToType(synthTypeVar);
+                }
 
-                synthTypeVar.subtypes.forEach((subtype) => {
-                    if (
-                        isTypeVar(subtype) &&
-                        subtype.details.isSynthesized &&
-                        subtype.details.synthesizedIndex !== undefined &&
-                        !foundSynthTypeVar
-                    ) {
-                        foundSynthTypeVar = subtype;
-                    } else {
-                        otherSubtypes.push(subtype);
+                if (isUnion(synthTypeVar)) {
+                    let foundSynthTypeVar: TypeVarType | undefined;
+
+                    sortTypes(synthTypeVar.subtypes).forEach((subtype) => {
+                        if (
+                            isTypeVar(subtype) &&
+                            subtype.details.isSynthesized &&
+                            subtype.details.synthesizedIndex !== undefined &&
+                            !foundSynthTypeVar
+                        ) {
+                            foundSynthTypeVar = subtype;
+                        } else {
+                            otherSubtypes.push(subtype);
+                        }
+                    });
+
+                    if (foundSynthTypeVar) {
+                        synthTypeVar = foundSynthTypeVar;
                     }
-                });
-
-                if (foundSynthTypeVar) {
-                    synthTypeVar = foundSynthTypeVar;
                 }
             }
 
@@ -1191,21 +1238,44 @@ function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type)
 // This function is used for debugging only. It dumps the current contents of
 // the TypeVarContext to the console.
 function logTypeVarContext(evaluator: TypeEvaluator, typeVarContext: TypeVarContext, indent: string) {
-    if (typeVarContext.getSignatureContexts().length === 0) {
-        console.log(`${indent}  No signatures`);
+    const signatureContextCount = typeVarContext.getSignatureContexts().length;
+    if (signatureContextCount === 0) {
+        console.log(`${indent}  no signatures`);
+    } else if (signatureContextCount === 1) {
+        logTypeVarSignatureContext(evaluator, typeVarContext.getSignatureContexts()[0], `${indent}  `);
     } else {
-        typeVarContext.doForEachSignatureContext((signatureContext, signatureIndex) => {
-            console.log(`${indent}  Signature ${signatureIndex}`);
-
-            signatureContext.getTypeVars().forEach((entry) => {
-                console.log(`${indent}    ${entry.typeVar.details.name}:`);
-                console.log(
-                    `${indent}       Narrow: ${entry.narrowBound ? evaluator.printType(entry.narrowBound) : 'None'}`
-                );
-                console.log(
-                    `${indent}       Wide  : ${entry.wideBound ? evaluator.printType(entry.wideBound) : 'None'}`
-                );
-            });
+        typeVarContext.doForEachSignatureContext((context, signatureIndex) => {
+            console.log(`${indent}  signature ${signatureIndex}`);
+            logTypeVarSignatureContext(evaluator, context, `${indent}    `);
         });
+    }
+}
+
+function logTypeVarSignatureContext(evaluator: TypeEvaluator, context: TypeVarSignatureContext, indent: string) {
+    let loggedConstraint = false;
+
+    context.getTypeVars().forEach((entry) => {
+        const typeVarName = `${indent}${entry.typeVar.details.name}`;
+        const narrowBound = entry.narrowBoundNoLiterals ?? entry.narrowBound;
+        const wideBound = entry.wideBound;
+
+        // Log the narrow and wide bounds.
+        if (narrowBound && wideBound && isTypeSame(narrowBound, wideBound)) {
+            console.log(`${typeVarName} = ${evaluator.printType(narrowBound)}`);
+            loggedConstraint = true;
+        } else {
+            if (narrowBound) {
+                console.log(`${typeVarName} ≤ ${evaluator.printType(narrowBound)}`);
+                loggedConstraint = true;
+            }
+            if (wideBound) {
+                console.log(`${typeVarName} ≥ ${evaluator.printType(wideBound)}`);
+                loggedConstraint = true;
+            }
+        }
+    });
+
+    if (!loggedConstraint) {
+        console.log(`${indent}no constraints`);
     }
 }

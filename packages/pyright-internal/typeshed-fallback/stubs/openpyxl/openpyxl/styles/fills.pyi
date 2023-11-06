@@ -1,11 +1,12 @@
 from _typeshed import Incomplete
-from collections.abc import Iterable, Sequence as ABCSequence
+from collections.abc import Iterable, Iterator, Sequence as ABCSequence
 from typing import ClassVar
 from typing_extensions import Final, Literal, TypeAlias
 
-from openpyxl.descriptors import Sequence
+from openpyxl.descriptors import Sequence, Strict
 from openpyxl.descriptors.base import Alias, Float, MinMax, NoneSet, Set, _ConvertibleToFloat
 from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.styles.colors import Color, ColorDescriptor
 
 from ..xml._functions_overloads import _SupportsIterAndAttribAndTextAndTag
 
@@ -31,7 +32,6 @@ FILL_PATTERN_MEDIUMGRAY: Final = "mediumGray"
 
 _GradientFillType: TypeAlias = Literal["linear", "path"]
 _FillsType: TypeAlias = Literal[
-    "none",
     "solid",
     "darkDown",
     "darkGray",
@@ -51,7 +51,7 @@ _FillsType: TypeAlias = Literal[
     "lightVertical",
     "mediumGray",
 ]
-fills: tuple[_FillsType, ...]
+fills: Final[tuple[_FillsType, ...]]
 
 class Fill(Serialisable):
     tagname: ClassVar[str]
@@ -63,18 +63,18 @@ class PatternFill(Fill):
     __elements__: ClassVar[tuple[str, ...]]
     patternType: NoneSet[_FillsType]
     fill_type: Alias
-    fgColor: Incomplete
+    fgColor: ColorDescriptor[Literal[False]]
     start_color: Alias
-    bgColor: Incomplete
+    bgColor: ColorDescriptor[Literal[False]]
     end_color: Alias
     def __init__(
         self,
-        patternType: Incomplete | None = None,
-        fgColor=...,
-        bgColor=...,
-        fill_type: Incomplete | None = None,
-        start_color: Incomplete | None = None,
-        end_color: Incomplete | None = None,
+        patternType: _FillsType | Literal["none"] | None = None,
+        fgColor: str | Color = ...,
+        bgColor: str | Color = ...,
+        fill_type: _FillsType | Literal["none"] | None = None,
+        start_color: str | Color | None = None,
+        end_color: str | Color | None = None,
     ) -> None: ...
     def to_tree(self, tagname: str | None = None, idx: Incomplete | None = None): ...  # type: ignore[override]
 
@@ -89,7 +89,7 @@ class Stop(Serialisable):
 
 class StopList(Sequence):
     expected_type: type[Incomplete]
-    def __set__(self, obj, values) -> None: ...
+    def __set__(self, obj: Serialisable | Strict, values) -> None: ...
 
 class GradientFill(Fill):
     tagname: ClassVar[str]
@@ -111,5 +111,5 @@ class GradientFill(Fill):
         bottom: _ConvertibleToFloat = 0,
         stop=(),
     ) -> None: ...
-    def __iter__(self): ...
+    def __iter__(self) -> Iterator[tuple[str, str]]: ...
     def to_tree(self, tagname: str | None = None, namespace: str | None = None, idx: Incomplete | None = None): ...  # type: ignore[override]

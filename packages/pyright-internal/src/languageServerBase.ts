@@ -77,7 +77,6 @@ import { ResultProgressReporter, attachWorkDone } from 'vscode-languageserver/li
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AnalysisResults } from './analyzer/analysis';
 import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
-import { CacheManager } from './analyzer/cacheManager';
 import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
 import { AnalyzerService, configFileNames, getNextServiceId } from './analyzer/service';
@@ -122,6 +121,7 @@ import { CallHierarchyProvider } from './languageService/callHierarchyProvider';
 import { CompletionItemData, CompletionProvider } from './languageService/completionProvider';
 import { DefinitionFilter, DefinitionProvider, TypeDefinitionProvider } from './languageService/definitionProvider';
 import { DocumentHighlightProvider } from './languageService/documentHighlightProvider';
+import { CollectionResult } from './languageService/documentSymbolCollector';
 import { DocumentSymbolProvider } from './languageService/documentSymbolProvider';
 import { HoverProvider } from './languageService/hoverProvider';
 import { canNavigateToFile } from './languageService/navigationUtils';
@@ -131,10 +131,8 @@ import { SemanticTokensProvider } from './languageService/semanticTokensProvider
 import { SignatureHelpProvider } from './languageService/signatureHelpProvider';
 import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
-import { SupportUriToPathMapping } from './pyrightFileSystem';
-import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
-import { CollectionResult } from './languageService/documentSymbolCollector';
 import { ParseResults } from './parser/parser';
+import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
 
 export interface ServerSettings {
     venvPath?: string | undefined;
@@ -157,7 +155,7 @@ export interface ServerSettings {
     indexing?: boolean | undefined;
     logTypeEvaluationTime?: boolean | undefined;
     typeEvaluationTimeThreshold?: number | undefined;
-    fileSpecs?: string[];
+    includeFileSpecs?: string[];
     excludeFileSpecs?: string[];
     ignoreFileSpecs?: string[];
     taskListTokens?: TaskListToken[];
@@ -353,9 +351,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     protected readonly workspaceFactory: WorkspaceFactory;
     protected readonly openFileMap = new Map<string, TextDocument>();
-    protected readonly cacheManager: CacheManager;
-
-    protected readonly uriMapper: SupportUriToPathMapping;
     protected readonly fs: FileSystem;
 
     // The URIs for which diagnostics are reported
@@ -380,9 +375,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         this.console.info(`Server root directory: ${serverOptions.rootDirectory}`);
 
-        this.cacheManager = new CacheManager();
-
-        this.uriMapper = this.serverOptions.serviceProvider.uriMapper();
         this.fs = this.serverOptions.serviceProvider.fs();
 
         this.uriParser = uriParserFactory(this.fs);
@@ -461,7 +453,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             backgroundAnalysisProgramFactory: this.createBackgroundAnalysisProgram.bind(this),
             cancellationProvider: this.serverOptions.cancellationProvider,
             libraryReanalysisTimeProvider,
-            cacheManager: this.cacheManager,
             serviceId,
             fileSystem: services?.fs ?? this.serverOptions.serviceProvider.fs(),
         });
@@ -621,8 +612,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         configOptions: ConfigOptions,
         importResolver: ImportResolver,
         backgroundAnalysis?: BackgroundAnalysisBase,
-        maxAnalysisTime?: MaxAnalysisTime,
-        cacheManager?: CacheManager
+        maxAnalysisTime?: MaxAnalysisTime
     ): BackgroundAnalysisProgram {
         return new BackgroundAnalysisProgram(
             serviceId,
@@ -631,8 +621,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             importResolver,
             backgroundAnalysis,
             maxAnalysisTime,
-            /* disableChecker */ undefined,
-            cacheManager
+            /* disableChecker */ undefined
         );
     }
 
@@ -1214,11 +1203,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected async onDidOpenTextDocument(params: DidOpenTextDocumentParams, ipythonMode = IPythonMode.None) {
         const filePath = this.uriParser.decodeTextDocumentUri(params.textDocument.uri);
 
-        if (!this.uriMapper.addUriMap(params.textDocument.uri, filePath)) {
-            // We do not support opening 1 file with 2 different uri.
-            return;
-        }
-
         let doc = this.openFileMap.get(filePath);
         if (doc) {
             // We shouldn't get an open text document request for an already-opened doc.
@@ -1240,11 +1224,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.recordUserInteractionTime();
 
         const filePath = this.uriParser.decodeTextDocumentUri(params.textDocument.uri);
-        if (!this.uriMapper.hasUriMapEntry(params.textDocument.uri, filePath)) {
-            // We do not support opening 1 file with 2 different uri.
-            return;
-        }
-
         const doc = this.openFileMap.get(filePath);
         if (!doc) {
             // We shouldn't get a change text request for a closed doc.
@@ -1264,10 +1243,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     protected async onDidCloseTextDocument(params: DidCloseTextDocumentParams) {
         const filePath = this.uriParser.decodeTextDocumentUri(params.textDocument.uri);
-        if (!this.uriMapper.removeUriMap(params.textDocument.uri, filePath)) {
-            // We do not support opening 1 file with 2 different uri.
-            return;
-        }
 
         // Send this close to all the workspaces that might contain this file.
         const workspaces = await this.getContainingWorkspacesForFile(filePath);
@@ -1365,8 +1340,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 return;
             }
 
-            this._sendDiagnostics(this.convertDiagnostics(fs, fileDiag));
-            this.uriMapper.pendingRequest(fileDiag.filePath, fileDiag.diagnostics.length > 0);
+            this.sendDiagnostics(this.convertDiagnostics(fs, fileDiag));
         });
 
         if (!this._progressReporter.isEnabled(results)) {
@@ -1414,7 +1388,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 if (otherWorkspaces.some((w) => w.service.isTracked(filePath))) {
                     continue;
                 }
-                this._sendDiagnostics([
+                this.sendDiagnostics([
                     {
                         uri: uri,
                         diagnostics: [],
@@ -1495,6 +1469,17 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         };
     }
 
+    protected sendDiagnostics(params: PublishDiagnosticsParams[]) {
+        for (const param of params) {
+            if (param.diagnostics.length === 0) {
+                this.documentsWithDiagnostics.delete(param.uri);
+            } else {
+                this.documentsWithDiagnostics.add(param.uri);
+            }
+            this.connection.sendDiagnostics(param);
+        }
+    }
+
     private _setupFileWatcher() {
         if (!this.client.hasWatchFileCapability) {
             return;
@@ -1528,7 +1513,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             });
         }
 
-        // File watcher is pylance wide service. Dispose all existing file watchers and create new ones.
+        // Dispose all existing file watchers and create new ones.
         this.connection.client.register(DidChangeWatchedFilesNotification.type, { watchers }).then((d) => {
             if (this._lastFileWatcherRegistration) {
                 this._lastFileWatcherRegistration.dispose();
@@ -1536,17 +1521,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
             this._lastFileWatcherRegistration = d;
         });
-    }
-
-    private _sendDiagnostics(params: PublishDiagnosticsParams[]) {
-        for (const param of params) {
-            if (param.diagnostics.length === 0) {
-                this.documentsWithDiagnostics.delete(param.uri);
-            } else {
-                this.documentsWithDiagnostics.add(param.uri);
-            }
-            this.connection.sendDiagnostics(param);
-        }
     }
 
     private _getCompatibleMarkupKind(clientSupportedFormats: MarkupKind[] | undefined) {

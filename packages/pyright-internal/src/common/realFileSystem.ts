@@ -21,7 +21,7 @@ import {
     FileWatcherProvider,
     nullFileWatcherProvider,
 } from './fileWatcher';
-import { getRootLength } from './pathUtils';
+import { combinePaths, getRootLength, isUri } from './pathUtils';
 
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();
@@ -277,12 +277,10 @@ class RealFileSystem implements FileSystem {
         // See: https://github.com/yarnpkg/berry/blob/master/packages/vscode-zipfs/sources/ZipFSProvider.ts
         if (hasZipExtension(path)) {
             if (stat.isFile() && yarnFS.isZip(path)) {
-                return {
-                    ...stat,
-                    isFile: () => false,
-                    isDirectory: () => true,
-                    isZipDirectory: () => true,
-                };
+                stat.isFile = () => false;
+                stat.isDirectory = () => true;
+                (stat as any).isZipDirectory = () => true;
+                return stat;
             }
         }
         return stat;
@@ -346,13 +344,13 @@ class RealFileSystem implements FileSystem {
         try {
             // If it doesn't exist in the real FS, then just use this path.
             if (!this.existsSync(path)) {
-                return path;
+                return this._getNormalizedPath(path);
             }
 
             // If it does exist, skip this for symlinks.
             const stat = fs.lstatSync(path);
             if (stat.isSymbolicLink()) {
-                return path;
+                return this._getNormalizedPath(path);
             }
 
             // realpathSync.native will return casing as in OS rather than
@@ -386,11 +384,27 @@ class RealFileSystem implements FileSystem {
     }
 
     getUri(path: string): string {
+        // If this is not a file path, just return the original path.
+        if (isUri(path)) {
+            return path;
+        }
         return URI.file(path).toString();
     }
 
     isInZip(path: string): boolean {
         return /[^\\/]\.(?:egg|zip|jar)[\\/]/.test(path) && yarnFS.isZip(path);
+    }
+
+    private _getNormalizedPath(path: string) {
+        const driveLength = getRootLength(path);
+
+        if (driveLength === 0) {
+            return path;
+        }
+
+        // `vscode` sometimes uses different casing for drive letter.
+        // Make sure we normalize at least drive letter.
+        return combinePaths(fs.realpathSync.native(path.substring(0, driveLength)), path.substring(driveLength));
     }
 }
 

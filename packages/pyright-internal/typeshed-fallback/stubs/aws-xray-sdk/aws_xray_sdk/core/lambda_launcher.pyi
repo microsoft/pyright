@@ -1,11 +1,7 @@
 from _typeshed import Incomplete
 from logging import Logger
 
-from aws_xray_sdk import global_sdk_config as global_sdk_config
-
-from .context import Context as Context
-from .models.facade_segment import FacadeSegment as FacadeSegment
-from .models.trace_header import TraceHeader as TraceHeader
+from .context import Context
 
 log: Logger
 LAMBDA_TRACE_HEADER_KEY: str
