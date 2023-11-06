@@ -221,6 +221,12 @@ test('Super10', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Super11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super11.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('MissingSuper1', () => {
     const configOptions = new ConfigOptions('.');
 

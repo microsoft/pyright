@@ -8314,7 +8314,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (bindToType && implicitBindToType) {
-                bindToType = addConditionToType(bindToType, getTypeCondition(implicitBindToType)) as ClassType;
+                const typeCondition = getTypeCondition(implicitBindToType);
+                if (typeCondition) {
+                    bindToType = addConditionToType(bindToType, typeCondition) as ClassType;
+                } else if (isClass(implicitBindToType)) {
+                    bindToType = implicitBindToType;
+                }
             }
         }
 
@@ -8343,7 +8348,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const parentNode = node.parent!;
         if (parentNode.nodeType === ParseNodeType.MemberAccess) {
             const memberName = parentNode.memberName.value;
-            const effectiveTargetClass = isClass(targetClassType) ? targetClassType : undefined;
+            let effectiveTargetClass = isClass(targetClassType) ? targetClassType : undefined;
+
+            // If the bind-to type is a protocol, don't use the effective target class.
+            // This pattern is used for mixins, where the mixin type is a protocol class
+            // that is used to decorate the "self" or "cls" parameter.
+            if (bindToType && ClassType.isProtocolClass(bindToType)) {
+                effectiveTargetClass = undefined;
+            }
 
             const lookupResults = bindToType
                 ? lookUpClassMember(bindToType, memberName, MemberAccessFlags.Default, effectiveTargetClass)
