@@ -6068,8 +6068,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function bindMethodForMemberAccess(
-        subtype: Type,
-        concreteSubtype: FunctionType | OverloadedFunctionType,
+        type: Type,
+        concreteType: FunctionType | OverloadedFunctionType,
         memberInfo: ClassMember | undefined,
         classType: ClassType,
         selfType: ClassType | TypeVarType | undefined,
@@ -6080,17 +6080,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): TypeResult {
         // Check for an attempt to overwrite a final method.
         if (usage.method === 'set') {
-            let isFinal = false;
-            if (isFunction(concreteSubtype)) {
-                isFinal = FunctionType.isFinal(concreteSubtype);
-            } else {
-                const impl = OverloadedFunctionType.getImplementation(concreteSubtype);
-                if (impl) {
-                    isFinal = FunctionType.isFinal(impl);
-                }
-            }
+            const impl = isFunction(concreteType)
+                ? concreteType
+                : OverloadedFunctionType.getImplementation(concreteType);
 
-            if (isFinal && memberInfo && isClass(memberInfo.classType)) {
+            if (impl && FunctionType.isFinal(impl) && memberInfo && isClass(memberInfo.classType)) {
                 diag?.addMessage(
                     Localizer.Diagnostic.finalMethodOverride().format({
                         name: memberName,
@@ -6106,25 +6100,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // assigned to an instance variable), don't perform any binding.
         if (TypeBase.isInstance(classType)) {
             if (!memberInfo || memberInfo.isInstanceMember) {
-                return { type: subtype };
+                return { type: type };
             }
         }
 
-        const treatConstructorAsClassMember = (flags & MemberAccessFlags.TreatConstructorAsClassMethod) !== 0;
         const boundType = bindFunctionToClassOrObject(
             classType,
-            concreteSubtype,
+            concreteType,
             memberInfo && isInstantiableClass(memberInfo.classType) ? memberInfo.classType : undefined,
-            treatConstructorAsClassMember,
+            (flags & MemberAccessFlags.TreatConstructorAsClassMethod) !== 0,
             selfType && isClass(selfType) ? ClassType.cloneIncludeSubclasses(selfType) : selfType,
             diag
         );
 
-        if (boundType) {
-            return { type: boundType };
-        }
-
-        return { type: UnknownType.create(), typeErrors: true };
+        return { type: boundType ?? UnknownType.create(), typeErrors: !boundType };
     }
 
     function adjustMemberAccessTypeForSet(
@@ -6273,6 +6262,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Applies the __getattr__, __setattr__ or __delattr__ method if present.
+    // If it's not applicable, returns undefined.
     function applyAttributeAccessOverride(
         classType: ClassType,
         errorNode: ExpressionNode,
@@ -6308,22 +6298,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        let nameLiteralType: Type = AnyType.create();
-        if (strClassType && isInstantiableClass(strClassType)) {
-            nameLiteralType = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(strClassType), memberName);
-        }
+        const argList: FunctionArgument[] = [];
 
-        const argList: FunctionArgument[] = [
-            {
-                // Provide "name" argument.
-                argumentCategory: ArgumentCategory.Simple,
-                typeResult: { type: nameLiteralType },
+        // Provide "name" argument.
+        argList.push({
+            argumentCategory: ArgumentCategory.Simple,
+            typeResult: {
+                type:
+                    strClassType && isInstantiableClass(strClassType)
+                        ? ClassType.cloneWithLiteral(ClassType.cloneAsInstance(strClassType), memberName)
+                        : AnyType.create(),
             },
-        ];
+        });
 
         if (usage.method === 'set') {
+            // Provide "value" argument.
             argList.push({
-                // Provide "value" argument.
                 argumentCategory: ArgumentCategory.Simple,
                 typeResult: {
                     type: usage.setType?.type ?? UnknownType.create(),
@@ -6333,7 +6323,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!isFunction(accessMemberType) && !isOverloadedFunction(accessMemberType)) {
-            // TODO - need to handle and report this error.
+            if (isAnyOrUnknown(accessMemberType)) {
+                return { type: accessMemberType };
+            }
+
+            // TODO - emit an error for this condition.
             return undefined;
         }
 
@@ -6346,8 +6340,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             /* skipUnknownArgCheck */ true
         );
 
-        // TODO - need to handle and report errors when validating call to
-        // attribute access method.
         let isAsymmetricAccessor = false;
         if (usage.method === 'set') {
             isAsymmetricAccessor = isClassWithAsymmetricAttributeAccessor(classType);
@@ -6355,6 +6347,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         return {
             type: callResult.returnType ?? UnknownType.create(),
+            typeErrors: callResult.argumentErrors,
             isAsymmetricAccessor,
         };
     }
