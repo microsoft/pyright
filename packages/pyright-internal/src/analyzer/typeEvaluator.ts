@@ -21949,9 +21949,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const ancestorType = inheritanceChain[ancestorIndex];
 
             // If we've hit an "unknown", all bets are off, and we need to assume
-            // that the type is assignable.
+            // that the type is assignable. If the destType is marked "@final",
+            // we should be able to assume that it's not assignable, but we can't do
+            // this in the general case because it breaks assumptions with the
+            // NotImplemented symbol exported by typeshed's builtins.pyi. Instead,
+            // we'll special-case only None.
             if (isUnknown(ancestorType)) {
-                return true;
+                return !isNoneTypeClass(destType);
             }
 
             // If this isn't the first time through the loop, specialize
