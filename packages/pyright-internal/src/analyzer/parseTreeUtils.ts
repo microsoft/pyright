@@ -533,7 +533,7 @@ export function printOperator(operator: OperatorType): string {
         [OperatorType.SubtractEqual]: '-=',
         [OperatorType.And]: 'and',
         [OperatorType.Or]: 'or',
-        [OperatorType.Not]: 'not',
+        [OperatorType.Not]: 'not ',
         [OperatorType.Is]: 'is',
         [OperatorType.IsNot]: 'is not',
         [OperatorType.In]: 'in',
