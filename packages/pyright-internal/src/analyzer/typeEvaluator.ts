@@ -5732,28 +5732,43 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return resultType;
             }
 
-            if (!isDescriptorApplied && memberInfo?.symbol.isClassVar()) {
-                if (flags & MemberAccessFlags.DisallowClassVarWrites) {
-                    diag?.addMessage(Localizer.DiagnosticAddendum.memberSetClassVar().format({ name: memberName }));
-                    isDescriptorError = true;
-                    return resultType;
-                }
-            }
-
-            const typeResult = adjustMemberAccessTypeForSet(
-                resultType,
-                memberInfo,
-                classType,
-                errorNode,
-                memberName,
-                diag
-            );
-
-            if (typeResult.typeErrors) {
+            // Check for an attempt to overwrite a ClassVar member from an instance.
+            if (
+                !isDescriptorApplied &&
+                memberInfo?.symbol.isClassVar() &&
+                (flags & MemberAccessFlags.DisallowClassVarWrites) !== 0
+            ) {
+                diag?.addMessage(Localizer.DiagnosticAddendum.memberSetClassVar().format({ name: memberName }));
                 isDescriptorError = true;
             }
 
-            return typeResult.type;
+            // Check for an attempt to overwrite a final member variable.
+            const finalVarTypeDecl = memberInfo?.symbol
+                .getDeclarations()
+                .find((decl) => isFinalVariableDeclaration(decl));
+
+            if (finalVarTypeDecl && !ParseTreeUtils.isNodeContainedWithin(errorNode, finalVarTypeDecl.node)) {
+                // If a Final instance variable is declared in the class body but is
+                // being assigned within an __init__ method, it's allowed.
+                const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(errorNode);
+                if (!enclosingFunctionNode || enclosingFunctionNode.name.value !== '__init__') {
+                    diag?.addMessage(Localizer.Diagnostic.finalReassigned().format({ name: memberName }));
+                    isDescriptorError = true;
+                }
+            }
+
+            // Check for an attempt to overwrite an instance variable that is
+            // read-only (e.g. in a named tuple).
+            if (
+                memberInfo?.isInstanceMember &&
+                isClass(memberInfo.classType) &&
+                ClassType.isReadOnlyInstanceVariables(memberInfo.classType)
+            ) {
+                diag?.addMessage(Localizer.DiagnosticAddendum.readOnlyAttribute().format({ name: memberName }));
+                isDescriptorError = true;
+            }
+
+            return resultType;
         });
 
         if (!isDescriptorError && usage.method === 'set' && usage.setType) {
@@ -6114,77 +6129,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
 
         return { type: boundType ?? UnknownType.create(), typeErrors: !boundType };
-    }
-
-    function adjustMemberAccessTypeForSet(
-        type: Type,
-        memberInfo: ClassMember | undefined,
-        classType: ClassType,
-        errorNode: ExpressionNode,
-        memberName: string,
-        diag: DiagnosticAddendum | undefined
-    ): TypeResult {
-        const isAccessedThroughObject = TypeBase.isInstance(classType);
-        const concreteSubtype = makeTopLevelTypeVarsConcrete(type);
-
-        // Check for an attempt to overwrite a final member variable.
-        const finalVarTypeDecl = memberInfo?.symbol.getDeclarations().find((decl) => isFinalVariableDeclaration(decl));
-
-        if (finalVarTypeDecl && !ParseTreeUtils.isNodeContainedWithin(errorNode, finalVarTypeDecl.node)) {
-            // If a Final instance variable is declared in the class body but is
-            // being assigned within an __init__ method, it's allowed.
-            const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(errorNode);
-            if (!enclosingFunctionNode || enclosingFunctionNode.name.value !== '__init__') {
-                diag?.addMessage(Localizer.Diagnostic.finalReassigned().format({ name: memberName }));
-                return { type, typeErrors: true };
-            }
-        }
-
-        // Check for an attempt to overwrite an instance variable that is
-        // read-only (e.g. in a named tuple).
-        if (
-            memberInfo?.isInstanceMember &&
-            isClass(memberInfo.classType) &&
-            ClassType.isReadOnlyInstanceVariables(memberInfo.classType)
-        ) {
-            diag?.addMessage(Localizer.DiagnosticAddendum.readOnlyAttribute().format({ name: memberName }));
-            return { type, typeErrors: true };
-        }
-
-        let enforceTargetType = false;
-
-        if (memberInfo && memberInfo.symbol.hasTypedDeclarations()) {
-            // If the member has a declared type, we will enforce it.
-            enforceTargetType = true;
-        } else {
-            // If the member has no declared type, we will enforce it
-            // if this assignment isn't within the enclosing class. If
-            // it is within the enclosing class, the assignment is used
-            // to infer the type of the member.
-            if (memberInfo && !memberInfo.symbol.getDeclarations().some((decl) => decl.node === errorNode)) {
-                enforceTargetType = true;
-            }
-        }
-
-        if (enforceTargetType) {
-            let effectiveType = type;
-
-            // If the code is patching a method (defined on the class)
-            // with an object-level function, strip the "self" parameter
-            // off the original type. This is sometimes done for test
-            // purposes to override standard behaviors of specific methods.
-            if (isAccessedThroughObject) {
-                if (!memberInfo!.isInstanceMember && isFunction(concreteSubtype)) {
-                    if (FunctionType.isClassMethod(concreteSubtype) || FunctionType.isInstanceMethod(concreteSubtype)) {
-                        effectiveType = FunctionType.clone(concreteSubtype, /* stripFirstParam */ true);
-                    }
-                }
-            }
-
-            return { type: effectiveType };
-        }
-
-        return { type };
     }
 
     function isAsymmetricDescriptorClass(classType: ClassType): boolean {
