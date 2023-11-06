@@ -7,14 +7,21 @@ import { getEnclosingClass } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { isMaybeDescriptorInstance } from '../analyzer/typeUtils';
-import { ClassType, FunctionType, getTypeAliasInfo, isTypeVar, isUnknown } from '../analyzer/types';
+import {
+    ClassType,
+    FunctionType,
+    TypeCategory,
+    UnknownType,
+    getTypeAliasInfo,
+    isModule,
+    isTypeVar,
+} from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { assertNever } from '../common/debug';
 import { ProgramView } from '../common/extensibility';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { TextRange } from '../common/textRange';
-import { FunctionNode, NameNode, ParseNode, ParseNodeType, isExpressionNode } from '../parser/parseNodes';
+import { FunctionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 enum TokenType {
@@ -72,7 +79,6 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
     constructor(
         private _builder: SemanticTokensBuilder,
         private _parseResults: ParseResults,
-        private _program: ProgramView,
         private _evaluator: TypeEvaluator,
         private _cancellationToken: CancellationToken
     ) {
@@ -86,16 +92,7 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
     override visitName(node: NameNode): boolean {
         throwIfCancellationRequested(this._cancellationToken);
 
-        // First give extensions a crack at getting a declaration.
-        let declarations: Declaration[] | undefined =
-            this._program.serviceProvider
-                .tryGet(ServiceKeys.symbolDefinitionProvider)
-                ?.map((f) => f.tryGetDeclarations(node, node.start, this._cancellationToken))
-                ?.flat() ?? [];
-        if (declarations.length === 0) {
-            declarations = this._evaluator.getDeclarationsForNameNode(node);
-        }
-
+        const declarations = this._evaluator.getDeclarationsForNameNode(node);
         if (declarations && declarations.length > 0) {
             // In most cases, it's best to treat the first declaration as the
             // "primary". This works well for properties that have setters
@@ -118,6 +115,29 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
             }
 
             return this._addResultsForDeclaration(primaryDeclaration, node);
+        } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
+            // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
+            // this if it's part of a module name, since a module name part with no declaration
+            // is a directory (a namespace package), and we don't want to provide any hover
+            // information in that case.
+            const type = this._evaluator.getType(node) ?? UnknownType.create();
+            let declarationType: TokenType | null = null;
+            if (isModule(type)) {
+                // Handle modules specially because submodules aren't associated with
+                // declarations, but we want them to be presented in the same way as
+                // the top-level module, which does have a declaration.
+                declarationType = TokenType.namespace;
+            } else {
+                declarationType = isMaybeDescriptorInstance(type, /* requireSetter */ false)
+                    ? TokenType.property
+                    : TokenType.function;
+            }
+
+            if (declarationType) {
+                const start = convertOffsetToPosition(node.start, this._parseResults.tokenizerOutput.lines);
+                const end = convertOffsetToPosition(TextRange.getEnd(node), this._parseResults.tokenizerOutput.lines);
+                SemanticTokensTreeWalker._push(this._builder, start, end, declarationType, new TokenModifiers());
+            }
         }
 
         return false;
@@ -188,20 +208,7 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
 
                 // Determine if this identifier is a type alias. If so, expand
                 // the type alias when printing the type information.
-                let type = this._evaluator.getType(typeNode);
-
-                // We may have more type information in the alternativeTypeNode. Use that if it's better.
-                if (
-                    (!type || isUnknown(type)) &&
-                    resolvedDecl.alternativeTypeNode &&
-                    isExpressionNode(resolvedDecl.alternativeTypeNode)
-                ) {
-                    const inferredType = this._evaluator.getType(resolvedDecl.alternativeTypeNode);
-                    if (inferredType && !isUnknown(inferredType)) {
-                        type = inferredType;
-                        typeNode = resolvedDecl.alternativeTypeNode;
-                    }
-                }
+                const type = this._evaluator.getType(typeNode);
 
                 if (type?.typeAliasInfo && typeNode.nodeType === ParseNodeType.Name) {
                     const typeAliasInfo = getTypeAliasInfo(type);
@@ -220,6 +227,11 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
                 if (getEnclosingClass(declaration.node, /*stopAtFunction*/ true)) {
                     declarationType = TokenType.property;
                     break;
+                }
+
+                // Handle the case where type is a function and was assigned to a variable.
+                if (type?.category === TypeCategory.Function || type?.category === TypeCategory.OverloadedFunction) {
+                    declarationType = TokenType.function;
                 }
 
                 declarationType = TokenType.variable;
@@ -266,13 +278,13 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
                 SemanticTokensTreeWalker._functionMods(this._evaluator, resolvedDecl.node, declarationModifiers);
                 if (resolvedDecl.isMethod) {
                     const declaredType = this._evaluator.getTypeForDeclaration(resolvedDecl)?.type;
-                    declarationType =
-                        !!declaredType && isMaybeDescriptorInstance(declaredType, /* requireSetter */ false)
-                            ? TokenType.property
-                            : TokenType.method;
-                } else {
-                    declarationType = TokenType.function;
+                    const isProperty =
+                        !!declaredType && isMaybeDescriptorInstance(declaredType, /* requireSetter */ false);
+                    declarationType = isProperty ? TokenType.property : TokenType.method;
+                    break;
                 }
+
+                declarationType = TokenType.function;
                 break;
             }
 
@@ -362,7 +374,7 @@ export class SemanticTokensProvider {
         }
 
         const builder = new SemanticTokensBuilder();
-        new SemanticTokensTreeWalker(builder, parseResults, program, evaluator, token).findSemanticTokens();
+        new SemanticTokensTreeWalker(builder, parseResults, evaluator, token).findSemanticTokens();
         return builder.build();
     }
 
