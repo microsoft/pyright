@@ -91,7 +91,7 @@ import {
     isCodeFlowSupportedForReference,
     wildcardImportReferenceKey,
 } from './codeFlowTypes';
-import { assignTypeToTypeVar, populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
+import { assignTypeToTypeVar, populateTypeVarContextBasedOnExpectedType, updateTypeVarType } from './constraintSolver';
 import { createFunctionFromConstructor, validateConstructorArguments } from './constructors';
 import {
     applyDataClassClassBehaviorOverrides,
@@ -22051,11 +22051,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const srcTypeArgs = curSrcType.typeArguments;
             for (let i = 0; i < destType.details.typeParameters.length; i++) {
                 const typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
-                destTypeVarContext.setTypeVarType(
-                    destType.details.typeParameters[i],
-                    /* narrowBound */ undefined,
-                    /* narrowBoundNoLiterals */ undefined,
-                    typeArgType
+                const typeParam = destType.details.typeParameters[i];
+                const variance = TypeVarType.getVariance(typeParam);
+
+                updateTypeVarType(
+                    evaluatorInterface,
+                    destTypeVarContext,
+                    typeParam,
+                    variance !== Variance.Contravariant ? typeArgType : undefined,
+                    variance !== Variance.Covariant ? typeArgType : undefined,
+                    /* forceRetainLiterals */ true
                 );
             }
         }
