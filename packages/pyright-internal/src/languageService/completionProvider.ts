@@ -30,7 +30,7 @@ import {
 } from '../analyzer/declaration';
 import { isDefinedInFile } from '../analyzer/declarationUtils';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
-import { ImportedModuleDescriptor } from '../analyzer/importResolver';
+import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import { ImportResult } from '../analyzer/importResult';
 import { isTypedKwargs } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
@@ -346,7 +346,10 @@ export class CompletionProvider {
             return;
         }
 
-        if (completionItemData.modulePath) {
+        if (
+            completionItemData.modulePath &&
+            ImportResolver.isSupportedImportSourceFile(completionItemData.modulePath)
+        ) {
             const documentation = getModuleDocStringFromPaths([completionItemData.modulePath], this.sourceMapper);
             if (!documentation) {
                 return;
