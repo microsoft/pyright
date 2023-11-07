@@ -5870,26 +5870,48 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const accessMethod = lookUpClassMember(lookupClass, accessMethodName, MemberAccessFlags.SkipInstanceMembers);
 
-        // Handle properties specially.
-        if (!accessMethod && ClassType.isPropertyClass(lookupClass)) {
-            if (usage.method !== 'get') {
-                const message =
-                    usage.method === 'set'
-                        ? Localizer.DiagnosticAddendum.propertyMissingSetter()
-                        : Localizer.DiagnosticAddendum.propertyMissingDeleter();
-                diag?.addMessage(message.format({ name: memberName }));
-                return { type: AnyType.create(), typeErrors: true };
-            }
-        }
-
         if (!accessMethod) {
+            // Provide special error messages for properties.
+            if (ClassType.isPropertyClass(concreteMemberType)) {
+                if (usage.method !== 'get') {
+                    const message =
+                        usage.method === 'set'
+                            ? Localizer.DiagnosticAddendum.propertyMissingSetter()
+                            : Localizer.DiagnosticAddendum.propertyMissingDeleter();
+                    diag?.addMessage(message.format({ name: memberName }));
+                    return { type: AnyType.create(), typeErrors: true };
+                }
+            }
+
             return { type: memberType };
         }
 
-        let accessMethodType = getTypeOfMember(accessMethod);
+        const accessMethodType = getTypeOfMember(accessMethod);
+
+        if (!isFunction(accessMethodType) && !isOverloadedFunction(accessMethodType)) {
+            if (isAnyOrUnknown(accessMethodType)) {
+                return { type: accessMethodType };
+            }
+
+            // TODO - emit an error for this condition.
+            return { type: memberType, typeErrors: true };
+        }
+
+        let boundMethodType = bindFunctionToClassOrObject(
+            lookupClass,
+            accessMethodType,
+            /* memberClass */ undefined,
+            /* treatConstructorAsClassMember */ undefined,
+            isAccessedThroughMetaclass ? concreteMemberType : undefined
+        );
 
         // Special-case logic for properties.
-        if (ClassType.isPropertyClass(lookupClass) && memberInfo && isInstantiableClass(memberInfo!.classType)) {
+        if (
+            ClassType.isPropertyClass(concreteMemberType) &&
+            memberInfo &&
+            isInstantiableClass(memberInfo.classType) &&
+            boundMethodType
+        ) {
             // If the property is being accessed from a protocol class (not an instance),
             // flag this as an error because a property within a protocol is meant to be
             // interpreted as a read-only attribute rather than a protocol, so accessing
@@ -5901,58 +5923,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Infer return types before specializing. Otherwise a generic inferred
             // return type won't be properly specialized.
-            inferReturnTypeIfNecessary(accessMethodType);
+            inferReturnTypeIfNecessary(boundMethodType);
 
             // This specialization is required specifically for properties, which should be
             // generic but are not defined that way. Because of this, we use type variables
             // in the synthesized methods (e.g. __get__) for the property class that are
             // defined in the class that declares the fget method.
-            accessMethodType = partiallySpecializeType(accessMethodType, memberInfo.classType);
-        }
-
-        if (!isFunction(accessMethodType) && !isOverloadedFunction(accessMethodType)) {
-            if (isAnyOrUnknown(accessMethodType)) {
-                return { type: accessMethodType };
+            const specializedType = partiallySpecializeType(boundMethodType, memberInfo.classType, classType);
+            if (isFunction(specializedType) || isOverloadedFunction(specializedType)) {
+                boundMethodType = specializedType;
             }
-
-            // TODO - emit an error for this condition.
-            return { type: memberType, typeErrors: true };
         }
-
-        const methodType = accessMethodType;
-        let isAsymmetricAccessor = false;
 
         // Determine if we're calling __set__ on an asymmetric descriptor or property.
+        let isAsymmetricAccessor = false;
         if (usage.method === 'set' && isClass(accessMethod.classType)) {
             if (isAsymmetricDescriptorClass(accessMethod.classType)) {
                 isAsymmetricAccessor = true;
             }
         }
 
-        // Bind the accessor to the base object type.
-        let bindToClass: ClassType | undefined;
-
-        // The "bind-to" class depends on whether the descriptor is defined
-        // on the metaclass or the class. We handle properties specially here
-        // because of the way we model the __get__ logic in the property class.
-        if (ClassType.isPropertyClass(concreteMemberType) && !isAccessedThroughMetaclass) {
-            if (memberInfo && isInstantiableClass(memberInfo.classType)) {
-                bindToClass = ClassType.cloneAsInstance(memberInfo.classType);
-            }
-        }
-
-        let boundMethodType = bindFunctionToClassOrObject(
-            lookupClass,
-            methodType,
-            bindToClass,
-            /* treatConstructorAsClassMember */ undefined,
-            isAccessedThroughMetaclass ? concreteMemberType : undefined
-        );
-
-        // The synthesized access method for the property may contain
-        // type variables associated with the "bindToClass", so we need
-        // to specialize those here.
-        if (!boundMethodType || (!isFunction(boundMethodType) && !isOverloadedFunction(boundMethodType))) {
+        if (!boundMethodType) {
             diag?.addMessage(
                 Localizer.DiagnosticAddendum.descriptorAccessBindingFailed().format({
                     name: accessMethodName,
@@ -5966,17 +5957,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isDescriptorApplied: true,
                 isAsymmetricAccessor,
             };
-        }
-
-        const typeVarContext = new TypeVarContext(getTypeVarScopeId(boundMethodType));
-        if (bindToClass) {
-            const specializedBoundType = partiallySpecializeType(boundMethodType, bindToClass, classType);
-
-            if (specializedBoundType) {
-                if (isFunction(specializedBoundType) || isOverloadedFunction(specializedBoundType)) {
-                    boundMethodType = specializedBoundType;
-                }
-            }
         }
 
         // Simulate a call to the access method.
@@ -6021,7 +6001,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 errorNode,
                 argList,
                 { type: boundMethodType },
-                typeVarContext,
+                /* typeVarContext */ undefined,
                 /* skipUnknownArgCheck */ true
             );
         });

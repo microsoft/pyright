@@ -273,6 +273,8 @@ export function clonePropertyWithDeleter(
 function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObject: ClassType, fget: FunctionType) {
     const fields = propertyObject.details.fields;
 
+    // The first overload is for accesses through a class object (where
+    // the instance argument is None).
     const getFunction1 = FunctionType.createSynthesizedInstance('__get__', FunctionTypeFlags.Overloaded);
     FunctionType.addParameter(getFunction1, {
         category: ParameterCategory.Simple,
@@ -304,6 +306,7 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     // decorated function.
     getFunction1.details.typeVarScopeId = getTypeVarScopeId(fget);
 
+    // The second overload is for accesses through a class instance.
     const getFunction2 = FunctionType.createSynthesizedInstance('__get__', FunctionTypeFlags.Overloaded);
     FunctionType.addParameter(getFunction2, {
         category: ParameterCategory.Simple,
