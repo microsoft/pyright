@@ -7,15 +7,7 @@ import { getEnclosingClass } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { isMaybeDescriptorInstance } from '../analyzer/typeUtils';
-import {
-    ClassType,
-    FunctionType,
-    TypeCategory,
-    UnknownType,
-    getTypeAliasInfo,
-    isModule,
-    isTypeVar,
-} from '../analyzer/types';
+import { ClassType, FunctionType, TypeCategory, getTypeAliasInfo, isTypeVar } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { assertNever } from '../common/debug';
 import { ProgramView } from '../common/extensibility';
@@ -115,29 +107,6 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
             }
 
             return this._addResultsForDeclaration(primaryDeclaration, node);
-        } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
-            // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
-            // this if it's part of a module name, since a module name part with no declaration
-            // is a directory (a namespace package), and we don't want to provide any hover
-            // information in that case.
-            const type = this._evaluator.getType(node) ?? UnknownType.create();
-            let declarationType: TokenType | null = null;
-            if (isModule(type)) {
-                // Handle modules specially because submodules aren't associated with
-                // declarations, but we want them to be presented in the same way as
-                // the top-level module, which does have a declaration.
-                declarationType = TokenType.namespace;
-            } else {
-                declarationType = isMaybeDescriptorInstance(type, /* requireSetter */ false)
-                    ? TokenType.property
-                    : TokenType.function;
-            }
-
-            if (declarationType) {
-                const start = convertOffsetToPosition(node.start, this._parseResults.tokenizerOutput.lines);
-                const end = convertOffsetToPosition(TextRange.getEnd(node), this._parseResults.tokenizerOutput.lines);
-                SemanticTokensTreeWalker._push(this._builder, start, end, declarationType, new TokenModifiers());
-            }
         }
 
         return false;
