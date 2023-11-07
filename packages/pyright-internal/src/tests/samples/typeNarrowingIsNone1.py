@@ -4,7 +4,7 @@
 
 # pyright: strict, reportUnusedVariable=false
 
-from typing import Any, Literal, Protocol, TypeVar
+from typing import Any, Literal, Protocol, Self, TypeVar
 
 
 def func1(x: int | None):
@@ -80,3 +80,16 @@ def func7(x: NoneProto | None):
         reveal_type(x, expected_text="None")
     else:
         reveal_type(x, expected_text="NoneProto")
+
+
+class A:
+    def __init__(self, parent: Self | None) -> None:
+        self.parent = parent
+
+    def get_depth(self) -> int:
+        current: Self | None = self
+        count = 0
+        while current is not None:
+            count += 1
+            current = current.parent
+        return count - 1

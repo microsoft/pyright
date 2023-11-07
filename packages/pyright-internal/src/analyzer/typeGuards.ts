@@ -1126,7 +1126,7 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
             // See if it's a match for None.
             if (isNoneInstance(subtype) === isPositiveTest) {
                 resultIncludesNoneSubtype = true;
-                return subtype;
+                return adjustedSubtype;
             }
 
             return undefined;
