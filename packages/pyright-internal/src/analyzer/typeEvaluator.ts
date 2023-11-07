@@ -5840,37 +5840,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             accessMethodName = '__delete__';
         }
 
-        let lookupClass: ClassType | undefined = concreteMemberType;
-        let isAccessedThroughMetaclass = false;
+        const methodTypeResult = getTypeOfObjectMember(
+            errorNode,
+            concreteMemberType,
+            accessMethodName,
+            { method: 'get' },
+            diag?.createAddendum(),
+            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
+        );
 
-        // If it's an object, use its class to lookup the descriptor. If it's a class,
-        // use its metaclass instead.
-        if (TypeBase.isInstantiable(concreteMemberType)) {
-            if (
-                concreteMemberType.details.effectiveMetaclass &&
-                isInstantiableClass(concreteMemberType.details.effectiveMetaclass)
-            ) {
-                // When accessing a class member that is a class whose metaclass implements
-                // a descriptor protocol, only 'get' operations are allowed. If it's accessed
-                // through the object, all access methods are supported.
-                if (isAccessedThroughObject || usage.method === 'get') {
-                    lookupClass = ClassType.cloneAsInstance(concreteMemberType.details.effectiveMetaclass);
-                    isAccessedThroughMetaclass = true;
-                } else {
-                    lookupClass = undefined;
-                }
-            } else {
-                lookupClass = undefined;
-            }
-        }
-
-        if (!lookupClass) {
-            return { type: memberType };
-        }
-
-        const accessMethod = lookUpClassMember(lookupClass, accessMethodName, MemberAccessFlags.SkipInstanceMembers);
-
-        if (!accessMethod) {
+        if (!methodTypeResult) {
             // Provide special error messages for properties.
             if (ClassType.isPropertyClass(concreteMemberType)) {
                 if (usage.method !== 'get') {
@@ -5886,31 +5865,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: memberType };
         }
 
-        const accessMethodType = getTypeOfMember(accessMethod);
+        const methodClassType = methodTypeResult.classType;
+        let methodType = methodTypeResult.type;
 
-        if (!isFunction(accessMethodType) && !isOverloadedFunction(accessMethodType)) {
-            if (isAnyOrUnknown(accessMethodType)) {
-                return { type: accessMethodType };
+        if (methodTypeResult.typeErrors || !methodClassType) {
+            return { type: UnknownType.create(), typeErrors: true };
+        }
+
+        if (!isFunction(methodType) && !isOverloadedFunction(methodType)) {
+            if (isAnyOrUnknown(methodType)) {
+                return { type: methodType };
             }
 
             // TODO - emit an error for this condition.
             return { type: memberType, typeErrors: true };
         }
 
-        let boundMethodType = bindFunctionToClassOrObject(
-            lookupClass,
-            accessMethodType,
-            /* memberClass */ undefined,
-            /* treatConstructorAsClassMember */ undefined,
-            isAccessedThroughMetaclass ? concreteMemberType : undefined
-        );
-
         // Special-case logic for properties.
         if (
             ClassType.isPropertyClass(concreteMemberType) &&
             memberInfo &&
             isInstantiableClass(memberInfo.classType) &&
-            boundMethodType
+            methodType
         ) {
             // If the property is being accessed from a protocol class (not an instance),
             // flag this as an error because a property within a protocol is meant to be
@@ -5923,31 +5899,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Infer return types before specializing. Otherwise a generic inferred
             // return type won't be properly specialized.
-            inferReturnTypeIfNecessary(boundMethodType);
+            inferReturnTypeIfNecessary(methodType);
 
             // This specialization is required specifically for properties, which should be
             // generic but are not defined that way. Because of this, we use type variables
             // in the synthesized methods (e.g. __get__) for the property class that are
             // defined in the class that declares the fget method.
-            const specializedType = partiallySpecializeType(boundMethodType, memberInfo.classType, classType);
+            const specializedType = partiallySpecializeType(methodType, memberInfo.classType, classType);
             if (isFunction(specializedType) || isOverloadedFunction(specializedType)) {
-                boundMethodType = specializedType;
+                methodType = specializedType;
             }
         }
 
         // Determine if we're calling __set__ on an asymmetric descriptor or property.
         let isAsymmetricAccessor = false;
-        if (usage.method === 'set' && isClass(accessMethod.classType)) {
-            if (isAsymmetricDescriptorClass(accessMethod.classType)) {
+        if (usage.method === 'set' && isClass(methodClassType)) {
+            if (isAsymmetricDescriptorClass(methodClassType)) {
                 isAsymmetricAccessor = true;
             }
         }
 
-        if (!boundMethodType) {
+        if (!methodType) {
             diag?.addMessage(
                 Localizer.DiagnosticAddendum.descriptorAccessBindingFailed().format({
                     name: accessMethodName,
-                    className: printType(convertToInstance(accessMethod.classType)),
+                    className: printType(convertToInstance(methodClassType)),
                 })
             );
 
@@ -5966,7 +5942,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         argList.push({
             argumentCategory: ArgumentCategory.Simple,
             typeResult: {
-                type: ClassType.isClassProperty(lookupClass!)
+                type: ClassType.isClassProperty(concreteMemberType!)
                     ? classType
                     : isAccessedThroughObject
                     ? selfType ?? ClassType.cloneAsInstance(classType)
@@ -5995,12 +5971,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Suppress diagnostics for these method calls because they would be redundant.
         const callResult = suppressDiagnostics(errorNode, () => {
-            assert(boundMethodType !== undefined);
-
             return validateCallArguments(
                 errorNode,
                 argList,
-                { type: boundMethodType },
+                { type: methodType },
                 /* typeVarContext */ undefined,
                 /* skipUnknownArgCheck */ true
             );
@@ -6013,7 +5987,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (overloadUsed.details.deprecatedMessage) {
                 deprecationInfo = {
                     deprecationMessage: overloadUsed.details.deprecatedMessage,
-                    accessType: lookupClass && ClassType.isPropertyClass(lookupClass) ? 'property' : 'descriptor',
+                    accessType: ClassType.isPropertyClass(concreteMemberType) ? 'property' : 'descriptor',
                     accessMethod: usage.method,
                 };
             }
@@ -6033,11 +6007,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (usage.method === 'set') {
             if (
                 usage.setType &&
-                isFunction(boundMethodType) &&
-                boundMethodType.details.parameters.length >= 2 &&
+                isFunction(methodType) &&
+                methodType.details.parameters.length >= 2 &&
                 !usage.setType.isIncomplete
             ) {
-                const setterType = FunctionType.getEffectiveParameterType(boundMethodType, 1);
+                const setterType = FunctionType.getEffectiveParameterType(methodType, 1);
 
                 diag?.addMessage(
                     Localizer.DiagnosticAddendum.typeIncompatible().format({
@@ -6045,14 +6019,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         sourceType: printType(usage.setType.type),
                     })
                 );
-            } else if (isOverloadedFunction(boundMethodType)) {
+            } else if (isOverloadedFunction(methodType)) {
                 diag?.addMessage(Localizer.Diagnostic.noOverload().format({ name: accessMethodName }));
             }
         } else {
             diag?.addMessage(
                 Localizer.DiagnosticAddendum.descriptorAccessCallFailed().format({
                     name: accessMethodName,
-                    className: printType(convertToInstance(accessMethod.classType)),
+                    className: printType(convertToInstance(methodClassType)),
                 })
             );
         }
