@@ -11,7 +11,6 @@ import assert from 'assert';
 import * as path from 'path';
 
 import {
-    changeAnyExtension,
     combinePathComponents,
     combinePaths,
     containsPath,
@@ -22,7 +21,6 @@ import {
     getFileName,
     getPathComponents,
     getRelativePath,
-    getRelativePathFromDirectory,
     getRootLength,
     getWildcardRegexPattern,
     getWildcardRoot,
@@ -250,22 +248,6 @@ test('containsPath3', () => {
     assert.equal(containsPath('/a', '/A/B', true), true);
 });
 
-test('changeAnyExtension1', () => {
-    assert.equal(changeAnyExtension('/path/to/file.ext', '.js', ['.ext', '.ts'], true), '/path/to/file.js');
-});
-
-test('changeAnyExtension2', () => {
-    assert.equal(changeAnyExtension('/path/to/file.ext', '.js'), '/path/to/file.js');
-});
-
-test('changeAnyExtension3', () => {
-    assert.equal(changeAnyExtension('/path/to/file.ext', '.js', '.ts', false), '/path/to/file.ext');
-});
-
-test('changeAnyExtension1', () => {
-    assert.equal(getAnyExtensionFromPath('/path/to/file.ext'), '.ext');
-});
-
 test('changeAnyExtension2', () => {
     assert.equal(getAnyExtensionFromPath('/path/to/file.ext', '.ts', true), '');
 });
@@ -288,14 +270,6 @@ test('getBaseFileName3', () => {
 
 test('getBaseFileName4', () => {
     assert.equal(getBaseFileName('/path/to/file.ext', ['.ext'], true), 'file');
-});
-
-test('getRelativePathFromDirectory1', () => {
-    assert.equal(getRelativePathFromDirectory('/a', '/a/b/c/d', true), normalizeSlashes('b/c/d'));
-});
-
-test('getRelativePathFromDirectory2', () => {
-    assert.equal(getRelativePathFromDirectory('/a', '/b/c/d', true), normalizeSlashes('../b/c/d'));
 });
 
 test('getRootLength1', () => {

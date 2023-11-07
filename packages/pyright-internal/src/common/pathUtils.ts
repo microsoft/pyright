@@ -12,8 +12,6 @@ import { URI, Utils } from 'vscode-uri';
 
 import { Char } from './charCodes';
 import { some } from './collectionUtils';
-import { GetCanonicalFileName, identity } from './core';
-import * as debug from './debug';
 import { equateStringsCaseInsensitive, equateStringsCaseSensitive } from './stringUtils';
 
 export interface FileSpec {
@@ -293,44 +291,6 @@ export function containsPath(parent: string, child: string, currentDirectory?: s
 }
 
 /**
- * Changes the extension of a path to the provided extension.
- *
- * ```ts
- * changeAnyExtension("/path/to/file.ext", ".js") === "/path/to/file.js"
- * ```
- */
-export function changeAnyExtension(path: string, ext: string): string;
-
-/**
- * Changes the extension of a path to the provided extension if it has one of the provided extensions.
- *
- * ```ts
- * changeAnyExtension("/path/to/file.ext", ".js", ".ext") === "/path/to/file.js"
- * changeAnyExtension("/path/to/file.ext", ".js", ".ts") === "/path/to/file.ext"
- * changeAnyExtension("/path/to/file.ext", ".js", [".ext", ".ts"]) === "/path/to/file.js"
- * ```
- */
-export function changeAnyExtension(
-    path: string,
-    ext: string,
-    extensions: string | readonly string[],
-    ignoreCase: boolean
-): string;
-export function changeAnyExtension(
-    path: string,
-    ext: string,
-    extensions?: string | readonly string[],
-    ignoreCase?: boolean
-): string {
-    const pathExt =
-        extensions !== undefined && ignoreCase !== undefined
-            ? getAnyExtensionFromPath(path, extensions, ignoreCase)
-            : getAnyExtensionFromPath(path);
-
-    return pathExt ? path.slice(0, path.length - pathExt.length) + (ext.startsWith('.') ? ext : '.' + ext) : path;
-}
-
-/**
  * Gets the file extension for a path.
  *
  * ```ts
@@ -432,49 +392,6 @@ export function getBaseFileName(pathString: string, extensions?: string | readon
             : undefined;
 
     return extension ? name.slice(0, name.length - extension.length) : name;
-}
-
-/**
- * Gets a relative path that can be used to traverse between `from` and `to`.
- */
-export function getRelativePathFromDirectory(from: string, to: string, ignoreCase: boolean): string;
-/**
- * Gets a relative path that can be used to traverse between `from` and `to`.
- */
-export function getRelativePathFromDirectory(
-    fromDirectory: string,
-    to: string,
-    getCanonicalFileName: GetCanonicalFileName
-): string;
-export function getRelativePathFromDirectory(
-    fromDirectory: string,
-    to: string,
-    getCanonicalFileNameOrIgnoreCase: GetCanonicalFileName | boolean
-) {
-    const pathComponents = getRelativePathComponentsFromDirectory(fromDirectory, to, getCanonicalFileNameOrIgnoreCase);
-    return combinePathComponents(pathComponents);
-}
-
-export function getRelativePathComponentsFromDirectory(
-    fromDirectory: string,
-    to: string,
-    getCanonicalFileNameOrIgnoreCase: GetCanonicalFileName | boolean
-) {
-    debug.assert(
-        getRootLength(fromDirectory) > 0 === getRootLength(to) > 0,
-        'Paths must either both be absolute or both be relative'
-    );
-    const getCanonicalFileName =
-        typeof getCanonicalFileNameOrIgnoreCase === 'function' ? getCanonicalFileNameOrIgnoreCase : identity;
-    const ignoreCase = typeof getCanonicalFileNameOrIgnoreCase === 'boolean' ? getCanonicalFileNameOrIgnoreCase : false;
-    const pathComponents = getPathComponentsRelativeTo(
-        fromDirectory,
-        to,
-        ignoreCase ? equateStringsCaseInsensitive : equateStringsCaseSensitive,
-        getCanonicalFileName
-    );
-
-    return pathComponents;
 }
 
 export function ensureTrailingDirectorySeparator(pathString: string): string {
@@ -706,35 +623,4 @@ function tryGetExtensionFromPath(
     }
 
     return undefined;
-}
-
-function getPathComponentsRelativeTo(
-    from: string,
-    to: string,
-    stringEqualityComparer: (a: string, b: string) => boolean,
-    getCanonicalFileName: GetCanonicalFileName
-) {
-    const fromComponents = getPathComponents(from);
-    const toComponents = getPathComponents(to);
-
-    let start: number;
-    for (start = 0; start < fromComponents.length && start < toComponents.length; start++) {
-        const fromComponent = getCanonicalFileName(fromComponents[start]);
-        const toComponent = getCanonicalFileName(toComponents[start]);
-        const comparer = start === 0 ? equateStringsCaseInsensitive : stringEqualityComparer;
-        if (!comparer(fromComponent, toComponent)) {
-            break;
-        }
-    }
-
-    if (start === 0) {
-        return toComponents;
-    }
-
-    const components = toComponents.slice(start);
-    const relative: string[] = [];
-    for (; start < fromComponents.length; start++) {
-        relative.push('..');
-    }
-    return ['', ...relative, ...components];
 }
