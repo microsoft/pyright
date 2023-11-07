@@ -56,6 +56,49 @@ import {
     isUnknown,
 } from './types';
 
+// Fetches and binds the __new__ method from a class.
+export function getBoundNewMethod(evaluator: TypeEvaluator, errorNode: ExpressionNode, type: ClassType) {
+    return evaluator.getTypeOfObjectMember(
+        errorNode,
+        type,
+        '__new__',
+        { method: 'get' },
+        /* diag */ undefined,
+        MemberAccessFlags.SkipClassMembers |
+            MemberAccessFlags.SkipObjectBaseClass |
+            MemberAccessFlags.SkipAttributeAccessOverride |
+            MemberAccessFlags.TreatConstructorAsClassMethod
+    );
+}
+
+// Fetches and binds the __init__ method from a class instance.
+export function getBoundInitMethod(evaluator: TypeEvaluator, errorNode: ExpressionNode, type: ClassType) {
+    return evaluator.getTypeOfObjectMember(
+        errorNode,
+        type,
+        '__init__',
+        { method: 'get' },
+        /* diag */ undefined,
+        MemberAccessFlags.SkipInstanceMembers |
+            MemberAccessFlags.SkipObjectBaseClass |
+            MemberAccessFlags.SkipAttributeAccessOverride
+    );
+}
+
+// Fetches and binds the __call__ method from a class or its metaclass.
+export function getBoundCallMethod(evaluator: TypeEvaluator, errorNode: ExpressionNode, type: ClassType) {
+    return evaluator.getTypeOfObjectMember(
+        errorNode,
+        type,
+        '__call__',
+        { method: 'get' },
+        /* diag */ undefined,
+        MemberAccessFlags.SkipInstanceMembers |
+            MemberAccessFlags.SkipTypeBaseClass |
+            MemberAccessFlags.SkipAttributeAccessOverride
+    );
+}
+
 // Matches the arguments of a call to the constructor for a class.
 // If successful, it returns the resulting (specialized) object type that
 // is allocated by the constructor. If unsuccessful, it reports diagnostics.
@@ -89,18 +132,7 @@ export function validateConstructorArguments(
     }
 
     // Determine whether the class overrides the object.__new__ method.
-    const newMethodTypeResult = evaluator.getTypeOfObjectMember(
-        errorNode,
-        type,
-        '__new__',
-        { method: 'get' },
-        /* diag */ undefined,
-        MemberAccessFlags.SkipClassMembers |
-            MemberAccessFlags.SkipObjectBaseClass |
-            MemberAccessFlags.SkipAttributeAccessOverride |
-            MemberAccessFlags.TreatConstructorAsClassMethod
-    );
-
+    const newMethodTypeResult = getBoundNewMethod(evaluator, errorNode, type);
     const useConstructorTransform = hasConstructorTransform(type);
 
     // If there is a constructor transform, evaluate all arguments speculatively
@@ -262,16 +294,7 @@ function validateNewAndInitMethods(
         }
 
         // Determine whether the class overrides the object.__init__ method.
-        initMethodTypeResult = evaluator.getTypeOfObjectMember(
-            errorNode,
-            initMethodBindToType,
-            '__init__',
-            { method: 'get' },
-            /* diag */ undefined,
-            MemberAccessFlags.SkipInstanceMembers |
-                MemberAccessFlags.SkipObjectBaseClass |
-                MemberAccessFlags.SkipAttributeAccessOverride
-        );
+        initMethodTypeResult = getBoundInitMethod(evaluator, errorNode, initMethodBindToType);
 
         // Validate __init__ if it's present.
         if (initMethodTypeResult) {
@@ -647,16 +670,7 @@ function validateMetaclassCall(
     skipUnknownArgCheck: boolean,
     inferenceContext: InferenceContext | undefined
 ): CallResult | undefined {
-    const metaclassCallMethodInfo = evaluator.getTypeOfObjectMember(
-        errorNode,
-        type,
-        '__call__',
-        { method: 'get' },
-        /* diag */ undefined,
-        MemberAccessFlags.SkipInstanceMembers |
-            MemberAccessFlags.SkipTypeBaseClass |
-            MemberAccessFlags.SkipAttributeAccessOverride
-    );
+    const metaclassCallMethodInfo = getBoundCallMethod(evaluator, errorNode, type);
 
     if (metaclassCallMethodInfo) {
         const callResult = evaluator.validateCallArguments(
