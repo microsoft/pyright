@@ -1510,17 +1510,17 @@ export class PackageTypeVerifier {
         report.symbols.set(symbolInfo.fullName, symbolInfo);
     }
 
-    private _addSymbolError(symbolInfo: SymbolInfo, message: string, declRange: Range, declFilePath: string) {
+    private _addSymbolError(symbolInfo: SymbolInfo, message: string, declRange: Range, declUri: string) {
         symbolInfo.diagnostics.push({
             diagnostic: new Diagnostic(DiagnosticCategory.Error, message, declRange),
-            filePath: declFilePath,
+            uri: Uri.parse(declUri),
         });
     }
 
-    private _addSymbolWarning(symbolInfo: SymbolInfo, message: string, declRange: Range, declFilePath: string) {
+    private _addSymbolWarning(symbolInfo: SymbolInfo, message: string, declRange: Range, declUri: string) {
         symbolInfo.diagnostics.push({
             diagnostic: new Diagnostic(DiagnosticCategory.Warning, message, declRange),
-            filePath: declFilePath,
+            uri: Uri.parse(declUri),
         });
     }
 

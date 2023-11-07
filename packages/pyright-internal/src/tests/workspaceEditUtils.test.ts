@@ -12,7 +12,8 @@ import { TextDocumentEdit, WorkspaceEdit } from 'vscode-languageserver-types';
 import { CancellationToken } from 'vscode-languageserver';
 import { AnalyzerService } from '../analyzer/service';
 import { IPythonMode } from '../analyzer/sourceFile';
-import { combinePaths, convertPathToUri, getDirectoryPath } from '../common/pathUtils';
+import { combinePaths, getDirectoryPath } from '../common/pathUtils';
+import { Uri } from '../common/uri';
 import { applyWorkspaceEdit, generateWorkspaceEdit } from '../common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from '../languageService/analyzerServiceExecutor';
 import { TestLanguageService } from './harness/fourslash/testLanguageService';
@@ -29,12 +30,12 @@ test('test applyWorkspaceEdits changes', async () => {
     const cloned = await getClonedService(state);
     const range = state.getRangeByMarkerName('marker')!;
 
-    const fileChanged = new Set<string>();
+    const fileChanged: Uri[] = [];
     applyWorkspaceEditToService(
         cloned,
         {
             changes: {
-                [convertPathToUri(cloned.fs, range.fileName)]: [
+                [Uri.file(range.fileName).toString()]: [
                     {
                         range: state.convertPositionRange(range),
                         newText: 'Text Changed',
@@ -45,8 +46,8 @@ test('test applyWorkspaceEdits changes', async () => {
         fileChanged
     );
 
-    assert.strictEqual(fileChanged.size, 1);
-    assert.strictEqual(cloned.test_program.getSourceFile(range.fileName)?.getFileContent(), 'Text Changed');
+    assert.strictEqual(fileChanged.length, 1);
+    assert.strictEqual(cloned.test_program.getSourceFile(Uri.file(range.fileName))?.getFileContent(), 'Text Changed');
 });
 
 test('test edit mode for workspace', async () => {
@@ -57,16 +58,16 @@ test('test edit mode for workspace', async () => {
 
     const state = parseAndGetTestState(code).state;
     const range = state.getRangeByMarkerName('marker')!;
-    const addedFilePath = combinePaths(getDirectoryPath(range.fileName), 'test2.py');
+    const addedFileUri = Uri.file(combinePaths(getDirectoryPath(range.fileName), 'test2.py'));
     const edits = state.workspace.service.runEditMode((program) => {
-        const fileChanged = new Set<string>();
+        const fileChanged: Uri[] = [];
         applyWorkspaceEdit(
             program,
             {
                 documentChanges: [
                     TextDocumentEdit.create(
                         {
-                            uri: convertPathToUri(program.fileSystem, range.fileName),
+                            uri: Uri.file(range.fileName).toString(),
                             version: null,
                         },
                         [
@@ -81,20 +82,19 @@ test('test edit mode for workspace', async () => {
             fileChanged
         );
 
-        assert.strictEqual(fileChanged.size, 1);
-        const info = program.getSourceFileInfo(range.fileName)!;
+        assert.strictEqual(fileChanged.length, 1);
+        const info = program.getSourceFileInfo(Uri.file(range.fileName))!;
         const sourceFile = info.sourceFile;
 
-        program.analyzeFile(sourceFile.getFilePath(), CancellationToken.None);
+        program.analyzeFile(sourceFile.getUri(), CancellationToken.None);
         assert.strictEqual(sourceFile.getFileContent(), 'import sys');
         assert.strictEqual(info.imports.length, 2);
 
         // Add a new file.
-        program.setFileOpened(addedFilePath, 0, '', {
+        program.setFileOpened(addedFileUri, 0, '', {
             isTracked: true,
             ipythonMode: IPythonMode.None,
             chainedUri: undefined,
-            realFilePath: addedFilePath,
         });
 
         applyWorkspaceEdit(
@@ -103,7 +103,7 @@ test('test edit mode for workspace', async () => {
                 documentChanges: [
                     TextDocumentEdit.create(
                         {
-                            uri: convertPathToUri(program.fileSystem, addedFilePath),
+                            uri: addedFileUri.toString(),
                             version: null,
                         },
                         [
@@ -127,7 +127,7 @@ test('test edit mode for workspace', async () => {
                 documentChanges: [
                     TextDocumentEdit.create(
                         {
-                            uri: convertPathToUri(program.fileSystem, addedFilePath),
+                            uri: addedFileUri.toString(),
                             version: null,
                         },
                         [
@@ -145,16 +145,16 @@ test('test edit mode for workspace', async () => {
             fileChanged
         );
 
-        const addedInfo = program.getSourceFileInfo(addedFilePath)!;
+        const addedInfo = program.getSourceFileInfo(addedFileUri)!;
         const addedSourceFile = addedInfo.sourceFile;
-        program.analyzeFile(addedSourceFile.getFilePath(), CancellationToken.None);
+        program.analyzeFile(addedSourceFile.getUri(), CancellationToken.None);
 
         assert.strictEqual(addedSourceFile.getFileContent(), 'import os');
         assert.strictEqual(addedInfo.imports.length, 2);
     }, CancellationToken.None);
 
     // After leaving edit mode, we should be back to where we were.
-    const oldSourceFile = state.workspace.service.test_program.getSourceFile(range.fileName);
+    const oldSourceFile = state.workspace.service.test_program.getSourceFile(Uri.file(range.fileName));
     state.workspace.service.backgroundAnalysisProgram.analyzeFile(oldSourceFile!.getUri(), CancellationToken.None);
 
     assert.strictEqual(oldSourceFile?.getFileContent(), '');
@@ -164,7 +164,7 @@ test('test edit mode for workspace', async () => {
     assert.deepStrictEqual(edits[0].replacementText, 'import sys');
     assert.deepStrictEqual(edits[1].replacementText, 'import os');
 
-    const addedSourceFile = state.workspace.service.test_program.getSourceFile(addedFilePath);
+    const addedSourceFile = state.workspace.service.test_program.getSourceFile(addedFileUri);
 
     // The added file should not be there.
     assert.ok(!addedSourceFile);
@@ -180,14 +180,14 @@ test('test applyWorkspaceEdits documentChanges', async () => {
     const cloned = await getClonedService(state);
     const range = state.getRangeByMarkerName('marker')!;
 
-    const fileChanged = new Set<string>();
+    const fileChanged: Uri[] = [];
     applyWorkspaceEditToService(
         cloned,
         {
             documentChanges: [
                 TextDocumentEdit.create(
                     {
-                        uri: convertPathToUri(cloned.fs, range.fileName),
+                        uri: Uri.file(range.fileName).toString(),
                         version: null,
                     },
                     [
@@ -202,8 +202,8 @@ test('test applyWorkspaceEdits documentChanges', async () => {
         fileChanged
     );
 
-    assert.strictEqual(fileChanged.size, 1);
-    assert.strictEqual(cloned.test_program.getSourceFile(range.fileName)?.getFileContent(), 'Text Changed');
+    assert.strictEqual(fileChanged.length, 1);
+    assert.strictEqual(cloned.test_program.getSourceFile(Uri.file(range.fileName))?.getFileContent(), 'Text Changed');
 });
 
 test('test generateWorkspaceEdits', async () => {
@@ -219,12 +219,12 @@ test('test generateWorkspaceEdits', async () => {
     const cloned = await getClonedService(state);
     const range1 = state.getRangeByMarkerName('marker1')!;
 
-    const fileChanged = new Set<string>();
+    const fileChanged: Uri[] = [];
     applyWorkspaceEditToService(
         cloned,
         {
             changes: {
-                [convertPathToUri(cloned.fs, range1.fileName)]: [
+                [Uri.file(range1.fileName).toString()]: [
                     {
                         range: state.convertPositionRange(range1),
                         newText: 'Test1 Changed',
@@ -241,7 +241,7 @@ test('test generateWorkspaceEdits', async () => {
             documentChanges: [
                 TextDocumentEdit.create(
                     {
-                        uri: convertPathToUri(cloned.fs, range1.fileName),
+                        uri: Uri.file(range1.fileName).toString(),
                         version: null,
                     },
                     [
@@ -263,7 +263,7 @@ test('test generateWorkspaceEdits', async () => {
             documentChanges: [
                 TextDocumentEdit.create(
                     {
-                        uri: convertPathToUri(cloned.fs, range2.fileName),
+                        uri: Uri.file(range2.fileName).toString(),
                         version: null,
                     },
                     [
@@ -282,7 +282,7 @@ test('test generateWorkspaceEdits', async () => {
         cloned,
         {
             changes: {
-                [convertPathToUri(cloned.fs, range2.fileName)]: [
+                [Uri.file(range2.fileName).toString()]: [
                     {
                         range: { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } },
                         newText: 'NewTest2',
@@ -293,19 +293,19 @@ test('test generateWorkspaceEdits', async () => {
         fileChanged
     );
 
-    assert.strictEqual(fileChanged.size, 2);
+    assert.strictEqual(fileChanged.length, 2);
 
     const actualEdits = generateWorkspaceEdit(state.workspace.service, cloned, fileChanged);
     verifyWorkspaceEdit(
         {
             changes: {
-                [convertPathToUri(cloned.fs, range1.fileName)]: [
+                [Uri.file(range1.fileName).toString()]: [
                     {
                         range: state.convertPositionRange(range1),
                         newText: 'NewTest1 Changed',
                     },
                 ],
-                [convertPathToUri(cloned.fs, range2.fileName)]: [
+                [Uri.file(range2.fileName).toString()]: [
                     {
                         range: state.convertPositionRange(range1),
                         newText: 'NewTest2 Changed',
@@ -317,7 +317,7 @@ test('test generateWorkspaceEdits', async () => {
     );
 });
 
-function applyWorkspaceEditToService(service: AnalyzerService, edits: WorkspaceEdit, filesChanged: Set<string>) {
+function applyWorkspaceEditToService(service: AnalyzerService, edits: WorkspaceEdit, filesChanged: Uri[]) {
     const program = service.backgroundAnalysisProgram.program;
     applyWorkspaceEdit(program, edits, filesChanged);
 }

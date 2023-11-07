@@ -34,6 +34,7 @@ import { RealTempFile, createFromRealFileSystem } from './common/realFileSystem'
 import { ServiceProvider } from './common/serviceProvider';
 import { createServiceProvider } from './common/serviceProviderExtensions';
 import { Range, isEmptyRange } from './common/textRange';
+import { Uri } from './common/uri';
 import { PyrightFileSystem } from './pyrightFileSystem';
 
 const toolName = 'pyright';
@@ -95,7 +96,7 @@ interface PyrightPublicSymbolReport {
 }
 
 interface PyrightJsonDiagnostic {
-    file: string;
+    uri: string;
     severity: SeverityLevel;
     message: string;
     range?: Range | undefined;
@@ -525,7 +526,7 @@ function buildTypeCompletenessReport(
 
     // Add the general diagnostics.
     completenessReport.generalDiagnostics.forEach((diag) => {
-        const jsonDiag = convertDiagnosticToJson('', diag);
+        const jsonDiag = convertDiagnosticToJson(Uri.empty(), diag);
         if (isDiagnosticIncluded(jsonDiag.severity, minSeverityLevel)) {
             report.generalDiagnostics.push(jsonDiag);
         }
@@ -572,7 +573,7 @@ function buildTypeCompletenessReport(
 
         // Convert and filter the diagnostics.
         symbol.diagnostics.forEach((diag) => {
-            const jsonDiag = convertDiagnosticToJson(diag.filePath, diag.diagnostic);
+            const jsonDiag = convertDiagnosticToJson(diag.uri, diag.diagnostic);
             if (isDiagnosticIncluded(jsonDiag.severity, minSeverityLevel)) {
                 diagnostics.push(jsonDiag);
             }
@@ -847,9 +848,9 @@ function convertDiagnosticCategoryToSeverity(category: DiagnosticCategory): Seve
     }
 }
 
-function convertDiagnosticToJson(filePath: string, diag: Diagnostic): PyrightJsonDiagnostic {
+function convertDiagnosticToJson(uri: Uri, diag: Diagnostic): PyrightJsonDiagnostic {
     return {
-        file: filePath,
+        uri: uri.toString(),
         severity: convertDiagnosticCategoryToSeverity(diag.category),
         message: diag.message,
         range: isEmptyRange(diag.range) ? undefined : diag.range,
@@ -908,8 +909,8 @@ function reportDiagnosticsAsText(
 
 function logDiagnosticToConsole(diag: PyrightJsonDiagnostic, prefix = '  ') {
     let message = prefix;
-    if (diag.file) {
-        message += `${diag.file}:`;
+    if (diag.uri) {
+        message += `${diag.uri}:`;
     }
     if (diag.range && !isEmptyRange(diag.range)) {
         message +=

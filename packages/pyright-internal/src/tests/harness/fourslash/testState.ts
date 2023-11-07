@@ -114,7 +114,7 @@ export interface HostSpecificFeatures {
     execute(ls: LanguageServerInterface, params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
 }
 
-const testAccessHost = new TestAccessHost(Uri.file(vfs.MODULE_PATH), [Uri.file(libFolder), Uri.file(distlibFolder)]);
+const testAccessHost = new TestAccessHost(Uri.file(vfs.MODULE_PATH), [libFolder, distlibFolder]);
 
 export class TestState {
     private readonly _cancellationToken: TestCancellationToken;
@@ -1607,8 +1607,12 @@ export class TestState {
 
         configOptions.include.push(getFileSpec(this.serviceProvider, configOptions.projectRoot, '.'));
         configOptions.exclude.push(getFileSpec(this.serviceProvider, configOptions.projectRoot, typeshedFolder));
-        configOptions.exclude.push(getFileSpec(this.serviceProvider, configOptions.projectRoot, distlibFolder));
-        configOptions.exclude.push(getFileSpec(this.serviceProvider, configOptions.projectRoot, libFolder));
+        configOptions.exclude.push(
+            getFileSpec(this.serviceProvider, configOptions.projectRoot, distlibFolder.getFilePath())
+        );
+        configOptions.exclude.push(
+            getFileSpec(this.serviceProvider, configOptions.projectRoot, libFolder.getFilePath())
+        );
 
         if (mountPaths) {
             for (const mountPath of mountPaths.keys()) {

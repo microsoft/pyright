@@ -11,6 +11,7 @@ import { Commands } from '../commands/commands';
 import { appendArray } from './collectionUtils';
 import { DiagnosticLevel } from './configOptions';
 import { Range, TextRange } from './textRange';
+import { Uri } from './uri';
 
 const defaultMaxDepth = 5;
 const defaultMaxLineCount = 8;
@@ -63,7 +64,7 @@ export interface DiagnosticAction {
 }
 
 export interface DiagnosticWithinFile {
-    filePath: string;
+    uri: Uri;
     diagnostic: Diagnostic;
 }
 

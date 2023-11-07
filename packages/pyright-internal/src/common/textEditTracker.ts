@@ -182,7 +182,7 @@ export class TextEditTracker {
         importGroup: ImportGroup,
         importNameInfo?: ImportNameInfo[]
     ) {
-        const filePath = getFileInfo(parseResults.parseTree).fileUri;
+        const fileUri = getFileInfo(parseResults.parseTree).fileUri;
 
         this.addEdits(
             ...getTextEditsForAutoImportInsertion(
@@ -192,7 +192,7 @@ export class TextEditTracker {
                 importGroup,
                 parseResults,
                 convertOffsetToPosition(parseResults.parseTree.length, parseResults.tokenizerOutput.lines)
-            ).map((e) => ({ filePath, range: e.range, replacementText: e.replacementText }))
+            ).map((e) => ({ fileUri, range: e.range, replacementText: e.replacementText }))
         );
     }
 
@@ -219,7 +219,7 @@ export class TextEditTracker {
             return false;
         }
 
-        const filePath = getFileInfo(parseResults.parseTree).fileUri;
+        const fileUri = getFileInfo(parseResults.parseTree).fileUri;
 
         const edits = getTextEditsForAutoImportSymbolAddition(importNameInfo, imported, parseResults);
         if (imported.node !== updateOptions.currentFromImport) {
@@ -227,7 +227,7 @@ export class TextEditTracker {
             // node we are working on.
             // ex) from xxx import yyy <= we are working on here.
             //     from xxx import zzz <= but we found this.
-            this.addEdits(...edits.map((e) => ({ filePath, range: e.range, replacementText: e.replacementText })));
+            this.addEdits(...edits.map((e) => ({ fileUri, range: e.range, replacementText: e.replacementText })));
             return true;
         }
 
@@ -246,9 +246,9 @@ export class TextEditTracker {
             return false;
         }
 
-        const deletions = this._getDeletionsForSpan(filePath, edits[0].range);
+        const deletions = this._getDeletionsForSpan(fileUri, edits[0].range);
         if (deletions.length === 0) {
-            this.addEdit(filePath, edits[0].range, edits[0].replacementText);
+            this.addEdit(fileUri, edits[0].range, edits[0].replacementText);
             return true;
         }
 
@@ -264,13 +264,13 @@ export class TextEditTracker {
             return false;
         }
 
-        this._removeEdits(filePath, deletions);
+        this._removeEdits(fileUri, deletions);
         if (importName.alias) {
             this._nodesRemoved.delete(importName.alias);
         }
 
         this.addEdit(
-            filePath,
+            fileUri,
             convertTextRangeToRange(importName.name, parseResults.tokenizerOutput.lines),
             newLastModuleName
         );

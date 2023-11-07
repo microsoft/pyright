@@ -9,6 +9,7 @@
 import assert from 'assert';
 
 import { combinePaths, normalizeSlashes } from '../common/pathUtils';
+import { Uri } from '../common/uri';
 import * as host from './harness/testHost';
 import * as factory from './harness/vfs/factory';
 import * as vfs from './harness/vfs/filesystem';
@@ -20,54 +21,55 @@ test('CreateVFS', () => {
 });
 
 test('Folders', () => {
-    const cwd = normalizeSlashes('/');
-    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
+    const cwd = Uri.file(normalizeSlashes('/'));
+    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd: cwd.getFilePath() });
 
     // no such dir exist
     assert.throws(() => {
-        fs.chdir('a');
+        fs.chdir(cwd.combinePaths('a'));
     });
 
-    fs.mkdirSync('a');
-    fs.chdir('a');
+    fs.mkdirSync(cwd.combinePaths('a'));
+    fs.chdir(cwd.combinePaths('a'));
     assert.equal(fs.cwd(), normalizeSlashes('/a'));
 
-    fs.chdir('..');
-    fs.rmdirSync('a');
+    fs.chdir(cwd.combinePaths('..'));
+    fs.rmdirSync(cwd.combinePaths('a'));
 
     // no such dir exist
     assert.throws(() => {
-        fs.chdir('a');
+        fs.chdir(cwd.combinePaths('a'));
     });
 });
 
 test('Folders Recursive', () => {
-    const cwd = normalizeSlashes('/');
-    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
+    const cwd = Uri.file(normalizeSlashes('/'));
+    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd: cwd.getFilePath() });
 
     // no such dir exist
     assert.throws(() => {
-        fs.chdir('a');
+        fs.chdir(cwd.combinePaths('a'));
     });
 
-    const path = combinePaths('/', 'a', 'b', 'c');
+    const path = cwd.combinePaths('a', 'b', 'c');
     fs.mkdirSync(path, { recursive: true });
 
     assert(fs.existsSync(path));
 });
 
 test('Files', () => {
-    const cwd = normalizeSlashes('/');
-    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
+    const cwd = Uri.file(normalizeSlashes('/'));
+    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd: cwd.getFilePath() });
 
-    fs.writeFileSync('1.txt', 'hello', 'utf8');
-    const buffer1 = fs.readFileSync('1.txt');
+    const uri = cwd.combinePaths('1.txt');
+    fs.writeFileSync(uri, 'hello', 'utf8');
+    const buffer1 = fs.readFileSync(uri);
     assert.equal(buffer1.toString(), 'hello');
 
-    const p = normalizeSlashes('a/b/c');
-    fs.mkdirpSync(p);
+    const p = cwd.combinePaths('a/b/c');
+    fs.mkdirpSync(p.getFilePath());
 
-    const f = combinePaths(p, '2.txt');
+    const f = p.combinePaths('2.txt');
     fs.writeFileSync(f, 'hi');
 
     const str = fs.readFileSync(f, 'utf8');
@@ -90,11 +92,11 @@ test('CreateRich', () => {
     // files + directory + root
     assert.equal(entries.length, 10);
 
-    assert.equal(fs.readFileSync(normalizeSlashes('/a/b/c/1.txt'), 'ascii'), 'hello1');
-    assert.equal(fs.readFileSync(normalizeSlashes('/a/b/2.txt'), 'utf8'), 'hello2');
-    assert.equal(fs.readFileSync(normalizeSlashes('/a/3.txt'), 'utf-8'), 'hello3');
-    assert.equal(fs.readFileSync(normalizeSlashes('/4.txt'), 'utf16le'), 'hello4');
-    assert.equal(fs.readFileSync(normalizeSlashes('/a/c/5.txt'), 'ucs2'), 'hello5');
+    assert.equal(fs.readFileSync(Uri.file(normalizeSlashes('/a/b/c/1.txt')), 'ascii'), 'hello1');
+    assert.equal(fs.readFileSync(Uri.file(normalizeSlashes('/a/b/2.txt')), 'utf8'), 'hello2');
+    assert.equal(fs.readFileSync(Uri.file(normalizeSlashes('/a/3.txt')), 'utf-8'), 'hello3');
+    assert.equal(fs.readFileSync(Uri.file(normalizeSlashes('/4.txt')), 'utf16le'), 'hello4');
+    assert.equal(fs.readFileSync(Uri.file(normalizeSlashes('/a/c/5.txt')), 'ucs2'), 'hello5');
 });
 
 test('Shadow', () => {
@@ -124,19 +126,19 @@ test('Shadow', () => {
 });
 
 test('Diffing', () => {
-    const cwd = normalizeSlashes('/');
-    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
+    const cwd = Uri.file(normalizeSlashes('/'));
+    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd: cwd.getFilePath() });
 
     // first snapshot
     fs.snapshot();
-    fs.writeFileSync('test1.txt', 'hello1');
+    fs.writeFileSync(cwd.combinePaths('test1.txt'), 'hello1');
 
     // compared with original
     assert.equal(countFile(fs.diff()!), 1);
 
     // second snapshot
     fs.snapshot();
-    fs.writeFileSync('test2.txt', 'hello2');
+    fs.writeFileSync(cwd.combinePaths('test2.txt'), 'hello2');
 
     // compared with first snapshot
     assert.equal(countFile(fs.diff()!), 1);
@@ -148,11 +150,11 @@ test('Diffing', () => {
     const s = fs.shadowRoot!.shadow();
 
     // "test2.txt" only exist in first snapshot
-    assert(!s.existsSync('test2.txt'));
+    assert(!s.existsSync(cwd.combinePaths('test2.txt')));
 
     // create parallel universe where it has another version of test2.txt with different content
     // compared to second snapshot which forked from same first snapshot
-    s.writeFileSync('test2.txt', 'hello3');
+    s.writeFileSync(cwd.combinePaths('test2.txt'), 'hello3');
 
     // diff between non direct snapshots
     // diff gives test2.txt even though it exist in both snapshot
@@ -170,16 +172,16 @@ test('createFromFileSystem1', () => {
     });
 
     // check existing typeshed folder on virtual path inherited from base snapshot from physical file system
-    const entries = fs.readdirSync(factory.typeshedFolder);
+    const entries = fs.readdirSync(Uri.file(factory.typeshedFolder));
     assert(entries.length > 0);
 
     // confirm file
-    assert.equal(fs.readFileSync(filepath, 'utf8'), content);
+    assert.equal(fs.readFileSync(Uri.file(filepath), 'utf8'), content);
 });
 
 test('createFromFileSystem2', () => {
     const fs = factory.createFromFileSystem(host.HOST, /* ignoreCase */ true, { cwd: factory.srcFolder });
-    const entries = fs.readdirSync(factory.typeshedFolder.toUpperCase());
+    const entries = fs.readdirSync(Uri.file(factory.typeshedFolder.toUpperCase()));
     assert(entries.length > 0);
 });
 
@@ -190,7 +192,7 @@ test('createFromFileSystemWithCustomTypeshedPath', () => {
         meta: { [factory.typeshedFolder]: invalidpath },
     });
 
-    const entries = fs.readdirSync(factory.typeshedFolder);
+    const entries = fs.readdirSync(Uri.file(factory.typeshedFolder));
     assert(entries.filter((e) => e.endsWith('.md')).length > 0);
 });
 
@@ -200,7 +202,7 @@ test('createFromFileSystemWithMetadata', () => {
         meta: { unused: 'unused' },
     });
 
-    assert(fs.existsSync(factory.srcFolder));
+    assert(fs.existsSync(Uri.file(factory.srcFolder)));
 });
 
 function countFile(files: vfs.FileSet): number {
