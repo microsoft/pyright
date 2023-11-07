@@ -5886,29 +5886,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: memberType };
         }
 
-        let accessMethodType = getTypeOfMember(accessMethod);
-
-        // Special-case logic for properties.
-        if (ClassType.isPropertyClass(lookupClass) && memberInfo && isInstantiableClass(memberInfo!.classType)) {
-            // If the property is being accessed from a protocol class (not an instance),
-            // flag this as an error because a property within a protocol is meant to be
-            // interpreted as a read-only attribute rather than a protocol, so accessing
-            // it directly from the class has an ambiguous meaning.
-            if ((flags & MemberAccessFlags.SkipInstanceMembers) !== 0 && ClassType.isProtocolClass(classType)) {
-                diag?.addMessage(Localizer.DiagnosticAddendum.propertyAccessFromProtocolClass());
-                return { type: memberType, typeErrors: true };
-            }
-
-            // Infer return types before specializing. Otherwise a generic inferred
-            // return type won't be properly specialized.
-            inferReturnTypeIfNecessary(accessMethodType);
-
-            // This specialization is required specifically for properties, which should be
-            // generic but are not defined that way. Because of this, we use type variables
-            // in the synthesized methods (e.g. __get__) for the property class that are
-            // defined in the class that declares the fget method.
-            accessMethodType = partiallySpecializeType(accessMethodType, memberInfo.classType);
-        }
+        const accessMethodType = getTypeOfMember(accessMethod);
 
         if (!isFunction(accessMethodType) && !isOverloadedFunction(accessMethodType)) {
             if (isAnyOrUnknown(accessMethodType)) {
@@ -5929,30 +5907,45 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // Bind the accessor to the base object type.
-        let bindToClass: ClassType | undefined;
-
-        // The "bind-to" class depends on whether the descriptor is defined
-        // on the metaclass or the class. We handle properties specially here
-        // because of the way we model the __get__ logic in the property class.
-        if (ClassType.isPropertyClass(concreteMemberType) && !isAccessedThroughMetaclass) {
-            if (memberInfo && isInstantiableClass(memberInfo.classType)) {
-                bindToClass = ClassType.cloneAsInstance(memberInfo.classType);
-            }
-        }
-
         let boundMethodType = bindFunctionToClassOrObject(
             lookupClass,
             methodType,
-            bindToClass,
+            /* memberClass */ undefined,
             /* treatConstructorAsClassMember */ undefined,
             isAccessedThroughMetaclass ? concreteMemberType : undefined
         );
 
-        // The synthesized access method for the property may contain
-        // type variables associated with the "bindToClass", so we need
-        // to specialize those here.
-        if (!boundMethodType || (!isFunction(boundMethodType) && !isOverloadedFunction(boundMethodType))) {
+        // Special-case logic for properties.
+        if (
+            ClassType.isPropertyClass(concreteMemberType) &&
+            memberInfo &&
+            isInstantiableClass(memberInfo.classType) &&
+            boundMethodType
+        ) {
+            // If the property is being accessed from a protocol class (not an instance),
+            // flag this as an error because a property within a protocol is meant to be
+            // interpreted as a read-only attribute rather than a protocol, so accessing
+            // it directly from the class has an ambiguous meaning.
+            if ((flags & MemberAccessFlags.SkipInstanceMembers) !== 0 && ClassType.isProtocolClass(classType)) {
+                diag?.addMessage(Localizer.DiagnosticAddendum.propertyAccessFromProtocolClass());
+                return { type: memberType, typeErrors: true };
+            }
+
+            // Infer return types before specializing. Otherwise a generic inferred
+            // return type won't be properly specialized.
+            inferReturnTypeIfNecessary(boundMethodType);
+
+            // This specialization is required specifically for properties, which should be
+            // generic but are not defined that way. Because of this, we use type variables
+            // in the synthesized methods (e.g. __get__) for the property class that are
+            // defined in the class that declares the fget method.
+            const specializedType = partiallySpecializeType(boundMethodType, memberInfo.classType, classType);
+            if (isFunction(specializedType) || isOverloadedFunction(specializedType)) {
+                boundMethodType = specializedType;
+            }
+        }
+
+        if (!boundMethodType) {
             diag?.addMessage(
                 Localizer.DiagnosticAddendum.descriptorAccessBindingFailed().format({
                     name: accessMethodName,
@@ -5966,17 +5959,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isDescriptorApplied: true,
                 isAsymmetricAccessor,
             };
-        }
-
-        const typeVarContext = new TypeVarContext(getTypeVarScopeId(boundMethodType));
-        if (bindToClass) {
-            const specializedBoundType = partiallySpecializeType(boundMethodType, bindToClass, classType);
-
-            if (specializedBoundType) {
-                if (isFunction(specializedBoundType) || isOverloadedFunction(specializedBoundType)) {
-                    boundMethodType = specializedBoundType;
-                }
-            }
         }
 
         // Simulate a call to the access method.
@@ -6021,7 +6003,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 errorNode,
                 argList,
                 { type: boundMethodType },
-                typeVarContext,
+                /* typeVarContext */ undefined,
                 /* skipUnknownArgCheck */ true
             );
         });
