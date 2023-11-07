@@ -12,7 +12,7 @@ import { isAbsolute } from 'path';
 import { getPathsFromPthFiles } from '../analyzer/pythonPathUtils';
 import * as pathConsts from '../common/pathConsts';
 import { appendArray } from './collectionUtils';
-import { DiagnosticSeverityOverridesMap } from './commandLineOptions';
+import { DiagnosticSeverityOverrides, DiagnosticSeverityOverridesMap } from './commandLineOptions';
 import { ConsoleInterface, NullConsole } from './console';
 import { TaskListToken } from './diagnostic';
 import { DiagnosticRule } from './diagnosticRules';
@@ -1403,5 +1403,26 @@ export class ConfigOptions {
         }
 
         return undefined;
+    }
+}
+
+export function parseDiagLevel(value: string | boolean): DiagnosticSeverityOverrides | undefined {
+    switch (value) {
+        case false:
+        case 'none':
+            return DiagnosticSeverityOverrides.None;
+
+        case true:
+        case 'error':
+            return DiagnosticSeverityOverrides.Error;
+
+        case 'warning':
+            return DiagnosticSeverityOverrides.Warning;
+
+        case 'information':
+            return DiagnosticSeverityOverrides.Information;
+
+        default:
+            return undefined;
     }
 }

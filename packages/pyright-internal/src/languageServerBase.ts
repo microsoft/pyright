@@ -88,7 +88,12 @@ import {
     DiagnosticSeverityOverridesMap,
     getDiagnosticSeverityOverrides,
 } from './common/commandLineOptions';
-import { ConfigOptions, SignatureDisplayType, getDiagLevelDiagnosticRules } from './common/configOptions';
+import {
+    ConfigOptions,
+    SignatureDisplayType,
+    getDiagLevelDiagnosticRules,
+    parseDiagLevel,
+} from './common/configOptions';
 import { ConsoleInterface, ConsoleWithLogLevel, LogLevel } from './common/console';
 import {
     Diagnostic as AnalyzerDiagnostic,
@@ -578,8 +583,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         return diagnosticMode !== 'workspace';
     }
 
-    protected getSeverityOverrides(value: string): DiagnosticSeverityOverrides | undefined {
-        const enumValue = value as DiagnosticSeverityOverrides;
+    protected getSeverityOverrides(value: string | boolean): DiagnosticSeverityOverrides | undefined {
+        const enumValue = parseDiagLevel(value);
+        if (!enumValue) {
+            return undefined;
+        }
         if (getDiagnosticSeverityOverrides().includes(enumValue)) {
             return enumValue;
         }

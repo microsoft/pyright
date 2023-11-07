@@ -143,7 +143,7 @@ export class PyrightServer extends LanguageServerBase {
                 if (diagnosticSeverityOverrides) {
                     for (const [name, value] of Object.entries(diagnosticSeverityOverrides)) {
                         const ruleName = this.getDiagnosticRuleName(name);
-                        const severity = this.getSeverityOverrides(value as string);
+                        const severity = this.getSeverityOverrides(value as string | boolean);
                         if (ruleName && severity) {
                             serverSettings.diagnosticSeverityOverrides![ruleName] = severity!;
                         }
