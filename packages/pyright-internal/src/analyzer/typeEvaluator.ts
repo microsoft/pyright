@@ -91,7 +91,7 @@ import {
     isCodeFlowSupportedForReference,
     wildcardImportReferenceKey,
 } from './codeFlowTypes';
-import { assignTypeToTypeVar, populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
+import { assignTypeToTypeVar, populateTypeVarContextBasedOnExpectedType, updateTypeVarType } from './constraintSolver';
 import { createFunctionFromConstructor, validateConstructorArguments } from './constructors';
 import {
     applyDataClassClassBehaviorOverrides,
@@ -5830,38 +5830,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         diag: DiagnosticAddendum | undefined
     ): MemberAccessTypeResult {
         const isAccessedThroughObject = TypeBase.isInstance(classType);
-        let isAsymmetricAccessor = false;
-        let memberAccessDeprecationInfo: MemberAccessDeprecationInfo | undefined;
-        let lookupClass: ClassType | undefined = concreteMemberType;
-        let isAccessedThroughMetaclass = false;
-
-        // If it's an object, use its class to lookup the descriptor. If it's a class,
-        // use its metaclass instead.
-        if (TypeBase.isInstantiable(concreteMemberType)) {
-            if (
-                concreteMemberType.details.effectiveMetaclass &&
-                isInstantiableClass(concreteMemberType.details.effectiveMetaclass)
-            ) {
-                // When accessing a class member that is a class whose metaclass implements
-                // a descriptor protocol, only 'get' operations are allowed. If it's accessed
-                // through the object, all access methods are supported.
-                if (isAccessedThroughObject || usage.method === 'get') {
-                    lookupClass = ClassType.cloneAsInstance(concreteMemberType.details.effectiveMetaclass);
-                    isAccessedThroughMetaclass = true;
-                } else {
-                    lookupClass = undefined;
-                }
-            } else {
-                lookupClass = undefined;
-            }
-        }
-
-        if (!lookupClass) {
-            return { type: memberType };
-        }
 
         let accessMethodName: string;
-
         if (usage.method === 'get') {
             accessMethodName = '__get__';
         } else if (usage.method === 'set') {
@@ -5870,28 +5840,54 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             accessMethodName = '__delete__';
         }
 
-        const accessMethod = lookUpClassMember(lookupClass, accessMethodName, MemberAccessFlags.SkipInstanceMembers);
+        const methodTypeResult = getTypeOfObjectMember(
+            errorNode,
+            concreteMemberType,
+            accessMethodName,
+            { method: 'get' },
+            diag?.createAddendum(),
+            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
+        );
 
-        // Handle properties specially.
-        if (!accessMethod && ClassType.isPropertyClass(lookupClass)) {
-            if (usage.method !== 'get') {
-                const message =
-                    usage.method === 'set'
-                        ? Localizer.DiagnosticAddendum.propertyMissingSetter()
-                        : Localizer.DiagnosticAddendum.propertyMissingDeleter();
-                diag?.addMessage(message.format({ name: memberName }));
-                return { type: AnyType.create(), typeErrors: true };
+        if (!methodTypeResult) {
+            // Provide special error messages for properties.
+            if (ClassType.isPropertyClass(concreteMemberType)) {
+                if (usage.method !== 'get') {
+                    const message =
+                        usage.method === 'set'
+                            ? Localizer.DiagnosticAddendum.propertyMissingSetter()
+                            : Localizer.DiagnosticAddendum.propertyMissingDeleter();
+                    diag?.addMessage(message.format({ name: memberName }));
+                    return { type: AnyType.create(), typeErrors: true };
+                }
             }
-        }
 
-        if (!accessMethod) {
             return { type: memberType };
         }
 
-        let accessMethodType = getTypeOfMember(accessMethod);
+        const methodClassType = methodTypeResult.classType;
+        let methodType = methodTypeResult.type;
+
+        if (methodTypeResult.typeErrors || !methodClassType) {
+            return { type: UnknownType.create(), typeErrors: true };
+        }
+
+        if (!isFunction(methodType) && !isOverloadedFunction(methodType)) {
+            if (isAnyOrUnknown(methodType)) {
+                return { type: methodType };
+            }
+
+            // TODO - emit an error for this condition.
+            return { type: memberType, typeErrors: true };
+        }
 
         // Special-case logic for properties.
-        if (ClassType.isPropertyClass(lookupClass) && memberInfo && isInstantiableClass(memberInfo!.classType)) {
+        if (
+            ClassType.isPropertyClass(concreteMemberType) &&
+            memberInfo &&
+            isInstantiableClass(memberInfo.classType) &&
+            methodType
+        ) {
             // If the property is being accessed from a protocol class (not an instance),
             // flag this as an error because a property within a protocol is meant to be
             // interpreted as a read-only attribute rather than a protocol, so accessing
@@ -5903,184 +5899,145 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Infer return types before specializing. Otherwise a generic inferred
             // return type won't be properly specialized.
-            inferReturnTypeIfNecessary(accessMethodType);
+            inferReturnTypeIfNecessary(methodType);
 
             // This specialization is required specifically for properties, which should be
             // generic but are not defined that way. Because of this, we use type variables
             // in the synthesized methods (e.g. __get__) for the property class that are
             // defined in the class that declares the fget method.
-            accessMethodType = partiallySpecializeType(accessMethodType, memberInfo.classType);
-        }
-
-        if (!isFunction(accessMethodType) && !isOverloadedFunction(accessMethodType)) {
-            if (isAnyOrUnknown(accessMethodType)) {
-                return { type: accessMethodType };
+            const specializedType = partiallySpecializeType(methodType, memberInfo.classType, classType);
+            if (isFunction(specializedType) || isOverloadedFunction(specializedType)) {
+                methodType = specializedType;
             }
-
-            // TODO - emit an error for this condition.
-            return { type: memberType, typeErrors: true };
         }
-
-        const methodType = accessMethodType;
 
         // Determine if we're calling __set__ on an asymmetric descriptor or property.
-        if (usage.method === 'set' && isClass(accessMethod.classType)) {
-            if (isAsymmetricDescriptorClass(accessMethod.classType)) {
+        let isAsymmetricAccessor = false;
+        if (usage.method === 'set' && isClass(methodClassType)) {
+            if (isAsymmetricDescriptorClass(methodClassType)) {
                 isAsymmetricAccessor = true;
             }
         }
 
-        // Don't emit separate diagnostics for these method calls because
-        // they will be redundant.
-        return suppressDiagnostics(errorNode, () => {
-            // Bind the accessor to the base object type.
-            let bindToClass: ClassType | undefined;
-
-            // The "bind-to" class depends on whether the descriptor is defined
-            // on the metaclass or the class. We handle properties specially here
-            // because of the way we model the __get__ logic in the property class.
-            if (ClassType.isPropertyClass(concreteMemberType) && !isAccessedThroughMetaclass) {
-                if (memberInfo && isInstantiableClass(memberInfo.classType)) {
-                    bindToClass = ClassType.cloneAsInstance(memberInfo.classType);
-                }
-            }
-
-            let boundMethodType = bindFunctionToClassOrObject(
-                lookupClass,
-                methodType,
-                bindToClass,
-                /* treatConstructorAsClassMember */ undefined,
-                isAccessedThroughMetaclass ? concreteMemberType : undefined
+        if (!methodType) {
+            diag?.addMessage(
+                Localizer.DiagnosticAddendum.descriptorAccessBindingFailed().format({
+                    name: accessMethodName,
+                    className: printType(convertToInstance(methodClassType)),
+                })
             );
 
-            // The synthesized access method for the property may contain
-            // type variables associated with the "bindToClass", so we need
-            // to specialize those here.
-            if (!boundMethodType || (!isFunction(boundMethodType) && !isOverloadedFunction(boundMethodType))) {
-                diag?.addMessage(
-                    Localizer.DiagnosticAddendum.descriptorAccessBindingFailed().format({
-                        name: accessMethodName,
-                        className: printType(convertToInstance(accessMethod.classType)),
-                    })
-                );
+            return {
+                type: UnknownType.create(),
+                typeErrors: true,
+                isDescriptorApplied: true,
+                isAsymmetricAccessor,
+            };
+        }
 
-                return {
-                    type: UnknownType.create(),
-                    typeErrors: true,
-                    isDescriptorApplied: true,
-                    isAsymmetricAccessor,
-                    memberAccessDeprecationInfo,
-                };
-            }
+        // Simulate a call to the access method.
+        const argList: FunctionArgument[] = [];
 
-            const typeVarContext = new TypeVarContext(getTypeVarScopeId(boundMethodType));
-            if (bindToClass) {
-                const specializedBoundType = partiallySpecializeType(boundMethodType, bindToClass, classType);
+        // Provide "obj" argument.
+        argList.push({
+            argumentCategory: ArgumentCategory.Simple,
+            typeResult: {
+                type: ClassType.isClassProperty(concreteMemberType!)
+                    ? classType
+                    : isAccessedThroughObject
+                    ? selfType ?? ClassType.cloneAsInstance(classType)
+                    : getNoneType(),
+            },
+        });
 
-                if (specializedBoundType) {
-                    if (isFunction(specializedBoundType) || isOverloadedFunction(specializedBoundType)) {
-                        boundMethodType = specializedBoundType;
-                    }
-                }
-            }
-
-            const argList: FunctionArgument[] = [];
-
-            // Provide "obj" argument.
+        if (usage.method === 'get') {
+            // Provide "owner" argument.
             argList.push({
                 argumentCategory: ArgumentCategory.Simple,
                 typeResult: {
-                    type: ClassType.isClassProperty(lookupClass!)
-                        ? classType
-                        : isAccessedThroughObject
-                        ? selfType ?? ClassType.cloneAsInstance(classType)
-                        : getNoneType(),
+                    type: isAccessedThroughObject ? ClassType.cloneAsInstantiable(classType) : classType,
                 },
             });
+        } else if (usage.method === 'set') {
+            // Provide "value" argument.
+            argList.push({
+                argumentCategory: ArgumentCategory.Simple,
+                typeResult: {
+                    type: usage.setType?.type ?? UnknownType.create(),
+                    isIncomplete: !!usage.setType?.isIncomplete,
+                },
+            });
+        }
 
-            if (usage.method === 'get') {
-                // Provide "owner" argument.
-                argList.push({
-                    argumentCategory: ArgumentCategory.Simple,
-                    typeResult: {
-                        type: isAccessedThroughObject ? ClassType.cloneAsInstantiable(classType) : classType,
-                    },
-                });
-            } else if (usage.method === 'set') {
-                // Provide "value" argument.
-                argList.push({
-                    argumentCategory: ArgumentCategory.Simple,
-                    typeResult: {
-                        type: usage.setType?.type ?? UnknownType.create(),
-                        isIncomplete: !!usage.setType?.isIncomplete,
-                    },
-                });
-            }
-
-            const callResult = validateCallArguments(
+        // Suppress diagnostics for these method calls because they would be redundant.
+        const callResult = suppressDiagnostics(errorNode, () => {
+            return validateCallArguments(
                 errorNode,
                 argList,
-                { type: boundMethodType },
-                typeVarContext,
+                { type: methodType },
+                /* typeVarContext */ undefined,
                 /* skipUnknownArgCheck */ true
             );
+        });
 
-            if (callResult.overloadsUsedForCall && callResult.overloadsUsedForCall.length >= 1) {
-                const overloadUsed = callResult.overloadsUsedForCall[0];
-                if (overloadUsed.details.deprecatedMessage) {
-                    memberAccessDeprecationInfo = {
-                        deprecationMessage: overloadUsed.details.deprecatedMessage,
-                        accessType: lookupClass && ClassType.isPropertyClass(lookupClass) ? 'property' : 'descriptor',
-                        accessMethod: usage.method,
-                    };
-                }
-            }
-
-            if (callResult.argumentErrors) {
-                if (usage.method === 'set') {
-                    if (
-                        usage.setType &&
-                        isFunction(boundMethodType) &&
-                        boundMethodType.details.parameters.length >= 2 &&
-                        !usage.setType.isIncomplete
-                    ) {
-                        const setterType = FunctionType.getEffectiveParameterType(boundMethodType, 1);
-
-                        diag?.addMessage(
-                            Localizer.DiagnosticAddendum.typeIncompatible().format({
-                                destType: printType(setterType),
-                                sourceType: printType(usage.setType.type),
-                            })
-                        );
-                    } else if (isOverloadedFunction(boundMethodType)) {
-                        diag?.addMessage(Localizer.Diagnostic.noOverload().format({ name: accessMethodName }));
-                    }
-                } else {
-                    diag?.addMessage(
-                        Localizer.DiagnosticAddendum.descriptorAccessCallFailed().format({
-                            name: accessMethodName,
-                            className: printType(convertToInstance(accessMethod.classType)),
-                        })
-                    );
-                }
-
-                return {
-                    type: UnknownType.create(),
-                    typeErrors: true,
-                    isDescriptorApplied: true,
-                    isAsymmetricAccessor,
-                    memberAccessDeprecationInfo,
+        // Collect deprecation information associated with the member access method.
+        let deprecationInfo: MemberAccessDeprecationInfo | undefined;
+        if (callResult.overloadsUsedForCall && callResult.overloadsUsedForCall.length >= 1) {
+            const overloadUsed = callResult.overloadsUsedForCall[0];
+            if (overloadUsed.details.deprecatedMessage) {
+                deprecationInfo = {
+                    deprecationMessage: overloadUsed.details.deprecatedMessage,
+                    accessType: ClassType.isPropertyClass(concreteMemberType) ? 'property' : 'descriptor',
+                    accessMethod: usage.method,
                 };
             }
+        }
 
-            // For set or delete, always return Any.
+        if (!callResult.argumentErrors) {
             return {
+                // For set or delete, always return Any.
                 type: usage.method === 'get' ? callResult.returnType ?? UnknownType.create() : AnyType.create(),
                 isDescriptorApplied: true,
                 isAsymmetricAccessor,
-                memberAccessDeprecationInfo,
+                memberAccessDeprecationInfo: deprecationInfo,
             };
-        });
+        }
+
+        // Errors were detected when evaluating the access method call.
+        if (usage.method === 'set') {
+            if (
+                usage.setType &&
+                isFunction(methodType) &&
+                methodType.details.parameters.length >= 2 &&
+                !usage.setType.isIncomplete
+            ) {
+                const setterType = FunctionType.getEffectiveParameterType(methodType, 1);
+
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.typeIncompatible().format({
+                        destType: printType(setterType),
+                        sourceType: printType(usage.setType.type),
+                    })
+                );
+            } else if (isOverloadedFunction(methodType)) {
+                diag?.addMessage(Localizer.Diagnostic.noOverload().format({ name: accessMethodName }));
+            }
+        } else {
+            diag?.addMessage(
+                Localizer.DiagnosticAddendum.descriptorAccessCallFailed().format({
+                    name: accessMethodName,
+                    className: printType(convertToInstance(methodClassType)),
+                })
+            );
+        }
+
+        return {
+            type: UnknownType.create(),
+            typeErrors: true,
+            isDescriptorApplied: true,
+            isAsymmetricAccessor,
+            memberAccessDeprecationInfo: deprecationInfo,
+        };
     }
 
     function bindMethodForMemberAccess(
@@ -8314,7 +8271,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (bindToType && implicitBindToType) {
-                bindToType = addConditionToType(bindToType, getTypeCondition(implicitBindToType)) as ClassType;
+                const typeCondition = getTypeCondition(implicitBindToType);
+                if (typeCondition) {
+                    bindToType = addConditionToType(bindToType, typeCondition) as ClassType;
+                } else if (isClass(implicitBindToType)) {
+                    bindToType = implicitBindToType;
+                }
             }
         }
 
@@ -8343,7 +8305,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const parentNode = node.parent!;
         if (parentNode.nodeType === ParseNodeType.MemberAccess) {
             const memberName = parentNode.memberName.value;
-            const effectiveTargetClass = isClass(targetClassType) ? targetClassType : undefined;
+            let effectiveTargetClass = isClass(targetClassType) ? targetClassType : undefined;
+
+            // If the bind-to type is a protocol, don't use the effective target class.
+            // This pattern is used for mixins, where the mixin type is a protocol class
+            // that is used to decorate the "self" or "cls" parameter.
+            if (
+                bindToType &&
+                ClassType.isProtocolClass(bindToType) &&
+                effectiveTargetClass &&
+                !ClassType.isSameGenericClass(bindToType, effectiveTargetClass)
+            ) {
+                effectiveTargetClass = undefined;
+            }
 
             const lookupResults = bindToType
                 ? lookUpClassMember(bindToType, memberName, MemberAccessFlags.Default, effectiveTargetClass)
@@ -22034,11 +22008,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const srcTypeArgs = curSrcType.typeArguments;
             for (let i = 0; i < destType.details.typeParameters.length; i++) {
                 const typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
-                destTypeVarContext.setTypeVarType(
-                    destType.details.typeParameters[i],
-                    /* narrowBound */ undefined,
-                    /* narrowBoundNoLiterals */ undefined,
-                    typeArgType
+                const typeParam = destType.details.typeParameters[i];
+                const variance = TypeVarType.getVariance(typeParam);
+
+                updateTypeVarType(
+                    evaluatorInterface,
+                    destTypeVarContext,
+                    typeParam,
+                    variance !== Variance.Contravariant ? typeArgType : undefined,
+                    variance !== Variance.Covariant ? typeArgType : undefined,
+                    /* forceRetainLiterals */ true
                 );
             }
         }
