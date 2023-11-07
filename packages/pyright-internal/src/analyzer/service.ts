@@ -30,7 +30,6 @@ import {
     containsPath,
     forEachAncestorDirectory,
     getDirectoryPath,
-    getFileExtension,
     getFileName,
     getFileSpec,
     getFileSystemEntries,
@@ -57,12 +56,7 @@ import {
     BackgroundAnalysisProgramFactory,
     InvalidatedReason,
 } from './backgroundAnalysisProgram';
-import {
-    ImportResolver,
-    ImportResolverFactory,
-    createImportedModuleDescriptor,
-    supportedSourceFileExtensions,
-} from './importResolver';
+import { ImportResolver, ImportResolverFactory, createImportedModuleDescriptor } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import { IPythonMode } from './sourceFile';
@@ -623,8 +617,8 @@ export class AnalyzerService {
             commandLineOptions.extraPaths
         );
 
-        if (commandLineOptions.fileSpecs.length > 0) {
-            commandLineOptions.fileSpecs.forEach((fileSpec) => {
+        if (commandLineOptions.includeFileSpecs.length > 0) {
+            commandLineOptions.includeFileSpecs.forEach((fileSpec) => {
                 configOptions.include.push(getFileSpec(this.serviceProvider, projectRoot, fileSpec));
             });
         }
@@ -642,7 +636,7 @@ export class AnalyzerService {
         }
 
         if (!configFilePath && commandLineOptions.executionRoot) {
-            if (commandLineOptions.fileSpecs.length === 0) {
+            if (commandLineOptions.includeFileSpecs.length === 0) {
                 // If no config file was found and there are no explicit include
                 // paths specified, assume the caller wants to include all source
                 // files under the execution root path.
@@ -709,6 +703,14 @@ export class AnalyzerService {
         if (commandLineOptions.analyzeUnannotatedFunctions !== undefined) {
             configOptions.diagnosticRuleSet.analyzeUnannotatedFunctions =
                 commandLineOptions.analyzeUnannotatedFunctions;
+        }
+
+        // Override the include based on command-line settings.
+        if (commandLineOptions.includeFileSpecsOverride) {
+            configOptions.include = [];
+            commandLineOptions.includeFileSpecsOverride.forEach((include) => {
+                configOptions.include.push(getFileSpec(this.serviceProvider, include, '.'));
+            });
         }
 
         const reportDuplicateSetting = (settingName: string, configValue: number | string | boolean) => {
@@ -1085,8 +1087,7 @@ export class AnalyzerService {
 
                 // Add the implicit import paths.
                 importResult.filteredImplicitImports.forEach((implicitImport) => {
-                    const fileExtension = getFileExtension(implicitImport.path).toLowerCase();
-                    if (supportedSourceFileExtensions.some((ext) => fileExtension === ext)) {
+                    if (ImportResolver.isSupportedImportSourceFile(implicitImport.path)) {
                         filesToImport.push(implicitImport.path);
                     }
                 });

@@ -55,6 +55,7 @@ import {
     isEffectivelyInstantiable,
     isPartlyUnknown,
     mapSubtypes,
+    sortTypes,
     specializeTupleClass,
     specializeWithDefaultTypeArgs,
     transformExpectedType,
@@ -139,7 +140,10 @@ export function assignTypeToTypeVar(
         }
 
         isTypeVarInScope = false;
-        if (!destType.details.isSynthesized) {
+
+        // Emit an error unless this is a synthesized type variable used
+        // for pseudo-generic classes.
+        if (!destType.details.isSynthesized || destType.details.isSynthesizedSelf) {
             diag?.addMessage(
                 Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
                     evaluator.printSrcDestTypes(srcType, destType)
@@ -869,44 +873,37 @@ function assignTypeToParamSpec(
 
             const existingType = signatureContext.getParamSpecType(destType);
             if (existingType) {
+                // Convert the remaining portion of the signature to a function
+                // for comparison purposes.
+                const existingFunction = convertParamSpecValueToType(existingType);
+
+                // Should we narrow the type?
                 if (
-                    isTypeSame(
-                        existingType.details.paramSpec ?? evaluator.getNoneType(),
-                        srcType.details.paramSpec ?? evaluator.getNoneType()
+                    evaluator.assignType(
+                        existingFunction,
+                        newFunction,
+                        /* diag */ undefined,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
+                        AssignTypeFlags.SkipFunctionReturnTypeCheck,
+                        recursionCount
                     )
                 ) {
-                    // Convert the remaining portion of the signature to a function
-                    // for comparison purposes.
-                    const existingFunction = convertParamSpecValueToType(existingType, /* omitParamSpec */ true);
-
-                    // Should we narrow the type?
-                    if (
-                        evaluator.assignType(
-                            existingFunction,
-                            newFunction,
-                            /* diag */ undefined,
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
-                            AssignTypeFlags.SkipFunctionReturnTypeCheck,
-                            recursionCount
-                        )
-                    ) {
-                        updateContextWithNewFunction = true;
-                    } else if (
-                        evaluator.assignType(
-                            newFunction,
-                            existingFunction,
-                            /* diag */ undefined,
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
-                            AssignTypeFlags.SkipFunctionReturnTypeCheck,
-                            recursionCount
-                        )
-                    ) {
-                        // The existing function is already narrower than the new function, so
-                        // no need to narrow it further.
-                        return;
-                    }
+                    updateContextWithNewFunction = true;
+                } else if (
+                    evaluator.assignType(
+                        newFunction,
+                        existingFunction,
+                        /* diag */ undefined,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
+                        AssignTypeFlags.SkipFunctionReturnTypeCheck,
+                        recursionCount
+                    )
+                ) {
+                    // The existing function is already narrower than the new function, so
+                    // no need to narrow it further.
+                    return;
                 }
             } else {
                 updateContextWithNewFunction = true;
@@ -1090,7 +1087,7 @@ export function populateTypeVarContextBasedOnExpectedType(
                 if (isUnion(synthTypeVar)) {
                     let foundSynthTypeVar: TypeVarType | undefined;
 
-                    synthTypeVar.subtypes.forEach((subtype) => {
+                    sortTypes(synthTypeVar.subtypes).forEach((subtype) => {
                         if (
                             isTypeVar(subtype) &&
                             subtype.details.isSynthesized &&

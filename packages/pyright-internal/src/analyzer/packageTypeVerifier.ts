@@ -784,12 +784,17 @@ export class PackageTypeVerifier {
             case TypeCategory.Class: {
                 // Properties require special handling.
                 if (TypeBase.isInstance(type) && ClassType.isPropertyClass(type)) {
-                    const accessors = ['fget', 'fset', 'fdel'];
+                    const propMethodInfo: [string, (c: ClassType) => FunctionType | undefined][] = [
+                        ['fget', (c) => c.fgetFunction],
+                        ['fset', (c) => c.fsetFunction],
+                        ['fdel', (c) => c.fdelFunction],
+                    ];
+
                     const propertyClass = type;
 
-                    accessors.forEach((accessorName) => {
-                        const accessSymbol = propertyClass.details.fields.get(accessorName);
-                        let accessType = accessSymbol ? this._program.getTypeOfSymbol(accessSymbol) : undefined;
+                    propMethodInfo.forEach((info) => {
+                        const [methodName, methodAccessor] = info;
+                        let accessType = methodAccessor(propertyClass);
 
                         if (!accessType) {
                             return;
@@ -807,7 +812,7 @@ export class PackageTypeVerifier {
                         }
 
                         // Don't require docstrings for setters or deleters.
-                        const skipDocStringCheck = accessorName !== 'fget';
+                        const skipDocStringCheck = methodName !== 'fget';
 
                         knownStatus = this._updateKnownStatusIfWorse(
                             knownStatus,

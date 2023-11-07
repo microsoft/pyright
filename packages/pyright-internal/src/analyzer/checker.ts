@@ -395,9 +395,16 @@ export class Checker extends ParseTreeWalker {
             // parameters after this need to be flagged as an error.
             let sawParamSpecArgs = false;
 
+            const keywordNames = new Set<string>();
+            const paramDetails = getParameterListDetails(functionTypeResult.functionType);
+
             // Report any unknown or missing parameter types.
             node.parameters.forEach((param, index) => {
                 if (param.name) {
+                    if (param.category === ParameterCategory.Simple && index >= paramDetails.positionOnlyParamCount) {
+                        keywordNames.add(param.name.value);
+                    }
+
                     // Determine whether this is a P.args parameter.
                     if (param.category === ParameterCategory.ArgsList) {
                         const annotationExpr = param.typeAnnotation || param.typeAnnotationComment;
@@ -487,6 +494,32 @@ export class Checker extends ParseTreeWalker {
                     }
                 }
             });
+
+            // Verify that an unpacked TypedDict doesn't overlap any keyword parameters.
+            if (paramDetails.hasUnpackedTypedDict) {
+                const kwargsIndex = functionTypeResult.functionType.details.parameters.length - 1;
+                const kwargsType = FunctionType.getEffectiveParameterType(functionTypeResult.functionType, kwargsIndex);
+
+                if (isClass(kwargsType) && kwargsType.details.typedDictEntries) {
+                    const overlappingEntries = new Set<string>();
+                    kwargsType.details.typedDictEntries.forEach((_, name) => {
+                        if (keywordNames.has(name)) {
+                            overlappingEntries.add(name);
+                        }
+                    });
+
+                    if (overlappingEntries.size > 0) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.overlappingKeywordArgs().format({
+                                names: [...overlappingEntries.values()].join(', '),
+                            }),
+                            node.parameters[kwargsIndex].typeAnnotation ?? node.parameters[kwargsIndex]
+                        );
+                    }
+                }
+            }
 
             // Check for invalid use of ParamSpec P.args and P.kwargs.
             const paramSpecParams = functionTypeResult.functionType.details.parameters.filter((param) => {
@@ -5661,13 +5694,8 @@ export class Checker extends ParseTreeWalker {
         } else if (isOverloadedFunction(overrideType)) {
             overrideFunction = OverloadedFunctionType.getImplementation(overrideType);
         } else if (isClassInstance(overrideType) && ClassType.isPropertyClass(overrideType)) {
-            const fgetSymbol = overrideType.details.fields.get('fget');
-
-            if (fgetSymbol) {
-                const fgetType = this._evaluator.getDeclaredTypeOfSymbol(fgetSymbol)?.type;
-                if (fgetType && isFunction(fgetType)) {
-                    overrideFunction = fgetType;
-                }
+            if (overrideType.fgetFunction) {
+                overrideFunction = overrideType.fgetFunction;
             }
         }
 
@@ -5709,13 +5737,8 @@ export class Checker extends ParseTreeWalker {
         } else if (isOverloadedFunction(overrideType)) {
             overrideFunction = OverloadedFunctionType.getImplementation(overrideType);
         } else if (isClassInstance(overrideType) && ClassType.isPropertyClass(overrideType)) {
-            const fgetSymbol = overrideType.details.fields.get('fget');
-
-            if (fgetSymbol) {
-                const fgetType = this._evaluator.getDeclaredTypeOfSymbol(fgetSymbol)?.type;
-                if (fgetType && isFunction(fgetType)) {
-                    overrideFunction = fgetType;
-                }
+            if (overrideType.fgetFunction) {
+                overrideFunction = overrideType.fgetFunction;
             }
         }
 
@@ -5767,13 +5790,15 @@ export class Checker extends ParseTreeWalker {
         }
 
         const baseClass = baseClassAndSymbol.classType;
-        const childClassSelf = selfSpecializeClass(childClassType);
+        const childClassSelf = ClassType.cloneAsInstance(selfSpecializeClass(childClassType));
 
         const baseType = partiallySpecializeType(
             this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol),
             baseClass,
-            ClassType.cloneAsInstance(childClassSelf)
+            childClassSelf
         );
+
+        overrideType = partiallySpecializeType(overrideType, childClassType, childClassSelf);
 
         if (isFunction(baseType) || isOverloadedFunction(baseType)) {
             const diagAddendum = new DiagnosticAddendum();
@@ -5901,21 +5926,22 @@ export class Checker extends ParseTreeWalker {
                     );
                 }
             } else {
-                const basePropFields = (baseType as ClassType).details.fields;
-                const subclassPropFields = (overrideType as ClassType).details.fields;
                 const baseClassType = baseClass;
+                const propMethodInfo: [string, (c: ClassType) => FunctionType | undefined][] = [
+                    ['fget', (c) => c.fgetFunction],
+                    ['fset', (c) => c.fsetFunction],
+                    ['fdel', (c) => c.fdelFunction],
+                ];
 
-                ['fget', 'fset', 'fdel'].forEach((methodName) => {
+                propMethodInfo.forEach((info) => {
                     const diagAddendum = new DiagnosticAddendum();
-                    const baseClassPropMethod = basePropFields.get(methodName);
-                    const subclassPropMethod = subclassPropFields.get(methodName);
+                    const [methodName, methodAccessor] = info;
+                    const baseClassPropMethod = methodAccessor(baseType as ClassType);
+                    const subclassPropMethod = methodAccessor(overrideType as ClassType);
 
                     // Is the method present on the base class but missing in the subclass?
                     if (baseClassPropMethod) {
-                        const baseClassMethodType = partiallySpecializeType(
-                            this._evaluator.getEffectiveTypeOfSymbol(baseClassPropMethod),
-                            baseClassType
-                        );
+                        const baseClassMethodType = partiallySpecializeType(baseClassPropMethod, baseClassType);
                         if (isFunction(baseClassMethodType)) {
                             if (!subclassPropMethod) {
                                 // The method is missing.
@@ -5946,10 +5972,7 @@ export class Checker extends ParseTreeWalker {
                                     }
                                 }
                             } else {
-                                const subclassMethodType = partiallySpecializeType(
-                                    this._evaluator.getEffectiveTypeOfSymbol(subclassPropMethod),
-                                    childClassType
-                                );
+                                const subclassMethodType = partiallySpecializeType(subclassPropMethod, childClassType);
                                 if (isFunction(subclassMethodType)) {
                                     if (
                                         !this._evaluator.validateOverrideMethod(

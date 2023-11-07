@@ -103,8 +103,8 @@ interface SupportedVersionRange {
 }
 
 const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
-export const supportedSourceFileExtensions = ['.py', '.pyi'];
-export const supportedFileExtensions = [...supportedSourceFileExtensions, ...supportedNativeLibExtensions];
+const supportedSourceFileExtensions = ['.py', '.pyi'];
+const supportedFileExtensions = [...supportedSourceFileExtensions, ...supportedNativeLibExtensions];
 
 // Should we allow partial resolution for third-party packages? Some use tricks
 // to populate their package namespaces, so we might be able to partially resolve
@@ -137,6 +137,16 @@ export class ImportResolver {
 
     get partialStubs() {
         return this.serviceProvider.tryGet(ServiceKeys.partialStubs);
+    }
+
+    static isSupportedImportSourceFile(path: string) {
+        const fileExtension = getFileExtension(path).toLowerCase();
+        return supportedSourceFileExtensions.some((ext) => fileExtension === ext);
+    }
+
+    static isSupportedImportFile(path: string) {
+        const fileExtension = getFileExtension(path).toLowerCase();
+        return supportedFileExtensions.some((ext) => fileExtension === ext);
     }
 
     invalidateCache() {
@@ -2396,10 +2406,9 @@ export class ImportResolver {
         entries.files.forEach((file) => {
             // Strip multi-dot extensions to handle file names like "foo.cpython-32m.so". We want
             // to detect the ".so" but strip off the entire ".cpython-32m.so" extension.
-            const fileExtension = getFileExtension(file, /* multiDotExtension */ false).toLowerCase();
             const fileWithoutExtension = stripFileExtension(file, /* multiDotExtension */ true);
 
-            if (supportedFileExtensions.some((ext) => ext === fileExtension)) {
+            if (ImportResolver.isSupportedImportFile(file)) {
                 if (fileWithoutExtension === '__init__') {
                     return;
                 }

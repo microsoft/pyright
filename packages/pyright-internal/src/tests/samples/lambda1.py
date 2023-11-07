@@ -80,12 +80,12 @@ a: object = reduce((lambda x, y: x * y), [1, 2, 3, 4])
 #------------------------------------------------------
 # Test lambdas with *args
 
-b1: Callable[[int, int, int], Any] = lambda _, *b: reveal_type(
-    b, expected_text="tuple[int, ...]"
+b1: Callable[[int, int, str], Any] = lambda _, *b: reveal_type(
+    b, expected_text="tuple[Unknown, ...]"
 )
 
 b2: Callable[[str, str], Any] = lambda *b: reveal_type(
-    b, expected_text="tuple[str, ...]"
+    b, expected_text="tuple[Unknown, ...]"
 )
 
 b3: Callable[[int], Any] = lambda _, *b: reveal_type(

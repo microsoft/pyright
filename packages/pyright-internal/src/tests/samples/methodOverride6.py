@@ -233,3 +233,33 @@ class Child3_1(Parent3):
 
     def method(self, x: int | str | list[float]) -> int | str | list[float]:
         return x
+
+
+class Parent4(Generic[_T]):
+    @overload
+    def m1(self: "Parent4[int]", a: None) -> float:
+        ...
+
+    @overload
+    def m1(self: "Parent4[int]", a: int) -> float:
+        ...
+
+    @overload
+    def m1(self: "Parent4[float]", a: None) -> str:
+        ...
+
+    def m1(self, a: int | None = None) -> float | str:
+        raise NotImplementedError
+
+
+class Child4_1(Parent4[int]):
+    @overload
+    def function(self: Parent4[int], a: None) -> float:
+        ...
+
+    @overload
+    def function(self: Parent4[int], a: int) -> float:
+        ...
+
+    def function(self, a: int | None = None) -> float:
+        return 0.0

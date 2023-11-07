@@ -22,13 +22,11 @@ import {
 
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
-import { isTypedKwargs } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { PrintTypeFlags } from '../analyzer/typePrinter';
-import { isClassInstance } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ProgramView } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
@@ -236,21 +234,6 @@ export class SignatureHelpProvider {
                 paramName = params[paramIndex].name || '';
             } else if (params.length > 0) {
                 paramName = params[params.length - 1].name || '';
-            }
-
-            // If we have a typedKwargs, the param name will be wrong.
-            const kwargsIndex = paramIndex >= params.length ? params.length - 1 : paramIndex;
-            if (kwargsIndex >= 0) {
-                const kwargsParam = params[kwargsIndex];
-                if (
-                    isTypedKwargs(kwargsParam) &&
-                    isClassInstance(kwargsParam.type) &&
-                    kwargsParam.type.details.typedDictEntries
-                ) {
-                    // Use the relative position in typed dict entries.
-                    const dictIndex = paramIndex - kwargsIndex;
-                    paramName = Array.from(kwargsParam.type.details.typedDictEntries.keys())[dictIndex];
-                }
             }
 
             parameters.push({

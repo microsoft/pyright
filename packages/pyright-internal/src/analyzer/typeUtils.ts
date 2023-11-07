@@ -437,6 +437,45 @@ export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefin
     return transformedSubtype;
 }
 
+// Iterates over each signature in a function or overload, allowing the
+// caller to replace one or more signatures with new ones.
+export function mapSignatures(
+    type: FunctionType | OverloadedFunctionType,
+    callback: (type: FunctionType, index: number) => FunctionType | undefined
+): OverloadedFunctionType | FunctionType | undefined {
+    if (isFunction(type)) {
+        return callback(type, 0);
+    }
+
+    const newSignatures: FunctionType[] = [];
+    let changeMade = false;
+
+    OverloadedFunctionType.getOverloads(type).forEach((overload, index) => {
+        const newOverload = callback(overload, index);
+        if (newOverload !== overload) {
+            changeMade = true;
+        }
+
+        if (newOverload) {
+            newSignatures.push(newOverload);
+        }
+    });
+
+    if (!changeMade) {
+        return type;
+    }
+
+    if (newSignatures.length === 0) {
+        return undefined;
+    }
+
+    if (newSignatures.length === 1) {
+        return newSignatures[0];
+    }
+
+    return OverloadedFunctionType.create(newSignatures);
+}
+
 // The code flow engine uses a special form of the UnknownType (with the
 // isIncomplete flag set) to distinguish between an unknown that was generated
 // in a loop because it was temporarily incomplete versus an unknown that is
@@ -541,15 +580,19 @@ function compareTypes(a: Type, b: Type, recursionCount = 0): number {
                     return bParam.category - aParam.category;
                 }
 
-                const typeComparison = compareTypes(aParam.type, bParam.type);
+                const typeComparison = compareTypes(
+                    FunctionType.getEffectiveParameterType(a, i),
+                    FunctionType.getEffectiveParameterType(bFunc, i)
+                );
+
                 if (typeComparison !== 0) {
                     return typeComparison;
                 }
             }
 
             const returnTypeComparison = compareTypes(
-                a.details.declaredReturnType ?? UnknownType.create(),
-                bFunc.details.declaredReturnType ?? UnknownType.create()
+                FunctionType.getSpecializedReturnType(a) ?? UnknownType.create(),
+                FunctionType.getSpecializedReturnType(bFunc) ?? UnknownType.create()
             );
 
             if (returnTypeComparison !== 0) {
@@ -1236,7 +1279,7 @@ export function partiallySpecializeType(
 ): Type {
     // If the context class is not specialized (or doesn't need specialization),
     // then there's no need to do any more work.
-    if (ClassType.isUnspecialized(contextClassType)) {
+    if (ClassType.isUnspecialized(contextClassType) && !selfClass) {
         return type;
     }
 
@@ -3002,9 +3045,9 @@ export function computeMroLinearization(classType: ClassType): boolean {
             // Generic has some special-case logic (see description of __mro_entries__
             // in PEP 560) that we need to account for here.
             if (ClassType.isBuiltIn(baseClass, 'Generic')) {
-                // If the class is a Protocol, the generic is ignored for the purposes
-                // of computing the MRO.
-                if (ClassType.isProtocolClass(classType)) {
+                // If the class is a Protocol or TypedDict, the generic is ignored for
+                // the purposes of computing the MRO.
+                if (ClassType.isProtocolClass(classType) || ClassType.isTypedDictClass(classType)) {
                     return false;
                 }
 
@@ -3787,7 +3830,9 @@ class TypeVarTransformer {
             }
 
             // Unpack the tuple and synthesize a new function in the process.
-            const newFunctionType = FunctionType.createSynthesizedInstance('', functionType.details.flags);
+            const newFunctionType = TypeBase.isInstantiable(functionType)
+                ? FunctionType.createInstantiable(functionType.details.flags | FunctionTypeFlags.SynthesizedMethod)
+                : FunctionType.createSynthesizedInstance('', functionType.details.flags);
             let insertKeywordOnlySeparator = false;
             let swallowPositionOnlySeparator = false;
 
@@ -3798,7 +3843,10 @@ class TypeVarTransformer {
                     // Unpack the tuple into individual parameters.
                     variadicTypesToUnpack!.forEach((unpackedType) => {
                         FunctionType.addParameter(newFunctionType, {
-                            category: unpackedType.isUnbounded ? ParameterCategory.ArgsList : ParameterCategory.Simple,
+                            category:
+                                unpackedType.isUnbounded || isVariadicTypeVar(unpackedType.type)
+                                    ? ParameterCategory.ArgsList
+                                    : ParameterCategory.Simple,
                             name: `__p${newFunctionType.details.parameters.length}`,
                             isNameSynthesized: true,
                             type: unpackedType.type,

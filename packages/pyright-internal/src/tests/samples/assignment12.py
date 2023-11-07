@@ -13,8 +13,8 @@ def a_test(x: int):
 
 def b_test(x: int | str):
     u = x.upper()  # type: ignore
-    reveal_type(u, expected_text="Unknown | str")
+    reveal_type(u, expected_text="str | Unknown")
 
     # This should generate an error if reportUnknownVariableType is enabled.
     y: str = u
-    reveal_type(y, expected_text="Unknown | str")
+    reveal_type(y, expected_text="str | Unknown")

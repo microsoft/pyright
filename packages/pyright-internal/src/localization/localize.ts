@@ -687,6 +687,8 @@ export namespace Localizer {
         export const optionalExtraArgs = () => getRawString('Diagnostic.optionalExtraArgs');
         export const orPatternIrrefutable = () => getRawString('Diagnostic.orPatternIrrefutable');
         export const orPatternMissingName = () => getRawString('Diagnostic.orPatternMissingName');
+        export const overlappingKeywordArgs = () =>
+            new ParameterizedString<{ names: string }>(getRawString('Diagnostic.overlappingKeywordArgs'));
         export const overlappingOverload = () =>
             new ParameterizedString<{ name: string; obscured: number; obscuredBy: number }>(
                 getRawString('Diagnostic.overlappingOverload')
