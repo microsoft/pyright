@@ -222,7 +222,7 @@ export interface ModuleLoaderActions {
     // The resolved path of the implicit import. This can be empty
     // if the resolved path doesn't reference a module (e.g. it's
     // a directory).
-    path: string;
+    uri: string;
 
     // Is this a dummy entry for an unresolved import?
     isUnresolved?: boolean;

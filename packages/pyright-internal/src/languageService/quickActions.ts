@@ -23,18 +23,19 @@ import { TextEditAction } from '../common/editAction';
 import { ProgramView } from '../common/extensibility';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
+import { Uri } from '../common/uri';
 import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { ImportSorter } from './importSorter';
 
 export function performQuickAction(
     programView: ProgramView,
-    filePath: string,
+    uri: Uri,
     command: string,
     args: any[],
     token: CancellationToken
 ) {
-    const sourceFileInfo = programView.getSourceFileInfo(filePath);
+    const sourceFileInfo = programView.getSourceFileInfo(uri);
 
     // This command should be called only for open files, in which
     // case we should have the file contents already loaded.
@@ -43,7 +44,7 @@ export function performQuickAction(
     }
 
     // If we have no completed analysis job, there's nothing to do.
-    const parseResults = programView.getParseResults(filePath);
+    const parseResults = programView.getParseResults(uri);
     if (!parseResults) {
         return [];
     }

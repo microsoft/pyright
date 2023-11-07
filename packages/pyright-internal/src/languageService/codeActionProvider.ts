@@ -111,7 +111,6 @@ export class CodeActionProvider {
                         oldFile: Uri.parse(action.oldUri).getShortenedFileName(),
                         newFile: Uri.parse(action.newUri).getShortenedFileName(),
                     });
-                    const fs = workspace.service.getImportResolver().fileSystem;
                     const editActions: FileEditActions = {
                         edits: [],
                         fileOperations: [
@@ -122,7 +121,7 @@ export class CodeActionProvider {
                             },
                         ],
                     };
-                    const workspaceEdit = convertToWorkspaceEdit(fs, editActions);
+                    const workspaceEdit = convertToWorkspaceEdit(editActions);
                     const renameAction = CodeAction.create(title, workspaceEdit, CodeActionKind.QuickFix);
                     codeActions.push(renameAction);
                 }

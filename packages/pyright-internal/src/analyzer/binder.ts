@@ -25,6 +25,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { getFileName, stripFileExtension } from '../common/pathUtils';
 import { convertTextRangeToRange } from '../common/positionUtils';
 import { TextRange, getEmptyRange } from '../common/textRange';
+import { Uri } from '../common/uri';
 import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
@@ -1740,7 +1741,7 @@ export class Binder extends ParseTreeWalker {
 
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
 
-        let resolvedPath = '';
+        let resolvedPath = Uri.empty();
         if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib) {
             resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
         }
@@ -1809,7 +1810,7 @@ export class Binder extends ParseTreeWalker {
                                 const aliasDecl: AliasDeclaration = {
                                     type: DeclarationType.Alias,
                                     node,
-                                    uri: resolvedPath,
+                                    uri: resolvedPath.toString(),
                                     loadSymbolsFromPath: true,
                                     range: getEmptyRange(), // Range is unknown for wildcard name import.
                                     usesLocalName: false,
@@ -1829,7 +1830,7 @@ export class Binder extends ParseTreeWalker {
                                         const submoduleFallback: AliasDeclaration = {
                                             type: DeclarationType.Alias,
                                             node,
-                                            uri: implicitImport.path,
+                                            uri: implicitImport.path.toString(),
                                             loadSymbolsFromPath: true,
                                             range: getEmptyRange(),
                                             usesLocalName: false,
@@ -1840,7 +1841,7 @@ export class Binder extends ParseTreeWalker {
                                         const aliasDecl: AliasDeclaration = {
                                             type: DeclarationType.Alias,
                                             node,
-                                            uri: resolvedPath,
+                                            uri: resolvedPath.toString(),
                                             loadSymbolsFromPath: true,
                                             usesLocalName: false,
                                             symbolName: name,
@@ -1921,7 +1922,7 @@ export class Binder extends ParseTreeWalker {
                         submoduleFallback = {
                             type: DeclarationType.Alias,
                             node: importSymbolNode,
-                            uri: implicitImport.path,
+                            uri: implicitImport.path.toString(),
                             loadSymbolsFromPath: true,
                             range: getEmptyRange(),
                             usesLocalName: false,
@@ -1937,7 +1938,7 @@ export class Binder extends ParseTreeWalker {
                         if (fileName === '__init__') {
                             if (node.module.leadingDots === 1 && node.module.nameParts.length === 0) {
                                 loadSymbolsFromPath = false;
-                            } else if (resolvedPath === this._fileInfo.fileUri) {
+                            } else if (resolvedPath.toString() === this._fileInfo.fileUri) {
                                 loadSymbolsFromPath = false;
                             }
                         }
@@ -1946,7 +1947,7 @@ export class Binder extends ParseTreeWalker {
                     const aliasDecl: AliasDeclaration = {
                         type: DeclarationType.Alias,
                         node: importSymbolNode,
-                        uri: resolvedPath,
+                        uri: resolvedPath.toString(),
                         loadSymbolsFromPath,
                         usesLocalName: !!importSymbolNode.alias,
                         symbolName: importedName,
@@ -2471,13 +2472,14 @@ export class Binder extends ParseTreeWalker {
             return undefined;
         }
 
-        let lookupInfo = this._fileInfo.importLookup(resolvedPath);
+        const resolvedPathUri = Uri.parse(resolvedPath);
+        let lookupInfo = this._fileInfo.importLookup(resolvedPathUri);
         if (lookupInfo?.dunderAllNames) {
             return lookupInfo.dunderAllNames;
         }
 
         if (aliasDecl?.submoduleFallback?.uri) {
-            lookupInfo = this._fileInfo.importLookup(aliasDecl.submoduleFallback.uri);
+            lookupInfo = this._fileInfo.importLookup(Uri.parse(aliasDecl.submoduleFallback.uri));
             return lookupInfo?.dunderAllNames;
         }
 
@@ -2515,11 +2517,11 @@ export class Binder extends ParseTreeWalker {
             .getDeclarations()
             .find((decl) => decl.type === DeclarationType.Alias && decl.firstNamePart === firstNamePartValue);
         let newDecl: AliasDeclaration;
-        let pathOfLastSubmodule: string;
+        let uriOfLastSubmodule: string;
         if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib && importInfo.resolvedPaths.length > 0) {
-            pathOfLastSubmodule = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+            uriOfLastSubmodule = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1].toString();
         } else {
-            pathOfLastSubmodule = UnresolvedModuleMarker;
+            uriOfLastSubmodule = UnresolvedModuleMarker;
         }
 
         const isResolved =
@@ -2531,7 +2533,7 @@ export class Binder extends ParseTreeWalker {
             newDecl = {
                 type: DeclarationType.Alias,
                 node,
-                uri: pathOfLastSubmodule,
+                uri: uriOfLastSubmodule,
                 loadSymbolsFromPath: false,
                 range: getEmptyRange(),
                 usesLocalName: !!importAlias,
@@ -2546,7 +2548,7 @@ export class Binder extends ParseTreeWalker {
             newDecl = {
                 type: DeclarationType.Alias,
                 node,
-                uri: pathOfLastSubmodule,
+                uri: uriOfLastSubmodule,
                 loadSymbolsFromPath: true,
                 range: getEmptyRange(),
                 usesLocalName: !!importAlias,
@@ -2561,7 +2563,7 @@ export class Binder extends ParseTreeWalker {
         // to implicitly import all of the modules in a multi-part module name.
         const implicitImportInfo = AnalyzerNodeInfo.getImportInfo(node.module.nameParts[0]);
         if (implicitImportInfo && implicitImportInfo.resolvedPaths.length) {
-            newDecl.uri = implicitImportInfo.resolvedPaths[0];
+            newDecl.uri = implicitImportInfo.resolvedPaths[0].toString();
             newDecl.loadSymbolsFromPath = true;
             this._addImplicitImportsToLoaderActions(implicitImportInfo, newDecl);
         }
@@ -2569,7 +2571,7 @@ export class Binder extends ParseTreeWalker {
         // Add the implicit imports for this module if it's the last
         // name part we're resolving.
         if (importAlias || node.module.nameParts.length === 1) {
-            newDecl.uri = pathOfLastSubmodule;
+            newDecl.uri = uriOfLastSubmodule;
             newDecl.loadSymbolsFromPath = true;
             newDecl.isUnresolved = false;
 
@@ -2590,12 +2592,12 @@ export class Binder extends ParseTreeWalker {
                 if (!loaderActions) {
                     const loaderActionPath =
                         importInfo && i < importInfo.resolvedPaths.length
-                            ? importInfo.resolvedPaths[i]
+                            ? importInfo.resolvedPaths[i].toString()
                             : UnresolvedModuleMarker;
 
                     // Allocate a new loader action.
                     loaderActions = {
-                        path: loaderActionPath,
+                        uri: loaderActionPath,
                         loadSymbolsFromPath: false,
                         implicitImports: new Map<string, ModuleLoaderActions>(),
                         isUnresolved: !isResolved,
@@ -2610,7 +2612,7 @@ export class Binder extends ParseTreeWalker {
                     // If this is the last name part we're resolving, add in the
                     // implicit imports as well.
                     if (importInfo && i < importInfo.resolvedPaths.length) {
-                        loaderActions.path = importInfo.resolvedPaths[i];
+                        loaderActions.uri = importInfo.resolvedPaths[i].toString();
                         loaderActions.loadSymbolsFromPath = true;
                         this._addImplicitImportsToLoaderActions(importInfo, loaderActions);
                     }
@@ -2621,7 +2623,7 @@ export class Binder extends ParseTreeWalker {
                     // imports "a" and "a.b" and "a.b.c").
                     const implicitImportInfo = AnalyzerNodeInfo.getImportInfo(node.module.nameParts[i]);
                     if (implicitImportInfo && implicitImportInfo.resolvedPaths.length) {
-                        loaderActions.path = implicitImportInfo.resolvedPaths[i];
+                        loaderActions.uri = implicitImportInfo.resolvedPaths[i].toString();
                         loaderActions.loadSymbolsFromPath = true;
                         this._addImplicitImportsToLoaderActions(implicitImportInfo, loaderActions);
                     }
@@ -4016,14 +4018,14 @@ export class Binder extends ParseTreeWalker {
                 ? loaderActions.implicitImports.get(implicitImport.name)
                 : undefined;
             if (existingLoaderAction) {
-                existingLoaderAction.path = implicitImport.path;
+                existingLoaderAction.uri = implicitImport.path.toString();
                 existingLoaderAction.loadSymbolsFromPath = true;
             } else {
                 if (!loaderActions.implicitImports) {
                     loaderActions.implicitImports = new Map<string, ModuleLoaderActions>();
                 }
                 loaderActions.implicitImports.set(implicitImport.name, {
-                    path: implicitImport.path,
+                    uri: implicitImport.path.toString(),
                     loadSymbolsFromPath: true,
                     implicitImports: new Map<string, ModuleLoaderActions>(),
                 });

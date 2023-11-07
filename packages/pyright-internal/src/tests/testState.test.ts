@@ -10,6 +10,7 @@ import assert from 'assert';
 
 import { combinePaths, getFileName, normalizeSlashes } from '../common/pathUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
+import { Uri } from '../common/uri';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { runFourSlashTestContent } from './harness/fourslash/runner';
 import { parseAndGetTestState } from './harness/fourslash/testState';
@@ -44,7 +45,7 @@ test('Multiple files', () => {
     const state = parseAndGetTestState(code, factory.srcFolder).state;
 
     assert.equal(state.cwd(), normalizeSlashes('/'));
-    assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, 'file1.py'))));
+    assert(state.fs.existsSync(Uri.file(normalizeSlashes(combinePaths(factory.srcFolder, 'file1.py')))));
 });
 
 test('Configuration', () => {
@@ -114,7 +115,7 @@ test('Configuration', () => {
     const state = parseAndGetTestState(code, factory.srcFolder).state;
 
     assert.equal(state.cwd(), normalizeSlashes('/'));
-    assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, 'file1.py'))));
+    assert(state.fs.existsSync(Uri.file(normalizeSlashes(combinePaths(factory.srcFolder, 'file1.py')))));
 
     assert.equal(state.configOptions.diagnosticRuleSet.reportMissingImports, 'error');
     assert.equal(state.configOptions.diagnosticRuleSet.reportMissingModuleSource, 'warning');
@@ -159,7 +160,7 @@ test('ProjectRoot', () => {
     const state = parseAndGetTestState(code).state;
 
     assert.equal(state.cwd(), normalizeSlashes('/root'));
-    assert(state.fs.existsSync(normalizeSlashes('/root/file1.py')));
+    assert(state.fs.existsSync(Uri.file(normalizeSlashes('/root/file1.py'))));
 
     assert.equal(state.configOptions.projectRoot, normalizeSlashes('/root'));
 });
@@ -177,7 +178,7 @@ test('CustomTypeshedFolder', () => {
     // mount the folder this file is in as typeshed folder and check whether
     // in typeshed folder in virtual file system, this file exists.
     const state = parseAndGetTestState(code).state;
-    assert(state.fs.existsSync(combinePaths(factory.typeshedFolder, getFileName(__filename))));
+    assert(state.fs.existsSync(Uri.file(combinePaths(factory.typeshedFolder, getFileName(__filename)))));
 });
 
 test('IgnoreCase', () => {
@@ -192,7 +193,7 @@ test('IgnoreCase', () => {
 
     const state = parseAndGetTestState(code, factory.srcFolder).state;
 
-    assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, 'FILE1.py'))));
+    assert(state.fs.existsSync(Uri.file(normalizeSlashes(combinePaths(factory.srcFolder, 'FILE1.py')))));
 });
 
 test('GoToMarker', () => {

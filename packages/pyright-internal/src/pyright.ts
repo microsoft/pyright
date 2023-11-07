@@ -534,11 +534,11 @@ function buildTypeCompletenessReport(
 
     report.typeCompleteness = {
         packageName,
-        packageRootDirectory: completenessReport.packageRootDirectory,
+        packageRootDirectory: completenessReport.packageRootDirectoryUri,
         moduleName: completenessReport.moduleName,
-        moduleRootDirectory: completenessReport.moduleRootDirectory,
+        moduleRootDirectory: completenessReport.moduleRootDirectoryUri,
         ignoreUnknownTypesFromImports: completenessReport.ignoreExternal,
-        pyTypedPath: completenessReport.pyTypedPath,
+        pyTypedPath: completenessReport.pyTypedPathUri,
         exportedSymbolCounts: {
             withKnownType: 0,
             withAmbiguousType: 0,

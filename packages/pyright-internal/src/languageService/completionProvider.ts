@@ -41,7 +41,7 @@ import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
 import { getTypedDictMembersForClass } from '../analyzer/typedDicts';
-import { getModuleDocStringFromPaths } from '../analyzer/typeDocStringUtils';
+import { getModuleDocStringFromUris } from '../analyzer/typeDocStringUtils';
 import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { printLiteralValue } from '../analyzer/typePrinter';
 import {
@@ -348,7 +348,7 @@ export class CompletionProvider {
         }
 
         if (completionItemData.modulePath) {
-            const documentation = getModuleDocStringFromPaths([completionItemData.modulePath], this.sourceMapper);
+            const documentation = getModuleDocStringFromUris([completionItemData.modulePath], this.sourceMapper);
             if (!documentation) {
                 return;
             }

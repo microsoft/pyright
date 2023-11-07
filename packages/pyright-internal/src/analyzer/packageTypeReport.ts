@@ -47,7 +47,7 @@ export interface SymbolInfo {
 
 export interface ModuleInfo {
     name: string;
-    path: string;
+    uri: string;
     isExported: boolean;
 }
 
@@ -57,10 +57,10 @@ export interface PackageTypeReport {
     packageName: string;
     moduleName: string;
     ignoreExternal: boolean;
-    packageRootDirectory: string | undefined;
-    moduleRootDirectory: string | undefined;
+    packageRootDirectoryUri: string | undefined;
+    moduleRootDirectoryUri: string | undefined;
     isModuleSingleFile: boolean;
-    pyTypedPath: string | undefined;
+    pyTypedPathUri: string | undefined;
     missingFunctionDocStringCount: number;
     missingClassDocStringCount: number;
     missingDefaultParamCount: number;
@@ -85,20 +85,20 @@ export interface PackageTypeReport {
 
 export function getEmptyReport(
     packageName: string,
-    packageRootDirectory: string,
+    packageRootUri: string,
     moduleName: string,
-    moduleRootDirectory: string,
+    moduleRootUri: string,
     isModuleSingleFile: boolean,
     ignoreExternal: boolean
 ) {
     const report: PackageTypeReport = {
         packageName,
         ignoreExternal,
-        packageRootDirectory,
+        packageRootDirectoryUri: packageRootUri,
         moduleName,
-        moduleRootDirectory,
+        moduleRootDirectoryUri: moduleRootUri,
         isModuleSingleFile,
-        pyTypedPath: undefined,
+        pyTypedPathUri: undefined,
         missingFunctionDocStringCount: 0,
         missingClassDocStringCount: 0,
         missingDefaultParamCount: 0,

@@ -8,6 +8,7 @@
 
 import * as pathConsts from '../../../common/pathConsts';
 import { combinePaths, getDirectoryPath, normalizeSlashes, resolvePaths } from '../../../common/pathUtils';
+import { Uri } from '../../../common/uri';
 import { GlobalMetadataOptionNames } from '../fourslash/fourSlashTypes';
 import { TestHost } from '../testHost';
 import { bufferFrom } from '../utils';
@@ -88,12 +89,12 @@ export function createFromFileSystem(
     }
     if (cwd) {
         fs.mkdirpSync(cwd);
-        fs.chdir(cwd);
+        fs.chdir(Uri.file(cwd));
     }
     if (documents) {
         for (const document of documents) {
             fs.mkdirpSync(getDirectoryPath(document.file));
-            fs.writeFileSync(document.file, document.text, 'utf8');
+            fs.writeFileSync(Uri.file(document.file), document.text, 'utf8');
             fs.filemeta(document.file).set('document', document);
             // Add symlinks
             const symlink = document.meta.get('symlink');

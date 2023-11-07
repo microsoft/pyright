@@ -27,6 +27,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetToPosition, convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
+import { Uri } from '../common/uri';
 import { Localizer, ParameterizedString } from '../localization/localize';
 import {
     ArgumentCategory,
@@ -2897,7 +2898,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfModule(node: ParseNode, symbolName: string, nameParts: string[]) {
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-        const lookupResult = importLookup({ nameParts, importingFilePath: fileInfo.fileUri });
+        const lookupResult = importLookup({ nameParts, importingFilePath: Uri.parse(fileInfo.fileUri) });
 
         if (!lookupResult) {
             return undefined;
@@ -20193,7 +20194,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // Synthesize an alias declaration for this name part. The only
                     // time this case is used is for IDE services such as
                     // the find all references, hover provider and etc.
-                    declarations.push(createSynthesizedAliasDeclaration(importInfo.resolvedPaths[namePartIndex]));
+                    declarations.push(
+                        createSynthesizedAliasDeclaration(importInfo.resolvedPaths[namePartIndex].toString())
+                    );
                 }
             }
         } else if (node.parent && node.parent.nodeType === ParseNodeType.Argument && node === node.parent.name) {
@@ -20613,8 +20616,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             loaderActions: ModuleLoaderActions,
             importLookup: ImportLookup
         ): Type {
-            if (loaderActions.path && loaderActions.loadSymbolsFromPath) {
-                const lookupResults = importLookup(loaderActions.path);
+            if (loaderActions.uri && loaderActions.loadSymbolsFromPath) {
+                const lookupResults = importLookup(Uri.parse(loaderActions.uri));
                 if (lookupResults) {
                     moduleType.fields = lookupResults.symbolTable;
                     moduleType.docString = lookupResults.docString;
@@ -20637,7 +20640,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         symbolType = UnknownType.create();
                     } else {
                         const moduleName = moduleType.moduleName ? moduleType.moduleName + '.' + name : '';
-                        const importedModuleType = ModuleType.create(moduleName, implicitImport.path);
+                        const importedModuleType = ModuleType.create(moduleName, implicitImport.uri);
                         symbolType = applyLoaderActionsToModuleType(importedModuleType, implicitImport, importLookup);
                     }
 

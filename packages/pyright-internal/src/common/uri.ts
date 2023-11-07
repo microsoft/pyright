@@ -45,12 +45,27 @@ export class Uri {
         return Uri._empty;
     }
 
-    static parse(value: string): Uri {
+    static parse(value: string | undefined): Uri {
+        if (!value) {
+            return Uri.empty();
+        }
         return new Uri(value);
     }
 
     static file(path: string): Uri {
+        // If this already starts with 'file:', then we can
+        // parse it normally. It's actually a uri string.
+        if (path.startsWith('file:')) {
+            return Uri.parse(path);
+        }
+
+        // Otherwise assume this is a file path.
         return new Uri(URI.file(path));
+    }
+
+    static fromKey(key: string): Uri {
+        // Right now the key is the same as the original string. Just parse it.
+        return Uri.parse(key);
     }
 
     static isUri(thing: any): thing is Uri {
@@ -90,6 +105,11 @@ export class Uri {
     addExtension(ext: string): Uri {
         const path = this.getPath();
         return new Uri(this._uri.with({ path: path + ext, fragment: '', query: '' }));
+    }
+
+    addPath(extra: string): Uri {
+        const path = this.getPath();
+        return new Uri(this._uri.with({ path: path + extra, fragment: '', query: '' }));
     }
 
     remove(fileOrDirName: string): Uri {

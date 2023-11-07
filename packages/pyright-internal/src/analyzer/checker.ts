@@ -23,6 +23,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { getFileExtension } from '../common/pathUtils';
 import { PythonVersion, versionToString } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
+import { Uri } from '../common/uri';
 import { DefinitionProvider } from '../languageService/definitionProvider';
 import { Localizer } from '../localization/localize';
 import {
@@ -1525,11 +1526,12 @@ export class Checker extends ParseTreeWalker {
             }
 
             const resolvedAlias = this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
-            if (!resolvedAlias?.uri || !isStubFile(resolvedAlias.uri)) {
+            const resolvedAliasUri = resolvedAlias?.uri ? Uri.parse(resolvedAlias.uri) : undefined;
+            if (!resolvedAliasUri || !isStubFile(resolvedAliasUri)) {
                 continue;
             }
 
-            const importResult = this._getImportResult(node, resolvedAlias.uri);
+            const importResult = this._getImportResult(node, resolvedAliasUri);
             if (!importResult) {
                 continue;
             }
@@ -1615,22 +1617,22 @@ export class Checker extends ParseTreeWalker {
         return false;
     }
 
-    private _getImportResult(node: ImportFromAsNode, filePath: string) {
-        const execEnv = this._importResolver.getConfigOptions().findExecEnvironment(filePath);
+    private _getImportResult(node: ImportFromAsNode, uri: Uri) {
+        const execEnv = this._importResolver.getConfigOptions().findExecEnvironment(uri);
         const moduleNameNode = (node.parent as ImportFromNode).module;
 
         // Handle both absolute and relative imports.
         const moduleName =
             moduleNameNode.leadingDots === 0
-                ? this._importResolver.getModuleNameForImport(filePath, execEnv).moduleName
-                : getRelativeModuleName(this._importResolver.fileSystem, this._fileInfo.fileUri, filePath);
+                ? this._importResolver.getModuleNameForImport(uri, execEnv).moduleName
+                : getRelativeModuleName(this._importResolver.fileSystem, Uri.parse(this._fileInfo.fileUri), uri);
 
         if (!moduleName) {
             return undefined;
         }
 
         return this._importResolver.resolveImport(
-            this._fileInfo.fileUri,
+            Uri.parse(this._fileInfo.fileUri),
             execEnv,
             createImportedModuleDescriptor(moduleName)
         );
@@ -4060,7 +4062,7 @@ export class Checker extends ParseTreeWalker {
         if (
             stdlibPath &&
             this._importResolver.isStdlibModule(desc, this._fileInfo.executionEnvironment) &&
-            this._sourceMapper.isUserCode(this._fileInfo.fileUri)
+            this._sourceMapper.isUserCode(Uri.parse(this._fileInfo.fileUri))
         ) {
             // This means the user has a module that is overwriting the stdlib module.
             const diag = this._evaluator.addDiagnosticForTextRange(
@@ -4079,7 +4081,7 @@ export class Checker extends ParseTreeWalker {
                 const renameAction: RenameShadowedFileAction = {
                     action: ActionKind.RenameShadowedFileAction,
                     oldUri: this._fileInfo.fileUri,
-                    newUri: this._sourceMapper.getNextFileName(this._fileInfo.fileUri),
+                    newUri: this._sourceMapper.getNextFileName(Uri.parse(this._fileInfo.fileUri)).toString(),
                 };
                 diag.addAction(renameAction);
             }
@@ -4128,7 +4130,7 @@ export class Checker extends ParseTreeWalker {
                 namePartNodes[namePartNodes.length - 1].start,
                 CancellationToken.None
             );
-            const paths = definitions ? definitions.map((d) => d.uri) : [];
+            const paths = definitions ? definitions.map((d) => Uri.parse(d.uri)) : [];
             paths.forEach((p) => {
                 if (!p.startsWith(stdlibPath) && !isStubFile(p) && this._sourceMapper.isUserCode(p)) {
                     // This means the user has a module that is overwriting the stdlib module.
@@ -4137,7 +4139,7 @@ export class Checker extends ParseTreeWalker {
                         DiagnosticRule.reportShadowedImports,
                         Localizer.Diagnostic.stdlibModuleOverridden().format({
                             name: nameParts.join('.'),
-                            path: p,
+                            path: p.toUserVisibleString(),
                         }),
                         node
                     );
@@ -4145,8 +4147,8 @@ export class Checker extends ParseTreeWalker {
                     if (diag) {
                         const renameAction: RenameShadowedFileAction = {
                             action: ActionKind.RenameShadowedFileAction,
-                            oldUri: p,
-                            newUri: this._sourceMapper.getNextFileName(p),
+                            oldUri: p.toString(),
+                            newUri: this._sourceMapper.getNextFileName(p).toString(),
                         };
                         diag.addAction(renameAction);
                     }

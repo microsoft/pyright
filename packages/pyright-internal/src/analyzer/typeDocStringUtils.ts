@@ -33,6 +33,7 @@ import {
     TypeCategory,
 } from '../analyzer/types';
 import { addIfNotNull, appendArray } from '../common/collectionUtils';
+import { Uri } from '../common/uri';
 import { ModuleNode, ParseNodeType } from '../parser/parseNodes';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
@@ -160,7 +161,7 @@ export function getPropertyDocStringInherited(
 
 export function getVariableInStubFileDocStrings(decl: VariableDeclaration, sourceMapper: SourceMapper) {
     const docStrings: string[] = [];
-    if (!isStubFile(decl.uri)) {
+    if (!isStubFile(Uri.parse(decl.uri))) {
         return docStrings;
     }
 
@@ -193,14 +194,14 @@ export function getModuleDocStringFromModuleNodes(modules: ModuleNode[]): string
     return undefined;
 }
 
-export function getModuleDocStringFromPaths(filePaths: string[], sourceMapper: SourceMapper) {
+export function getModuleDocStringFromUris(uris: string[], sourceMapper: SourceMapper) {
     const modules: ModuleNode[] = [];
-    for (const filePath of filePaths) {
-        if (isStubFile(filePath)) {
-            addIfNotNull(modules, sourceMapper.getModuleNode(filePath));
+    for (const uri of uris.map((u) => Uri.parse(u))) {
+        if (isStubFile(uri)) {
+            addIfNotNull(modules, sourceMapper.getModuleNode(uri));
         }
 
-        appendArray(modules, sourceMapper.findModules(filePath));
+        appendArray(modules, sourceMapper.findModules(uri));
     }
 
     return getModuleDocStringFromModuleNodes(modules);
@@ -213,8 +214,8 @@ export function getModuleDocString(
 ) {
     let docString = type.docString;
     if (!docString) {
-        const filePath = resolvedDecl?.uri ?? type.filePath;
-        docString = getModuleDocStringFromPaths([filePath], sourceMapper);
+        const uri = resolvedDecl?.uri ?? type.fileUri;
+        docString = getModuleDocStringFromUris([uri], sourceMapper);
     }
 
     return docString;
@@ -228,7 +229,12 @@ export function getClassDocString(
     let docString = classType.details.docString;
     if (!docString && resolvedDecl && isClassDeclaration(resolvedDecl)) {
         docString = _getFunctionOrClassDeclsDocString([resolvedDecl]);
-        if (!docString && resolvedDecl && isStubFile(resolvedDecl.uri) && resolvedDecl.type === DeclarationType.Class) {
+        if (
+            !docString &&
+            resolvedDecl &&
+            isStubFile(Uri.parse(resolvedDecl.uri)) &&
+            resolvedDecl.type === DeclarationType.Class
+        ) {
             for (const implDecl of sourceMapper.findDeclarations(resolvedDecl)) {
                 if (isVariableDeclaration(implDecl) && !!implDecl.docString) {
                     docString = implDecl.docString;
@@ -244,7 +250,7 @@ export function getClassDocString(
     }
 
     if (!docString && resolvedDecl) {
-        const implDecls = sourceMapper.findClassDeclarationsByType(resolvedDecl.uri, classType);
+        const implDecls = sourceMapper.findClassDeclarationsByType(Uri.parse(resolvedDecl.uri), classType);
         if (implDecls) {
             const classDecls = implDecls.filter((d) => isClassDeclaration(d)).map((d) => d);
             docString = _getFunctionOrClassDeclsDocString(classDecls);
@@ -289,7 +295,7 @@ function _getOverloadedFunctionDocStrings(
                 docStrings.push(overload.details.docString);
             }
         });
-    } else if (resolvedDecl && isStubFile(resolvedDecl.uri) && isFunctionDeclaration(resolvedDecl)) {
+    } else if (resolvedDecl && isStubFile(Uri.parse(resolvedDecl.uri)) && isFunctionDeclaration(resolvedDecl)) {
         const implDecls = sourceMapper.findFunctionDeclarations(resolvedDecl);
         const docString = _getFunctionOrClassDeclsDocString(implDecls);
         if (docString) {
@@ -367,7 +373,7 @@ function _getFunctionDocString(type: Type, resolvedDecl: FunctionDeclaration | u
 
 function _getFunctionDocStringFromDeclaration(resolvedDecl: FunctionDeclaration, sourceMapper: SourceMapper) {
     let docString = _getFunctionOrClassDeclsDocString([resolvedDecl]);
-    if (!docString && isStubFile(resolvedDecl.uri)) {
+    if (!docString && isStubFile(Uri.parse(resolvedDecl.uri))) {
         const implDecls = sourceMapper.findFunctionDeclarations(resolvedDecl);
         docString = _getFunctionOrClassDeclsDocString(implDecls);
     }

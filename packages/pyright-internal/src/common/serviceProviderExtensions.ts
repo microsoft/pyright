@@ -11,14 +11,15 @@ import { IPythonMode, SourceFile, SourceFileEditMode } from '../analyzer/sourceF
 import { SupportPartialStubs } from '../pyrightFileSystem';
 import { ConsoleInterface } from './console';
 import {
-    StatusMutationListener,
     ServiceProvider as ReadOnlyServiceProvider,
+    StatusMutationListener,
     SymbolDefinitionProvider,
     SymbolUsageProviderFactory,
 } from './extensibility';
 import { FileSystem, TempFile } from './fileSystem';
 import { LogTracker } from './logTracker';
 import { GroupServiceKey, ServiceKey, ServiceProvider } from './serviceProvider';
+import { Uri } from './uri';
 
 declare module './serviceProvider' {
     interface ServiceProvider {
@@ -85,26 +86,24 @@ ServiceProvider.prototype.sourceFileFactory = function () {
 const DefaultSourceFileFactory: ISourceFileFactory = {
     createSourceFile(
         serviceProvider: ReadOnlyServiceProvider,
-        filePath: string,
+        fileUri: Uri,
         moduleName: string,
         isThirdPartyImport: boolean,
         isThirdPartyPyTypedPresent: boolean,
         editMode: SourceFileEditMode,
         console?: ConsoleInterface,
         logTracker?: LogTracker,
-        realFilePath?: string,
         ipythonMode?: IPythonMode
     ) {
         return new SourceFile(
             serviceProvider,
-            filePath,
+            fileUri,
             moduleName,
             isThirdPartyImport,
             isThirdPartyPyTypedPresent,
             editMode,
             console,
             logTracker,
-            realFilePath,
             ipythonMode
         );
     },
