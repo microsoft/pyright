@@ -1351,7 +1351,7 @@ export class SourceFile {
             } catch (ex: any) {
                 const console = this.serviceProvider.tryGet(ServiceKeys.console);
                 if (console) {
-                    console.error(`State mutation listener exceptoin: ${ex.message}`);
+                    console.error(`State mutation listener exception: ${ex.message}`);
                 }
             }
         });

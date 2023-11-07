@@ -8,6 +8,7 @@ from typing import (
     Literal,
     Mapping,
     Protocol,
+    Self,
     TypeVar,
 )
 
@@ -174,3 +175,11 @@ def s18():
 
     c2: dict[Literal["A", "B"], Literal[3, 4]] = {"A": 3}
     reveal_type(c2, expected_text="dict[Literal['A', 'B'], Literal[3, 4]]")
+
+
+class Plant(Generic[_T1]):
+    def __new__(cls, o: _T1) -> Self:
+        ...
+
+
+plant: Plant[float] = Plant(0)

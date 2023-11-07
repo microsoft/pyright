@@ -30,7 +30,6 @@ import {
     containsPath,
     forEachAncestorDirectory,
     getDirectoryPath,
-    getFileExtension,
     getFileName,
     getFileSpec,
     getFileSystemEntries,
@@ -57,12 +56,7 @@ import {
     BackgroundAnalysisProgramFactory,
     InvalidatedReason,
 } from './backgroundAnalysisProgram';
-import {
-    ImportResolver,
-    ImportResolverFactory,
-    createImportedModuleDescriptor,
-    supportedSourceFileExtensions,
-} from './importResolver';
+import { ImportResolver, ImportResolverFactory, createImportedModuleDescriptor } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import { IPythonMode } from './sourceFile';
@@ -1093,8 +1087,7 @@ export class AnalyzerService {
 
                 // Add the implicit import paths.
                 importResult.filteredImplicitImports.forEach((implicitImport) => {
-                    const fileExtension = getFileExtension(implicitImport.path).toLowerCase();
-                    if (supportedSourceFileExtensions.some((ext) => fileExtension === ext)) {
+                    if (ImportResolver.isSupportedImportSourceFile(implicitImport.path)) {
                         filesToImport.push(implicitImport.path);
                     }
                 });
