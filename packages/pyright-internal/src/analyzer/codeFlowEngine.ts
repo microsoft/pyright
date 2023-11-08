@@ -1529,7 +1529,7 @@ export function getCodeFlowEngine(
                         }
                     }
                 } else if (isClassInstance(callSubtype)) {
-                    const callMethodResult = evaluator.getTypeOfObjectMember(
+                    const callMethodResult = evaluator.getTypeOfBoundMember(
                         node,
                         callSubtype,
                         '__call__',
@@ -1707,7 +1707,7 @@ export function getCodeFlowEngine(
 
             if (cmType && isClassInstance(cmType)) {
                 const exitMethodName = isAsync ? '__aexit__' : '__exit__';
-                const exitType = evaluator.getTypeOfObjectMember(node, cmType, exitMethodName)?.type;
+                const exitType = evaluator.getTypeOfBoundMember(node, cmType, exitMethodName)?.type;
 
                 if (exitType && isFunction(exitType) && exitType.details.declaredReturnType) {
                     let returnType = exitType.details.declaredReturnType;

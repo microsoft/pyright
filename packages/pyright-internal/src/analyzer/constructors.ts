@@ -71,7 +71,7 @@ export function getBoundNewMethod(
         flags |= MemberAccessFlags.SkipObjectBaseClass;
     }
 
-    return evaluator.getTypeOfObjectMember(errorNode, type, '__new__', { method: 'get' }, /* diag */ undefined, flags);
+    return evaluator.getTypeOfBoundMember(errorNode, type, '__new__', { method: 'get' }, /* diag */ undefined, flags);
 }
 
 // Fetches and binds the __init__ method from a class instance.
@@ -86,12 +86,12 @@ export function getBoundInitMethod(
         flags |= MemberAccessFlags.SkipObjectBaseClass;
     }
 
-    return evaluator.getTypeOfObjectMember(errorNode, type, '__init__', { method: 'get' }, /* diag */ undefined, flags);
+    return evaluator.getTypeOfBoundMember(errorNode, type, '__init__', { method: 'get' }, /* diag */ undefined, flags);
 }
 
 // Fetches and binds the __call__ method from a class or its metaclass.
 export function getBoundCallMethod(evaluator: TypeEvaluator, errorNode: ExpressionNode, type: ClassType) {
-    return evaluator.getTypeOfObjectMember(
+    return evaluator.getTypeOfBoundMember(
         errorNode,
         type,
         '__call__',
@@ -789,7 +789,9 @@ export function createFunctionFromConstructor(
     const initInfo = lookUpClassMember(
         classType,
         '__init__',
-        MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass
+        MemberAccessFlags.SkipInstanceMembers |
+            MemberAccessFlags.SkipAttributeAccessOverride |
+            MemberAccessFlags.SkipObjectBaseClass
     );
 
     if (initInfo) {
@@ -853,7 +855,9 @@ export function createFunctionFromConstructor(
     const newInfo = lookUpClassMember(
         classType,
         '__new__',
-        MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass
+        MemberAccessFlags.SkipInstanceMembers |
+            MemberAccessFlags.SkipAttributeAccessOverride |
+            MemberAccessFlags.SkipObjectBaseClass
     );
 
     if (newInfo) {

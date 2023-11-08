@@ -991,7 +991,7 @@ function narrowTypeOfClassPatternArgument(
             argType = evaluator.useSpeculativeMode(arg, () =>
                 // We need to apply a rather ugly cast here because PatternClassArgumentNode is
                 // not technically an ExpressionNode, but it is OK to use it in this context.
-                evaluator.getTypeOfObjectMember(
+                evaluator.getTypeOfBoundMember(
                     arg as any as ExpressionNode,
                     ClassType.cloneAsInstance(matchType),
                     argName!

@@ -488,7 +488,7 @@ export function getEnumAutoValueType(evaluator: TypeEvaluator, node: ExpressionN
     if (containingClassNode) {
         const classTypeInfo = evaluator.getTypeOfClass(containingClassNode);
         if (classTypeInfo) {
-            const memberInfo = evaluator.getTypeOfObjectMember(
+            const memberInfo = evaluator.getTypeOfBoundMember(
                 node,
                 ClassType.cloneAsInstance(classTypeInfo.classType),
                 '_generate_next_value_'
