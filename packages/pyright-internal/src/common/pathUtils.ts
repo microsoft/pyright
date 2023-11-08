@@ -8,7 +8,6 @@
  */
 
 import * as path from 'path';
-import { URI, Utils } from 'vscode-uri';
 
 import { Char } from './charCodes';
 import { some } from './collectionUtils';
@@ -62,14 +61,7 @@ export interface FileSystemEntries {
 }
 
 export function getDirectoryPath(pathString: string): string {
-    if (isUri(pathString)) {
-        return Utils.dirname(URI.parse(pathString).with({ fragment: '' })).toString();
-    }
     return pathString.substr(0, Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep)));
-}
-
-export function isUri(pathString: string) {
-    return pathString.indexOf(':') > 1;
 }
 
 /**
@@ -95,20 +87,11 @@ export function getRootLength(pathString: string): number {
         }
     }
 
-    if (isUri(pathString)) {
-        const uri = URI.parse(pathString);
-        if (uri.authority) {
-            return uri.scheme.length + 3; // URI: "file://"
-        } else {
-            return uri.scheme.length + 2; // URI: "untitled:/"
-        }
-    }
-
     return 0;
 }
 
 export function getPathSeparator(pathString: string) {
-    return isUri(pathString) ? '/' : path.sep;
+    return path.sep;
 }
 
 export function getPathComponents(pathString: string) {
@@ -183,11 +166,9 @@ export function getRelativePath(dirPath: string, relativeTo: string) {
 
 const getInvalidSeparator = (sep: string) => (sep === '/' ? '\\' : '/');
 export function normalizeSlashes(pathString: string, sep = path.sep): string {
-    if (!isUri(pathString)) {
-        if (pathString.includes(getInvalidSeparator(sep))) {
-            const separatorRegExp = /[\\/]/g;
-            return pathString.replace(separatorRegExp, sep);
-        }
+    if (pathString.includes(getInvalidSeparator(sep))) {
+        const separatorRegExp = /[\\/]/g;
+        return pathString.replace(separatorRegExp, sep);
     }
 
     return pathString;
@@ -207,7 +188,7 @@ export function resolvePaths(path: string, ...paths: (string | undefined)[]): st
     return normalizePath(some(paths) ? combinePaths(path, ...paths) : normalizeSlashes(path));
 }
 
-function combineFilePaths(pathString: string, ...paths: (string | undefined)[]): string {
+export function combinePaths(pathString: string, ...paths: (string | undefined)[]): string {
     if (pathString) {
         pathString = normalizeSlashes(pathString);
     }
@@ -227,29 +208,6 @@ function combineFilePaths(pathString: string, ...paths: (string | undefined)[]):
     }
 
     return pathString;
-}
-
-export function combinePaths(pathString: string, ...paths: (string | undefined)[]): string {
-    if (!isUri(pathString)) {
-        // Not a URI, or a URI with a single letter scheme.
-        return combineFilePaths(pathString, ...paths);
-    }
-
-    // Go through the paths to see if any are rooted. If so, treat as
-    // a file path. On linux this might be wrong if a path starts with '/'.
-    if (some(paths, (p) => !!p && getRootLength(p) !== 0)) {
-        return combineFilePaths(pathString, ...paths);
-    }
-
-    // Otherwise this is a URI
-    const nonEmptyPaths = paths.filter((p) => !!p) as string[];
-    const uri = URI.parse(pathString);
-
-    // Make sure we have a path to append to.
-    if (uri.path === '' || uri.path === undefined) {
-        nonEmptyPaths.unshift('/');
-    }
-    return Utils.joinPath(uri.with({ fragment: '' }), ...nonEmptyPaths).toString();
 }
 
 /**
@@ -383,9 +341,7 @@ export function getBaseFileName(pathString: string, extensions?: string | readon
     // return the trailing portion of the path starting after the last (non-terminal) directory
     // separator but not including any trailing directory separator.
     pathString = stripTrailingDirectorySeparator(pathString);
-    const name = isUri(pathString)
-        ? Utils.basename(URI.parse(pathString))
-        : pathString.slice(Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep) + 1));
+    const name = pathString.slice(Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep) + 1));
     const extension =
         extensions !== undefined && ignoreCase !== undefined
             ? getAnyExtensionFromPath(name, extensions, ignoreCase)
@@ -448,12 +404,7 @@ export function stripFileExtension(fileName: string, multiDotExtension = false) 
 }
 
 export function normalizePath(pathString: string): string {
-    if (!isUri(pathString)) {
-        return normalizeSlashes(path.normalize(pathString));
-    }
-
-    // Must be a URI, already normalized.
-    return pathString;
+    return normalizeSlashes(path.normalize(pathString));
 }
 
 // Transforms a relative file spec (one that potentially contains

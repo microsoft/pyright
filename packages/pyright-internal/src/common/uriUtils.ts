@@ -42,15 +42,15 @@ export namespace FileSpec {
         return candidate && !!candidate.wildcardRoot && !!candidate.regExp;
     }
     export function isInPath(uri: Uri, paths: FileSpec[]) {
-        return !!paths.find((p) => uri.test(p.regExp));
+        return !!paths.find((p) => uri.matchesRegex(p.regExp));
     }
 
     export function matchesIncludeFileRegex(uri: Uri, isFile = true) {
-        return isFile ? uri.test(_includeFileRegex) : true;
+        return isFile ? uri.matchesRegex(_includeFileRegex) : true;
     }
 
     export function matchIncludeFileSpec(includeRegExp: RegExp, exclude: FileSpec[], uri: Uri, isFile = true) {
-        if (uri.test(includeRegExp)) {
+        if (uri.matchesRegex(includeRegExp)) {
             if (!FileSpec.isInPath(uri, exclude) && FileSpec.matchesIncludeFileRegex(uri, isFile)) {
                 return true;
             }

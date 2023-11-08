@@ -521,7 +521,9 @@ export class WorkspaceFactory {
         // length root path
         if (
             bestInstance === undefined &&
-            regularWorkspaces.every((w) => w.rootUri.getRootLength() === regularWorkspaces[0].rootUri.getRootLength())
+            regularWorkspaces.every(
+                (w) => w.rootUri.getRootPathLength() === regularWorkspaces[0].rootUri.getRootPathLength()
+            )
         ) {
             bestInstance = this._getBestRegularWorkspace(regularWorkspaces, pythonPath);
         }
@@ -567,7 +569,7 @@ export class WorkspaceFactory {
             if (!previousPath) {
                 return currentWorkspace.rootUri;
             }
-            if (currentWorkspace.rootUri.pathLength() > previousPath.pathLength()) {
+            if (currentWorkspace.rootUri.getPathLength() > previousPath.getPathLength()) {
                 return currentWorkspace.rootUri;
             }
 

@@ -121,7 +121,7 @@ function getEffectiveCommandLineOptions(
         commandLineOptions.venvPath = serverSettings.venvPath.getFilePath();
     }
 
-    if (serverSettings.pythonPath && serverSettings.pythonPath.getRootLength() > 0) {
+    if (serverSettings.pythonPath && serverSettings.pythonPath.getRootPathLength() > 0) {
         // The Python VS Code extension treats the value "python" specially. This means
         // the local python interpreter should be used rather than interpreting the
         // setting value as a path to the interpreter. We'll simply ignore it in this case.

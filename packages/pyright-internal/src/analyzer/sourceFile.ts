@@ -606,7 +606,8 @@ export class SourceFile {
 
                 // Is this file in a "strict" path?
                 const useStrict =
-                    configOptions.strict.find((strictFileSpec) => this._uri.test(strictFileSpec.regExp)) !== undefined;
+                    configOptions.strict.find((strictFileSpec) => this._uri.matchesRegex(strictFileSpec.regExp)) !==
+                    undefined;
 
                 const commentDiags: CommentUtils.CommentDiagnostic[] = [];
                 this._diagnosticRuleSet = CommentUtils.getFileLevelDirectives(
@@ -1095,7 +1096,7 @@ export class SourceFile {
         this._addTaskListDiagnostics(configOptions.taskListTokens, diagList);
 
         // If the file is in the ignore list, clear the diagnostic list.
-        if (configOptions.ignore.find((ignoreFileSpec) => this._uri.test(ignoreFileSpec.regExp))) {
+        if (configOptions.ignore.find((ignoreFileSpec) => this._uri.matchesRegex(ignoreFileSpec.regExp))) {
             diagList = [];
         }
 

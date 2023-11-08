@@ -411,7 +411,7 @@ class RealFileSystem implements FileSystem {
 
     private _getNormalizedPath(uri: Uri) {
         const path = this._getFileSystemPath(uri);
-        const driveLength = uri.getRootLength();
+        const driveLength = uri.getRootPathLength();
 
         if (driveLength === 0) {
             return path;

@@ -8,7 +8,7 @@
 
 import { URI, Utils } from 'vscode-uri';
 import { some } from './collectionUtils';
-import { getRootLength } from './pathUtils';
+import { getRootLength, normalizePath, normalizeSlashes } from './pathUtils';
 
 export class Uri {
     private readonly _string;
@@ -69,7 +69,7 @@ export class Uri {
         }
 
         // Otherwise assume this is a file path.
-        return new Uri(URI.file(path));
+        return new Uri(URI.file(normalizePath(path)));
     }
 
     static fromKey(key: string): Uri {
@@ -96,7 +96,7 @@ export class Uri {
         return this._uri.toString();
     }
 
-    test(regex: RegExp): boolean {
+    matchesRegex(regex: RegExp): boolean {
         // Just test the path portion of the URI.
         return regex.test(this.getPath());
     }
@@ -112,8 +112,7 @@ export class Uri {
     }
 
     addExtension(ext: string): Uri {
-        const path = this.getPath();
-        return new Uri(this._uri.with({ path: path + ext, fragment: '', query: '' }));
+        return this.addPath(ext);
     }
 
     addPath(extra: string): Uri {
@@ -125,7 +124,7 @@ export class Uri {
         const path = this.getPath();
         const index = path.lastIndexOf(fileOrDirName);
         if (index > 0) {
-            return new Uri(this._uri.with({ path: path.slice(0, index) }));
+            return new Uri(this._uri.with({ path: path.slice(0, index), fragment: '', query: '' }));
         }
         return new Uri(this._uri);
     }
@@ -146,17 +145,8 @@ export class Uri {
         return new Uri(Utils.dirname(this._uri.with({ query: '', fragment: '' })));
     }
 
-    getRootLength(): number {
+    getRootPathLength(): number {
         return this._getRootPath().length;
-    }
-
-    getAllExtensions(): string {
-        const path = this.getPath();
-        const index = path.lastIndexOf('.');
-        if (index > 0) {
-            return path.slice(index);
-        }
-        return '';
     }
 
     // Slice the path portion of the URI.
@@ -186,7 +176,7 @@ export class Uri {
         if (this._uri.authority !== parent._uri.authority) {
             return false;
         }
-        return this.getPath().startsWith(parent.getPath()) && parent.getPath().length < this.getPath().length;
+        return parent.startsWith(this) && parent.getPath().length < this.getPath().length;
     }
 
     isLocal(): boolean {
@@ -202,23 +192,39 @@ export class Uri {
     }
 
     startsWith(other: Uri): boolean {
-        return this._uri.toString().startsWith(other._uri.toString());
+        if (this._uri.scheme !== other._uri.scheme) {
+            return false;
+        }
+        if (this._uri.authority !== other._uri.authority) {
+            return false;
+        }
+        if (this._uri.path.length <= other._uri.path.length) {
+            // Fragment or query are not taken into consideration.
+            return this._uri.path.startsWith(other._uri.path);
+        }
+        return false;
     }
 
     pathStartsWith(name: string): boolean {
-        return this.getPath().startsWith(name);
+        // ignore path separators.
+        name = normalizeSlashes(name);
+        return this._getComparablePath().startsWith(name);
     }
 
     pathEndsWith(name: string): boolean {
-        return this.getPath().endsWith(name);
+        // ignore path separators.
+        name = normalizeSlashes(name);
+        return this._getComparablePath().endsWith(name);
     }
 
     pathIncludes(include: string): boolean {
-        return this.getPath().includes(include);
+        // ignore path separators.
+        include = normalizeSlashes(include);
+        return this._getComparablePath().includes(include);
     }
 
     // How long the path for this Uri is.
-    pathLength(): number {
+    getPathLength(): number {
         return this.getPath().length;
     }
 
@@ -254,6 +260,10 @@ export class Uri {
     }
 
     getRelativePathComponents(child: Uri): string[] {
+        if (!this.isChild(child)) {
+            return [];
+        }
+
         const childComponents = child.getPathComponents();
         const parentComponents = this.getPathComponents();
 
@@ -296,6 +306,10 @@ export class Uri {
     }
 
     private _getRootPath(): string {
+        if (this._uri.scheme === 'file') {
+            const rootLength = getRootLength(this._uri.fsPath);
+            return this._uri.fsPath.slice(0, rootLength);
+        }
         return this._uri.path.split('/')[0];
     }
 
@@ -329,14 +343,10 @@ export class Uri {
         return reduced;
     }
 
-    private static _normalizeUriString(uri: string): string {
-        // Make sure the drive letter is lower case.
-        let parsed = URI.parse(uri);
-        if (parsed.scheme === 'file') {
-            if (/^[a-zA-Z]:/.test(parsed.fsPath)) {
-                parsed = parsed.with({ path: parsed.fsPath[0].toLowerCase() + parsed.fsPath.slice(1) });
-            }
+    private _getComparablePath(): string {
+        if (this._uri.scheme === 'file') {
+            return normalizeSlashes(this._uri.fsPath);
         }
-        return parsed.toString();
+        return normalizeSlashes(this._uri.path);
     }
 }

@@ -1139,7 +1139,7 @@ export class AnalyzerService {
             }
 
             for (const dirPath of directories) {
-                if (dirPath.test(includeRegExp) || hasDirectoryWildcard) {
+                if (dirPath.matchesRegex(includeRegExp) || hasDirectoryWildcard) {
                     if (!FileSpec.isInPath(dirPath, exclude)) {
                         visitDirectory(dirPath, includeRegExp, hasDirectoryWildcard);
                     }
@@ -1438,7 +1438,7 @@ export class AnalyzerService {
         for (const libSearchPath of libSearchPaths) {
             if (
                 path.isChild(libSearchPath) &&
-                (!matchingSearchPath || matchingSearchPath.pathLength() < libSearchPath.pathLength())
+                (!matchingSearchPath || matchingSearchPath.getPathLength() < libSearchPath.getPathLength())
             ) {
                 matchingSearchPath = libSearchPath;
             }

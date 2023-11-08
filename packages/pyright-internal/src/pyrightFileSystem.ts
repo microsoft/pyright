@@ -173,7 +173,7 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
     private _getRelativePathPartialStubs(uri: Uri) {
         const paths: string[] = [];
 
-        const partialStubPathLength = uri.getDirectory().pathLength();
+        const partialStubPathLength = uri.getDirectory().getPathLength();
         const searchAllStubs = (uri: Uri) => {
             for (const entry of this.realFS.readdirEntriesSync(uri)) {
                 const filePath = uri.combinePaths(entry.name);

@@ -13,6 +13,7 @@ import * as os from 'os';
 import * as path from 'path';
 
 import { expandPathVariables } from '../common/envVarUtils';
+import { normalizeSlashes } from '../common/pathUtils';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { Uri } from '../common/uri';
 import {
@@ -22,6 +23,269 @@ import {
     isFileSystemCaseSensitiveInternal,
 } from '../common/uriUtils';
 import * as vfs from './harness/vfs/filesystem';
+
+test('parse', () => {
+    assert.throws(() => Uri.parse('/a/b/c'));
+    assert.ok(Uri.parse('foo:///a/b/c'));
+    assert.ok(Uri.parse('foo:a/b/c'));
+    assert.ok(Uri.parse('foo:/a/b/c'));
+    assert.ok(Uri.parse('foo://server/share/dir/file.py'));
+    assert.ok(Uri.parse('foo://server/share/dir/file.py?query#fragment'));
+    assert.ok(Uri.parse('foo:///c:/users/me'));
+    assert.ok(Uri.parse('foo:///c%3A%52users%52me'));
+    assert.ok(Uri.parse(''));
+    assert.ok(Uri.parse(undefined));
+});
+
+test('key', () => {
+    const key = Uri.parse('foo:///a/b/c').key;
+    const key2 = Uri.parse('foo:///a/b/c').key;
+    assert.equal(key, key2);
+    const key3 = Uri.parse('foo:///a/b/d').key;
+    assert.notEqual(key, key3);
+    const key4 = Uri.file('/a/b/c').key;
+    assert.notEqual(key, key4);
+    const key5 = Uri.parse('file:///a/b/c').key;
+    assert.equal(key4, key5);
+    const key6 = Uri.file(normalizeSlashes('c:\\foo\\bar\\d.txt')).key;
+    const key7 = Uri.parse('file:///c%3A/foo/bar/d.txt').key;
+    assert.equal(key6, key7);
+});
+
+test('basename', () => {
+    const basename = Uri.parse('foo:///a/b/c').basename;
+    assert.equal(basename, 'c');
+    const basename2 = Uri.parse('foo:///a/b/c/').basename;
+    assert.equal(basename2, '');
+    const basename3 = Uri.parse('foo:///a/b/c.py').basename;
+    assert.equal(basename3, 'c.py');
+    const basename4 = Uri.parse('foo:///a/b/c.py?query#fragment').basename;
+    assert.equal(basename4, 'c.py');
+    const basename5 = Uri.file('/a/b/c').basename;
+    assert.equal(basename5, 'c');
+    const basename6 = Uri.parse('file:///a/b/c');
+    assert.equal(basename6, 'c');
+});
+
+test('extname', () => {
+    const extname = Uri.parse('foo:///a/b/c').extname;
+    assert.equal(extname, '');
+    const extname2 = Uri.parse('foo:///a/b/c/').extname;
+    assert.equal(extname2, '');
+    const extname3 = Uri.parse('foo:///a/b/c.py').extname;
+    assert.equal(extname3, '.py');
+    const extname4 = Uri.parse('foo:///a/b/c.py?query#fragment').extname;
+    assert.equal(extname4, '.py');
+    const extname5 = Uri.file('/a/b/c.py.foo').extname;
+    assert.equal(extname5, '.foo');
+    const extname6 = Uri.parse('file:///a/b/c.py.foo');
+    assert.equal(extname6, '.foo');
+});
+
+test('root', () => {
+    const root = Uri.parse('foo:///a/b/c').root;
+    assert.equal(root.toString(), 'foo:///');
+    const root2 = Uri.parse('foo:///').root;
+    assert.equal(root2.toString(), 'foo:///');
+    const root3 = Uri.parse('foo:///a/b/c/').root;
+    assert.equal(root3.toString(), 'foo:///');
+    assert.ok(root3.isDiskPathRoot());
+    const root4 = Uri.parse('foo:///a/b/c.py').root;
+    assert.equal(root4.toString(), 'foo:///');
+    const root5 = Uri.parse('foo:///a/b/c.py?query#fragment').root;
+    assert.equal(root5.toString(), 'foo:///');
+    const root6 = Uri.file('/a/b/c.py.foo').root;
+    assert.equal(root6.toString(), 'file:///');
+    const root7 = Uri.parse('file:///a/b/c.py.foo');
+    assert.equal(root7.toString(), 'file:///');
+    assert.equal(root7.getRootPathLength(), 1);
+    const root8 = Uri.parse('untitled:Untitled-1');
+    assert.equal(root8.toString(), 'untitled:Untitled-1');
+    assert.equal(root8.getRootPathLength(), 0);
+    assert.equal(root8.isDiskPathRoot(), false);
+    const root9 = Uri.parse('file://a/b/c/d.py').root;
+    assert.equal(root9.toString(), 'file://a');
+    assert.equal(root9.getRootPathLength(), 1);
+    assert.ok(root9.isRootDiskPath());
+    assert.ok(root9.isDiskPathRoot());
+    const root10 = Uri.parse('file://c%3A/b/c/d.py').root;
+    assert.equal(root10.toString(), 'file://c%3A');
+    assert.equal(root10.getRootPathLength(), 2);
+    assert.ok(root10.isRootDiskPath());
+    assert.ok(root10.isDiskPathRoot());
+});
+
+test('empty', () => {
+    const empty = Uri.parse('').isEmpty();
+    assert.equal(empty, true);
+    const empty2 = Uri.parse('foo:///').isEmpty();
+    assert.equal(empty2, false);
+    const empty3 = Uri.empty();
+    assert.equal(empty3.isEmpty(), true);
+    const empty4 = Uri.parse(undefined);
+    assert.equal(empty4.isEmpty(), true);
+});
+
+test('file', () => {
+    const file1 = Uri.file(normalizeSlashes('/a/b/c')).getFilePath();
+    assert.equal(file1, normalizeSlashes('/a/b/c'));
+    const file2 = Uri.file('file:///a/b/c').getFilePath();
+    assert.equal(file2, normalizeSlashes('/a/b/c'));
+});
+
+test('isUri', () => {
+    const isUri = Uri.isUri('foo:///a/b/c');
+    assert.equal(isUri, false);
+    const isUri2 = Uri.isUri('/a/b/c');
+    assert.equal(isUri2, false);
+    const isUri3 = Uri.isUri(undefined);
+    assert.equal(isUri3, false);
+    const isUri4 = Uri.isUri(Uri.parse('foo:///a/b/c'));
+    assert.equal(isUri4, true);
+    const isUri5 = Uri.isUri(Uri.empty());
+    assert.equal(isUri5, true);
+});
+
+test('matchesRegex', () => {
+    const includeFiles = /\.pyi?$/;
+    const uri = Uri.parse('file:///a/b/c.pyi');
+    assert.ok(uri.matchesRegex(includeFiles));
+    const uri2 = Uri.parse('file:///a/b/c.px');
+    assert.equal(uri2.matchesRegex(includeFiles), false);
+    const uri3 = Uri.parse('vscode-vfs:///a/b/c.pyi');
+    assert.ok(uri3.matchesRegex(includeFiles));
+});
+
+test('replaceExtension', () => {
+    const uri = Uri.parse('file:///a/b/c.pyi');
+    const uri2 = uri.replaceExtension('.py');
+    assert.equal(uri2.toString(), 'file:///a/b/c.py');
+    const uri3 = Uri.parse('file:///a/b/c');
+    const uri4 = uri3.replaceExtension('.py');
+    assert.equal(uri4.toString(), 'file:///a/b/c.py');
+    const uri5 = Uri.parse('file:///a/b/c.foo.py');
+    const uri6 = uri5.replaceExtension('.pyi');
+    assert.equal(uri6.toString(), 'file:///a/b/c.foo.pyi');
+});
+
+test('addExtension', () => {
+    const uri = Uri.parse('file:///a/b/c.pyi?query#fragment');
+    const uri2 = uri.addExtension('.py');
+    assert.equal(uri2.toString(), 'file:///a/b/c.pyi.py');
+    const uri3 = Uri.parse('file:///a/b/c');
+    const uri4 = uri3.addExtension('.py');
+    assert.equal(uri4.toString(), 'file:///a/b/c.py');
+});
+
+test('addPath', () => {
+    const uri = Uri.parse('file:///a/b/c.pyi?query#fragment');
+    const uri2 = uri.addPath('d');
+    assert.equal(uri2.toString(), 'file:///a/b/c.pyid');
+});
+
+test('remove', () => {
+    const uri = Uri.parse('file:///a/b/c.pyi?query#fragment');
+    const uri2 = uri.remove('c.pyi');
+    assert.equal(uri2.toString(), 'file:///a/b/');
+});
+
+test('directory', () => {
+    const uri = Uri.parse('file:///a/b/c.pyi?query#fragment');
+    const uri2 = uri.getDirectory();
+    assert.equal(uri2.toString(), 'file:///a/b/');
+    const uri3 = uri2.getDirectory();
+    assert.equal(uri3.toString(), 'file:///a/');
+    const uri4 = Uri.parse('file:///a/b/');
+    const uri5 = uri4.getDirectory();
+    assert.equal(uri5.toString(), 'file:///a/');
+});
+
+test('slicePath', () => {
+    const uri = Uri.parse('file:///a/b/c.pyi?query#fragment');
+    const path = uri.slicePath(1);
+    assert.equal(path, 'b/c.pyi');
+    const pathLength = uri.getPathLength();
+    const emptyPath = uri.slicePath(pathLength);
+    assert.equal(emptyPath, '');
+    const uri2 = Uri.parse('foo:test/me');
+    assert.equal(uri2.getPathLength(), 7);
+});
+
+test('isChild', () => {
+    const parent = Uri.parse('file:///a/b/?query#fragment');
+    const child = Uri.parse('file:///a/b/c.pyi?query#fragment');
+    assert.ok(child.isChild(parent));
+    const parent2 = Uri.parse('file:///a/b');
+    const child2 = Uri.parse('file:///a/b/c.pyi');
+    assert.ok(child2.isChild(parent2));
+    const parent3 = Uri.parse('file:///a/b/');
+    const child3 = Uri.parse('file:///a/b/c.pyi');
+    assert.ok(child3.isChild(parent3));
+    const parent4 = Uri.parse('file:///a/b/');
+    const notChild4 = Uri.parse('file:///a/bb/c.pyi');
+    assert.ok(!notChild4.isChild(parent4));
+    assert.ok(!notChild4.isChild(parent2));
+    const notChild5 = Uri.parse('file:///a/b/');
+    assert.ok(!notChild5.isChild(parent4));
+});
+
+test('equals', () => {
+    const uri1 = Uri.parse('file:///a/b/c.pyi?query#fragment');
+    const uri2 = Uri.file('/a/b/c.pyi');
+    assert.ok(!uri1.equals(uri2));
+    const uri3 = uri1.stripExtension().addExtension('.pyi');
+    assert.ok(uri2.equals(uri3));
+    const uri4 = Uri.parse('foo:///a/b/c');
+    const uri5 = Uri.parse('foo:///a/b/c');
+    const uri6 = Uri.parse('foo:///a/b/c/');
+    assert.ok(uri4.equals(uri5));
+    assert.ok(uri4.equals(uri6));
+});
+
+test('startsWith', () => {
+    const parent = Uri.parse('file:///a/b/?query#fragment');
+    const child = Uri.parse('file:///a/b/c.pyi?query#fragment');
+    assert.ok(parent.startsWith(child));
+    const parent2 = Uri.parse('file:///a/b');
+    const child2 = Uri.parse('file:///a/b/c.pyi');
+    assert.ok(parent2.startsWith(child2));
+    const parent3 = Uri.parse('file:///a/b/');
+    const child3 = Uri.parse('file:///a/b/c.pyi');
+    assert.ok(parent3.startsWith(child3));
+    const parent4 = Uri.parse('file:///a/b/');
+    const notChild4 = Uri.parse('file:///a/bb/c.pyi');
+    assert.ok(!parent4.startsWith(notChild4));
+    assert.ok(!parent2.startsWith(notChild4));
+});
+
+test('path comparisons', () => {
+    const uri = Uri.parse('foo:///a/b/c.pyi?query#fragment');
+    assert.ok(uri.pathEndsWith('c.pyi'));
+    assert.ok(uri.pathEndsWith('b/c.pyi'));
+    assert.ok(uri.pathEndsWith('a/b/c.pyi'));
+    assert.ok(!uri.pathEndsWith('a/b/c.py'));
+    assert.ok(!uri.pathEndsWith('b/c.py'));
+    assert.ok(uri.pathIncludes('c.pyi'));
+    assert.ok(uri.pathIncludes('b/c'));
+    assert.ok(uri.pathIncludes('a/b/c'));
+    const uri2 = Uri.parse('file:///C%3A/a/b/c.pyi?query#fragment');
+    assert.ok(uri2.pathEndsWith('c.pyi'));
+    assert.ok(uri2.pathEndsWith('b/c.pyi'));
+    assert.ok(uri2.pathStartsWith('C:/a'));
+    assert.ok(uri2.pathStartsWith('C:/a/b'));
+});
+
+test('combinePaths', () => {
+    const uri1 = Uri.parse('foo:///a/b/c.pyi?query#fragment');
+    const uri2 = uri1.combinePaths('d', 'e');
+    assert.equal(uri2.toString(), 'foo:///a/b/c.pyi/d/e');
+    const uri3 = uri1.combinePaths('d', 'e/');
+    assert.equal(uri3.toString(), 'foo:///a/b/c.pyi/d/e/');
+    const uri4 = uri1.combinePaths('d', 'e', 'f/');
+    assert.equal(uri4.toString(), 'foo:///a/b/c.pyi/d/e/f/');
+    const uri5 = uri1.combinePaths('/d', 'e', 'f');
+    assert.equal(uri5.toString(), 'file:///d/e/f');
+});
 
 test('getPathComponents1', () => {
     const components = Uri.parse('').getPathComponents();
@@ -67,6 +331,27 @@ test('getPathComponents6', () => {
     assert.equal(components[3], 'file.py');
 });
 
+test('getRelativePathComponents1', () => {
+    const components = Uri.parse('foo:///users/').getRelativePathComponents(Uri.parse('foo:///users/'));
+    assert.equal(components.length, 0);
+});
+
+test('getRelativePathComponents2', () => {
+    const components = Uri.parse('foo:///users/').getRelativePathComponents(Uri.parse('foo:///users/bar'));
+    assert.equal(components.length, 1);
+    assert.equal(components[0], 'bar');
+});
+
+test('getRelativePathComponents3', () => {
+    const components = Uri.parse('bar:///users/').getRelativePathComponents(Uri.parse('foo:///users/bar'));
+    assert.equal(components.length, 0);
+});
+
+test('getRelativePathComponents4', () => {
+    const components = Uri.parse('foo:///users').getRelativePathComponents(Uri.parse('foo:///users/'));
+    assert.equal(components.length, 0);
+});
+
 test('combinePaths1', () => {
     const p = Uri.parse('foo:///user').combinePaths('1', '2', '3');
     assert.equal(p.toString(), 'foo:///user/1/2/3');
@@ -75,15 +360,6 @@ test('combinePaths1', () => {
 test('getFileExtension1', () => {
     const ext = Uri.parse('foo://blah.blah/hello.JsOn').extname;
     assert.equal(ext, '.JsOn');
-});
-
-test('getFileExtension2', () => {
-    const ext1 = Uri.parse('foo://blah.blah/hello.cpython-32m.so').getAllExtensions();
-    assert.equal(ext1, '.cpython-32m.so');
-    const ext2 = Uri.parse('foo://blah.blah/hello.cpython-32m.so').extname;
-    assert.equal(ext2, '.so');
-    const ext3 = Uri.parse('foo://blah.blah/hello.cpython-32m.so?query#fragment').getAllExtensions();
-    assert.equal(ext3, '.cpython-32m.so');
 });
 
 test('getFileName1', () => {
@@ -236,44 +512,44 @@ test('getBaseFileName3', () => {
     assert.equal(getBaseFileName('c:/'), '');
 });
 
-function getRootLength(uri: string): number {
-    return Uri.parse(uri).getRootLength();
+function getUriRootLength(uri: string): number {
+    return Uri.parse(uri).getRootPathLength();
 }
 
 test('getRootLength1', () => {
-    assert.equal(getRootLength('a'), 0);
+    assert.equal(getUriRootLength('a'), 0);
 });
 
 test('getRootLength2', () => {
-    assert.equal(getRootLength('/'), 1);
+    assert.equal(getUriRootLength('/'), 1);
 });
 
 test('getRootLength3', () => {
-    assert.equal(getRootLength('c:'), 2);
+    assert.equal(getUriRootLength('c:'), 2);
 });
 
 test('getRootLength4', () => {
-    assert.equal(getRootLength('c:d'), 0);
+    assert.equal(getUriRootLength('c:d'), 0);
 });
 
 test('getRootLength5', () => {
-    assert.equal(getRootLength('c:/'), 3);
+    assert.equal(getUriRootLength('c:/'), 3);
 });
 
 test('getRootLength6', () => {
-    assert.equal(getRootLength('//server'), 8);
+    assert.equal(getUriRootLength('//server'), 8);
 });
 
 test('getRootLength7', () => {
-    assert.equal(getRootLength('//server/share'), 9);
+    assert.equal(getUriRootLength('//server/share'), 9);
 });
 
 test('getRootLength8', () => {
-    assert.equal(getRootLength('scheme:/no/authority'), 8);
+    assert.equal(getUriRootLength('scheme:/no/authority'), 8);
 });
 
 test('getRootLength9', () => {
-    assert.equal(getRootLength('scheme://with/authority'), 9);
+    assert.equal(getUriRootLength('scheme://with/authority'), 9);
 });
 
 function isRootedDiskPath(uri: string) {
@@ -356,6 +632,10 @@ test('convert UNC path', () => {
     assert(path.getPath().indexOf('server') > 0);
 });
 
+function lowerCaseDrive(entries: string[]) {
+    return entries.map((p) => (process.platform === 'win32' ? p[0].toLowerCase() + p.slice(1) : p));
+}
+
 test('Realcase', () => {
     const fs = createFromRealFileSystem();
     const cwd = process.cwd();
@@ -363,12 +643,13 @@ test('Realcase', () => {
     const entries = nodefs
         .readdirSync(dir.getFilePath())
         .map((entry) => path.basename(nodefs.realpathSync(path.join(dir.getFilePath(), entry))));
+    const normalizedEntries = lowerCaseDrive(entries);
     const fsentries = fs.readdirSync(dir);
-    assert.deepStrictEqual(entries, fsentries);
+    assert.deepStrictEqual(normalizedEntries, fsentries);
 
     const paths = entries.map((entry) => nodefs.realpathSync(path.join(dir.getFilePath(), entry)));
     const fspaths = fsentries.map((entry) => fs.realCasePath(dir.combinePaths(entry)));
-    assert.deepStrictEqual(paths, fspaths);
+    assert.deepStrictEqual(lowerCaseDrive(paths), fspaths);
 
     // Check that the '..' has been removed.
     assert.ok(!fspaths.some((p) => p.toString().indexOf('..') >= 0));
@@ -390,29 +671,9 @@ test('Realcase use cwd implicitly', () => {
     const uri = Uri.file(dir);
 
     const entries = nodefs.readdirSync(dir).map((entry) => path.basename(nodefs.realpathSync(path.join(dir, entry))));
-    const fsentries = fs.readdirSync(uri.combinePaths('src', 'tests'));
+    const fsentries = fs.readdirSync(uri);
     const paths = entries.map((entry) => nodefs.realpathSync(path.join(dir, entry)));
-    const fspaths = fsentries.map((entry) => fs.realCasePath(uri.combinePaths(entry)));
-    assert.deepStrictEqual(paths, fspaths);
-});
 
-test('Realcase drive letter', () => {
-    const fs = createFromRealFileSystem();
-
-    const cwd = process.cwd();
-    const uri = Uri.file(cwd);
-
-    assert.strictEqual(
-        getDriveLetter(fs.realCasePath(uri).getFilePath()),
-        getDriveLetter(fs.realCasePath(uri.combinePaths('notExist.txt')).getFilePath())
-    );
-
-    function getDriveLetter(path: string) {
-        const driveLetter = getRootLength(path);
-        if (driveLetter === 0) {
-            return '';
-        }
-
-        return path.substring(0, driveLetter);
-    }
+    const fspaths = fsentries.map((entry) => fs.realCasePath(uri.combinePaths(entry)).getFilePath());
+    assert.deepStrictEqual(lowerCaseDrive(paths), fspaths);
 });
