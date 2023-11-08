@@ -65,11 +65,11 @@ interface PyrightSymbolCount {
 
 interface PyrightTypeCompletenessReport {
     packageName: string;
-    packageRootDirectory?: string | undefined;
+    packageRootDirectory?: Uri | undefined;
     moduleName: string;
-    moduleRootDirectory?: string | undefined;
+    moduleRootDirectory?: Uri | undefined;
     ignoreUnknownTypesFromImports: boolean;
-    pyTypedPath?: string | undefined;
+    pyTypedPath?: Uri | undefined;
     exportedSymbolCounts: PyrightSymbolCount;
     otherSymbolCounts: PyrightSymbolCount;
     missingFunctionDocStringCount: number;
@@ -96,7 +96,7 @@ interface PyrightPublicSymbolReport {
 }
 
 interface PyrightJsonDiagnostic {
-    uri: string;
+    uri: Uri;
     severity: SeverityLevel;
     message: string;
     range?: Range | undefined;
@@ -850,7 +850,7 @@ function convertDiagnosticCategoryToSeverity(category: DiagnosticCategory): Seve
 
 function convertDiagnosticToJson(uri: Uri, diag: Diagnostic): PyrightJsonDiagnostic {
     return {
-        uri: uri.toString(),
+        uri,
         severity: convertDiagnosticCategoryToSeverity(diag.category),
         message: diag.message,
         range: isEmptyRange(diag.range) ? undefined : diag.range,

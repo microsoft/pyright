@@ -22,7 +22,7 @@ export type PrintableType = ParseNode | Declaration | Symbol | Type | undefined;
 
 export interface TracePrinter {
     print(o: PrintableType): string;
-    printFileOrModuleName(filePathOrModule: string | AbsoluteModuleDescriptor): string;
+    printFileOrModuleName(fileUriOrModule: Uri | AbsoluteModuleDescriptor): string;
 }
 
 export function createTracePrinter(roots: Uri[]): TracePrinter {
@@ -36,19 +36,19 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
     roots = roots.sort((a, b) => a.key.localeCompare(b.key)).reverse();
 
     const separatorRegExp = /[\\/]/g;
-    function printFileOrModuleName(filePathOrModule: string | AbsoluteModuleDescriptor | undefined) {
-        if (filePathOrModule) {
-            if (typeof filePathOrModule === 'string') {
+    function printFileOrModuleName(fileUriOrModule: Uri | AbsoluteModuleDescriptor | undefined) {
+        if (fileUriOrModule) {
+            if (Uri.isUri(fileUriOrModule)) {
                 for (const root of roots) {
-                    if (root.hasSameStartPath(filePathOrModule)) {
-                        const subFile = filePathOrModule.substring(root.pathLength());
-                        return subFile.split('.')[0].replace(separatorRegExp, '.');
+                    if (fileUriOrModule.isChild(root)) {
+                        const subFile = fileUriOrModule.getRelativePath(root);
+                        return subFile!.split('.')[0].replace(separatorRegExp, '.');
                     }
                 }
 
-                return filePathOrModule;
-            } else if (filePathOrModule.nameParts) {
-                return filePathOrModule.nameParts.join('.');
+                return fileUriOrModule.toUserVisibleString();
+            } else if (fileUriOrModule.nameParts) {
+                return fileUriOrModule.nameParts.join('.');
             }
         }
         return '';

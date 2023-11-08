@@ -177,11 +177,11 @@ export function isDefinedInFile(decl: Declaration, fileUri: Uri) {
         // Alias decl's path points to the original symbol
         // the alias is pointing to. So, we need to get the
         // filepath in that the alias is defined from the node.
-        return getFileInfoFromNode(decl.node)?.fileUri === fileUri.toString();
+        return getFileInfoFromNode(decl.node)?.fileUri.equals(fileUri);
     }
 
     // Other decls, the path points to the file the symbol is defined in.
-    return decl.uri === fileUri.toString();
+    return decl.uri.equals(fileUri);
 }
 
 export function getDeclarationsWithUsesLocalNameRemoved(decls: Declaration[]) {
@@ -197,13 +197,13 @@ export function getDeclarationsWithUsesLocalNameRemoved(decls: Declaration[]) {
     });
 }
 
-export function createSynthesizedAliasDeclaration(path: string): AliasDeclaration {
+export function createSynthesizedAliasDeclaration(uri: Uri): AliasDeclaration {
     // The only time this decl is used is for IDE services such as
     // the find all references, hover provider and etc.
     return {
         type: DeclarationType.Alias,
         node: undefined!,
-        uri: path,
+        uri,
         loadSymbolsFromPath: false,
         range: getEmptyRange(),
         implicitImports: new Map<string, ModuleLoaderActions>(),
@@ -266,7 +266,7 @@ export function resolveAliasDeclaration(
 
         let lookupResult: ImportLookupResult | undefined;
         if (curDeclaration.uri && curDeclaration.loadSymbolsFromPath) {
-            lookupResult = importLookup(Uri.parse(curDeclaration.uri), {
+            lookupResult = importLookup(curDeclaration.uri, {
                 skipFileNeededCheck: options.skipFileNeededCheck,
             });
         }
@@ -288,7 +288,7 @@ export function resolveAliasDeclaration(
                         curDeclaration.submoduleFallback.type === DeclarationType.Alias &&
                         curDeclaration.submoduleFallback.uri
                     ) {
-                        const lookupResult = importLookup(Uri.parse(curDeclaration.submoduleFallback.uri), {
+                        const lookupResult = importLookup(curDeclaration.submoduleFallback.uri, {
                             skipFileNeededCheck: options.skipFileNeededCheck,
                             skipParsing: true,
                         });

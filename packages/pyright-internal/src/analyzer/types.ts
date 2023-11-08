@@ -8,6 +8,7 @@
  */
 
 import { assert } from '../common/debug';
+import { Uri } from '../common/uri';
 import { ArgumentNode, ExpressionNode, NameNode, ParameterCategory } from '../parser/parseNodes';
 import { FunctionDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
@@ -380,11 +381,11 @@ export interface ModuleType extends TypeBase {
     // The period-delimited import name of this module.
     moduleName: string;
 
-    fileUri: string;
+    fileUri: Uri;
 }
 
 export namespace ModuleType {
-    export function create(moduleName: string, fileUri: string, symbolTable?: SymbolTable) {
+    export function create(moduleName: string, fileUri: Uri, symbolTable?: SymbolTable) {
         const newModuleType: ModuleType = {
             category: TypeCategory.Module,
             fields: symbolTable || new Map<string, Symbol>(),
@@ -566,7 +567,7 @@ interface ClassDetails {
     name: string;
     fullName: string;
     moduleName: string;
-    fileUri: string;
+    fileUri: Uri;
     flags: ClassTypeFlags;
     typeSourceId: TypeSourceId;
     baseClasses: Type[];
@@ -695,7 +696,7 @@ export namespace ClassType {
         name: string,
         fullName: string,
         moduleName: string,
-        fileUri: string,
+        fileUri: Uri,
         flags: ClassTypeFlags,
         typeSourceId: TypeSourceId,
         declaredMetaclass: ClassType | UnknownType | undefined,

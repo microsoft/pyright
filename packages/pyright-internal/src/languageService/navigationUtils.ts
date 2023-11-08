@@ -23,9 +23,9 @@ export function convertDocumentRangesToLocation(
 }
 
 export function convertDocumentRangeToLocation(fs: ReadOnlyFileSystem, range: DocumentRange): Location | undefined {
-    if (!canNavigateToFile(fs, Uri.parse(range.uri))) {
+    if (!canNavigateToFile(fs, range.uri)) {
         return undefined;
     }
 
-    return Location.create(range.uri, range.range);
+    return Location.create(range.uri.toString(), range.range);
 }

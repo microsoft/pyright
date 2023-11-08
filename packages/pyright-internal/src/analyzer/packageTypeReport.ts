@@ -10,6 +10,7 @@
  */
 
 import { Diagnostic, DiagnosticWithinFile } from '../common/diagnostic';
+import { Uri } from '../common/uri';
 import { ScopeType } from './scope';
 
 export enum SymbolCategory {
@@ -37,7 +38,7 @@ export interface SymbolInfo {
     category: SymbolCategory;
     name: string;
     fullName: string;
-    filePath: string;
+    fileUri: Uri;
     isExported: boolean;
     typeKnownStatus: TypeKnownStatus;
     referenceCount: number;
@@ -47,7 +48,7 @@ export interface SymbolInfo {
 
 export interface ModuleInfo {
     name: string;
-    uri: string;
+    uri: Uri;
     isExported: boolean;
 }
 
@@ -57,10 +58,10 @@ export interface PackageTypeReport {
     packageName: string;
     moduleName: string;
     ignoreExternal: boolean;
-    packageRootDirectoryUri: string | undefined;
-    moduleRootDirectoryUri: string | undefined;
+    packageRootDirectoryUri: Uri | undefined;
+    moduleRootDirectoryUri: Uri | undefined;
     isModuleSingleFile: boolean;
-    pyTypedPathUri: string | undefined;
+    pyTypedPathUri: Uri | undefined;
     missingFunctionDocStringCount: number;
     missingClassDocStringCount: number;
     missingDefaultParamCount: number;
@@ -85,9 +86,9 @@ export interface PackageTypeReport {
 
 export function getEmptyReport(
     packageName: string,
-    packageRootUri: string,
+    packageRootUri: Uri,
     moduleName: string,
-    moduleRootUri: string,
+    moduleRootUri: Uri,
     isModuleSingleFile: boolean,
     ignoreExternal: boolean
 ) {

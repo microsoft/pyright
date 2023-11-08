@@ -34,7 +34,6 @@ import { assert } from '../common/debug';
 import { ProgramView, ReferenceUseCase, SymbolUsageProvider } from '../common/extensibility';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { TextRange } from '../common/textRange';
-import { Uri } from '../common/uri';
 import { ImportAsNode, NameNode, ParseNode, ParseNodeType, StringListNode, StringNode } from '../parser/parseNodes';
 
 export type CollectionResult = {
@@ -185,7 +184,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
 
         const declarations = getDeclarationsForNameNode(evaluator, node, /* skipUnreachableCode */ false);
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-        const fileUri = Uri.parse(fileInfo.fileUri);
+        const fileUri = fileInfo.fileUri;
 
         const resolvedDeclarations: Declaration[] = [];
         const sourceMapper = program.getSourceMapper(fileUri, token);
@@ -193,7 +192,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             const resolvedDecl = evaluator.resolveAliasDeclaration(decl, resolveLocalName);
             if (resolvedDecl) {
                 addDeclarationIfUnique(resolvedDeclarations, resolvedDecl);
-                if (sourceMapper && isStubFile(Uri.parse(resolvedDecl.uri))) {
+                if (sourceMapper && isStubFile(resolvedDecl.uri)) {
                     const implDecls = sourceMapper.findDeclarations(resolvedDecl);
                     for (const implDecl of implDecls) {
                         if (implDecl && implDecl.uri) {

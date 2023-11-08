@@ -239,7 +239,7 @@ export class Program {
 
                 // Add an edit action to the list.
                 edits.push({
-                    fileUri: fileInfo.sourceFile.getUri().toString(),
+                    fileUri: fileInfo.sourceFile.getUri(),
                     range: {
                         start: { line: 0, character: 0 },
                         end: { line: textDocument.lineCount, character: 0 },
@@ -258,7 +258,7 @@ export class Program {
                     // We don't need to care about file diagnostics since in edit mode
                     // checker won't run.
                     v.sourceFile.prepareForClose();
-                    this._removeSourceFileFromListAndMap(v.sourceFile.getUri().key, i);
+                    this._removeSourceFileFromListAndMap(v.sourceFile.getUri(), i);
                 }
             }
         }
@@ -1063,7 +1063,7 @@ export class Program {
                 }
 
                 fileInfo.sourceFile.prepareForClose();
-                this._removeSourceFileFromListAndMap(fileInfo.sourceFile.getUri().key, i);
+                this._removeSourceFileFromListAndMap(fileInfo.sourceFile.getUri(), i);
 
                 // Unlink any imports and remove them from the list if
                 // they are no longer referenced.
@@ -1091,7 +1091,7 @@ export class Program {
                             }
 
                             importedFile.sourceFile.prepareForClose();
-                            this._removeSourceFileFromListAndMap(importedFile.sourceFile.getUri().key, indexToRemove);
+                            this._removeSourceFileFromListAndMap(importedFile.sourceFile.getUri(), indexToRemove);
                             i--;
                         }
                     }
@@ -1475,8 +1475,8 @@ export class Program {
         return filesAdded;
     }
 
-    private _removeSourceFileFromListAndMap(fileUri: string, indexToRemove: number) {
-        this._sourceFileMap.delete(fileUri);
+    private _removeSourceFileFromListAndMap(fileUri: Uri, indexToRemove: number) {
+        this._sourceFileMap.delete(fileUri.key);
         this._sourceFileList.splice(indexToRemove, 1);
     }
 
@@ -1768,8 +1768,8 @@ export class Program {
         } else {
             // Resolve the import.
             const importResult = this._importResolver.resolveImport(
-                fileUriOrModule.importingFilePath,
-                this._configOptions.findExecEnvironment(fileUriOrModule.importingFilePath),
+                fileUriOrModule.importingFileUri,
+                this._configOptions.findExecEnvironment(fileUriOrModule.importingFileUri),
                 {
                     leadingDots: 0,
                     nameParts: fileUriOrModule.nameParts,

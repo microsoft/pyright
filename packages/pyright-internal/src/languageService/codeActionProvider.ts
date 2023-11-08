@@ -108,8 +108,8 @@ export class CodeActionProvider {
                     .find((a) => a.action === ActionKind.RenameShadowedFileAction) as RenameShadowedFileAction;
                 if (action) {
                     const title = Localizer.CodeAction.renameShadowedFile().format({
-                        oldFile: Uri.parse(action.oldUri).getShortenedFileName(),
-                        newFile: Uri.parse(action.newUri).getShortenedFileName(),
+                        oldFile: action.oldUri.getShortenedFileName(),
+                        newFile: action.newUri.getShortenedFileName(),
                     });
                     const editActions: FileEditActions = {
                         edits: [],

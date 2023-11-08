@@ -36,7 +36,7 @@ export function convertToTextEdits(editActions: TextEditAction[]): TextEdit[] {
 }
 
 export function convertToFileTextEdits(fileUri: Uri, editActions: TextEditAction[]): FileEditAction[] {
-    return editActions.map((a) => ({ fileUri: fileUri.toString(), ...a }));
+    return editActions.map((a) => ({ fileUri, ...a }));
 }
 
 export function convertToWorkspaceEdit(edits: FileEditAction[]): WorkspaceEdit;
@@ -65,8 +65,8 @@ export function convertToWorkspaceEdit(
 export function appendToWorkspaceEdit(edits: FileEditAction[], workspaceEdit: WorkspaceEdit) {
     edits.forEach((edit) => {
         const uri = edit.fileUri;
-        workspaceEdit.changes![uri] = workspaceEdit.changes![uri] || [];
-        workspaceEdit.changes![uri].push({ range: edit.range, newText: edit.replacementText });
+        workspaceEdit.changes![uri.toString()] = workspaceEdit.changes![uri.toString()] || [];
+        workspaceEdit.changes![uri.toString()].push({ range: edit.range, newText: edit.replacementText });
     });
 }
 
@@ -218,7 +218,7 @@ function _convertToWorkspaceEditWithDocumentChanges(
         switch (operation.kind) {
             case 'create':
                 workspaceEdit.documentChanges!.push(
-                    CreateFile.create(operation.fileUri, /* options */ undefined, defaultAnnotationId)
+                    CreateFile.create(operation.fileUri.toString(), /* options */ undefined, defaultAnnotationId)
                 );
                 break;
             case 'rename':
@@ -230,7 +230,7 @@ function _convertToWorkspaceEditWithDocumentChanges(
     }
 
     // Text edit's file path must refer to original file paths unless it is a new file just created.
-    const mapPerFile = createMapFromItems(editActions.edits, (e) => e.fileUri);
+    const mapPerFile = createMapFromItems(editActions.edits, (e) => e.fileUri.key);
     for (const [key, value] of mapPerFile) {
         workspaceEdit.documentChanges!.push(
             TextDocumentEdit.create(
@@ -253,8 +253,8 @@ function _convertToWorkspaceEditWithDocumentChanges(
             case 'rename':
                 workspaceEdit.documentChanges!.push(
                     RenameFile.create(
-                        operation.oldFileUri,
-                        operation.newFileUri,
+                        operation.oldFileUri.toString(),
+                        operation.newFileUri.toString(),
                         /* options */ undefined,
                         defaultAnnotationId
                     )
@@ -262,7 +262,7 @@ function _convertToWorkspaceEditWithDocumentChanges(
                 break;
             case 'delete':
                 workspaceEdit.documentChanges!.push(
-                    DeleteFile.create(operation.fileUri, /* options */ undefined, defaultAnnotationId)
+                    DeleteFile.create(operation.fileUri.toString(), /* options */ undefined, defaultAnnotationId)
                 );
                 break;
             default:

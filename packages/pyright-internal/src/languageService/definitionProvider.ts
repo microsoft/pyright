@@ -90,15 +90,14 @@ export function addDeclarationsToDefinitions(
             }
         }
 
-        const resolvedUri = Uri.parse(resolvedDecl.uri);
-        if (!isStubFile(resolvedUri)) {
+        if (!isStubFile(resolvedDecl.uri)) {
             return;
         }
 
         if (resolvedDecl.type === DeclarationType.Alias) {
             // Add matching source module
             sourceMapper
-                .findModules(resolvedUri)
+                .findModules(resolvedDecl.uri)
                 .map((m) => getFileInfo(m)?.fileUri)
                 .filter(isDefined)
                 .forEach((f) => _addIfUnique(definitions, _createModuleEntry(f)));
@@ -125,7 +124,7 @@ export function filterDefinitions(filter: DefinitionFilter, definitions: Documen
     // If go-to-declaration is supported, attempt to only show only pyi files in go-to-declaration
     // and none in go-to-definition, unless filtering would produce an empty list.
     const preferStubs = filter === DefinitionFilter.PreferStubs;
-    const wantedFile = (v: DocumentRange) => preferStubs === isStubFile(Uri.parse(v.uri));
+    const wantedFile = (v: DocumentRange) => preferStubs === isStubFile(v.uri);
     if (definitions.find(wantedFile)) {
         return definitions.filter(wantedFile);
     }
@@ -292,9 +291,9 @@ function _tryGetNode(parseResults: ParseResults | undefined, position: Position)
     return { node: ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset), offset };
 }
 
-function _createModuleEntry(filePath: string): DocumentRange {
+function _createModuleEntry(uri: Uri): DocumentRange {
     return {
-        uri: filePath,
+        uri,
         range: {
             start: { line: 0, character: 0 },
             end: { line: 0, character: 0 },

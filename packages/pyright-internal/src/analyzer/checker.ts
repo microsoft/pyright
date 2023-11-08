@@ -20,7 +20,6 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { assert, assertNever } from '../common/debug';
 import { ActionKind, Diagnostic, DiagnosticAddendum, RenameShadowedFileAction } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { getFileExtension } from '../common/pathUtils';
 import { PythonVersion, versionToString } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { Uri } from '../common/uri';
@@ -1526,7 +1525,7 @@ export class Checker extends ParseTreeWalker {
             }
 
             const resolvedAlias = this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
-            const resolvedAliasUri = resolvedAlias?.uri ? Uri.parse(resolvedAlias.uri) : undefined;
+            const resolvedAliasUri = resolvedAlias?.uri;
             if (!resolvedAliasUri || !isStubFile(resolvedAliasUri)) {
                 continue;
             }
@@ -1625,14 +1624,14 @@ export class Checker extends ParseTreeWalker {
         const moduleName =
             moduleNameNode.leadingDots === 0
                 ? this._importResolver.getModuleNameForImport(uri, execEnv).moduleName
-                : getRelativeModuleName(this._importResolver.fileSystem, Uri.parse(this._fileInfo.fileUri), uri);
+                : getRelativeModuleName(this._importResolver.fileSystem, this._fileInfo.fileUri, uri);
 
         if (!moduleName) {
             return undefined;
         }
 
         return this._importResolver.resolveImport(
-            Uri.parse(this._fileInfo.fileUri),
+            this._fileInfo.fileUri,
             execEnv,
             createImportedModuleDescriptor(moduleName)
         );
@@ -4062,7 +4061,7 @@ export class Checker extends ParseTreeWalker {
         if (
             stdlibPath &&
             this._importResolver.isStdlibModule(desc, this._fileInfo.executionEnvironment) &&
-            this._sourceMapper.isUserCode(Uri.parse(this._fileInfo.fileUri))
+            this._sourceMapper.isUserCode(this._fileInfo.fileUri)
         ) {
             // This means the user has a module that is overwriting the stdlib module.
             const diag = this._evaluator.addDiagnosticForTextRange(
@@ -4071,7 +4070,7 @@ export class Checker extends ParseTreeWalker {
                 DiagnosticRule.reportShadowedImports,
                 Localizer.Diagnostic.stdlibModuleOverridden().format({
                     name: moduleName,
-                    path: this._fileInfo.fileUri,
+                    path: this._fileInfo.fileUri.toUserVisibleString(),
                 }),
                 this._moduleNode
             );
@@ -4081,7 +4080,7 @@ export class Checker extends ParseTreeWalker {
                 const renameAction: RenameShadowedFileAction = {
                     action: ActionKind.RenameShadowedFileAction,
                     oldUri: this._fileInfo.fileUri,
-                    newUri: this._sourceMapper.getNextFileName(Uri.parse(this._fileInfo.fileUri)).toString(),
+                    newUri: this._sourceMapper.getNextFileName(this._fileInfo.fileUri),
                 };
                 diag.addAction(renameAction);
             }
@@ -4130,7 +4129,7 @@ export class Checker extends ParseTreeWalker {
                 namePartNodes[namePartNodes.length - 1].start,
                 CancellationToken.None
             );
-            const paths = definitions ? definitions.map((d) => Uri.parse(d.uri)) : [];
+            const paths = definitions ? definitions.map((d) => d.uri) : [];
             paths.forEach((p) => {
                 if (!p.startsWith(stdlibPath) && !isStubFile(p) && this._sourceMapper.isUserCode(p)) {
                     // This means the user has a module that is overwriting the stdlib module.
@@ -4147,8 +4146,8 @@ export class Checker extends ParseTreeWalker {
                     if (diag) {
                         const renameAction: RenameShadowedFileAction = {
                             action: ActionKind.RenameShadowedFileAction,
-                            oldUri: p.toString(),
-                            newUri: this._sourceMapper.getNextFileName(p).toString(),
+                            oldUri: p,
+                            newUri: this._sourceMapper.getNextFileName(p),
                         };
                         diag.addAction(renameAction);
                     }
@@ -4623,7 +4622,7 @@ export class Checker extends ParseTreeWalker {
                                 decl.type !== DeclarationType.Function || ParseTreeUtils.isSuiteEmpty(decl.node.suite)
                         )
                     ) {
-                        if (getFileExtension(decls[0].uri).toLowerCase() !== '.pyi') {
+                        if (decls[0].uri.extname.toLowerCase() !== '.pyi') {
                             if (!isSymbolImplemented(name)) {
                                 diagAddendum.addMessage(
                                     Localizer.DiagnosticAddendum.missingProtocolMember().format({
@@ -4971,7 +4970,16 @@ export class Checker extends ParseTreeWalker {
         const updatedClassType = ClassType.cloneWithNewTypeParameters(classType, updatedTypeParams);
 
         const objectObject = ClassType.cloneAsInstance(objectType);
-        const dummyTypeObject = ClassType.createInstantiable('__varianceDummy', '', '', '', 0, 0, undefined, undefined);
+        const dummyTypeObject = ClassType.createInstantiable(
+            '__varianceDummy',
+            '',
+            '',
+            Uri.empty(),
+            0,
+            0,
+            undefined,
+            undefined
+        );
 
         updatedTypeParams.forEach((param, paramIndex) => {
             // Skip variadics and ParamSpecs.

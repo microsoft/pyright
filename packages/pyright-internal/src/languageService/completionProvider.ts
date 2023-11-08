@@ -232,13 +232,13 @@ enum SortCategory {
 // This data allows the resolve handling to disambiguate
 // which item was selected.
 export interface CompletionItemData {
-    uri: string;
+    uri: string; // Have to be strings because this data is passed across the LSP boundary.
     workspaceUri: string;
     position: Position;
     autoImportText?: string;
     symbolLabel?: string;
     funcParensDisabled?: boolean;
-    modulePath?: string;
+    moduleUri?: string;
 }
 
 export interface CompletionOptions {
@@ -347,8 +347,11 @@ export class CompletionProvider {
             return;
         }
 
-        if (completionItemData.modulePath) {
-            const documentation = getModuleDocStringFromUris([completionItemData.modulePath], this.sourceMapper);
+        if (completionItemData.moduleUri) {
+            const documentation = getModuleDocStringFromUris(
+                [Uri.parse(completionItemData.moduleUri)],
+                this.sourceMapper
+            );
             if (!documentation) {
                 return;
             }
@@ -931,7 +934,7 @@ export class CompletionProvider {
         }
 
         if (detail?.moduleUri) {
-            completionItemData.modulePath = detail.moduleUri;
+            completionItemData.moduleUri = detail.moduleUri.toString();
         }
 
         completionItem.data = toLSPAny(completionItemData);
@@ -2188,7 +2191,7 @@ export class CompletionProvider {
             return [];
         }
 
-        if (declaration.uri !== this.fileUri.toString()) {
+        if (!declaration.uri.equals(this.fileUri)) {
             return [];
         }
 
@@ -2775,7 +2778,7 @@ export class CompletionProvider {
         importInfo.implicitImports.forEach((implImport) => {
             if (!importFromNode.imports.find((imp) => imp.name.value === implImport.name)) {
                 this.addNameToCompletions(implImport.name, CompletionItemKind.Module, priorWord, completionMap, {
-                    moduleUri: implImport.path.toString(),
+                    moduleUri: implImport.path,
                 });
             }
         });
@@ -3122,7 +3125,7 @@ export class CompletionProvider {
         completions.forEach((modulePath, completionName) => {
             this.addNameToCompletions(completionName, CompletionItemKind.Module, '', completionMap, {
                 sortText: this._makeSortText(SortCategory.ImportModuleName, completionName),
-                moduleUri: modulePath.toString(),
+                moduleUri: modulePath,
             });
         });
 

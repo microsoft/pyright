@@ -2898,7 +2898,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfModule(node: ParseNode, symbolName: string, nameParts: string[]) {
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-        const lookupResult = importLookup({ nameParts, importingFilePath: Uri.parse(fileInfo.fileUri) });
+        const lookupResult = importLookup({ nameParts, importingFileUri: fileInfo.fileUri });
 
         if (!lookupResult) {
             return undefined;
@@ -5437,7 +5437,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (getAttrSymbol) {
                             const isModuleGetAttrSupported =
                                 fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_7 ||
-                                getAttrSymbol.getDeclarations().some((decl) => decl.uri.toLowerCase().endsWith('.pyi'));
+                                getAttrSymbol
+                                    .getDeclarations()
+                                    .some((decl) => decl.uri.extname.toLowerCase().endsWith('.pyi'));
 
                             if (isModuleGetAttrSupported) {
                                 const getAttrTypeResult = getEffectiveTypeOfSymbolForUsage(getAttrSymbol);
@@ -16646,7 +16648,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
         const updatedClassType = ClassType.cloneWithNewTypeParameters(classType, updatedTypeParams);
 
-        const dummyTypeObject = ClassType.createInstantiable('__varianceDummy', '', '', '', 0, 0, undefined, undefined);
+        const dummyTypeObject = ClassType.createInstantiable(
+            '__varianceDummy',
+            '',
+            '',
+            Uri.empty(),
+            0,
+            0,
+            undefined,
+            undefined
+        );
 
         updatedTypeParams.forEach((param, paramIndex) => {
             // Skip variadics and ParamSpecs.
@@ -20194,9 +20205,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // Synthesize an alias declaration for this name part. The only
                     // time this case is used is for IDE services such as
                     // the find all references, hover provider and etc.
-                    declarations.push(
-                        createSynthesizedAliasDeclaration(importInfo.resolvedPaths[namePartIndex].toString())
-                    );
+                    declarations.push(createSynthesizedAliasDeclaration(importInfo.resolvedPaths[namePartIndex]));
                 }
             }
         } else if (node.parent && node.parent.nodeType === ParseNodeType.Argument && node === node.parent.name) {
@@ -20617,7 +20626,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             importLookup: ImportLookup
         ): Type {
             if (loaderActions.uri && loaderActions.loadSymbolsFromPath) {
-                const lookupResults = importLookup(Uri.parse(loaderActions.uri));
+                const lookupResults = importLookup(loaderActions.uri);
                 if (lookupResults) {
                     moduleType.fields = lookupResults.symbolTable;
                     moduleType.docString = lookupResults.docString;

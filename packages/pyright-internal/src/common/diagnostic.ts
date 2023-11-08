@@ -80,13 +80,13 @@ export interface AddMissingOptionalToParamAction extends DiagnosticAction {
 
 export interface RenameShadowedFileAction extends DiagnosticAction {
     action: ActionKind.RenameShadowedFileAction;
-    oldUri: string;
-    newUri: string;
+    oldUri: Uri;
+    newUri: Uri;
 }
 
 export interface DiagnosticRelatedInfo {
     message: string;
-    uri: string;
+    uri: Uri;
     range: Range;
     priority: TaskListPriority;
 }
@@ -124,13 +124,8 @@ export class Diagnostic {
         return this._rule;
     }
 
-    addRelatedInfo(
-        message: string,
-        filePath: string,
-        range: Range,
-        priority: TaskListPriority = TaskListPriority.Normal
-    ) {
-        this._relatedInfo.push({ uri: filePath, message, range, priority });
+    addRelatedInfo(message: string, fileUri: Uri, range: Range, priority: TaskListPriority = TaskListPriority.Normal) {
+        this._relatedInfo.push({ uri: fileUri, message, range, priority });
     }
 
     getRelatedInfo() {

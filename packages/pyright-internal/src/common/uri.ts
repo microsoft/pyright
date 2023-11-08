@@ -11,15 +11,24 @@ import { some } from './collectionUtils';
 import { getRootLength } from './pathUtils';
 
 export class Uri {
-    private readonly _originalString;
+    private readonly _string;
     private readonly _uri: URI;
     private readonly _key: string;
     private static _empty = new Uri(URI.parse(''), '<empty>');
 
     private constructor(uri: string | URI, key?: string) {
-        this._originalString = URI.isUri(uri) ? uri.toString() : uri;
-        this._uri = URI.isUri(uri) ? uri : URI.parse(uri);
-        this._key = key ?? this._originalString; // TODO: Can we make this handle when the case is different? Ignore case on drive letters but keep for everything else?
+        // Make sure the drive letter is lower case. This
+        // is consistent with what VS code does for URIs.
+        const uriStr = URI.isUri(uri) ? uri.toString() : uri;
+        let parsed = URI.parse(uriStr);
+        if (parsed.scheme === 'file') {
+            if (/^[a-zA-Z]:/.test(parsed.fsPath)) {
+                parsed = parsed.with({ path: parsed.fsPath[0].toLowerCase() + parsed.fsPath.slice(1) });
+            }
+        }
+        this._uri = parsed;
+        this._string = parsed.toString();
+        this._key = key ?? this._string;
     }
 
     get key() {
@@ -77,7 +86,7 @@ export class Uri {
     }
 
     toString(): string {
-        return this._originalString;
+        return this._string;
     }
 
     toUserVisibleString(): string {
@@ -208,10 +217,6 @@ export class Uri {
         return this.getPath().includes(include);
     }
 
-    hasSameStartPath(diskPath: string): boolean {
-        return diskPath.startsWith(this.getPath());
-    }
-
     // How long the path for this Uri is.
     pathLength(): number {
         return this.getPath().length;
@@ -322,5 +327,16 @@ export class Uri {
         }
 
         return reduced;
+    }
+
+    private static _normalizeUriString(uri: string): string {
+        // Make sure the drive letter is lower case.
+        let parsed = URI.parse(uri);
+        if (parsed.scheme === 'file') {
+            if (/^[a-zA-Z]:/.test(parsed.fsPath)) {
+                parsed = parsed.with({ path: parsed.fsPath[0].toLowerCase() + parsed.fsPath.slice(1) });
+            }
+        }
+        return parsed.toString();
     }
 }

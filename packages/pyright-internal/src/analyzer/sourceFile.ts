@@ -1224,7 +1224,7 @@ export class SourceFile {
             lines: this._writableData.parseResults!.tokenizerOutput.lines,
             typingSymbolAliases: this._writableData.parseResults!.typingSymbolAliases,
             definedConstants: configOptions.defineConstant,
-            fileUri: this._uri.toString(),
+            fileUri: this._uri,
             moduleName: this.getModuleName(),
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,

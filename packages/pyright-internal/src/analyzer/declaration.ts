@@ -10,6 +10,7 @@
  */
 
 import { Range } from '../common/textRange';
+import { Uri } from '../common/uri';
 import {
     ClassNode,
     ExpressionNode,
@@ -31,7 +32,7 @@ import {
     YieldNode,
 } from '../parser/parseNodes';
 
-export const UnresolvedModuleMarker = '*** unresolved ***';
+export const UnresolvedModuleMarker = Uri.parse('unresolved-module-marker://**/*');
 
 export const enum DeclarationType {
     Intrinsic,
@@ -59,7 +60,7 @@ export interface DeclarationBase {
     // The file and range within that file that
     // contains the declaration. Unless this is an alias, then path refers to the
     // file the alias is referring to.
-    uri: string;
+    uri: Uri;
     range: Range;
 
     // The dot-separated import name for the file that
@@ -222,7 +223,7 @@ export interface ModuleLoaderActions {
     // The resolved path of the implicit import. This can be empty
     // if the resolved path doesn't reference a module (e.g. it's
     // a directory).
-    uri: string;
+    uri: Uri;
 
     // Is this a dummy entry for an unresolved import?
     isUnresolved?: boolean;

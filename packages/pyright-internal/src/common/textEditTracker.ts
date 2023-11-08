@@ -32,11 +32,11 @@ import {
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { appendArray, getOrAdd, removeArrayElements } from './collectionUtils';
-import { isString } from './core';
 import * as debug from './debug';
 import { FileEditAction } from './editAction';
 import { convertOffsetToPosition, convertTextRangeToRange } from './positionUtils';
 import { doesRangeContain, doRangesIntersect, extendRange, Range, TextRange } from './textRange';
+import { Uri } from './uri';
 
 export class TextEditTracker {
     private readonly _nodesRemoved: Map<ParseNode, ParseResults> = new Map<ParseNode, ParseResults>();
@@ -52,8 +52,8 @@ export class TextEditTracker {
         edits.forEach((e) => this.addEdit(e.fileUri, e.range, e.replacementText));
     }
 
-    addEdit(filePath: string, range: Range, replacementText: string) {
-        const edits = getOrAdd(this._results, filePath, () => []);
+    addEdit(fileUri: Uri, range: Range, replacementText: string) {
+        const edits = getOrAdd(this._results, fileUri.key, () => []);
 
         // If there is any overlapping edit, see whether we can merge edits.
         // We can merge edits, if one of them is 'deletion' or 2 edits has the same
@@ -70,7 +70,7 @@ export class TextEditTracker {
             );
         }
 
-        edits.push({ fileUri: filePath, range, replacementText });
+        edits.push({ fileUri: fileUri, range, replacementText });
     }
 
     addEditWithTextRange(parseResults: ParseResults, range: TextRange, replacementText: string) {
@@ -278,17 +278,17 @@ export class TextEditTracker {
         return true;
     }
 
-    private _getDeletionsForSpan(filePathOrEdit: string | FileEditAction[], range: Range) {
-        const edits = this._getOverlappingForSpan(filePathOrEdit, range);
+    private _getDeletionsForSpan(fileUriOrEdit: Uri | FileEditAction[], range: Range) {
+        const edits = this._getOverlappingForSpan(fileUriOrEdit, range);
         return edits.filter((e) => e.replacementText === '');
     }
 
-    private _removeEdits(filePathOrEdit: string | FileEditAction[], edits: FileEditAction[]) {
-        if (isString(filePathOrEdit)) {
-            filePathOrEdit = this._results.get(filePathOrEdit) ?? [];
+    private _removeEdits(fileUriOrEdit: Uri | FileEditAction[], edits: FileEditAction[]) {
+        if (Uri.isUri(fileUriOrEdit)) {
+            fileUriOrEdit = this._results.get(fileUriOrEdit.key) ?? [];
         }
 
-        removeArrayElements(filePathOrEdit, (f) => edits.some((e) => FileEditAction.areEqual(f, e)));
+        removeArrayElements(fileUriOrEdit, (f) => edits.some((e) => FileEditAction.areEqual(f, e)));
     }
 
     private _getEditsToMerge(edits: FileEditAction[], range: Range, replacementText: string) {
@@ -318,12 +318,12 @@ export class TextEditTracker {
         );
     }
 
-    private _getOverlappingForSpan(filePathOrEdit: string | FileEditAction[], range: Range) {
-        if (isString(filePathOrEdit)) {
-            filePathOrEdit = this._results.get(filePathOrEdit) ?? [];
+    private _getOverlappingForSpan(fileUriOrEdit: Uri | FileEditAction[], range: Range) {
+        if (Uri.isUri(fileUriOrEdit)) {
+            fileUriOrEdit = this._results.get(fileUriOrEdit.key) ?? [];
         }
 
-        return filePathOrEdit.filter((e) => doRangesIntersect(e.range, range));
+        return fileUriOrEdit.filter((e) => doRangesIntersect(e.range, range));
     }
 
     private _processNodeRemoved(token: CancellationToken) {

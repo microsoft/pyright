@@ -149,7 +149,7 @@ export class FindReferencesTreeWalker {
 
     static createDocumentRange(fileUri: Uri, result: CollectionResult, parseResults: ParseResults): DocumentRange {
         return {
-            uri: fileUri.toString(),
+            uri: fileUri,
             range: {
                 start: convertOffsetToPosition(result.range.start, parseResults.tokenizerOutput.lines),
                 end: convertOffsetToPosition(TextRange.getEnd(result.range), parseResults.tokenizerOutput.lines),
@@ -252,7 +252,7 @@ export class ReferencesProvider {
                     continue;
                 }
 
-                const declFileInfo = this._program.getSourceFileInfo(Uri.parse(decl.uri));
+                const declFileInfo = this._program.getSourceFileInfo(decl.uri);
                 if (!declFileInfo) {
                     // The file the declaration belongs to doesn't belong to the program.
                     continue;
@@ -390,7 +390,7 @@ function isVisibleOutside(evaluator: TypeEvaluator, currentUri: Uri, node: NameN
     // that is within the current file and cannot be imported directly from other modules.
     return declarations.some((decl) => {
         // If the declaration is outside of this file, a global search is needed.
-        if (decl.uri !== currentUri.toString()) {
+        if (!decl.uri.equals(currentUri)) {
             return true;
         }
 

@@ -153,17 +153,12 @@ export class RenameProvider {
             (userFile && !referencesResult.requiresGlobalSearch) ||
             (!userFile &&
                 sourceFileInfo.isOpenByClient &&
-                referencesResult.declarations.every(
-                    (d) => program.getSourceFileInfo(Uri.parse(d.uri)) === sourceFileInfo
-                ))
+                referencesResult.declarations.every((d) => program.getSourceFileInfo(d.uri) === sourceFileInfo))
         ) {
             return 'singleFileMode';
         }
 
-        if (
-            !isUntitled &&
-            referencesResult.declarations.every((d) => isUserCode(program.getSourceFileInfo(Uri.parse(d.uri))))
-        ) {
+        if (!isUntitled && referencesResult.declarations.every((d) => isUserCode(program.getSourceFileInfo(d.uri)))) {
             return 'multiFileMode';
         }
 

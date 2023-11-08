@@ -86,7 +86,7 @@ export class CallHierarchyProvider {
         const callItem: CallHierarchyItem = {
             name: symbolName,
             kind: getSymbolKind(targetDecl, this._evaluator, symbolName) ?? SymbolKind.Module,
-            uri: callItemUri,
+            uri: callItemUri.toString(),
             range: targetDecl.range,
             selectionRange: targetDecl.range,
         };
@@ -208,7 +208,7 @@ export class CallHierarchyProvider {
 
     private _getTargetDeclaration(referencesResult: ReferencesResult): {
         targetDecl: Declaration;
-        callItemUri: string;
+        callItemUri: Uri;
         symbolName: string;
     } {
         // If there's more than one declaration, pick the target one.
@@ -236,10 +236,10 @@ export class CallHierarchyProvider {
         // Although the LSP specification requires a URI, we are using a file path
         // here because it is converted to the proper URI by the caller.
         // This simplifies our code and ensures compatibility with the LSP specification.
-        let callItemUri: string;
+        let callItemUri: Uri;
         if (targetDecl.type === DeclarationType.Alias) {
             symbolName = (referencesResult.nodeAtOffset as NameNode).value;
-            callItemUri = this._fileUri.toString();
+            callItemUri = this._fileUri;
         } else {
             symbolName = DeclarationUtils.getNameFromDeclaration(targetDecl) || referencesResult.symbolNames[0];
             callItemUri = targetDecl.uri;
@@ -371,7 +371,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
         const callDest: CallHierarchyItem = {
             name: nameNode.value,
             kind: getSymbolKind(resolvedDecl, this._evaluator, nameNode.value) ?? SymbolKind.Module,
-            uri: resolvedDecl.uri,
+            uri: resolvedDecl.uri.toString(),
             range: resolvedDecl.range,
             selectionRange: resolvedDecl.range,
         };

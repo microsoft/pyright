@@ -25,7 +25,7 @@ export function convertToFlatSymbols(
     const flatSymbols: SymbolInformation[] = [];
 
     for (const symbol of symbolList) {
-        _appendToFlatSymbolsRecursive(flatSymbols, uri.toString(), symbol);
+        _appendToFlatSymbolsRecursive(flatSymbols, uri, symbol);
     }
 
     return flatSymbols;
@@ -114,14 +114,14 @@ export class DocumentSymbolProvider {
 
 function _appendToFlatSymbolsRecursive(
     flatSymbols: SymbolInformation[],
-    documentUri: string,
+    documentUri: Uri,
     symbol: DocumentSymbol,
     parent?: DocumentSymbol
 ) {
     const flatSymbol: SymbolInformation = {
         name: symbol.name,
         kind: symbol.kind,
-        location: Location.create(documentUri, symbol.range),
+        location: Location.create(documentUri.toString(), symbol.range),
     };
 
     if (symbol.tags) {

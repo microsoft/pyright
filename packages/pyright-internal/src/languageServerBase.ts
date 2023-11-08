@@ -855,8 +855,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             return undefined;
         }
         return locations
-            .filter((loc) => this.canNavigateToFile(Uri.parse(loc.uri), workspace.service.fs))
-            .map((loc) => Location.create(loc.uri, loc.range));
+            .filter((loc) => this.canNavigateToFile(loc.uri, workspace.service.fs))
+            .map((loc) => Location.create(loc.uri.toString(), loc.range));
     }
 
     protected async onReferences(
@@ -1557,9 +1557,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             const relatedInfo = diag.getRelatedInfo();
             if (relatedInfo.length > 0) {
                 vsDiag.relatedInformation = relatedInfo
-                    .filter((info) => this.canNavigateToFile(Uri.parse(info.uri), fs))
+                    .filter((info) => this.canNavigateToFile(info.uri, fs))
                     .map((info) =>
-                        DiagnosticRelatedInformation.create(Location.create(info.uri, info.range), info.message)
+                        DiagnosticRelatedInformation.create(
+                            Location.create(info.uri.toString(), info.range),
+                            info.message
+                        )
                     );
             }
 

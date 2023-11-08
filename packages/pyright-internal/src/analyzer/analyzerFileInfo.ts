@@ -20,7 +20,7 @@ import { SymbolTable } from './symbol';
 
 // Maps import paths to the symbol table for the imported module.
 export interface AbsoluteModuleDescriptor {
-    importingFilePath: Uri;
+    importingFileUri: Uri;
     nameParts: string[];
 }
 
@@ -53,7 +53,7 @@ export interface AnalyzerFileInfo {
     lines: TextRangeCollection<TextRange>;
     typingSymbolAliases: Map<string, string>;
     definedConstants: Map<string, boolean | string>;
-    fileUri: string;
+    fileUri: Uri;
     moduleName: string;
     isStubFile: boolean;
     isTypingStubFile: boolean;
