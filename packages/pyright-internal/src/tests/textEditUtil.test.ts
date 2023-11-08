@@ -12,6 +12,7 @@ import { TextEditTracker } from '../common/textEditTracker';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
 import { convertRangeToFileEditAction } from './testStateUtils';
+import { findNodeByOffset } from '../analyzer/parseTreeUtils';
 
 test('simple add', () => {
     const code = `
@@ -94,6 +95,41 @@ test('dup with overlapped range', () => {
 
     verifyEdits(code, false);
 });
+
+test('handle comments', () => {
+    const code = `
+//// from os import (
+////      abort[|{|"e":""|},|] # comment[|{|"e":""|}
+////      [|{|"r":""|}access|]|]
+////      )
+    `;
+
+    verifyRemoveNodes(code);
+});
+
+function verifyRemoveNodes(code: string) {
+    const state = parseAndGetTestState(code).state;
+    const tracker = new TextEditTracker();
+
+    const ranges = state.getRanges();
+    const changeRanges = _getChangeRanges(ranges);
+    for (const range of changeRanges) {
+        const parseResults = state.program.getParseResults(range.fileName)!;
+        const node = findNodeByOffset(parseResults.parseTree, range.pos)!;
+        tracker.removeNodes({ node, parseResults });
+    }
+
+    const edits = tracker.getEdits(CancellationToken.None);
+
+    const editRanges = _getEditRanges(ranges);
+    assert.strictEqual(edits.length, editRanges.length);
+    assert(
+        _areEqual(
+            edits,
+            editRanges.map((r) => _createFileActionEdit(state, r))
+        )
+    );
+}
 
 function verifyEdits(code: string, mergeOnlyDuplications = true) {
     const state = parseAndGetTestState(code).state;
