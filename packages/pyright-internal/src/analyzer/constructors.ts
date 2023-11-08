@@ -45,6 +45,7 @@ import {
     InheritanceChain,
     OverloadedFunctionType,
     Type,
+    TypeVarType,
     UnknownType,
     isAny,
     isAnyOrUnknown,
@@ -783,6 +784,7 @@ function applyExpectedTypeForTupleConstructor(type: ClassType, inferenceContext:
 export function createFunctionFromConstructor(
     evaluator: TypeEvaluator,
     classType: ClassType,
+    selfType: ClassType | TypeVarType | undefined = undefined,
     recursionCount = 0
 ): FunctionType | OverloadedFunctionType | undefined {
     // Use the __init__ method if available. It's usually more detailed.
@@ -804,19 +806,19 @@ export function createFunctionFromConstructor(
                 initSubtype,
                 /* memberClass */ undefined,
                 /* treatConstructorAsClassMember */ undefined,
-                /* selfType */ undefined,
+                selfType,
                 /* diag */ undefined,
                 recursionCount
             ) as FunctionType | undefined;
 
             if (constructorFunction) {
                 constructorFunction = FunctionType.clone(constructorFunction);
-                constructorFunction.details.declaredReturnType = objectType;
+                constructorFunction.details.declaredReturnType = selfType ?? objectType;
                 constructorFunction.details.name = '';
                 constructorFunction.details.fullName = '';
 
                 if (constructorFunction.specializedTypes) {
-                    constructorFunction.specializedTypes.returnType = objectType;
+                    constructorFunction.specializedTypes.returnType = selfType ?? objectType;
                 }
 
                 if (!constructorFunction.details.docString && classType.details.docString) {
@@ -869,7 +871,7 @@ export function createFunctionFromConstructor(
                 newSubtype,
                 /* memberClass */ undefined,
                 /* treatConstructorAsClassMember */ true,
-                /* selfType */ undefined,
+                selfType,
                 /* diag */ undefined,
                 recursionCount
             ) as FunctionType | undefined;
