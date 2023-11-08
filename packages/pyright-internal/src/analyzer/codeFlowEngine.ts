@@ -36,6 +36,7 @@ import {
     FlowWildcardImport,
 } from './codeFlowTypes';
 import { formatControlFlowGraph } from './codeFlowUtils';
+import { getBoundCallMethod, getBoundNewMethod } from './constructors';
 import { isMatchingExpression, isPartialMatchingExpression, printExpression } from './parseTreeUtils';
 import { getPatternSubtypeNarrowingCallback } from './patternMatching';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
@@ -68,7 +69,6 @@ import {
     doForEachSubtype,
     isIncompleteUnknown,
     isTypeAliasPlaceholder,
-    lookUpClassMember,
     mapSubtypes,
     MemberAccessFlags,
 } from './typeUtils';
@@ -1517,64 +1517,31 @@ export function getCodeFlowEngine(
                     // Does the class have a custom metaclass that implements a `__call__` method?
                     // If so, it will be called instead of `__init__` or `__new__`. We'll assume
                     // in this case that the __call__ method is not a NoReturn type.
-                    if (
-                        callSubtype.details.effectiveMetaclass &&
-                        isClass(callSubtype.details.effectiveMetaclass) &&
-                        !ClassType.isBuiltIn(callSubtype.details.effectiveMetaclass, 'type')
-                    ) {
-                        const metaclassCallMember = lookUpClassMember(
-                            callSubtype.details.effectiveMetaclass,
-                            '__call__',
-                            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass
-                        );
-                        if (metaclassCallMember) {
-                            return;
-                        }
+                    const metaclassCallResult = getBoundCallMethod(evaluator, node, callSubtype);
+                    if (metaclassCallResult) {
+                        return;
                     }
 
-                    let constructorMember = lookUpClassMember(
-                        callSubtype,
-                        '__init__',
-                        MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass
-                    );
-
-                    if (constructorMember === undefined) {
-                        constructorMember = lookUpClassMember(
-                            callSubtype,
-                            '__new__',
-                            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass
-                        );
-                    }
-
-                    if (constructorMember) {
-                        const constructorType = evaluator.getTypeOfMember(constructorMember);
-                        if (constructorType) {
-                            if (isFunction(constructorType) || isOverloadedFunction(constructorType)) {
-                                const boundConstructorType = evaluator.bindFunctionToClassOrObject(
-                                    undefined,
-                                    constructorType
-                                );
-                                if (boundConstructorType) {
-                                    callSubtype = boundConstructorType;
-                                }
-                            }
+                    const newMethodResult = getBoundNewMethod(evaluator, node, callSubtype);
+                    if (newMethodResult) {
+                        if (isFunction(newMethodResult.type) || isOverloadedFunction(newMethodResult.type)) {
+                            callSubtype = newMethodResult.type;
                         }
                     }
                 } else if (isClassInstance(callSubtype)) {
-                    const callMember = lookUpClassMember(
+                    const callMethodResult = evaluator.getTypeOfObjectMember(
+                        node,
                         callSubtype,
                         '__call__',
-                        MemberAccessFlags.SkipInstanceMembers
+                        { method: 'get' },
+                        /* diag */ undefined,
+                        MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
                     );
-                    if (callMember) {
-                        const callMemberType = evaluator.getTypeOfMember(callMember);
-                        if (callMemberType) {
-                            if (isFunction(callMemberType) || isOverloadedFunction(callMemberType)) {
-                                const boundCallType = evaluator.bindFunctionToClassOrObject(undefined, callMemberType);
-                                if (boundCallType) {
-                                    callSubtype = boundCallType;
-                                }
-                            }
+
+                    if (callMethodResult && !callMethodResult.typeErrors) {
+                        const callMethodType = callMethodResult.type;
+                        if (isFunction(callMethodType) || isOverloadedFunction(callMethodType)) {
+                            callSubtype = callMethodType;
                         }
                     }
                 }
