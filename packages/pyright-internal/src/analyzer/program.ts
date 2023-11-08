@@ -176,6 +176,7 @@ export class Program {
         this._logTracker = logTracker ?? new LogTracker(this._console, 'FG');
         this._importResolver = initialImportResolver;
         this._configOptions = initialConfigOptions;
+
         this._sourceFileFactory = serviceProvider.sourceFileFactory();
 
         this._cacheManager = serviceProvider.tryGet(ServiceKeys.cacheManager) ?? new CacheManager();
@@ -430,7 +431,7 @@ export class Program {
             sourceFileInfo.diagnosticsVersion = 0;
         }
 
-        verifyNoCyclesInChainedFiles(sourceFileInfo);
+        verifyNoCyclesInChainedFiles(this, sourceFileInfo);
         sourceFileInfo.sourceFile.setClientVersion(version, contents);
     }
 
@@ -449,7 +450,7 @@ export class Program {
         sourceFileInfo.sourceFile.markDirty();
         this._markFileDirtyRecursive(sourceFileInfo, new Set<string>());
 
-        verifyNoCyclesInChainedFiles(sourceFileInfo);
+        verifyNoCyclesInChainedFiles(this, sourceFileInfo);
     }
 
     setFileClosed(filePath: string, isTracked?: boolean): FileDiagnostics[] {
@@ -1675,7 +1676,11 @@ export class Program {
             const implicitPath = nextImplicitImport.sourceFile.getFilePath();
             if (implicitSet.has(implicitPath)) {
                 // We've found a cycle. Break out of the loop.
-                debug.fail(`Found a cycle in implicit imports files`);
+                debug.fail(
+                    this.serviceProvider
+                        .tryGet(ServiceKeys.debugInfoInspector)
+                        ?.getCycleDetail(this, nextImplicitImport) ?? `Found a cycle in implicit imports files`
+                );
             }
 
             implicitSet.add(implicitPath);

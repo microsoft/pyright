@@ -39,6 +39,8 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ModuleNameAndType } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import * as SymbolNameUtils from './symbolNameUtils';
+import { findTokenAfter, getTokenAt } from './parseTreeUtils';
+import { TokenType } from '../parser/tokenizerTypes';
 
 export interface ImportStatement {
     node: ImportNode | ImportFromNode;
@@ -749,6 +751,7 @@ export function getImportGroupFromModuleNameAndType(moduleNameAndType: ModuleNam
 }
 
 export function getTextRangeForImportNameDeletion(
+    parseResults: ParseResults,
     nameNodes: ImportAsNode[] | ImportFromAsNode[],
     ...nameNodeIndexToDelete: number[]
 ): TextRange[] {
@@ -757,14 +760,15 @@ export function getTextRangeForImportNameDeletion(
         const startNode = nameNodes[pair.start];
         const endNode = nameNodes[pair.end];
 
-        if (pair.start === 0 && nameNodes.length === pair.end - pair.start + 1) {
+        if (pair.start === 0 && nameNodes.length === pair.end + 1) {
             // get span of whole statement. ex) "import [|A|]" or "import [|A, B|]"
             editSpans.push(TextRange.fromBounds(startNode.start, TextRange.getEnd(endNode)));
         } else if (pair.end === nameNodes.length - 1) {
             // get span of "import A[|, B|]" or "import A[|, B, C|]"
-            const start = TextRange.getEnd(nameNodes[pair.start - 1]);
-            const length = TextRange.getEnd(endNode) - start;
-            editSpans.push({ start, length });
+            const previousNode = nameNodes[pair.start - 1];
+            editSpans.push(
+                ...getEditsPreservingFirstCommentAfterCommaIfExist(parseResults, previousNode, startNode, endNode)
+            );
         } else {
             // get span of "import [|A, |]B" or "import [|A, B,|] C"
             const start = startNode.start;
@@ -773,6 +777,42 @@ export function getTextRangeForImportNameDeletion(
         }
     }
     return editSpans;
+}
+
+function getEditsPreservingFirstCommentAfterCommaIfExist(
+    parseResults: ParseResults,
+    previousNode: ParseNode,
+    startNode: ParseNode,
+    endNode: ParseNode
+): TextRange[] {
+    const offsetOfPreviousNodeEnd = TextRange.getEnd(previousNode);
+    const startingToken = getTokenAt(parseResults.tokenizerOutput.tokens, startNode.start);
+    if (!startingToken || !startingToken.comments || startingToken.comments.length === 0) {
+        const length = TextRange.getEnd(endNode) - offsetOfPreviousNodeEnd;
+        return [{ start: offsetOfPreviousNodeEnd, length }];
+    }
+
+    const commaToken = findTokenAfter(parseResults, TextRange.getEnd(previousNode), (t) => t.type === TokenType.Comma);
+    if (!commaToken) {
+        const length = TextRange.getEnd(endNode) - offsetOfPreviousNodeEnd;
+        return [{ start: offsetOfPreviousNodeEnd, length }];
+    }
+
+    // We have code something like
+    //  previousNode, #comment
+    //  startNode,
+    //  endNode
+    //
+    // Make sure we preserve #comment when deleting start/end nodes so we have
+    //  previousNode #comment
+    // as final result.
+    const lengthToComma = TextRange.getEnd(commaToken) - offsetOfPreviousNodeEnd;
+    const offsetToCommentEnd = TextRange.getEnd(startingToken.comments[startingToken.comments.length - 1]);
+    const length = TextRange.getEnd(endNode) - offsetToCommentEnd;
+    return [
+        { start: offsetOfPreviousNodeEnd, length: lengthToComma },
+        { start: offsetToCommentEnd, length },
+    ];
 }
 
 function getConsecutiveNumberPairs(indices: number[]) {
