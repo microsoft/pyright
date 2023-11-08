@@ -296,7 +296,8 @@ export function applyFunctionDecorator(
                 validatePropertyMethod(evaluator, inputFunctionType, decoratorNode);
                 return createProperty(evaluator, decoratorNode, decoratorType, inputFunctionType);
             } else if (isClassInstance(inputFunctionType)) {
-                const boundMethod = evaluator.getBoundMethod(inputFunctionType, '__call__');
+                const boundMethod = evaluator.getBoundMagicMethod(inputFunctionType, '__call__');
+
                 if (boundMethod && isFunction(boundMethod)) {
                     return createProperty(evaluator, decoratorNode, decoratorType, boundMethod);
                 }

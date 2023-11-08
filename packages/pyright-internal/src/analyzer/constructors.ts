@@ -57,32 +57,36 @@ import {
 } from './types';
 
 // Fetches and binds the __new__ method from a class.
-export function getBoundNewMethod(evaluator: TypeEvaluator, errorNode: ExpressionNode, type: ClassType) {
-    return evaluator.getTypeOfObjectMember(
-        errorNode,
-        type,
-        '__new__',
-        { method: 'get' },
-        /* diag */ undefined,
+export function getBoundNewMethod(
+    evaluator: TypeEvaluator,
+    errorNode: ExpressionNode,
+    type: ClassType,
+    skipObjectBase = true
+) {
+    let flags =
         MemberAccessFlags.SkipClassMembers |
-            MemberAccessFlags.SkipObjectBaseClass |
-            MemberAccessFlags.SkipAttributeAccessOverride |
-            MemberAccessFlags.TreatConstructorAsClassMethod
-    );
+        MemberAccessFlags.SkipAttributeAccessOverride |
+        MemberAccessFlags.TreatConstructorAsClassMethod;
+    if (skipObjectBase) {
+        flags |= MemberAccessFlags.SkipObjectBaseClass;
+    }
+
+    return evaluator.getTypeOfObjectMember(errorNode, type, '__new__', { method: 'get' }, /* diag */ undefined, flags);
 }
 
 // Fetches and binds the __init__ method from a class instance.
-export function getBoundInitMethod(evaluator: TypeEvaluator, errorNode: ExpressionNode, type: ClassType) {
-    return evaluator.getTypeOfObjectMember(
-        errorNode,
-        type,
-        '__init__',
-        { method: 'get' },
-        /* diag */ undefined,
-        MemberAccessFlags.SkipInstanceMembers |
-            MemberAccessFlags.SkipObjectBaseClass |
-            MemberAccessFlags.SkipAttributeAccessOverride
-    );
+export function getBoundInitMethod(
+    evaluator: TypeEvaluator,
+    errorNode: ExpressionNode,
+    type: ClassType,
+    skipObjectBase = true
+) {
+    let flags = MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride;
+    if (skipObjectBase) {
+        flags |= MemberAccessFlags.SkipObjectBaseClass;
+    }
+
+    return evaluator.getTypeOfObjectMember(errorNode, type, '__init__', { method: 'get' }, /* diag */ undefined, flags);
 }
 
 // Fetches and binds the __call__ method from a class or its metaclass.
