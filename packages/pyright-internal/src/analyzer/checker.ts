@@ -6162,7 +6162,7 @@ export class Checker extends ParseTreeWalker {
             if (
                 node.parameters.length === 0 ||
                 !node.parameters[0].name ||
-                !['cls', '_cls', '__cls', '__mcls', 'mcls', 'mcs'].some(
+                !['cls', '_cls', '__cls', '__mcls', 'mcls', 'mcs', 'metacls'].some(
                     (name) => node.parameters[0].name!.value === name
                 )
             ) {
