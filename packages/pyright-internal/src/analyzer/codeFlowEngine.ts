@@ -70,7 +70,6 @@ import {
     isIncompleteUnknown,
     isTypeAliasPlaceholder,
     mapSubtypes,
-    MemberAccessFlags,
 } from './typeUtils';
 
 export interface FlowNodeTypeResult {
@@ -1529,20 +1528,10 @@ export function getCodeFlowEngine(
                         }
                     }
                 } else if (isClassInstance(callSubtype)) {
-                    const callMethodResult = evaluator.getTypeOfBoundMember(
-                        node,
-                        callSubtype,
-                        '__call__',
-                        { method: 'get' },
-                        /* diag */ undefined,
-                        MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
-                    );
+                    const callMethodType = evaluator.getBoundMagicMethod(callSubtype, '__call__');
 
-                    if (callMethodResult && !callMethodResult.typeErrors) {
-                        const callMethodType = callMethodResult.type;
-                        if (isFunction(callMethodType) || isOverloadedFunction(callMethodType)) {
-                            callSubtype = callMethodType;
-                        }
+                    if (callMethodType) {
+                        callSubtype = callMethodType;
                     }
                 }
 
@@ -1707,7 +1696,7 @@ export function getCodeFlowEngine(
 
             if (cmType && isClassInstance(cmType)) {
                 const exitMethodName = isAsync ? '__aexit__' : '__exit__';
-                const exitType = evaluator.getTypeOfBoundMember(node, cmType, exitMethodName)?.type;
+                const exitType = evaluator.getBoundMagicMethod(cmType, exitMethodName);
 
                 if (exitType && isFunction(exitType) && exitType.details.declaredReturnType) {
                     let returnType = exitType.details.declaredReturnType;
