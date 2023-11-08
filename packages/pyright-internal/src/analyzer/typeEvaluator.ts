@@ -5848,7 +5848,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             errorNode,
             concreteMemberType,
             accessMethodName,
-            { method: 'get' },
+            /* usage */ undefined,
             diag?.createAddendum(),
             MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
         );
@@ -6183,7 +6183,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 errorNode,
                 classType,
                 name,
-                { method: 'get' },
+                /* usage */ undefined,
                 /* diag */ undefined,
                 MemberAccessFlags.SkipInstanceMembers |
                     MemberAccessFlags.SkipObjectBaseClass |
@@ -6780,13 +6780,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         !ClassType.isBuiltIn(concreteSubtype.details.effectiveMetaclass, ['type', '_InitVarMeta']) &&
                         (flags & EvaluatorFlags.ExpectingInstantiableType) === 0
                     ) {
-                        const itemMethodType = getTypeOfBoundMember(
-                            node,
+                        const itemMethodType = getBoundMagicMethod(
                             concreteSubtype,
-                            getIndexAccessMagicMethodName(usage),
-                            /* usage */ undefined,
-                            /* diag */ undefined,
-                            MemberAccessFlags.SkipAttributeAccessOverride
+                            getIndexAccessMagicMethodName(usage)
                         );
 
                         if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
@@ -7109,14 +7105,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const magicMethodName = getIndexAccessMagicMethodName(usage);
-        const itemMethodType = getTypeOfBoundMember(
-            node,
-            baseType,
-            magicMethodName,
-            /* usage */ undefined,
-            /* diag */ undefined,
-            MemberAccessFlags.SkipAttributeAccessOverride
-        )?.type;
+        const itemMethodType = getBoundMagicMethod(baseType, magicMethodName);
 
         if (!itemMethodType) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
@@ -7332,7 +7321,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (isClassInstance(positionalIndexType)) {
                         const altArgList = [...argList];
                         altArgList[0] = { ...altArgList[0] };
-                        const indexMethod = getTypeOfBoundMember(node, positionalIndexType, '__index__');
+                        const indexMethod = getBoundMagicMethod(positionalIndexType, '__index__');
 
                         if (indexMethod) {
                             const intType = getBuiltInObject(node, 'int');
@@ -9443,10 +9432,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     returnType: createNamedTupleType(evaluatorInterface, errorNode, argList, /* includesTypes */ true),
                 };
 
-                const initTypeResult = getTypeOfBoundMember(
+                const initTypeResult = getBoundInitMethod(
+                    evaluatorInterface,
                     errorNode,
                     ClassType.cloneAsInstance(expandedCallType),
-                    '__init__'
+                    /* skipObjectBase */ false
                 );
 
                 if (initTypeResult && isOverloadedFunction(initTypeResult.type)) {
@@ -9626,16 +9616,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         inferenceContext: InferenceContext | undefined,
         recursionCount: number
     ): CallResult {
-        const memberType = getTypeOfBoundMember(
+        const callMethodResult = getTypeOfBoundMember(
             errorNode,
             expandedCallType,
             '__call__',
             /* usage */ undefined,
             /* diag */ undefined,
-            MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.SkipInstanceMembers
-        )?.type;
+            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride,
+            /* selfType */ undefined,
+            recursionCount
+        );
+        const callMethodType = callMethodResult?.type;
 
-        if (!memberType) {
+        if (!callMethodType) {
             addDiagnostic(
                 AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -9651,7 +9644,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const callResult = validateCallArguments(
             errorNode,
             argList,
-            { type: memberType },
+            { type: callMethodType },
             typeVarContext,
             skipUnknownArgCheck,
             inferenceContext,
@@ -12645,14 +12638,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
             if (isClass(concreteSubtype)) {
-                magicMethodType = getTypeOfBoundMember(
-                    errorNode,
-                    concreteSubtype,
-                    methodName,
-                    /* usage */ undefined,
-                    /* diag */ undefined,
-                    MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
-                )?.type;
+                magicMethodType = getBoundMagicMethod(concreteSubtype, methodName);
             }
 
             if (magicMethodType) {
@@ -16726,7 +16712,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             errorNode,
             classType,
             '__init_subclass__',
-            { method: 'get' },
+            /* usage */ undefined,
             /* diag */ undefined,
             MemberAccessFlags.SkipClassMembers |
                 MemberAccessFlags.SkipObjectBaseClass |
@@ -20044,13 +20030,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                         });
                     } else if (isInstantiableClass(baseType)) {
-                        const initMethodType = getTypeOfBoundMember(
+                        const initMethodType = getBoundInitMethod(
+                            evaluatorInterface,
                             argNode.parent.leftExpression,
-                            ClassType.cloneAsInstance(baseType),
-                            '__init__',
-                            { method: 'get' },
-                            /* diag */ undefined,
-                            MemberAccessFlags.SkipObjectBaseClass
+                            ClassType.cloneAsInstance(baseType)
                         )?.type;
 
                         if (initMethodType && isFunction(initMethodType)) {
