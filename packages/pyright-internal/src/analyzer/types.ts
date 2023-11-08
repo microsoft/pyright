@@ -557,7 +557,6 @@ export interface DataClassBehaviors {
 export interface ProtocolCompatibility {
     srcType: Type;
     destType: Type;
-    treatSourceAsInstantiable: boolean;
     flags: number; // AssignTypeFlags
     isCompatible: boolean;
 }

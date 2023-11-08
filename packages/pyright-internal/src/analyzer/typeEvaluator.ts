@@ -1996,22 +1996,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // using the objectType parameter. Callers can specify these separately
     // to handle the case where we're fetching the object member from a
     // metaclass but binding to the class.
-    function getTypeOfObjectMember(
-        errorNode: ExpressionNode,
+    function getTypeOfBoundMember(
+        errorNode: ExpressionNode | undefined,
         objectType: ClassType,
         memberName: string,
         usage: EvaluatorUsage = { method: 'get' },
         diag: DiagnosticAddendum | undefined = undefined,
         flags = MemberAccessFlags.Default,
-        selfType?: ClassType | TypeVarType
+        selfType?: ClassType | TypeVarType,
+        recursionCount = 0
     ): TypeResult | undefined {
         if (ClassType.isPartiallyEvaluated(objectType)) {
-            addDiagnostic(
-                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.classDefinitionCycle().format({ name: objectType.details.name }),
-                errorNode
-            );
+            if (errorNode) {
+                addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.classDefinitionCycle().format({ name: objectType.details.name }),
+                    errorNode
+                );
+            }
             return { type: UnknownType.create() };
         }
 
@@ -2106,7 +2109,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 usage,
                 metaclassDiag,
                 effectiveFlags,
-                objectTypeIsInstantiable ? objectType : ClassType.cloneAsInstantiable(objectType)
+                objectTypeIsInstantiable ? objectType : ClassType.cloneAsInstantiable(objectType),
+                recursionCount
             );
 
             // If there was a descriptor error (as opposed to an error where the members
@@ -2138,30 +2142,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberName: string,
         recursionCount = 0
     ): FunctionType | OverloadedFunctionType | undefined {
-        const memberInfo = lookUpClassMember(
+        const boundMethodResult = getTypeOfBoundMember(
+            /* errorNode */ undefined,
             classType,
             memberName,
-            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
+            /* usage */ undefined,
+            /* diag */ undefined,
+            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride,
+            /* selfType */ undefined,
+            recursionCount
         );
 
-        if (!memberInfo) {
+        if (!boundMethodResult || boundMethodResult.typeErrors) {
             return undefined;
         }
 
-        const unboundMethodType = getTypeOfMember(memberInfo);
-        if (isFunction(unboundMethodType) || isOverloadedFunction(unboundMethodType)) {
-            return bindFunctionToClassOrObject(
-                ClassType.cloneAsInstance(classType),
-                unboundMethodType,
-                /* memberClass */ undefined,
-                /* treatConstructorAsClassMember */ true,
-                /* selfType */ undefined,
-                /* diag */ undefined,
-                recursionCount
-            );
+        if (isFunction(boundMethodResult.type) || isOverloadedFunction(boundMethodResult.type)) {
+            return boundMethodResult.type;
         }
 
-        if (isAnyOrUnknown(unboundMethodType)) {
+        if (isAnyOrUnknown(boundMethodResult.type)) {
             const unknownFunction = FunctionType.createSynthesizedInstance(
                 '',
                 FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
@@ -2496,25 +2496,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
 
                 if (baseType && isClassInstance(baseType)) {
-                    const setItemMember = lookUpClassMember(baseType, '__setitem__');
-                    if (setItemMember) {
-                        const setItemType = getTypeOfMember(setItemMember);
-                        if (isFunction(setItemType)) {
-                            const boundFunction = bindFunctionToClassOrObjectWithErrors(
-                                baseType,
-                                setItemType,
-                                isInstantiableClass(setItemMember.classType) ? setItemMember.classType : undefined,
-                                expression,
-                                /* treatConstructorAsClassMember */ false
-                            );
-                            if (boundFunction && isFunction(boundFunction)) {
-                                if (boundFunction.details.parameters.length >= 2) {
-                                    const paramType = FunctionType.getEffectiveParameterType(boundFunction, 1);
-                                    if (!isAnyOrUnknown(paramType)) {
-                                        return paramType;
-                                    }
-                                }
-                            }
+                    const setItemType = getBoundMagicMethod(baseType, '__setitem__');
+                    if (setItemType && isFunction(setItemType) && setItemType.details.parameters.length >= 2) {
+                        const paramType = FunctionType.getEffectiveParameterType(setItemType, 1);
+                        if (!isAnyOrUnknown(paramType)) {
+                            return paramType;
                         }
                     } else if (ClassType.isTypedDictClass(baseType)) {
                         const typeFromTypedDict = getTypeOfIndexedTypedDict(
@@ -2537,15 +2523,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (declaredType) {
                 // If it's a descriptor, we need to get the setter type.
                 if (useDescriptorSetterType && isClassInstance(declaredType)) {
-                    const setterInfo = lookUpClassMember(declaredType, '__set__');
-                    const setter = setterInfo ? getTypeOfMember(setterInfo) : undefined;
-                    if (setterInfo && setter && isFunction(setter) && setter.details.parameters.length >= 3) {
-                        declaredType = setter.details.parameters[2].type;
-
-                        if (isClass(setterInfo.classType)) {
-                            const typeVarMap = buildTypeVarContextFromSpecializedClass(setterInfo.classType);
-                            declaredType = applySolvedTypeVars(declaredType, typeVarMap);
-                        }
+                    const setter = getBoundMagicMethod(declaredType, '__set__');
+                    if (setter && isFunction(setter) && setter.details.parameters.length >= 2) {
+                        declaredType = setter.details.parameters[1].type;
 
                         if (isAnyOrUnknown(declaredType)) {
                             return undefined;
@@ -2560,12 +2540,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (isFunction(declaredType) || isOverloadedFunction(declaredType)) {
                         if (bindFunction) {
-                            declaredType = bindFunctionToClassOrObjectWithErrors(
-                                classOrObjectBase,
-                                declaredType,
-                                /* memberAccessClass */ undefined,
-                                expression
-                            );
+                            declaredType = bindFunctionToClassOrObject(classOrObjectBase, declaredType);
                         }
                     }
                 }
@@ -5285,7 +5260,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             case TypeCategory.Class: {
                 const typeResult =
                     getTypeOfEnumMember(evaluatorInterface, node, baseType, memberName, isIncomplete) ??
-                    getTypeOfObjectMember(
+                    getTypeOfBoundMember(
                         node.memberName,
                         baseType,
                         memberName,
@@ -5416,7 +5391,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     if (isNoneInstance(subtype) && noneType && isClassInstance(noneType)) {
-                        const typeResult = getTypeOfObjectMember(node.memberName, noneType, memberName, usage, diag);
+                        const typeResult = getTypeOfBoundMember(node.memberName, noneType, memberName, usage, diag);
 
                         if (typeResult) {
                             type = addConditionToType(typeResult.type, getTypeCondition(baseType));
@@ -5539,13 +5514,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeOfClassMemberName(
-        errorNode: ExpressionNode,
+        errorNode: ExpressionNode | undefined,
         classType: ClassType,
         memberName: string,
         usage: EvaluatorUsage,
         diag: DiagnosticAddendum | undefined,
         flags: MemberAccessFlags,
-        selfType?: ClassType | TypeVarType
+        selfType?: ClassType | TypeVarType,
+        recursionCount = 0
     ): ClassMemberLookup | undefined {
         const isAccessedThroughObject = TypeBase.isInstance(classType);
 
@@ -5562,8 +5538,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // No attribute of that name was found. If this is a member access
             // through an object, see if there's an attribute access override
             // method ("__getattr__", etc.).
-            if ((flags & MemberAccessFlags.SkipAttributeAccessOverride) === 0) {
-                const generalAttrType = applyAttributeAccessOverride(classType, errorNode, usage, memberName, selfType);
+            if ((flags & MemberAccessFlags.SkipAttributeAccessOverride) === 0 && errorNode) {
+                const generalAttrType = applyAttributeAccessOverride(errorNode, classType, usage, memberName, selfType);
                 if (generalAttrType) {
                     return {
                         symbol: undefined,
@@ -5590,7 +5566,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        if (usage.method !== 'get') {
+        if (usage.method !== 'get' && errorNode) {
             // If the usage indicates a 'set' or 'delete' and the access is within the
             // class definition itself, use only the declared type to avoid circular
             // type evaluation.
@@ -5669,6 +5645,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (usage.method === 'get') {
             // Mark the member accessed if it's not coming from a parent class.
             if (
+                errorNode &&
                 isInstantiableClass(memberInfo.classType) &&
                 ClassType.isSameGenericClass(memberInfo.classType, classType)
             ) {
@@ -5697,7 +5674,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const isClassMember = !memberInfo || memberInfo.isClassMember;
             let resultType: Type;
 
-            if (isClass(concreteSubtype) && isClassMember) {
+            if (isClass(concreteSubtype) && isClassMember && errorNode) {
                 const descResult = applyDescriptorAccessMethod(
                     subtype,
                     concreteSubtype,
@@ -5738,7 +5715,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     flags,
                     memberName,
                     usage,
-                    diag
+                    diag,
+                    recursionCount
                 );
 
                 resultType = typeResult.type;
@@ -5769,7 +5747,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 .getDeclarations()
                 .find((decl) => isFinalVariableDeclaration(decl));
 
-            if (finalVarTypeDecl && !ParseTreeUtils.isNodeContainedWithin(errorNode, finalVarTypeDecl.node)) {
+            if (
+                finalVarTypeDecl &&
+                errorNode &&
+                !ParseTreeUtils.isNodeContainedWithin(errorNode, finalVarTypeDecl.node)
+            ) {
                 // If a Final instance variable is declared in the class body but is
                 // being assigned within an __init__ method, it's allowed.
                 const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(errorNode);
@@ -5862,7 +5844,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             accessMethodName = '__delete__';
         }
 
-        const methodTypeResult = getTypeOfObjectMember(
+        const methodTypeResult = getTypeOfBoundMember(
             errorNode,
             concreteMemberType,
             accessMethodName,
@@ -6071,7 +6053,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         flags: MemberAccessFlags,
         memberName: string,
         usage: EvaluatorUsage,
-        diag: DiagnosticAddendum | undefined
+        diag: DiagnosticAddendum | undefined,
+        recursionCount = 0
     ): TypeResult {
         // Check for an attempt to overwrite a final method.
         if (usage.method === 'set') {
@@ -6105,7 +6088,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             memberInfo && isInstantiableClass(memberInfo.classType) ? memberInfo.classType : undefined,
             (flags & MemberAccessFlags.TreatConstructorAsClassMethod) !== 0,
             selfType && isClass(selfType) ? ClassType.cloneIncludeSubclasses(selfType) : selfType,
-            diag
+            diag,
+            recursionCount
         );
 
         return { type: boundType ?? UnknownType.create(), typeErrors: !boundType };
@@ -6188,14 +6172,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Applies the __getattr__, __setattr__ or __delattr__ method if present.
     // If it's not applicable, returns undefined.
     function applyAttributeAccessOverride(
-        classType: ClassType,
         errorNode: ExpressionNode,
+        classType: ClassType,
         usage: EvaluatorUsage,
         memberName: string,
         selfType?: ClassType | TypeVarType
     ): MemberAccessTypeResult | undefined {
         const getAttributeAccessMember = (name: string) => {
-            return getTypeOfObjectMember(
+            return getTypeOfBoundMember(
                 errorNode,
                 classType,
                 name,
@@ -6795,7 +6779,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         !ClassType.isBuiltIn(concreteSubtype.details.effectiveMetaclass, ['type', '_InitVarMeta']) &&
                         (flags & EvaluatorFlags.ExpectingInstantiableType) === 0
                     ) {
-                        const itemMethodType = getTypeOfObjectMember(
+                        const itemMethodType = getTypeOfBoundMember(
                             node,
                             concreteSubtype,
                             getIndexAccessMagicMethodName(usage),
@@ -7124,7 +7108,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const magicMethodName = getIndexAccessMagicMethodName(usage);
-        const itemMethodType = getTypeOfObjectMember(
+        const itemMethodType = getTypeOfBoundMember(
             node,
             baseType,
             magicMethodName,
@@ -7347,7 +7331,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (isClassInstance(positionalIndexType)) {
                         const altArgList = [...argList];
                         altArgList[0] = { ...altArgList[0] };
-                        const indexMethod = getTypeOfObjectMember(node, positionalIndexType, '__index__');
+                        const indexMethod = getTypeOfBoundMember(node, positionalIndexType, '__index__');
 
                         if (indexMethod) {
                             const intType = getBuiltInObject(node, 'int');
@@ -9458,7 +9442,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     returnType: createNamedTupleType(evaluatorInterface, errorNode, argList, /* includesTypes */ true),
                 };
 
-                const initTypeResult = getTypeOfObjectMember(
+                const initTypeResult = getTypeOfBoundMember(
                     errorNode,
                     ClassType.cloneAsInstance(expandedCallType),
                     '__init__'
@@ -9641,7 +9625,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         inferenceContext: InferenceContext | undefined,
         recursionCount: number
     ): CallResult {
-        const memberType = getTypeOfObjectMember(
+        const memberType = getTypeOfBoundMember(
             errorNode,
             expandedCallType,
             '__call__',
@@ -12654,7 +12638,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
             if (isClass(concreteSubtype)) {
-                magicMethodType = getTypeOfObjectMember(
+                magicMethodType = getTypeOfBoundMember(
                     errorNode,
                     concreteSubtype,
                     methodName,
@@ -16724,7 +16708,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         const errorNode = argList.length > 0 ? argList[0].node!.name! : node.name;
-        const initSubclassMethodInfo = getTypeOfObjectMember(
+        const initSubclassMethodInfo = getTypeOfBoundMember(
             errorNode,
             classType,
             '__init_subclass__',
@@ -20044,7 +20028,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                         });
                     } else if (isInstantiableClass(baseType)) {
-                        const initMethodType = getTypeOfObjectMember(
+                        const initMethodType = getTypeOfBoundMember(
                             argNode.parent.leftExpression,
                             ClassType.cloneAsInstance(baseType),
                             '__init__',
@@ -21550,12 +21534,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 !assignClassToProtocol(
                     evaluatorInterface,
                     destType,
-                    srcType,
+                    ClassType.cloneAsInstance(srcType),
                     diag?.createAddendum(),
                     destTypeVarContext,
                     srcTypeVarContext,
                     flags,
-                    /* treatSourceAsInstantiable */ false,
                     recursionCount
                 )
             ) {
@@ -22885,7 +22868,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         destTypeVarContext,
                         srcTypeVarContext,
                         flags,
-                        /* treatSourceAsInstantiable */ true,
                         recursionCount
                     );
                 }
@@ -23092,12 +23074,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return assignClassToProtocol(
                     evaluatorInterface,
                     ClassType.cloneAsInstantiable(destType),
-                    noneClassType,
+                    ClassType.cloneAsInstance(noneClassType),
                     diag,
                     destTypeVarContext,
                     srcTypeVarContext,
                     flags,
-                    /* treatSourceAsInstantiable */ false,
                     recursionCount
                 );
             }
@@ -25524,37 +25505,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return methodList;
     }
 
-    function bindFunctionToClassOrObjectWithErrors(
-        baseType: ClassType | undefined,
-        memberType: FunctionType | OverloadedFunctionType,
-        memberClass?: ClassType,
-        errorNode?: ParseNode,
-        treatConstructorAsClassMember = false,
-        selfType?: ClassType | TypeVarType
-    ): FunctionType | OverloadedFunctionType | undefined {
-        const diag = errorNode ? new DiagnosticAddendum() : undefined;
-
-        const result = bindFunctionToClassOrObject(
-            baseType,
-            memberType,
-            memberClass,
-            treatConstructorAsClassMember,
-            selfType,
-            diag
-        );
-
-        if (!result && errorNode && diag) {
-            addDiagnostic(
-                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                diag.getString(),
-                errorNode
-            );
-        }
-
-        return result;
-    }
-
     // If the memberType is an instance or class method, creates a new
     // version of the function that has the "self" or "cls" parameter bound
     // to it. If treatConstructorAsClassMember is true, the function is
@@ -26007,7 +25957,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getBestOverloadForArguments,
         getBuiltInType,
         getTypeOfMember,
-        getTypeOfObjectMember,
+        getTypeOfBoundMember,
         getBoundMagicMethod,
         getTypeOfMagicMethodCall,
         bindFunctionToClassOrObject,

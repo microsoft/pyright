@@ -182,7 +182,7 @@ export interface TypeResult<T extends Type = Type> {
     // Type consistency errors detected when evaluating this type.
     typeErrors?: boolean | undefined;
 
-    // Used for getTypeOfObjectMember to indicate that class
+    // Used for getTypeOfBoundMember to indicate that class
     // that declares the member.
     classType?: ClassType | UnknownType | AnyType;
 
@@ -533,7 +533,7 @@ export interface TypeEvaluator {
     ) => FunctionType | undefined;
     getBuiltInType: (node: ParseNode, name: string) => Type;
     getTypeOfMember: (member: ClassMember) => Type;
-    getTypeOfObjectMember(
+    getTypeOfBoundMember(
         errorNode: ExpressionNode,
         objectType: ClassType,
         memberName: string,
