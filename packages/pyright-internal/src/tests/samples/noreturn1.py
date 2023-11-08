@@ -50,21 +50,12 @@ async def func7() -> NoReturn:
 
 
 class A:
-    def __init__(self) -> NoReturn:
+    def __new__(cls) -> NoReturn:
         ...
 
 
 def func8() -> NoReturn:
     A()
-
-
-class B:
-    def __new__(cls) -> NoReturn:
-        ...
-
-
-def func9() -> NoReturn:
-    B()
 
 
 class C:
