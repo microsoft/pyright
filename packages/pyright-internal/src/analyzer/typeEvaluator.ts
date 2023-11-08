@@ -92,7 +92,12 @@ import {
     wildcardImportReferenceKey,
 } from './codeFlowTypes';
 import { assignTypeToTypeVar, populateTypeVarContextBasedOnExpectedType, updateTypeVarType } from './constraintSolver';
-import { createFunctionFromConstructor, validateConstructorArguments } from './constructors';
+import {
+    createFunctionFromConstructor,
+    getBoundInitMethod,
+    getBoundNewMethod,
+    validateConstructorArguments,
+} from './constructors';
 import {
     applyDataClassClassBehaviorOverrides,
     applyDataClassDefaultBehaviors,
@@ -2128,12 +2133,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return undefined;
     }
 
-    function getBoundMethod(
+    function getBoundMagicMethod(
         classType: ClassType,
         memberName: string,
         recursionCount = 0
     ): FunctionType | OverloadedFunctionType | undefined {
-        const memberInfo = lookUpClassMember(classType, memberName, MemberAccessFlags.SkipInstanceMembers);
+        const memberInfo = lookUpClassMember(
+            classType,
+            memberName,
+            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
+        );
 
         if (!memberInfo) {
             return undefined;
@@ -2258,43 +2267,56 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 case TypeCategory.Class: {
                     if (TypeBase.isInstantiable(subtype)) {
-                        let methodType: FunctionType | OverloadedFunctionType | undefined;
+                        let constructorType: FunctionType | OverloadedFunctionType | undefined;
 
                         // Try to get the `__init__` method first because it typically has more
                         // type information than `__new__`.
-                        methodType = getBoundMethod(subtype, '__init__');
+                        const initMethodResult = getBoundInitMethod(
+                            evaluatorInterface,
+                            callNode,
+                            ClassType.cloneAsInstance(subtype),
+                            /* skipObjectBase */ false
+                        );
 
-                        // Is this the __init__ method provided by the object class?
+                        if (initMethodResult && !initMethodResult.typeErrors && isFunction(initMethodResult.type)) {
+                            constructorType = initMethodResult.type;
+                        }
+
                         const isObjectInit =
-                            !!methodType &&
-                            isFunction(methodType) &&
-                            methodType.details.fullName === 'builtins.object.__init__';
+                            constructorType &&
+                            isFunction(constructorType) &&
+                            constructorType.details.fullName === 'builtins.object.__init__';
                         const isDefaultParams =
-                            methodType && isFunction(methodType) && FunctionType.hasDefaultParameters(methodType);
+                            constructorType &&
+                            isFunction(constructorType) &&
+                            FunctionType.hasDefaultParameters(constructorType);
 
                         // If there was no `__init__` or the only `__init__` that was found was from
                         // the `object` class or accepts only default parameters(* args, ** kwargs),
                         // see if we can find a better signature from the `__new__` method.
-                        if (!methodType || isObjectInit || isDefaultParams) {
-                            const constructorType = getBoundMethod(subtype, '__new__');
+                        if (!constructorType || isObjectInit || isDefaultParams) {
+                            const newMethodResult = getBoundNewMethod(
+                                evaluatorInterface,
+                                callNode,
+                                subtype,
+                                /* skipObjectBase */ false
+                            );
 
-                            if (constructorType) {
-                                // Is this the __new__ method provided by the object class?
-                                const isObjectNew =
-                                    isFunction(constructorType) &&
-                                    constructorType.details.fullName === 'builtins.object.__new__';
-
-                                if (!isObjectNew) {
-                                    methodType = constructorType;
-                                }
+                            if (
+                                newMethodResult &&
+                                !newMethodResult.typeErrors &&
+                                isFunction(newMethodResult.type) &&
+                                newMethodResult.type.details.fullName !== 'builtins.object.__new__'
+                            ) {
+                                constructorType = newMethodResult.type;
                             }
                         }
 
-                        if (methodType) {
-                            addFunctionToSignature(methodType);
+                        if (constructorType) {
+                            addFunctionToSignature(constructorType);
                         }
                     } else {
-                        const methodType = getBoundMethod(subtype, '__call__');
+                        const methodType = getBoundMagicMethod(subtype, '__call__');
                         if (methodType) {
                             addFunctionToSignature(methodType);
                         }
@@ -13630,7 +13652,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (isClassInstance(subtype)) {
-                    const boundMethod = getBoundMethod(subtype, '__call__');
+                    const boundMethod = getBoundMagicMethod(subtype, '__call__');
                     if (boundMethod && isFunction(boundMethod)) {
                         expectedFunctionTypes.push(boundMethod as FunctionType);
                     }
@@ -22905,7 +22927,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
 
             if (isClassInstance(concreteSrcType)) {
-                const boundMethod = getBoundMethod(concreteSrcType, '__call__', recursionCount);
+                const boundMethod = getBoundMagicMethod(concreteSrcType, '__call__', recursionCount);
                 if (boundMethod) {
                     concreteSrcType = removeParamSpecVariadicsFromSignature(boundMethod);
                 }
@@ -23708,7 +23730,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const boundMethod = getBoundMethod(objType, '__call__', recursionCount);
+        const boundMethod = getBoundMagicMethod(objType, '__call__', recursionCount);
         if (boundMethod) {
             return removeParamSpecVariadicsFromSignature(boundMethod);
         }
@@ -25986,7 +26008,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getBuiltInType,
         getTypeOfMember,
         getTypeOfObjectMember,
-        getBoundMethod,
+        getBoundMagicMethod,
         getTypeOfMagicMethodCall,
         bindFunctionToClassOrObject,
         getCallSignatureInfo,

@@ -542,7 +542,7 @@ export interface TypeEvaluator {
         flags?: MemberAccessFlags,
         selfType?: ClassType | TypeVarType
     ): TypeResult | undefined;
-    getBoundMethod: (
+    getBoundMagicMethod: (
         classType: ClassType,
         memberName: string,
         recursionCount?: number,
