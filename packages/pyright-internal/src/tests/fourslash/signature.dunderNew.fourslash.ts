@@ -1,6 +1,6 @@
 /// <reference path="fourslash.ts" />
 
-// @filename: dunerNew.py
+// @filename: dunderNew.py
 ////
 //// class Foo:
 ////     def __new__(cls, x:int, y:int):
