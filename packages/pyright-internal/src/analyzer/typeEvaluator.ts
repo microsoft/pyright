@@ -22917,7 +22917,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // If it's a class, use the constructor for type compatibility checking.
             if (isInstantiableClass(concreteSrcType) && concreteSrcType.literalValue === undefined) {
-                const constructor = createFunctionFromConstructor(evaluatorInterface, concreteSrcType, recursionCount);
+                const constructor = createFunctionFromConstructor(
+                    evaluatorInterface,
+                    concreteSrcType,
+                    isTypeVar(srcType) ? convertToInstance(srcType) : undefined,
+                    recursionCount
+                );
                 if (constructor) {
                     concreteSrcType = constructor;
                 }
