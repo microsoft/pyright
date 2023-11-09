@@ -136,16 +136,35 @@ class WriteableData {
     // True if the file appears to have been deleted.
     isFileDeleted = false;
 
-    dump() {
-        return JSON.stringify(this, (key, value) => {
-            if (typeof value === 'object') {
-                return '<object>';
-            }
-            if (Array.isArray(value)) {
-                return '<array>';
-            }
-            return value;
-        });
+    debugPrint() {
+        return `WritableData: 
+ diagnosticVersion=${this.diagnosticVersion}, 
+ noCircularDependencyConfirmed=${this.noCircularDependencyConfirmed}, 
+ isBindingNeeded=${this.isBindingNeeded},
+ isBindingInProgress=${this.isBindingInProgress},
+ isCheckingNeeded=${this.isCheckingNeeded},
+ isFileDeleted=${this.isFileDeleted},
+ hitMaxImportDepth=${this.hitMaxImportDepth},
+ parseTreeNeedsCleaning=${this.parseTreeNeedsCleaning},
+ fileContentsVersion=${this.fileContentsVersion},
+ analyzedFileContentsVersion=${this.analyzedFileContentsVersion},
+ clientDocumentVersion=${this.clientDocumentVersion},
+ lastFileContentLength=${this.lastFileContentLength},
+ lastFileContentHash=${this.lastFileContentHash},
+ typeIgnoreAll=${this.typeIgnoreAll},
+ imports=${this.imports?.length},
+ builtinsImport=${this.builtinsImport?.importName},
+ circularDependencies=${this.circularDependencies?.length},
+ parseDiagnostics=${this.parseDiagnostics?.length},
+ commentDiagnostics=${this.commentDiagnostics?.length},
+ bindDiagnostics=${this.bindDiagnostics?.length},
+ checkerDiagnostics=${this.checkerDiagnostics?.length},
+ accumulatedDiagnostics=${this.accumulatedDiagnostics?.length},
+ typeIgnoreLines=${this.typeIgnoreLines?.size},
+ pyrightIgnoreLines=${this.pyrightIgnoreLines?.size},
+ checkTime=${this.checkTime},
+ clientDocumentContents=${this.clientDocumentContents?.length},
+ parseResults=${this.parseResults?.parseTree.length}`;
     }
 }
 
@@ -790,7 +809,7 @@ export class SourceFile {
         dependentFiles?: ParseResults[]
     ) {
         assert(!this.isParseRequired(), 'Check called before parsing');
-        assert(!this.isBindingRequired(), `Check called before binding: state=${this._writableData.dump()}`);
+        assert(!this.isBindingRequired(), `Check called before binding: state=${this._writableData.debugPrint()}`);
         assert(!this._writableData.isBindingInProgress, 'Check called while binding in progress');
         assert(this.isCheckingRequired(), 'Check called unnecessarily');
         assert(this._writableData.parseResults !== undefined, 'Parse results not available');
