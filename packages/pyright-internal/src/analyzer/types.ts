@@ -1114,7 +1114,7 @@ export namespace ClassType {
         );
     }
 
-    // Same as isSame except that it doesn't compare type arguments.
+    // Same as isTypeSame except that it doesn't compare type arguments.
     export function isSameGenericClass(classType: ClassType, type2: ClassType, recursionCount = 0) {
         if (recursionCount > maxTypeRecursionCount) {
             return true;
