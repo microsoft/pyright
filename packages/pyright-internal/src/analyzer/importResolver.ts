@@ -1775,6 +1775,12 @@ export class ImportResolver {
                 }
             }
 
+            // Prefer local over third-party. We check local first, so we should never
+            // see the reverse.
+            if (bestImportSoFar.importType === ImportType.Local && newImport.importType === ImportType.ThirdParty) {
+                return bestImportSoFar;
+            }
+
             // Prefer py.typed over non-py.typed.
             if (bestImportSoFar.pyTypedInfo && !newImport.pyTypedInfo) {
                 return bestImportSoFar;
