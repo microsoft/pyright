@@ -1703,16 +1703,16 @@ export class Program {
         }
     }
 
-    // Binds the specified file and all of its dependencies, recursively. If
-    // it runs out of time, it returns true. If it completes, it returns false.
+    // Binds the specified file and all of its dependencies, recursively.
+    // Returns true if the file was bound or it didn't need to be bound.
     private _bindFile(
         fileToAnalyze: SourceFileInfo,
         content?: string,
         skipFileNeededCheck?: boolean,
         isImplicitImport?: boolean
-    ): void {
+    ): boolean {
         if (!this._isFileNeeded(fileToAnalyze, skipFileNeededCheck) || !fileToAnalyze.sourceFile.isBindingRequired()) {
-            return;
+            return !fileToAnalyze.sourceFile.isBindingRequired();
         }
 
         this._parseFile(fileToAnalyze, content, skipFileNeededCheck);
@@ -1759,6 +1759,7 @@ export class Program {
         fileToAnalyze.effectiveFutureImports = futureImports.size > 0 ? futureImports : undefined;
 
         fileToAnalyze.sourceFile.bind(this._configOptions, this._lookUpImport, builtinsScope, futureImports);
+        return true;
     }
 
     private _getEffectiveFutureImports(futureImports: Set<string>, chainedSourceFile: SourceFileInfo): Set<string> {
@@ -1895,7 +1896,13 @@ export class Program {
                 // their results can affect this file's result.
                 const dependentFiles = this._checkDependentFiles(fileToCheck, chainedByList, token);
 
-                this._bindFile(fileToCheck);
+                const boundFile = this._bindFile(
+                    fileToCheck,
+                    undefined,
+                    // If binding is required we want to make sure to bind the file, otherwise
+                    // the sourceFile.check below will fail.
+                    /* skipFileNeededCheck */ fileToCheck.sourceFile.isBindingRequired()
+                );
                 if (this._preCheckCallback) {
                     const parseResults = fileToCheck.sourceFile.getParseResults();
                     if (parseResults) {
@@ -1903,14 +1910,16 @@ export class Program {
                     }
                 }
 
-                const execEnv = this._configOptions.findExecEnvironment(fileToCheck.sourceFile.getFilePath());
-                fileToCheck.sourceFile.check(
-                    this.configOptions,
-                    this._importResolver,
-                    this._evaluator!,
-                    this._createSourceMapper(execEnv, token, fileToCheck),
-                    dependentFiles
-                );
+                if (boundFile) {
+                    const execEnv = this._configOptions.findExecEnvironment(fileToCheck.sourceFile.getFilePath());
+                    fileToCheck.sourceFile.check(
+                        this.configOptions,
+                        this._importResolver,
+                        this._evaluator!,
+                        this._createSourceMapper(execEnv, token, fileToCheck),
+                        dependentFiles
+                    );
+                }
             }
 
             // For very large programs, we may need to discard the evaluator and
