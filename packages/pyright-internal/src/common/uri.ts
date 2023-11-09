@@ -6,9 +6,10 @@
  * URI class for storing and manipulating URIs.
  */
 
+import { platform } from 'process';
 import { URI, Utils } from 'vscode-uri';
 import { some } from './collectionUtils';
-import { getRootLength, normalizePath, normalizeSlashes } from './pathUtils';
+import { getRootLength, normalizeSlashes } from './pathUtils';
 
 export class Uri {
     private readonly _string;
@@ -19,15 +20,14 @@ export class Uri {
     private constructor(uri: string | URI, key?: string) {
         // Make sure the drive letter is lower case. This
         // is consistent with what VS code does for URIs.
-        const uriStr = URI.isUri(uri) ? uri.toString() : uri;
-        let parsed = URI.parse(uriStr);
+        let originalString = URI.isUri(uri) ? uri.toString() : uri;
+        const parsed = URI.isUri(uri) ? uri : URI.parse(uri);
         if (parsed.scheme === 'file') {
-            if (/^[a-zA-Z]:/.test(parsed.fsPath)) {
-                parsed = parsed.with({ path: parsed.fsPath[0].toLowerCase() + parsed.fsPath.slice(1) });
-            }
+            // The Vscode.URI parser makes sure the drive is lower cased.
+            originalString = parsed.toString();
         }
         this._uri = parsed;
-        this._string = parsed.toString();
+        this._string = originalString;
         this._key = key ?? this._string;
     }
 
@@ -47,7 +47,16 @@ export class Uri {
 
     // Returns a URI where the path just contains the root folder.
     get root(): Uri {
-        return new Uri(this._uri.with({ path: this._getRootPath(), query: '', fragment: '' }));
+        const rootPath = this._getRootPath();
+        if (this._uri.scheme === 'file' && rootPath !== this.getFilePath()) {
+            return Uri.file(rootPath);
+        } else if (rootPath !== this._uri.path) {
+            return new Uri(this._uri.with({ path: rootPath, query: '', fragment: '' }));
+        }
+        // Root path was not different, make sure we return a copy of the same
+        // uri. URI parsing can remove extra slashes, etc. so we need to make sure we
+        // return the same thing.
+        return new Uri(this._string);
     }
 
     static empty(): Uri {
@@ -69,7 +78,7 @@ export class Uri {
         }
 
         // Otherwise assume this is a file path.
-        return new Uri(URI.file(normalizePath(path)));
+        return new Uri(URI.file(path));
     }
 
     static fromKey(key: string): Uri {
@@ -91,7 +100,7 @@ export class Uri {
 
     toUserVisibleString(): string {
         if (this._uri.scheme === 'file') {
-            return this._uri.fsPath;
+            return this.getFilePath();
         }
         return this._uri.toString();
     }
@@ -131,8 +140,24 @@ export class Uri {
 
     // Returns just the fsPath path portion of the URI.
     getFilePath(): string {
-        // Might want to assert this is a file scheme.
-        return this._uri.fsPath;
+        let filePath: string | undefined;
+
+        // Compute the file path ourselves. The vscode.URI class doesn't
+        // treat UNC shares with a single slash as UNC paths.
+        // https://github.com/microsoft/vscode-uri/blob/53e4ca6263f2e4ddc35f5360c62bc1b1d30f27dd/src/uri.ts#L567
+        if (this._uri.authority && this._uri.path[0] === '/' && this._uri.path.length === 1) {
+            filePath = `//${this._uri.authority}${this._uri.path}`;
+        } else {
+            // Otherwise use the vscode.URI version
+            filePath = this._uri.fsPath;
+        }
+
+        // vscode.URI noralizes the path to use the correct path separators.
+        // We need to do the same.
+        if (platform === 'win32') {
+            return filePath.replace(/\//g, '\\');
+        }
+        return filePath;
     }
 
     // Returns just the path portion of the URI.
@@ -307,10 +332,12 @@ export class Uri {
 
     private _getRootPath(): string {
         if (this._uri.scheme === 'file') {
-            const rootLength = getRootLength(this._uri.fsPath);
-            return this._uri.fsPath.slice(0, rootLength);
+            const rootLength = getRootLength(this.getFilePath());
+            return this.getFilePath().slice(0, rootLength);
         }
-        return this._uri.path.split('/')[0];
+
+        const rootLength = getRootLength(this._uri.path, '/');
+        return this._uri.path.slice(0, rootLength);
     }
 
     private _reducePathComponents(components: string[]): string[] {
@@ -345,7 +372,7 @@ export class Uri {
 
     private _getComparablePath(): string {
         if (this._uri.scheme === 'file') {
-            return normalizeSlashes(this._uri.fsPath);
+            return normalizeSlashes(this.getFilePath());
         }
         return normalizeSlashes(this._uri.path);
     }

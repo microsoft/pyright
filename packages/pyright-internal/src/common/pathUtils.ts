@@ -67,19 +67,19 @@ export function getDirectoryPath(pathString: string): string {
 /**
  * Returns length of the root part of a path or URL (i.e. length of "/", "x:/", "//server/").
  */
-export function getRootLength(pathString: string): number {
-    if (pathString.charAt(0) === path.sep) {
-        if (pathString.charAt(1) !== path.sep) {
+export function getRootLength(pathString: string, sep = path.sep): number {
+    if (pathString.charAt(0) === sep) {
+        if (pathString.charAt(1) !== sep) {
             return 1; // POSIX: "/" (or non-normalized "\")
         }
-        const p1 = pathString.indexOf(path.sep, 2);
+        const p1 = pathString.indexOf(sep, 2);
         if (p1 < 0) {
             return pathString.length; // UNC: "//server" or "\\server"
         }
         return p1 + 1; // UNC: "//server/" or "\\server\"
     }
     if (pathString.charAt(1) === ':') {
-        if (pathString.charAt(2) === path.sep) {
+        if (pathString.charAt(2) === sep) {
             return 3; // DOS: "c:/" or "c:\"
         }
         if (pathString.length === 2) {

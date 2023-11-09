@@ -25,7 +25,8 @@ import {
 import * as vfs from './harness/vfs/filesystem';
 
 test('parse', () => {
-    assert.throws(() => Uri.parse('/a/b/c'));
+    assert.throws(() => Uri.parse('\\c:\\foo : bar'));
+    assert.throws(() => Uri.parse('foo:////server/b/c')); // No authority component
     assert.ok(Uri.parse('foo:///a/b/c'));
     assert.ok(Uri.parse('foo:a/b/c'));
     assert.ok(Uri.parse('foo:/a/b/c'));
@@ -56,14 +57,14 @@ test('basename', () => {
     const basename = Uri.parse('foo:///a/b/c').basename;
     assert.equal(basename, 'c');
     const basename2 = Uri.parse('foo:///a/b/c/').basename;
-    assert.equal(basename2, '');
+    assert.equal(basename2, 'c');
     const basename3 = Uri.parse('foo:///a/b/c.py').basename;
     assert.equal(basename3, 'c.py');
     const basename4 = Uri.parse('foo:///a/b/c.py?query#fragment').basename;
     assert.equal(basename4, 'c.py');
     const basename5 = Uri.file('/a/b/c').basename;
     assert.equal(basename5, 'c');
-    const basename6 = Uri.parse('file:///a/b/c');
+    const basename6 = Uri.parse('file:///a/b/c').basename;
     assert.equal(basename6, 'c');
 });
 
@@ -78,34 +79,37 @@ test('extname', () => {
     assert.equal(extname4, '.py');
     const extname5 = Uri.file('/a/b/c.py.foo').extname;
     assert.equal(extname5, '.foo');
-    const extname6 = Uri.parse('file:///a/b/c.py.foo');
+    const extname6 = Uri.parse('file:///a/b/c.py.foo').extname;
     assert.equal(extname6, '.foo');
 });
 
 test('root', () => {
-    const root = Uri.parse('foo:///a/b/c').root;
-    assert.equal(root.toString(), 'foo:///');
+    const root1 = Uri.parse('foo://authority/a/b/c').root;
+    assert.equal(root1.toString(), 'foo://authority/');
+    const root = Uri.parse('file://server/b/c').root;
+    assert.equal(root.toString(), 'file://server/');
+    assert.equal(root.getRootPathLength(), 9);
     const root2 = Uri.parse('foo:///').root;
     assert.equal(root2.toString(), 'foo:///');
     const root3 = Uri.parse('foo:///a/b/c/').root;
-    assert.equal(root3.toString(), 'foo:///');
+    assert.equal(root3.toString(), 'foo:/');
     assert.ok(root3.isDiskPathRoot());
     const root4 = Uri.parse('foo:///a/b/c.py').root;
-    assert.equal(root4.toString(), 'foo:///');
+    assert.equal(root4.toString(), 'foo:/');
     const root5 = Uri.parse('foo:///a/b/c.py?query#fragment').root;
-    assert.equal(root5.toString(), 'foo:///');
+    assert.equal(root5.toString(), 'foo:/');
     const root6 = Uri.file('/a/b/c.py.foo').root;
     assert.equal(root6.toString(), 'file:///');
-    const root7 = Uri.parse('file:///a/b/c.py.foo');
+    const root7 = Uri.parse('file:///a/b/c.py.foo').root;
     assert.equal(root7.toString(), 'file:///');
     assert.equal(root7.getRootPathLength(), 1);
-    const root8 = Uri.parse('untitled:Untitled-1');
-    assert.equal(root8.toString(), 'untitled:Untitled-1');
+    const root8 = Uri.parse('untitled:Untitled-1').root;
+    assert.equal(root8.toString(), 'untitled:');
     assert.equal(root8.getRootPathLength(), 0);
     assert.equal(root8.isDiskPathRoot(), false);
     const root9 = Uri.parse('file://a/b/c/d.py').root;
-    assert.equal(root9.toString(), 'file://a');
-    assert.equal(root9.getRootPathLength(), 1);
+    assert.equal(root9.toString(), 'file://a/');
+    assert.equal(root9.getRootPathLength(), 4);
     assert.ok(root9.isRootDiskPath());
     assert.ok(root9.isDiskPathRoot());
     const root10 = Uri.parse('file://c%3A/b/c/d.py').root;
@@ -285,6 +289,12 @@ test('combinePaths', () => {
     assert.equal(uri4.toString(), 'foo:///a/b/c.pyi/d/e/f/');
     const uri5 = uri1.combinePaths('/d', 'e', 'f');
     assert.equal(uri5.toString(), 'file:///d/e/f');
+    const uri6 = Uri.parse('foo:');
+    const uri7 = uri6.combinePaths('d', 'e');
+    assert.equal(uri7.toString(), 'foo:///d/e');
+    const uri8 = Uri.parse('foo:/');
+    const uri9 = uri8.combinePaths('d', 'e');
+    assert.equal(uri9.toString(), 'foo:///d/e');
 });
 
 test('getPathComponents1', () => {
