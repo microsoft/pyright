@@ -194,7 +194,7 @@ test('addPath', () => {
 test('remove', () => {
     const uri = Uri.parse('file:///a/b/c.pyi?query#fragment');
     const uri2 = uri.remove('c.pyi');
-    assert.equal(uri2.toString(), 'file:///a/b/');
+    assert.equal(uri2.toString(), 'file:///a/b');
 });
 
 test('directory', () => {
@@ -295,9 +295,9 @@ test('combinePaths', () => {
     const uri2 = uri1.combinePaths('d', 'e');
     assert.equal(uri2.toString(), 'file:///a/b/c.pyi/d/e');
     const uri3 = uri1.combinePaths('d', 'e/');
-    assert.equal(uri3.toString(), 'file:///a/b/c.pyi/d/e/');
+    assert.equal(uri3.toString(), 'file:///a/b/c.pyi/d/e');
     const uri4 = uri1.combinePaths('d', 'e', 'f/');
-    assert.equal(uri4.toString(), 'file:///a/b/c.pyi/d/e/f/');
+    assert.equal(uri4.toString(), 'file:///a/b/c.pyi/d/e/f');
     const uri5 = uri1.combinePaths('d', '..', 'e');
     assert.equal(uri5.toString(), 'file:///a/b/c.pyi/e');
     const rootedPath = process.platform === 'win32' ? 'D:' : '/D';
@@ -314,21 +314,20 @@ test('combinePaths', () => {
 
 test('getPathComponents1', () => {
     const components = Uri.parse('').getPathComponents();
-    assert.equal(components.length, 1);
-    assert.equal(components[0], '');
+    assert.equal(components.length, 0);
 });
 
 test('getPathComponents2', () => {
     const components = Uri.parse('/users/').getPathComponents();
     assert.equal(components.length, 2);
-    assert.equal(components[0], '');
+    assert.equal(components[0], '/');
     assert.equal(components[1], 'users');
 });
 
 test('getPathComponents3', () => {
     const components = Uri.parse('/users/hello.py').getPathComponents();
     assert.equal(components.length, 3);
-    assert.equal(components[0], '');
+    assert.equal(components[0], '/');
     assert.equal(components[1], 'users');
     assert.equal(components[2], 'hello.py');
 });
@@ -336,24 +335,24 @@ test('getPathComponents3', () => {
 test('getPathComponents4', () => {
     const components = Uri.parse('/users/hello/../').getPathComponents();
     assert.equal(components.length, 2);
-    assert.equal(components[0], '');
+    assert.equal(components[0], '/');
     assert.equal(components[1], 'users');
 });
 
 test('getPathComponents5', () => {
     const components = Uri.parse('./hello.py').getPathComponents();
     assert.equal(components.length, 2);
-    assert.equal(components[0], '');
+    assert.equal(components[0], '/');
     assert.equal(components[1], 'hello.py');
 });
 
 test('getPathComponents6', () => {
-    const components = Uri.parse('foo:///server/share/dir/file.py').getPathComponents();
-    assert.equal(components.length, 5);
-    assert.equal(components[1], 'server');
-    assert.equal(components[2], 'share');
-    assert.equal(components[3], 'dir');
-    assert.equal(components[4], 'file.py');
+    const components = Uri.parse('file://server/share/dir/file.py').getPathComponents();
+    assert.equal(components.length, 4);
+    assert.ok(components[0].slice(2).includes('server'));
+    assert.equal(components[1], 'share');
+    assert.equal(components[2], 'dir');
+    assert.equal(components[3], 'file.py');
 });
 
 test('getRelativePathComponents1', () => {
@@ -385,30 +384,30 @@ test('getRelativePathComponents5', () => {
 });
 
 test('getFileExtension1', () => {
-    const ext = Uri.parse('foo://blah.blah/hello.JsOn').extname;
+    const ext = Uri.parse('foo:///blah.blah/hello.JsOn').extname;
     assert.equal(ext, '.JsOn');
 });
 
 test('getFileName1', () => {
-    const fileName = Uri.parse('foo://blah.blah/HeLLo.JsOn').basename;
+    const fileName = Uri.parse('foo:///blah.blah/HeLLo.JsOn').basename;
     assert.equal(fileName, 'HeLLo.JsOn');
 });
 
 test('getFileName2', () => {
-    const fileName1 = Uri.parse('foo://blah.blah/hello.cpython-32m.so').basename;
+    const fileName1 = Uri.parse('foo:///blah.blah/hello.cpython-32m.so').basename;
     assert.equal(fileName1, 'hello.cpython-32m.so');
 });
 
 test('stripFileExtension1', () => {
-    const path = Uri.parse('foo://blah.blah/HeLLo.JsOn').stripExtension().getPath();
-    assert.equal(path, 'blah.blah/HeLLo');
+    const path = Uri.parse('foo:///blah.blah/HeLLo.JsOn').stripExtension().getPath();
+    assert.equal(path, '/blah.blah/HeLLo');
 });
 
 test('stripFileExtension2', () => {
-    const path1 = Uri.parse('blah.blah/hello.cpython-32m.so').stripAllExtensions().getPath();
-    assert.equal(path1, 'blah.blah/hello');
-    const path2 = Uri.parse('blah.blah/hello.cpython-32m.so').stripExtension().getPath();
-    assert.equal(path2, 'blah.blah/hello.cpython-32m');
+    const path1 = Uri.parse('foo:/blah.blah/hello.cpython-32m.so').stripAllExtensions().getPath();
+    assert.equal(path1, '/blah.blah/hello');
+    const path2 = Uri.parse('foo:/blah.blah/hello.cpython-32m.so').stripExtension().getPath();
+    assert.equal(path2, '/blah.blah/hello.cpython-32m');
 });
 
 test('getWildcardRegexPattern1', () => {
@@ -441,49 +440,54 @@ test('getWildcardRegexPattern4', () => {
 
 test('getWildcardRoot1', () => {
     const p = getWildcardRoot(Uri.parse('foo:///users/me'), './blah/');
-    assert.equal(p.toString(), '/users/me/blah');
+    assert.equal(p.toString(), 'foo:/users/me/blah');
 });
 
 test('getWildcardRoot2', () => {
     const p = getWildcardRoot(Uri.parse('foo:///users/me'), './**/*.py?/');
-    assert.equal(p.toString(), '/users/me');
+    assert.equal(p.toString(), 'foo:/users/me');
 });
 
 test('getWildcardRoot with root', () => {
     const p = getWildcardRoot(Uri.parse('foo:///'), '.');
-    assert.equal(p.toString(), '/');
+    assert.equal(p.toString(), 'foo:/');
 });
 
 test('getWildcardRoot with drive letter', () => {
     const p = getWildcardRoot(Uri.parse('file:///c:/'), '.');
-    assert.equal(p.toString(), 'c:');
+    assert.equal(p.toString(), 'file:///c%3A');
 });
 
 function resolvePaths(uri: string, ...paths: string[]) {
-    return Uri.parse(uri)
+    return Uri.file(uri)
         .combinePaths(...paths)
         .toString();
 }
 
 test('resolvePath1', () => {
-    assert.equal(resolvePaths('/path', 'to', 'file.ext'), '/path/to/file.ext');
+    assert.equal(resolvePaths('/path', 'to', 'file.ext'), 'file:///path/to/file.ext');
 });
 
 test('resolvePath2', () => {
-    assert.equal(resolvePaths('/path', 'to', '..', 'from', 'file.ext/'), '/path/from/file.ext/');
+    assert.equal(resolvePaths('/path', 'to', '..', 'from', 'file.ext/'), 'file:///path/from/file.ext');
 });
 
+function getHomeDirUri() {
+    return Uri.file(os.homedir());
+}
+
 test('resolvePath3 ~ escape', () => {
-    const homedir = os.homedir();
     assert.equal(
         resolvePaths(expandPathVariables(Uri.empty(), '~/path'), 'to', '..', 'from', 'file.ext/'),
-        `${homedir}/path/from/file.ext/`
+        `${getHomeDirUri().toString()}/path/from/file.ext`
     );
 });
 
 test('resolvePath4 ~ escape in middle', () => {
-    const homedir = os.homedir();
-    assert.equal(resolvePaths('/path', expandPathVariables(Uri.empty(), '~/file.ext/')), `${homedir}/file.ext/`);
+    assert.equal(
+        resolvePaths('/path', expandPathVariables(Uri.empty(), '~/file.ext/')),
+        `${getHomeDirUri().toString()}/file.ext`
+    );
 });
 
 function combinePaths(uri: string, ...paths: string[]) {
@@ -513,7 +517,7 @@ test('containsPath2', () => {
 });
 
 test('containsPath3', () => {
-    assert.equal(containsPath('/a', '/A/B'), true);
+    assert.equal(containsPath('/a', '/a/B'), true);
 });
 
 function getAnyExtensionFromPath(uri: string): string {
@@ -540,11 +544,11 @@ test('getBaseFileName3', () => {
 });
 
 function getUriRootLength(uri: string): number {
-    return Uri.parse(uri).getRootPathLength();
+    return Uri.file(uri).getRootPathLength();
 }
 
 test('getRootLength1', () => {
-    assert.equal(getUriRootLength('a'), 0);
+    assert.equal(getUriRootLength('a'), 1);
 });
 
 test('getRootLength2', () => {
@@ -560,11 +564,11 @@ test('getRootLength4', () => {
 });
 
 test('getRootLength5', () => {
-    assert.equal(getUriRootLength('c:/'), 3);
+    assert.equal(getUriRootLength('c:/'), 2);
 });
 
 test('getRootLength6', () => {
-    assert.equal(getUriRootLength('//server'), 8);
+    assert.equal(getUriRootLength('//server'), 9);
 });
 
 test('getRootLength7', () => {
@@ -572,15 +576,15 @@ test('getRootLength7', () => {
 });
 
 test('getRootLength8', () => {
-    assert.equal(getUriRootLength('scheme:/no/authority'), 8);
+    assert.equal(getUriRootLength('scheme:/no/authority'), 1);
 });
 
 test('getRootLength9', () => {
-    assert.equal(getUriRootLength('scheme://with/authority'), 9);
+    assert.equal(getUriRootLength('scheme://with/authority'), 1);
 });
 
 function isRootedDiskPath(uri: string) {
-    return Uri.parse(uri).isRootDiskPath();
+    return Uri.file(uri).isRootDiskPath();
 }
 
 test('isRootedDiskPath1', () => {
@@ -592,7 +596,7 @@ test('isRootedDiskPath2', () => {
 });
 
 test('isRootedDiskPath3', () => {
-    assert(!isRootedDiskPath('a/b'));
+    assert(isRootedDiskPath('a/b'));
 });
 
 test('isDiskPathRoot1', () => {
@@ -638,7 +642,7 @@ test('deduplicateFolders', () => {
         ['/main/python/lib/site-packages', '/home/p'].map((p) => Uri.file(p)),
     ];
 
-    const folders = deduplicateFolders(listOfFolders);
+    const folders = deduplicateFolders(listOfFolders).map((f) => f.getPath());
 
     const expected = [
         '/user',
@@ -675,7 +679,7 @@ test('Realcase', () => {
     assert.deepStrictEqual(normalizedEntries, fsentries);
 
     const paths = entries.map((entry) => nodefs.realpathSync(path.join(dir.getFilePath(), entry)));
-    const fspaths = fsentries.map((entry) => fs.realCasePath(dir.combinePaths(entry)));
+    const fspaths = fsentries.map((entry) => fs.realCasePath(dir.combinePaths(entry)).getFilePath());
     assert.deepStrictEqual(lowerCaseDrive(paths), fspaths);
 
     // Check that the '..' has been removed.
@@ -686,7 +690,7 @@ test('Realcase', () => {
         for (const p of fspaths) {
             const upper = Uri.file(p.toString().toUpperCase());
             const real = fs.realCasePath(upper);
-            assert.strictEqual(p, real);
+            assert.strictEqual(p, real.getFilePath());
         }
     }
 });

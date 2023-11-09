@@ -14,21 +14,28 @@ import { Uri } from './uri';
 // Ideally, VS Code would provide an API for doing this expansion, but
 // it doesn't. We'll handle the most common variables here as a convenience.
 export function expandPathVariables(rootPath: Uri, path: string): string {
-    let pathStr = path;
+    // Make sure the pathStr looks like a URI path.
+    let pathStr = path.replace(/\\/g, '/');
+
+    // Make sure all replacements look like URI paths too.
+    const replace = (match: RegExp, replaceValue: string) => {
+        pathStr = pathStr.replace(match, replaceValue.replace(/\\/g, '/'));
+    };
 
     // Replace everything inline.
     pathStr = pathStr.replace(/\$\{workspaceFolder\}/g, rootPath.getPath());
     if (process.env.HOME !== undefined) {
-        pathStr = pathStr.replace(/\$\{env:HOME\}/g, process.env.HOME || '');
+        replace(/\$\{env:HOME\}/g, process.env.HOME || '');
     }
     if (process.env.USERNAME !== undefined) {
-        pathStr = pathStr.replace(/\$\{env:USERNAME\}/g, process.env.USERNAME || '');
+        replace(/\$\{env:USERNAME\}/g, process.env.USERNAME || '');
     }
     if (process.env.VIRTUAL_ENV !== undefined) {
-        pathStr = pathStr.replace(/\$\{env:VIRTUAL_ENV\}/g, process.env.VIRTUAL_ENV || '');
+        replace(/\$\{env:VIRTUAL_ENV\}/g, process.env.VIRTUAL_ENV || '');
     }
     if (os.homedir) {
-        pathStr = pathStr.replace(/~/g, os.homedir() || process.env.HOME || process.env.USERPROFILE || '~');
+        replace(/\/~/g, os.homedir() || process.env.HOME || process.env.USERPROFILE || '~');
+        replace(/^~/g, os.homedir() || process.env.HOME || process.env.USERPROFILE || '~');
     }
 
     return pathStr;

@@ -9,7 +9,7 @@
 import { platform } from 'process';
 import { URI, Utils } from 'vscode-uri';
 import { some } from './collectionUtils';
-import { getRootLength, hasTrailingDirectorySeparator, normalizeSlashes } from './pathUtils';
+import { getPathComponents, getRootLength, hasTrailingDirectorySeparator, normalizeSlashes } from './pathUtils';
 
 export class Uri {
     private readonly _string;
@@ -26,9 +26,12 @@ export class Uri {
             // The Vscode.URI parser makes sure the drive is lower cased.
             originalString = parsed.toString();
         }
-        this._uri = parsed;
-        this._string = originalString;
-        this._key = key ?? Uri._computeKey(parsed);
+
+        // Original URI may not have resolved all the `..` in the path, so remove them.
+        // Note: this also has the effect of removing any trailing slashes.
+        this._uri = Utils.resolvePath(parsed);
+        this._string = this._uri.path.length !== parsed.path.length ? this._uri.toString() : originalString;
+        this._key = key ?? Uri._computeKey(this._uri);
     }
 
     get key() {
@@ -267,7 +270,7 @@ export class Uri {
     combinePaths(...paths: string[]): Uri {
         // Make sure none of the paths are rooted. If so, use that as a file path
         // and combine the rest.
-        const rooted = paths.findIndex((p) => getRootLength(p) > 0);
+        const rooted = paths.findIndex((p) => getRootLength(p) > 0 || getRootLength(p, '/') > 0);
         if (rooted >= 0) {
             return new Uri(Utils.joinPath(URI.file(paths[rooted]), ...paths.slice(rooted + 1)));
         }
@@ -292,7 +295,20 @@ export class Uri {
     }
 
     getPathComponents(): string[] {
-        return this._reducePathComponents(this.getPath().split('/'));
+        if (this.isEmpty()) {
+            return [];
+        }
+        // Use the old algorithm for file paths.
+        if (this._uri.scheme === 'file') {
+            // But make sure to return '/' delimited paths because the return value
+            // of this function is supposed to relate to the 'path' of the URI.
+            return getPathComponents(this.getFilePath()).map((p) => p.replace(/\\/g, '/'));
+        }
+
+        // Otherwise get the root path and the rest of the path components.
+        const rootPath = this._getRootPath();
+        const otherPaths = this.getPath().slice(rootPath.length).split('/');
+        return this._reducePathComponents([rootPath, ...otherPaths]);
     }
 
     getRelativePathComponents(child: Uri): string[] {

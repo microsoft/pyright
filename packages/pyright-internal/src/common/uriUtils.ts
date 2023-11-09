@@ -11,7 +11,11 @@ import type { Dirent } from 'fs';
 import { randomBytesHex } from './crypto';
 import { ServiceProvider } from './extensibility';
 import { FileSystem, ReadOnlyFileSystem, Stats, TempFile } from './fileSystem';
-import { getRegexEscapedSeparator, isDirectoryWildcardPatternPresent } from './pathUtils';
+import {
+    getRegexEscapedSeparator,
+    isDirectoryWildcardPatternPresent,
+    stripTrailingDirectorySeparator,
+} from './pathUtils';
 import { ServiceKeys } from './serviceProviderExtensions';
 import { Uri } from './uri';
 
@@ -211,15 +215,16 @@ export function setTestingMode(underTest: boolean) {
 // escape characters **, * or ?) and returns a regular expression
 // that can be used for matching against.
 export function getWildcardRegexPattern(root: Uri, fileSpec: string): string {
-    let absolutePath = root.combinePaths(fileSpec);
-    if (!hasPythonExtension(absolutePath)) {
-        absolutePath = absolutePath.combinePaths('/');
-    }
-
+    const absolutePath = root.combinePaths(fileSpec);
     const pathComponents = absolutePath.getPathComponents();
     const escapedSeparator = getRegexEscapedSeparator('/');
     const doubleAsteriskRegexFragment = `(${escapedSeparator}[^${escapedSeparator}][^${escapedSeparator}]*)*?`;
     const reservedCharacterPattern = new RegExp(`[^\\w\\s${escapedSeparator}]`, 'g');
+
+    // Strip the directory separator from the root component.
+    if (pathComponents.length > 0) {
+        pathComponents[0] = stripTrailingDirectorySeparator(pathComponents[0]);
+    }
 
     let regExPattern = '';
     let firstComponent = true;
@@ -252,21 +257,20 @@ export function getWildcardRegexPattern(root: Uri, fileSpec: string): string {
 
 // Returns the topmost path that contains no wildcard characters.
 export function getWildcardRoot(root: Uri, fileSpec: string): Uri {
-    let absolutePath = root.combinePaths(fileSpec);
-    if (!hasPythonExtension(absolutePath)) {
-        absolutePath = absolutePath.combinePaths('/');
-    }
-
+    const absolutePath = root.combinePaths(fileSpec);
     const pathComponents = absolutePath.getPathComponents();
     let wildcardRoot = absolutePath.root;
 
-    if (pathComponents.length === 1 && !pathComponents[0]) {
+    // Strip the directory separator from the root component.
+    if (pathComponents.length > 0) {
+        pathComponents[0] = stripTrailingDirectorySeparator(pathComponents[0]);
+    }
+
+    if (pathComponents.length === 1 && pathComponents[0].length === 1) {
         return wildcardRoot;
     }
 
-    let firstComponent = true;
-
-    for (let component of pathComponents) {
+    for (const component of pathComponents) {
         if (component === '**') {
             break;
         } else {
@@ -274,12 +278,7 @@ export function getWildcardRoot(root: Uri, fileSpec: string): Uri {
                 break;
             }
 
-            if (!firstComponent) {
-                component = '/' + component;
-            }
-
             wildcardRoot = wildcardRoot.combinePaths(component);
-            firstComponent = false;
         }
     }
 
