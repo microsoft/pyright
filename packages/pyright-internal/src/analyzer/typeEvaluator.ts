@@ -17032,7 +17032,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // accumulate the list of type parameters upfront.
         const typeParametersSeen: TypeVarType[] = [];
         if (node.typeParameters) {
-            functionType.details.typeParameters = evaluateTypeParameterList(node.typeParameters);
+            functionType.details.typeParameters = evaluateTypeParameterList(node.typeParameters).map((typeParam) =>
+                convertToInstance(typeParam)
+            );
         } else {
             functionType.details.typeParameters = typeParametersSeen;
         }
