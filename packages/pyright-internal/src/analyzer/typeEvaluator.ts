@@ -5607,22 +5607,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!type) {
-            let selfClass: ClassType | TypeVarType | undefined = classType;
+            let selfClass: ClassType | TypeVarType | undefined;
 
-            // Determine whether to replace Self variables with a specific
-            // class. Avoid doing this if there's a "selfType" specified
-            // because that case is used for super() calls where we want
-            // to leave the Self type generic (not specialized). We'll also
-            // skip this for __new__ methods because they are not bound
-            // to the class but rather assume the type of the cls argument.
             if (selfType) {
-                if (isTypeVar(selfType) && selfType.details.isSynthesizedSelf) {
-                    selfClass = selfType;
-                } else {
-                    selfClass = undefined;
+                selfClass = convertToInstantiable(selfType) as TypeVarType | ClassType;
+            } else {
+                // Skip this for __new__ methods because they are not bound
+                // to the class but rather assume the type of the cls argument.
+                if (memberName !== '__new__') {
+                    selfClass = classType;
                 }
-            } else if (memberName === '__new__') {
-                selfClass = undefined;
             }
 
             const typeResult = getTypeOfMemberInternal(memberInfo, selfClass);
