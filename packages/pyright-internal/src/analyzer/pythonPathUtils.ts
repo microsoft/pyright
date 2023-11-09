@@ -106,7 +106,7 @@ export function findPythonSearchPaths(
     const pathResult = host.getPythonSearchPaths(configOptions.pythonPath, importFailureInfo);
     if (includeWatchPathsOnly && workspaceRoot) {
         const paths = pathResult.paths
-            .filter((p) => !p.startsWith(workspaceRoot) || pathResult.prefix?.startsWith(p))
+            .filter((p) => !p.startsWith(workspaceRoot) || p.startsWith(pathResult.prefix))
             .map((p) => fs.realCasePath(p));
 
         return paths;

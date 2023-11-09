@@ -9,7 +9,7 @@
 import { platform } from 'process';
 import { URI, Utils } from 'vscode-uri';
 import { some } from './collectionUtils';
-import { getRootLength, normalizeSlashes } from './pathUtils';
+import { getRootLength, hasTrailingDirectorySeparator, normalizeSlashes } from './pathUtils';
 
 export class Uri {
     private readonly _string;
@@ -28,7 +28,7 @@ export class Uri {
         }
         this._uri = parsed;
         this._string = originalString;
-        this._key = key ?? this._string;
+        this._key = key ?? Uri._computeKey(parsed);
     }
 
     get key() {
@@ -87,7 +87,7 @@ export class Uri {
     }
 
     static isUri(thing: any): thing is Uri {
-        return typeof thing._uri?.isUri === 'function' && thing._uri.isUri();
+        return !!thing && typeof thing._uri?.with === 'function';
     }
 
     isEmpty(): boolean {
@@ -191,7 +191,8 @@ export class Uri {
      * Determines whether a path consists only of a path root.
      */
     isDiskPathRoot(): boolean {
-        return this._getRootPath().length === this.getPath().length && this._getRootPath().length > 0;
+        const comparablePath = this._getComparablePath();
+        return this._getRootPath().length === comparablePath.length && this._getRootPath().length > 0;
     }
 
     isChild(parent: Uri): boolean {
@@ -201,7 +202,7 @@ export class Uri {
         if (this._uri.authority !== parent._uri.authority) {
             return false;
         }
-        return parent.startsWith(this) && parent.getPath().length < this.getPath().length;
+        return this.startsWith(parent) && parent.getPath().length < this.getPath().length;
     }
 
     isLocal(): boolean {
@@ -216,16 +217,26 @@ export class Uri {
         return this.key === other?.key;
     }
 
-    startsWith(other: Uri): boolean {
+    startsWith(other: Uri | undefined): boolean {
+        if (!other) {
+            return false;
+        }
         if (this._uri.scheme !== other._uri.scheme) {
             return false;
         }
         if (this._uri.authority !== other._uri.authority) {
             return false;
         }
-        if (this._uri.path.length <= other._uri.path.length) {
+        if (this._uri.path.length >= other._uri.path.length) {
             // Fragment or query are not taken into consideration.
-            return this._uri.path.startsWith(other._uri.path);
+
+            // Make sure the other ends with a / when comparing longer paths, otherwise we might
+            // say that /a/food is a child of /a/foo.
+            const otherPath =
+                this._uri.path.length > other._uri.path.length && !hasTrailingDirectorySeparator(other._uri.path)
+                    ? `${other._uri.path}/`
+                    : other._uri.path;
+            return this._uri.path.startsWith(otherPath);
         }
         return false;
     }
@@ -258,7 +269,7 @@ export class Uri {
         // and combine the rest.
         const rooted = paths.findIndex((p) => getRootLength(p) > 0);
         if (rooted >= 0) {
-            return new Uri(Utils.joinPath(URI.file(paths[rooted]), ...paths.slice(rooted)));
+            return new Uri(Utils.joinPath(URI.file(paths[rooted]), ...paths.slice(rooted + 1)));
         }
 
         // Otherwise just join the paths.
@@ -285,7 +296,7 @@ export class Uri {
     }
 
     getRelativePathComponents(child: Uri): string[] {
-        if (!this.isChild(child)) {
+        if (!child.isChild(this)) {
             return [];
         }
 
@@ -294,12 +305,6 @@ export class Uri {
 
         if (childComponents.length < parentComponents.length) {
             return [];
-        }
-
-        for (let i = 0; i < parentComponents.length; i++) {
-            if (parentComponents[i] !== childComponents[i]) {
-                return [];
-            }
         }
 
         return childComponents.slice(parentComponents.length);
@@ -375,5 +380,14 @@ export class Uri {
             return normalizeSlashes(this.getFilePath());
         }
         return normalizeSlashes(this._uri.path);
+    }
+
+    private static _computeKey(uri: URI) {
+        // To make sure that foo:///a/b/c and foo:///a/b/c/ compare the
+        // same, remove any trailing slashes on the path.
+        if (hasTrailingDirectorySeparator(uri.path)) {
+            return uri.with({ path: uri.path.slice(0, -1) }).toString();
+        }
+        return uri.toString();
     }
 }
