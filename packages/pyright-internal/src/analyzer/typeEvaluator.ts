@@ -16702,111 +16702,139 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         const errorNode = argList.length > 0 ? argList[0].node?.name ?? node.name : node.name;
-        const initSubclassMethodInfo = getTypeOfBoundMember(
-            errorNode,
-            classType,
-            '__init_subclass__',
-            /* usage */ undefined,
-            /* diag */ undefined,
-            MemberAccessFlags.SkipClassMembers |
-                MemberAccessFlags.SkipObjectBaseClass |
-                MemberAccessFlags.SkipOriginalClass |
-                MemberAccessFlags.SkipAttributeAccessOverride
-        );
+        let newMethodMember: ClassMember | undefined;
 
-        if (initSubclassMethodInfo) {
-            const initSubclassMethodType = initSubclassMethodInfo.type;
-
-            if (initSubclassMethodType) {
-                validateCallArguments(
-                    errorNode,
-                    argList,
-                    { type: initSubclassMethodType },
-                    /* typeVarContext */ undefined,
-                    /* skipUnknownArgCheck */ false,
-                    makeInferenceContext(getNoneType())
-                );
-            }
-        } else if (classType.details.effectiveMetaclass && isClass(classType.details.effectiveMetaclass)) {
+        if (classType.details.effectiveMetaclass && isClass(classType.details.effectiveMetaclass)) {
             // See if the metaclass has a `__new__` method that accepts keyword parameters.
-            const newMethodMember = lookUpClassMember(
+            newMethodMember = lookUpClassMember(
                 classType.details.effectiveMetaclass,
                 '__new__',
                 MemberAccessFlags.SkipTypeBaseClass
             );
+        }
 
-            if (newMethodMember) {
-                const newMethodType = getTypeOfMember(newMethodMember);
-                if (isFunction(newMethodType)) {
-                    const paramListDetails = getParameterListDetails(newMethodType);
+        if (newMethodMember) {
+            const newMethodType = getTypeOfMember(newMethodMember);
+            if (isFunction(newMethodType)) {
+                const paramListDetails = getParameterListDetails(newMethodType);
 
-                    if (paramListDetails.firstKeywordOnlyIndex !== undefined) {
-                        // Build a map of the keyword-only parameters.
-                        const paramMap = new Map<string, number>();
-                        for (let i = paramListDetails.firstKeywordOnlyIndex; i < paramListDetails.params.length; i++) {
-                            const paramInfo = paramListDetails.params[i];
-                            if (paramInfo.param.category === ParameterCategory.Simple && paramInfo.param.name) {
-                                paramMap.set(paramInfo.param.name, i);
+                if (paramListDetails.firstKeywordOnlyIndex !== undefined) {
+                    // Build a map of the keyword-only parameters.
+                    const paramMap = new Map<string, number>();
+                    for (let i = paramListDetails.firstKeywordOnlyIndex; i < paramListDetails.params.length; i++) {
+                        const paramInfo = paramListDetails.params[i];
+                        if (paramInfo.param.category === ParameterCategory.Simple && paramInfo.param.name) {
+                            paramMap.set(paramInfo.param.name, i);
+                        }
+                    }
+
+                    argList.forEach((arg) => {
+                        const signatureTracker = new UniqueSignatureTracker();
+
+                        if (arg.argumentCategory === ArgumentCategory.Simple && arg.name) {
+                            const paramIndex = paramMap.get(arg.name.value) ?? paramListDetails.kwargsIndex;
+
+                            if (paramIndex !== undefined) {
+                                const paramInfo = paramListDetails.params[paramIndex];
+                                const argParam: ValidateArgTypeParams = {
+                                    paramCategory: paramInfo.param.category,
+                                    paramType: FunctionType.getEffectiveParameterType(newMethodType, paramInfo.index),
+                                    requiresTypeVarMatching: false,
+                                    argument: arg,
+                                    errorNode: arg.valueExpression ?? errorNode,
+                                };
+
+                                validateArgType(
+                                    argParam,
+                                    new TypeVarContext(),
+                                    signatureTracker,
+                                    { type: newMethodType },
+                                    { skipUnknownArgCheck: true, skipOverloadArg: true }
+                                );
+                                paramMap.delete(arg.name.value);
+                            } else {
+                                addDiagnostic(
+                                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    Localizer.Diagnostic.paramNameMissing().format({ name: arg.name.value }),
+                                    arg.name ?? errorNode
+                                );
                             }
                         }
+                    });
 
-                        argList.forEach((arg) => {
-                            const signatureTracker = new UniqueSignatureTracker();
+                    // See if we have any remaining unmatched parameters without
+                    // default values.
+                    const unassignedParams: string[] = [];
+                    paramMap.forEach((index, paramName) => {
+                        const paramInfo = paramListDetails.params[index];
+                        if (!paramInfo.param.hasDefault) {
+                            unassignedParams.push(paramName);
+                        }
+                    });
 
-                            if (arg.argumentCategory === ArgumentCategory.Simple && arg.name) {
-                                const paramIndex = paramMap.get(arg.name.value) ?? paramListDetails.kwargsIndex;
+                    if (unassignedParams.length > 0) {
+                        const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
+                        addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            unassignedParams.length === 1
+                                ? Localizer.Diagnostic.argMissingForParam().format({ name: missingParamNames })
+                                : Localizer.Diagnostic.argMissingForParams().format({ names: missingParamNames }),
+                            errorNode
+                        );
+                    }
+                }
+            }
+        } else {
+            // If there was no custom metaclass __new__ method, see if there is an __init_subclass__
+            // method present somewhere in the class hierarchy.
+            const initSubclassMethodInfo = getTypeOfBoundMember(
+                errorNode,
+                classType,
+                '__init_subclass__',
+                /* usage */ undefined,
+                /* diag */ undefined,
+                MemberAccessFlags.SkipClassMembers |
+                    MemberAccessFlags.SkipOriginalClass |
+                    MemberAccessFlags.SkipAttributeAccessOverride
+            );
 
-                                if (paramIndex !== undefined) {
-                                    const paramInfo = paramListDetails.params[paramIndex];
-                                    const argParam: ValidateArgTypeParams = {
-                                        paramCategory: paramInfo.param.category,
-                                        paramType: FunctionType.getEffectiveParameterType(
-                                            newMethodType,
-                                            paramInfo.index
-                                        ),
-                                        requiresTypeVarMatching: false,
-                                        argument: arg,
-                                        errorNode: arg.valueExpression ?? errorNode,
-                                    };
+            if (initSubclassMethodInfo) {
+                const initSubclassMethodType = initSubclassMethodInfo.type;
 
-                                    validateArgType(
-                                        argParam,
-                                        new TypeVarContext(),
-                                        signatureTracker,
-                                        { type: newMethodType },
-                                        { skipUnknownArgCheck: true, skipOverloadArg: true }
-                                    );
-                                    paramMap.delete(arg.name.value);
-                                } else {
-                                    addDiagnostic(
-                                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                                        DiagnosticRule.reportGeneralTypeIssues,
-                                        Localizer.Diagnostic.paramNameMissing().format({ name: arg.name.value }),
-                                        arg.name ?? errorNode
-                                    );
-                                }
-                            }
-                        });
+                if (initSubclassMethodType && initSubclassMethodInfo.classType) {
+                    const callResult = validateCallArguments(
+                        errorNode,
+                        argList,
+                        { type: initSubclassMethodType },
+                        /* typeVarContext */ undefined,
+                        /* skipUnknownArgCheck */ false,
+                        makeInferenceContext(getNoneType())
+                    );
 
-                        // See if we have any remaining unmatched parameters without
-                        // default values.
-                        const unassignedParams: string[] = [];
-                        paramMap.forEach((index, paramName) => {
-                            const paramInfo = paramListDetails.params[index];
-                            if (!paramInfo.param.hasDefault) {
-                                unassignedParams.push(paramName);
-                            }
-                        });
+                    if (callResult.argumentErrors) {
+                        const diag = addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.initSubclassCallFailed(),
+                            node.name
+                        );
 
-                        if (unassignedParams.length > 0) {
-                            const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
-                            addDiagnostic(
-                                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                unassignedParams.length === 1
-                                    ? Localizer.Diagnostic.argMissingForParam().format({ name: missingParamNames })
-                                    : Localizer.Diagnostic.argMissingForParams().format({ names: missingParamNames }),
-                                errorNode
+                        const initSubclassFunction = isOverloadedFunction(initSubclassMethodType)
+                            ? OverloadedFunctionType.getOverloads(initSubclassMethodType)[0]
+                            : initSubclassMethodType;
+                        const initSubclassDecl = isFunction(initSubclassFunction)
+                            ? initSubclassFunction.details.declaration
+                            : undefined;
+
+                        if (diag && initSubclassDecl) {
+                            diag.addRelatedInfo(
+                                Localizer.DiagnosticAddendum.initSubclassLocation().format({
+                                    name: printType(convertToInstance(initSubclassMethodInfo.classType)),
+                                }),
+                                initSubclassDecl.path,
+                                initSubclassDecl.range
                             );
                         }
                     }

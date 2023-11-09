@@ -11,6 +11,6 @@ class B(A, param_a=123):
     pass
 
 
-# This should generate an error because param_a is missing
+# This should generate two errors because param_a is missing.
 class C(B):
     pass
