@@ -556,6 +556,7 @@ export namespace Localizer {
         export const inconsistentTabs = () => getRawString('Diagnostic.inconsistentTabs');
         export const initMustReturnNone = () => getRawString('Diagnostic.initMustReturnNone');
         export const initSubclassClsParam = () => getRawString('Diagnostic.initSubclassClsParam');
+        export const initSubclassCallFailed = () => getRawString('Diagnostic.initSubclassCallFailed');
         export const instanceMethodSelfParam = () => getRawString('Diagnostic.instanceMethodSelfParam');
         export const instanceVarOverridesClassVar = () =>
             new ParameterizedString<{ name: string; className: string }>(
@@ -1199,6 +1200,8 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.initMethodLocation'));
         export const initMethodSignature = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.initMethodSignature'));
+        export const initSubclassLocation = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.initSubclassLocation'));
         export const invariantSuggestionDict = () => getRawString('DiagnosticAddendum.invariantSuggestionDict');
         export const invariantSuggestionList = () => getRawString('DiagnosticAddendum.invariantSuggestionList');
         export const functionTooManyParams = () =>
