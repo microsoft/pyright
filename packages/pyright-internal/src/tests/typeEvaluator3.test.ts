@@ -877,7 +877,7 @@ test('MethodOverride6', () => {
 
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['methodOverride6.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 2);
+    TestUtils.validateResults(analysisResults2, 3);
 });
 
 test('Enum1', () => {

@@ -24878,7 +24878,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (matchIndex < 0) {
-                continue;
+                break;
             }
 
             if (matchIndex < previousMatchIndex) {

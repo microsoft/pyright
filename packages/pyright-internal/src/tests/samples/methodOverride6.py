@@ -263,3 +263,31 @@ class Child4_1(Parent4[int]):
 
     def function(self, a: int | None = None) -> float:
         return 0.0
+
+
+class Parent5:
+    @overload
+    def m1(self, x: int) -> int:
+        ...
+
+    @overload
+    def m1(self, x: str) -> str:
+        ...
+
+    def m1(self, x: int | str) -> int | str:
+        ...
+
+
+class Parent5_1(Parent5):
+    @overload
+    def m1(self, x: bytes) -> bytes:
+        ...
+
+    @overload
+    def m1(self, x: str) -> str:
+        ...
+
+    # This should generate an error because the overloads are
+    # incompatible
+    def m1(self, x: bytes | str) -> bytes | str:
+        ...
