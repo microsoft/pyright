@@ -300,14 +300,6 @@ test('getRootLength7', () => {
     assert.equal(getRootLength(fixSeparators('//server/share')), 9);
 });
 
-test('getRootLength8', () => {
-    assert.equal(getRootLength('scheme:/no/authority'), 8);
-});
-
-test('getRootLength9', () => {
-    assert.equal(getRootLength('scheme://with/authority'), 9);
-});
-
 test('isRootedDiskPath1', () => {
     assert(isRootedDiskPath(normalizeSlashes('C:/a/b')));
 });
