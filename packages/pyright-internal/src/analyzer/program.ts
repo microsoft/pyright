@@ -1890,12 +1890,12 @@ export class Program {
                 return false;
             }
 
-            if (!this._disableChecker) {
+            if (!this._disableChecker && !fileToCheck.sourceFile.isFileDeleted()) {
                 // For ipython, make sure we check all its dependent files first since
                 // their results can affect this file's result.
                 const dependentFiles = this._checkDependentFiles(fileToCheck, chainedByList, token);
 
-                this._bindFile(fileToCheck);
+                this._bindFile(fileToCheck, undefined, /* skipFileNeededCheck */ fileToCheck.sourceFile.isBindingRequired());
                 if (this._preCheckCallback) {
                     const parseResults = fileToCheck.sourceFile.getParseResults();
                     if (parseResults) {

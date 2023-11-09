@@ -135,6 +135,18 @@ class WriteableData {
     builtinsImport: ImportResult | undefined;
     // True if the file appears to have been deleted.
     isFileDeleted = false;
+
+    dump() {
+        return JSON.stringify(this, (key, value) => {
+            if (typeof value === 'object') {
+                return '<object>';
+            }
+            if (Array.isArray(value)) {
+                return '<array>';
+            }
+            return value;
+        });
+    }
 }
 
 export interface SourceFileEditMode {
@@ -778,7 +790,7 @@ export class SourceFile {
         dependentFiles?: ParseResults[]
     ) {
         assert(!this.isParseRequired(), 'Check called before parsing');
-        assert(!this.isBindingRequired(), 'Check called before binding');
+        assert(!this.isBindingRequired(), `Check called before binding: state=${this._writableData.dump()}`);
         assert(!this._writableData.isBindingInProgress, 'Check called while binding in progress');
         assert(this.isCheckingRequired(), 'Check called unnecessarily');
         assert(this._writableData.parseResults !== undefined, 'Parse results not available');
