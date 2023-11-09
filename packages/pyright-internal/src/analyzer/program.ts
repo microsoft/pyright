@@ -1895,7 +1895,11 @@ export class Program {
                 // their results can affect this file's result.
                 const dependentFiles = this._checkDependentFiles(fileToCheck, chainedByList, token);
 
-                this._bindFile(fileToCheck, undefined, /* skipFileNeededCheck */ fileToCheck.sourceFile.isBindingRequired());
+                this._bindFile(
+                    fileToCheck,
+                    undefined,
+                    /* skipFileNeededCheck */ fileToCheck.sourceFile.isBindingRequired()
+                );
                 if (this._preCheckCallback) {
                     const parseResults = fileToCheck.sourceFile.getParseResults();
                     if (parseResults) {
