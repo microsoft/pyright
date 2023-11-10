@@ -10,10 +10,18 @@ def func1(a: tuple[int, int, int], b: tuple[str, str]):
 
 
 def func2(a: tuple[int, int, int], b: tuple[str, ...]):
+    reveal_type(a + b, expected_text="tuple[int, int, int, *tuple[str, ...]]")
+
+
+def func3(a: tuple[int, ...], b: tuple[str, ...]):
     reveal_type(a + b, expected_text="tuple[int | str, ...]")
 
 
-def func3(input_list):
+def func4(a: tuple[str, *tuple[int, ...]], b: tuple[str, int]):
+    reveal_type(a + b, expected_text="tuple[str, *tuple[int, ...], str, int]")
+
+
+def func5(input_list):
     output_tuple = ()
 
     for _, value in enumerate([]):
