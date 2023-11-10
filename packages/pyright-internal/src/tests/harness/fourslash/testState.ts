@@ -1399,6 +1399,12 @@ export class TestState {
             }
 
             const expected = map[name];
+            expected.changes = expected.changes.map((c) => {
+                return {
+                    ...c,
+                    fileUri: c.fileUri ?? Uri.file((c as any).filePath),
+                };
+            });
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
             const actual = new RenameProvider(
@@ -1828,7 +1834,10 @@ export class TestState {
                     information: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Information),
                     unused: diagnostics.filter((diag) => diag.category === DiagnosticCategory.UnusedCode),
                 };
-                return [fileUri.key, value] as [string, typeof value];
+
+                // Don't use the uri key, but rather the file name, because other spots
+                // in the test data assume file paths.
+                return [this.files[index], value] as [string, typeof value];
             } else {
                 this.raiseError(`Source file not found for ${this.files[index]}`);
             }

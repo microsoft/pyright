@@ -1689,8 +1689,8 @@ export class ImportResolver {
 
         if (newImport.isImportFound) {
             // Prefer traditional packages over namespace packages.
-            const soFarIndex = bestImportSoFar.resolvedPaths.findIndex((path) => !!path);
-            const newIndex = newImport.resolvedPaths.findIndex((path) => !!path);
+            const soFarIndex = bestImportSoFar.resolvedPaths.findIndex((path) => !path.isEmpty());
+            const newIndex = newImport.resolvedPaths.findIndex((path) => !path.isEmpty());
             if (soFarIndex !== newIndex) {
                 if (soFarIndex < 0) {
                     return newImport;

@@ -54,7 +54,7 @@ export namespace TextEditAction {
 
 export namespace FileEditAction {
     export function is(value: any): value is FileEditAction {
-        return value.filePath !== undefined && TextEditAction.is(value);
+        return value.fileUri !== undefined && TextEditAction.is(value);
     }
 
     export function areEqual(e1: FileEditAction, e2: FileEditAction) {
