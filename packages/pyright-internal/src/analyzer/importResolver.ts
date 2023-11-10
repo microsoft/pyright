@@ -754,7 +754,6 @@ export class ImportResolver {
         }
 
         const parts = containerPath.getRelativePathComponents(filePathWithoutExtension);
-        parts.shift();
         if (stripTopContainerDir) {
             if (parts.length === 0) {
                 return undefined;
