@@ -98,7 +98,7 @@ export function applyTextEditsToString(
     return current;
 }
 
-export function applyWorkspaceEdit(program: EditableProgram, edits: WorkspaceEdit, filesChanged: Uri[]) {
+export function applyWorkspaceEdit(program: EditableProgram, edits: WorkspaceEdit, filesChanged: Map<string, Uri>) {
     if (edits.changes) {
         for (const kv of Object.entries(edits.changes)) {
             const fileUri = Uri.parse(kv[0]);
@@ -109,7 +109,7 @@ export function applyWorkspaceEdit(program: EditableProgram, edits: WorkspaceEdi
             }
 
             applyDocumentChanges(program, fileInfo, kv[1]);
-            filesChanged.push(fileUri);
+            filesChanged.set(fileUri.key, fileUri);
         }
     }
 
@@ -125,7 +125,7 @@ export function applyWorkspaceEdit(program: EditableProgram, edits: WorkspaceEdi
                 }
 
                 applyDocumentChanges(program, fileInfo, change.edits);
-                filesChanged.push(fileUri);
+                filesChanged.set(fileUri.key, fileUri);
             }
 
             // For now, we don't support other kinds of text changes.
@@ -159,7 +159,7 @@ export function applyDocumentChanges(program: EditableProgram, fileInfo: SourceF
 export function generateWorkspaceEdit(
     originalService: AnalyzerService,
     clonedService: AnalyzerService,
-    filesChanged: Uri[]
+    filesChanged: Map<string, Uri>
 ) {
     // For now, we won't do text diff to find out minimal text changes. instead, we will
     // consider whole text of the files are changed. In future, we could consider
@@ -167,7 +167,7 @@ export function generateWorkspaceEdit(
     // to support annotation.
     const edits: WorkspaceEdit = { changes: {} };
 
-    for (const uri of filesChanged) {
+    for (const uri of filesChanged.values()) {
         const original = originalService.backgroundAnalysisProgram.program.getBoundSourceFile(uri);
         const final = clonedService.backgroundAnalysisProgram.program.getBoundSourceFile(uri);
         if (!original || !final) {

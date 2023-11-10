@@ -30,7 +30,7 @@ test('test applyWorkspaceEdits changes', async () => {
     const cloned = await getClonedService(state);
     const range = state.getRangeByMarkerName('marker')!;
 
-    const fileChanged: Uri[] = [];
+    const fileChanged = new Map<string, Uri>();
     applyWorkspaceEditToService(
         cloned,
         {
@@ -46,7 +46,7 @@ test('test applyWorkspaceEdits changes', async () => {
         fileChanged
     );
 
-    assert.strictEqual(fileChanged.length, 1);
+    assert.strictEqual(fileChanged.size, 1);
     assert.strictEqual(cloned.test_program.getSourceFile(Uri.file(range.fileName))?.getFileContent(), 'Text Changed');
 });
 
@@ -60,7 +60,7 @@ test('test edit mode for workspace', async () => {
     const range = state.getRangeByMarkerName('marker')!;
     const addedFileUri = Uri.file(combinePaths(getDirectoryPath(range.fileName), 'test2.py'));
     const edits = state.workspace.service.runEditMode((program) => {
-        const fileChanged: Uri[] = [];
+        const fileChanged = new Map<string, Uri>();
         applyWorkspaceEdit(
             program,
             {
@@ -82,7 +82,7 @@ test('test edit mode for workspace', async () => {
             fileChanged
         );
 
-        assert.strictEqual(fileChanged.length, 1);
+        assert.strictEqual(fileChanged.size, 1);
         const info = program.getSourceFileInfo(Uri.file(range.fileName))!;
         const sourceFile = info.sourceFile;
 
@@ -180,7 +180,7 @@ test('test applyWorkspaceEdits documentChanges', async () => {
     const cloned = await getClonedService(state);
     const range = state.getRangeByMarkerName('marker')!;
 
-    const fileChanged: Uri[] = [];
+    const fileChanged = new Map<string, Uri>();
     applyWorkspaceEditToService(
         cloned,
         {
@@ -202,7 +202,7 @@ test('test applyWorkspaceEdits documentChanges', async () => {
         fileChanged
     );
 
-    assert.strictEqual(fileChanged.length, 1);
+    assert.strictEqual(fileChanged.size, 1);
     assert.strictEqual(cloned.test_program.getSourceFile(Uri.file(range.fileName))?.getFileContent(), 'Text Changed');
 });
 
@@ -219,7 +219,7 @@ test('test generateWorkspaceEdits', async () => {
     const cloned = await getClonedService(state);
     const range1 = state.getRangeByMarkerName('marker1')!;
 
-    const fileChanged: Uri[] = [];
+    const fileChanged = new Map<string, Uri>();
     applyWorkspaceEditToService(
         cloned,
         {
@@ -293,7 +293,7 @@ test('test generateWorkspaceEdits', async () => {
         fileChanged
     );
 
-    assert.strictEqual(fileChanged.length, 2);
+    assert.strictEqual(fileChanged.size, 2);
 
     const actualEdits = generateWorkspaceEdit(state.workspace.service, cloned, fileChanged);
     verifyWorkspaceEdit(
@@ -317,7 +317,7 @@ test('test generateWorkspaceEdits', async () => {
     );
 });
 
-function applyWorkspaceEditToService(service: AnalyzerService, edits: WorkspaceEdit, filesChanged: Uri[]) {
+function applyWorkspaceEditToService(service: AnalyzerService, edits: WorkspaceEdit, filesChanged: Map<string, Uri>) {
     const program = service.backgroundAnalysisProgram.program;
     applyWorkspaceEdit(program, edits, filesChanged);
 }
