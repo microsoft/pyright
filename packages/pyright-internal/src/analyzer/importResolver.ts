@@ -1755,8 +1755,8 @@ export class ImportResolver {
             //  bestSoFar: a/~b/~c/~d   new: a      Result: bestSoFar wins
             //  bestSoFar: ~a/~b/~c/~d  new: a      Result: new wins
             //  bestSoFar: a/~b/~c/~d   new: a/b    Result: new wins
-            const soFarIndex = bestImportSoFar.resolvedPaths.findIndex((path) => !!path);
-            const newIndex = newImport.resolvedPaths.findIndex((path) => !!path);
+            const soFarIndex = bestImportSoFar.resolvedPaths.findIndex((path) => !path.isEmpty());
+            const newIndex = newImport.resolvedPaths.findIndex((path) => !path.isEmpty());
 
             if (soFarIndex !== newIndex) {
                 if (soFarIndex < 0) {

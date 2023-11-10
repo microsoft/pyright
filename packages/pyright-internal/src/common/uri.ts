@@ -11,11 +11,23 @@ import { URI, Utils } from 'vscode-uri';
 import { some } from './collectionUtils';
 import { getPathComponents, getRootLength, hasTrailingDirectorySeparator, normalizeSlashes } from './pathUtils';
 
+const EmptyKey = '<empty>';
+
+class EmptyURI extends URI {
+    constructor() {
+        super({ scheme: '', authority: '', path: '', query: '', fragment: '' });
+    }
+
+    override toString(skipEncoding?: boolean | undefined): string {
+        return '';
+    }
+}
+
 export class Uri {
     private readonly _string;
     private readonly _uri: URI;
     private readonly _key: string;
-    private static _empty = new Uri(URI.parse(''), '<empty>');
+    private static _empty = new Uri(new EmptyURI(), EmptyKey);
 
     private constructor(uri: string | URI, key?: string) {
         // Make sure the drive letter is lower case. This
@@ -29,7 +41,7 @@ export class Uri {
 
         // Original URI may not have resolved all the `..` in the path, so remove them.
         // Note: this also has the effect of removing any trailing slashes.
-        this._uri = Utils.resolvePath(parsed);
+        this._uri = key === EmptyKey ? parsed : Utils.resolvePath(parsed);
         this._string = this._uri.path.length !== parsed.path.length ? this._uri.toString() : originalString;
         this._key = key ?? Uri._computeKey(this._uri);
     }
