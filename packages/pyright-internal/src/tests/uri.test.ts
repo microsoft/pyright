@@ -208,19 +208,6 @@ test('directory', () => {
     assert.equal(uri5.toString(), 'file:///a');
 });
 
-test('slicePath', () => {
-    const uri = Uri.parse('file:///a/b/c.pyi?query#fragment');
-    const path = uri.slicePath(3);
-    assert.equal(path, 'b/c.pyi');
-    const path2 = uri.slicePath(0, 3);
-    assert.equal(path2, '/a/');
-    const pathLength = uri.getPathLength();
-    const emptyPath = uri.slicePath(pathLength);
-    assert.equal(emptyPath, '');
-    const uri2 = Uri.parse('foo:test/me');
-    assert.equal(uri2.getPathLength(), 7);
-});
-
 test('isChild', () => {
     const parent = Uri.parse('file:///a/b/?query#fragment');
     const child = Uri.parse('file:///a/b/c.pyi?query#fragment');

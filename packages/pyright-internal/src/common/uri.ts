@@ -177,11 +177,6 @@ export class Uri {
         return this._getRootPath().length;
     }
 
-    // Slice the path portion of the URI.
-    slicePath(start: number, end?: number): string {
-        return this.getPath().slice(start, end);
-    }
-
     /**
      * Determines whether a path is an absolute disk path (e.g. starts with `/`, or a dos path
      * like `c:`, `c:\` or `c:/`).

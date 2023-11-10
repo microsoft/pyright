@@ -44,7 +44,7 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
     private readonly _rootSearched = new Set<string>();
 
     // Partial stub package paths processed
-    private readonly _partialStubPackagePaths = new Set<Uri>();
+    private readonly _partialStubPackagePaths = new Set<string>();
 
     constructor(realFS: FileSystem) {
         super(realFS);
@@ -120,7 +120,7 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
                 }
 
                 // We found partially typed stub-packages.
-                this._partialStubPackagePaths.add(partialStubPackagePath);
+                this._partialStubPackagePaths.add(partialStubPackagePath.key);
 
                 // Search the root to see whether we have matching package installed.
                 let partialStubs: string[] | undefined;
@@ -167,13 +167,11 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
     }
 
     protected override isMovedEntry(uri: Uri) {
-        return this._partialStubPackagePaths.has(uri) || super.isMovedEntry(uri);
+        return this._partialStubPackagePaths.has(uri.key) || super.isMovedEntry(uri);
     }
 
-    private _getRelativePathPartialStubs(uri: Uri) {
-        const paths: string[] = [];
-
-        const partialStubPathLength = uri.getDirectory().getPathLength();
+    private _getRelativePathPartialStubs(partialStubPath: Uri) {
+        const relativePaths: string[] = [];
         const searchAllStubs = (uri: Uri) => {
             for (const entry of this.realFS.readdirEntriesSync(uri)) {
                 const filePath = uri.combinePaths(entry.name);
@@ -193,15 +191,15 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
                 }
 
                 if (isFile && entry.name.endsWith('.pyi')) {
-                    const relative = filePath.slicePath(partialStubPathLength);
+                    const relative = partialStubPath.getRelativePathComponents(filePath).join('/');
                     if (relative) {
-                        paths.push(relative);
+                        relativePaths.push(relative);
                     }
                 }
             }
         };
 
-        searchAllStubs(uri);
-        return paths;
+        searchAllStubs(partialStubPath);
+        return relativePaths;
     }
 }

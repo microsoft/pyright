@@ -243,7 +243,10 @@ if (!usingTrueVenv()) {
 
             const importResult = getImportResult(files, ['os']);
             assert(importResult.isImportFound);
-            assert.strictEqual(files[0].path, importResult.resolvedPaths[importResult.resolvedPaths.length - 1]);
+            assert.strictEqual(
+                files[0].path,
+                importResult.resolvedPaths[importResult.resolvedPaths.length - 1].getFilePath()
+            );
         });
 
         test('import side by side file sub under lib folder', () => {
@@ -405,7 +408,10 @@ describe('Import tests that can run with or without a true venv', () => {
 
         const importResult = getImportResult(files, ['os']);
         assert(importResult.isImportFound);
-        assert.strictEqual(files[1].path, importResult.resolvedPaths[importResult.resolvedPaths.length - 1]);
+        assert.strictEqual(
+            files[1].path,
+            importResult.resolvedPaths[importResult.resolvedPaths.length - 1].getFilePath()
+        );
     });
 
     test('no empty import roots', () => {
