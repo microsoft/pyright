@@ -186,12 +186,12 @@ test('Import12', () => {
 
     // By default, optional diagnostics are ignored.
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['import12.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0, 1);
+    TestUtils.validateResults(analysisResults, 0, 2);
 
     // Turn on error.
     configOptions.diagnosticRuleSet.reportWildcardImportFromLibrary = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['import12.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 1, 0);
+    TestUtils.validateResults(analysisResults, 2, 0);
 
     // Turn off diagnostic.
     configOptions.diagnosticRuleSet.reportWildcardImportFromLibrary = 'none';

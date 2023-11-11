@@ -109,7 +109,7 @@ export function areDeclarationsSame(
             return true;
         }
 
-        if (decl1.firstNamePart !== decl2.firstNamePart) {
+        if (decl1.node !== decl2.node) {
             return false;
         }
     }
