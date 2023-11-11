@@ -156,6 +156,8 @@ importlib.readers: 3.10-
 importlib.resources: 3.7-
 importlib.resources.abc: 3.11-
 importlib.resources.readers: 3.11-
+importlib.resources.simple: 3.11-
+importlib.simple: 3.11-
 inspect: 2.7-
 io: 2.7-
 ipaddress: 3.3-

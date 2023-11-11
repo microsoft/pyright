@@ -1,7 +1,8 @@
-from _typeshed import Incomplete, StrPath, SupportsRead
+from _typeshed import Incomplete
 from typing_extensions import Final, Literal, TypeAlias
 from zipfile import ZipFile
 
+from openpyxl import _ZipFileFileProtocol
 from openpyxl.chartsheet.chartsheet import Chartsheet
 from openpyxl.packaging.manifest import Manifest
 from openpyxl.packaging.relationship import Relationship
@@ -26,7 +27,7 @@ class ExcelReader:
 
     def __init__(
         self,
-        fn: SupportsRead[bytes] | str,
+        fn: _ZipFileFileProtocol,
         read_only: bool = False,
         keep_vba: bool = False,
         data_only: bool = False,
@@ -44,7 +45,7 @@ class ExcelReader:
     def read(self) -> None: ...
 
 def load_workbook(
-    filename: SupportsRead[bytes] | StrPath,
+    filename: _ZipFileFileProtocol,
     read_only: bool = False,
     keep_vba: bool = False,
     data_only: bool = False,
