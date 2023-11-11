@@ -2140,6 +2140,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getBoundMagicMethod(
         classType: ClassType,
         memberName: string,
+        selfType?: ClassType | TypeVarType | undefined,
         recursionCount = 0
     ): FunctionType | OverloadedFunctionType | undefined {
         const boundMethodResult = getTypeOfBoundMember(
@@ -2149,7 +2150,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             /* usage */ undefined,
             /* diag */ undefined,
             MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride,
-            /* selfType */ undefined,
+            selfType,
             recursionCount
         );
 
@@ -12632,7 +12633,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
             if (isClass(concreteSubtype)) {
-                magicMethodType = getBoundMagicMethod(concreteSubtype, methodName);
+                magicMethodType = getBoundMagicMethod(concreteSubtype, methodName, subtype);
             }
 
             if (magicMethodType) {
@@ -22935,7 +22936,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
 
             if (isClassInstance(concreteSrcType)) {
-                const boundMethod = getBoundMagicMethod(concreteSrcType, '__call__', recursionCount);
+                const boundMethod = getBoundMagicMethod(
+                    concreteSrcType,
+                    '__call__',
+                    /* selfType */ undefined,
+                    recursionCount
+                );
                 if (boundMethod) {
                     concreteSrcType = removeParamSpecVariadicsFromSignature(boundMethod);
                 }
@@ -23742,7 +23748,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const boundMethod = getBoundMagicMethod(objType, '__call__', recursionCount);
+        const boundMethod = getBoundMagicMethod(objType, '__call__', /* selfType */ undefined, recursionCount);
         if (boundMethod) {
             return removeParamSpecVariadicsFromSignature(boundMethod);
         }
@@ -25565,9 +25571,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return functionType;
                 }
 
-                const baseObj: ClassType = isInstantiableClass(baseType)
-                    ? ClassType.cloneAsInstance(specializeClassType(baseType))
-                    : baseType;
+                const baseObj: ClassType = isClassInstance(baseType)
+                    ? baseType
+                    : ClassType.cloneAsInstance(specializeClassType(baseType));
 
                 return partiallySpecializeFunctionForBoundClassOrObject(
                     baseType,

@@ -1313,7 +1313,9 @@ export function populateTypeVarContextForSelfType(
         return subtype;
     });
 
-    typeVarContext.setTypeVarType(synthesizedSelfTypeVar, selfInstance, selfWithoutLiteral);
+    if (!isTypeSame(synthesizedSelfTypeVar, selfWithoutLiteral)) {
+        typeVarContext.setTypeVarType(synthesizedSelfTypeVar, selfInstance, selfWithoutLiteral);
+    }
 }
 
 // Looks for duplicate function types within the type and ensures that
