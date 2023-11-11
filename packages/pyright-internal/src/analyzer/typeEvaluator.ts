@@ -5904,7 +5904,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // generic but are not defined that way. Because of this, we use type variables
             // in the synthesized methods (e.g. __get__) for the property class that are
             // defined in the class that declares the fget method.
-            const specializedType = partiallySpecializeType(methodType, memberInfo.classType, classType);
+            const specializedType = partiallySpecializeType(
+                methodType,
+                memberInfo.classType,
+                selfType ? (convertToInstantiable(selfType) as ClassType | TypeVarType) : classType
+            );
             if (isFunction(specializedType) || isOverloadedFunction(specializedType)) {
                 methodType = specializedType;
             }
