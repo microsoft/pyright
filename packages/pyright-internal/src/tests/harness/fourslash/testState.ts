@@ -1302,6 +1302,16 @@ export class TestState {
         }
     }
 
+    fixupDefinitionsToMatchExpected(actual: DocumentRange[] | undefined): any {
+        return actual?.map((a) => {
+            const { uri, ...restOfActual } = a;
+            return {
+                ...restOfActual,
+                path: uri.getFilePath(),
+            };
+        });
+    }
+
     verifyFindDefinitions(
         map: {
             [marker: string]: {
@@ -1331,7 +1341,7 @@ export class TestState {
             }
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
-            const actual = new DefinitionProvider(
+            let actual = new DefinitionProvider(
                 this.program,
                 uri,
                 position,
@@ -1340,6 +1350,7 @@ export class TestState {
             ).getDefinitions();
 
             assert.equal(actual?.length ?? 0, expected.length, `No definitions found for marker "${name}"`);
+            actual = this.fixupDefinitionsToMatchExpected(actual!);
 
             for (const r of expected) {
                 assert.equal(
@@ -1369,12 +1380,13 @@ export class TestState {
             const expected = map[name].definitions;
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
-            const actual = new TypeDefinitionProvider(
+            let actual = new TypeDefinitionProvider(
                 this.program,
                 Uri.file(fileName),
                 position,
                 CancellationToken.None
             ).getDefinitions();
+            actual = this.fixupDefinitionsToMatchExpected(actual!);
 
             assert.strictEqual(actual?.length ?? 0, expected.length, name);
 
