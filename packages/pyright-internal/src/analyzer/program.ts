@@ -803,7 +803,7 @@ export class Program {
 
             // Generate type stubs only for the files within the target path,
             // not any files that the target module happened to import.
-            const relativePath = fileUri.getRelativePath(targetImportPath);
+            const relativePath = targetImportPath.getRelativePath(fileUri);
             if (relativePath !== undefined) {
                 let typeStubPath = stubPath.combinePaths(relativePath);
 

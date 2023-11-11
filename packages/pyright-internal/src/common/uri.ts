@@ -286,19 +286,15 @@ export class Uri {
         return new Uri(Utils.joinPath(this._uri.with({ fragment: '', query: '' }), ...paths));
     }
 
-    getRelativePath(relativeTo: Uri): string | undefined {
-        if (this._uri.scheme !== relativeTo._uri.scheme) {
+    getRelativePath(child: Uri): string | undefined {
+        if (this._uri.scheme !== child._uri.scheme) {
             return undefined;
         }
-        const pathComponents = this.getPathComponents();
-        const relativeToComponents = relativeTo.getPathComponents();
-
-        let relativePath = '.';
-        for (let i = relativeToComponents.length; i < pathComponents.length; i++) {
-            relativePath += `/${pathComponents[i]}`;
+        const relativeToComponents = this.getRelativePathComponents(child);
+        if (relativeToComponents.length > 0) {
+            return ['.', ...relativeToComponents].join('/');
         }
-
-        return relativePath;
+        return undefined;
     }
 
     getPathComponents(): string[] {

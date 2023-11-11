@@ -602,12 +602,14 @@ test('isDiskPathRoot4', () => {
     assert(!isRootedDiskPath('c:d'));
 });
 
-function getRelativePath(uri: string, relativeTo: string) {
-    return Uri.parse(uri).getRelativePath(Uri.parse(relativeTo));
+function getRelativePath(parent: string, child: string) {
+    return Uri.parse(parent).getRelativePath(Uri.parse(child));
 }
 
 test('getRelativePath', () => {
-    assert.equal(getRelativePath('/a/b/c/d/e/f', '/a/b/c'), './d/e/f');
+    assert.equal(getRelativePath('/a/b/c', '/a/b/c/d/e/f'), './d/e/f');
+    assert.equal(getRelativePath('/a/b/c/d/e/f', '/a/b/c/'), undefined);
+    assert.equal(getRelativePath('/a/b/c', '/d/e/f'), undefined);
 });
 
 test('CaseSensitivity', () => {

@@ -65,9 +65,9 @@ export class CodeActionProvider {
                         Command.create(
                             Localizer.CodeAction.createTypeStub(),
                             Commands.createTypeStub,
-                            workspace.rootUri,
+                            workspace.rootUri.toString(),
                             action.moduleName,
-                            fileUri
+                            fileUri.toString()
                         ),
                         CodeActionKind.QuickFix
                     );

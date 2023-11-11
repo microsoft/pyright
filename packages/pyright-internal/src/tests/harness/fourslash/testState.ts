@@ -736,6 +736,11 @@ export class TestState {
         function convertToString(args: any[] | undefined): string[] | undefined {
             return args?.map((a) => {
                 if (isString(a)) {
+                    // Might be a URI. For comparison purposes in a test, convert it into a
+                    // file path.
+                    if (a.startsWith('file://')) {
+                        return normalizeSlashes(Uri.parse(a).getFilePath());
+                    }
                     return normalizeSlashes(a);
                 }
 

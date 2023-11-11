@@ -239,19 +239,15 @@ export class ImportResolver {
                 if (stubFileUri.isChild(importRootPath)) {
                     const parts = importRootPath.getRelativePathComponents(stubFileUri);
 
-                    // Note that relative paths have an empty parts[0]
-                    if (parts.length > 1) {
+                    if (parts.length >= 1) {
                         // Handle the case where the symbol was resolved to a stubs package
                         // rather than the real package. We'll strip off the "-stubs" suffix
                         // in this case.
-                        if (parts[1].endsWith(stubsSuffix)) {
-                            parts[1] = parts[1].slice(0, parts[1].length - stubsSuffix.length);
+                        if (parts[0].endsWith(stubsSuffix)) {
+                            parts[0] = parts[0].slice(0, parts[0].length - stubsSuffix.length);
                         }
 
-                        const relativeStubPath = parts.join('/');
-                        if (relativeStubPath) {
-                            relativeStubPaths.push(relativeStubPath);
-                        }
+                        relativeStubPaths.push(parts.join('/'));
                     }
                 }
             }
@@ -268,9 +264,7 @@ export class ImportResolver {
                         if (filePathWithoutExtension.pathEndsWith('__init__')) {
                             // Did not match: <root>/package/__init__.py
                             // Try equivalent: <root>/package.py
-                            const root = filePathWithoutExtension.getDirectory().getDirectory();
-                            const packageFile = `${filePathWithoutExtension.getDirectory().basename}.py}`;
-                            absoluteSourcePath = root.combinePaths(packageFile);
+                            absoluteSourcePath = filePathWithoutExtension.getDirectory().addExtension('.py');
                             if (this.fileExistsCached(absoluteSourcePath)) {
                                 sourceFileUris.push(absoluteSourcePath);
                             }

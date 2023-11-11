@@ -41,7 +41,7 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
             if (Uri.isUri(fileUriOrModule)) {
                 for (const root of roots) {
                     if (fileUriOrModule.isChild(root)) {
-                        const subFile = fileUriOrModule.getRelativePath(root);
+                        const subFile = root.getRelativePath(fileUriOrModule);
                         return subFile!.split('.')[0].replace(separatorRegExp, '.');
                     }
                 }
