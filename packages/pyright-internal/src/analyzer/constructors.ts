@@ -922,10 +922,15 @@ export function createFunctionFromConstructor(
         }
     }
 
-    // Return a generic constructor.
+    // Return a fallback constructor based on the object.__new__ method.
     const constructorFunction = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.None);
     constructorFunction.details.declaredReturnType = ClassType.cloneAsInstance(classType);
-    FunctionType.addDefaultParameters(constructorFunction);
+
+    // If this is type[T] or a protocol, we don't know what parameters are accepted
+    // by the constructor, so add the default parameters.
+    if (classType.includeSubclasses || ClassType.isProtocolClass(classType)) {
+        FunctionType.addDefaultParameters(constructorFunction);
+    }
 
     if (!constructorFunction.details.docString && classType.details.docString) {
         constructorFunction.details.docString = classType.details.docString;
