@@ -834,7 +834,9 @@ export function createFunctionFromConstructor(
 
         if (isFunction(initType)) {
             return convertInitToConstructor(initType);
-        } else if (isOverloadedFunction(initType)) {
+        }
+
+        if (isOverloadedFunction(initType)) {
             const initOverloads: FunctionType[] = [];
             initType.overloads.forEach((overload) => {
                 const converted = convertInitToConstructor(overload);
@@ -845,7 +847,9 @@ export function createFunctionFromConstructor(
 
             if (initOverloads.length === 0) {
                 return undefined;
-            } else if (initOverloads.length === 1) {
+            }
+
+            if (initOverloads.length === 1) {
                 return initOverloads[0];
             }
 
@@ -895,7 +899,9 @@ export function createFunctionFromConstructor(
 
         if (isFunction(newType)) {
             return convertNewToConstructor(newType);
-        } else if (isOverloadedFunction(newType)) {
+        }
+
+        if (isOverloadedFunction(newType)) {
             const newOverloads: FunctionType[] = [];
             newType.overloads.forEach((overload) => {
                 const converted = convertNewToConstructor(overload);
@@ -906,7 +912,9 @@ export function createFunctionFromConstructor(
 
             if (newOverloads.length === 0) {
                 return undefined;
-            } else if (newOverloads.length === 1) {
+            }
+
+            if (newOverloads.length === 1) {
                 return newOverloads[0];
             }
 
