@@ -2,7 +2,17 @@
 # type if its constructor conforms to that type.
 
 from dataclasses import dataclass
-from typing import Any, Callable, Generic, Literal, ParamSpec, TypeVar, Union, overload
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    Literal,
+    ParamSpec,
+    Sized,
+    TypeVar,
+    Union,
+    overload,
+)
 
 T1 = TypeVar("T1")
 T2 = TypeVar("T2")
@@ -115,3 +125,23 @@ def func2(x: T1) -> E[T1]:
 
 
 e2: Callable[[int], E[int]] = func2
+
+
+def cast_to_callable(cls: Callable[P, T1]) -> Callable[P, T1]:
+    return cls
+
+
+class F:
+    pass
+
+
+reveal_type(cast_to_callable(F), expected_text="() -> F")
+reveal_type(
+    cast_to_callable(Sized), expected_text="(*args: Any, **kwargs: Any) -> Sized"
+)
+
+
+def func3(t: type[object]):
+    reveal_type(
+        cast_to_callable(t), expected_text="(*args: Any, **kwargs: Any) -> object"
+    )
