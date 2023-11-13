@@ -247,7 +247,7 @@ export class ReferencesProvider {
             for (const decl of referencesResult.declarations) {
                 throwIfCancellationRequested(this._token);
 
-                if (referencesResult.locations.some((l) => l.uri === decl.uri)) {
+                if (referencesResult.locations.some((l) => l.uri.equals(decl.uri))) {
                     // Already included.
                     continue;
                 }
@@ -270,7 +270,7 @@ export class ReferencesProvider {
                 this.addReferencesToResult(declFileInfo.sourceFile.getUri(), includeDeclaration, tempResult);
                 for (const loc of tempResult.locations) {
                     // Include declarations only. And throw away any references
-                    if (loc.uri === decl.uri && doesRangeContain(decl.range, loc.range)) {
+                    if (loc.uri.equals(decl.uri) && doesRangeContain(decl.range, loc.range)) {
                         referencesResult.addLocations(loc);
                     }
                 }

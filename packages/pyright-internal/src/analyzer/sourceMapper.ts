@@ -535,7 +535,7 @@ export class SourceMapper {
         // and second, clone the given decl and set path to the generated pyi for the
         // builtin module (ex, _io) to make resolveAliasDeclaration to work.
         // once the path is set, our regular code path will work as expected.
-        if (decl.uri || !decl.node) {
+        if (!decl.uri.isEmpty() || !decl.node) {
             // If module actually exists, nothing we need to do.
             return decl;
         }
@@ -638,7 +638,7 @@ export class SourceMapper {
             for (const decl of symbol.getDeclarations()) {
                 if (
                     !isAliasDeclaration(decl) ||
-                    !decl.uri ||
+                    decl.uri.isEmpty() ||
                     decl.node.nodeType !== ParseNodeType.ImportFrom ||
                     !decl.node.isWildcardImport
                 ) {

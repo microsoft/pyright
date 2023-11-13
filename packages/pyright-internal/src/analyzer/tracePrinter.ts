@@ -225,7 +225,7 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
 
     function isDeclaration(o: any): o is Declaration {
         const d = o as Declaration;
-        return d && isNumber(d.type) && isString(d.uri) && isString(d.moduleName);
+        return d && isNumber(d.type) && Uri.isUri(d.uri) && isString(d.moduleName);
     }
 
     function isType(o: any): o is Type {

@@ -51,7 +51,7 @@ export function addDeclarationsToDefinitions(
             allowExternallyHiddenAccess: true,
         });
 
-        if (!resolvedDecl || !resolvedDecl.uri) {
+        if (!resolvedDecl || resolvedDecl.uri.isEmpty()) {
             return;
         }
 
@@ -106,7 +106,7 @@ export function addDeclarationsToDefinitions(
 
         const implDecls = sourceMapper.findDeclarations(resolvedDecl);
         for (const implDecl of implDecls) {
-            if (implDecl && implDecl.uri) {
+            if (implDecl && !implDecl.uri.isEmpty()) {
                 _addIfUnique(definitions, {
                     uri: implDecl.uri,
                     range: implDecl.range,
@@ -303,7 +303,7 @@ function _createModuleEntry(uri: Uri): DocumentRange {
 
 function _addIfUnique(definitions: DocumentRange[], itemToAdd: DocumentRange) {
     for (const def of definitions) {
-        if (def.uri === itemToAdd.uri && rangesAreEqual(def.range, itemToAdd.range)) {
+        if (def.uri.equals(itemToAdd.uri) && rangesAreEqual(def.range, itemToAdd.range)) {
             return;
         }
     }

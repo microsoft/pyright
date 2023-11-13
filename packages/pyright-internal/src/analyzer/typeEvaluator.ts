@@ -20625,7 +20625,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             loaderActions: ModuleLoaderActions,
             importLookup: ImportLookup
         ): Type {
-            if (loaderActions.uri && loaderActions.loadSymbolsFromPath) {
+            if (!loaderActions.uri.isEmpty() && loaderActions.loadSymbolsFromPath) {
                 const lookupResults = importLookup(loaderActions.uri);
                 if (lookupResults) {
                     moduleType.fields = lookupResults.symbolTable;

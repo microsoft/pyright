@@ -2463,9 +2463,11 @@ export class Binder extends ParseTreeWalker {
             | AliasDeclaration
             | undefined;
         const resolvedPath =
-            aliasDecl?.uri && aliasDecl.loadSymbolsFromPath
+            aliasDecl?.uri && aliasDecl.loadSymbolsFromPath && !aliasDecl.uri.isEmpty()
                 ? aliasDecl.uri
-                : aliasDecl?.submoduleFallback?.uri && aliasDecl.submoduleFallback.loadSymbolsFromPath
+                : aliasDecl?.submoduleFallback?.uri &&
+                  aliasDecl.submoduleFallback.loadSymbolsFromPath &&
+                  !aliasDecl.submoduleFallback.uri.isEmpty()
                 ? aliasDecl.submoduleFallback.uri
                 : undefined;
         if (!resolvedPath) {
@@ -2477,7 +2479,7 @@ export class Binder extends ParseTreeWalker {
             return lookupInfo.dunderAllNames;
         }
 
-        if (aliasDecl?.submoduleFallback?.uri) {
+        if (aliasDecl?.submoduleFallback?.uri && !aliasDecl.submoduleFallback.uri.isEmpty()) {
             lookupInfo = this._fileInfo.importLookup(aliasDecl.submoduleFallback.uri);
             return lookupInfo?.dunderAllNames;
         }

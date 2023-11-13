@@ -30,7 +30,7 @@ import { ParseOptions, ParseResults, Parser } from '../parser/parser';
 // directory to be located when running within the jest environment. This
 // assumes that the working directory has been set appropriately before
 // running the tests.
-(global as any).__rootUri = path.resolve();
+(global as any).__rootUri = Uri.file(path.resolve());
 
 export interface FileAnalysisResult {
     fileUri: Uri;

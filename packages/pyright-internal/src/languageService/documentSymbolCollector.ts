@@ -195,7 +195,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 if (sourceMapper && isStubFile(resolvedDecl.uri)) {
                     const implDecls = sourceMapper.findDeclarations(resolvedDecl);
                     for (const implDecl of implDecls) {
-                        if (implDecl && implDecl.uri) {
+                        if (implDecl && !implDecl.uri.isEmpty()) {
                             addDeclarationIfUnique(resolvedDeclarations, implDecl);
                         }
                     }

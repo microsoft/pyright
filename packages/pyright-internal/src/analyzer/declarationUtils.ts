@@ -265,7 +265,7 @@ export function resolveAliasDeclaration(
         }
 
         let lookupResult: ImportLookupResult | undefined;
-        if (curDeclaration.uri && curDeclaration.loadSymbolsFromPath) {
+        if (!curDeclaration.uri.isEmpty() && curDeclaration.loadSymbolsFromPath) {
             lookupResult = importLookup(curDeclaration.uri, {
                 skipFileNeededCheck: options.skipFileNeededCheck,
             });
@@ -284,7 +284,7 @@ export function resolveAliasDeclaration(
                     // when useLibraryCodeForTypes is disabled), b should be evaluated as Unknown,
                     // not as a module.
                     if (
-                        curDeclaration.uri &&
+                        !curDeclaration.uri.isEmpty() &&
                         curDeclaration.submoduleFallback.type === DeclarationType.Alias &&
                         curDeclaration.submoduleFallback.uri
                     ) {
@@ -393,7 +393,7 @@ export function resolveAliasDeclaration(
             // the module is foo, and the foo.__init__.py file contains the statement
             // "from foo import bar", we want to import the foo/bar.py submodule.
             if (
-                curDeclaration.uri === declaration.uri &&
+                curDeclaration.uri.equals(declaration.uri) &&
                 curDeclaration.type === DeclarationType.Alias &&
                 curDeclaration.submoduleFallback
             ) {
