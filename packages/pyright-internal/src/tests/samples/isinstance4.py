@@ -2,21 +2,30 @@
 # allow the second argument to be a Protocol class.
 
 from inspect import isfunction
-from typing import Any, Callable, Protocol, Type, TypeVar, Union
+from typing import Any, Callable, Protocol, Type, TypeVar, Union, runtime_checkable
 from types import FunctionType, LambdaType
 
 
-class MyProtocol(Protocol):
+class MyProtocol1(Protocol):
     pass
 
 
 # This should generate an error because Sized is a Protocol that
 # is not runtime checkable.
-isinstance(4, MyProtocol)
+isinstance(4, MyProtocol1)
 
 
 # This should generate an error because Iterable is a Protocol.
-issubclass(str, (str, MyProtocol))
+issubclass(str, (str, MyProtocol1))
+
+
+@runtime_checkable
+class MyProtocol2(Protocol):
+    pass
+
+
+isinstance(4, MyProtocol2)
+issubclass(str, (str, MyProtocol2))
 
 
 class CustomClass:

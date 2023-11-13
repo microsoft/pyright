@@ -1193,6 +1193,7 @@ export namespace Localizer {
             new ParameterizedString<{ expected: number; received: number }>(
                 getRawString('DiagnosticAddendum.functionTooFewParams')
             );
+        export const genericClassNotAllowed = () => getRawString('DiagnosticAddendum.genericClassNotAllowed');
         export const incompatibleGetter = () => getRawString('DiagnosticAddendum.incompatibleGetter');
         export const incompatibleSetter = () => getRawString('DiagnosticAddendum.incompatibleSetter');
         export const incompatibleDeleter = () => getRawString('DiagnosticAddendum.incompatibleDeleter');
@@ -1276,6 +1277,7 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.newMethodLocation'));
         export const newMethodSignature = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.newMethodSignature'));
+        export const noneNotAllowed = () => getRawString('DiagnosticAddendum.noneNotAllowed');
         export const noOverloadAssignable = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.noOverloadAssignable'));
         export const orPatternMissingName = () =>
@@ -1361,6 +1363,8 @@ export namespace Localizer {
             );
         export const protocolMemberMissing = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.protocolMemberMissing'));
+        export const protocolRequiresRuntimeCheckable = () =>
+            getRawString('DiagnosticAddendum.protocolRequiresRuntimeCheckable');
         export const protocolSourceIsNotConcrete = () =>
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.protocolSourceIsNotConcrete')
