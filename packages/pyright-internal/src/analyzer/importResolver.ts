@@ -2344,7 +2344,7 @@ export class ImportResolver {
             // Strip multi-dot extensions to handle file names like "foo.cpython-32m.so". We want
             // to detect the ".so" but strip off the entire ".cpython-32m.so" extension.
             const fileExtension = file.extname.toLowerCase();
-            const fileWithoutExtension = file.stripExtension().basename;
+            const fileWithoutExtension = file.stripAllExtensions().basename;
 
             if (supportedFileExtensions.some((ext) => ext === fileExtension)) {
                 if (fileWithoutExtension === '__init__') {
@@ -2374,11 +2374,11 @@ export class ImportResolver {
         });
 
         entries.directories.forEach((dir) => {
-            if (filter && !dir.pathStartsWith(filter)) {
+            const dirSuggestion = dir.basename;
+            if (filter && !dirSuggestion.startsWith(filter)) {
                 return;
             }
 
-            const dirSuggestion = dir.basename;
             if (
                 !this._isUniqueValidSuggestion(dirSuggestion, suggestions) ||
                 !this._isResolvableSuggestion(

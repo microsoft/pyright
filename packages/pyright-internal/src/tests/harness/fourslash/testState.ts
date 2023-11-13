@@ -285,6 +285,12 @@ export class TestState {
         }
     }
 
+    getMappedFilePath(path: string): string {
+        const uri = Uri.file(path);
+        this.importResolver.ensurePartialStubPackages(this.configOptions.findExecEnvironment(uri));
+        return this.fs.getMappedUri(uri).getFilePath();
+    }
+
     getMarkerName(m: Marker): string {
         return getMarkerName(this.testData, m);
     }
@@ -1151,7 +1157,13 @@ export class TestState {
                 continue;
             }
 
-            const expected = map[name].references;
+            let expected = map[name].references;
+            expected = expected.map((c) => {
+                return {
+                    ...c,
+                    uri: c.uri ?? Uri.file((c as any).path),
+                };
+            });
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
 

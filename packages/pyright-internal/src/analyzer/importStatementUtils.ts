@@ -841,7 +841,7 @@ export function getRelativeModuleName(
     // So this doesn't handle paths pointing to 2 different import roots.
     // ex) user file A to library file B
     let currentPaths = '.';
-    for (let i = 1; i < relativePaths.length; i++) {
+    for (let i = 0; i < relativePaths.length; i++) {
         const relativePath = relativePaths[i];
         if (relativePath === '..') {
             currentPaths += '.';
