@@ -9,7 +9,13 @@
 import { platform } from 'process';
 import { URI, Utils } from 'vscode-uri';
 import { some } from './collectionUtils';
-import { getPathComponents, getRootLength, hasTrailingDirectorySeparator, normalizeSlashes } from './pathUtils';
+import {
+    combinePaths,
+    getPathComponents,
+    getRootLength,
+    hasTrailingDirectorySeparator,
+    normalizeSlashes,
+} from './pathUtils';
 
 const EmptyKey = '<empty>';
 
@@ -90,6 +96,12 @@ export class Uri {
         // parse it normally. It's actually a uri string.
         if (path.startsWith('file:')) {
             return Uri.parse(path);
+        }
+
+        // Special case any path starting with '.'. That should be
+        // the current working directory.
+        if (path.startsWith('.') && process.cwd) {
+            path = combinePaths(process.cwd(), path);
         }
 
         // Otherwise assume this is a file path.
@@ -231,6 +243,9 @@ export class Uri {
         if (!other) {
             return false;
         }
+        if (other.isEmpty() !== this.isEmpty()) {
+            return false;
+        }
         if (this._uri.scheme !== other._uri.scheme) {
             return false;
         }
@@ -275,6 +290,10 @@ export class Uri {
     }
 
     combinePaths(...paths: string[]): Uri {
+        // Combining with empty always gives out empty.
+        if (this.isEmpty()) {
+            return Uri.empty();
+        }
         // Make sure none of the paths are rooted. If so, use that as a file path
         // and combine the rest.
         const rooted = paths.findIndex((p) => getRootLength(p) > 0 || getRootLength(p, '/') > 0);

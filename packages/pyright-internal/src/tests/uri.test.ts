@@ -297,6 +297,8 @@ test('combinePaths', () => {
     const uri9 = Uri.parse('foo:/');
     const uri10 = uri9.combinePaths('d', 'e');
     assert.equal(uri10.toString(), 'foo:/d/e');
+    const uri11 = Uri.empty().combinePaths('d', 'e');
+    assert.equal(uri11.toString(), Uri.empty().toString());
 });
 
 test('getPathComponents1', () => {

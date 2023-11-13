@@ -93,7 +93,7 @@ export class TestLanguageService implements LanguageServerInterface {
                 console: this.console,
                 hostFactory: () => new TestAccessHost(),
                 importResolverFactory: AnalyzerService.createImportResolver,
-                configOptions: new ConfigOptions(Uri.file('.')),
+                configOptions: new ConfigOptions(Uri.empty()),
                 fileSystem: this.fs,
             }),
             disableLanguageServices: false,

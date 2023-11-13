@@ -45,7 +45,7 @@ class TestConsole implements ConsoleInterface {
 describe('TypeEvaluatorWithTracker tests', () => {
     const consoleInterface = new TestConsole();
     const console = new ConsoleWithLogLevel(consoleInterface);
-    const config = new ConfigOptions(Uri.file('.'));
+    const config = new ConfigOptions(Uri.empty());
 
     beforeEach(() => {
         consoleInterface.clear();

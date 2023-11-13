@@ -98,7 +98,7 @@ export function parseSampleFile(
 
 export function typeAnalyzeSampleFiles(
     fileNames: string[],
-    configOptions = new ConfigOptions(Uri.file('.')),
+    configOptions = new ConfigOptions(Uri.empty()),
     console?: ConsoleWithLogLevel
 ): FileAnalysisResult[] {
     // Always enable "test mode".
@@ -129,7 +129,7 @@ export function typeAnalyzeSampleFiles(
 export function getAnalysisResults(
     program: Program,
     fileUris: Uri[],
-    configOptions = new ConfigOptions(Uri.file('.'))
+    configOptions = new ConfigOptions(Uri.empty())
 ): FileAnalysisResult[] {
     // Always enable "test mode".
     configOptions.internalTestMode = true;

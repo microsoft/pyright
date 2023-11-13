@@ -629,7 +629,7 @@ test('Unpack2', () => {
 });
 
 test('Unpack3', () => {
-    const configOptions = new ConfigOptions(Uri.file('.'));
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with Python 3.7 settings.
     configOptions.defaultPythonVersion = PythonVersion.V3_7;
@@ -643,7 +643,7 @@ test('Unpack3', () => {
 });
 
 test('Unpack4', () => {
-    const configOptions = new ConfigOptions(Uri.file('.'));
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with Python 3.8 settings.
     configOptions.defaultPythonVersion = PythonVersion.V3_8;
@@ -657,7 +657,7 @@ test('Unpack4', () => {
 });
 
 test('Unpack4', () => {
-    const configOptions = new ConfigOptions(Uri.file('.'));
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unpack5.py'], configOptions);
@@ -749,7 +749,7 @@ test('Call2', () => {
 });
 
 test('Call3', () => {
-    const configOptions = new ConfigOptions(Uri.file('.'));
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with Python 3.7 settings. This will generate more errors.
     configOptions.defaultPythonVersion = PythonVersion.V3_7;
@@ -882,7 +882,7 @@ test('FunctionMember1', () => {
     TestUtils.validateResults(analysisResult1, 0);
 
     // Analyze with reportFunctionMemberAccess enabled.
-    const configOptions = new ConfigOptions(Uri.file('.'));
+    const configOptions = new ConfigOptions(Uri.empty());
     configOptions.diagnosticRuleSet.reportFunctionMemberAccess = 'error';
     const analysisResult2 = TestUtils.typeAnalyzeSampleFiles(['functionMember1.py'], configOptions);
     TestUtils.validateResults(analysisResult2, 3);
@@ -967,7 +967,7 @@ test('AnnotatedVar6', () => {
 });
 
 test('AnnotatedVar7', () => {
-    const configOptions = new ConfigOptions(Uri.file('.'));
+    const configOptions = new ConfigOptions(Uri.empty());
 
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['annotatedVar7.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 0);
@@ -1068,7 +1068,7 @@ test('Property5', () => {
 });
 
 test('Property6', () => {
-    const configOptions = new ConfigOptions(Uri.file('.'));
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with reportPropertyTypeMismatch enabled.
     configOptions.diagnosticRuleSet.reportPropertyTypeMismatch = 'error';
@@ -1196,7 +1196,7 @@ test('Operator10', () => {
 });
 
 test('Optional1', () => {
-    const configOptions = new ConfigOptions(Uri.file('.'));
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // Disable diagnostics.
     configOptions.diagnosticRuleSet.reportOptionalSubscript = 'none';
@@ -1230,7 +1230,7 @@ test('Optional1', () => {
 });
 
 test('Optional2', () => {
-    const configOptions = new ConfigOptions(Uri.file('.'));
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // Disable diagnostics.
     configOptions.diagnosticRuleSet.reportOptionalOperand = 'none';
@@ -1418,7 +1418,7 @@ test('Slots3', () => {
 });
 
 test('Parameters1', () => {
-    const configOptions = new ConfigOptions(Uri.file('.'));
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.diagnosticRuleSet.reportMissingParameterType = 'none';
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['parameters1.py'], configOptions);
@@ -1484,7 +1484,7 @@ test('Self9', () => {
 });
 
 test('UnusedVariable1', () => {
-    const configOptions = new ConfigOptions(Uri.file('.'));
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.diagnosticRuleSet.reportUnusedVariable = 'none';
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['unusedVariable1.py'], configOptions);
@@ -1556,7 +1556,7 @@ test('TupleUnpack1', () => {
 });
 
 test('TupleUnpack2', () => {
-    const configOptions = new ConfigOptions(Uri.file('.'));
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack2.py'], configOptions);
@@ -1568,7 +1568,7 @@ test('TupleUnpack2', () => {
 });
 
 test('TupleUnpack3', () => {
-    const configOptions = new ConfigOptions(Uri.file('.'));
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack3.py'], configOptions);
@@ -1648,7 +1648,7 @@ test('Dictionary4', () => {
 });
 
 test('StaticExpression1', () => {
-    const configOptions = new ConfigOptions(Uri.file('.'));
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_8;
     configOptions.defaultPythonPlatform = 'windows';

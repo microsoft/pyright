@@ -25,12 +25,10 @@ export const stdLibFolderName = 'stdlib';
 export const thirdPartyFolderName = 'stubs';
 
 export function getTypeShedFallbackPath(fs: FileSystem) {
-    let moduleDirectory = fs.getModulePath();
-    if (!moduleDirectory) {
+    const moduleDirectory = fs.getModulePath();
+    if (!moduleDirectory || !Uri.isUri(moduleDirectory) || moduleDirectory.isEmpty()) {
         return undefined;
     }
-
-    moduleDirectory = moduleDirectory.getDirectory();
 
     const typeshedPath = moduleDirectory.combinePaths(pathConsts.typeshedFallback);
     if (fs.existsSync(typeshedPath)) {
