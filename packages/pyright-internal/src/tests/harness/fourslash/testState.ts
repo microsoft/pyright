@@ -758,6 +758,15 @@ export class TestState {
     async verifyCommand(command: Command, files: { [filePath: string]: string }): Promise<any> {
         this.analyze();
 
+        // Convert command arguments to file Uri strings. That's the expected input for command arguments.
+        const convertedArgs = command.arguments?.map((arg) => {
+            if (typeof arg === 'string' && (arg.endsWith('.py') || arg.endsWith('.pyi'))) {
+                return Uri.file(arg).toString();
+            }
+            return arg;
+        });
+        command.arguments = convertedArgs;
+
         const commandResult = await this._hostSpecificFeatures.execute(
             new TestLanguageService(this.workspace, this.console, this.fs),
             { command: command.command, arguments: command.arguments || [] },
@@ -1918,7 +1927,8 @@ export class TestState {
     }
 
     private async _waitForFile(filePath: string) {
-        while (!this.fs.existsSync(Uri.file(filePath))) {
+        const uri = Uri.file(filePath);
+        while (!this.fs.existsSync(uri)) {
             await new Promise<void>((res) =>
                 setTimeout(() => {
                     res();

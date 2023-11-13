@@ -79,7 +79,7 @@ export function areDeclarationsSame(
         return false;
     }
 
-    if (decl1.uri !== decl2.uri) {
+    if (!decl1.uri.equals(decl2.uri)) {
         return false;
     }
 

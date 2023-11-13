@@ -1028,7 +1028,7 @@ export class AnalyzerService {
                 }
 
                 for (let i = importResult.resolvedPaths.length - 2; i >= 0; i--) {
-                    if (importResult.resolvedPaths[i]) {
+                    if (!importResult.resolvedPaths[i].isEmpty()) {
                         rootPackagePath = importResult.resolvedPaths[i];
                     } else {
                         // If there was no file corresponding to this portion
