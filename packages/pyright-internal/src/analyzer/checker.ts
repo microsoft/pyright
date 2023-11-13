@@ -3565,26 +3565,24 @@ export class Checker extends ParseTreeWalker {
         }
 
         let isValidType = true;
+        const diag = new DiagnosticAddendum();
         doForEachSubtype(arg1Type, (arg1Subtype) => {
             if (isClassInstance(arg1Subtype) && ClassType.isTupleClass(arg1Subtype) && arg1Subtype.tupleTypeArguments) {
                 if (
                     arg1Subtype.tupleTypeArguments.some(
-                        (typeArg) => !this._isTypeSupportedTypeForIsInstance(typeArg.type, isInstanceCheck)
+                        (typeArg) => !this._isTypeSupportedTypeForIsInstance(typeArg.type, isInstanceCheck, diag)
                     )
                 ) {
                     isValidType = false;
                 }
             } else {
-                if (!this._isTypeSupportedTypeForIsInstance(arg1Subtype, isInstanceCheck)) {
+                if (!this._isTypeSupportedTypeForIsInstance(arg1Subtype, isInstanceCheck, diag)) {
                     isValidType = false;
                 }
             }
         });
 
         if (!isValidType) {
-            const diag = new DiagnosticAddendum();
-            diag.addMessage(Localizer.DiagnosticAddendum.typeVarNotAllowed());
-
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -3806,7 +3804,7 @@ export class Checker extends ParseTreeWalker {
 
     // Determines whether the specified type is allowed as the second argument
     // to an isinstance or issubclass check.
-    private _isTypeSupportedTypeForIsInstance(type: Type, isInstanceCheck: boolean) {
+    private _isTypeSupportedTypeForIsInstance(type: Type, isInstanceCheck: boolean, diag: DiagnosticAddendum) {
         let isSupported = true;
 
         doForEachSubtype(type, (subtype) => {
@@ -3821,25 +3819,28 @@ export class Checker extends ParseTreeWalker {
 
                 case TypeCategory.Class:
                     if (isNoneInstance(subtype)) {
+                        diag.addMessage(Localizer.DiagnosticAddendum.noneNotAllowed());
                         isSupported = false;
                     } else if (subtype.isTypeArgumentExplicit && !subtype.includeSubclasses) {
                         // If it's a class, make sure that it has not been given explicit
                         // type arguments. This will result in a TypeError exception.
+                        diag.addMessage(Localizer.DiagnosticAddendum.genericClassNotAllowed());
+                        isSupported = false;
+                    } else if (ClassType.isProtocolClass(subtype) && !ClassType.isRuntimeCheckable(subtype)) {
+                        diag.addMessage(Localizer.DiagnosticAddendum.protocolRequiresRuntimeCheckable());
                         isSupported = false;
                     }
                     break;
 
                 case TypeCategory.Function:
                     if (!TypeBase.isInstantiable(subtype) || subtype.isCallableWithTypeArgs) {
+                        diag.addMessage(Localizer.DiagnosticAddendum.genericClassNotAllowed());
                         isSupported = false;
                     }
                     break;
 
-                case TypeCategory.Union:
-                    isSupported = this._isTypeSupportedTypeForIsInstance(subtype, isInstanceCheck);
-                    break;
-
-                default:
+                case TypeCategory.TypeVar:
+                    diag.addMessage(Localizer.DiagnosticAddendum.typeVarNotAllowed());
                     isSupported = false;
                     break;
             }
