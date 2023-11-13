@@ -5942,15 +5942,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const argList: FunctionArgument[] = [];
 
         // Provide "obj" argument.
+        let objArgType: Type;
+        if (ClassType.isClassProperty(concreteMemberType)) {
+            // Handle "class properties" as a special case. We need to pass
+            // the class rather than the object instance in this case.
+            objArgType = classType;
+        } else if (isAccessedThroughObject) {
+            objArgType = selfType ?? ClassType.cloneAsInstance(classType);
+        } else {
+            objArgType = getNoneType();
+        }
+
         argList.push({
             argumentCategory: ArgumentCategory.Simple,
-            typeResult: {
-                type: ClassType.isClassProperty(concreteMemberType)
-                    ? classType
-                    : isAccessedThroughObject
-                    ? selfType ?? ClassType.cloneAsInstance(classType)
-                    : getNoneType(),
-            },
+            typeResult: { type: objArgType },
         });
 
         if (usage.method === 'get') {
