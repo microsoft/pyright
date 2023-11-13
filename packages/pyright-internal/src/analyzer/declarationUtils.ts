@@ -322,7 +322,7 @@ export function resolveAliasDeclaration(
             return undefined;
         }
 
-        if (symbol.isPrivateMember()) {
+        if (symbol.isPrivateMember() && !sawPyTypedTransition) {
             isPrivate = true;
         }
 

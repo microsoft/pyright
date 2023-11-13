@@ -400,7 +400,7 @@ export class Program {
                 filePath,
                 moduleImportInfo.moduleName,
                 /* isThirdPartyImport */ false,
-                /* isInPyTypedPackage */ false,
+                moduleImportInfo.isThirdPartyPyTypedPresent,
                 this._editModeTracker,
                 this._console,
                 this._logTracker,
@@ -1539,7 +1539,7 @@ export class Program {
             filePath,
             this._configOptions.getDefaultExecEnvironment(),
             /* allowIllegalModuleName */ true,
-            /* detectPyTyped */ false
+            /* detectPyTyped */ true
         );
 
         return moduleNameAndType;
