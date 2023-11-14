@@ -217,14 +217,14 @@ export class Uri {
         return this._getRootPath().length === comparablePath.length && this._getRootPath().length > 0;
     }
 
-    isChild(parent: Uri): boolean {
+    isChild(parent: Uri, ignoreCase = false): boolean {
         if (this._uri.scheme !== parent._uri.scheme) {
             return false;
         }
         if (this._uri.authority !== parent._uri.authority) {
             return false;
         }
-        return this.startsWith(parent) && parent.getPath().length < this.getPath().length;
+        return this.startsWith(parent, ignoreCase) && parent.getPath().length < this.getPath().length;
     }
 
     isLocal(): boolean {
@@ -235,11 +235,14 @@ export class Uri {
         return this._uri.scheme === 'untitled';
     }
 
-    equals(other: Uri | undefined): boolean {
+    equals(other: Uri | undefined, ignoreCase = false): boolean {
+        if (ignoreCase) {
+            return this._key.toLowerCase() === other?._key.toLowerCase();
+        }
         return this.key === other?.key;
     }
 
-    startsWith(other: Uri | undefined): boolean {
+    startsWith(other: Uri | undefined, ignoreCase = false): boolean {
         if (!other) {
             return false;
         }
@@ -261,6 +264,10 @@ export class Uri {
                 this._uri.path.length > other._uri.path.length && !hasTrailingDirectorySeparator(other._uri.path)
                     ? `${other._uri.path}/`
                     : other._uri.path;
+
+            if (ignoreCase) {
+                return this._uri.path.toLowerCase().startsWith(otherPath.toLowerCase());
+            }
             return this._uri.path.startsWith(otherPath);
         }
         return false;

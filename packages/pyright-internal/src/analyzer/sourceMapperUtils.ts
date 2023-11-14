@@ -38,12 +38,12 @@ function _buildImportTreeImpl(
     }
     totalSearched.value += 1;
 
-    if (from === to) {
+    if (from.equals(to)) {
         // At the top, previous should have our way into this recursion.
         return previous.length ? previous : [from];
     }
 
-    if (previous.length > 1 && previous.find((s) => s === from)) {
+    if (previous.length > 1 && previous.find((s) => s.equals(from))) {
         // Fail the search, we're stuck in a loop.
         return [];
     }

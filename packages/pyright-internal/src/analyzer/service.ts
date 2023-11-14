@@ -37,6 +37,7 @@ import {
     hasPythonExtension,
     isDirectory,
     isFile,
+    isFileSystemCaseSensitive,
     makeDirectories,
     tryRealpath,
     tryStat,
@@ -169,6 +170,10 @@ export class AnalyzerService {
 
     get fs() {
         return this._backgroundAnalysisProgram.importResolver.fileSystem;
+    }
+
+    get tmp() {
+        return this._serviceProvider.tmp();
     }
 
     get serviceProvider() {
@@ -1437,7 +1442,7 @@ export class AnalyzerService {
         let matchingSearchPath;
         for (const libSearchPath of libSearchPaths) {
             if (
-                path.isChild(libSearchPath) &&
+                path.isChild(libSearchPath, !isFileSystemCaseSensitive(this.fs, this.tmp)) &&
                 (!matchingSearchPath || matchingSearchPath.getPathLength() < libSearchPath.getPathLength())
             ) {
                 matchingSearchPath = libSearchPath;

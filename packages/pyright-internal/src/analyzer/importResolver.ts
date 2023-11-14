@@ -20,7 +20,14 @@ import { ServiceKeys } from '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import { Uri } from '../common/uri';
-import { getFileSystemEntriesFromDirEntries, isDirectory, isFile, tryRealpath, tryStat } from '../common/uriUtils';
+import {
+    getFileSystemEntriesFromDirEntries,
+    isDirectory,
+    isFile,
+    isFileSystemCaseSensitive,
+    tryRealpath,
+    tryStat,
+} from '../common/uriUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { getDirectoryLeadingDotsPointsTo } from './importStatementUtils';
@@ -111,6 +118,10 @@ export class ImportResolver {
 
     get fileSystem() {
         return this.serviceProvider.fs();
+    }
+
+    get tmp() {
+        return this.serviceProvider.tmp();
     }
 
     get partialStubs() {
@@ -236,7 +247,7 @@ export class ImportResolver {
 
             const relativeStubPaths: string[] = [];
             for (const importRootPath of importRootPaths) {
-                if (stubFileUri.isChild(importRootPath)) {
+                if (stubFileUri.isChild(importRootPath, !isFileSystemCaseSensitive(this.fileSystem, this.tmp))) {
                     const parts = importRootPath.getRelativePathComponents(stubFileUri);
 
                     if (parts.length >= 1) {
@@ -2627,7 +2638,8 @@ export class ImportResolver {
     }
 
     private _shouldWalkUp(current: Uri | undefined, root: Uri, execEnv: ExecutionEnvironment) {
-        return current && (current.isChild(root) || (current.equals(root) && !execEnv.root));
+        const ignoreCase = isFileSystemCaseSensitive(this.fileSystem, this.tmp) ? false : true;
+        return current && (current.isChild(root, ignoreCase) || (current.equals(root, ignoreCase) && !execEnv.root));
     }
 }
 

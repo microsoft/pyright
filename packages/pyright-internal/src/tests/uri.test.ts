@@ -214,7 +214,9 @@ test('isChild', () => {
     assert.ok(child.isChild(parent));
     const parent2 = Uri.parse('file:///a/b');
     const child2 = Uri.parse('file:///a/b/c.pyi');
+    const child2DifferentCase = Uri.parse('file:///a/B/C.pyi');
     assert.ok(child2.isChild(parent2));
+    assert.ok(child2DifferentCase.isChild(parent2, true));
     const parent3 = Uri.parse('file:///a/b/');
     const child3 = Uri.parse('file:///a/b/c.pyi');
     assert.ok(child3.isChild(parent3));

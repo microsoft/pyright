@@ -25,6 +25,7 @@ declare module './serviceProvider' {
     interface ServiceProvider {
         fs(): FileSystem;
         console(): ConsoleInterface;
+        tmp(): TempFile | undefined;
         sourceFileFactory(): ISourceFileFactory;
         partialStubs(): SupportPartialStubs;
     }
@@ -77,6 +78,9 @@ ServiceProvider.prototype.console = function () {
 };
 ServiceProvider.prototype.partialStubs = function () {
     return this.get(ServiceKeys.partialStubs);
+};
+ServiceProvider.prototype.tmp = function () {
+    return this.tryGet(ServiceKeys.tempFile);
 };
 ServiceProvider.prototype.sourceFileFactory = function () {
     const result = this.tryGet(ServiceKeys.sourceFileFactory);

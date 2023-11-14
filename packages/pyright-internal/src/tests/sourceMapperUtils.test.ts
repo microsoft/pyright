@@ -21,11 +21,11 @@ function buildImportTree(
         Uri.file(sourceFile),
         Uri.file(targetFile),
         (from) => {
-            const resolved = importResolver(from.getFilePath());
+            const resolved = importResolver(from.getFilePath().slice(1));
             return resolved.map((f) => Uri.file(f));
         },
         token
-    ).map((u) => u.getFilePath());
+    ).map((u) => u.getFilePath().slice(1));
 }
 
 describe('BuildImportTree', () => {
