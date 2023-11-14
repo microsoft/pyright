@@ -36,11 +36,11 @@ import {
 } from './types';
 import {
     applySolvedTypeVars,
-    ClassMemberLookupFlags,
     convertToInstance,
     getTypeVarScopeId,
     lookUpObjectMember,
     makeInferenceContext,
+    MemberAccessFlags,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
@@ -79,11 +79,7 @@ function applyPartialTransform(
         return result;
     }
 
-    const callMemberResult = lookUpObjectMember(
-        result.returnType,
-        '__call__',
-        ClassMemberLookupFlags.SkipInstanceVariables
-    );
+    const callMemberResult = lookUpObjectMember(result.returnType, '__call__', MemberAccessFlags.SkipInstanceMembers);
     if (!callMemberResult || !isTypeSame(convertToInstance(callMemberResult.classType), result.returnType)) {
         return result;
     }
@@ -99,13 +95,15 @@ function applyPartialTransform(
 
     const origFunctionTypeResult = evaluator.getTypeOfArgument(argList[0]);
     let origFunctionType = origFunctionTypeResult.type;
+    const origFunctionTypeConcrete = evaluator.makeTopLevelTypeVarsConcrete(origFunctionType);
 
-    if (isTypeVar(origFunctionType)) {
-        origFunctionType = evaluator.makeTopLevelTypeVarsConcrete(origFunctionType);
-    }
+    if (isInstantiableClass(origFunctionTypeConcrete)) {
+        const constructor = createFunctionFromConstructor(
+            evaluator,
+            origFunctionTypeConcrete,
+            isTypeVar(origFunctionType) ? convertToInstance(origFunctionType) : undefined
+        );
 
-    if (isInstantiableClass(origFunctionType)) {
-        const constructor = createFunctionFromConstructor(evaluator, origFunctionType);
         if (constructor) {
             origFunctionType = constructor;
         }

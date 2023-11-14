@@ -533,7 +533,7 @@ export function printOperator(operator: OperatorType): string {
         [OperatorType.SubtractEqual]: '-=',
         [OperatorType.And]: 'and',
         [OperatorType.Or]: 'or',
-        [OperatorType.Not]: 'not',
+        [OperatorType.Not]: 'not ',
         [OperatorType.Is]: 'is',
         [OperatorType.IsNot]: 'is not',
         [OperatorType.In]: 'in',
@@ -1806,6 +1806,24 @@ export function getTokenOverlapping(tokens: TextRangeCollection<Token>, position
 
     const token = tokens.getItemAt(index);
     return TextRange.overlaps(token, position) ? token : undefined;
+}
+
+export function findTokenAfter(parseResults: ParseResults, offset: number, predicate: (t: Token) => boolean) {
+    const tokens = parseResults.tokenizerOutput.tokens;
+
+    const index = tokens.getItemAtPosition(offset);
+    if (index < 0) {
+        return undefined;
+    }
+
+    for (let i = index; i < tokens.length; i++) {
+        const token = tokens.getItemAt(i);
+        if (predicate(token)) {
+            return token;
+        }
+    }
+
+    return undefined;
 }
 
 export function printParseNodeType(type: ParseNodeType) {

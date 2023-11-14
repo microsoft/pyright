@@ -1,11 +1,11 @@
 /// <reference path="fourslash.ts" />
 
 // @filename: complicated.py
-//// from typing import Any, Optional, Type, Union, TypedDict, Unpack
+//// from typing import Any, Optional, Type, Union, TypedDict, Unpack, NotRequired
 ////
 //// class Movie(TypedDict):
 ////     key1: str
-////     key2: int
+////     key2: NotRequired[int]
 ////
 //// class A:
 ////     def __init__(self, x: bool): ...
@@ -54,8 +54,8 @@
 
     const xTypedDictSignatures = [
         {
-            label: '(a: int, b: int, key1: str, key2: int) -> None',
-            parameters: ['a: int', 'b: int', 'key1: str', 'key2: int'],
+            label: '(a: int, b: int, *, key1: str, key2: int = ...) -> None',
+            parameters: ['a: int', 'b: int', '*', 'key1: str', 'key2: int = ...'],
         },
     ];
 
@@ -121,11 +121,11 @@
         },
         tdkey1: {
             signatures: xTypedDictSignatures,
-            activeParameters: [2],
+            activeParameters: [3],
         },
         tdkey2: {
             signatures: xTypedDictSignatures,
-            activeParameters: [3],
+            activeParameters: [4],
         },
     });
 }

@@ -27,7 +27,9 @@ class ClassC(ClassA):
 
     @staticmethod
     def aaa():
-        pass
+        # This should generate an error because the zero-arg form
+        # of super is illegal in a static method.
+        super().method1()
 
 
 class Bar(ClassB, ClassC):

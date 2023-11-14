@@ -754,7 +754,7 @@ test('Classes1', () => {
 test('Classes3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes3.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Classes4', () => {
@@ -878,7 +878,7 @@ test('MethodOverride6', () => {
 
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['methodOverride6.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 2);
+    TestUtils.validateResults(analysisResults2, 3);
 });
 
 test('Enum1', () => {
@@ -1197,6 +1197,14 @@ test('VariadicTypeVar24', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('VariadicTypeVar25', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar25.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Match1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -1363,13 +1371,13 @@ test('EmptyContainers1', () => {
 test('InitSubclass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['initsubclass1.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('InitSubclass2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['initsubclass2.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('None1', () => {

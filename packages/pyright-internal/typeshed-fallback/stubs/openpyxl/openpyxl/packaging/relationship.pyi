@@ -1,10 +1,17 @@
 from _typeshed import Incomplete, Unused
 from collections.abc import Generator
-from typing import ClassVar, overload
+from typing import ClassVar, TypeVar, overload
 from typing_extensions import Literal
+from zipfile import ZipFile
 
 from openpyxl.descriptors.base import Alias, String
 from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.pivot.cache import CacheDefinition
+from openpyxl.pivot.record import RecordList
+from openpyxl.pivot.table import TableDefinition
+
+_SerialisableT = TypeVar("_SerialisableT", bound=Serialisable)
+_SerialisableRelTypeT = TypeVar("_SerialisableRelTypeT", bound=CacheDefinition | RecordList | TableDefinition)
 
 class Relationship(Serialisable):
     tagname: ClassVar[str]
@@ -37,5 +44,18 @@ class RelationshipList(Serialisable):
     def to_tree(self): ...
 
 def get_rels_path(path): ...
-def get_dependents(archive, filename): ...
-def get_rel(archive, deps, id: Incomplete | None = None, cls: Incomplete | None = None): ...
+def get_dependents(archive: ZipFile, filename: str) -> RelationshipList: ...
+
+# If `id` is None, `cls` needs to have ClassVar `rel_type`.
+# The `deps` attribute used at runtime is for internal use immediatly after the return.
+# `cls` cannot be None
+@overload
+def get_rel(
+    archive: ZipFile, deps: RelationshipList, id: None = None, *, cls: type[_SerialisableRelTypeT]
+) -> _SerialisableRelTypeT | None: ...
+@overload
+def get_rel(
+    archive: ZipFile, deps: RelationshipList, id: None, cls: type[_SerialisableRelTypeT]
+) -> _SerialisableRelTypeT | None: ...
+@overload
+def get_rel(archive: ZipFile, deps: RelationshipList, id: str, cls: type[_SerialisableT]) -> _SerialisableT: ...

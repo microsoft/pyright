@@ -65,7 +65,6 @@ import {
     applySolvedTypeVars,
     AssignTypeFlags,
     ClassMember,
-    ClassMemberLookupFlags,
     computeMroLinearization,
     containsAnyOrUnknown,
     convertToInstance,
@@ -87,6 +86,7 @@ import {
     lookUpClassMember,
     lookUpObjectMember,
     mapSubtypes,
+    MemberAccessFlags,
     specializeTupleClass,
     specializeWithUnknown,
     transformPossibleRecursiveTypeAlias,
@@ -1126,6 +1126,11 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
             // See if it's a match for None.
             if (isNoneInstance(subtype) === isPositiveTest) {
                 resultIncludesNoneSubtype = true;
+
+                if (isTypeVar(adjustedSubtype) && adjustedSubtype.details.isSynthesizedSelf) {
+                    return adjustedSubtype;
+                }
+
                 return subtype;
             }
 
@@ -1389,7 +1394,12 @@ function narrowTypeForIsInstance(
                     if (filterIsSuperclass) {
                         // If the variable type is a subclass of the isinstance filter,
                         // we haven't learned anything new about the variable type.
-                        filteredTypes.push(addConditionToType(concreteVarType, conditions));
+
+                        // If the varType is a constrained TypeVar, narrow to the specific
+                        // constraint. Otherwise retain the varType.
+                        const unnarrowedType =
+                            isTypeVar(varType) && varType.details.constraints.length > 0 ? concreteVarType : varType;
+                        filteredTypes.push(addConditionToType(unnarrowedType, conditions));
                     } else if (filterIsSubclass) {
                         if (
                             evaluator.assignType(
@@ -1563,7 +1573,7 @@ function narrowTypeForIsInstance(
                             isCallable = !!lookUpClassMember(
                                 concreteVarType,
                                 '__call__',
-                                ClassMemberLookupFlags.SkipInstanceVariables
+                                MemberAccessFlags.SkipInstanceMembers
                             );
                         }
                     }
@@ -2020,7 +2030,10 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
 
         if (evaluator.assignType(elementTypeWithoutLiteral, concreteReferenceType)) {
             return mapSubtypes(elementType, (elementSubtype) => {
-                if (isClassInstance(elementSubtype) && isSameWithoutLiteralValue(referenceSubtype, elementSubtype)) {
+                if (
+                    isClassInstance(elementSubtype) &&
+                    isSameWithoutLiteralValue(concreteReferenceType, elementSubtype)
+                ) {
                     return elementSubtype;
                 }
                 return undefined;
@@ -2041,6 +2054,15 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
         if (isAnyOrUnknown(concreteElementType)) {
             canNarrow = false;
             return referenceType;
+        }
+
+        // Handle the special case where the reference type is a dict or Mapping and
+        // the element type is a TypedDict. In this case, we can't say whether there
+        // is a type overlap, so don't apply narrowing.
+        if (isClassInstance(referenceType) && ClassType.isBuiltIn(referenceType, ['dict', 'Mapping'])) {
+            if (isClassInstance(concreteElementType) && ClassType.isTypedDictClass(concreteElementType)) {
+                return concreteElementType;
+            }
         }
 
         if (evaluator.assignType(referenceType, concreteElementType)) {
@@ -2216,15 +2238,11 @@ function narrowTypeForDiscriminatedLiteralFieldComparison(
             // Handle the case where the field is a property
             // that has a declared literal return type for its getter.
             if (isClassInstance(subtype) && isClassInstance(memberType) && isProperty(memberType)) {
-                const getterInfo = lookUpObjectMember(memberType, 'fget');
-
-                if (getterInfo && getterInfo.isTypeDeclared) {
-                    const getterType = evaluator.getTypeOfMember(getterInfo);
-                    if (isFunction(getterType) && getterType.details.declaredReturnType) {
-                        const getterReturnType = FunctionType.getSpecializedReturnType(getterType);
-                        if (getterReturnType) {
-                            memberType = getterReturnType;
-                        }
+                const getterType = memberType.fgetFunction;
+                if (getterType && getterType.details.declaredReturnType) {
+                    const getterReturnType = FunctionType.getSpecializedReturnType(getterType);
+                    if (getterReturnType) {
+                        memberType = getterReturnType;
                     }
                 }
             }
@@ -2499,11 +2517,7 @@ function narrowTypeForCallable(
                 }
 
                 // See if the object is callable.
-                const callMemberType = lookUpClassMember(
-                    subtype,
-                    '__call__',
-                    ClassMemberLookupFlags.SkipInstanceVariables
-                );
+                const callMemberType = lookUpClassMember(subtype, '__call__', MemberAccessFlags.SkipInstanceMembers);
 
                 if (!callMemberType) {
                     if (!isPositiveTest) {

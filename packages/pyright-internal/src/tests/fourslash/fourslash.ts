@@ -233,7 +233,7 @@ declare namespace _ {
             predicate: (m: Marker | undefined, d: T | undefined, text: string) => boolean
         ): Range[];
         getPositionRange(markerString: string): PositionRange;
-        getPosition(markerString: string): number;
+        getPosition(markerString: string): Position;
         get BOF(): number;
         get EOF(): number;
         expandPositionRange(range: PositionRange, start: number, end: number): PositionRange;

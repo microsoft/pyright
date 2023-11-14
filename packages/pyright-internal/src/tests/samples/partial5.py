@@ -1,8 +1,9 @@
 # This sample tests the case where a class is passed as the first argument
 # to functools.partial.
 
+from dataclasses import dataclass
 from functools import partial
-from typing import TypeVar
+from typing import Self, TypeVar
 
 
 class A:
@@ -32,3 +33,19 @@ def func1(x: type[T]):
     v2()
 
     v2(x=1)
+
+
+@dataclass
+class B:
+    x: int
+    y: str
+
+    @classmethod
+    def from_x(cls, x: int) -> Self:
+        make_b = partial(cls, x=x)
+        reveal_type(make_b, expected_text="partial[Self@B]")
+
+        self = make_b(y="")
+        reveal_type(self, expected_text="Self@B")
+
+        return self

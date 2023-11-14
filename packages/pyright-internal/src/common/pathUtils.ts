@@ -96,7 +96,7 @@ export function getPathSeparator(pathString: string) {
 
 export function getPathComponents(pathString: string) {
     const normalizedPath = normalizeSlashes(pathString);
-    const rootLength = getRootLength(normalizedPath);
+    const rootLength = getRootLength(normalizedPath, /* checkUri */ isUri(normalizedPath));
     const root = normalizedPath.substring(0, rootLength);
     const sep = getPathSeparator(pathString);
     const rest = normalizedPath.substring(rootLength).split(sep);
@@ -200,7 +200,7 @@ export function combinePaths(pathString: string, ...paths: (string | undefined)[
 
         relativePath = normalizeSlashes(relativePath);
 
-        if (!pathString || getRootLength(relativePath) !== 0) {
+        if (!pathString || getRootLength(relativePath, /* checkUri */ false) !== 0) {
             pathString = relativePath;
         } else {
             pathString = ensureTrailingDirectorySeparator(pathString) + relativePath;

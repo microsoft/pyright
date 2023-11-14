@@ -167,6 +167,7 @@ export class Program {
         this._logTracker = logTracker ?? new LogTracker(this._console, 'FG');
         this._importResolver = initialImportResolver;
         this._configOptions = initialConfigOptions;
+
         this._sourceFileFactory = serviceProvider.sourceFileFactory();
 
         this._cacheManager = serviceProvider.tryGet(ServiceKeys.cacheManager) ?? new CacheManager();
@@ -346,7 +347,8 @@ export class Program {
 
     addTrackedFile(fileUri: Uri, isThirdPartyImport = false, isInPyTypedPackage = false): SourceFile {
         let sourceFileInfo = this.getSourceFileInfo(fileUri);
-        const importName = this._getImportNameForFile(fileUri);
+        const moduleImportInfo = this._getModuleImportInfoForFile(fileUri);
+        const importName = moduleImportInfo.moduleName;
 
         if (sourceFileInfo) {
             // The module name may have changed based on updates to the
@@ -383,13 +385,13 @@ export class Program {
     setFileOpened(fileUri: Uri, version: number | null, contents: string, options?: OpenFileOptions) {
         let sourceFileInfo = this.getSourceFileInfo(fileUri);
         if (!sourceFileInfo) {
-            const importName = this._getImportNameForFile(fileUri);
+            const moduleImportInfo = this._getModuleImportInfoForFile(fileUri);
             const sourceFile = this._sourceFileFactory.createSourceFile(
                 this.serviceProvider,
                 fileUri,
-                importName,
+                moduleImportInfo.moduleName,
                 /* isThirdPartyImport */ false,
-                /* isInPyTypedPackage */ false,
+                moduleImportInfo.isThirdPartyPyTypedPresent,
                 this._editModeTracker,
                 this._console,
                 this._logTracker,
@@ -419,7 +421,7 @@ export class Program {
             sourceFileInfo.diagnosticsVersion = 0;
         }
 
-        verifyNoCyclesInChainedFiles(sourceFileInfo);
+        verifyNoCyclesInChainedFiles(this, sourceFileInfo);
         sourceFileInfo.sourceFile.setClientVersion(version, contents);
     }
 
@@ -438,7 +440,7 @@ export class Program {
         sourceFileInfo.sourceFile.markDirty();
         this._markFileDirtyRecursive(sourceFileInfo, new Set<string>());
 
-        verifyNoCyclesInChainedFiles(sourceFileInfo);
+        verifyNoCyclesInChainedFiles(this, sourceFileInfo);
     }
 
     setFileClosed(fileUri: Uri, isTracked?: boolean): FileDiagnostics[] {
@@ -1426,11 +1428,11 @@ export class Program {
                 // of the program.
                 let importedFileInfo = this.getSourceFileInfo(importInfo.path);
                 if (!importedFileInfo) {
-                    const importName = this._getImportNameForFile(importInfo.path);
+                    const moduleImportInfo = this._getModuleImportInfoForFile(importInfo.path);
                     const sourceFile = new SourceFile(
                         this.serviceProvider,
                         importInfo.path,
-                        importName,
+                        moduleImportInfo.moduleName,
                         importInfo.isThirdPartyImport,
                         importInfo.isPyTypedPresent,
                         this._editModeTracker,
@@ -1516,7 +1518,7 @@ export class Program {
         return flags;
     }
 
-    private _getImportNameForFile(fileUri: Uri) {
+    private _getModuleImportInfoForFile(fileUri: Uri) {
         // We allow illegal module names (e.g. names that include "-" in them)
         // because we want a unique name for each module even if it cannot be
         // imported through an "import" statement. It's important to have a
@@ -1526,9 +1528,11 @@ export class Program {
         const moduleNameAndType = this._importResolver.getModuleNameForImport(
             fileUri,
             this._configOptions.getDefaultExecEnvironment(),
-            /* allowIllegalModuleName */ true
+            /* allowIllegalModuleName */ true,
+            /* detectPyTyped */ true
         );
-        return moduleNameAndType.moduleName;
+
+        return moduleNameAndType;
     }
 
     // A "shadowed" file is a python source file that has been added to the program because
@@ -1554,17 +1558,13 @@ export class Program {
     }
 
     private _createInterimFileInfo(fileUri: Uri) {
-        const moduleImportInfo = this._importResolver.getModuleNameForImport(
-            fileUri,
-            this._configOptions.getDefaultExecEnvironment(),
-            /* allowIllegalModuleName */ true
-        );
+        const moduleImportInfo = this._getModuleImportInfoForFile(fileUri);
         const sourceFile = this._sourceFileFactory.createSourceFile(
             this.serviceProvider,
             fileUri,
             moduleImportInfo.moduleName,
-            moduleImportInfo.importType === ImportType.ThirdParty,
-            moduleImportInfo.isThirdPartyPyTypedPresent,
+            /* isThirdPartyImport */ false,
+            /* isInPyTypedPackage */ false,
             this._editModeTracker,
             this._console,
             this._logTracker
@@ -1572,8 +1572,8 @@ export class Program {
         const sourceFileInfo = new SourceFileInfo(
             sourceFile,
             /* isTypeshedFile */ false,
-            moduleImportInfo.importType === ImportType.ThirdParty,
-            moduleImportInfo.isThirdPartyPyTypedPresent,
+            /* isThirdPartyImport */ false,
+            /* isThirdPartyPyTypedPresent */ false,
             this._editModeTracker
         );
 
@@ -1666,7 +1666,11 @@ export class Program {
             const implicitPath = nextImplicitImport.sourceFile.getUri();
             if (implicitSet.has(implicitPath.key)) {
                 // We've found a cycle. Break out of the loop.
-                debug.fail(`Found a cycle in implicit imports files`);
+                debug.fail(
+                    this.serviceProvider
+                        .tryGet(ServiceKeys.debugInfoInspector)
+                        ?.getCycleDetail(this, nextImplicitImport) ?? `Found a cycle in implicit imports files`
+                );
             }
 
             implicitSet.add(implicitPath.key);
@@ -1689,16 +1693,16 @@ export class Program {
         }
     }
 
-    // Binds the specified file and all of its dependencies, recursively. If
-    // it runs out of time, it returns true. If it completes, it returns false.
+    // Binds the specified file and all of its dependencies, recursively.
+    // Returns true if the file was bound or it didn't need to be bound.
     private _bindFile(
         fileToAnalyze: SourceFileInfo,
         content?: string,
         skipFileNeededCheck?: boolean,
         isImplicitImport?: boolean
-    ): void {
+    ): boolean {
         if (!this._isFileNeeded(fileToAnalyze, skipFileNeededCheck) || !fileToAnalyze.sourceFile.isBindingRequired()) {
-            return;
+            return !fileToAnalyze.sourceFile.isBindingRequired();
         }
 
         this._parseFile(fileToAnalyze, content, skipFileNeededCheck);
@@ -1745,6 +1749,7 @@ export class Program {
         fileToAnalyze.effectiveFutureImports = futureImports.size > 0 ? futureImports : undefined;
 
         fileToAnalyze.sourceFile.bind(this._configOptions, this._lookUpImport, builtinsScope, futureImports);
+        return true;
     }
 
     private _getEffectiveFutureImports(futureImports: Set<string>, chainedSourceFile: SourceFileInfo): Set<string> {
@@ -1881,7 +1886,13 @@ export class Program {
                 // their results can affect this file's result.
                 const dependentFiles = this._checkDependentFiles(fileToCheck, chainedByList, token);
 
-                this._bindFile(fileToCheck);
+                const boundFile = this._bindFile(
+                    fileToCheck,
+                    undefined,
+                    // If binding is required we want to make sure to bind the file, otherwise
+                    // the sourceFile.check below will fail.
+                    /* skipFileNeededCheck */ fileToCheck.sourceFile.isBindingRequired()
+                );
                 if (this._preCheckCallback) {
                     const parseResults = fileToCheck.sourceFile.getParseResults();
                     if (parseResults) {
@@ -1889,14 +1900,16 @@ export class Program {
                     }
                 }
 
-                const execEnv = this._configOptions.findExecEnvironment(fileToCheck.sourceFile.getUri());
-                fileToCheck.sourceFile.check(
-                    this.configOptions,
-                    this._importResolver,
-                    this._evaluator!,
-                    this._createSourceMapper(execEnv, token, fileToCheck),
-                    dependentFiles
-                );
+                if (boundFile) {
+                    const execEnv = this._configOptions.findExecEnvironment(fileToCheck.sourceFile.getUri());
+                    fileToCheck.sourceFile.check(
+                        this.configOptions,
+                        this._importResolver,
+                        this._evaluator!,
+                        this._createSourceMapper(execEnv, token, fileToCheck),
+                        dependentFiles
+                    );
+                }
             }
 
             // For very large programs, we may need to discard the evaluator and

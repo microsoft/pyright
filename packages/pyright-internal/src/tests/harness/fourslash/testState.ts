@@ -319,13 +319,13 @@ export class TestState {
         return this.convertPositionRange(range);
     }
 
-    getPosition(markerString: string): number {
+    getPosition(markerString: string): Position {
         const marker = this.getMarkerByName(markerString);
         const ranges = this.getRanges().filter((r) => r.marker === marker);
         if (ranges.length !== 1) {
             this.raiseError(`no matching range for ${markerString}`);
         }
-        return marker.position;
+        return this.convertOffsetToPosition(marker.fileName, marker.position);
     }
 
     expandPositionRange(range: PositionRange, start: number, end: number) {
@@ -1093,9 +1093,9 @@ export class TestState {
                 Uri.file(fileName),
                 position,
                 docFormat,
-                /*hasSignatureLabelOffsetCapability*/ true,
-                /*hasActiveParameterCapability*/ true,
-                /*context*/ undefined,
+                /* hasSignatureLabelOffsetCapability */ true,
+                /* hasActiveParameterCapability */ true,
+                /* context */ undefined,
                 CancellationToken.None
             ).getSignatureHelp();
 

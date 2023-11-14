@@ -22,7 +22,7 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { isUserCode } from '../analyzer/sourceFileInfoUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { ClassMemberLookupFlags, doForEachSubtype, lookUpClassMember, lookUpObjectMember } from '../analyzer/typeUtils';
+import { MemberAccessFlags, doForEachSubtype, lookUpClassMember, lookUpObjectMember } from '../analyzer/typeUtils';
 import { ClassType, isClassInstance, isFunction, isInstantiableClass } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
@@ -170,9 +170,9 @@ export class CallHierarchyProvider {
                 const initMethodMember = lookUpClassMember(
                     classType,
                     '__init__',
-                    ClassMemberLookupFlags.SkipInstanceVariables |
-                        ClassMemberLookupFlags.SkipObjectBaseClass |
-                        ClassMemberLookupFlags.SkipBaseClasses
+                    MemberAccessFlags.SkipInstanceMembers |
+                        MemberAccessFlags.SkipObjectBaseClass |
+                        MemberAccessFlags.SkipBaseClasses
                 );
                 if (initMethodMember) {
                     const initMethodType = this._evaluator.getTypeOfMember(initMethodMember);

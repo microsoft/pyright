@@ -78,9 +78,27 @@ test('getPathComponents6', () => {
     assert.equal(components[3], 'file.py');
 });
 
+test('getPathComponents7', () => {
+    const components = getPathComponents('ab:cdef/test');
+    assert.equal(components.length, 3);
+    assert.equal(components[0], 'ab:');
+    assert.equal(components[1], 'cdef');
+    assert.equal(components[2], 'test');
+});
+
 test('combinePaths1', () => {
     const p = combinePaths('/user', '1', '2', '3');
     assert.equal(p, normalizeSlashes('/user/1/2/3'));
+});
+
+test('combinePaths2', () => {
+    const p = combinePaths('/foo', 'ab:c');
+    assert.equal(p, normalizeSlashes('/foo/ab:c'));
+});
+
+test('combinePaths3', () => {
+    const p = combinePaths('untitled:foo', 'ab:c');
+    assert.equal(p, normalizeSlashes('untitled:foo/ab%3Ac'));
 });
 
 test('ensureTrailingDirectorySeparator1', () => {

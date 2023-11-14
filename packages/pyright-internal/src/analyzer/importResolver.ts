@@ -51,6 +51,7 @@ export interface ModuleNameAndType {
 }
 
 export interface ModuleImportInfo extends ModuleNameAndType {
+    isTypeshedFile: boolean;
     isThirdPartyPyTypedPresent: boolean;
 }
 
@@ -88,7 +89,7 @@ interface SupportedVersionRange {
 }
 
 const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
-export const supportedSourceFileExtensions = ['.py', '.pyi'];
+const supportedSourceFileExtensions = ['.py', '.pyi'];
 export const supportedFileExtensions = [...supportedSourceFileExtensions, ...supportedNativeLibExtensions];
 
 // Should we allow partial resolution for third-party packages? Some use tricks
@@ -126,6 +127,16 @@ export class ImportResolver {
 
     get partialStubs() {
         return this.serviceProvider.tryGet(ServiceKeys.partialStubs);
+    }
+
+    static isSupportedImportSourceFile(uri: Uri) {
+        const fileExtension = uri.extname.toLowerCase();
+        return supportedSourceFileExtensions.some((ext) => fileExtension === ext);
+    }
+
+    static isSupportedImportFile(uri: Uri) {
+        const fileExtension = uri.extname.toLowerCase();
+        return supportedFileExtensions.some((ext) => fileExtension === ext);
     }
 
     invalidateCache() {
@@ -298,11 +309,17 @@ export class ImportResolver {
     // Returns the module name (of the form X.Y.Z) that needs to be imported
     // from the current context to access the module with the specified file path.
     // In a sense, it's performing the inverse of resolveImport.
-    getModuleNameForImport(fileUri: Uri, execEnv: ExecutionEnvironment, allowInvalidModuleName = false) {
+    getModuleNameForImport(
+        fileUri: Uri,
+        execEnv: ExecutionEnvironment,
+        allowInvalidModuleName = false,
+        detectPyTyped = false
+    ) {
         // Cache results of the reverse of resolveImport as we cache resolveImport.
         const cache = getOrAdd(this._cachedModuleNameResults, execEnv.root, () => new Map<string, ModuleImportInfo>());
-        return getOrAdd(cache, fileUri.key, () =>
-            this._getModuleNameForImport(fileUri, execEnv, allowInvalidModuleName)
+        const key = `${allowInvalidModuleName}.${detectPyTyped}.${fileUri.key}`;
+        return getOrAdd(cache, key, () =>
+            this._getModuleNameForImport(fileUri, execEnv, allowInvalidModuleName, detectPyTyped)
         );
     }
 
@@ -1038,12 +1055,14 @@ export class ImportResolver {
     private _getModuleNameForImport(
         fileUri: Uri,
         execEnv: ExecutionEnvironment,
-        allowInvalidModuleName: boolean
+        allowInvalidModuleName: boolean,
+        detectPyTyped: boolean
     ): ModuleImportInfo {
         let moduleName: string | undefined;
         let importType = ImportType.BuiltIn;
         let isLocalTypingsFile = false;
         let isThirdPartyPyTypedPresent = false;
+        let isTypeshedFile = false;
 
         const importFailureInfo: string[] = [];
 
@@ -1080,6 +1099,7 @@ export class ImportResolver {
                     return {
                         moduleName,
                         importType,
+                        isTypeshedFile: true,
                         isLocalTypingsFile,
                         isThirdPartyPyTypedPresent,
                     };
@@ -1160,6 +1180,7 @@ export class ImportResolver {
             if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
                 moduleName = candidateModuleName;
                 importType = ImportType.ThirdParty;
+                isTypeshedFile = true;
             }
         }
 
@@ -1172,6 +1193,7 @@ export class ImportResolver {
             if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
                 moduleName = candidateModuleName;
                 importType = ImportType.ThirdParty;
+                isTypeshedFile = true;
             }
         }
 
@@ -1191,12 +1213,13 @@ export class ImportResolver {
                     if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
                         moduleName = candidateModuleName;
                         importType = ImportType.ThirdParty;
+                        isTypeshedFile = false;
                     }
                 }
             }
         }
 
-        if (importType === ImportType.ThirdParty) {
+        if (detectPyTyped && importType === ImportType.ThirdParty) {
             const root = this.getParentImportResolutionRoot(fileUri, execEnv.root);
 
             // Go up directories one by one looking for a py.typed file.
@@ -1219,12 +1242,13 @@ export class ImportResolver {
         }
 
         if (moduleName) {
-            return { moduleName, importType, isLocalTypingsFile, isThirdPartyPyTypedPresent };
+            return { moduleName, importType, isTypeshedFile, isLocalTypingsFile, isThirdPartyPyTypedPresent };
         }
 
         if (allowInvalidModuleName && moduleNameWithInvalidCharacters) {
             return {
                 moduleName: moduleNameWithInvalidCharacters,
+                isTypeshedFile,
                 importType,
                 isLocalTypingsFile,
                 isThirdPartyPyTypedPresent,
@@ -1234,6 +1258,7 @@ export class ImportResolver {
         // We didn't find any module name.
         return {
             moduleName: '',
+            isTypeshedFile,
             importType: ImportType.Local,
             isLocalTypingsFile,
             isThirdPartyPyTypedPresent,
@@ -1734,6 +1759,12 @@ export class ImportResolver {
                         }
                     }
                 }
+            }
+
+            // Prefer local over third-party. We check local first, so we should never
+            // see the reverse.
+            if (bestImportSoFar.importType === ImportType.Local && newImport.importType === ImportType.ThirdParty) {
+                return bestImportSoFar;
             }
 
             // Prefer py.typed over non-py.typed.
@@ -2361,10 +2392,9 @@ export class ImportResolver {
         entries.files.forEach((file) => {
             // Strip multi-dot extensions to handle file names like "foo.cpython-32m.so". We want
             // to detect the ".so" but strip off the entire ".cpython-32m.so" extension.
-            const fileExtension = file.extname.toLowerCase();
             const fileWithoutExtension = file.stripAllExtensions().basename;
 
-            if (supportedFileExtensions.some((ext) => ext === fileExtension)) {
+            if (ImportResolver.isSupportedImportFile(file)) {
                 if (fileWithoutExtension === '__init__') {
                     return;
                 }

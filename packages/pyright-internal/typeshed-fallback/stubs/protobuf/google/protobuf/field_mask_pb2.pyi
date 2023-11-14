@@ -33,11 +33,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 import builtins
 import collections.abc
+import sys
+
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.internal.well_known_types
 import google.protobuf.message
-import sys
 
 if sys.version_info >= (3, 8):
     import typing as typing_extensions

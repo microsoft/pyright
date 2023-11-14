@@ -29,7 +29,7 @@ import { Symbol, SymbolFlags } from './symbol';
 import { isSingleDunderName } from './symbolNameUtils';
 import { FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
-import { ClassMemberLookupFlags, computeMroLinearization, lookUpClassMember } from './typeUtils';
+import { MemberAccessFlags, computeMroLinearization, lookUpClassMember } from './typeUtils';
 import {
     AnyType,
     ClassType,
@@ -332,7 +332,7 @@ export function transformTypeForPossibleEnumClass(
     // the value of each enum element is simply the value assigned to it.
     // The __new__ method can transform the value in ways that we cannot
     // determine statically.
-    const newMember = lookUpClassMember(enumClassInfo.classType, '__new__', ClassMemberLookupFlags.SkipBaseClasses);
+    const newMember = lookUpClassMember(enumClassInfo.classType, '__new__', MemberAccessFlags.SkipBaseClasses);
     if (newMember) {
         // We may want to change this to UnknownType in the future, but
         // for now, we'll leave it as Any which is consistent with the
@@ -345,8 +345,12 @@ export function transformTypeForPossibleEnumClass(
         // a special case.
         if (isUnpackedTuple) {
             valueType =
-                evaluator.getTypeOfIterator({ type: valueType }, /* isAsync */ false, /* errorNode */ undefined)
-                    ?.type ?? UnknownType.create();
+                evaluator.getTypeOfIterator(
+                    { type: valueType },
+                    /* isAsync */ false,
+                    node,
+                    /* emitNotIterableError */ false
+                )?.type ?? UnknownType.create();
         }
     }
 
@@ -484,7 +488,7 @@ export function getEnumAutoValueType(evaluator: TypeEvaluator, node: ExpressionN
     if (containingClassNode) {
         const classTypeInfo = evaluator.getTypeOfClass(containingClassNode);
         if (classTypeInfo) {
-            const memberInfo = evaluator.getTypeOfObjectMember(
+            const memberInfo = evaluator.getTypeOfBoundMember(
                 node,
                 ClassType.cloneAsInstance(classTypeInfo.classType),
                 '_generate_next_value_'

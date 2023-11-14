@@ -95,6 +95,7 @@ export class TextEditTracker {
 
         const filePath = getFileInfo(parseResults.parseTree).fileUri;
         const ranges = getTextRangeForImportNameDeletion(
+            parseResults,
             imports,
             imports.findIndex((v) => v === importToDelete)
         );
@@ -391,7 +392,7 @@ export class TextEditTracker {
             return false;
         }
 
-        const editSpans = getTextRangeForImportNameDeletion(nameNodes, ...indices);
+        const editSpans = getTextRangeForImportNameDeletion(nodeToRemove.parseResults, nameNodes, ...indices);
         editSpans.forEach((e) => this.addEdit(info.fileUri, convertTextRangeToRange(e, info.lines), ''));
 
         this._removeNodesHandled(nodesRemoved);

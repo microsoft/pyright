@@ -1705,7 +1705,6 @@ class DataAccessCommands(
     SetCommands[_StrType],
     StreamCommands,
     SortedSetCommands[_StrType],
-    Generic[_StrType],
 ): ...
 class AsyncDataAccessCommands(
     AsyncBasicKeyCommands[_StrType],
@@ -1717,7 +1716,6 @@ class AsyncDataAccessCommands(
     AsyncSetCommands[_StrType],
     AsyncStreamCommands,
     AsyncSortedSetCommands[_StrType],
-    Generic[_StrType],
 ): ...
 class CoreCommands(
     ACLCommands[_StrType],
@@ -1727,7 +1725,6 @@ class CoreCommands(
     ModuleCommands,
     PubSubCommands,
     ScriptCommands[_StrType],
-    Generic[_StrType],
 ): ...
 class AsyncCoreCommands(
     AsyncACLCommands[_StrType],
@@ -1738,5 +1735,4 @@ class AsyncCoreCommands(
     AsyncPubSubCommands,
     AsyncScriptCommands[_StrType],
     AsyncFunctionCommands,
-    Generic[_StrType],
 ): ...

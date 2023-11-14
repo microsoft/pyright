@@ -556,6 +556,7 @@ export namespace Localizer {
         export const inconsistentTabs = () => getRawString('Diagnostic.inconsistentTabs');
         export const initMustReturnNone = () => getRawString('Diagnostic.initMustReturnNone');
         export const initSubclassClsParam = () => getRawString('Diagnostic.initSubclassClsParam');
+        export const initSubclassCallFailed = () => getRawString('Diagnostic.initSubclassCallFailed');
         export const instanceMethodSelfParam = () => getRawString('Diagnostic.instanceMethodSelfParam');
         export const instanceVarOverridesClassVar = () =>
             new ParameterizedString<{ name: string; className: string }>(
@@ -687,6 +688,8 @@ export namespace Localizer {
         export const optionalExtraArgs = () => getRawString('Diagnostic.optionalExtraArgs');
         export const orPatternIrrefutable = () => getRawString('Diagnostic.orPatternIrrefutable');
         export const orPatternMissingName = () => getRawString('Diagnostic.orPatternMissingName');
+        export const overlappingKeywordArgs = () =>
+            new ParameterizedString<{ names: string }>(getRawString('Diagnostic.overlappingKeywordArgs'));
         export const overlappingOverload = () =>
             new ParameterizedString<{ name: string; obscured: number; obscuredBy: number }>(
                 getRawString('Diagnostic.overlappingOverload')
@@ -858,6 +861,8 @@ export namespace Localizer {
         export const superCallSecondArg = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.superCallSecondArg'));
         export const superCallZeroArgForm = () => getRawString('Diagnostic.superCallZeroArgForm');
+        export const superCallZeroArgFormStaticMethod = () =>
+            getRawString('Diagnostic.superCallZeroArgFormStaticMethod');
         export const symbolIsUnbound = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.symbolIsUnbound'));
         export const symbolIsUndefined = () =>
@@ -1165,6 +1170,14 @@ export namespace Localizer {
         export const dataClassFrozen = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.dataClassFrozen'));
         export const dataClassFieldLocation = () => getRawString('DiagnosticAddendum.dataClassFieldLocation');
+        export const descriptorAccessBindingFailed = () =>
+            new ParameterizedString<{ name: string; className: string }>(
+                getRawString('DiagnosticAddendum.descriptorAccessBindingFailed')
+            );
+        export const descriptorAccessCallFailed = () =>
+            new ParameterizedString<{ name: string; className: string }>(
+                getRawString('DiagnosticAddendum.descriptorAccessCallFailed')
+            );
         export const finalMethod = () => getRawString('DiagnosticAddendum.finalMethod');
         export const functionParamDefaultMissing = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.functionParamDefaultMissing'));
@@ -1180,6 +1193,7 @@ export namespace Localizer {
             new ParameterizedString<{ expected: number; received: number }>(
                 getRawString('DiagnosticAddendum.functionTooFewParams')
             );
+        export const genericClassNotAllowed = () => getRawString('DiagnosticAddendum.genericClassNotAllowed');
         export const incompatibleGetter = () => getRawString('DiagnosticAddendum.incompatibleGetter');
         export const incompatibleSetter = () => getRawString('DiagnosticAddendum.incompatibleSetter');
         export const incompatibleDeleter = () => getRawString('DiagnosticAddendum.incompatibleDeleter');
@@ -1187,6 +1201,8 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.initMethodLocation'));
         export const initMethodSignature = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.initMethodSignature'));
+        export const initSubclassLocation = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.initSubclassLocation'));
         export const invariantSuggestionDict = () => getRawString('DiagnosticAddendum.invariantSuggestionDict');
         export const invariantSuggestionList = () => getRawString('DiagnosticAddendum.invariantSuggestionList');
         export const functionTooManyParams = () =>
@@ -1261,6 +1277,7 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.newMethodLocation'));
         export const newMethodSignature = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.newMethodSignature'));
+        export const noneNotAllowed = () => getRawString('DiagnosticAddendum.noneNotAllowed');
         export const noOverloadAssignable = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.noOverloadAssignable'));
         export const orPatternMissingName = () =>
@@ -1346,6 +1363,8 @@ export namespace Localizer {
             );
         export const protocolMemberMissing = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.protocolMemberMissing'));
+        export const protocolRequiresRuntimeCheckable = () =>
+            getRawString('DiagnosticAddendum.protocolRequiresRuntimeCheckable');
         export const protocolSourceIsNotConcrete = () =>
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.protocolSourceIsNotConcrete')

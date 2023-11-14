@@ -32,7 +32,7 @@ def func1(**kwargs: Unpack[TD2]) -> None:
 reveal_type(func1, expected_text="(**kwargs: **TD2) -> None")
 
 
-def func2(v1: int, **kwargs: Unpack[TD1]) -> None:
+def func2(v3: str, **kwargs: Unpack[TD1]) -> None:
     pass
 
 
@@ -115,3 +115,13 @@ v4: TDProtocol4 = func1
 v5: TDProtocol5 = func1
 
 v6: TDProtocol6 = func1
+
+
+def func4(v1: int, /, **kwargs: Unpack[TD2]) -> None:
+    ...
+
+
+# This should generate an error because parameter v1 overlaps
+# with the TypedDict.
+def func5(v1: int, **kwargs: Unpack[TD2]) -> None:
+    ...

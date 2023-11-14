@@ -26,6 +26,7 @@ For absolute (non-relative) imports, Pyright employs the following resolution or
 
 5. Try to resolve using a **third-party typeshed** stub. If the `typeshedPath` is configured, use this instead of the typeshed stubs that are packaged with Pyright. This allows for the use of a newer or a patched version of the typeshed third-party stubs.
 
+6. For an absolute import, if all of the above attempts fail, attempt to import a module from the same directory as the importing file and parent directories that are also children of the root workspace. This accommodates cases where it is assumed that a Python script will be executed from one of these subdirectories rather than from the root directory.
 
 
 ### Configuring Your Python Environment

@@ -44,7 +44,7 @@ test('Required3', () => {
 
 test('Metaclass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass1.py']);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Metaclass2', () => {
@@ -187,12 +187,12 @@ test('Import12', () => {
 
     // By default, optional diagnostics are ignored.
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['import12.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0, 1);
+    TestUtils.validateResults(analysisResults, 0, 2);
 
     // Turn on error.
     configOptions.diagnosticRuleSet.reportWildcardImportFromLibrary = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['import12.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 1, 0);
+    TestUtils.validateResults(analysisResults, 2, 0);
 
     // Turn off diagnostic.
     configOptions.diagnosticRuleSet.reportWildcardImportFromLibrary = 'none';
@@ -483,7 +483,7 @@ test('MemberAccess9', () => {
 
 test('MemberAccess10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess10.py']);
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('MemberAccess11', () => {
@@ -518,7 +518,7 @@ test('MemberAccess16', () => {
 
 test('MemberAccess17', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess17.py']);
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('MemberAccess18', () => {
@@ -1053,7 +1053,7 @@ test('ParamSpec40', () => {
 
 test('ParamSpec41', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec41.py']);
-    TestUtils.validateResults(results, 1);
+    TestUtils.validateResults(results, 2);
 });
 
 test('ParamSpec42', () => {
@@ -1165,7 +1165,7 @@ test('TypeVar7', () => {
 test('TypeVar8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar8.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('TypeVar9', () => {

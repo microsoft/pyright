@@ -991,7 +991,7 @@ function narrowTypeOfClassPatternArgument(
             argType = evaluator.useSpeculativeMode(arg, () =>
                 // We need to apply a rather ugly cast here because PatternClassArgumentNode is
                 // not technically an ExpressionNode, but it is OK to use it in this context.
-                evaluator.getTypeOfObjectMember(
+                evaluator.getTypeOfBoundMember(
                     arg as any as ExpressionNode,
                     ClassType.cloneAsInstance(matchType),
                     argName!
@@ -1080,10 +1080,10 @@ function narrowTypeBasedOnValuePattern(
                         // Determine if assignment is supported for this combination of
                         // value subtype and matching subtype.
                         const returnType = evaluator.useSpeculativeMode(pattern.expression, () =>
-                            evaluator.getTypeOfMagicMethodReturn(
+                            evaluator.getTypeOfMagicMethodCall(
                                 valueSubtypeExpanded,
-                                [{ type: subjectSubtypeExpanded }],
                                 '__eq__',
+                                [{ type: subjectSubtypeExpanded }],
                                 pattern.expression,
                                 /* expectedType */ undefined
                             )

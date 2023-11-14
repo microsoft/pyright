@@ -85,7 +85,7 @@ export function createProperty(
     // Clone the symbol table of the old class type.
     const fields = propertyClass.details.fields;
     decoratorType.details.fields.forEach((symbol, name) => {
-        const ignoredMethods = ['__get__', '__set__', '__delete__', 'fget', 'fset', 'fdel'];
+        const ignoredMethods = ['__get__', '__set__', '__delete__'];
 
         if (!symbol.isIgnoredForProtocolMatch()) {
             if (!ignoredMethods.some((m) => m === name)) {
@@ -101,11 +101,10 @@ export function createProperty(
     updateGetSetDelMethodForClonedProperty(evaluator, propertyObject);
 
     // Fill in the fget method.
-    const fgetSymbol = Symbol.createWithType(
-        SymbolFlags.ClassMember,
-        FunctionType.cloneWithNewFlags(fget, fget.details.flags | FunctionTypeFlags.StaticMethod)
+    propertyObject.fgetFunction = FunctionType.cloneWithNewFlags(
+        fget,
+        fget.details.flags | FunctionTypeFlags.StaticMethod
     );
-    fields.set('fget', fgetSymbol);
 
     if (FunctionType.isClassMethod(fget)) {
         propertyClass.details.flags |= ClassTypeFlags.ClassProperty;
@@ -183,6 +182,8 @@ export function clonePropertyWithSetter(
     propertyClass.details.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
     computeMroLinearization(propertyClass);
 
+    propertyClass.fgetFunction = classType.fgetFunction;
+    propertyClass.fdelFunction = classType.fdelFunction;
     propertyClass.isAsymmetricDescriptor = isAsymmetricDescriptor;
     const propertyObject = ClassType.cloneAsInstance(propertyClass);
 
@@ -197,12 +198,11 @@ export function clonePropertyWithSetter(
     // Update the __get__ and __delete__ methods if present.
     updateGetSetDelMethodForClonedProperty(evaluator, propertyObject);
 
-    // Fill in the fset method.
-    const fsetSymbol = Symbol.createWithType(
-        SymbolFlags.ClassMember,
-        FunctionType.cloneWithNewFlags(fset, fset.details.flags | FunctionTypeFlags.StaticMethod)
+    // Fill in the new fset method.
+    propertyObject.fsetFunction = FunctionType.cloneWithNewFlags(
+        fset,
+        fset.details.flags | FunctionTypeFlags.StaticMethod
     );
-    fields.set('fset', fsetSymbol);
 
     // Fill in the __set__ method.
     addSetMethodToPropertySymbolTable(evaluator, propertyObject, fset);
@@ -239,6 +239,8 @@ export function clonePropertyWithDeleter(
     propertyClass.details.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
     computeMroLinearization(propertyClass);
 
+    propertyClass.fgetFunction = classType.fgetFunction;
+    propertyClass.fsetFunction = classType.fsetFunction;
     const propertyObject = ClassType.cloneAsInstance(propertyClass);
     propertyClass.isAsymmetricDescriptor = classType.isAsymmetricDescriptor ?? false;
 
@@ -254,11 +256,10 @@ export function clonePropertyWithDeleter(
     updateGetSetDelMethodForClonedProperty(evaluator, propertyObject);
 
     // Fill in the fdel method.
-    const fdelSymbol = Symbol.createWithType(
-        SymbolFlags.ClassMember,
-        FunctionType.cloneWithNewFlags(fdel, fdel.details.flags | FunctionTypeFlags.StaticMethod)
+    propertyObject.fdelFunction = FunctionType.cloneWithNewFlags(
+        fdel,
+        fdel.details.flags | FunctionTypeFlags.StaticMethod
     );
-    fields.set('fdel', fdelSymbol);
 
     // Fill in the __delete__ method.
     addDelMethodToPropertySymbolTable(evaluator, propertyObject, fdel);
@@ -272,6 +273,8 @@ export function clonePropertyWithDeleter(
 function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObject: ClassType, fget: FunctionType) {
     const fields = propertyObject.details.fields;
 
+    // The first overload is for accesses through a class object (where
+    // the instance argument is None).
     const getFunction1 = FunctionType.createSynthesizedInstance('__get__', FunctionTypeFlags.Overloaded);
     FunctionType.addParameter(getFunction1, {
         category: ParameterCategory.Simple,
@@ -303,6 +306,7 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     // decorated function.
     getFunction1.details.typeVarScopeId = getTypeVarScopeId(fget);
 
+    // The second overload is for accesses through a class instance.
     const getFunction2 = FunctionType.createSynthesizedInstance('__get__', FunctionTypeFlags.Overloaded);
     FunctionType.addParameter(getFunction2, {
         category: ParameterCategory.Simple,
@@ -428,22 +432,17 @@ function addDelMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
 }
 
 function updateGetSetDelMethodForClonedProperty(evaluator: TypeEvaluator, propertyObject: ClassType) {
-    const fields = propertyObject.details.fields;
-
-    const fgetSymbol = fields.get('fget');
-    const fgetType = fgetSymbol?.getSynthesizedType();
+    const fgetType = propertyObject.fgetFunction;
     if (fgetType && isFunction(fgetType)) {
         addGetMethodToPropertySymbolTable(evaluator, propertyObject, fgetType);
     }
 
-    const fsetSymbol = fields.get('fset');
-    const fsetType = fsetSymbol?.getSynthesizedType();
+    const fsetType = propertyObject.fsetFunction;
     if (fsetType && isFunction(fsetType)) {
         addSetMethodToPropertySymbolTable(evaluator, propertyObject, fsetType);
     }
 
-    const fdelSymbol = fields.get('fdel');
-    const fdelType = fdelSymbol?.getSynthesizedType();
+    const fdelType = propertyObject.fdelFunction;
     if (fdelType && isFunction(fdelType)) {
         addDelMethodToPropertySymbolTable(evaluator, propertyObject, fdelType);
     }
@@ -487,31 +486,33 @@ export function assignProperty(
     const srcObjectToBind = isClass(srcClass) ? ClassType.cloneAsInstance(srcClass) : undefined;
     const destObjectToBind = ClassType.cloneAsInstance(destClass);
     let isAssignable = true;
-    const accessors: { name: string; missingDiagMsg: () => string; incompatibleDiagMsg: () => string }[] = [
+    const accessors: {
+        getFunction: (c: ClassType) => FunctionType | undefined;
+        missingDiagMsg: () => string;
+        incompatibleDiagMsg: () => string;
+    }[] = [
         {
-            name: 'fget',
+            getFunction: (c: ClassType) => c.fgetFunction,
             missingDiagMsg: Localizer.DiagnosticAddendum.missingGetter,
             incompatibleDiagMsg: Localizer.DiagnosticAddendum.incompatibleGetter,
         },
         {
-            name: 'fset',
+            getFunction: (c: ClassType) => c.fsetFunction,
             missingDiagMsg: Localizer.DiagnosticAddendum.missingSetter,
             incompatibleDiagMsg: Localizer.DiagnosticAddendum.incompatibleSetter,
         },
         {
-            name: 'fdel',
+            getFunction: (c: ClassType) => c.fdelFunction,
             missingDiagMsg: Localizer.DiagnosticAddendum.missingDeleter,
             incompatibleDiagMsg: Localizer.DiagnosticAddendum.incompatibleDeleter,
         },
     ];
 
     accessors.forEach((accessorInfo) => {
-        const destAccessSymbol = destPropertyType.details.fields.get(accessorInfo.name);
-        let destAccessType = destAccessSymbol ? evaluator.getDeclaredTypeOfSymbol(destAccessSymbol)?.type : undefined;
+        let destAccessType = accessorInfo.getFunction(destPropertyType);
 
         if (destAccessType && isFunction(destAccessType)) {
-            const srcAccessSymbol = srcPropertyType.details.fields.get(accessorInfo.name);
-            let srcAccessType = srcAccessSymbol ? evaluator.getDeclaredTypeOfSymbol(srcAccessSymbol)?.type : undefined;
+            let srcAccessType = accessorInfo.getFunction(srcPropertyType);
 
             if (!srcAccessType || !isFunction(srcAccessType)) {
                 diag?.addMessage(accessorInfo.missingDiagMsg());

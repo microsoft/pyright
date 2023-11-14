@@ -161,3 +161,7 @@ export interface StatusMutationListener {
     clearCache?: () => void;
     updateSettings?: <T extends ServerSettings>(settings: T) => void;
 }
+
+export interface DebugInfoInspector {
+    getCycleDetail(program: ProgramView, fileInfo: SourceFileInfo): string;
+}

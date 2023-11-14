@@ -30,7 +30,7 @@ import {
 } from '../analyzer/declaration';
 import { isDefinedInFile } from '../analyzer/declarationUtils';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
-import { ImportedModuleDescriptor } from '../analyzer/importResolver';
+import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import { ImportResult } from '../analyzer/importResult';
 import { isTypedKwargs } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
@@ -60,7 +60,6 @@ import {
     TypeCategory,
 } from '../analyzer/types';
 import {
-    ClassMemberLookupFlags,
     containsLiteralType,
     doForEachSignature,
     doForEachSubtype,
@@ -70,6 +69,7 @@ import {
     isMaybeDescriptorInstance,
     isNoneInstance,
     lookUpClassMember,
+    MemberAccessFlags,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
@@ -347,7 +347,10 @@ export class CompletionProvider {
             return;
         }
 
-        if (completionItemData.moduleUri) {
+        if (
+            completionItemData.moduleUri &&
+            ImportResolver.isSupportedImportSourceFile(Uri.parse(completionItemData.moduleUri))
+        ) {
             const documentation = getModuleDocStringFromUris(
                 [Uri.parse(completionItemData.moduleUri)],
                 this.sourceMapper
@@ -1637,7 +1640,7 @@ export class CompletionProvider {
         const classMember = lookUpClassMember(
             classResults.classType,
             classVariableName,
-            ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipOriginalClass
+            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipOriginalClass
         );
 
         // First, see whether we can use semantic info to get variable type.
@@ -2124,7 +2127,7 @@ export class CompletionProvider {
 
     private _getIndexKeyType(baseType: ClassType) {
         // Handle __getitem__.
-        const getItemType = this.evaluator.getBoundMethod(baseType, '__getitem__');
+        const getItemType = this.evaluator.getBoundMagicMethod(baseType, '__getitem__');
         if (getItemType) {
             const typesToCombine: Type[] = [];
 

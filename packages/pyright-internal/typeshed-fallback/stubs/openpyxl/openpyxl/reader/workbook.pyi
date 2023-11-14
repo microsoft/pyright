@@ -1,17 +1,18 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
+from zipfile import ZipFile
 
 from openpyxl.packaging.relationship import RelationshipList
 from openpyxl.pivot.cache import CacheDefinition
 from openpyxl.workbook import Workbook
 
 class WorkbookParser:
-    archive: Incomplete
+    archive: ZipFile
     workbook_part_name: Incomplete
     wb: Workbook
     keep_links: Incomplete
     sheets: Incomplete
-    def __init__(self, archive, workbook_part_name, keep_links: bool = True) -> None: ...
+    def __init__(self, archive: ZipFile, workbook_part_name, keep_links: bool = True) -> None: ...
     @property
     def rels(self) -> RelationshipList: ...
     caches: Incomplete

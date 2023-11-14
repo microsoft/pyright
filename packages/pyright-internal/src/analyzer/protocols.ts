@@ -30,16 +30,17 @@ import {
     OverloadedFunctionType,
     ProtocolCompatibility,
     Type,
+    TypeBase,
     UnknownType,
 } from './types';
 import {
     applySolvedTypeVars,
     AssignTypeFlags,
     ClassMember,
-    ClassMemberLookupFlags,
     containsLiteralType,
     getTypeVarScopeId,
     lookUpClassMember,
+    MemberAccessFlags,
     partiallySpecializeType,
     populateTypeVarContextForSelfType,
     removeParamSpecVariadicsFromSignature,
@@ -67,7 +68,6 @@ export function assignClassToProtocol(
     destTypeVarContext: TypeVarContext | undefined,
     srcTypeVarContext: TypeVarContext | undefined,
     flags: AssignTypeFlags,
-    treatSourceAsInstantiable: boolean,
     recursionCount: number
 ): boolean {
     const enforceInvariance = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
@@ -84,7 +84,7 @@ export function assignClassToProtocol(
 
     // See if we've already determined that this class is compatible with this protocol.
     if (!enforceInvariance) {
-        const compatibility = getProtocolCompatibility(destType, srcType, flags, treatSourceAsInstantiable);
+        const compatibility = getProtocolCompatibility(destType, srcType, flags);
 
         if (compatibility !== undefined) {
             if (compatibility) {
@@ -116,7 +116,6 @@ export function assignClassToProtocol(
             destTypeVarContext,
             srcTypeVarContext,
             flags,
-            treatSourceAsInstantiable,
             recursionCount
         );
     } catch (e) {
@@ -129,7 +128,7 @@ export function assignClassToProtocol(
     protocolAssignmentStack.pop();
 
     // Cache the results for next time.
-    setProtocolCompatibility(destType, srcType, flags, treatSourceAsInstantiable, isCompatible);
+    setProtocolCompatibility(destType, srcType, flags, isCompatible);
 
     return isCompatible;
 }
@@ -151,7 +150,6 @@ export function assignModuleToProtocol(
         destTypeVarContext,
         /* srcTypeVarContext */ undefined,
         flags,
-        /* treatSourceAsInstantiable */ false,
         recursionCount
     );
 }
@@ -161,8 +159,7 @@ export function assignModuleToProtocol(
 function getProtocolCompatibility(
     destType: ClassType,
     srcType: ClassType,
-    flags: AssignTypeFlags,
-    treatSourceAsInstantiable: boolean
+    flags: AssignTypeFlags
 ): boolean | undefined {
     const entries = srcType.details.protocolCompatibility?.get(destType.details.fullName);
     if (entries === undefined) {
@@ -170,12 +167,7 @@ function getProtocolCompatibility(
     }
 
     const entry = entries.find((entry) => {
-        return (
-            isTypeSame(entry.destType, destType) &&
-            isTypeSame(entry.srcType, srcType) &&
-            entry.treatSourceAsInstantiable === treatSourceAsInstantiable &&
-            entry.flags === flags
-        );
+        return isTypeSame(entry.destType, destType) && isTypeSame(entry.srcType, srcType) && entry.flags === flags;
     });
 
     return entry?.isCompatible;
@@ -185,7 +177,6 @@ function setProtocolCompatibility(
     destType: ClassType,
     srcType: ClassType,
     flags: AssignTypeFlags,
-    treatSourceAsInstantiable: boolean,
     isCompatible: boolean
 ) {
     if (!srcType.details.protocolCompatibility) {
@@ -201,7 +192,6 @@ function setProtocolCompatibility(
     entries.push({
         destType,
         srcType,
-        treatSourceAsInstantiable,
         flags,
         isCompatible,
     });
@@ -219,13 +209,13 @@ function assignClassToProtocolInternal(
     destTypeVarContext: TypeVarContext | undefined,
     srcTypeVarContext: TypeVarContext | undefined,
     flags: AssignTypeFlags,
-    treatSourceAsInstantiable: boolean,
     recursionCount: number
 ): boolean {
     if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
         return isTypeSame(destType, srcType);
     }
 
+    const sourceIsInstantiable = TypeBase.isInstantiable(srcType);
     const protocolTypeVarContext = createProtocolTypeVarContext(evaluator, destType, destTypeVarContext);
     const selfTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
     const noLiteralSrcType = evaluator.stripLiteralValue(srcType) as ClassType;
@@ -277,7 +267,7 @@ function assignClassToProtocolInternal(
 
             // Special-case the `__class_getitem__` for normal protocol comparison.
             // This is a convention agreed upon by typeshed maintainers.
-            if (!treatSourceAsInstantiable && name === '__class_getitem__') {
+            if (!sourceIsInstantiable && name === '__class_getitem__') {
                 return;
             }
 
@@ -302,7 +292,7 @@ function assignClassToProtocolInternal(
             if (isClass(srcType)) {
                 // Look in the metaclass first if we're treating the source as an instantiable class.
                 if (
-                    treatSourceAsInstantiable &&
+                    sourceIsInstantiable &&
                     srcType.details.effectiveMetaclass &&
                     isInstantiableClass(srcType.details.effectiveMetaclass)
                 ) {
@@ -357,7 +347,7 @@ function assignClassToProtocolInternal(
                 if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
                     if (isMemberFromMetaclass || isInstantiableClass(srcMemberInfo.classType)) {
                         const boundSrcFunction = evaluator.bindFunctionToClassOrObject(
-                            treatSourceAsInstantiable && !isMemberFromMetaclass
+                            sourceIsInstantiable && !isMemberFromMetaclass
                                 ? srcType
                                 : ClassType.cloneAsInstance(srcType),
                             srcMemberType,
@@ -441,7 +431,7 @@ function assignClassToProtocolInternal(
                 if (
                     isClassInstance(srcMemberType) &&
                     ClassType.isPropertyClass(srcMemberType) &&
-                    !treatSourceAsInstantiable
+                    !sourceIsInstantiable
                 ) {
                     if (
                         !assignProperty(
@@ -489,9 +479,7 @@ function assignClassToProtocolInternal(
                     if (isSrcReadOnly) {
                         // The source attribute is read-only. Make sure the setter
                         // is not defined in the dest property.
-                        if (
-                            lookUpClassMember(destMemberType, '__set__', ClassMemberLookupFlags.SkipInstanceVariables)
-                        ) {
+                        if (lookUpClassMember(destMemberType, '__set__', MemberAccessFlags.SkipInstanceMembers)) {
                             if (subDiag) {
                                 subDiag.addMessage(
                                     Localizer.DiagnosticAddendum.memberIsWritableInProtocol().format({ name })

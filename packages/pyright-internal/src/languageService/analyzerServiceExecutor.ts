@@ -153,7 +153,7 @@ function getEffectiveCommandLineOptions(
     commandLineOptions.extraPaths = serverSettings.extraPaths?.map((e) => e.getFilePath()) ?? [];
     commandLineOptions.diagnosticSeverityOverrides = serverSettings.diagnosticSeverityOverrides;
 
-    commandLineOptions.fileSpecs = serverSettings.fileSpecs ?? [];
+    commandLineOptions.includeFileSpecs = serverSettings.includeFileSpecs ?? [];
     commandLineOptions.excludeFileSpecs = serverSettings.excludeFileSpecs ?? [];
     commandLineOptions.ignoreFileSpecs = serverSettings.ignoreFileSpecs ?? [];
 

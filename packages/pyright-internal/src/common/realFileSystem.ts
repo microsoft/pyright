@@ -286,12 +286,10 @@ class RealFileSystem implements FileSystem {
         // See: https://github.com/yarnpkg/berry/blob/master/packages/vscode-zipfs/sources/ZipFSProvider.ts
         if (hasZipExtension(path)) {
             if (stat.isFile() && yarnFS.isZip(path)) {
-                return {
-                    ...stat,
-                    isFile: () => false,
-                    isDirectory: () => true,
-                    isZipDirectory: () => true,
-                };
+                stat.isFile = () => false;
+                stat.isDirectory = () => true;
+                (stat as any).isZipDirectory = () => true;
+                return stat;
             }
         }
         return stat;

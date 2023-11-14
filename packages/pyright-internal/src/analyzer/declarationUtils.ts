@@ -110,7 +110,7 @@ export function areDeclarationsSame(
             return true;
         }
 
-        if (decl1.firstNamePart !== decl2.firstNamePart) {
+        if (decl1.node !== decl2.node) {
             return false;
         }
     }
@@ -325,7 +325,7 @@ export function resolveAliasDeclaration(
             return undefined;
         }
 
-        if (symbol.isPrivateMember()) {
+        if (symbol.isPrivateMember() && !sawPyTypedTransition) {
             isPrivate = true;
         }
 

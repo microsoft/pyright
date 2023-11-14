@@ -38,7 +38,13 @@ export class CommandLineOptions {
     // A list of file specs to include in the analysis. Can contain
     // directories, in which case all "*.py" files within those directories
     // are included.
-    fileSpecs: string[] = [];
+    includeFileSpecs: string[] = [];
+
+    // If specified, this list of file specs overrides the includeFileSpecs
+    // above, rendering it as ignored. This is used
+    // for the CLI "--files" option, which should always override the "include"
+    // and "exclude" config file settings.
+    includeFileSpecsOverride?: string[];
 
     // A list of file specs to exclude in the analysis. Can contain
     // directories, in which case all "*.py" files within those directories

@@ -75,19 +75,21 @@ describe('Diagnostic overrides', () => {
         for (const propName of overrideNamesInJson) {
             const p = props[propName];
 
-            expect(p.type).toEqual('string');
+            expect(p.type).toEqual(['string', 'boolean']);
             expect(p.description).toBeDefined();
             expect(p.description.length).toBeGreaterThan(0);
             expect(p.default).toBeDefined();
 
             expect(p.enum).toBeDefined();
             expect(Array.isArray(p.enum));
-            expect(p.enum).toHaveLength(4);
+            expect(p.enum).toHaveLength(6);
 
             expect(p.enum[0]).toEqual('none');
             expect(p.enum[1]).toEqual('information');
             expect(p.enum[2]).toEqual('warning');
             expect(p.enum[3]).toEqual('error');
+            expect(p.enum[4]).toEqual(true);
+            expect(p.enum[5]).toEqual(false);
 
             expect(p.enum).toContain(p.default);
         }
