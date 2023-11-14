@@ -312,9 +312,14 @@ export class Uri {
         if (this._uri.scheme !== child._uri.scheme) {
             return undefined;
         }
-        const relativeToComponents = this.getRelativePathComponents(child);
-        if (relativeToComponents.length > 0) {
-            return ['.', ...relativeToComponents].join('/');
+
+        // Unlike getRelativePathComponents, this function should not return relative path
+        // markers for non children.
+        if (child.isChild(this)) {
+            const relativeToComponents = this.getRelativePathComponents(child);
+            if (relativeToComponents.length > 0) {
+                return ['.', ...relativeToComponents].join('/');
+            }
         }
         return undefined;
     }
@@ -336,19 +341,29 @@ export class Uri {
         return this._reducePathComponents([rootPath, ...otherPaths]);
     }
 
-    getRelativePathComponents(child: Uri): string[] {
-        if (!child.isChild(this)) {
-            return [];
+    getRelativePathComponents(to: Uri): string[] {
+        const fromComponents = this.getPathComponents();
+        const toComponents = to.getPathComponents();
+
+        let start: number;
+        for (start = 0; start < fromComponents.length && start < toComponents.length; start++) {
+            const fromComponent = fromComponents[start];
+            const toComponent = toComponents[start];
+            if (fromComponent !== toComponent) {
+                break;
+            }
         }
 
-        const childComponents = child.getPathComponents();
-        const parentComponents = this.getPathComponents();
-
-        if (childComponents.length < parentComponents.length) {
-            return [];
+        if (start === 0) {
+            return toComponents;
         }
 
-        return childComponents.slice(parentComponents.length);
+        const components = toComponents.slice(start);
+        const relative: string[] = [];
+        for (; start < fromComponents.length; start++) {
+            relative.push('..');
+        }
+        return [...relative, ...components];
     }
 
     getShortenedFileName(maxDirLength = 15) {

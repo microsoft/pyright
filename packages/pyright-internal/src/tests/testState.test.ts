@@ -119,7 +119,7 @@ test('Configuration', () => {
 
     assert.equal(state.configOptions.diagnosticRuleSet.reportMissingImports, 'error');
     assert.equal(state.configOptions.diagnosticRuleSet.reportMissingModuleSource, 'warning');
-    assert.equal(state.configOptions.stubPath, normalizeSlashes('/src/typestubs'));
+    assert.equal(state.configOptions.stubPath?.getFilePath(), normalizeSlashes('/src/typestubs'));
 });
 
 test('stubPath configuration', () => {
@@ -131,7 +131,7 @@ test('stubPath configuration', () => {
     `;
 
     const state = parseAndGetTestState(code).state;
-    assert.equal(state.configOptions.stubPath, normalizeSlashes('/src/typestubs'));
+    assert.equal(state.configOptions.stubPath?.getFilePath(), normalizeSlashes('/src/typestubs'));
 });
 
 test('Duplicated stubPath configuration', () => {
@@ -144,7 +144,7 @@ test('Duplicated stubPath configuration', () => {
     `;
 
     const state = parseAndGetTestState(code).state;
-    assert.equal(state.configOptions.stubPath, normalizeSlashes('/src/typestubs2'));
+    assert.equal(state.configOptions.stubPath?.getFilePath(), normalizeSlashes('/src/typestubs2'));
 });
 
 test('ProjectRoot', () => {
@@ -162,7 +162,7 @@ test('ProjectRoot', () => {
     assert.equal(state.cwd(), normalizeSlashes('/root'));
     assert(state.fs.existsSync(Uri.file(normalizeSlashes('/root/file1.py'))));
 
-    assert.equal(state.configOptions.projectRoot, normalizeSlashes('/root'));
+    assert.equal(state.configOptions.projectRoot.getFilePath(), normalizeSlashes('/root'));
 });
 
 test('CustomTypeshedFolder', () => {

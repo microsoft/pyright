@@ -370,7 +370,8 @@ test('getRelativePathComponents2', () => {
 
 test('getRelativePathComponents3', () => {
     const components = Uri.parse('bar:///users/').getRelativePathComponents(Uri.parse('foo:///users/bar'));
-    assert.equal(components.length, 0);
+    assert.equal(components.length, 1);
+    assert.equal(components[0], 'bar');
 });
 
 test('getRelativePathComponents4', () => {
@@ -382,6 +383,13 @@ test('getRelativePathComponents5', () => {
     const components = Uri.parse('foo:///users/').getRelativePathComponents(Uri.parse('foo:///users/bar/baz/../foo'));
     assert.equal(components.length, 2);
     assert.equal(components[0], 'bar');
+    assert.equal(components[1], 'foo');
+});
+
+test('getRelativePathComponents6', () => {
+    const components = Uri.parse('foo:///users/bar').getRelativePathComponents(Uri.parse('foo:///users/foo'));
+    assert.equal(components.length, 2);
+    assert.equal(components[0], '..');
     assert.equal(components[1], 'foo');
 });
 
