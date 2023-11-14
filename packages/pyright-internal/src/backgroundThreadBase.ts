@@ -50,7 +50,7 @@ export class BackgroundThreadBase {
         setCancellationFolderName(data.cancellationFolderName);
 
         // Stash the base directory into a global variable.
-        (global as any).__rootUri = Uri.parse(data.rootUri);
+        (global as any).__rootDirectory = Uri.parse(data.rootUri).getFilePath();
 
         // Make sure there's a file system and a console interface.
         this._serviceProvider = serviceProvider ?? new ServiceProvider();

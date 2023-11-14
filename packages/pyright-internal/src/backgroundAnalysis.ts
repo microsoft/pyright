@@ -17,14 +17,14 @@ import { ConsoleInterface } from './common/console';
 import { FullAccessHost } from './common/fullAccessHost';
 import { Host } from './common/host';
 import { ServiceProvider } from './common/serviceProvider';
-import { Uri } from './common/uri';
+import { getRootUri } from './common/uriUtils';
 
 export class BackgroundAnalysis extends BackgroundAnalysisBase {
     constructor(console: ConsoleInterface) {
         super(console);
 
         const initialData: InitializationData = {
-            rootUri: ((global as any).__rootUri as Uri).toString(),
+            rootUri: getRootUri()?.toString() || '',
             cancellationFolderName: getCancellationFolderName(),
             runner: undefined,
         };

@@ -416,3 +416,10 @@ export function deduplicateFolders(listOfFolders: Uri[][]): Uri[] {
 
     return [...foldersToWatch.values()];
 }
+
+export function getRootUri(): Uri | undefined {
+    if ((global as any).__rootDirectory) {
+        return Uri.file((global as any).__rootDirectory);
+    }
+    return undefined;
+}

@@ -353,7 +353,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     constructor(protected serverOptions: ServerOptions, protected connection: Connection) {
         // Stash the base directory into a global variable.
         // This must happen before fs.getModulePath().
-        (global as any).__rootUri = serverOptions.rootDirectory;
+        (global as any).__rootDirectory = serverOptions.rootDirectory.getFilePath();
 
         this.console.info(
             `${serverOptions.productName} language server ${

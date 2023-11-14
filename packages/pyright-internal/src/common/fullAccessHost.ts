@@ -85,7 +85,7 @@ export class FullAccessHost extends LimitedAccessHost {
 
     override getPythonSearchPaths(pythonPath?: Uri, logInfo?: string[]): PythonPathResult {
         const importFailureInfo = logInfo ?? [];
-        let result = this._executePythonInterpreter(pythonPath, (p) =>
+        let result = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
             this._getSearchPathResultFromInterpreter(this.fs, p, importFailureInfo)
         );
 
@@ -109,8 +109,8 @@ export class FullAccessHost extends LimitedAccessHost {
 
         try {
             const commandLineArgs: string[] = ['-c', extractVersion];
-            const execOutput = this._executePythonInterpreter(pythonPath, (p) =>
-                child_process.execFileSync(p.getFilePath(), commandLineArgs, { encoding: 'utf8' })
+            const execOutput = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
+                child_process.execFileSync(p, commandLineArgs, { encoding: 'utf8' })
             );
 
             const versionJson: { major: number; minor: number } = JSON.parse(execOutput!);
@@ -145,8 +145,8 @@ export class FullAccessHost extends LimitedAccessHost {
             let stderr = '';
             const commandLineArgs = [script.getFilePath(), ...args];
 
-            const child = this._executePythonInterpreter(pythonPath, (p) =>
-                child_process.spawn(p.getFilePath(), commandLineArgs, { cwd })
+            const child = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
+                child_process.spawn(p, commandLineArgs, { cwd })
             );
             const tokenWatch = token.onCancellationRequested(() => {
                 if (child) {
@@ -184,8 +184,8 @@ export class FullAccessHost extends LimitedAccessHost {
     }
 
     private _executePythonInterpreter<T>(
-        pythonPath: Uri | undefined,
-        execute: (path: Uri) => T | undefined
+        pythonPath: string | undefined,
+        execute: (path: string) => T | undefined
     ): T | undefined {
         if (pythonPath) {
             return execute(pythonPath);
@@ -196,7 +196,7 @@ export class FullAccessHost extends LimitedAccessHost {
                 // avoid this on Windows because it might invoke a script that displays
                 // a dialog box indicating that python can be downloaded from the app store.
                 if (process.platform !== 'win32') {
-                    result = execute(Uri.file('python3'));
+                    result = execute('python3');
                 }
             } catch {
                 // Ignore failure on python3
@@ -207,13 +207,13 @@ export class FullAccessHost extends LimitedAccessHost {
             }
 
             // On some platforms, 'python3' might not exist. Try 'python' instead.
-            return execute(Uri.file('python'));
+            return execute('python');
         }
     }
 
     private _getSearchPathResultFromInterpreter(
         fs: FileSystem,
-        interpreter: Uri,
+        interpreterPath: string,
         importFailureInfo: string[]
     ): PythonPathResult | undefined {
         const result: PythonPathResult = {
@@ -223,9 +223,7 @@ export class FullAccessHost extends LimitedAccessHost {
 
         try {
             const commandLineArgs: string[] = ['-c', extractSys];
-            const interpreterPath = interpreter.getFilePath();
-
-            importFailureInfo.push(`Executing interpreter: '${interpreter}'`);
+            importFailureInfo.push(`Executing interpreter: '${interpreterPath}'`);
             const execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, { encoding: 'utf8' });
 
             // Parse the execOutput. It should be a JSON-encoded array of paths.

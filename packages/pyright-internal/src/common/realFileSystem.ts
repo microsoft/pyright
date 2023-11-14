@@ -23,6 +23,7 @@ import {
 } from './fileWatcher';
 import { combinePaths, getRootLength } from './pathUtils';
 import { Uri } from './uri';
+import { getRootUri } from './uriUtils';
 
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();
@@ -315,10 +316,10 @@ class RealFileSystem implements FileSystem {
     }
 
     getModulePath(): Uri {
-        // The entry point to the tool should have set the __rootUri
+        // The entry point to the tool should have set the __rootDirectory
         // global variable to point to the directory that contains the
         // typeshed-fallback directory.
-        return (global as any).__rootUri;
+        return getRootUri() || Uri.empty();
     }
 
     createFileSystemWatcher(paths: Uri[], listener: FileWatcherEventHandler): FileWatcher {

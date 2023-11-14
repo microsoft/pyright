@@ -35,6 +35,7 @@ import { RealTempFile, WorkspaceFileWatcherProvider, createFromRealFileSystem } 
 import { ServiceProvider } from './common/serviceProvider';
 import { createServiceProvider } from './common/serviceProviderExtensions';
 import { Uri } from './common/uri';
+import { getRootUri } from './common/uriUtils';
 import { LanguageServerBase, ServerSettings } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 import { PyrightFileSystem } from './pyrightFileSystem';
@@ -49,10 +50,10 @@ export class PyrightServer extends LanguageServerBase {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const version = require('../package.json').version || '';
 
-        // When executed from CLI command (pyright-langserver), __rootUri is
+        // When executed from CLI command (pyright-langserver), __rootDirectory is
         // already defined. When executed from VSCode extension, rootDirectory should
         // be __dirname.
-        const rootDirectory: Uri = (global as any).__rootUri || Uri.file(__dirname);
+        const rootDirectory: Uri = getRootUri() || Uri.file(__dirname);
 
         const console = new ConsoleWithLogLevel(connection.console);
         const fileWatcherProvider = new WorkspaceFileWatcherProvider();
