@@ -52,7 +52,7 @@ _T1 = TypeVar("_T1", bound=CustomClass)
 
 def func1(cls: Type[_T1], val: _T1):
     if issubclass(cls, CustomClass):
-        reveal_type(cls, expected_text="type[CustomClass]*")
+        reveal_type(cls, expected_text="type[_T1@func1]")
     else:
         reveal_type(cls, expected_text="Never")
 
