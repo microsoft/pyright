@@ -1,6 +1,6 @@
 # This sample tests type narrowing for the "in" operator.
 
-from typing import Literal
+from typing import Literal, TypedDict
 import random
 
 
@@ -138,3 +138,18 @@ def func10(x: Literal["A", "B"], y: tuple[Literal["A"], ...]):
         reveal_type(x, expected_text="Literal['A']")
     else:
         reveal_type(x, expected_text="Literal['A', 'B']")
+
+
+class TD1(TypedDict):
+    x: str
+
+
+class TD2(TypedDict):
+    y: str
+
+
+def func11(x: dict[str, str]):
+    if x in (TD1(x="a"), TD2(y="b")):
+        reveal_type(x, expected_text="TD1 | TD2")
+    else:
+        reveal_type(x, expected_text="dict[str, str]")
