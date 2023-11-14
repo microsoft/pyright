@@ -548,9 +548,12 @@ export class ImportResolver {
     }
 
     protected fileExistsCached(uri: Uri): boolean {
+        if (uri.isEmpty()) {
+            return false;
+        }
         const splitPath = this._splitUri(uri);
 
-        if (!splitPath[0] || !splitPath[1]) {
+        if (splitPath[0].isEmpty() || !splitPath[1]) {
             if (!this.fileSystem.existsSync(uri)) {
                 return false;
             }
@@ -574,9 +577,13 @@ export class ImportResolver {
     }
 
     protected dirExistsCached(uri: Uri): boolean {
+        if (uri.isEmpty()) {
+            return false;
+        }
+
         const splitPath = this._splitUri(uri);
 
-        if (!splitPath[0] || !splitPath[1]) {
+        if (splitPath[0].isEmpty() || !splitPath[1]) {
             if (!this.fileSystem.existsSync(uri)) {
                 return false;
             }
