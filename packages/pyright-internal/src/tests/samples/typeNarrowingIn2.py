@@ -23,3 +23,4 @@ def func2(x: MyEnum):
         reveal_type(x, expected_text="Literal[MyEnum.A, MyEnum.B]")
     else:
         reveal_type(x, expected_text="Literal[MyEnum.C]")
+

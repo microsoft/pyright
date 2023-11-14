@@ -2051,6 +2051,15 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
             return referenceType;
         }
 
+        // Handle the special case where the reference type is a dict or Mapping and
+        // the element type is a TypedDict. In this case, we can't say whether there
+        // is a type overlap, so don't apply narrowing.
+        if (isClassInstance(referenceType) && ClassType.isBuiltIn(referenceType, ['dict', 'Mapping'])) {
+            if (isClassInstance(concreteElementType) && ClassType.isTypedDictClass(concreteElementType)) {
+                return concreteElementType;
+            }
+        }
+
         if (evaluator.assignType(referenceType, concreteElementType)) {
             return concreteElementType;
         }
