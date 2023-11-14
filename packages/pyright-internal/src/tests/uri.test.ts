@@ -162,6 +162,17 @@ test('matchesRegex', () => {
     assert.equal(uri2.matchesRegex(includeFiles), false);
     const uri3 = Uri.parse('vscode-vfs:///a/b/c.pyi');
     assert.ok(uri3.matchesRegex(includeFiles));
+    const fileRegex = /^(c:\/foo\/bar)($|\/)/i;
+    const uri4 = Uri.parse('file:///C%3A/foo/bar');
+    assert.ok(uri4.matchesRegex(fileRegex));
+    const uri5 = Uri.parse('file:///c%3A/foo/bar');
+    assert.ok(uri5.matchesRegex(fileRegex));
+    const uri6 = Uri.parse('file:///c:/foo/bar');
+    assert.ok(uri6.matchesRegex(fileRegex));
+    const uri7 = Uri.parse('file:///c:/foo/bar/');
+    assert.ok(uri7.matchesRegex(fileRegex));
+    const uri8 = Uri.parse('file:///c:/foo/baz/');
+    assert.equal(uri8.matchesRegex(fileRegex), false);
 });
 
 test('replaceExtension', () => {

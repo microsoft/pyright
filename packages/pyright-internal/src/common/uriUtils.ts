@@ -80,7 +80,7 @@ export function forEachAncestorDirectory(
         }
 
         const parentPath = directory.getDirectory();
-        if (parentPath === directory) {
+        if (parentPath.equals(directory)) {
             return undefined;
         }
 

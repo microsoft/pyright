@@ -42,8 +42,8 @@ test('FindFilesWithConfigFile', () => {
     // The config file specifies a single file spec (a directory).
     assert.strictEqual(configOptions.include.length, 1, `failed creating options from ${cwd}`);
     assert.strictEqual(
-        configOptions.projectRoot.getFilePath(),
-        service.fs.realCasePath(Uri.file(combinePaths(cwd, commandLineOptions.configFilePath)))
+        configOptions.projectRoot.key,
+        service.fs.realCasePath(Uri.file(combinePaths(cwd, commandLineOptions.configFilePath))).key
     );
 
     const fileList = service.test_getFileNamesFromFileSpecs();

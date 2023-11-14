@@ -9,13 +9,7 @@
 import { platform } from 'process';
 import { URI, Utils } from 'vscode-uri';
 import { some } from './collectionUtils';
-import {
-    combinePaths,
-    getPathComponents,
-    getRootLength,
-    hasTrailingDirectorySeparator,
-    normalizeSlashes,
-} from './pathUtils';
+import { getPathComponents, getRootLength, hasTrailingDirectorySeparator, normalizeSlashes } from './pathUtils';
 
 const EmptyKey = '<empty>';
 
@@ -98,12 +92,6 @@ export class Uri {
             return Uri.parse(path);
         }
 
-        // Special case any path starting with '.'. That should be
-        // the current working directory.
-        if (path.startsWith('.') && process.cwd) {
-            path = combinePaths(process.cwd(), path);
-        }
-
         // Otherwise assume this is a file path.
         return new Uri(URI.file(path));
     }
@@ -133,8 +121,16 @@ export class Uri {
     }
 
     matchesRegex(regex: RegExp): boolean {
-        // Just test the path portion of the URI.
-        return regex.test(this.getPath());
+        // Compare the regex to our path.
+        let path = this.getPath();
+
+        // Special case: If a file URI and we have a drive root, remove the '/' that could be
+        // on the front.
+        if (this._uri.scheme === 'file' && /^\/[a-zA-Z]:\//.test(path)) {
+            path = path.slice(1);
+        }
+
+        return regex.test(path);
     }
 
     replaceExtension(ext: string): Uri {
