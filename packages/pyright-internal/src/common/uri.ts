@@ -24,27 +24,10 @@ class EmptyURI extends URI {
 }
 
 export class Uri {
-    private readonly _string;
-    private readonly _uri: URI;
-    private readonly _key: string;
-    private static _empty = new Uri(new EmptyURI(), EmptyKey);
-
-    private constructor(uri: string | URI, key?: string) {
-        // Make sure the drive letter is lower case. This
-        // is consistent with what VS code does for URIs.
-        let originalString = URI.isUri(uri) ? uri.toString() : uri;
-        const parsed = URI.isUri(uri) ? uri : URI.parse(uri);
-        if (parsed.scheme === 'file') {
-            // The Vscode.URI parser makes sure the drive is lower cased.
-            originalString = parsed.toString();
-        }
-
-        // Original URI may not have resolved all the `..` in the path, so remove them.
-        // Note: this also has the effect of removing any trailing slashes.
-        this._uri = key === EmptyKey ? parsed : Utils.resolvePath(parsed);
-        this._string = this._uri.path.length !== parsed.path.length ? this._uri.toString() : originalString;
-        this._key = key ?? Uri._computeKey(this._uri);
-    }
+    private _cachedPathOnly: URI | undefined;
+    private _cachedBasename: string | undefined;
+    private static _empty = new Uri(new EmptyURI(), '', EmptyKey);
+    private constructor(private readonly _uri: URI, private readonly _string: string, private readonly _key: string) {}
 
     get key() {
         return this._key;
@@ -52,12 +35,15 @@ export class Uri {
 
     // Returns the last segment of the URI, similar to the UNIX basename command.
     get basename(): string {
-        return Utils.basename(this._uri.with({ query: '', fragment: '' }));
+        if (!this._cachedBasename) {
+            this._cachedBasename = Utils.basename(this._withoutQueryOrFragment());
+        }
+        return this._cachedBasename;
     }
 
     // Returns the extension of the URI, similar to the UNIX extname command.
     get extname(): string {
-        return Utils.extname(this._uri.with({ query: '', fragment: '' }));
+        return Utils.extname(this._withoutQueryOrFragment());
     }
 
     // Returns a URI where the path just contains the root folder.
@@ -66,12 +52,12 @@ export class Uri {
         if (this._uri.scheme === 'file' && rootPath !== this.getFilePath()) {
             return Uri.file(rootPath);
         } else if (rootPath !== this._uri.path) {
-            return new Uri(this._uri.with({ path: rootPath, query: '', fragment: '' }));
+            return Uri._factory(this._uri.with({ path: rootPath, query: '', fragment: '' }));
         }
         // Root path was not different, make sure we return a copy of the same
         // uri. URI parsing can remove extra slashes, etc. so we need to make sure we
         // return the same thing.
-        return new Uri(this._string);
+        return Uri._factory(this._string);
     }
 
     static empty(): Uri {
@@ -82,7 +68,7 @@ export class Uri {
         if (!value) {
             return Uri.empty();
         }
-        return new Uri(value);
+        return Uri._factory(value);
     }
 
     static file(path: string): Uri {
@@ -93,7 +79,7 @@ export class Uri {
         }
 
         // Otherwise assume this is a file path.
-        return new Uri(URI.file(path));
+        return Uri._factory(URI.file(path));
     }
 
     static fromKey(key: string): Uri {
@@ -138,9 +124,9 @@ export class Uri {
         const existing = this.extname;
         const index = path.lastIndexOf(existing);
         if (index > 0) {
-            return new Uri(this._uri.with({ path: path.slice(0, index) + ext, fragment: '', query: '' }));
+            return Uri._factory(this._uri.with({ path: path.slice(0, index) + ext, fragment: '', query: '' }));
         }
-        return new Uri(this._uri.with({ path: path + ext, fragment: '', query: '' }));
+        return Uri._factory(this._uri.with({ path: path + ext, fragment: '', query: '' }));
     }
 
     addExtension(ext: string): Uri {
@@ -149,16 +135,16 @@ export class Uri {
 
     addPath(extra: string): Uri {
         const path = this.getPath();
-        return new Uri(this._uri.with({ path: path + extra, fragment: '', query: '' }));
+        return Uri._factory(this._uri.with({ path: path + extra, fragment: '', query: '' }));
     }
 
     remove(fileOrDirName: string): Uri {
         const path = this.getPath();
         const index = path.lastIndexOf(fileOrDirName);
         if (index > 0) {
-            return new Uri(this._uri.with({ path: path.slice(0, index), fragment: '', query: '' }));
+            return Uri._factory(this._uri.with({ path: path.slice(0, index), fragment: '', query: '' }));
         }
-        return new Uri(this._uri);
+        return Uri._factory(this._uri);
     }
 
     // Returns just the fsPath path portion of the URI.
@@ -190,7 +176,7 @@ export class Uri {
 
     // Returns a URI where the path is the directory name of the original URI, similar to the UNIX dirname command.
     getDirectory(): Uri {
-        return new Uri(Utils.dirname(this._uri.with({ query: '', fragment: '' })));
+        return Uri._factory(Utils.dirname(this._withoutQueryOrFragment()));
     }
 
     getRootPathLength(): number {
@@ -301,11 +287,11 @@ export class Uri {
         // and combine the rest.
         const rooted = paths.findIndex((p) => getRootLength(p) > 0 || getRootLength(p, '/') > 0);
         if (rooted >= 0) {
-            return new Uri(Utils.joinPath(URI.file(paths[rooted]), ...paths.slice(rooted + 1)));
+            return Uri._factory(Utils.joinPath(URI.file(paths[rooted]), ...paths.slice(rooted + 1)));
         }
 
         // Otherwise just join the paths.
-        return new Uri(Utils.joinPath(this._uri.with({ fragment: '', query: '' }), ...paths));
+        return Uri._factory(Utils.joinPath(this._withoutQueryOrFragment(), ...paths));
     }
 
     getRelativePath(child: Uri): string | undefined {
@@ -379,9 +365,9 @@ export class Uri {
         const path = this.getPath();
         const index = path.lastIndexOf('.');
         if (index > 0) {
-            return new Uri(this._uri.with({ path: path.slice(0, index), fragment: '', query: '' }));
+            return Uri._factory(this._withoutQueryOrFragment().with({ path: path.slice(0, index) }));
         }
-        return new Uri(this._uri);
+        return Uri._factory(this._uri);
     }
 
     stripAllExtensions(): Uri {
@@ -391,6 +377,30 @@ export class Uri {
         return dir.combinePaths(stripped);
     }
 
+    private static _factory(uri: string | URI, key?: string): Uri {
+        // Make sure the drive letter is lower case. This
+        // is consistent with what VS code does for URIs.
+        let originalString = URI.isUri(uri) ? uri.toString() : uri;
+        const parsed = URI.isUri(uri) ? uri : URI.parse(uri);
+        if (parsed.scheme === 'file') {
+            // The Vscode.URI parser makes sure the drive is lower cased.
+            originalString = parsed.toString();
+        }
+
+        // Original URI may not have resolved all the `..` in the path, so remove them.
+        // Note: this also has the effect of removing any trailing slashes.
+        const finalURI = key === EmptyKey || !originalString.includes('..') ? parsed : Utils.resolvePath(parsed);
+        const finalString = finalURI.path.length !== parsed.path.length ? finalURI.toString() : originalString;
+        const finalKey = key ?? Uri._computeKey(finalURI);
+
+        return new Uri(finalURI, finalString, finalKey);
+    }
+    private _withoutQueryOrFragment(): URI {
+        if (!this._cachedPathOnly) {
+            this._cachedPathOnly = this._uri.with({ query: '', fragment: '' });
+        }
+        return this._cachedPathOnly;
+    }
     private _getRootPath(): string {
         if (this._uri.scheme === 'file') {
             const rootLength = getRootLength(this.getFilePath());

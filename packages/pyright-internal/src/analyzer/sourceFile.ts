@@ -20,6 +20,7 @@ import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSin
 import { ServiceProvider } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { LogTracker, getPathForLogging } from '../common/logTracker';
+import { stripFileExtension } from '../common/pathUtils';
 import { convertOffsetsToRange, convertTextRangeToRange } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
@@ -289,7 +290,7 @@ export class SourceFile {
         }
 
         // Synthesize a module name using the file path.
-        return this._uri.stripExtension().basename;
+        return stripFileExtension(this._uri.basename);
     }
 
     setModuleName(name: string) {

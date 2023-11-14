@@ -14,6 +14,7 @@ import { appendArray, flatten, getMapValues, getOrAdd } from '../common/collecti
 import { ConfigOptions, ExecutionEnvironment, matchFileSpecs } from '../common/configOptions';
 import { Host } from '../common/host';
 import { stubsSuffix } from '../common/pathConsts';
+import { stripFileExtension } from '../common/pathUtils';
 import { PythonVersion, versionFromString } from '../common/pythonVersion';
 import { ServiceProvider } from '../common/serviceProvider';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
@@ -743,7 +744,7 @@ export class ImportResolver {
     protected getNativeModuleName(uri: Uri): string | undefined {
         const fileExtension = uri.extname.toLowerCase();
         if (this._isNativeModuleFileExtension(fileExtension)) {
-            return uri.stripExtension().stripExtension().basename;
+            return stripFileExtension(uri.basename, true);
         }
         return undefined;
     }
@@ -2541,7 +2542,7 @@ export class ImportResolver {
             let isNativeLib = false;
 
             if (fileExt === '.py' || fileExt === '.pyi') {
-                strippedFileName = filePath.stripExtension().basename;
+                strippedFileName = stripFileExtension(filePath.basename);
             } else if (
                 this._isNativeModuleFileExtension(fileExt) &&
                 !this.fileExistsCached(filePath.addExtension('.py')) &&

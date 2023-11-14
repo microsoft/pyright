@@ -377,13 +377,6 @@ export function isFileSystemCaseSensitiveInternal(fs: FileSystem, tmp: TempFile)
     }
 }
 
-export function getLibraryPathWithoutExtension(libraryUri: Uri) {
-    const filePathWithoutExtension = libraryUri.stripExtension();
-
-    // Strip off the '/__init__' if it's present.
-    return filePathWithoutExtension.remove('__init__');
-}
-
 export function deduplicateFolders(listOfFolders: Uri[][]): Uri[] {
     const foldersToWatch = new Map<string, Uri>();
 
