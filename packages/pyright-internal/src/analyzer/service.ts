@@ -687,7 +687,7 @@ export class AnalyzerService {
         if (commandLineOptions.includeFileSpecsOverride) {
             configOptions.include = [];
             commandLineOptions.includeFileSpecsOverride.forEach((include) => {
-                configOptions.include.push(getFileSpec(this.serviceProvider, include, '.'));
+                configOptions.include.push(getFileSpec(this.serviceProvider, projectRoot, include));
             });
         }
 

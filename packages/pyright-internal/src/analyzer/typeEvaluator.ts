@@ -16853,7 +16853,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 Localizer.DiagnosticAddendum.initSubclassLocation().format({
                                     name: printType(convertToInstance(initSubclassMethodInfo.classType)),
                                 }),
-                                initSubclassDecl.path,
+                                initSubclassDecl.uri,
                                 initSubclassDecl.range
                             );
                         }
