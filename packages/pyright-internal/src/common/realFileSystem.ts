@@ -8,7 +8,6 @@ import { FakeFS, NativePath, PortablePath, PosixFS, ppath, VirtualFS, ZipFS, Zip
 import { getLibzipSync } from '@yarnpkg/libzip';
 import * as fs from 'fs';
 import * as tmp from 'tmp';
-import { URI } from 'vscode-uri';
 import { isMainThread } from 'worker_threads';
 
 import { ConsoleInterface, NullConsole } from './console';
@@ -21,7 +20,7 @@ import {
     FileWatcherProvider,
     nullFileWatcherProvider,
 } from './fileWatcher';
-import { combinePaths, getRootLength } from './pathUtils';
+import { getRootLength } from './pathUtils';
 import { Uri } from './uri';
 import { getRootUri } from './uriUtils';
 
@@ -409,24 +408,7 @@ class RealFileSystem implements FileSystem {
     }
 
     private _getNormalizedPath(uri: Uri) {
-        const path = this._getFileSystemPath(uri);
-        const driveLength = uri.getRootPathLength();
-
-        if (driveLength === 0) {
-            return path;
-        }
-
-        // `vscode` sometimes uses different casing for drive letter.
-        // Make sure we normalize at least drive letter.
-        return combinePaths(fs.realpathSync.native(path.substring(0, driveLength)), path.substring(driveLength));
-    }
-
-    private _getFileSystemPath(uri: Uri) {
-        // Reparse the URI using the vscode.URI parser.
-        const parsed = URI.parse(uri.toString());
-
-        // Assume everything is a file path.
-        return parsed.fsPath;
+        return uri.getFilePath();
     }
 }
 
