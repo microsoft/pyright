@@ -4462,18 +4462,7 @@ export class Checker extends ParseTreeWalker {
 
             if (declaredReturnType) {
                 this._reportUnknownReturnResult(node, declaredReturnType);
-
-                if (
-                    isTypeVar(declaredReturnType) &&
-                    declaredReturnType.details.declaredVariance === Variance.Contravariant
-                ) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.returnTypeContravariant(),
-                        returnAnnotation
-                    );
-                }
+                this._validateReturnTypeIsNotContravariant(declaredReturnType, returnAnnotation);
             }
 
             // Wrap the declared type in a generator type if the function is a generator.
@@ -4527,6 +4516,26 @@ export class Checker extends ParseTreeWalker {
         } else {
             const inferredReturnType = this._evaluator.getFunctionInferredReturnType(functionType);
             this._reportUnknownReturnResult(node, inferredReturnType);
+            this._validateReturnTypeIsNotContravariant(inferredReturnType, node.name);
+        }
+    }
+
+    private _validateReturnTypeIsNotContravariant(returnType: Type, errorNode: ExpressionNode) {
+        let isContraTypeVar = false;
+
+        doForEachSubtype(returnType, (subtype) => {
+            if (isTypeVar(subtype) && subtype.details.declaredVariance === Variance.Contravariant) {
+                isContraTypeVar = true;
+            }
+        });
+
+        if (isContraTypeVar) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.returnTypeContravariant(),
+                errorNode
+            );
         }
     }
 
