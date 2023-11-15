@@ -378,7 +378,13 @@ export class AnalyzerService {
         const checkedFileCount = this._program.getUserFileCount();
         this._console.info('Total files checked: ' + checkedFileCount.toString());
 
+        this._console.info('URI stats');
         this._console.info(`Total number of URIs created: ${Uri.count()}`);
+        this._console.info(`Total number of unique URIs created: ${Uri.uniqueCount()}`);
+        this._console.info(`Counts per method of creation:`);
+        Uri.methods().forEach((m) => {
+            this._console.info(`  ${m}: ${Uri.countPerMethod(m)}`);
+        });
     }
 
     printDetailedAnalysisTimes() {

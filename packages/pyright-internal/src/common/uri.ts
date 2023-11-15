@@ -26,8 +26,21 @@ class EmptyURI extends URI {
 export class Uri {
     private _cachedPathOnly: URI | undefined;
     private _cachedBasename: string | undefined;
-    private static _empty = new Uri(new EmptyURI(), '', EmptyKey);
-    private constructor(private readonly _uri: URI, private readonly _string: string, private readonly _key: string) {}
+    private static _counter = 0;
+    private static _uniqueUris = new Set<string>();
+    private static _countPerMethod = new Map<string, number>();
+    private static _empty = new Uri(new EmptyURI(), '', EmptyKey, 'empty');
+    private constructor(
+        private readonly _uri: URI,
+        private readonly _string: string,
+        private readonly _key: string,
+        private _creationMethod: string
+    ) {
+        Uri._counter++;
+        Uri._uniqueUris.add(_key);
+        const currentCount = Uri._countPerMethod.get(_creationMethod) || 0;
+        Uri._countPerMethod.set(_creationMethod, currentCount + 1);
+    }
 
     get key() {
         return this._key;
@@ -52,12 +65,9 @@ export class Uri {
         if (this._uri.scheme === 'file' && rootPath !== this.getFilePath()) {
             return Uri.file(rootPath);
         } else if (rootPath !== this._uri.path) {
-            return Uri._factory(this._uri.with({ path: rootPath, query: '', fragment: '' }));
+            return Uri._factory(this._uri.with({ path: rootPath, query: '', fragment: '' }), 'root');
         }
-        // Root path was not different, make sure we return a copy of the same
-        // uri. URI parsing can remove extra slashes, etc. so we need to make sure we
-        // return the same thing.
-        return Uri._factory(this._string);
+        return this;
     }
 
     static empty(): Uri {
@@ -68,7 +78,23 @@ export class Uri {
         if (!value) {
             return Uri.empty();
         }
-        return Uri._factory(value);
+        return Uri._factory(value, 'parse');
+    }
+
+    static count(): number {
+        return Uri._counter;
+    }
+
+    static uniqueCount(): number {
+        return Uri._uniqueUris.size;
+    }
+
+    static methods(): string[] {
+        return Array.from(Uri._countPerMethod.keys());
+    }
+
+    static countPerMethod(method: string): number {
+        return Uri._countPerMethod.get(method) ?? 0;
     }
 
     static file(path: string): Uri {
@@ -79,7 +105,7 @@ export class Uri {
         }
 
         // Otherwise assume this is a file path.
-        return Uri._factory(URI.file(path));
+        return Uri._factory(URI.file(path), 'file');
     }
 
     static fromKey(key: string): Uri {
@@ -124,9 +150,12 @@ export class Uri {
         const existing = this.extname;
         const index = path.lastIndexOf(existing);
         if (index > 0) {
-            return Uri._factory(this._uri.with({ path: path.slice(0, index) + ext, fragment: '', query: '' }));
+            return Uri._factory(
+                this._uri.with({ path: path.slice(0, index) + ext, fragment: '', query: '' }),
+                'replaceExtension'
+            );
         }
-        return Uri._factory(this._uri.with({ path: path + ext, fragment: '', query: '' }));
+        return Uri._factory(this._uri.with({ path: path + ext, fragment: '', query: '' }), 'replaceExtension');
     }
 
     addExtension(ext: string): Uri {
@@ -135,16 +164,16 @@ export class Uri {
 
     addPath(extra: string): Uri {
         const path = this.getPath();
-        return Uri._factory(this._uri.with({ path: path + extra, fragment: '', query: '' }));
+        return Uri._factory(this._uri.with({ path: path + extra, fragment: '', query: '' }), 'addPath');
     }
 
     remove(fileOrDirName: string): Uri {
         const path = this.getPath();
         const index = path.lastIndexOf(fileOrDirName);
         if (index > 0) {
-            return Uri._factory(this._uri.with({ path: path.slice(0, index), fragment: '', query: '' }));
+            return Uri._factory(this._uri.with({ path: path.slice(0, index), fragment: '', query: '' }), 'remove');
         }
-        return Uri._factory(this._uri);
+        return this;
     }
 
     // Returns just the fsPath path portion of the URI.
@@ -176,7 +205,7 @@ export class Uri {
 
     // Returns a URI where the path is the directory name of the original URI, similar to the UNIX dirname command.
     getDirectory(): Uri {
-        return Uri._factory(Utils.dirname(this._withoutQueryOrFragment()));
+        return Uri._factory(Utils.dirname(this._withoutQueryOrFragment()), 'directory');
     }
 
     getRootPathLength(): number {
@@ -287,11 +316,11 @@ export class Uri {
         // and combine the rest.
         const rooted = paths.findIndex((p) => getRootLength(p) > 0 || getRootLength(p, '/') > 0);
         if (rooted >= 0) {
-            return Uri._factory(Utils.joinPath(URI.file(paths[rooted]), ...paths.slice(rooted + 1)));
+            return Uri._factory(Utils.joinPath(URI.file(paths[rooted]), ...paths.slice(rooted + 1)), 'combinePaths');
         }
 
         // Otherwise just join the paths.
-        return Uri._factory(Utils.joinPath(this._withoutQueryOrFragment(), ...paths));
+        return Uri._factory(Utils.joinPath(this._withoutQueryOrFragment(), ...paths), 'combinePaths');
     }
 
     getRelativePath(child: Uri): string | undefined {
@@ -365,9 +394,9 @@ export class Uri {
         const path = this.getPath();
         const index = path.lastIndexOf('.');
         if (index > 0) {
-            return Uri._factory(this._withoutQueryOrFragment().with({ path: path.slice(0, index) }));
+            return Uri._factory(this._withoutQueryOrFragment().with({ path: path.slice(0, index) }), 'stripExtension');
         }
-        return Uri._factory(this._uri);
+        return this;
     }
 
     stripAllExtensions(): Uri {
@@ -377,7 +406,7 @@ export class Uri {
         return dir.combinePaths(stripped);
     }
 
-    private static _factory(uri: string | URI, key?: string): Uri {
+    private static _factory(uri: string | URI, method: string): Uri {
         // Make sure the drive letter is lower case. This
         // is consistent with what VS code does for URIs.
         let originalString = URI.isUri(uri) ? uri.toString() : uri;
@@ -389,11 +418,11 @@ export class Uri {
 
         // Original URI may not have resolved all the `..` in the path, so remove them.
         // Note: this also has the effect of removing any trailing slashes.
-        const finalURI = key === EmptyKey ? parsed : Utils.resolvePath(parsed);
+        const finalURI = Utils.resolvePath(parsed);
         const finalString = finalURI.path.length !== parsed.path.length ? finalURI.toString() : originalString;
-        const finalKey = key ?? Uri._computeKey(finalURI);
+        const finalKey = Uri._computeKey(finalURI);
 
-        return new Uri(finalURI, finalString, finalKey);
+        return new Uri(finalURI, finalString, finalKey, method);
     }
     private _withoutQueryOrFragment(): URI {
         if (!this._cachedPathOnly) {
