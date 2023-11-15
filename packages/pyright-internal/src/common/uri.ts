@@ -389,7 +389,7 @@ export class Uri {
 
         // Original URI may not have resolved all the `..` in the path, so remove them.
         // Note: this also has the effect of removing any trailing slashes.
-        const finalURI = key === EmptyKey || !originalString.includes('..') ? parsed : Utils.resolvePath(parsed);
+        const finalURI = key === EmptyKey ? parsed : Utils.resolvePath(parsed);
         const finalString = finalURI.path.length !== parsed.path.length ? finalURI.toString() : originalString;
         const finalKey = key ?? Uri._computeKey(finalURI);
 

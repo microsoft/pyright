@@ -314,6 +314,18 @@ test('combinePaths', () => {
     assert.equal(uri11.toString(), Uri.empty().toString());
 });
 
+test('combinePaths non file', () => {
+    const uri1 = Uri.parse('baz://authority/a/b/c.pyi?query#fragment');
+    const uri2 = uri1.combinePaths('d', 'e');
+    assert.equal(uri2.toString(), 'baz://authority/a/b/c.pyi/d/e');
+    const uri3 = uri1.combinePaths('d', 'e/');
+    assert.equal(uri3.toString(), 'baz://authority/a/b/c.pyi/d/e');
+    const uri4 = uri1.combinePaths('d', 'e', 'f/');
+    assert.equal(uri4.toString(), 'baz://authority/a/b/c.pyi/d/e/f');
+    const uri5 = uri1.combinePaths('d', '..', 'e');
+    assert.equal(uri5.toString(), 'baz://authority/a/b/c.pyi/e');
+});
+
 test('getPathComponents1', () => {
     const components = Uri.parse('').getPathComponents();
     assert.equal(components.length, 0);
