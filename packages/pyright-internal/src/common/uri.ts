@@ -7,9 +7,10 @@
  */
 
 import { platform } from 'process';
-import { URI, Utils } from 'vscode-uri';
 import { some } from './collectionUtils';
 import { getPathComponents, getRootLength, hasTrailingDirectorySeparator, normalizeSlashes } from './pathUtils';
+import { URI } from './vscode.uri/uri';
+import { Utils } from './vscode.uri/utils';
 
 const EmptyKey = '<empty>';
 
