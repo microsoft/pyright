@@ -21143,7 +21143,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         args?: ValidateArgTypeParams[],
         inferTypeIfNeeded = true
     ) {
-        const specializedReturnType = FunctionType.getSpecializedReturnType(type);
+        const specializedReturnType = FunctionType.getSpecializedReturnType(type, /* includeInferred */ false);
         if (specializedReturnType) {
             return adjustCallableReturnType(specializedReturnType, /* trackedSignatures */ undefined);
         }
