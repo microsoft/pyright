@@ -40,7 +40,11 @@ import { TypeEvaluator } from './typeEvaluatorTypes';
 import { lookUpClassMember } from './typeUtils';
 import { ClassType, isFunction, isInstantiableClass, isOverloadedFunction } from './types';
 
-type ClassOrFunctionOrVariableDeclaration = ClassDeclaration | FunctionDeclaration | VariableDeclaration;
+type ClassOrFunctionOrVariableDeclaration =
+    | ClassDeclaration
+    | SpecialBuiltInClassDeclaration
+    | FunctionDeclaration
+    | VariableDeclaration;
 
 // Creates and binds a shadowed file within the program.
 export type ShadowFileBinder = (stubFileUri: Uri, implFileUri: Uri) => SourceFile | undefined;
@@ -488,6 +492,8 @@ export class SourceMapper {
             } else {
                 result.push(decl);
             }
+        } else if (isSpecialBuiltInClassDeclaration(decl)) {
+            result.push(decl);
         } else if (isFunctionDeclaration(decl)) {
             if (this._isStubThatShouldBeMappedToImplementation(decl.uri)) {
                 appendArray(result, this._findFunctionOrTypeAliasDeclarations(decl, recursiveDeclCache));

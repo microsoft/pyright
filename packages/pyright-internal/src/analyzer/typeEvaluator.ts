@@ -5960,12 +5960,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         if (usage.method === 'get') {
+            let classArgType: Type;
+            if (selfType) {
+                classArgType = convertToInstantiable(selfType);
+            } else {
+                classArgType = isAccessedThroughObject ? ClassType.cloneAsInstantiable(classType) : classType;
+            }
+
             // Provide "owner" argument.
             argList.push({
                 argumentCategory: ArgumentCategory.Simple,
-                typeResult: {
-                    type: isAccessedThroughObject ? ClassType.cloneAsInstantiable(classType) : classType,
-                },
+                typeResult: { type: classArgType },
             });
         } else if (usage.method === 'set') {
             // Provide "value" argument.
@@ -21153,7 +21158,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         args?: ValidateArgTypeParams[],
         inferTypeIfNeeded = true
     ) {
-        const specializedReturnType = FunctionType.getSpecializedReturnType(type);
+        const specializedReturnType = FunctionType.getSpecializedReturnType(type, /* includeInferred */ false);
         if (specializedReturnType) {
             return adjustCallableReturnType(specializedReturnType, /* trackedSignatures */ undefined);
         }

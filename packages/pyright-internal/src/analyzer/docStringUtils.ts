@@ -101,7 +101,7 @@ export function extractParameterDocumentation(functionDocString: string, paramNa
             return trimmedLine.substr(paramOffset);
         }
 
-        // Check for Google (variant 1) format
+        // Check for Google (variant 2) format
         paramOffset = trimmedLine.indexOf(paramName + ' (');
         if (paramOffset >= 0) {
             return trimmedLine.substr(paramOffset);
