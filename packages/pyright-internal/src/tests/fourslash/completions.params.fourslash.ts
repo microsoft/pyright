@@ -21,6 +21,11 @@
 ////     pass
 ////
 //// method3(p/*marker6*/, k/*marker7*/)
+////
+//// def method4(param1: int, /, param2: int):
+////     pass
+////
+//// method4(p/*marker8*/)
 
 // @ts-ignore
 await helper.verifyCompletion('excluded', 'markdown', {
@@ -38,6 +43,9 @@ await helper.verifyCompletion('excluded', 'markdown', {
     },
     marker7: {
         completions: [{ label: 'key1', kind: undefined }],
+    },
+    marker8: {
+        completions: [{ label: 'param1', kind: undefined }],
     },
 });
 
@@ -57,5 +65,8 @@ await helper.verifyCompletion('included', 'markdown', {
     },
     marker6: {
         completions: [{ label: 'param1=', kind: Consts.CompletionItemKind.Variable }],
+    },
+    marker8: {
+        completions: [{ label: 'param2=', kind: Consts.CompletionItemKind.Variable }],
     },
 });

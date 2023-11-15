@@ -28,7 +28,7 @@ import { createDeferred } from './common/deferred';
 import { Diagnostic, DiagnosticCategory } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { FullAccessHost } from './common/fullAccessHost';
-import { combinePaths, normalizePath } from './common/pathUtils';
+import { combinePaths, getFileSpec, normalizePath, tryStat } from './common/pathUtils';
 import { versionFromString } from './common/pythonVersion';
 import { RealTempFile, createFromRealFileSystem } from './common/realFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
@@ -198,7 +198,7 @@ async function processArgs(): Promise<ExitStatus> {
         }
     }
 
-    if (args['verifytypes'] !== undefined) {
+    if (args.verifytypes !== undefined) {
         const incompatibleArgs = ['watch', 'stats', 'createstub', 'dependencies', 'skipunannotated'];
         for (const arg of incompatibleArgs) {
             if (args[arg] !== undefined) {
@@ -242,6 +242,23 @@ async function processArgs(): Promise<ExitStatus> {
 
         options.includeFileSpecsOverride = fileSpecList;
         options.includeFileSpecsOverride = options.includeFileSpecsOverride.map((f) => combinePaths(process.cwd(), f));
+
+        // Verify the specified file specs to make sure their wildcard roots exist.
+        const tempFileSystem = new PyrightFileSystem(createFromRealFileSystem());
+        const tempServiceProvider = createServiceProvider(tempFileSystem, console);
+
+        for (const fileDesc of options.includeFileSpecsOverride) {
+            const includeSpec = getFileSpec(tempServiceProvider, '', fileDesc);
+            try {
+                const stat = tryStat(tempFileSystem, includeSpec.wildcardRoot);
+                if (!stat) {
+                    console.error(`File or directory "${includeSpec.wildcardRoot}" does not exist.`);
+                    return ExitStatus.ParameterError;
+                }
+            } catch {
+                // Ignore exception in this case.
+            }
+        }
     }
 
     if (args.project) {
