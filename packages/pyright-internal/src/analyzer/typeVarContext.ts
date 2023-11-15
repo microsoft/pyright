@@ -154,6 +154,10 @@ export class TypeVarSignatureContext {
         return this._typeVarMap.get(key);
     }
 
+    getTypeVarByName(key: string): TypeVarMapEntry | undefined {
+        return this._typeVarMap.get(key);
+    }
+
     getTypeVars(): TypeVarMapEntry[] {
         const entries: TypeVarMapEntry[] = [];
 

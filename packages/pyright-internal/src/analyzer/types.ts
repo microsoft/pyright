@@ -2034,10 +2034,20 @@ export namespace FunctionType {
         }
     }
 
-    export function getSpecializedReturnType(type: FunctionType) {
-        return type.specializedTypes && type.specializedTypes.returnType
-            ? type.specializedTypes.returnType
-            : type.details.declaredReturnType;
+    export function getSpecializedReturnType(type: FunctionType, includeInferred = true) {
+        if (type.specializedTypes?.returnType) {
+            return type.specializedTypes.returnType;
+        }
+
+        if (type.details.declaredReturnType) {
+            return type.details.declaredReturnType;
+        }
+
+        if (includeInferred) {
+            return type.inferredReturnType;
+        }
+
+        return undefined;
     }
 }
 
