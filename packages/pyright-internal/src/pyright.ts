@@ -28,13 +28,14 @@ import { createDeferred } from './common/deferred';
 import { Diagnostic, DiagnosticCategory } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { FullAccessHost } from './common/fullAccessHost';
-import { combinePaths, getFileSpec, normalizePath, tryStat } from './common/pathUtils';
+import { combinePaths, normalizePath } from './common/pathUtils';
 import { versionFromString } from './common/pythonVersion';
 import { RealTempFile, createFromRealFileSystem } from './common/realFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
 import { createServiceProvider } from './common/serviceProviderExtensions';
 import { Range, isEmptyRange } from './common/textRange';
 import { Uri } from './common/uri';
+import { getFileSpec, tryStat } from './common/uriUtils';
 import { PyrightFileSystem } from './pyrightFileSystem';
 
 const toolName = 'pyright';
@@ -248,7 +249,7 @@ async function processArgs(): Promise<ExitStatus> {
         const tempServiceProvider = createServiceProvider(tempFileSystem, console);
 
         for (const fileDesc of options.includeFileSpecsOverride) {
-            const includeSpec = getFileSpec(tempServiceProvider, '', fileDesc);
+            const includeSpec = getFileSpec(tempServiceProvider, Uri.file(process.cwd()), fileDesc);
             try {
                 const stat = tryStat(tempFileSystem, includeSpec.wildcardRoot);
                 if (!stat) {
