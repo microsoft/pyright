@@ -17,7 +17,7 @@
 ////     """
 ////     Args:
 ////         a (int): description
-////         b (int): 한국어
+////         b (int|bool): 한국어
 ////         c (int): description
 ////     """
 ////
@@ -31,5 +31,5 @@ helper.verifyHover('markdown', {
     marker2: '```python\n(function) def func2() -> None\n```',
     marker3: '```python\n(function) def func3() -> None\n```',
     marker4:
-        '```python\n(function) def func4(a: int, b: int, c: int) -> None\n```\n---\nArgs:  \n&nbsp;&nbsp;&nbsp;&nbsp;a (int): description  \n&nbsp;&nbsp;&nbsp;&nbsp;b (int): 한국어  \n&nbsp;&nbsp;&nbsp;&nbsp;c (int): description',
+        '```python\n(function) def func4(a: int, b: int, c: int) -> None\n```\n---\nArgs:  \n&nbsp;&nbsp;&nbsp;&nbsp;a (int): description  \n&nbsp;&nbsp;&nbsp;&nbsp;b (int|bool): 한국어  \n&nbsp;&nbsp;&nbsp;&nbsp;c (int): description',
 });
