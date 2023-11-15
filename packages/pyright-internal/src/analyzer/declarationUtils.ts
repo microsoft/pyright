@@ -136,7 +136,10 @@ export function getNameFromDeclaration(declaration: Declaration) {
 
         case DeclarationType.Intrinsic:
         case DeclarationType.SpecialBuiltInClass:
-            return undefined;
+            return declaration.node.nodeType === ParseNodeType.TypeAnnotation &&
+                declaration.node.valueExpression.nodeType === ParseNodeType.Name
+                ? declaration.node.valueExpression.value
+                : undefined;
     }
 
     throw new Error(`Shouldn't reach here`);
