@@ -14,7 +14,7 @@ class Foo(Protocol[T_contra]):
         ...
 
 
-def t1(x: Foo[T_contra]) -> T_contra | None:
+def t1(x: Foo[T_contra]) -> list[T_contra] | None:
     ...
 
 
@@ -22,7 +22,7 @@ def t2(x: Foo[object]) -> None:
     ...
 
 
-def func1(x: Foo[T_contra]) -> T_contra | None:
+def func1(x: Foo[T_contra]) -> list[T_contra] | None:
     # This should generate an error.
     t2(x)
 

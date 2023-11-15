@@ -41,8 +41,15 @@ class Foo(Generic[_T, _T_co, _T_contra]):
     def func8(self) -> _T_contra:
         ...
 
+    # This should generate an error because contravariant
+    # TypeVars are not allowed for return parameters.
     def func9(self) -> _T_contra | int:
         return 3
 
-    def func10(self) -> list[_T_contra]:
+    # This should generate an error because contravariant
+    # TypeVars are not allowed for return parameters.
+    def func10(self, x: _T_contra):
+        return x
+
+    def func11(self) -> list[_T_contra]:
         return []
