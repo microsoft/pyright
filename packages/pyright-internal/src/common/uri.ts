@@ -7,80 +7,51 @@
  */
 
 import { platform } from 'process';
+import { URI, Utils } from 'vscode-uri';
 import { some } from './collectionUtils';
-import { getPathComponents, getRootLength, hasTrailingDirectorySeparator, normalizeSlashes } from './pathUtils';
-import { URI } from './vscode.uri/uri';
-import { Utils } from './vscode.uri/utils';
+import {
+    combinePaths,
+    ensureTrailingDirectorySeparator,
+    getDirectoryPath,
+    getFileExtension,
+    getFileName,
+    getPathComponents,
+    getRootLength,
+    getShortenedFileName,
+    hasTrailingDirectorySeparator,
+    isDiskPathRoot,
+    normalizeSlashes,
+} from './pathUtils';
 
 const EmptyKey = '<empty>';
 
-class EmptyURI extends URI {
-    constructor() {
-        super({ scheme: '', authority: '', path: '', query: '', fragment: '' });
-    }
-
-    override toString(skipEncoding?: boolean | undefined): string {
-        return '';
-    }
-}
-
-export class Uri {
-    private _cachedPathOnly: URI | undefined;
-    private _cachedBasename: string | undefined;
+export abstract class Uri {
     private static _counter = 0;
     private static _uniqueUris = new Set<string>();
     private static _countPerMethod = new Map<string, number>();
-    private static _empty = new Uri(new EmptyURI(), '', EmptyKey, 'empty');
-    private constructor(
-        private readonly _uri: URI,
-        private readonly _string: string,
-        private readonly _key: string,
-        private _creationMethod: string
-    ) {
+    protected constructor(private readonly _key: string, creationMethod: string) {
         Uri._counter++;
         Uri._uniqueUris.add(_key);
-        const currentCount = Uri._countPerMethod.get(_creationMethod) || 0;
-        Uri._countPerMethod.set(_creationMethod, currentCount + 1);
+        const currentCount = Uri._countPerMethod.get(creationMethod) || 0;
+        Uri._countPerMethod.set(creationMethod, currentCount + 1);
     }
 
+    // Unique key for storing in maps.
     get key() {
         return this._key;
     }
 
+    // Returns the scheme of the URI.
+    abstract get scheme(): string;
+
     // Returns the last segment of the URI, similar to the UNIX basename command.
-    get basename(): string {
-        if (!this._cachedBasename) {
-            this._cachedBasename = Utils.basename(this._withoutQueryOrFragment());
-        }
-        return this._cachedBasename;
-    }
+    abstract get basename(): string;
 
     // Returns the extension of the URI, similar to the UNIX extname command.
-    get extname(): string {
-        return Utils.extname(this._withoutQueryOrFragment());
-    }
+    abstract get extname(): string;
 
     // Returns a URI where the path just contains the root folder.
-    get root(): Uri {
-        const rootPath = this._getRootPath();
-        if (this._uri.scheme === 'file' && rootPath !== this.getFilePath()) {
-            return Uri.file(rootPath);
-        } else if (rootPath !== this._uri.path) {
-            return Uri._factory(this._uri.with({ path: rootPath, query: '', fragment: '' }), 'root');
-        }
-        return this;
-    }
-
-    static empty(): Uri {
-        return Uri._empty;
-    }
-
-    static parse(value: string | undefined): Uri {
-        if (!value) {
-            return Uri.empty();
-        }
-        return Uri._factory(value, 'parse');
-    }
+    abstract get root(): Uri;
 
     static count(): number {
         return Uri._counter;
@@ -98,119 +69,29 @@ export class Uri {
         return Uri._countPerMethod.get(method) ?? 0;
     }
 
-    static file(path: string): Uri {
-        // If this already starts with 'file:', then we can
-        // parse it normally. It's actually a uri string.
-        if (path.startsWith('file:')) {
-            return Uri.parse(path);
-        }
-
-        // Otherwise assume this is a file path.
-        return Uri._factory(URI.file(path), 'file');
-    }
-
-    static fromKey(key: string): Uri {
-        // Right now the key is the same as the original string. Just parse it.
-        return Uri.parse(key);
-    }
-
-    static isUri(thing: any): thing is Uri {
-        return !!thing && typeof thing._uri?.with === 'function';
-    }
-
     isEmpty(): boolean {
-        return this === Uri._empty;
+        return false;
     }
 
-    toString(): string {
-        return this._string;
-    }
+    abstract toString(): string;
 
-    toUserVisibleString(): string {
-        if (this._uri.scheme === 'file') {
-            return this.getFilePath();
-        }
-        return this._uri.toString();
-    }
+    abstract toUserVisibleString(): string;
 
-    matchesRegex(regex: RegExp): boolean {
-        // Compare the regex to our path.
-        let path = this.getPath();
+    abstract matchesRegex(regex: RegExp): boolean;
 
-        // Special case: If a file URI and we have a drive root, remove the '/' that could be
-        // on the front.
-        if (this._uri.scheme === 'file' && /^\/[a-zA-Z]:\//.test(path)) {
-            path = path.slice(1);
-        }
-
-        return regex.test(path);
-    }
-
-    replaceExtension(ext: string): Uri {
-        const path = this.getPath();
-        const existing = this.extname;
-        const index = path.lastIndexOf(existing);
-        if (index > 0) {
-            return Uri._factory(
-                this._uri.with({ path: path.slice(0, index) + ext, fragment: '', query: '' }),
-                'replaceExtension'
-            );
-        }
-        return Uri._factory(this._uri.with({ path: path + ext, fragment: '', query: '' }), 'replaceExtension');
-    }
+    abstract replaceExtension(ext: string): Uri;
 
     addExtension(ext: string): Uri {
         return this.addPath(ext);
     }
 
-    addPath(extra: string): Uri {
-        const path = this.getPath();
-        return Uri._factory(this._uri.with({ path: path + extra, fragment: '', query: '' }), 'addPath');
-    }
-
-    remove(fileOrDirName: string): Uri {
-        const path = this.getPath();
-        const index = path.lastIndexOf(fileOrDirName);
-        if (index > 0) {
-            return Uri._factory(this._uri.with({ path: path.slice(0, index), fragment: '', query: '' }), 'remove');
-        }
-        return this;
-    }
-
-    // Returns just the fsPath path portion of the URI.
-    getFilePath(): string {
-        let filePath: string | undefined;
-
-        // Compute the file path ourselves. The vscode.URI class doesn't
-        // treat UNC shares with a single slash as UNC paths.
-        // https://github.com/microsoft/vscode-uri/blob/53e4ca6263f2e4ddc35f5360c62bc1b1d30f27dd/src/uri.ts#L567
-        if (this._uri.authority && this._uri.path[0] === '/' && this._uri.path.length === 1) {
-            filePath = `//${this._uri.authority}${this._uri.path}`;
-        } else {
-            // Otherwise use the vscode.URI version
-            filePath = this._uri.fsPath;
-        }
-
-        // vscode.URI noralizes the path to use the correct path separators.
-        // We need to do the same.
-        if (platform === 'win32') {
-            return filePath.replace(/\//g, '\\');
-        }
-        return filePath;
-    }
-
-    // Returns just the path portion of the URI.
-    getPath(): string {
-        return this._uri.path;
-    }
+    abstract addPath(extra: string): Uri;
 
     // Returns a URI where the path is the directory name of the original URI, similar to the UNIX dirname command.
-    getDirectory(): Uri {
-        return Uri._factory(Utils.dirname(this._withoutQueryOrFragment()), 'directory');
-    }
+    abstract getDirectory(): Uri;
 
     getRootPathLength(): number {
-        return this._getRootPath().length;
+        return this.getRootPath().length;
     }
 
     /**
@@ -218,33 +99,23 @@ export class Uri {
      * like `c:`, `c:\` or `c:/`).
      */
     isRootDiskPath(): boolean {
-        return this._getRootPath().length > 0;
+        return this.getRootPath().length > 0;
     }
 
     /**
      * Determines whether a path consists only of a path root.
      */
-    isDiskPathRoot(): boolean {
-        const comparablePath = this._getComparablePath();
-        return this._getRootPath().length === comparablePath.length && this._getRootPath().length > 0;
-    }
+    abstract isDiskPathRoot(): boolean;
 
-    isChild(parent: Uri, ignoreCase = false): boolean {
-        if (this._uri.scheme !== parent._uri.scheme) {
-            return false;
-        }
-        if (this._uri.authority !== parent._uri.authority) {
-            return false;
-        }
-        return this.startsWith(parent, ignoreCase) && parent.getPath().length < this.getPath().length;
-    }
+    // Determines whether a Uri is a child of some parent Uri.
+    abstract isChild(parent: Uri, ignoreCase: boolean): boolean;
 
     isLocal(): boolean {
-        return this._uri.scheme === 'file';
+        return false;
     }
 
     isUntitled(): boolean {
-        return this._uri.scheme === 'untitled';
+        return this.scheme === 'untitled';
     }
 
     equals(other: Uri | undefined, ignoreCase = false): boolean {
@@ -254,84 +125,39 @@ export class Uri {
         return this.key === other?.key;
     }
 
-    startsWith(other: Uri | undefined, ignoreCase = false): boolean {
-        if (!other) {
-            return false;
-        }
-        if (other.isEmpty() !== this.isEmpty()) {
-            return false;
-        }
-        if (this._uri.scheme !== other._uri.scheme) {
-            return false;
-        }
-        if (this._uri.authority !== other._uri.authority) {
-            return false;
-        }
-        if (this._uri.path.length >= other._uri.path.length) {
-            // Fragment or query are not taken into consideration.
-
-            // Make sure the other ends with a / when comparing longer paths, otherwise we might
-            // say that /a/food is a child of /a/foo.
-            const otherPath =
-                this._uri.path.length > other._uri.path.length && !hasTrailingDirectorySeparator(other._uri.path)
-                    ? `${other._uri.path}/`
-                    : other._uri.path;
-
-            if (ignoreCase) {
-                return this._uri.path.toLowerCase().startsWith(otherPath.toLowerCase());
-            }
-            return this._uri.path.startsWith(otherPath);
-        }
-        return false;
-    }
+    abstract startsWith(other: Uri | undefined, ignoreCase: boolean): boolean;
 
     pathStartsWith(name: string): boolean {
         // ignore path separators.
         name = normalizeSlashes(name);
-        return this._getComparablePath().startsWith(name);
+        return this.getComparablePath().startsWith(name);
     }
 
     pathEndsWith(name: string): boolean {
         // ignore path separators.
         name = normalizeSlashes(name);
-        return this._getComparablePath().endsWith(name);
+        return this.getComparablePath().endsWith(name);
     }
 
     pathIncludes(include: string): boolean {
         // ignore path separators.
         include = normalizeSlashes(include);
-        return this._getComparablePath().includes(include);
+        return this.getComparablePath().includes(include);
     }
 
     // How long the path for this Uri is.
-    getPathLength(): number {
-        return this.getPath().length;
-    }
+    abstract getPathLength(): number;
 
-    combinePaths(...paths: string[]): Uri {
-        // Combining with empty always gives out empty.
-        if (this.isEmpty()) {
-            return Uri.empty();
-        }
-        // Make sure none of the paths are rooted. If so, use that as a file path
-        // and combine the rest.
-        const rooted = paths.findIndex((p) => getRootLength(p) > 0 || getRootLength(p, '/') > 0);
-        if (rooted >= 0) {
-            return Uri._factory(Utils.joinPath(URI.file(paths[rooted]), ...paths.slice(rooted + 1)), 'combinePaths');
-        }
-
-        // Otherwise just join the paths.
-        return Uri._factory(Utils.joinPath(this._withoutQueryOrFragment(), ...paths), 'combinePaths');
-    }
+    abstract combinePaths(...paths: string[]): Uri;
 
     getRelativePath(child: Uri): string | undefined {
-        if (this._uri.scheme !== child._uri.scheme) {
+        if (this.scheme !== child.scheme) {
             return undefined;
         }
 
         // Unlike getRelativePathComponents, this function should not return relative path
         // markers for non children.
-        if (child.isChild(this)) {
+        if (child.isChild(this, false)) {
             const relativeToComponents = this.getRelativePathComponents(child);
             if (relativeToComponents.length > 0) {
                 return ['.', ...relativeToComponents].join('/');
@@ -340,22 +166,7 @@ export class Uri {
         return undefined;
     }
 
-    getPathComponents(): string[] {
-        if (this.isEmpty()) {
-            return [];
-        }
-        // Use the old algorithm for file paths.
-        if (this._uri.scheme === 'file') {
-            // But make sure to return '/' delimited paths because the return value
-            // of this function is supposed to relate to the 'path' of the URI.
-            return getPathComponents(this.getFilePath()).map((p) => p.replace(/\\/g, '/'));
-        }
-
-        // Otherwise get the root path and the rest of the path components.
-        const rootPath = this._getRootPath();
-        const otherPaths = this.getPath().slice(rootPath.length).split('/');
-        return this._reducePathComponents([rootPath, ...otherPaths]);
-    }
+    abstract getPathComponents(): string[];
 
     getRelativePathComponents(to: Uri): string[] {
         const fromComponents = this.getPathComponents();
@@ -382,23 +193,9 @@ export class Uri {
         return [...relative, ...components];
     }
 
-    getShortenedFileName(maxDirLength = 15) {
-        const fileName = this.basename;
-        const dirName = this.getDirectory().getPath();
-        if (dirName.length > maxDirLength) {
-            return `...${dirName.slice(dirName.length - maxDirLength)}/${fileName}`;
-        }
-        return this.getPath();
-    }
+    abstract getShortenedFileName(maxDirLength: number): string;
 
-    stripExtension(): Uri {
-        const path = this.getPath();
-        const index = path.lastIndexOf('.');
-        if (index > 0) {
-            return Uri._factory(this._withoutQueryOrFragment().with({ path: path.slice(0, index) }), 'stripExtension');
-        }
-        return this;
-    }
+    abstract stripExtension(): Uri;
 
     stripAllExtensions(): Uri {
         const base = this.basename;
@@ -407,41 +204,9 @@ export class Uri {
         return dir.combinePaths(stripped);
     }
 
-    private static _factory(uri: string | URI, method: string): Uri {
-        // Make sure the drive letter is lower case. This
-        // is consistent with what VS code does for URIs.
-        let originalString = URI.isUri(uri) ? uri.toString() : uri;
-        const parsed = URI.isUri(uri) ? uri : URI.parse(uri);
-        if (parsed.scheme === 'file') {
-            // The Vscode.URI parser makes sure the drive is lower cased.
-            originalString = parsed.toString();
-        }
+    protected abstract getRootPath(): string;
 
-        // Original URI may not have resolved all the `..` in the path, so remove them.
-        // Note: this also has the effect of removing any trailing slashes.
-        const finalURI = Utils.resolvePath(parsed);
-        const finalString = finalURI.path.length !== parsed.path.length ? finalURI.toString() : originalString;
-        const finalKey = Uri._computeKey(finalURI);
-
-        return new Uri(finalURI, finalString, finalKey, method);
-    }
-    private _withoutQueryOrFragment(): URI {
-        if (!this._cachedPathOnly) {
-            this._cachedPathOnly = this._uri.with({ query: '', fragment: '' });
-        }
-        return this._cachedPathOnly;
-    }
-    private _getRootPath(): string {
-        if (this._uri.scheme === 'file') {
-            const rootLength = getRootLength(this.getFilePath());
-            return this.getFilePath().slice(0, rootLength);
-        }
-
-        const rootLength = getRootLength(this._uri.path, '/');
-        return this._uri.path.slice(0, rootLength);
-    }
-
-    private _reducePathComponents(components: string[]): string[] {
+    protected reducePathComponents(components: string[]): string[] {
         if (!some(components)) {
             return [];
         }
@@ -471,19 +236,442 @@ export class Uri {
         return reduced;
     }
 
-    private _getComparablePath(): string {
-        if (this._uri.scheme === 'file') {
-            return normalizeSlashes(this.getFilePath());
-        }
-        return normalizeSlashes(this._uri.path);
+    protected abstract getComparablePath(): string;
+}
+
+// Class that represents a URI that is a file path.
+class FileUri extends Uri {
+    private _formattedString: string | undefined;
+    private _directory: FileUri | undefined;
+    private static _cache = new Map<string, FileUri>();
+    private constructor(
+        private readonly _filePath: string,
+        private _originalString: string | undefined,
+        creationMethod: string
+    ) {
+        // Use the file path as the key.
+        super(_filePath, creationMethod);
     }
 
-    private static _computeKey(uri: URI) {
-        // To make sure that foo:///a/b/c and foo:///a/b/c/ compare the
-        // same, remove any trailing slashes on the path.
-        if (hasTrailingDirectorySeparator(uri.path)) {
-            return uri.with({ path: uri.path.slice(0, -1) }).toString();
+    override get scheme(): string {
+        return 'file';
+    }
+    override get basename(): string {
+        return getFileName(this._filePath);
+    }
+    override get extname(): string {
+        return getFileExtension(this._filePath);
+    }
+    override get root(): Uri {
+        const rootPath = this.getRootPath();
+        if (rootPath !== this._filePath) {
+            return new FileUri(rootPath, undefined, 'root');
         }
-        return uri.toString();
+        return this;
+    }
+
+    static create(filePath: string, originalString: string | undefined, creationMethod: string): FileUri {
+        // Skip creating if we already have one. This is a perf optimization.
+        if (!FileUri._cache.has(filePath)) {
+            FileUri._cache.set(filePath, new FileUri(filePath, originalString, creationMethod));
+        }
+        return FileUri._cache.get(filePath)!;
+    }
+
+    static isFileUri(uri: Uri): uri is FileUri {
+        return uri.scheme === 'file' && (uri as any)._filePath !== undefined;
+    }
+    override matchesRegex(regex: RegExp): boolean {
+        // Compare the regex to our path but normalize it for comparison.
+        // The regex assumes it's comparing itself to a URI path.
+        const path = this._filePath.replace(/\\/g, '/');
+        return regex.test(path);
+    }
+
+    override toString(): string {
+        if (!this._formattedString) {
+            this._formattedString = this._originalString || URI.file(this._filePath).toString();
+        }
+        return this._formattedString;
+    }
+    override toUserVisibleString(): string {
+        return this._filePath;
+    }
+    override replaceExtension(ext: string): Uri {
+        const dir = this.getDirectory();
+        const base = this.basename;
+        const newBase = base.slice(0, base.length - this.extname.length) + ext;
+        return dir.combinePaths(newBase);
+    }
+    override addPath(extra: string): Uri {
+        return FileUri.create(this._filePath + extra, undefined, 'addPath');
+    }
+    override getDirectory(): Uri {
+        // Cache the directory as this gets called a lot.
+        if (!this._directory) {
+            // Remove the separator on the end if there is one.
+            const filePath =
+                hasTrailingDirectorySeparator(this._filePath) && this._filePath.length > 1
+                    ? this._filePath.slice(0, -1)
+                    : this._filePath;
+            const dir = getDirectoryPath(filePath);
+            if (dir !== filePath) {
+                // Path has to not end with a separator.
+                const normalized = hasTrailingDirectorySeparator(dir) && dir.length > 1 ? dir.slice(0, -1) : dir;
+                this._directory = FileUri.create(normalized, undefined, 'getDirectory');
+            } else {
+                this._directory = this;
+            }
+        }
+        return this._directory;
+    }
+    override isDiskPathRoot(): boolean {
+        return isDiskPathRoot(this._filePath);
+    }
+    override isChild(parent: Uri, ignoreCase: boolean): boolean {
+        if (!FileUri.isFileUri(parent)) {
+            return false;
+        }
+
+        return this.startsWith(parent, ignoreCase) && parent._filePath.length < this._filePath.length;
+    }
+    override startsWith(other: Uri | undefined, ignoreCase: boolean): boolean {
+        if (!other || !FileUri.isFileUri(other)) {
+            return false;
+        }
+        if (other.isEmpty() !== this.isEmpty()) {
+            return false;
+        }
+        if (this.scheme !== other.scheme) {
+            return false;
+        }
+        if (this._filePath.length >= other._filePath.length) {
+            // Make sure the other ends with a / when comparing longer paths, otherwise we might
+            // say that /a/food is a child of /a/foo.
+            const otherPath =
+                this._filePath.length > other._filePath.length && !hasTrailingDirectorySeparator(other._filePath)
+                    ? ensureTrailingDirectorySeparator(other._filePath)
+                    : other._filePath;
+
+            if (ignoreCase) {
+                return this._filePath.toLowerCase().startsWith(otherPath.toLowerCase());
+            }
+            return this._filePath.startsWith(otherPath);
+        }
+        return false;
+    }
+    override getPathLength(): number {
+        return this._filePath.length;
+    }
+    override combinePaths(...paths: string[]): Uri {
+        const combined = combinePaths(this._filePath, ...paths);
+        if (combined !== this._filePath) {
+            return FileUri.create(combined, undefined, 'combinePaths');
+        }
+        return this;
+    }
+    override getPathComponents(): string[] {
+        const components = getPathComponents(this._filePath);
+        // Remove the first one if it's empty. The new algorithm doesn't
+        // expect this to be there.
+        if (components.length > 0 && components[0] === '') {
+            components.shift();
+        }
+        return components;
+    }
+    override getShortenedFileName(maxDirLength: number): string {
+        return getShortenedFileName(this._filePath, maxDirLength);
+    }
+    override stripExtension(): Uri {
+        const dir = this.getDirectory();
+        const base = this.basename;
+        const stripped = base.split('.')[0];
+        return dir.combinePaths(stripped);
+    }
+    protected override getRootPath(): string {
+        return this._filePath.slice(0, getRootLength(this._filePath));
+    }
+    protected override getComparablePath(): string {
+        return normalizeSlashes(this._filePath);
+    }
+}
+
+// Class that represents a URI that is not a file path.
+class WebUri extends Uri {
+    private _formattedString: string | undefined;
+    private _directory: WebUri | undefined;
+    private static _cache = new Map<string, WebUri>();
+    private constructor(
+        private readonly _scheme: string,
+        private readonly _authority: string,
+        private readonly _path: string,
+        private readonly _query: string,
+        private readonly _fragment: string,
+        private readonly _originalString: string | undefined,
+        key: string,
+        creationMethod: string
+    ) {
+        super(key, creationMethod);
+    }
+
+    override get scheme(): string {
+        return this._scheme;
+    }
+    override get basename(): string {
+        // Path should already be normalized, just get the last on a split of '/'.
+        const components = this._path.split('/');
+        return components[components.length - 1];
+    }
+    override get extname(): string {
+        const basename = this.basename;
+        const index = basename.lastIndexOf('.');
+        if (index >= 0) {
+            return basename.slice(index);
+        }
+        return '';
+    }
+    override get root(): Uri {
+        const rootPath = this.getRootPath();
+        if (rootPath !== this._path) {
+            return WebUri.create(this._scheme, this._authority, rootPath, '', '', undefined, 'root');
+        }
+        return this;
+    }
+    static create(
+        scheme: string,
+        authority: string,
+        path: string,
+        query: string,
+        fragment: string,
+        originalString: string | undefined,
+        creationMethod: string
+    ): WebUri {
+        const key = WebUri._createKey(scheme, authority, path, query, fragment);
+        if (!WebUri._cache.has(key)) {
+            WebUri._cache.set(
+                key,
+                new WebUri(scheme, authority, path, query, fragment, originalString, key, creationMethod)
+            );
+        }
+        return WebUri._cache.get(key)!;
+    }
+    override toString(): string {
+        throw new Error('Method not implemented.');
+    }
+    override toUserVisibleString(): string {
+        throw new Error('Method not implemented.');
+    }
+    override matchesRegex(regex: RegExp): boolean {
+        throw new Error('Method not implemented.');
+    }
+    override replaceExtension(ext: string): Uri {
+        throw new Error('Method not implemented.');
+    }
+    override addPath(extra: string): Uri {
+        throw new Error('Method not implemented.');
+    }
+    override getDirectory(): Uri {
+        throw new Error('Method not implemented.');
+    }
+    override isDiskPathRoot(): boolean {
+        throw new Error('Method not implemented.');
+    }
+    override isChild(parent: Uri, ignoreCase: boolean): boolean {
+        throw new Error('Method not implemented.');
+    }
+    override startsWith(other: Uri | undefined, ignoreCase: boolean): boolean {
+        throw new Error('Method not implemented.');
+    }
+    override getPathLength(): number {
+        throw new Error('Method not implemented.');
+    }
+    override combinePaths(...paths: string[]): Uri {
+        throw new Error('Method not implemented.');
+    }
+    override getPathComponents(): string[] {
+        throw new Error('Method not implemented.');
+    }
+    override getShortenedFileName(maxDirLength: number): string {
+        throw new Error('Method not implemented.');
+    }
+    override stripExtension(): Uri {
+        throw new Error('Method not implemented.');
+    }
+    protected override getRootPath(): string {
+        throw new Error('Method not implemented.');
+    }
+    protected override getComparablePath(): string {
+        throw new Error('Method not implemented.');
+    }
+
+    private static _createKey(scheme: string, authority: string, path: string, query: string, fragment: string) {
+        return `${scheme}://${authority}${path}${query ? '?' + query : ''}${fragment ? '#' + fragment : ''}`;
+    }
+}
+
+class EmptyUri extends Uri {
+    private static _instance = new EmptyUri();
+    constructor() {
+        super(EmptyKey, 'empty');
+    }
+
+    static get instance() {
+        return EmptyUri._instance;
+    }
+
+    override get scheme(): string {
+        throw new Error('Method not implemented.');
+    }
+    override get basename(): string {
+        throw new Error('Method not implemented.');
+    }
+    override get extname(): string {
+        throw new Error('Method not implemented.');
+    }
+    override get root(): Uri {
+        throw new Error('Method not implemented.');
+    }
+    override toString(): string {
+        throw new Error('Method not implemented.');
+    }
+    override toUserVisibleString(): string {
+        throw new Error('Method not implemented.');
+    }
+    override matchesRegex(regex: RegExp): boolean {
+        throw new Error('Method not implemented.');
+    }
+    override replaceExtension(ext: string): Uri {
+        throw new Error('Method not implemented.');
+    }
+    override addPath(extra: string): Uri {
+        throw new Error('Method not implemented.');
+    }
+    override getDirectory(): Uri {
+        throw new Error('Method not implemented.');
+    }
+    override isDiskPathRoot(): boolean {
+        throw new Error('Method not implemented.');
+    }
+    override isChild(parent: Uri, ignoreCase: boolean): boolean {
+        throw new Error('Method not implemented.');
+    }
+    override startsWith(other: Uri | undefined, ignoreCase: boolean): boolean {
+        throw new Error('Method not implemented.');
+    }
+    override getPathLength(): number {
+        throw new Error('Method not implemented.');
+    }
+    override combinePaths(...paths: string[]): Uri {
+        throw new Error('Method not implemented.');
+    }
+    override getPathComponents(): string[] {
+        throw new Error('Method not implemented.');
+    }
+    override getShortenedFileName(maxDirLength: number): string {
+        throw new Error('Method not implemented.');
+    }
+    override stripExtension(): Uri {
+        throw new Error('Method not implemented.');
+    }
+    protected override getRootPath(): string {
+        throw new Error('Method not implemented.');
+    }
+    protected override getComparablePath(): string {
+        throw new Error('Method not implemented.');
+    }
+}
+
+// Returns just the fsPath path portion of a vscode URI.
+function getFilePath(uri: URI): string {
+    let filePath: string | undefined;
+
+    // Compute the file path ourselves. The vscode.URI class doesn't
+    // treat UNC shares with a single slash as UNC paths.
+    // https://github.com/microsoft/vscode-uri/blob/53e4ca6263f2e4ddc35f5360c62bc1b1d30f27dd/src/uri.ts#L567
+    if (uri.authority && uri.path[0] === '/' && uri.path.length === 1) {
+        filePath = `//${uri.authority}${uri.path}`;
+    } else {
+        // Otherwise use the vscode.URI version
+        filePath = uri.fsPath;
+    }
+
+    // If this is a DOS-style path with a drive letter, remove
+    // the leading slash.
+    if (filePath.match(/^\/[a-zA-Z]:\//)) {
+        filePath = filePath.slice(1);
+    }
+
+    // vscode.URI noralizes the path to use the correct path separators.
+    // We need to do the same.
+    if (platform === 'win32') {
+        filePath = filePath.replace(/\//g, '\\');
+    }
+
+    return filePath;
+}
+
+// Function called to normalize input URIs. This gets rid of '..' and '.' in the path.
+// It also removes any '/' on the end of the path.
+// This is slow but should only be called when the URI is first created.
+function normalizeUri(uri: string | URI): { uri: URI; str: string } {
+    // Make sure the drive letter is lower case. This
+    // is consistent with what VS code does for URIs.
+    let originalString = URI.isUri(uri) ? uri.toString() : uri;
+    const parsed = URI.isUri(uri) ? uri : URI.parse(uri);
+    if (parsed.scheme === 'file') {
+        // The Vscode.URI parser makes sure the drive is lower cased.
+        originalString = parsed.toString();
+    }
+
+    // Original URI may not have resolved all the `..` in the path, so remove them.
+    // Note: this also has the effect of removing any trailing slashes.
+    const finalURI = Utils.resolvePath(parsed);
+    const finalString = finalURI.path.length !== parsed.path.length ? finalURI.toString() : originalString;
+    return { uri: finalURI, str: finalString };
+}
+
+export namespace Uri {
+    export function file(path: string): Uri {
+        // If this already starts with 'file:', then we can
+        // parse it normally. It's actually a uri string. Otherwise parse it as a file path.
+        const normalized = path.startsWith('file:') ? normalizeUri(path) : normalizeUri(URI.file(path));
+
+        // Turn the path into a file URI.
+        return new FileUri(getFilePath(normalized.uri), normalized.str, 'file');
+    }
+
+    export function empty(): Uri {
+        return EmptyUri.instance;
+    }
+
+    export function parse(value: string | undefined): Uri {
+        if (!value) {
+            return Uri.empty();
+        }
+
+        // Normalize the value here. This gets rid of '..' and '.' in the path. It also removes any
+        // '/' on the end of the path.
+        const normalized = normalizeUri(value);
+        if (normalized.uri.scheme === 'file') {
+            return new FileUri(normalized.uri.fsPath, normalized.str, 'parse');
+        }
+        return new WebUri(
+            normalized.uri.scheme,
+            normalized.uri.authority,
+            normalized.uri.path,
+            normalized.uri.query,
+            normalized.uri.fragment,
+            normalized.str,
+            'parse'
+        );
+    }
+
+    export function fromKey(key: string): Uri {
+        // Right now the key is the same as the original string. Just parse it.
+        return Uri.parse(key);
+    }
+
+    export function isUri(thing: any): thing is Uri {
+        return !!thing && typeof thing._key === 'string';
     }
 }
